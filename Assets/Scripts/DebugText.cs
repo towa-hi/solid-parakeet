@@ -22,7 +22,7 @@ public class DebugText : MonoBehaviour
             target = transform;
         }
     }
-
+    
     void OnGUI()
     {
         Vector3 screenPos = mainCamera.WorldToScreenPoint(target.position + offset);
@@ -36,5 +36,9 @@ public class DebugText : MonoBehaviour
         }
     }
 
+    public void SetText(string newMessage)
+    {
+        this.message = newMessage;
+    }
 
 }

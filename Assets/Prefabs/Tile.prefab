@@ -45,8 +45,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7cba99d608eafee4589683b71f4ef862, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  target: {fileID: 0}
   offset: {x: 0, y: 0, z: 0}
   message: debug info
+  fontSize: 11
+  dotSizePx: 10
+  color: {r: 1, g: 1, b: 1, a: 1}
+  texture: {fileID: 0}
 --- !u!1 &2499942000709535878
 GameObject:
   m_ObjectHideFlags: 0
