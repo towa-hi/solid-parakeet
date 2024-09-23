@@ -7,8 +7,8 @@ public class TileData
     public bool isPassable = true;
     public TileSetup tileSetup = TileSetup.NONE;
     
-    public void Initialize(Vector2Int newPos)
+    public void Initialize(Vector2Int inPos)
     {
-        pos = newPos;
+        pos = inPos;
     }
 }

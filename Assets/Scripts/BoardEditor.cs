@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-[CustomEditor(typeof(BoardData))]
+[CustomEditor(typeof(Board))]
 public class BoardDataEditor : Editor
 {
     Vector2 scrollPosition = Vector2.zero;  // To handle the scroll position
@@ -9,20 +9,20 @@ public class BoardDataEditor : Editor
     public override void OnInspectorGUI()
     {
         // Get a reference to the BoardData target
-        BoardData boardData = (BoardData)target;
+        Board board = (Board)target;
 
         // Display the "Initialize Tiles" button first
         if (GUILayout.Button("Initialize Tiles"))
         {
-            boardData.InitializeTiles();
-            EditorUtility.SetDirty(boardData);  // Mark the object as dirty so changes are saved
+            board.InitializeTiles();
+            EditorUtility.SetDirty(board);  // Mark the object as dirty so changes are saved
         }
 
         // Show the boardSize property
-        boardData.boardSize = EditorGUILayout.Vector2IntField("Board Size", boardData.boardSize);
+        board.boardSize = EditorGUILayout.Vector2IntField("Board Size", board.boardSize);
 
         // Check if tiles are initialized and the size matches
-        if (boardData.tiles != null && boardData.tiles.Length == boardData.boardSize.x * boardData.boardSize.y)
+        if (board.tiles != null && board.tiles.Length == board.boardSize.x * board.boardSize.y)
         {
             GUILayout.Label("Tile Data Grid:");
 
@@ -31,7 +31,7 @@ public class BoardDataEditor : Editor
 
             // Set the width of each tile (adjustable)
             float tileWidth = 100f;  // Width for each tile (adjust as needed)
-            float totalGridWidth = tileWidth * boardData.boardSize.x;  // Total width of the grid
+            float totalGridWidth = tileWidth * board.boardSize.x;  // Total width of the grid
 
             // Begin a horizontal layout to handle scrolling
             GUILayout.BeginHorizontal();
@@ -40,14 +40,14 @@ public class BoardDataEditor : Editor
             GUILayout.BeginVertical(GUILayout.Width(totalGridWidth));
 
             // Loop through the grid rows and columns (start y from boardSize.y - 1 to 0)
-            for (int y = boardData.boardSize.y - 1; y >= 0; y--)  // Reversed loop for bottom-left origin
+            for (int y = board.boardSize.y - 1; y >= 0; y--)  // Reversed loop for bottom-left origin
             {
-                GUILayout.BeginHorizontal();  // Start a new row for the grid
-                for (int x = 0; x < boardData.boardSize.x; x++)
+                GUILayout.BeginHorizontal();  // Start a n*w row for the grid
+                for (int x = 0; x < board.boardSize.x; x++)
                 {
-                    int index = x + y * boardData.boardSize.x;  // Calculate the 1D index for the 2D position
+                    int index = x + y * board.boardSize.x;  // Calculate the 1D index for the 2D position
                     // Get the current tile
-                    TileData tile = boardData.tiles[index];
+                    TileData tile = board.tiles[index];
                     
                     // Change the background color based on whether the tile is passable
                     if (!tile.isPassable)
@@ -97,7 +97,7 @@ public class BoardDataEditor : Editor
         // Mark the object as dirty to ensure changes are saved
         if (GUI.changed)
         {
-            EditorUtility.SetDirty(boardData);
+            EditorUtility.SetDirty(board);
         }
     }
 }

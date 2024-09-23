@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "Board", menuName = "Scriptable Objects/Board")]
-public class BoardData : ScriptableObject
+public class Board : ScriptableObject
 {
     public Vector2Int boardSize;
     public TileData[] tiles;
@@ -16,8 +16,8 @@ public class BoardData : ScriptableObject
         {
             for (int x = 0; x < boardSize.x; x++)
             {
-                Vector2Int pos = new Vector2Int(x, y);
-                TileData newTile = new TileData();
+                Vector2Int pos = new(x, y);
+                TileData newTile = new();
                 newTile.Initialize(pos);
                 tiles[x + y * boardSize.x] = newTile;  // Assign to the array
             }
