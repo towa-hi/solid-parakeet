@@ -1,11 +1,10 @@
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(BoardData))]
 public class BoardDataEditor : Editor
 {
-    // Scroll position to handle scrolling in the editor
-    Vector2 scrollPosition = Vector2.zero;
+    Vector2 scrollPosition = Vector2.zero;  // To handle the scroll position
 
     public override void OnInspectorGUI()
     {
@@ -28,54 +27,67 @@ public class BoardDataEditor : Editor
             GUILayout.Label("Tile Data Grid:");
 
             // Begin the scroll view for the grid
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(400));  // Set a fixed height for the grid scroll view
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(1000));  // Set a fixed height for the grid scroll view
 
-            // Calculate the width of the grid based on the number of tiles
-            float tileWidth = 10f;  // Width for each tile
+            // Set the width of each tile (adjustable)
+            float tileWidth = 100f;  // Width for each tile (adjust as needed)
             float totalGridWidth = tileWidth * boardData.boardSize.x;  // Total width of the grid
 
-            // Begin horizontal layout for the grid with the calculated width (forces horizontal scrolling)
-            GUILayout.BeginHorizontal(GUILayout.Width(totalGridWidth));
+            // Begin a horizontal layout to handle scrolling
+            GUILayout.BeginHorizontal();
 
-            GUILayout.BeginVertical();  // Ensure the grid scrolls vertically as well
+            // Use a GUILayout.Width(totalGridWidth) to ensure that the full grid width is accounted for in the scroll view
+            GUILayout.BeginVertical(GUILayout.Width(totalGridWidth));
 
+            // Loop through the grid rows and columns
             for (int y = 0; y < boardData.boardSize.y; y++)
             {
                 GUILayout.BeginHorizontal();  // Start a new row for the grid
-
                 for (int x = 0; x < boardData.boardSize.x; x++)
                 {
                     int index = x + y * boardData.boardSize.x;  // Calculate the 1D index for the 2D position
-
                     // Get the current tile
                     TileData tile = boardData.tiles[index];
-
-                    // Display a small editable box for each tile
-                    GUILayout.BeginVertical("box", GUILayout.Width(tileWidth));  // Define the box for each tile
-
-                    // Show a label for tile position
-                    GUILayout.Label($"Tile ({x}, {y})");
-
-                    // Editable fields for each tile's properties (isPassable, tileName)
-                    tile.isPassable = EditorGUILayout.Toggle("Passable", tile.isPassable);
-                    //tile.tileName = EditorGUILayout.TextField("Name", tile.tileName);
-
-                    GUILayout.EndVertical();  // End vertical box for the tile
+                    // Change the background color based on whether the tile is passable
+                    if (!tile.isPassable)
+                    {
+                        GUI.backgroundColor = Color.black;  // Set background to black if not passable
+                        tile.tileSetup = TileSetup.NONE;  // Automatically set tileSetup to NONE if not passable
+                    }
+                    else
+                    {
+                        GUI.backgroundColor = Color.white;  // Set background to default white if passable
+                    }
+                    if (tile.tileSetup == TileSetup.RED)
+                    {
+                        GUI.backgroundColor = Color.red;  // Set background to black if not passable
+                    }
+                    else if (tile.tileSetup == TileSetup.BLUE)
+                    {
+                        GUI.backgroundColor = Color.blue;  // Set background to default white if passable
+                    }
+                    // Display each tile with the specified width
+                    GUILayout.BeginVertical("box", GUILayout.Width(tileWidth));  // Use GUILayout.Width to enforce the tile width
+                    // Use GUILayout with fixed width for the internal label and enum dropdown
+                    GUILayout.Label($"({x},{y})", GUILayout.Width(90));  // Reduce label width
+                    // Set a fixed width for the enum dropdown to prevent tile from expanding
+                    GUILayout.Label("Passable", GUILayout.Width(90));  // Adjust the width for the label
+                    tile.isPassable = EditorGUILayout.Toggle(tile.isPassable, GUILayout.Width(20));  // Adjust the width for the toggle
+                    tile.tileSetup = (TileSetup)EditorGUILayout.EnumPopup(tile.tileSetup, GUILayout.Width(tileWidth));
+                    
+                    GUILayout.EndVertical();  // End the vertical layout for the tile
                 }
 
                 GUILayout.EndHorizontal();  // End the current row
             }
-
-            GUILayout.EndVertical();  // End vertical layout for the grid
-            GUILayout.EndHorizontal();  // End horizontal layout with totalGridWidth
-
+            GUILayout.EndVertical();  // End vertical layout for the grid content
+            GUILayout.EndHorizontal();  // End horizontal layout for scrolling
             GUILayout.EndScrollView();  // End the scroll view
         }
         else
         {
             GUILayout.Label("Initialize tiles to display the grid.");
         }
-
         // Mark the object as dirty to ensure changes are saved
         if (GUI.changed)
         {
