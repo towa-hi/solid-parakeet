@@ -52,8 +52,8 @@ public class BoardManager : MonoBehaviour
                 GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
                 TileView tileView = tileObject.GetComponent<TileView>();
                 
-                TileData tileData = board.tiles[x + y * board.boardSize.x];
-                tileView.Initialize(tileData);
+                Tile tile = board.tiles[x + y * board.boardSize.x];
+                tileView.Initialize(tile);
                 tileViews.Add(new Vector2Int(x, y), tileView);
             }
         }

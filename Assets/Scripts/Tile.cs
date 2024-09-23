@@ -1,7 +1,7 @@
 using UnityEngine;
 
 [System.Serializable]
-public class TileData
+public class Tile
 {
     public Vector2Int pos;
     public bool isPassable = true;

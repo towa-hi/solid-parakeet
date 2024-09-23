@@ -6,20 +6,20 @@ using UnityEngine;
 public class Board : ScriptableObject
 {
     public Vector2Int boardSize;
-    public TileData[] tiles;
+    public Tile[] tiles;
 
     public void InitializeTiles()
     {
-        tiles = new TileData[boardSize.x * boardSize.y];
+        tiles = new Tile[boardSize.x * boardSize.y];
         
         for (int y = 0; y < boardSize.y; y++)
         {
             for (int x = 0; x < boardSize.x; x++)
             {
                 Vector2Int pos = new(x, y);
-                TileData newTile = new();
-                newTile.Initialize(pos);
-                tiles[x + y * boardSize.x] = newTile;  // Assign to the array
+                Tile tile = new();
+                tile.Initialize(pos);
+                tiles[x + y * boardSize.x] = tile;  // Assign to the array
             }
         }
     }

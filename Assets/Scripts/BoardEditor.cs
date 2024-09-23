@@ -12,7 +12,7 @@ public class BoardDataEditor : Editor
         Board board = (Board)target;
 
         // Display the "Initialize Tiles" button first
-        if (GUILayout.Button("Initialize Tiles"))
+        if (GUILayout.Button("Initialize Tiles (RESETS BOARD!!!)"))
         {
             board.InitializeTiles();
             EditorUtility.SetDirty(board);  // Mark the object as dirty so changes are saved
@@ -47,7 +47,7 @@ public class BoardDataEditor : Editor
                 {
                     int index = x + y * board.boardSize.x;  // Calculate the 1D index for the 2D position
                     // Get the current tile
-                    TileData tile = board.tiles[index];
+                    Tile tile = board.tiles[index];
                     
                     // Change the background color based on whether the tile is passable
                     if (!tile.isPassable)

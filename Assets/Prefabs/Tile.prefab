@@ -32,6 +32,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3053530017138402307}
+  - {fileID: 2505367880817683050}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8753981818468772146
@@ -46,11 +47,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e88752320e9b12d4aa93f53725d934be, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  tileData:
+  tile:
     pos: {x: 0, y: 0}
     isPassable: 1
     tileSetup: 0
   model: {fileID: 6933678989567680503}
+  pawnOrigin: {fileID: 2505367880817683050}
 --- !u!114 &4418170331486867016
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -70,6 +72,37 @@ MonoBehaviour:
   dotSizePx: 10
   color: {r: 1, g: 1, b: 1, a: 1}
   texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
+--- !u!1 &702898978730955167
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2505367880817683050}
+  m_Layer: 0
+  m_Name: Origin
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2505367880817683050
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 702898978730955167}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 9153918511512494626}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2499942000709535878
 GameObject:
   m_ObjectHideFlags: 0

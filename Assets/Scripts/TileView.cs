@@ -3,16 +3,17 @@ using UnityEngine;
 
 public class TileView : MonoBehaviour
 {
-    public TileData tileData;
+    public Tile tile;
     public GameObject model;  // The model whose material color will be changed
+    public Transform pawnOrigin;
     
     Renderer modelRenderer;
 
-    public void Initialize(TileData inTileData)
+    public void Initialize(Tile inTile)
     {
-        tileData = inTileData;
+        tile = inTile;
         // Change the name of this GameObject to the tile's position
-        gameObject.name = $"Tile ({tileData.pos.x},{tileData.pos.y})";
+        gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
         // Ensure the model has a Renderer component
         if (model != null)
         {
@@ -26,7 +27,7 @@ public class TileView : MonoBehaviour
         {
             Debug.LogError("Model is not assigned in TileView!");
         }
-        GetComponent<DebugText>()?.SetText(tileData.pos.ToString());
+        GetComponent<DebugText>()?.SetText(tile.pos.ToString());
         // Update the material color based on the tile setup
         UpdateModelColor();
     }
@@ -41,13 +42,13 @@ public class TileView : MonoBehaviour
         }
         // Use material to ensure we're working with an instance of the material
         Material tileMaterial = modelRenderer.material;
-        if (!tileData.isPassable)
+        if (!tile.isPassable)
         {
             tileMaterial.color = Color.black;
             return;  // Early return if the tile is not passable
         }
         Color originalColor = tileMaterial.color;
-        switch (tileData.tileSetup)
+        switch (tile.tileSetup)
         {
             case TileSetup.RED:
                 tileMaterial.color = Color.red;
