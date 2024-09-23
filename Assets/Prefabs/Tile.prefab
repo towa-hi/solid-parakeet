@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 9153918511512494626}
+  - component: {fileID: 8753981818468772146}
   - component: {fileID: 4418170331486867016}
   m_Layer: 0
   m_Name: Tile
@@ -33,6 +34,23 @@ Transform:
   - {fileID: 3053530017138402307}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8753981818468772146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 295967387164842906}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e88752320e9b12d4aa93f53725d934be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tileData:
+    pos: {x: 0, y: 0}
+    isPassable: 1
+    tileSetup: 0
+  model: {fileID: 6933678989567680503}
 --- !u!114 &4418170331486867016
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -51,7 +69,7 @@ MonoBehaviour:
   fontSize: 11
   dotSizePx: 10
   color: {r: 1, g: 1, b: 1, a: 1}
-  texture: {fileID: 0}
+  texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!1 &2499942000709535878
 GameObject:
   m_ObjectHideFlags: 0

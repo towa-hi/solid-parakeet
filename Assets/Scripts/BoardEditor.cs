@@ -39,8 +39,8 @@ public class BoardDataEditor : Editor
             // Use a GUILayout.Width(totalGridWidth) to ensure that the full grid width is accounted for in the scroll view
             GUILayout.BeginVertical(GUILayout.Width(totalGridWidth));
 
-            // Loop through the grid rows and columns
-            for (int y = 0; y < boardData.boardSize.y; y++)
+            // Loop through the grid rows and columns (start y from boardSize.y - 1 to 0)
+            for (int y = boardData.boardSize.y - 1; y >= 0; y--)  // Reversed loop for bottom-left origin
             {
                 GUILayout.BeginHorizontal();  // Start a new row for the grid
                 for (int x = 0; x < boardData.boardSize.x; x++)
@@ -48,6 +48,7 @@ public class BoardDataEditor : Editor
                     int index = x + y * boardData.boardSize.x;  // Calculate the 1D index for the 2D position
                     // Get the current tile
                     TileData tile = boardData.tiles[index];
+                    
                     // Change the background color based on whether the tile is passable
                     if (!tile.isPassable)
                     {
@@ -58,16 +59,19 @@ public class BoardDataEditor : Editor
                     {
                         GUI.backgroundColor = Color.white;  // Set background to default white if passable
                     }
+
                     if (tile.tileSetup == TileSetup.RED)
                     {
-                        GUI.backgroundColor = Color.red;  // Set background to black if not passable
+                        GUI.backgroundColor = Color.red;  // Set background to red if tile setup is RED
                     }
                     else if (tile.tileSetup == TileSetup.BLUE)
                     {
-                        GUI.backgroundColor = Color.blue;  // Set background to default white if passable
+                        GUI.backgroundColor = Color.blue;  // Set background to blue if tile setup is BLUE
                     }
+
                     // Display each tile with the specified width
                     GUILayout.BeginVertical("box", GUILayout.Width(tileWidth));  // Use GUILayout.Width to enforce the tile width
+
                     // Use GUILayout with fixed width for the internal label and enum dropdown
                     GUILayout.Label($"({x},{y})", GUILayout.Width(90));  // Reduce label width
                     // Set a fixed width for the enum dropdown to prevent tile from expanding
@@ -80,6 +84,7 @@ public class BoardDataEditor : Editor
 
                 GUILayout.EndHorizontal();  // End the current row
             }
+
             GUILayout.EndVertical();  // End vertical layout for the grid content
             GUILayout.EndHorizontal();  // End horizontal layout for scrolling
             GUILayout.EndScrollView();  // End the scroll view
@@ -88,6 +93,7 @@ public class BoardDataEditor : Editor
         {
             GUILayout.Label("Initialize tiles to display the grid.");
         }
+
         // Mark the object as dirty to ensure changes are saved
         if (GUI.changed)
         {
