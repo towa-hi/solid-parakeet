@@ -24,3 +24,9 @@ public enum GamePhase
     RESOLVE,
     END
 }
+
+public enum Player
+{
+    RED,
+    BLUE
+}
