@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "Board", menuName = "Scriptable Objects/Board")]
-public class Board : ScriptableObject
+public class BoardDef : ScriptableObject
 {
     public Vector2Int boardSize;
     public Tile[] tiles;

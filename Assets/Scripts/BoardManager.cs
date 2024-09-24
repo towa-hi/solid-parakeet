@@ -6,7 +6,7 @@ public class BoardManager : MonoBehaviour
 {
     public static BoardManager instance;
     
-    public Board board;
+    public BoardDef board;
     public GameObject tilePrefab;
     Grid grid;
 
@@ -30,7 +30,7 @@ public class BoardManager : MonoBehaviour
         LoadBoardData(board);
     }
 
-    void LoadBoardData(Board inBoard)
+    void LoadBoardData(BoardDef inBoard)
     {
         board = inBoard;
         SpawnTiles();

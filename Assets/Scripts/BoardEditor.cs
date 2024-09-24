@@ -1,15 +1,15 @@
 using UnityEditor;
 using UnityEngine;
 
-[CustomEditor(typeof(Board))]
-public class BoardDataEditor : Editor
+[CustomEditor(typeof(BoardDef))]
+public class BoardEditor : Editor
 {
     Vector2 scrollPosition = Vector2.zero;  // To handle the scroll position
 
     public override void OnInspectorGUI()
     {
         // Get a reference to the BoardData target
-        Board board = (Board)target;
+        BoardDef board = (BoardDef)target;
 
         // Display the "Initialize Tiles" button first
         if (GUILayout.Button("Initialize Tiles (RESETS BOARD!!!)"))

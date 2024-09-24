@@ -150,6 +150,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3632561711495789865}
   - component: {fileID: 6549313451087201031}
+  - component: {fileID: 1615617418607774367}
   m_Layer: 0
   m_Name: Pawn
   m_TagString: Untagged
@@ -185,3 +186,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0fc3163fed53739419b84321dcef4e6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  model: {fileID: 5593921166732474035}
+--- !u!114 &1615617418607774367
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5772243482056531592}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cba99d608eafee4589683b71f4ef862, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  target: {fileID: 0}
+  offset: {x: 0, y: 0, z: 0}
+  message: debug info
+  fontSize: 11
+  dotSizePx: 10
+  color: {r: 1, g: 1, b: 1, a: 1}
+  texture: {fileID: 0}

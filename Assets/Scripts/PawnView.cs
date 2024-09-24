@@ -3,15 +3,10 @@ using UnityEngine;
 public class PawnView : MonoBehaviour
 {
     public GameObject model;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
-    }
+    public PawnDef pawn;
 
-    // Update is called once per frame
-    void Update()
+    public void Initialize(PawnDef inPawn)
     {
-        
+        pawn = inPawn;
     }
 }

@@ -11,3 +11,16 @@ public enum TileSetup
     RED,
     BLUE,
 }
+
+public enum AppState
+{
+    MAIN,
+    GAME,
+}
+public enum GamePhase
+{
+    SETUP,
+    MOVE,
+    RESOLVE,
+    END
+}
