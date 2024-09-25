@@ -19,6 +19,7 @@ public enum AppState
 }
 public enum GamePhase
 {
+    UNINITIALIZED,
     SETUP,
     MOVE,
     RESOLVE,

@@ -6,12 +6,12 @@ public class BoardManager : MonoBehaviour
 {
     public static BoardManager instance;
     
-    public BoardDef board;
     public GameObject tilePrefab;
     Grid grid;
 
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
-
+    readonly Dictionary<Vector2Int, PawnView> pawnViews = new();
+    
     void Awake()
     {
         if (instance == null)
@@ -27,18 +27,30 @@ public class BoardManager : MonoBehaviour
     void Start()
     {
         grid = GetComponent<Grid>();  // Get the Grid component
-        LoadBoardData(board);
     }
 
-    void LoadBoardData(BoardDef inBoard)
+    public void StartBoard(GameState state)
     {
-        board = inBoard;
-        SpawnTiles();
+        LoadBoardData(state);
     }
     
-    void SpawnTiles()
+    public void ClearBoard()
     {
-        ClearBoard();  // Clear any previously spawned tiles
+        ClearPawns();
+        ClearTiles();
+    }
+    
+    void LoadBoardData(GameState state)
+    {
+        Debug.Log("BoardManager reading BoardDef from gameState");
+        SpawnTiles(state);
+    }
+    
+    void SpawnTiles(GameState state)
+    {
+        Debug.Log("BoardManager SpawnTiles()");
+        BoardDef board = state.board;
+        ClearTiles();  // Clear any previously spawned tiles
 
         for (int y = 0; y < board.boardSize.y; y++)
         {
@@ -58,8 +70,12 @@ public class BoardManager : MonoBehaviour
             }
         }
     }
+    bool SpawnPawn(Vector2Int pos)
+    {
+        return true; //return if was successfully placed
+    }
     
-    void ClearBoard()
+    void ClearTiles()
     {
         foreach (TileView tileView in tileViews.Values)
         {
@@ -68,6 +84,17 @@ public class BoardManager : MonoBehaviour
         tileViews.Clear();
     }
 
+    void ClearPawns()
+    {
+        // clear pawns
+        pawnViews.Clear();
+    }
+
+    public PawnView GetPawnView(Vector2Int pos)
+    {
+        return pawnViews[pos];
+    }
+    
     public TileView GetTileView(Vector2Int pos)
     {
         return tileViews[pos];

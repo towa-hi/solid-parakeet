@@ -23,5 +23,4 @@ public class BoardDef : ScriptableObject
             }
         }
     }
-    
 }

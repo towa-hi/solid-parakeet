@@ -1,26 +1,29 @@
+using System;
 using UnityEngine;
 
 [System.Serializable]
 public class GameState
 {
     public BoardDef board;
-    public GamePhase phase;
+    public GamePhase phase = GamePhase.UNINITIALIZED;
 
-    public GameState()
+    public GameState(BoardDef inBoard)
     {
-        phase = GamePhase.SETUP; // Start with the setup phase
-        Debug.Log("Game initialized. Current phase: SETUP");
-        OnSetupPhase(); // Automatically start with setup
+        board = inBoard;
+        Debug.Log("New GameState initialized with parameters");
     }
 
     // Method to change the game phase
     public void ChangePhase(GamePhase inPhase)
     {
         phase = inPhase;
-        Debug.Log("Game phase changed to: " + phase.ToString());
+        //Debug.Log("Game phase changed to: " + phase.ToString());
 
         switch (phase)
         {
+            case GamePhase.UNINITIALIZED:
+                Debug.LogError("Don't change GameState's phase to UNINITIALIZED!!!");
+                break;
             case GamePhase.SETUP:
                 OnSetupPhase();
                 break;
@@ -36,46 +39,34 @@ public class GameState
             case GamePhase.END:
                 OnEndPhase();
                 break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 
     // Handling the Setup phase
     void OnSetupPhase()
     {
-        Debug.Log("Setting up game. Initializing board, player positions, etc.");
-        // Initialize board, set up units or pieces, prepare the game state.
-        // After setup, transition to the MOVE phase.
+        //Debug.Log("Setting up game. Initializing board, player positions, etc.");
         
     }
 
     // Handling the Move phase
     void OnMovePhase()
     {
-        Debug.Log("Player's move phase. Awaiting player input for moves...");
-        // This is where player inputs their moves.
-        // You could wait for player to make their move here and call ChangePhase(GamePhase.RESOLVE) when done.
-
-        // Example of transitioning after move (this would normally happen after the move is completed):
-        // AfterMoveCompleted() should be called after the player's move logic.
-        // ChangePhase(GamePhase.RESOLVE);
+        //Debug.Log("Player's move phase. Awaiting player input for moves...");
     }
 
     // Handling the Resolve phase
     void OnResolvePhase()
     {
-        Debug.Log("Resolving actions. Processing the results of moves...");
-        // Process the results of the player's moves (attacks, interactions, etc.)
-        // After resolving, check if the game should end, or return to MOVE phase.
-        // For example:
-        // if (gameOver) ChangePhase(GamePhase.END);
-        // else ChangePhase(GamePhase.MOVE);
+        //Debug.Log("Resolving actions. Processing the results of moves...");
     }
 
     // Handling the End phase
     void OnEndPhase()
     {
-        Debug.Log("Game has ended. Final cleanup.");
-        // Show end game screen, score results, or any cleanup needed.
+        //Debug.Log("Game has ended. Final cleanup.");
     }
 
 }
