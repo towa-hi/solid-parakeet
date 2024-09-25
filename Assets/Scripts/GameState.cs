@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[System.Serializable]
 public class GameState
 {
     public BoardDef board;
@@ -44,7 +45,7 @@ public class GameState
         Debug.Log("Setting up game. Initializing board, player positions, etc.");
         // Initialize board, set up units or pieces, prepare the game state.
         // After setup, transition to the MOVE phase.
-        ChangePhase(GamePhase.MOVE);
+        
     }
 
     // Handling the Move phase

@@ -205,4 +205,4 @@ MonoBehaviour:
   fontSize: 11
   dotSizePx: 10
   color: {r: 1, g: 1, b: 1, a: 1}
-  texture: {fileID: 0}
+  texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
