@@ -5,35 +5,45 @@ public class TileView : MonoBehaviour
 {
     public Tile tile;
     public GameObject model;  // The model whose material color will be changed
+    public GameObject floor;
     public Transform pawnOrigin;
     
     Renderer modelRenderer;
+    Renderer floorRenderer;
+    Clickable clickable;
 
+    void Awake()
+    {
+        modelRenderer = model.GetComponentInChildren<Renderer>();
+        if (modelRenderer == null)
+        {
+            Debug.Log("wtf");
+        }
+        floorRenderer = floor.GetComponent<Renderer>();
+        clickable = floor.GetComponent<Clickable>();
+        floorRenderer.enabled = false;
+        clickable.OnHoverEnter += OnHoverEnter;
+        clickable.OnHoverExit += OnHoverExit;
+    }
+
+    void OnDestroy()
+    {
+        
+    }
+    
     public void Initialize(Tile inTile)
     {
         tile = inTile;
         // Change the name of this GameObject to the tile's position
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
-        // Ensure the model has a Renderer component
-        if (model != null)
-        {
-            modelRenderer = model.GetComponent<Renderer>();
-            if (modelRenderer == null)
-            {
-                Debug.LogError("Renderer not found on model!");
-            }
-        }
-        else
-        {
-            Debug.LogError("Model is not assigned in TileView!");
-        }
+
         GetComponent<DebugText>()?.SetText(tile.pos.ToString());
         // Update the material color based on the tile setup
-        UpdateModelColor();
+        SetModelColorToTeam();
     }
 
     // Method to update the material color based on TileSetup
-    void UpdateModelColor()
+    void SetModelColorToTeam()
     {
         if (modelRenderer == null)
         {
@@ -61,5 +71,15 @@ public class TileView : MonoBehaviour
                 tileMaterial.color = originalColor;  // Default color
                 break;
         }
+    }
+
+    void OnHoverEnter()
+    {
+        floorRenderer.enabled = true;
+    }
+
+    void OnHoverExit()
+    {
+        floorRenderer.enabled = false;
     }
 }

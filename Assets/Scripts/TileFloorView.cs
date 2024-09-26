@@ -1,29 +1,29 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(Hoverable))]
+[RequireComponent(typeof(Clickable))]
 public class TileFloorView : MonoBehaviour
 {
     MeshRenderer meshRenderer;
-    Hoverable hoverable;
+    Clickable clickable;
 
     void Start()
     {
         meshRenderer = GetComponent<MeshRenderer>();
-        hoverable = GetComponent<Hoverable>();
+        clickable = GetComponent<Clickable>();
 
         meshRenderer.enabled = false; // Hide mesh initially
 
         // Subscribe to hover events from Hoverable
-        hoverable.OnHoverEnter += HandleHoverEnter;
-        hoverable.OnHoverExit += HandleHoverExit;
+        clickable.OnHoverEnter += HandleHoverEnter;
+        clickable.OnHoverExit += HandleHoverExit;
     }
 
     void OnDestroy()
     {
         // Unsubscribe from hover events to prevent memory leaks
-        hoverable.OnHoverEnter -= HandleHoverEnter;
-        hoverable.OnHoverExit -= HandleHoverExit;
+        clickable.OnHoverEnter -= HandleHoverEnter;
+        clickable.OnHoverExit -= HandleHoverExit;
     }
 
     void HandleHoverEnter()

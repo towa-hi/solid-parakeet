@@ -23,6 +23,7 @@ public class GameManager : MonoBehaviour
         }
         mainCamera = Camera.main;
         ChangeAppState(appState);
+        Globals.inputActions.Enable();
     }
 
     public void ChangeAppState(AppState inAppState)

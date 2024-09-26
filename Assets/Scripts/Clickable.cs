@@ -3,25 +3,28 @@ using System;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Collider))]
-public class Hoverable : MonoBehaviour
+public class Clickable : MonoBehaviour
 {
+    // Events for hover and click interactions
     public event Action OnHoverEnter;
     public event Action OnHoverExit;
+    public event Action OnClick;
 
-    bool isPointerOver = false;
-    
+    [SerializeField] bool isPointerOver = false;
+
     // Optional: Layer mask to optimize raycasting
-    public LayerMask hoverLayerMask = ~0; // Default to all layers
+    public LayerMask interactionLayerMask = ~0; // Default to all layers
 
     void Awake()
     {
-
+        // Subscribe to the Click action
+        Globals.inputActions.Game.Click.performed += OnClickPerformed;
     }
 
     void OnDestroy()
     {
-        // Optionally disable input actions if needed
-        // Be cautious with static instances
+        // Unsubscribe from the Click action
+        Globals.inputActions.Game.Click.performed -= OnClickPerformed;
     }
 
     void Update()
@@ -40,6 +43,14 @@ public class Hoverable : MonoBehaviour
         }
     }
 
+    void OnClickPerformed(InputAction.CallbackContext context)
+    {
+        if (IsPointerOver())
+        {
+            OnClick?.Invoke();
+        }
+    }
+
     bool IsPointerOver()
     {
         // Read the pointer position from the input actions
@@ -49,7 +60,7 @@ public class Hoverable : MonoBehaviour
         Ray ray = GameManager.instance.mainCamera.ScreenPointToRay(pointerPosition);
 
         // Perform a RaycastAll to get all hits along the ray, using the layer mask
-        RaycastHit[] hits = Physics.RaycastAll(ray, Mathf.Infinity, hoverLayerMask);
+        RaycastHit[] hits = Physics.RaycastAll(ray, Mathf.Infinity, interactionLayerMask);
 
         // Check if this GameObject is among the hits
         foreach (RaycastHit hit in hits)
