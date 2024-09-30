@@ -11,14 +11,14 @@ public static class Globals
         { "Captain", "6"},
         { "Colonel", "8"},
         { "Flag", "flag"},
-        { " General", "9"},
-        { " Lieutenant", "5"},
-        { " Major", "7"},
-        { " Marshal", "10"},
-        { " Miner", "m"},
-        { " Scout", "s"},
-        { " Sergeant", "4"},
-        { " Spy", "dagger"},
+        { "General", "9"},
+        { "Lieutenant", "5"},
+        { "Major", "7"},
+        { "Marshal", "10"},
+        { "Miner", "m"},
+        { "Scout", "s"},
+        { "Sergeant", "4"},
+        { "Spy", "dagger"},
     };
 }
 

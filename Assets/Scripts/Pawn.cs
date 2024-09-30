@@ -1,12 +1,15 @@
 using UnityEngine;
 
+[System.Serializable]
 public class Pawn
 {
-    public readonly PawnDef def;
+    [SerializeField] public PawnDef def;
     public Player player;
-
-    public Pawn(PawnDef inDef)
+    public Vector2Int pos;
+    
+    public Pawn(PawnDef inDef, Vector2Int inPos)
     {
         def = inDef;
+        pos = inPos;
     }
 }

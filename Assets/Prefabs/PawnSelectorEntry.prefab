@@ -350,6 +350,7 @@ MonoBehaviour:
   pawnDef: {fileID: 0}
   button: {fileID: 1206229532169678754}
   label: {fileID: 4231760207985805128}
+  placeholderSprite: {fileID: 0}
 --- !u!114 &3256233015780790637
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -364,7 +365,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_IgnoreLayout: 0
   m_MinWidth: -1
-  m_MinHeight: 50
+  m_MinHeight: -1
   m_PreferredWidth: -1
   m_PreferredHeight: -1
   m_FlexibleWidth: -1

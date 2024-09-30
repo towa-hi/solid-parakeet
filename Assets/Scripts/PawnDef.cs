@@ -1,6 +1,7 @@
 using UnityEngine;
 [CreateAssetMenu(fileName = "Pawn", menuName = "Scriptable Objects/Pawn")]
 
+[System.Serializable]
 public class PawnDef : ScriptableObject
 {
     public string pawnName;

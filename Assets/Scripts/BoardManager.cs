@@ -7,6 +7,8 @@ public class BoardManager : MonoBehaviour
     public static BoardManager instance;
     
     public GameObject tilePrefab;
+    public GameObject pawnPrefab;
+    
     Grid grid;
 
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
@@ -70,8 +72,15 @@ public class BoardManager : MonoBehaviour
             }
         }
     }
-    bool SpawnPawn(Vector2Int pos)
+    public bool SpawnPawn(Pawn pawn, Vector2Int pos)
     {
+        if (pawn == null)
+        {
+            // get pawn at pos and destroy the object
+        }
+        GameObject pawnObject = Instantiate(pawnPrefab);
+        PawnView pawnView = pawnObject.GetComponent<PawnView>();
+        pawnView.Initialize(pawn, GetTileView(pos));
         return true; //return if was successfully placed
     }
     
@@ -99,4 +108,5 @@ public class BoardManager : MonoBehaviour
     {
         return tileViews[pos];
     }
+
 }

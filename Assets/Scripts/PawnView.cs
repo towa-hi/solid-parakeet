@@ -16,16 +16,17 @@ public class PawnView : MonoBehaviour
     
     void Start()
     {
-        Initialize(tempPawnDef);
+        //Initialize(tempPawnDef);
         
     }
     
-    public void Initialize(PawnDef inPawn)
+    public void Initialize(Pawn inPawn, TileView tileView)
     {
-        pawn = new Pawn(inPawn);
+        pawn = inPawn;
         gameObject.name = $"Pawn {pawn.def.pawnName}";
         GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
-        DisplaySymbol(Globals.pawnSprites[inPawn.pawnName]);
+        DisplaySymbol(Globals.pawnSprites[inPawn.def.pawnName]);
+        transform.position = tileView.pawnOrigin.position;
     }
 
     public void DisplaySymbol(string index)

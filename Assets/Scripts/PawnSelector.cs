@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq; // Add this namespace for LINQ methods
 
 public class PawnSelector : MonoBehaviour
 {
@@ -16,9 +17,28 @@ public class PawnSelector : MonoBehaviour
 
     void PopulateEntries()
     {
-        // Instantiate entries for each PawnDef
+        // Clear existing entries if any
+        foreach (Transform child in transform)
+        {
+            Destroy(child.gameObject);
+        }
+        entryList.Clear();
+
+        // Load all PawnDefs
         PawnDef[] pawnDefs = Resources.LoadAll<PawnDef>("Pawn");
-        foreach (PawnDef pawnDef in pawnDefs)
+
+        // Sort pawnDefs by PawnDef.power
+        PawnDef[] sortedPawnDefs = pawnDefs.OrderBy(p => p.power).ToArray();
+
+        // Add an empty PawnSelectorEntry at the top
+        GameObject emptyEntryObject = Instantiate(entryPrefab, transform);
+        PawnSelectorEntry emptyEntry = emptyEntryObject.GetComponent<PawnSelectorEntry>();
+        // Initialize with null PawnDef or handle appropriately in Initialize method
+        emptyEntry.Initialize(null, OnSelected);
+        entryList.Add(emptyEntry);
+
+        // Instantiate entries for each sorted PawnDef
+        foreach (PawnDef pawnDef in sortedPawnDefs)
         {
             GameObject entryObject = Instantiate(entryPrefab, transform);
             PawnSelectorEntry entry = entryObject.GetComponent<PawnSelectorEntry>();
@@ -26,6 +46,7 @@ public class PawnSelector : MonoBehaviour
             entryList.Add(entry);
         }
     }
+
     public void OpenAndInitialize(TileView inTileView)
     {
         Clear();
@@ -70,6 +91,7 @@ public class PawnSelector : MonoBehaviour
         tileView = null;
         pos = Vector2.zero;
         gameObject.SetActive(false);
+        // Optionally, clear the entries
         // foreach (Transform child in transform)
         // {
         //     Destroy(child.gameObject);

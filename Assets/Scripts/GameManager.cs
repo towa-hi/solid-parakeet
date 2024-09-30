@@ -11,6 +11,7 @@ public class GameManager : MonoBehaviour
     public Camera mainCamera;
     // temp param, should be chosen by a UI widget later
     public BoardDef tempBoardDef;
+
     
     void Awake()
     {
@@ -57,8 +58,16 @@ public class GameManager : MonoBehaviour
     }
     public void OnPawnSelectorSelected(TileView tileView, PawnDef inPawnDef)
     {
-        Debug.Log(inPawnDef.pawnName + " selected");
+        if (inPawnDef != null)
+        {
+            Debug.Log(inPawnDef.pawnName + " selected");
+        }
+        
+        Pawn pawn = gameState.AddPawn(inPawnDef, tileView.tile.pos);
+        BoardManager.instance.SpawnPawn(pawn, tileView.tile.pos);
     }
+
+
     
     public void QuitGame()
     {
