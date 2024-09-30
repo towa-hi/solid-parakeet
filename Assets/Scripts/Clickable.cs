@@ -18,14 +18,14 @@ public class Clickable : MonoBehaviour
 
     void Awake()
     {
-        // Subscribe to the Click action
-        Globals.inputActions.Game.Click.performed += OnClickPerformed;
+        // Subscribe to the Click action's canceled phase
+        Globals.inputActions.Game.Click.canceled += OnClickPerformed;
     }
 
     void OnDestroy()
     {
-        // Unsubscribe from the Click action
-        Globals.inputActions.Game.Click.performed -= OnClickPerformed;
+        // Unsubscribe from the Click action's canceled phase
+        Globals.inputActions.Game.Click.canceled -= OnClickPerformed;
     }
 
     void Update()
