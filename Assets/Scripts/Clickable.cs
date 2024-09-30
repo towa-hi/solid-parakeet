@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems; // Required for EventSystem
 
 [RequireComponent(typeof(Collider))]
 public class Clickable : MonoBehaviour
@@ -8,9 +9,9 @@ public class Clickable : MonoBehaviour
     // Events for hover and click interactions
     public event Action OnHoverEnter;
     public event Action OnHoverExit;
-    public event Action OnClick;
+    public event Action<Vector2> OnClick;
 
-    [SerializeField] bool isPointerOver = false;
+    [SerializeField] private bool isPointerOver = false;
 
     // Optional: Layer mask to optimize raycasting
     public LayerMask interactionLayerMask = ~0; // Default to all layers
@@ -47,7 +48,8 @@ public class Clickable : MonoBehaviour
     {
         if (IsPointerOver())
         {
-            OnClick?.Invoke();
+            Vector2 pointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
+            OnClick?.Invoke(pointerPosition);
         }
     }
 
@@ -55,6 +57,13 @@ public class Clickable : MonoBehaviour
     {
         // Read the pointer position from the input actions
         Vector2 pointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
+
+        // Check if the pointer is over a UI element
+        if (EventSystem.current != null && IsPointerOverUI(pointerPosition))
+        {
+            // The pointer is over a UI element, so we return false
+            return false;
+        }
 
         // Cast a ray from the camera through the pointer position
         Ray ray = GameManager.instance.mainCamera.ScreenPointToRay(pointerPosition);
@@ -66,6 +75,27 @@ public class Clickable : MonoBehaviour
         foreach (RaycastHit hit in hits)
         {
             if (hit.collider.gameObject == gameObject)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool IsPointerOverUI(Vector2 screenPosition)
+    {
+        PointerEventData eventData = new PointerEventData(EventSystem.current)
+        {
+            position = screenPosition
+        };
+
+        var results = new System.Collections.Generic.List<RaycastResult>();
+        EventSystem.current.RaycastAll(eventData, results);
+
+        // Check if any of the results are UI elements
+        foreach (RaycastResult result in results)
+        {
+            if (result.gameObject.layer == LayerMask.NameToLayer("UI"))
             {
                 return true;
             }

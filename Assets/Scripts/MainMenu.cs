@@ -8,7 +8,7 @@ public class MainMenu : MonoBehaviour
     public Button settingsButton;
     public Button exitButton;
 
-    public void ShowMenu(bool show)
+    public void ShowMainMenu(bool show)
     {
         // internal state cleanup here
         gameObject.SetActive(show);

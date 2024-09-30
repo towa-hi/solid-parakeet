@@ -24,6 +24,7 @@ public class TileView : MonoBehaviour
         floorRenderer.enabled = false;
         clickable.OnHoverEnter += OnHoverEnter;
         clickable.OnHoverExit += OnHoverExit;
+        clickable.OnClick += OnClicked;
     }
 
     void OnDestroy()
@@ -55,7 +56,7 @@ public class TileView : MonoBehaviour
         if (!tile.isPassable)
         {
             tileMaterial.color = Color.black;
-            return;  // Early return if the tile is not passable
+            return;
         }
         Color originalColor = tileMaterial.color;
         switch (tile.tileSetup)
@@ -81,5 +82,10 @@ public class TileView : MonoBehaviour
     void OnHoverExit()
     {
         floorRenderer.enabled = false;
+    }
+
+    void OnClicked(Vector2 mousePos)
+    {
+        GameManager.instance.OnTileClicked(this, mousePos);
     }
 }

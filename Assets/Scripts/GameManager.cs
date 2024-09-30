@@ -6,10 +6,11 @@ public class GameManager : MonoBehaviour
     public static GameManager instance;
     public AppState appState = AppState.MAIN;
     public GameState gameState = null;
-    public MainMenu mainmenu;
+    public MainMenu mainMenu;
+    public PawnSelector pawnSelector;
+    public Camera mainCamera;
     // temp param, should be chosen by a UI widget later
     public BoardDef tempBoardDef;
-    public Camera mainCamera;
     
     void Awake()
     {
@@ -21,12 +22,16 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("MORE THAN ONE SINGLETON");
         }
-        mainCamera = Camera.main;
+
+    }
+
+    void Start()
+    {
         ChangeAppState(appState);
         Globals.inputActions.Enable();
     }
 
-    public void ChangeAppState(AppState inAppState)
+    void ChangeAppState(AppState inAppState)
     {
         switch (inAppState)
         {
@@ -46,6 +51,15 @@ public class GameManager : MonoBehaviour
         ChangeAppState(AppState.GAME);
     }
 
+    public void OnTileClicked(TileView tileView, Vector2 mousePos)
+    {
+        pawnSelector.OpenAndInitialize(tileView);
+    }
+    public void OnPawnSelectorSelected(TileView tileView, PawnDef inPawnDef)
+    {
+        Debug.Log(inPawnDef.pawnName + " selected");
+    }
+    
     public void QuitGame()
     {
         Application.Quit();
@@ -61,14 +75,14 @@ public class GameManager : MonoBehaviour
         gameState = null;
         
         BoardManager.instance.ClearBoard();
-        mainmenu.ShowMenu(true);
+        mainMenu.ShowMainMenu(true);
     }
 
     void OnGame()
     {
         // params should be passed in from a game settings widget later
         gameState = new GameState(tempBoardDef);
-        mainmenu.ShowMenu(false);
+        mainMenu.ShowMainMenu(false);
         gameState.ChangePhase(GamePhase.SETUP);
         BoardManager.instance.StartBoard(gameState);
     }
