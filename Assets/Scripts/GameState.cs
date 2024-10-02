@@ -17,19 +17,23 @@ public class GameState
         Debug.Log("New GameState initialized with parameters");
     }
 
-    public Pawn AddPawn(PawnDef pawnDef, Vector2Int pos)
+    public void OnSetupPawnSelectorSelected(PawnDef pawnDef, Vector2Int pos)
     {
         if (!IsPositionValid(pos))
         {
             throw new ArgumentOutOfRangeException();
         }
-        
-        Pawn existingPawn = GetPawnFromPos(pos);
-        if (existingPawn != null)
+        Pawn pawnAlreadyAtPos = GetPawnFromPos(pos);
+        Debug.Log(pawnAlreadyAtPos);
+        if (pawnAlreadyAtPos != null)
         {
-            DeletePawn(existingPawn);
+            DeletePawn(pawnAlreadyAtPos);
         }
-
+        AddPawn(pawnDef, pos);
+    }
+    
+    Pawn AddPawn(PawnDef pawnDef, Vector2Int pos)
+    {
         if (pawnDef == null)
         {
             return null;
@@ -37,6 +41,7 @@ public class GameState
         Pawn pawn = new Pawn(pawnDef, pos);
         pawns.Add(pawn);
         Debug.Log("added pawn");
+        BoardManager.instance.SpawnPawnView(pawn, pos);
         return pawn;
     }
 
@@ -47,11 +52,8 @@ public class GameState
 
     public void DeletePawn(Pawn pawn)
     {
-        if (pawn == null)
-        {
-            return;
-        }
         bool removed = pawns.Remove(pawn);
+        BoardManager.instance.DeletePawnView(pawn);
         if (removed)
         {
             Debug.Log($"Deleted pawn at position {pawn.pos}.");
@@ -62,9 +64,6 @@ public class GameState
         }
     }
     
-    
-    
-    // Method to change the game phase
     public void ChangePhase(GamePhase inPhase)
     {
         phase = inPhase;
@@ -105,26 +104,23 @@ public class GameState
 
         return pos.x >= 0 && pos.x < board.boardSize.x && pos.y >= 0 && pos.y < board.boardSize.y;
     }
-    // Handling the Setup phase
+    
     void OnSetupPhase()
     {
         //Debug.Log("Setting up game. Initializing board, player positions, etc.");
         
     }
 
-    // Handling the Move phase
     void OnMovePhase()
     {
         //Debug.Log("Player's move phase. Awaiting player input for moves...");
     }
 
-    // Handling the Resolve phase
     void OnResolvePhase()
     {
         //Debug.Log("Resolving actions. Processing the results of moves...");
     }
 
-    // Handling the End phase
     void OnEndPhase()
     {
         //Debug.Log("Game has ended. Final cleanup.");

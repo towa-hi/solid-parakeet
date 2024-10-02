@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class BoardManager : MonoBehaviour
@@ -12,7 +13,7 @@ public class BoardManager : MonoBehaviour
     Grid grid;
 
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
-    readonly Dictionary<Vector2Int, PawnView> pawnViews = new();
+    readonly List<PawnView> pawnViews = new();
     
     void Awake()
     {
@@ -72,16 +73,28 @@ public class BoardManager : MonoBehaviour
             }
         }
     }
-    public bool SpawnPawn(Pawn pawn, Vector2Int pos)
+    public bool SpawnPawnView(Pawn pawn, Vector2Int pos)
     {
         if (pawn == null)
         {
             // get pawn at pos and destroy the object
+            
         }
         GameObject pawnObject = Instantiate(pawnPrefab);
         PawnView pawnView = pawnObject.GetComponent<PawnView>();
         pawnView.Initialize(pawn, GetTileView(pos));
+        pawnViews.Add(pawnView);
         return true; //return if was successfully placed
+    }
+
+    public void DeletePawnView(Pawn pawn)
+    {
+        PawnView pawnView = GetPawnViewFromPawn(pawn);
+        if (pawnView)
+        {
+            Debug.Log("destroying pawnView");
+            Destroy(pawnView.gameObject);
+        }
     }
     
     void ClearTiles()
@@ -99,9 +112,15 @@ public class BoardManager : MonoBehaviour
         pawnViews.Clear();
     }
 
-    public PawnView GetPawnView(Vector2Int pos)
+    public PawnView GetPawnViewAtPos(Vector2Int pos)
     {
-        return pawnViews[pos];
+        return pawnViews.FirstOrDefault(pawnView => pawnView.pawn.pos == pos);
+
+    }
+
+    public PawnView GetPawnViewFromPawn(Pawn pawn)
+    {
+        return pawnViews.FirstOrDefault(pawnView => pawnView.pawn == pawn);
     }
     
     public TileView GetTileView(Vector2Int pos)
