@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-using System.Linq; // Add this namespace for LINQ methods
+using UnityEngine.UI; // For LayoutRebuilder
+using System.Linq;
 
 public class PawnSelector : MonoBehaviour
 {
@@ -10,8 +11,21 @@ public class PawnSelector : MonoBehaviour
     Vector2 pos;
     TileView tileView;
 
-    void Start()
+    private RectTransform rectTransform;
+    private Canvas parentCanvas;
+
+    void Awake()
     {
+        // Since the GameObject starts inactive, we use Awake() instead of Start()
+        rectTransform = GetComponent<RectTransform>();
+        parentCanvas = GetComponentInParent<Canvas>();
+
+        if (parentCanvas == null)
+        {
+            Debug.LogError("No parent Canvas found for PawnSelector.");
+        }
+
+        // Populate entries once when the script is loaded
         PopulateEntries();
     }
 
@@ -33,7 +47,6 @@ public class PawnSelector : MonoBehaviour
         // Add an empty PawnSelectorEntry at the top
         GameObject emptyEntryObject = Instantiate(entryPrefab, transform);
         PawnSelectorEntry emptyEntry = emptyEntryObject.GetComponent<PawnSelectorEntry>();
-        // Initialize with null PawnDef or handle appropriately in Initialize method
         emptyEntry.Initialize(null, OnSelected);
         entryList.Add(emptyEntry);
 
@@ -45,45 +58,28 @@ public class PawnSelector : MonoBehaviour
             entry.Initialize(pawnDef, OnSelected);
             entryList.Add(entry);
         }
+
+        // Force update the layout to get the correct size later
+        LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
     }
 
     public void OpenAndInitialize(TileView inTileView)
     {
         Clear();
+
+        gameObject.SetActive(true);
         tileView = inTileView;
 
         // Get the screen position of the TileView's world position
         Vector3 tileScreenPosition = Camera.main.WorldToScreenPoint(tileView.transform.position);
 
-        // Get the RectTransform of the Canvas
-        Canvas parentCanvas = GetComponentInParent<Canvas>();
-        if (parentCanvas == null)
-        {
-            Debug.LogError("No parent Canvas found for PawnSelector.");
-            return;
-        }
-
-        RectTransform canvasRectTransform = parentCanvas.GetComponent<RectTransform>();
-        if (canvasRectTransform == null)
-        {
-            Debug.LogError("No RectTransform found on the Canvas.");
-            return;
-        }
-
         // Convert screen position to local position in the UI Canvas
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvasRectTransform, tileScreenPosition, null, out pos))
-        {
-            // Set the RectTransform's anchored position to the calculated pos
-            RectTransform rectTransform = GetComponent<RectTransform>();
-            rectTransform.anchoredPosition = pos;
-        }
-        else
-        {
-            Debug.LogError("Failed to convert screen point to local point in canvas.");
-        }
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            parentCanvas.transform as RectTransform, tileScreenPosition, parentCanvas.worldCamera, out pos);
 
-        gameObject.SetActive(true);
+        // Adjust pivot and position to keep the popup on screen
+        AdjustPivotAndPositionToKeepOnScreen();
+
     }
 
     void Clear()
@@ -91,11 +87,6 @@ public class PawnSelector : MonoBehaviour
         tileView = null;
         pos = Vector2.zero;
         gameObject.SetActive(false);
-        // Optionally, clear the entries
-        // foreach (Transform child in transform)
-        // {
-        //     Destroy(child.gameObject);
-        // }
     }
 
     void Close()
@@ -108,4 +99,71 @@ public class PawnSelector : MonoBehaviour
         GameManager.instance.OnSetupPawnSelectorSelected(tileView, pawnDef);
         Close();
     }
+private void AdjustPivotAndPositionToKeepOnScreen()
+{
+    // Ensure the layout is up to date
+    LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
+
+    // Get the size of the popup
+    Vector2 size = rectTransform.rect.size;
+
+    // Get the canvas RectTransform
+    RectTransform canvasRectTransform = parentCanvas.transform as RectTransform;
+
+    // Calculate the boundaries of the canvas
+    float canvasWidth = canvasRectTransform.rect.width;
+    float canvasHeight = canvasRectTransform.rect.height;
+
+    // Start with the default pivot (0,1) - top-left
+    Vector2 pivot = new Vector2(0, 1);
+    Vector2 adjustedPosition = pos;
+
+    // Adjust pivot and position for horizontal edges
+    if (pos.x + size.x > canvasWidth / 2)
+    {
+        // Popup would go off the right edge
+        // Adjust pivot to top-right
+        pivot.x = 1;
+        // Adjust position: align the pivot (right edge) with the click position
+        adjustedPosition.x = pos.x;
+    }
+    else if (pos.x < -canvasWidth / 2)
+    {
+        // Popup would go off the left edge
+        // Keep pivot at 0, but adjust position to the left edge
+        adjustedPosition.x = -canvasWidth / 2;
+    }
+    else
+    {
+        // Default behavior: align the pivot (left edge) with the click position
+        adjustedPosition.x = pos.x;
+    }
+
+    // Adjust pivot and position for vertical edges
+    if (pos.y - size.y < -canvasHeight / 2)
+    {
+        // Popup would go off the bottom edge
+        // Adjust pivot to bottom
+        pivot.y = 0;
+        // Adjust position: align the pivot (bottom edge) with the click position
+        adjustedPosition.y = pos.y;
+    }
+    else if (pos.y > canvasHeight / 2)
+    {
+        // Popup would go off the top edge
+        // Keep pivot at 1, but adjust position to the top edge
+        adjustedPosition.y = canvasHeight / 2;
+    }
+    else
+    {
+        // Default behavior: align the pivot (top edge) with the click position
+        adjustedPosition.y = pos.y;
+    }
+
+    // Apply the pivot and position adjustments
+    rectTransform.pivot = pivot;
+    rectTransform.anchoredPosition = adjustedPosition;
+}
+
+
 }

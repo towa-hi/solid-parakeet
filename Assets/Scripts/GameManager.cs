@@ -5,6 +5,7 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
     public AppState appState = AppState.MAIN;
+    // TODO: move gamestate to boardManager
     public GameState gameState = null;
     public MainMenu mainMenu;
     public PawnSelector pawnSelector;
@@ -89,8 +90,14 @@ public class GameManager : MonoBehaviour
         gameState = new GameState(tempBoardDef);
         mainMenu.ShowMainMenu(false);
         gameState.ChangePhase(GamePhase.SETUP);
-        BoardManager.instance.StartBoard(gameState);
+        BoardManager.instance.StartBoard(true, gameState);
     }
-    
+
+    public void StartGame(bool isHost, BoardDef boardDef)
+    {
+        gameState = new GameState(boardDef);
+        BoardManager.instance.StartBoard(isHost, gameState);
+        
+    }
     
 }

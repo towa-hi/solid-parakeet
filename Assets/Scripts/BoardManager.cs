@@ -32,8 +32,9 @@ public class BoardManager : MonoBehaviour
         grid = GetComponent<Grid>();  // Get the Grid component
     }
 
-    public void StartBoard(GameState state)
+    public void StartBoard(bool isHost, GameState state)
     {
+        // TODO handle isHost
         LoadBoardData(state);
     }
     
@@ -75,11 +76,6 @@ public class BoardManager : MonoBehaviour
     }
     public bool SpawnPawnView(Pawn pawn, Vector2Int pos)
     {
-        if (pawn == null)
-        {
-            // get pawn at pos and destroy the object
-            
-        }
         GameObject pawnObject = Instantiate(pawnPrefab);
         PawnView pawnView = pawnObject.GetComponent<PawnView>();
         pawnView.Initialize(pawn, GetTileView(pos));
@@ -94,6 +90,7 @@ public class BoardManager : MonoBehaviour
         {
             Debug.Log("destroying pawnView");
             Destroy(pawnView.gameObject);
+            pawnViews.Remove(pawnView);
         }
     }
     
@@ -109,6 +106,10 @@ public class BoardManager : MonoBehaviour
     void ClearPawns()
     {
         // clear pawns
+        foreach (PawnView pawnView in pawnViews)
+        {
+            Destroy(pawnView.gameObject);
+        }
         pawnViews.Clear();
     }
 
