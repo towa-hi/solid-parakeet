@@ -54,6 +54,11 @@ public class GameManager : MonoBehaviour
 
     public void OnTileClicked(TileView tileView, Vector2 mousePos)
     {
+        if (tileView.tile.tileSetup == TileSetup.NONE)
+        {
+            return;
+        }
+        
         pawnSelector.OpenAndInitialize(tileView);
     }
     
