@@ -16,12 +16,14 @@ public class GameManager : MonoBehaviour
     public Camera mainCamera;
 
     // clear these on new game
-    public GameState gameState = null;
+    //public GameState gameState = null;
     public BoardManager boardManager;
     public BoardManager boardManager2;
     
     // temp param, should be chosen by a UI widget later
     public BoardDef tempBoardDef;
+
+    public bool isLoading;
     
     void Awake()
     {
@@ -39,6 +41,11 @@ public class GameManager : MonoBehaviour
     {
         ChangeAppState(appState);
         Globals.inputActions.Enable();
+        if (GameServer.instance == null)
+        {
+            GameServer.instance = new GameServer();
+        }
+        
     }
 
     void ChangeAppState(AppState inAppState)
@@ -63,7 +70,7 @@ public class GameManager : MonoBehaviour
 
     public void OnTileClicked(TileView tileView, Vector2 mousePos)
     {
-        switch (gameState.phase)
+        switch (GameServer.instance.gameState.phase)
         {
             case GamePhase.UNINITIALIZED:
                 break;
@@ -88,7 +95,7 @@ public class GameManager : MonoBehaviour
     
     public void OnSetupPawnSelectorSelected(TileView tileView, PawnDef pawnDef)
     {
-        gameState.OnSetupPawnSelectorSelected(pawnDef,  tileView.tile);
+        //gameState.OnSetupPawnSelectorSelected(pawnDef,  tileView.tile);
     }
     
     public void QuitGame()
@@ -102,20 +109,33 @@ public class GameManager : MonoBehaviour
     void OnMain()
     {
         // clear all game related stuff
-        gameState = null;
+        //gameState = null;
         boardManager.ClearBoard();
         mainMenu.ShowMainMenu(true);
     }
 
-    void OnGame()
+    async void OnGame()
     {
+        PlayerProfile hostProfile = new PlayerProfile(Guid.NewGuid());
+        PlayerProfile guestProfile = new PlayerProfile(Guid.NewGuid());
         // params should be passed in from a game settings widget later
-        gameState = new GameState(tempBoardDef);
+        //gameState = new GameState(tempBoardDef);
         mainMenu.ShowMainMenu(false);
-        gameState.ChangePhase(GamePhase.SETUP);
-        boardManager.StartBoard(Player.RED, gameState);
-        
-        // for testing
-        boardManager2.StartBoard(Player.BLUE, gameState);
+        SetIsLoading(true);
+        GameServer.instance.GameStarted += ResGameStarted;
+        await GameServer.instance.ReqStartGameAsync(tempBoardDef, hostProfile, guestProfile);
+    }
+
+    void ResGameStarted(GameState state)
+    {
+        boardManager.StartBoard(Player.RED, state);
+        boardManager2.StartBoard(Player.BLUE, state);
+        SetIsLoading(false);
+    }
+
+    void SetIsLoading(bool inIsLoading)
+    {
+        isLoading = inIsLoading;
+        LoadingScreen.instance.ShowLoadingScreen(isLoading);
     }
 }

@@ -1,14 +1,12 @@
+using System;
 using UnityEngine;
 
 public class PlayerProfile
 {
-    public bool isHost;
-    public Player player;
-    
-    public PlayerProfile(bool inIsHost, Player inPlayer)
+    public Guid id;
+
+    public PlayerProfile(Guid inId)
     {
-        isHost = inIsHost;
-        player = inPlayer;
+        id = inId;
     }
-    
 }

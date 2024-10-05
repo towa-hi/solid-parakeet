@@ -24,11 +24,11 @@ public class BoardManager : MonoBehaviour
     
     void OnDestroy()
     {
-        if (GameManager.instance?.gameState != null)
-        {
-            GameManager.instance.gameState.PawnAdded -= OnPawnAdded;
-            GameManager.instance.gameState.PawnDeleted -= OnPawnDeleted;
-        }
+        // if (GameManager.instance?.gameState != null)
+        // {
+        //     GameManager.instance.gameState.PawnAdded -= OnPawnAdded;
+        //     GameManager.instance.gameState.PawnDeleted -= OnPawnDeleted;
+        // }
     }
 
     public void StartBoard(Player inPlayer, GameState state)
