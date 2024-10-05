@@ -5,14 +5,15 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
     public AppState appState = AppState.MAIN;
-    // TODO: move gamestate to boardManager
-    public GameState gameState = null;
     public MainMenu mainMenu;
     public PawnSelector pawnSelector;
     public Camera mainCamera;
     // temp param, should be chosen by a UI widget later
     public BoardDef tempBoardDef;
 
+    // clear these on new game
+    
+    public GameState gameState = null;
     
     void Awake()
     {

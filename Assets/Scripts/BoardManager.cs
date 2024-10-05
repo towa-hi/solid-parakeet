@@ -35,6 +35,8 @@ public class BoardManager : MonoBehaviour
     public void StartBoard(bool isHost, GameState state)
     {
         // TODO handle isHost
+        state.PawnAdded += OnPawnAdded;
+        state.PawnDeleted += OnPawnDeleted;
         LoadBoardData(state);
     }
     
@@ -74,16 +76,15 @@ public class BoardManager : MonoBehaviour
             }
         }
     }
-    public bool SpawnPawnView(Pawn pawn, Vector2Int pos)
+    void OnPawnAdded(Pawn pawn)
     {
         GameObject pawnObject = Instantiate(pawnPrefab);
         PawnView pawnView = pawnObject.GetComponent<PawnView>();
-        pawnView.Initialize(pawn, GetTileView(pos));
+        pawnView.Initialize(pawn, GetTileView(pawn.pos));
         pawnViews.Add(pawnView);
-        return true; //return if was successfully placed
     }
 
-    public void DeletePawnView(Pawn pawn)
+    void OnPawnDeleted(Pawn pawn)
     {
         PawnView pawnView = GetPawnViewFromPawn(pawn);
         if (pawnView)

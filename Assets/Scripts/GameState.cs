@@ -1,6 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+// NOTE: GameState is supposed to be a pure c# class that can work without UnityEngine
+// but we still use it for stuff like Vector2Int and [SerializeField] out of convenience.
+// When writing code here, kindly avoid using UnityEngine functions and classes that aren't
+// simple structs
+ 
 using UnityEngine;
 
 [System.Serializable]
@@ -9,12 +15,15 @@ public class GameState
     public BoardDef board;
     public GamePhase phase = GamePhase.UNINITIALIZED;
     [SerializeField] public List<Pawn> pawns;
+
+    public event Action<Pawn> PawnAdded;
+    public event Action<Pawn> PawnDeleted;
+    public event Action<GamePhase> PhaseChanged;
     
     public GameState(BoardDef inBoard)
     {
         board = inBoard;
         pawns = new List<Pawn>();
-        Debug.Log("New GameState initialized with parameters");
     }
 
     public void OnSetupPawnSelectorSelected(PawnDef pawnDef, Vector2Int pos)
@@ -24,7 +33,6 @@ public class GameState
             throw new ArgumentOutOfRangeException();
         }
         Pawn pawnAlreadyAtPos = GetPawnFromPos(pos);
-        Debug.Log(pawnAlreadyAtPos);
         if (pawnAlreadyAtPos != null)
         {
             DeletePawn(pawnAlreadyAtPos);
@@ -32,17 +40,16 @@ public class GameState
         AddPawn(pawnDef, pos);
     }
     
-    Pawn AddPawn(PawnDef pawnDef, Vector2Int pos)
+    void AddPawn(PawnDef pawnDef, Vector2Int pos)
     {
         if (pawnDef == null)
         {
-            return null;
+            return;
         }
         Pawn pawn = new Pawn(pawnDef, pos);
         pawns.Add(pawn);
-        Debug.Log("added pawn");
-        BoardManager.instance.SpawnPawnView(pawn, pos);
-        return pawn;
+        PawnAdded?.Invoke(pawn);
+        //BoardManager.instance.SpawnPawnView(pawn, pos);
     }
 
     public Pawn GetPawnFromPos(Vector2Int pos)
@@ -53,15 +60,8 @@ public class GameState
     public void DeletePawn(Pawn pawn)
     {
         bool removed = pawns.Remove(pawn);
-        BoardManager.instance.DeletePawnView(pawn);
-        if (removed)
-        {
-            Debug.Log($"Deleted pawn at position {pawn.pos}.");
-        }
-        else
-        {
-            Debug.LogWarning("Pawn not found in the list. Cannot delete.");
-        }
+        PawnDeleted?.Invoke(pawn);
+        //BoardManager.instance.DeletePawnView(pawn);
     }
     
     public void ChangePhase(GamePhase inPhase)
@@ -72,7 +72,7 @@ public class GameState
         switch (phase)
         {
             case GamePhase.UNINITIALIZED:
-                Debug.LogError("Don't change GameState's phase to UNINITIALIZED!!!");
+                //Debug.LogError("Don't change GameState's phase to UNINITIALIZED!!!");
                 break;
             case GamePhase.SETUP:
                 OnSetupPhase();
@@ -98,7 +98,6 @@ public class GameState
     {
         if (board == null)
         {
-            Debug.LogError("Board is not initialized.");
             return false;
         }
 
