@@ -5,7 +5,8 @@ using System.Linq;
 // NOTE: GameState is supposed to be a pure c# class that can work without UnityEngine
 // but we still use it for stuff like Vector2Int and [SerializeField] out of convenience.
 // When writing code here, kindly avoid using UnityEngine functions and classes that aren't
-// simple structs
+// simple structs. GameState should not communicate with GameManager or BoardManager and
+// just trigger events that other classes can subscribe to
  
 using UnityEngine;
 
@@ -15,7 +16,6 @@ public class GameState
     public BoardDef board;
     public GamePhase phase = GamePhase.UNINITIALIZED;
     [SerializeField] public List<Pawn> pawns;
-
     public event Action<Pawn> PawnAdded;
     public event Action<Pawn> PawnDeleted;
     public event Action<GamePhase> PhaseChanged;
@@ -26,30 +26,31 @@ public class GameState
         pawns = new List<Pawn>();
     }
 
-    public void OnSetupPawnSelectorSelected(PawnDef pawnDef, Vector2Int pos)
+    public void OnSetupPawnSelectorSelected(PawnDef pawnDef, Tile tile)
     {
-        if (!IsPositionValid(pos))
-        {
-            throw new ArgumentOutOfRangeException();
-        }
-        Pawn pawnAlreadyAtPos = GetPawnFromPos(pos);
+        Pawn pawnAlreadyAtPos = GetPawnFromPos(tile.pos);
         if (pawnAlreadyAtPos != null)
         {
             DeletePawn(pawnAlreadyAtPos);
         }
-        AddPawn(pawnDef, pos);
+
+        Player playerSide = tile.setupPlayer;
+        if (playerSide == Player.NONE)
+        {
+            throw new Exception("Cannot spawn pawn on tile.setupPlayer == Player.NONE");
+        }
+        AddPawn(pawnDef, playerSide, tile);
     }
     
-    void AddPawn(PawnDef pawnDef, Vector2Int pos)
+    void AddPawn(PawnDef pawnDef, Player player, Tile tile)
     {
         if (pawnDef == null)
         {
             return;
         }
-        Pawn pawn = new Pawn(pawnDef, pos);
+        Pawn pawn = new Pawn(pawnDef, player, tile.pos);
         pawns.Add(pawn);
         PawnAdded?.Invoke(pawn);
-        //BoardManager.instance.SpawnPawnView(pawn, pos);
     }
 
     public Pawn GetPawnFromPos(Vector2Int pos)
@@ -61,13 +62,11 @@ public class GameState
     {
         bool removed = pawns.Remove(pawn);
         PawnDeleted?.Invoke(pawn);
-        //BoardManager.instance.DeletePawnView(pawn);
     }
     
     public void ChangePhase(GamePhase inPhase)
     {
         phase = inPhase;
-        //Debug.Log("Game phase changed to: " + phase.ToString());
 
         switch (phase)
         {
@@ -106,23 +105,18 @@ public class GameState
     
     void OnSetupPhase()
     {
-        //Debug.Log("Setting up game. Initializing board, player positions, etc.");
-        
     }
 
     void OnMovePhase()
     {
-        //Debug.Log("Player's move phase. Awaiting player input for moves...");
     }
 
     void OnResolvePhase()
     {
-        //Debug.Log("Resolving actions. Processing the results of moves...");
     }
 
     void OnEndPhase()
     {
-        //Debug.Log("Game has ended. Final cleanup.");
     }
 
 }

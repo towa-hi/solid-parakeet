@@ -4,6 +4,7 @@ using UnityEngine;
 [System.Serializable]
 public class PawnDef : ScriptableObject
 {
+    public BoardManager boardManager;
     public string pawnName;
     public int power;
     

@@ -7,6 +7,7 @@ public class TileView : MonoBehaviour
     public GameObject model;  // The model whose material color will be changed
     public GameObject floor;
     public Transform pawnOrigin;
+    public BoardManager boardManager;
     
     Renderer modelRenderer;
     Renderer floorRenderer;
@@ -32,9 +33,10 @@ public class TileView : MonoBehaviour
         
     }
     
-    public void Initialize(Tile inTile)
+    public void Initialize(Tile inTile, BoardManager inBoardManager)
     {
         tile = inTile;
+        boardManager = inBoardManager;
         // Change the name of this GameObject to the tile's position
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
 
@@ -59,15 +61,14 @@ public class TileView : MonoBehaviour
             return;
         }
         Color originalColor = tileMaterial.color;
-        switch (tile.tileSetup)
+        switch (tile.setupPlayer)
         {
-            case TileSetup.RED:
+            case Player.RED:
                 tileMaterial.color = Color.red;
                 break;
-            case TileSetup.BLUE:
+            case Player.BLUE:
                 tileMaterial.color = Color.blue;
                 break;
-            case TileSetup.NONE:
             default:
                 tileMaterial.color = originalColor;  // Default color
                 break;
@@ -87,5 +88,20 @@ public class TileView : MonoBehaviour
     void OnClicked(Vector2 mousePos)
     {
         GameManager.instance.OnTileClicked(this, mousePos);
+        
+    }
+
+    public bool IsTileInteractableDuringSetup()
+    {
+        if (tile.setupPlayer == Player.NONE)
+        {
+            return false;
+        }
+
+        if (boardManager.player == Player.NONE)
+        {
+            throw new Exception("boardManager.player cannot be NONE");
+        }
+        return tile.setupPlayer == boardManager.player;
     }
 }

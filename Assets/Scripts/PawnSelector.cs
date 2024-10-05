@@ -13,7 +13,7 @@ public class PawnSelector : MonoBehaviour
 
     private RectTransform rectTransform;
     private Canvas parentCanvas;
-
+    
     void Awake()
     {
         // Since the GameObject starts inactive, we use Awake() instead of Start()
@@ -99,6 +99,7 @@ public class PawnSelector : MonoBehaviour
         GameManager.instance.OnSetupPawnSelectorSelected(tileView, pawnDef);
         Close();
     }
+    
 private void AdjustPivotAndPositionToKeepOnScreen()
 {
     // Ensure the layout is up to date

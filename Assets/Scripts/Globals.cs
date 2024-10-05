@@ -22,13 +22,6 @@ public static class Globals
     };
 }
 
-public enum TileSetup
-{
-    NONE,
-    RED,
-    BLUE,
-}
-
 public enum AppState
 {
     MAIN,
@@ -45,6 +38,7 @@ public enum GamePhase
 
 public enum Player
 {
+    NONE,
     RED,
     BLUE
 }

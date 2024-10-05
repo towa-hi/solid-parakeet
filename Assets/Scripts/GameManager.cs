@@ -1,5 +1,11 @@
 using System;
+using System.Diagnostics;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
+
+// NOTE: GameManager is a singleton and there can only be one per client. GameManager
+// is responsible for taking in input from BoardManager and other UI or views and
+// updating the singular gameState
 
 public class GameManager : MonoBehaviour
 {
@@ -8,12 +14,14 @@ public class GameManager : MonoBehaviour
     public MainMenu mainMenu;
     public PawnSelector pawnSelector;
     public Camera mainCamera;
-    // temp param, should be chosen by a UI widget later
-    public BoardDef tempBoardDef;
 
     // clear these on new game
-    
     public GameState gameState = null;
+    public BoardManager boardManager;
+    public BoardManager boardManager2;
+    
+    // temp param, should be chosen by a UI widget later
+    public BoardDef tempBoardDef;
     
     void Awake()
     {
@@ -25,7 +33,6 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("MORE THAN ONE SINGLETON");
         }
-
     }
 
     void Start()
@@ -56,17 +63,32 @@ public class GameManager : MonoBehaviour
 
     public void OnTileClicked(TileView tileView, Vector2 mousePos)
     {
-        if (tileView.tile.tileSetup == TileSetup.NONE)
+        switch (gameState.phase)
         {
-            return;
+            case GamePhase.UNINITIALIZED:
+                break;
+            case GamePhase.SETUP:
+            {
+                if (tileView.IsTileInteractableDuringSetup())
+                {
+                    pawnSelector.OpenAndInitialize(tileView);
+                }
+                break;
+            }
+            case GamePhase.MOVE:
+                break;
+            case GamePhase.RESOLVE:
+                break;
+            case GamePhase.END:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-        
-        pawnSelector.OpenAndInitialize(tileView);
     }
     
     public void OnSetupPawnSelectorSelected(TileView tileView, PawnDef pawnDef)
     {
-        gameState.OnSetupPawnSelectorSelected(pawnDef, tileView.tile.pos);
+        gameState.OnSetupPawnSelectorSelected(pawnDef,  tileView.tile);
     }
     
     public void QuitGame()
@@ -81,7 +103,7 @@ public class GameManager : MonoBehaviour
     {
         // clear all game related stuff
         gameState = null;
-        BoardManager.instance.ClearBoard();
+        boardManager.ClearBoard();
         mainMenu.ShowMainMenu(true);
     }
 
@@ -91,14 +113,9 @@ public class GameManager : MonoBehaviour
         gameState = new GameState(tempBoardDef);
         mainMenu.ShowMainMenu(false);
         gameState.ChangePhase(GamePhase.SETUP);
-        BoardManager.instance.StartBoard(true, gameState);
-    }
-
-    public void StartGame(bool isHost, BoardDef boardDef)
-    {
-        gameState = new GameState(boardDef);
-        BoardManager.instance.StartBoard(isHost, gameState);
+        boardManager.StartBoard(Player.RED, gameState);
         
+        // for testing
+        boardManager2.StartBoard(Player.BLUE, gameState);
     }
-    
 }

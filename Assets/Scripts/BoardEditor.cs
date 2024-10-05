@@ -53,21 +53,19 @@ public class BoardEditor : Editor
                     if (!tile.isPassable)
                     {
                         GUI.backgroundColor = Color.black;  // Set background to black if not passable
-                        tile.tileSetup = TileSetup.NONE;  // Automatically set tileSetup to NONE if not passable
+                        tile.setupPlayer = Player.NONE;  // Automatically set tileSetup to NONE if not passable
                     }
                     else
                     {
                         GUI.backgroundColor = Color.white;  // Set background to default white if passable
                     }
 
-                    if (tile.tileSetup == TileSetup.RED)
+                    GUI.backgroundColor = tile.setupPlayer switch
                     {
-                        GUI.backgroundColor = Color.red;  // Set background to red if tile setup is RED
-                    }
-                    else if (tile.tileSetup == TileSetup.BLUE)
-                    {
-                        GUI.backgroundColor = Color.blue;  // Set background to blue if tile setup is BLUE
-                    }
+                        Player.RED => Color.red,
+                        Player.BLUE => Color.blue,
+                        _ => GUI.backgroundColor
+                    };
 
                     // Display each tile with the specified width
                     GUILayout.BeginVertical("box", GUILayout.Width(tileWidth));  // Use GUILayout.Width to enforce the tile width
@@ -77,7 +75,7 @@ public class BoardEditor : Editor
                     // Set a fixed width for the enum dropdown to prevent tile from expanding
                     GUILayout.Label("Passable", GUILayout.Width(90));  // Adjust the width for the label
                     tile.isPassable = EditorGUILayout.Toggle(tile.isPassable, GUILayout.Width(20));  // Adjust the width for the toggle
-                    tile.tileSetup = (TileSetup)EditorGUILayout.EnumPopup(tile.tileSetup, GUILayout.Width(tileWidth));
+                    tile.setupPlayer = (Player)EditorGUILayout.EnumPopup(tile.setupPlayer, GUILayout.Width(tileWidth));
                     
                     GUILayout.EndVertical();  // End the vertical layout for the tile
                 }
