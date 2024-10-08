@@ -1,17 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using UnityEngine;
 
 public class GameServer
 {
     public static GameServer instance;
 
-    public GameState gameState;
-
-    public PlayerProfile hostProfile;
-    public PlayerProfile guestProfile;
-
     public event Action<GameState> GameStarted;
+    public List<GameInstance> games;
     public GameServer()
     {
         instance = this;
@@ -19,16 +15,15 @@ public class GameServer
     
     public async Task ReqStartGameAsync(BoardDef boardDef, PlayerProfile inHostProfile, PlayerProfile inGuestProfile)
     {
-        await Task.Delay(5000);
-        gameState = new GameState(boardDef);
-        hostProfile = inHostProfile;
-        guestProfile = inGuestProfile;
-        SendGameStarted();
+        await Task.Delay(1000);
+        GameInstance newGame = new GameInstance(boardDef, inHostProfile, inGuestProfile);
+        games.Add(newGame);
+        SendGameStarted(newGame);
     }
 
-    void SendGameStarted()
+    void SendGameStarted(GameInstance game)
     {
-        GameStarted?.Invoke(gameState);
+        GameStarted?.Invoke(game.gameState);
     }
     
     public void CmdEndGame()
