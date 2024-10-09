@@ -46,7 +46,7 @@ public class NetworkManager
             Console.WriteLine("Connected to server.");
 
             // Send the alias as the first message
-            await SendAliasAsync(alias);
+            await SendMessageAsync(MessageType.ALIAS, alias);
 
             // Start the receive loop
             cts = new CancellationTokenSource();
@@ -59,7 +59,7 @@ public class NetworkManager
             throw;
         }
     }
-public void Disconnect()
+    public void Disconnect()
     {
         if (isConnected)
         {
@@ -71,51 +71,35 @@ public void Disconnect()
         }
     }
 
-    public async Task SendMoveAsync(string move)
+    public async Task SendMessageAsync(MessageType type, string message)
     {
-        if (isConnected && stream != null)
+        byte[] data = Encoding.UTF8.GetBytes(message);
+        byte[] serializedMessage = MessageSerializer.SerializeMessage(type, data);
+        try
         {
-            try
-            {
-                byte[] data = Encoding.UTF8.GetBytes(move);
-                byte[] message = MessageSerializer.SerializeMessage(MessageType.MOVE, data);
-                await stream.WriteAsync(message, 0, message.Length);
-                await stream.FlushAsync();
-                Console.WriteLine("Sent to server: MOVE:" + move);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Send error: {e.Message}");
-                OnErrorReceived?.Invoke("Send error: " + e.Message);
-            }
+            await stream.WriteAsync(serializedMessage, 0, serializedMessage.Length);
+            await stream.FlushAsync();
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("Cannot send move. Not connected to server.");
-            OnErrorReceived?.Invoke("Cannot send move. Not connected to server.");
+            Console.WriteLine($"Error sending message: {ex.Message}");
         }
     }
-
-    private async Task SendAliasAsync(string alias)
+    
+    // Overload for byte array data
+    public async Task SendMessageAsync(MessageType type, byte[] data)
     {
-        if (isConnected && stream != null)
+        byte[] message = MessageSerializer.SerializeMessage(type, data);
+        try
         {
-            try
-            {
-                byte[] data = Encoding.UTF8.GetBytes(alias);
-                byte[] message = MessageSerializer.SerializeMessage(MessageType.ALIAS, data);
-                await stream.WriteAsync(message, 0, message.Length);
-                await stream.FlushAsync();
-                Console.WriteLine("Sent alias to server: " + alias);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Send alias error: {e.Message}");
-                OnErrorReceived?.Invoke("Send alias error: " + e.Message);
-            }
+            await stream.WriteAsync(message, 0, message.Length);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error sending message: {ex.Message}");
         }
     }
-
+    
     private async Task ReceiveDataAsync(CancellationToken token)
     {
         try
@@ -197,7 +181,9 @@ public enum MessageType : uint
     ECHO = 3,           // Server echoes a message
     MOVE = 4,           // Client sends a move
     ERROR = 5,          // Server sends an error message
-    UPDATE = 6          // Server sends game state updates
+    UPDATE = 6,          // Server sends game state updates
+    NEWGAME = 7,        // Client requests to start a new game with a password
+    JOINGAME = 8        // Client requests to join an existing game using a password
 }
 
 public static class MessageSerializer

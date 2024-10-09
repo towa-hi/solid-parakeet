@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -25,6 +26,23 @@ public class GameClient
         await networkManager.ConnectToServerAsync(serverIP, serverPort, alias);
     }
 
+    public async Task CreateNewGameAsync(int[] password)
+    {
+        if (password.Length != 5)
+        {
+            Debug.LogError("Password must consist of exactly five integers");
+            return;
+        }
+        byte[] passwordBytes = new byte[20];
+        for (int i = 0; i < 5; i++)
+        {
+            byte[] intBytes = BitConverter.GetBytes(password[i]);
+            Array.Copy(intBytes, 0, passwordBytes, i * 4, 4);
+        }
+
+        await networkManager.SendMessageAsync(MessageType.NEWGAME, passwordBytes);
+        Debug.Log("Sent NEWGAME request to server.");
+    }
     public void Stop()
     {
         networkManager.Disconnect();

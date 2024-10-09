@@ -176,6 +176,105 @@ public class GameServer
         }
     }
 
+    async Task HandleNewGameAsync(ClientInfo client, byte[] data)
+    {
+        // Extract the password (five integers)
+        if (data.Length != 20) // 5 integers * 4 bytes each
+        {
+            await SendErrorAsync(client.stream, "Invalid password length. Expected five integers.");
+            return;
+        }
+
+        int[] password = new int[5];
+        for (int i = 0; i < 5; i++)
+        {
+            password[i] = BitConverter.ToInt32(data, i * 4);
+        }
+
+        // Check if a game with the same password already exists
+        bool exists = false;
+        foreach (var session in activeGames.Values)
+        {
+            if (session.password.Length == password.Length && session.password.SequenceEqual(password))
+            {
+                exists = true;
+                break;
+            }
+        }
+
+        if (exists)
+        {
+            await SendErrorAsync(client.stream, "A game with this password already exists.");
+            return;
+        }
+
+        // Create a new game session
+        GameSession newSession = new GameSession(password, client);
+        activeGames.TryAdd(newSession.sessionId, newSession);
+        Console.WriteLine($"New game session {newSession.sessionId} created by '{client.alias}' with password [{string.Join(", ", password)}].");
+
+        // Optionally, send a confirmation to the host
+        await SendMessageAsync(client.stream, MessageType.WELCOME, "Game session created successfully. Waiting for another player to join.");
+
+    }
+
+    async Task HandleJoinGameAsync(ClientInfo client, byte[] data)
+    {
+        // Extract the password (five integers)
+        if (data.Length != 20) // 5 integers * 4 bytes each
+        {
+            await SendErrorAsync(client.stream, "Invalid password length. Expected five integers.");
+            return;
+        }
+
+        int[] password = new int[5];
+        for (int i = 0; i < 5; i++)
+        {
+            password[i] = BitConverter.ToInt32(data, i * 4);
+        }
+
+        // Find the game session with the matching password
+        GameSession targetSession = null;
+        foreach (var session in activeGames.Values)
+        {
+            if (session.password.Length == password.Length && session.password.SequenceEqual(password))
+            {
+                targetSession = session;
+                break;
+            }
+        }
+
+        if (targetSession == null)
+        {
+            await SendErrorAsync(client.stream, "No game session found with the provided password.");
+            return;
+        }
+
+        // Attempt to add the client to the game session
+        bool added = targetSession.AddPlayer(client);
+        if (!added)
+        {
+            await SendErrorAsync(client.stream, "The game session is already full.");
+            return;
+        }
+
+        Console.WriteLine($"Client '{client.alias}' joined game session {targetSession.sessionId}.");
+
+        // Notify both players that the game is starting
+        foreach (var player in targetSession.players)
+        {
+            string startMessage = "Both players have joined. The game is starting!";
+            await SendMessageAsync(player.stream, MessageType.WELCOME, startMessage);
+        }
+
+        // Optionally, remove the session from activeGames if it's now full
+        if (targetSession.players.Count >= 2)
+        {
+            // You can implement further game state initialization here
+            Console.WriteLine($"Game session {targetSession.sessionId} is now full and ready to start.");
+        }
+    }
+    
     public async Task SendMessageAsync(NetworkStream stream, MessageType type, string message)
     {
         byte[] data = Encoding.UTF8.GetBytes(message);
@@ -212,7 +311,7 @@ public class GameServer
     }
     
     // Method to process client messages based on message type
-    public async Task ProcessClientMessageAsync(ClientInfo client, MessageType type, byte[] data)
+    async Task ProcessClientMessageAsync(ClientInfo client, MessageType type, byte[] data)
     {
         switch (type)
         {
@@ -233,9 +332,19 @@ public class GameServer
                 break;
 
             case MessageType.ALIAS:
+                break;
             case MessageType.WELCOME:
+                break;
             case MessageType.ERROR:
+                break;
             case MessageType.UPDATE:
+                break;
+            case MessageType.NEWGAME:
+                await HandleNewGameAsync(client, data);
+                break;
+            case MessageType.JOINGAME:
+                await HandleJoinGameAsync(client, data);
+                break;
             default:
                 Console.WriteLine($"Unknown message type from '{client.alias}': {type}");
                 await SendErrorAsync(client.stream, "Unknown message type.");
@@ -255,7 +364,34 @@ public class ClientInfo
 
 class GameSession
 {
-    
+    public Guid sessionId;
+    public int[] password;
+    public List<ClientInfo> players;
+
+    public GameSession(int[] inPassword, ClientInfo inHost)
+    {
+        if (password.Length != 5)
+        {
+            throw new ArgumentException("Password must consist of exactly five integers.");
+        }
+
+        sessionId = Guid.NewGuid();
+        password = inPassword;
+        players = new List<ClientInfo>{inHost};
+    }
+
+    public bool AddPlayer(ClientInfo client)
+    {
+        if (players.Count >= 2)
+            return false; // Assuming a two-player game
+
+        if (!players.Contains(client))
+        {
+            players.Add(client);
+            return true;
+        }
+        return false;
+    }
 }
 
 
@@ -323,7 +459,9 @@ public enum MessageType : uint
     ECHO = 3,           // Server echoes a message
     MOVE = 4,           // Client sends a move
     ERROR = 5,          // Server sends an error message
-    UPDATE = 6          // Server sends game state updates
+    UPDATE = 6,          // Server sends game state updates
+    NEWGAME = 7,        // Client requests to start a new game with a password
+    JOINGAME = 8        // Client requests to join an existing game using a password
 }
 
 
