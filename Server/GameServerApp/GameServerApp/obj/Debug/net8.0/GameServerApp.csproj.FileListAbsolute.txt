@@ -1,0 +1,15 @@
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\bin\Debug\net8.0\GameServerApp.exe
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\bin\Debug\net8.0\GameServerApp.deps.json
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\bin\Debug\net8.0\GameServerApp.runtimeconfig.json
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\bin\Debug\net8.0\GameServerApp.dll
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\bin\Debug\net8.0\GameServerApp.pdb
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.AssemblyInfoInputs.cache
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.AssemblyInfo.cs
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.csproj.CoreCompileInputs.cache
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.sourcelink.json
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.dll
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\refint\GameServerApp.dll
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.pdb
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.genruntimeconfig.cache
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\ref\GameServerApp.dll

@@ -70,27 +70,27 @@ public class GameManager : MonoBehaviour
 
     public void OnTileClicked(TileView tileView, Vector2 mousePos)
     {
-        switch (GameServer.instance.gameState.phase)
-        {
-            case GamePhase.UNINITIALIZED:
-                break;
-            case GamePhase.SETUP:
-            {
-                if (tileView.IsTileInteractableDuringSetup())
-                {
-                    pawnSelector.OpenAndInitialize(tileView);
-                }
-                break;
-            }
-            case GamePhase.MOVE:
-                break;
-            case GamePhase.RESOLVE:
-                break;
-            case GamePhase.END:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
+        // switch (GameServer.instance.gameState.phase)
+        // {
+        //     case GamePhase.UNINITIALIZED:
+        //         break;
+        //     case GamePhase.SETUP:
+        //     {
+        //         if (tileView.IsTileInteractableDuringSetup())
+        //         {
+        //             pawnSelector.OpenAndInitialize(tileView);
+        //         }
+        //         break;
+        //     }
+        //     case GamePhase.MOVE:
+        //         break;
+        //     case GamePhase.RESOLVE:
+        //         break;
+        //     case GamePhase.END:
+        //         break;
+        //     default:
+        //         throw new ArgumentOutOfRangeException();
+        // }
     }
     
     public void OnSetupPawnSelectorSelected(TileView tileView, PawnDef pawnDef)
