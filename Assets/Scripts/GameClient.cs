@@ -51,6 +51,8 @@ public class GameClient
     void OnWelcomeReceived(string message)
     {
         Debug.Log("Server welcome: " + message);
+        GameManager.instance.SetIsLoading(false);
+        PasswordModal.instance.Show(true);
     }
     
     void OnEchoReceived(string message)

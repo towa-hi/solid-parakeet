@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -50,10 +51,7 @@ public class GameManager : MonoBehaviour
         gameClient = new GameClient(networkManager);
         ChangeAppState(appState);
         Globals.inputActions.Enable();
-        if (GameServer.instance == null)
-        {
-            GameServer.instance = new GameServer();
-        }
+        PasswordModal.instance.Show(false);
         
     }
     
@@ -74,10 +72,90 @@ public class GameManager : MonoBehaviour
 
     public void StartGame()
     {
-        _ = gameClient.StartAsync("127.0.0.1", 12345, "bob");
+        SetIsLoading(true);
+        try
+        {
+            // StartAsync: Connect to the server and send the alias
+            _ = gameClient.StartAsync("127.0.0.1", 12345, "bob");
+            
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error during matchmaking: {e.Message}");
+            // Optionally, display an error message to the user via UI
+        }
+        
         //ChangeAppState(AppState.GAME);
     }
 
+    public async void OnPasswordEntered(string password)
+    {
+        PasswordModal.instance.Show(false);
+        Debug.Log(password);
+        int[] passwordInts = ParsePassword(password);
+        SetIsLoading(true);
+        try
+        {
+            // CreateNewGameAsync: Send NEWGAME message with the password
+            await gameClient.CreateNewGameAsync(passwordInts);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error during matchmaking: {e.Message}");
+            // Optionally, display an error message to the user via UI
+        }
+        finally
+        {
+            // Hide the loading screen
+            SetIsLoading(false);
+        }
+    }
+    
+    private int[] ParsePassword(string password)
+    {
+        // Remove any non-digit and non-separator characters
+        string cleanedPassword = Regex.Replace(password, "[^0-9, ]", "");
+
+        // Split the string by commas or spaces
+        string[] parts = cleanedPassword.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 5)
+        {
+            int[] passwordInts = new int[5];
+            for (int i = 0; i < 5; i++)
+            {
+                if (!int.TryParse(parts[i], out passwordInts[i]))
+                {
+                    Debug.LogError($"Failed to parse part {i + 1}: '{parts[i]}'");
+                    return null; // Parsing failed
+                }
+            }
+            Debug.Log($"Parsed password with separators: [{string.Join(", ", passwordInts)}]");
+            return passwordInts;
+        }
+        else if (cleanedPassword.Length == 5)
+        {
+            int[] passwordInts = new int[5];
+            for (int i = 0; i < 5; i++)
+            {
+                char c = cleanedPassword[i];
+                if (!char.IsDigit(c))
+                {
+                    Debug.LogError($"Non-digit character found at position {i + 1}: '{c}'");
+                    return null; // Invalid character
+                }
+                passwordInts[i] = c - '0';
+            }
+            Debug.Log($"Parsed password without separators: [{string.Join(", ", passwordInts)}]");
+            return passwordInts;
+        }
+        else
+        {
+            Debug.LogError($"Invalid password format. Expected 5 integers separated by commas/spaces or a continuous 5-digit number. Received: '{password}'");
+            return null; // Invalid format
+        }
+    }
+    
     public void OnTileClicked(TileView tileView, Vector2 mousePos)
     {
         // switch (GameServer.instance.gameState.phase)
@@ -132,8 +210,6 @@ public class GameManager : MonoBehaviour
         //gameState = new GameState(tempBoardDef);
         mainMenu.ShowMainMenu(false);
         SetIsLoading(true);
-        GameServer.instance.GameStarted += ResGameStarted;
-        await GameServer.instance.ReqStartGameAsync(tempBoardDef, hostProfile, guestProfile);
     }
 
     void ResGameStarted(GameState state)
@@ -143,7 +219,7 @@ public class GameManager : MonoBehaviour
         SetIsLoading(false);
     }
 
-    void SetIsLoading(bool inIsLoading)
+    public void SetIsLoading(bool inIsLoading)
     {
         isLoading = inIsLoading;
         LoadingScreen.instance.ShowLoadingScreen(isLoading);

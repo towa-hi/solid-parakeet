@@ -38,16 +38,27 @@ public class NetworkManager
         serverPort = inServerPort;
 
         try
-        {
+        {        
+            Console.WriteLine($"Attempting to connect to server at {serverIP}:{serverPort}");
             client = new TcpClient();
             await client.ConnectAsync(serverIP, serverPort);
             stream = client.GetStream();
             isConnected = true;
             Console.WriteLine("Connected to server.");
 
+            if (stream == null)
+            {
+                Console.WriteLine("NetworkStream is null after connecting.");
+                throw new Exception("Failed to get NetworkStream.");
+            }
+            else
+            {
+                Console.WriteLine("NetworkStream successfully obtained.");
+            }
+            Console.WriteLine("Sending ALIAS message to server.");
             // Send the alias as the first message
             await SendMessageAsync(MessageType.ALIAS, alias);
-
+            Console.WriteLine("ALIAS message sent.");
             // Start the receive loop
             cts = new CancellationTokenSource();
             _ = ReceiveDataAsync(cts.Token);
