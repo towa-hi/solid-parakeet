@@ -147,6 +147,7 @@ public class GameServer
                 catch (Exception e)
                 {
                     Console.WriteLine($"Error reading from client '{alias}': {e.Message}");
+                    Console.WriteLine($"Stack Trace: {e.StackTrace}");
                     break;
                 }
             }
@@ -370,7 +371,7 @@ class GameSession
 
     public GameSession(int[] inPassword, ClientInfo inHost)
     {
-        if (password.Length != 5)
+        if (inPassword.Length != 5)
         {
             throw new ArgumentException("Password must consist of exactly five integers.");
         }
