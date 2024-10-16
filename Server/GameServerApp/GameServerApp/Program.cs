@@ -81,9 +81,17 @@ public class GameServer
             }
         });
     }
+
+    enum HandleClientRes
+    {
+        ALIASREGISTERED = 0,
+        ALIASINVALID = 1,
+        ALIASALREADYUSED = 2,
+    }
     
     async Task HandleClientAsync(TcpClient tcpClient)
     {
+
         NetworkStream stream = tcpClient.GetStream();
         string alias = null;
         try
@@ -101,10 +109,20 @@ public class GameServer
             Console.WriteLine($"Received alias: {alias}");
 
             // Step 2: Validate the alias
-            if (string.IsNullOrWhiteSpace(alias) || clients.ContainsKey(alias))
+            if (!IsAliasValid(alias))
             {
-                await SendErrorAsync(stream, "Invalid or duplicate alias.");
-                Console.WriteLine($"Alias '{alias}' is invalid or already in use. Disconnecting client.");
+                int aliasIsNotValid = 1;
+                await SendMessageAsync(stream, MessageType.WELCOME, BitConverter.GetBytes((int)HandleClientRes.ALIASINVALID));
+                Console.WriteLine($"Alias '{alias}' is invalid. Disconnecting client.");
+                tcpClient.Close();
+                return;
+            }
+            
+            if (clients.ContainsKey(alias))
+            {
+                int aliasAlreadyExists = 2;
+                await SendMessageAsync(stream, MessageType.WELCOME, BitConverter.GetBytes((int)HandleClientRes.ALIASALREADYUSED));
+                Console.WriteLine($"Alias '{alias}' is already in use. Disconnecting client.");
                 tcpClient.Close();
                 return;
             }
@@ -129,9 +147,8 @@ public class GameServer
 
             Console.WriteLine($"Client '{alias}' registered successfully.");
 
-            // Step 4: Send a welcome message to the client
-            string welcomeMessage = $"Welcome {alias}!";
-            await SendMessageAsync(stream, MessageType.WELCOME, welcomeMessage);
+            // Step 4: Send a response to client
+            await SendMessageAsync(stream, MessageType.WELCOME, BitConverter.GetBytes((int)HandleClientRes.ALIASREGISTERED));
 
             // Step 5: Continuously listen for client messages
             while (isRunning && tcpClient.Connected)
@@ -177,12 +194,26 @@ public class GameServer
         }
     }
 
+    enum HandleNewGameRes
+    {
+        NEWSESSIONCREATED = 0,
+        CLIENTALREADYINSESSION = 1,
+        PASSWORDINVALID = 2,
+        PASSWORDALREADYEXISTS = 3,
+    }
+    
     async Task HandleNewGameAsync(ClientInfo client, byte[] data)
     {
+        if (client.isInSession)
+        {
+            await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.CLIENTALREADYINSESSION));
+            return;
+        }
+        
         // Extract the password (five integers)
         if (data.Length != 20) // 5 integers * 4 bytes each
         {
-            await SendErrorAsync(client.stream, "Invalid password length. Expected five integers.");
+            await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.PASSWORDINVALID));
             return;
         }
 
@@ -205,17 +236,17 @@ public class GameServer
 
         if (exists)
         {
-            await SendErrorAsync(client.stream, "A game with this password already exists.");
+            await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.PASSWORDALREADYEXISTS));
             return;
         }
 
+        client.isInSession = true;
         // Create a new game session
         GameSession newSession = new GameSession(password, client);
         activeGames.TryAdd(newSession.sessionId, newSession);
         Console.WriteLine($"New game session {newSession.sessionId} created by '{client.alias}' with password [{string.Join(", ", password)}].");
 
-        // Optionally, send a confirmation to the host
-        await SendMessageAsync(client.stream, MessageType.WELCOME, "Game session created successfully. Waiting for another player to join.");
+        await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.NEWSESSIONCREATED));
 
     }
 
@@ -310,6 +341,11 @@ public class GameServer
     {
         await SendMessageAsync(stream, MessageType.ERROR, errorMessage);
     }
+
+    public async Task SendIntResponseAsync(NetworkStream stream, int response)
+    {
+        
+    }
     
     // Method to process client messages based on message type
     async Task ProcessClientMessageAsync(ClientInfo client, MessageType type, byte[] data)
@@ -352,6 +388,20 @@ public class GameServer
                 break;
         }
     }
+
+    const int ALIASMAXLENGTH = 20;
+    static bool IsAliasValid(string alias)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            return false;
+        }
+        if (alias.Length > ALIASMAXLENGTH)
+        {
+            return false;
+        }
+        return true;
+    }
 }
 
 public class ClientInfo
@@ -360,7 +410,7 @@ public class ClientInfo
     public TcpClient tcpClient;
     public NetworkStream stream;
     public IPAddress ipAddress;
-    
+    public bool isInSession;
 }
 
 class GameSession
@@ -462,7 +512,7 @@ public enum MessageType : uint
     ERROR = 5,          // Server sends an error message
     UPDATE = 6,          // Server sends game state updates
     NEWGAME = 7,        // Client requests to start a new game with a password
-    JOINGAME = 8        // Client requests to join an existing game using a password
+    JOINGAME = 8,        // Client requests to join an existing game using a password
 }
 
 

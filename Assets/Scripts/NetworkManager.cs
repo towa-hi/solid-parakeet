@@ -19,11 +19,12 @@ public class NetworkManager
 
     ConcurrentQueue<(MessageType, byte[])> messageQueue = new ConcurrentQueue<(MessageType, byte[])>();
 
-    public event Action<string> OnWelcomeReceived;
-    public event Action<string> OnEchoReceived;
+    public event Action<int> OnWelcomeReceived;
+    public event Action<int> OnEchoReceived;
     public event Action<string> OnMoveReceived;
     public event Action<string> OnErrorReceived;
     public event Action<string> OnUpdateReceived;
+    public event Action<int> OnNewGameReceived;
     
     CancellationTokenSource cts;
 
@@ -141,35 +142,39 @@ public class NetworkManager
             switch (type)
             {
                 case MessageType.WELCOME:
-                    string welcome = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Server: " + welcome);
+                    int welcome = BitConverter.ToInt32(data, 0);
+                    Console.WriteLine("Welcome: " + welcome);
                     OnWelcomeReceived?.Invoke(welcome);
                     break;
 
                 case MessageType.ECHO:
-                    string echo = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Echo from server: " + echo);
+                    int echo = BitConverter.ToInt32(data, 0);
+                    Console.WriteLine("Echo: " + echo);
                     OnEchoReceived?.Invoke(echo);
                     break;
 
                 case MessageType.MOVE:
                     string move = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Move received: " + move);
+                    Console.WriteLine("Move: " + move);
                     OnMoveReceived?.Invoke(move);
                     break;
 
                 case MessageType.ERROR:
                     string error = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Error from server: " + error);
+                    Console.WriteLine("Error: " + error);
                     OnErrorReceived?.Invoke(error);
                     break;
 
                 case MessageType.UPDATE:
                     string update = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Update from server: " + update);
+                    Console.WriteLine("Update: " + update);
                     OnErrorReceived?.Invoke(update);
                     break;
-
+                case MessageType.NEWGAME:
+                    int newgame = BitConverter.ToInt32(data, 0);
+                    Console.WriteLine("Newgame: " + newgame);
+                    OnNewGameReceived?.Invoke(newgame);
+                    break;
                 default:
                     Console.WriteLine($"Unknown message type received: {type}");
                     OnErrorReceived?.Invoke("Unknown message type received.");
