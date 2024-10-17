@@ -15,7 +15,7 @@ public class NetworkManager
     TcpClient client;
     NetworkStream stream;
 
-    bool isConnected = false;
+    public bool isConnected = false;
 
     ConcurrentQueue<(MessageType, byte[])> messageQueue = new ConcurrentQueue<(MessageType, byte[])>();
 
@@ -56,13 +56,13 @@ public class NetworkManager
             {
                 Console.WriteLine("NetworkStream successfully obtained.");
             }
-            Console.WriteLine("Sending ALIAS message to server.");
-            // Send the alias as the first message
-            await SendMessageAsync(MessageType.ALIAS, alias);
-            Console.WriteLine("ALIAS message sent.");
-            // Start the receive loop
-            cts = new CancellationTokenSource();
-            _ = ReceiveDataAsync(cts.Token);
+            // Console.WriteLine("Sending ALIAS message to server.");
+            // // Send the alias as the first message
+            // await SendMessageAsync(MessageType.ALIAS, alias);
+            // Console.WriteLine("ALIAS message sent.");
+            // // Start the receive loop
+            // cts = new CancellationTokenSource();
+            // _ = ReceiveDataAsync(cts.Token);
         }
         catch (Exception e)
         {
@@ -141,39 +141,10 @@ public class NetworkManager
             var (type, data) = message;
             switch (type)
             {
-                case MessageType.WELCOME:
-                    int welcome = BitConverter.ToInt32(data, 0);
-                    Console.WriteLine("Welcome: " + welcome);
-                    OnWelcomeReceived?.Invoke(welcome);
-                    break;
-
-                case MessageType.ECHO:
-                    int echo = BitConverter.ToInt32(data, 0);
-                    Console.WriteLine("Echo: " + echo);
-                    OnEchoReceived?.Invoke(echo);
-                    break;
-
-                case MessageType.MOVE:
-                    string move = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Move: " + move);
-                    OnMoveReceived?.Invoke(move);
-                    break;
-
-                case MessageType.ERROR:
-                    string error = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Error: " + error);
-                    OnErrorReceived?.Invoke(error);
-                    break;
-
-                case MessageType.UPDATE:
-                    string update = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Update: " + update);
-                    OnErrorReceived?.Invoke(update);
-                    break;
-                case MessageType.NEWGAME:
-                    int newgame = BitConverter.ToInt32(data, 0);
-                    Console.WriteLine("Newgame: " + newgame);
-                    OnNewGameReceived?.Invoke(newgame);
+                case MessageType.CONNECTION:
+                    string connection = Encoding.UTF8.GetString(data);
+                    Console.WriteLine("Welcome: " + connection);
+                    //OnWelcomeReceived?.Invoke(connection);
                     break;
                 default:
                     Console.WriteLine($"Unknown message type received: {type}");
@@ -189,70 +160,65 @@ public class GameMessage
     public string type;
     public object data;
 }
-
-public enum MessageType : uint
-{
-    ALIAS = 1,          // Client sends their alias upon connection
-    WELCOME = 2,        // Server sends a welcome message
-    ECHO = 3,           // Server echoes a message
-    MOVE = 4,           // Client sends a move
-    ERROR = 5,          // Server sends an error message
-    UPDATE = 6,          // Server sends game state updates
-    NEWGAME = 7,        // Client requests to start a new game with a password
-    JOINGAME = 8        // Client requests to join an existing game using a password
-}
-
-public static class MessageSerializer
-{
-    public static byte[] SerializeMessage(MessageType type, byte[] data)
-    {
-        using MemoryStream ms = new MemoryStream();
-        // Convert MessageType to bytes (4 bytes, little endian)
-        byte[] typeBytes = BitConverter.GetBytes((uint)type);
-        ms.Write(typeBytes, 0, typeBytes.Length);
-
-        // Convert data length to bytes (4 bytes, little endian)
-        byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
-        ms.Write(lengthBytes, 0, lengthBytes.Length);
-
-        // Write data bytes
-        ms.Write(data, 0, data.Length);
-
-        return ms.ToArray();
-    }
-}
-
-public static class MessageDeserializer
-{
-    public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
-    {
-        byte[] header = new byte[8];
-        int bytesRead = 0;
-        while (bytesRead < 8)
-        {
-            int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
-            if (read == 0)
-                throw new Exception("Disconnected");
-            bytesRead += read;
-        }
-
-        // Read message type
-        MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
-
-        // Read data length
-        uint length = BitConverter.ToUInt32(header, 4);
-
-        // Read data
-        byte[] data = new byte[length];
-        bytesRead = 0;
-        while (bytesRead < length)
-        {
-            int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
-            if (read == 0)
-                throw new Exception("Disconnected during data reception");
-            bytesRead += read;
-        }
-
-        return (type, data);
-    }
-}
+//
+// public enum MessageType : uint
+// {
+//     SERVERERROR,
+//     CONNECTION,
+//     REGISTERNICKNAME,
+// }
+//
+// public static class MessageSerializer
+// {
+//     public static byte[] SerializeMessage(MessageType type, byte[] data)
+//     {
+//         using MemoryStream ms = new MemoryStream();
+//         // Convert MessageType to bytes (4 bytes, little endian)
+//         byte[] typeBytes = BitConverter.GetBytes((uint)type);
+//         ms.Write(typeBytes, 0, typeBytes.Length);
+//
+//         // Convert data length to bytes (4 bytes, little endian)
+//         byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
+//         ms.Write(lengthBytes, 0, lengthBytes.Length);
+//
+//         // Write data bytes
+//         ms.Write(data, 0, data.Length);
+//
+//         return ms.ToArray();
+//     }
+// }
+//
+// public static class MessageDeserializer
+// {
+//     public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
+//     {
+//         byte[] header = new byte[8];
+//         int bytesRead = 0;
+//         while (bytesRead < 8)
+//         {
+//             int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
+//             if (read == 0)
+//                 throw new Exception("Disconnected");
+//             bytesRead += read;
+//         }
+//
+//         // Read message type
+//         MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
+//
+//         // Read data length
+//         uint length = BitConverter.ToUInt32(header, 4);
+//
+//         // Read data
+//         byte[] data = new byte[length];
+//         bytesRead = 0;
+//         while (bytesRead < length)
+//         {
+//             int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
+//             if (read == 0)
+//                 throw new Exception("Disconnected during data reception");
+//             bytesRead += read;
+//         }
+//
+//         return (type, data);
+//     }
+// }

@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 class Program
 {
@@ -10,9 +14,7 @@ class Program
     {
         GameServer server = new GameServer(12345);
         server.Start();
-        Console.WriteLine("Press ENTER to stop the server.");
         Console.ReadLine();
-        server.Stop();
     }
 }
 
@@ -21,14 +23,15 @@ public class GameServer
     readonly TcpListener listener;
     bool isRunning;
 
-    readonly ConcurrentDictionary<string, ClientInfo> clients;
-    readonly ConcurrentDictionary<Guid, GameSession> activeGames;
+    readonly ConcurrentDictionary<Guid, ClientInfo> allClients;
+
+    // Add a cancellation token to gracefully stop the console command listener
+    private CancellationTokenSource consoleCommandCancellation = new CancellationTokenSource();
 
     public GameServer(int port)
     {
         listener = new TcpListener(IPAddress.Any, port);
-        clients = new ConcurrentDictionary<string, ClientInfo>();
-        activeGames = new ConcurrentDictionary<Guid, GameSession>();
+        allClients = new ConcurrentDictionary<Guid, ClientInfo>();
     }
 
     public void Start()
@@ -37,6 +40,9 @@ public class GameServer
         isRunning = true;
         Console.WriteLine("Game Server started.");
         ListenForClients();
+
+        // Start the console command listener
+        _ = ProcessConsoleCommands(consoleCommandCancellation.Token);
     }
 
     public void Stop()
@@ -44,19 +50,42 @@ public class GameServer
         isRunning = false;
         listener.Stop();
         Console.WriteLine("Server stopped");
-        foreach (var client in clients.Values)
+
+        // Cancel the console command listener
+        consoleCommandCancellation.Cancel();
+
+        foreach (var client in allClients.Values)
         {
             try
             {
-                SendErrorAsync(client.stream, "Server is shutting down").Wait();
+                string errorMessage = $"Error: Server stopped.";
+                Console.WriteLine(errorMessage);
+                SendMessageAsync(client, MessageType.SERVERERROR, new Response(false, 0, errorMessage)).Wait();
                 client.tcpClient.Close();
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                Console.WriteLine($"Error closing client connection: {e.Message}");
             }
         }
-        clients.Clear();
+        allClients.Clear();
+    }
+
+    async Task SendMessageAsync(ClientInfo clientInfo, MessageType type, Response response)
+    {
+        Console.WriteLine($"SendMessageAsync: '{clientInfo.ipAddress}' '{type.ToString()}' '{response.GetHeaderAsString()}'");
+        string jsonResponse = JsonConvert.SerializeObject(response);
+        byte[] data = Encoding.UTF8.GetBytes(jsonResponse);
+        byte[] serializedMessage = MessageSerializer.SerializeMessage(type, data);
+        try
+        {
+            await clientInfo.stream.WriteAsync(serializedMessage, 0, serializedMessage.Length);
+            await clientInfo.stream.FlushAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error sending message to client '{clientInfo.clientId}': {ex.Message}");
+        }
     }
 
     void ListenForClients()
@@ -68,8 +97,8 @@ public class GameServer
                 try
                 {
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
-                    Console.WriteLine("Client connected");
-                    _ = HandleClientAsync(tcpClient);
+                    Console.WriteLine($"Client connected with ip: '{((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address.ToString()}'");
+                    _ = OnClientConnected(tcpClient);
                 }
                 catch (Exception e)
                 {
@@ -82,88 +111,83 @@ public class GameServer
         });
     }
 
-    enum HandleClientRes
+    async Task OnClientConnected(TcpClient tcpClient)
     {
-        ALIASREGISTERED = 0,
-        ALIASINVALID = 1,
-        ALIASALREADYUSED = 2,
-    }
-    
-    async Task HandleClientAsync(TcpClient tcpClient)
-    {
-
         NetworkStream stream = tcpClient.GetStream();
-        string alias = null;
+        IPAddress ipAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
+        ClientInfo clientInfo = null;
+
         try
         {
-            // get client alias
-            (MessageType type, byte[] data) = await MessageDeserializer.DeserializeMessageAsync(stream);
-            if (type != MessageType.ALIAS)
+            // Wait for the client to send the registration data
+            var (msgType, msgData) = await MessageDeserializer.DeserializeMessageAsync(stream);
+
+            if (msgType != MessageType.REGISTERNICKNAME)
             {
-                await SendErrorAsync(stream, "First message must be Alias.");
+                Console.WriteLine("Expected REGISTERNICKNAME message type.");
+                await SendMessageAsync(new ClientInfo(tcpClient), MessageType.SERVERERROR, new Response(false, 1, "Expected REGISTERNICKNAME message type."));
                 tcpClient.Close();
                 return;
             }
 
-            alias = Encoding.UTF8.GetString(data).Trim();
-            Console.WriteLine($"Received alias: {alias}");
+            // Deserialize the registration data
+            string json = Encoding.UTF8.GetString(msgData);
+            var registrationData = JsonConvert.DeserializeObject<RegistrationData>(json);
 
-            // Step 2: Validate the alias
-            if (!IsAliasValid(alias))
+            if (!IsAliasValid(registrationData.Nickname))
             {
-                int aliasIsNotValid = 1;
-                await SendMessageAsync(stream, MessageType.WELCOME, BitConverter.GetBytes((int)HandleClientRes.ALIASINVALID));
-                Console.WriteLine($"Alias '{alias}' is invalid. Disconnecting client.");
-                tcpClient.Close();
-                return;
-            }
-            
-            if (clients.ContainsKey(alias))
-            {
-                int aliasAlreadyExists = 2;
-                await SendMessageAsync(stream, MessageType.WELCOME, BitConverter.GetBytes((int)HandleClientRes.ALIASALREADYUSED));
-                Console.WriteLine($"Alias '{alias}' is already in use. Disconnecting client.");
+                await SendMessageAsync(new ClientInfo(tcpClient), MessageType.SERVERERROR, new Response(false, 1, "Invalid nickname."));
                 tcpClient.Close();
                 return;
             }
 
-            // Step 3: Add the client to the clients dictionary
-            ClientInfo clientInfo = new ClientInfo
+            if (registrationData.ClientId == Guid.Empty || !allClients.TryGetValue(registrationData.ClientId, out clientInfo))
             {
-                alias = alias,
-                tcpClient = tcpClient,
-                stream = stream,
-                ipAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address
-            };
+                // New client registration
+                clientInfo = new ClientInfo(tcpClient)
+                {
+                    nickname = registrationData.Nickname,
+                    isRegistered = true,
+                    clientId = registrationData.ClientId != Guid.Empty ? registrationData.ClientId : Guid.NewGuid()
+                };
 
-            if (!clients.TryAdd(alias, clientInfo))
+                if (allClients.TryAdd(clientInfo.clientId, clientInfo))
+                {
+                    Console.WriteLine($"New client registered: {clientInfo.GetIdentifier()}");
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to add client {clientInfo.clientId} to the client list.");
+                    await SendMessageAsync(clientInfo, MessageType.SERVERERROR, new Response(false, 2, "Failed to register client."));
+                    tcpClient.Close();
+                    return;
+                }
+            }
+            else
             {
-                // Failed to add client (shouldn't happen due to prior check)
-                await SendErrorAsync(stream, "Failed to register alias.");
-                Console.WriteLine($"Failed to add client with alias '{alias}'. Disconnecting.");
-                tcpClient.Close();
-                return;
+                // Existing client reconnecting
+                clientInfo.isConnected = true;
+                clientInfo.nickname = registrationData.Nickname;
+                clientInfo.tcpClient = tcpClient;
+                clientInfo.stream = stream;
+                clientInfo.ipAddress = ipAddress;
+                Console.WriteLine($"Client reconnected: {clientInfo.GetIdentifier()}");
             }
 
-            Console.WriteLine($"Client '{alias}' registered successfully.");
+            // Send acknowledgment to the client
+            string ackMessage = $"Client '{clientInfo.nickname}' connected successfully.";
+            await SendMessageAsync(clientInfo, MessageType.CONNECTION, new Response(true, 0, ackMessage));
 
-            // Step 4: Send a response to client
-            await SendMessageAsync(stream, MessageType.WELCOME, BitConverter.GetBytes((int)HandleClientRes.ALIASREGISTERED));
-
-            // Step 5: Continuously listen for client messages
             while (isRunning && tcpClient.Connected)
             {
                 try
                 {
-                    var (msgType, msgData) = await MessageDeserializer.DeserializeMessageAsync(stream);
-                    Console.WriteLine($"Received from '{alias}': Type={msgType}, Data Length={msgData.Length}");
-
-                    // Process the received message based on its type
-                    await ProcessClientMessageAsync(clientInfo, msgType, msgData);
+                    var (msgType2, msgData2) = await MessageDeserializer.DeserializeMessageAsync(clientInfo.stream);
+                    await ProcessClientMessageAsync(clientInfo, msgType2, msgData2);
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Error reading from client '{alias}': {e.Message}");
+                    Console.WriteLine($"Error reading from client '{clientInfo.ipAddress.ToString()}': {e.Message}");
                     Console.WriteLine($"Stack Trace: {e.StackTrace}");
                     break;
                 }
@@ -171,220 +195,43 @@ public class GameServer
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Exception handling client '{alias}': {e.Message}");
-            throw;
+            Console.WriteLine($"Exception in OnClientConnected: {e.Message}");
         }
         finally
         {
-            // Step 6: Clean up after client disconnects
-            if (!string.IsNullOrEmpty(alias))
+            if (clientInfo != null)
+                OnClientAbruptDisconnect(clientInfo);
+            else
+                tcpClient.Close();
+        }
+    }
+
+    void OnClientAbruptDisconnect(ClientInfo clientInfo)
+    {
+        Console.WriteLine($"Client '{clientInfo.GetIdentifier()}' disconnected abruptly.");
+        clientInfo.isConnected = false;
+
+        // Start a timer to remove the client after 5 minutes if they don't reconnect
+        Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromMinutes(5));
+            if (!clientInfo.isConnected)
             {
-                if (clients.TryRemove(alias, out ClientInfo removedClient))
+                if (allClients.TryRemove(clientInfo.clientId, out _))
                 {
-                    Console.WriteLine($"Client '{alias}' removed from active clients.");
-                    // Optionally, handle game session termination or reassignment
+                    Console.WriteLine($"Client '{clientInfo.GetIdentifier()}' has been deregistered after timeout.");
                 }
             }
-            // Ensure the client is properly closed
-            if (tcpClient.Connected)
-            {
-                tcpClient.Close();
-            }
-            Console.WriteLine($"Connection with client '{alias}' closed.");
-        }
+        });
     }
 
-    enum HandleNewGameRes
+    async Task ProcessClientMessageAsync(ClientInfo client, MessageType messageType, byte[] data)
     {
-        NEWSESSIONCREATED = 0,
-        CLIENTALREADYINSESSION = 1,
-        PASSWORDINVALID = 2,
-        PASSWORDALREADYEXISTS = 3,
-    }
-    
-    async Task HandleNewGameAsync(ClientInfo client, byte[] data)
-    {
-        if (client.isInSession)
+        switch (messageType)
         {
-            await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.CLIENTALREADYINSESSION));
-            return;
-        }
-        
-        // Extract the password (five integers)
-        if (data.Length != 20) // 5 integers * 4 bytes each
-        {
-            await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.PASSWORDINVALID));
-            return;
-        }
-
-        int[] password = new int[5];
-        for (int i = 0; i < 5; i++)
-        {
-            password[i] = BitConverter.ToInt32(data, i * 4);
-        }
-
-        // Check if a game with the same password already exists
-        bool exists = false;
-        foreach (var session in activeGames.Values)
-        {
-            if (session.password.Length == password.Length && session.password.SequenceEqual(password))
-            {
-                exists = true;
-                break;
-            }
-        }
-
-        if (exists)
-        {
-            await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.PASSWORDALREADYEXISTS));
-            return;
-        }
-
-        client.isInSession = true;
-        // Create a new game session
-        GameSession newSession = new GameSession(password, client);
-        activeGames.TryAdd(newSession.sessionId, newSession);
-        Console.WriteLine($"New game session {newSession.sessionId} created by '{client.alias}' with password [{string.Join(", ", password)}].");
-
-        await SendMessageAsync(client.stream, MessageType.NEWGAME, BitConverter.GetBytes((int)HandleNewGameRes.NEWSESSIONCREATED));
-
-    }
-
-    async Task HandleJoinGameAsync(ClientInfo client, byte[] data)
-    {
-        // Extract the password (five integers)
-        if (data.Length != 20) // 5 integers * 4 bytes each
-        {
-            await SendErrorAsync(client.stream, "Invalid password length. Expected five integers.");
-            return;
-        }
-
-        int[] password = new int[5];
-        for (int i = 0; i < 5; i++)
-        {
-            password[i] = BitConverter.ToInt32(data, i * 4);
-        }
-
-        // Find the game session with the matching password
-        GameSession targetSession = null;
-        foreach (var session in activeGames.Values)
-        {
-            if (session.password.Length == password.Length && session.password.SequenceEqual(password))
-            {
-                targetSession = session;
-                break;
-            }
-        }
-
-        if (targetSession == null)
-        {
-            await SendErrorAsync(client.stream, "No game session found with the provided password.");
-            return;
-        }
-
-        // Attempt to add the client to the game session
-        bool added = targetSession.AddPlayer(client);
-        if (!added)
-        {
-            await SendErrorAsync(client.stream, "The game session is already full.");
-            return;
-        }
-
-        Console.WriteLine($"Client '{client.alias}' joined game session {targetSession.sessionId}.");
-
-        // Notify both players that the game is starting
-        foreach (var player in targetSession.players)
-        {
-            string startMessage = "Both players have joined. The game is starting!";
-            await SendMessageAsync(player.stream, MessageType.WELCOME, startMessage);
-        }
-
-        // Optionally, remove the session from activeGames if it's now full
-        if (targetSession.players.Count >= 2)
-        {
-            // You can implement further game state initialization here
-            Console.WriteLine($"Game session {targetSession.sessionId} is now full and ready to start.");
-        }
-    }
-    
-    public async Task SendMessageAsync(NetworkStream stream, MessageType type, string message)
-    {
-        byte[] data = Encoding.UTF8.GetBytes(message);
-        byte[] serializedMessage = MessageSerializer.SerializeMessage(type, data);
-        try
-        {
-            await stream.WriteAsync(serializedMessage, 0, serializedMessage.Length);
-            await stream.FlushAsync();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error sending message: {ex.Message}");
-        }
-    }
-    
-    // Overload for byte array data
-    public async Task SendMessageAsync(NetworkStream stream, MessageType type, byte[] data)
-    {
-        byte[] serializedMessage = MessageSerializer.SerializeMessage(type, data);
-        try
-        {
-            await stream.WriteAsync(serializedMessage, 0, serializedMessage.Length);
-            await stream.FlushAsync();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error sending message: {ex.Message}");
-        }
-    }
-    
-    public async Task SendErrorAsync(NetworkStream stream, string errorMessage)
-    {
-        await SendMessageAsync(stream, MessageType.ERROR, errorMessage);
-    }
-
-    public async Task SendIntResponseAsync(NetworkStream stream, int response)
-    {
-        
-    }
-    
-    // Method to process client messages based on message type
-    async Task ProcessClientMessageAsync(ClientInfo client, MessageType type, byte[] data)
-    {
-        switch (type)
-        {
-            case MessageType.ECHO:
-                // Echo the message back to the client
-                string echoMessage = Encoding.UTF8.GetString(data);
-                await SendMessageAsync(client.stream, MessageType.ECHO, echoMessage);
-                break;
-
-            case MessageType.MOVE:
-                // Process the move
-                string move = Encoding.UTF8.GetString(data).Trim();
-                Console.WriteLine($"Processing move from '{client.alias}': {move}");
-                // Implement your move processing logic here
-
-                // For demonstration, echo back the move
-                await SendMessageAsync(client.stream, MessageType.MOVE, move);
-                break;
-
-            case MessageType.ALIAS:
-                break;
-            case MessageType.WELCOME:
-                break;
-            case MessageType.ERROR:
-                break;
-            case MessageType.UPDATE:
-                break;
-            case MessageType.NEWGAME:
-                await HandleNewGameAsync(client, data);
-                break;
-            case MessageType.JOINGAME:
-                await HandleJoinGameAsync(client, data);
-                break;
+            // Handle other message types as needed
             default:
-                Console.WriteLine($"Unknown message type from '{client.alias}': {type}");
-                await SendErrorAsync(client.stream, "Unknown message type.");
+                Console.WriteLine($"Unhandled message type: {messageType}");
                 break;
         }
     }
@@ -402,49 +249,133 @@ public class GameServer
         }
         return true;
     }
+
+    private async Task ProcessConsoleCommands(CancellationToken token)
+    {
+        Console.WriteLine("Console Command Listener started. Type 'help' for a list of commands.");
+
+        while (!token.IsCancellationRequested)
+        {
+            Console.Write("> ");
+            string input = null;
+
+            try
+            {
+                input = await Task.Run(() => Console.ReadLine(), token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Gracefully exit the loop if cancellation is requested
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading console input: {ex.Message}");
+                continue;
+            }
+
+            if (input == null)
+                continue;
+
+            string command = input.Trim().ToLower();
+
+            try
+            {
+                switch (command)
+                {
+                    case "list":
+                        ListConnectedClients();
+                        break;
+                    case "help":
+                        ShowHelp();
+                        break;
+                    case "exit":
+                        Console.WriteLine("Shutting down the server...");
+                        Stop();
+                        break;
+                    default:
+                        Console.WriteLine($"Unknown command: '{command}'. Type 'help' for a list of commands.");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing command '{command}': {ex.Message}");
+            }
+        }
+
+        Console.WriteLine("Console Command Listener stopped.");
+    }
+
+    private void ListConnectedClients()
+    {
+        try
+        {
+            if (allClients.IsEmpty)
+            {
+                Console.WriteLine("No clients are currently connected.");
+                return;
+            }
+
+            Console.WriteLine("Connected Clients:");
+            Console.WriteLine("-------------------");
+            foreach (var client in allClients.Values)
+            {
+                string status = client.isConnected ? "Connected" : "Disconnected";
+                Console.WriteLine($"Client ID: {client.clientId}");
+                Console.WriteLine($"Nickname: {client.nickname}");
+                Console.WriteLine($"IP Address: {client.ipAddress}");
+                Console.WriteLine($"Status: {status}");
+                Console.WriteLine("-------------------");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error listing connected clients: {ex.Message}");
+        }
+    }
+
+    private void ShowHelp()
+    {
+        Console.WriteLine("Available Commands:");
+        Console.WriteLine("  list  - Lists all connected clients.");
+        Console.WriteLine("  help  - Shows this help message.");
+        Console.WriteLine("  exit  - Shuts down the server.");
+    }
 }
 
 public class ClientInfo
 {
-    public string alias;
+    public bool isConnected;
+    public Guid clientId;
+    public bool isRegistered;
+    public string nickname = "";
     public TcpClient tcpClient;
     public NetworkStream stream;
     public IPAddress ipAddress;
     public bool isInSession;
+
+    public ClientInfo(TcpClient inTcpClient)
+    {
+        isConnected = true;
+        isRegistered = false;
+        tcpClient = inTcpClient;
+        stream = tcpClient.GetStream();
+        ipAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
+        isInSession = false;
+    }
+
+    public string GetIdentifier()
+    {
+        return $"alias: '{nickname}', ip: '{ipAddress}'";
+    }
 }
 
-class GameSession
+public class RegistrationData
 {
-    public Guid sessionId;
-    public int[] password;
-    public List<ClientInfo> players;
-
-    public GameSession(int[] inPassword, ClientInfo inHost)
-    {
-        if (inPassword.Length != 5)
-        {
-            throw new ArgumentException("Password must consist of exactly five integers.");
-        }
-
-        sessionId = Guid.NewGuid();
-        password = inPassword;
-        players = new List<ClientInfo>{inHost};
-    }
-
-    public bool AddPlayer(ClientInfo client)
-    {
-        if (players.Count >= 2)
-            return false; // Assuming a two-player game
-
-        if (!players.Contains(client))
-        {
-            players.Add(client);
-            return true;
-        }
-        return false;
-    }
+    public Guid ClientId { get; set; }
+    public string Nickname { get; set; }
 }
-
 
 public static class MessageSerializer
 {
@@ -499,20 +430,30 @@ public static class MessageDeserializer
 
         return (type, data);
     }
-    
-    
 }
 
 public enum MessageType : uint
 {
-    ALIAS = 1,          // Client sends their alias upon connection
-    WELCOME = 2,        // Server sends a welcome message
-    ECHO = 3,           // Server echoes a message
-    MOVE = 4,           // Client sends a move
-    ERROR = 5,          // Server sends an error message
-    UPDATE = 6,          // Server sends game state updates
-    NEWGAME = 7,        // Client requests to start a new game with a password
-    JOINGAME = 8,        // Client requests to join an existing game using a password
+    SERVERERROR,
+    CONNECTION,
+    REGISTERNICKNAME,
 }
 
+public class Response
+{
+    public bool success;
+    public int responseCode;
+    public object data;
 
+    public Response(bool inSuccess, int inResponseCode, object inData)
+    {
+        success = inSuccess;
+        responseCode = inResponseCode;
+        data = inData;
+    }
+
+    public string GetHeaderAsString()
+    {
+        return $"'{success}' '{responseCode}'";
+    }
+}

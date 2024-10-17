@@ -13,3 +13,6 @@ C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8
 C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.pdb
 C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.genruntimeconfig.cache
 C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\ref\GameServerApp.dll
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\bin\Debug\net8.0\Newtonsoft.Json.dll
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServerApp.csproj.AssemblyReference.cache
+C:\Users\mokou\scryingstratego\Server\GameServerApp\GameServerApp\obj\Debug\net8.0\GameServ.D3051B98.Up2Date

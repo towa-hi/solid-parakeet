@@ -88,6 +88,14 @@ public class GameManager : MonoBehaviour
         //ChangeAppState(AppState.GAME);
     }
 
+    void Update()
+    {
+        if (networkManager.isConnected)
+        {
+            networkManager.ProcessIncomingMessages();
+        }
+    }
+
     public async void OnPasswordEntered(string password)
     {
         PasswordModal.instance.Show(false);
@@ -97,7 +105,7 @@ public class GameManager : MonoBehaviour
         try
         {
             // CreateNewGameAsync: Send NEWGAME message with the password
-            await gameClient.CreateNewGameAsync(passwordInts);
+            //await gameClient.CreateNewGameAsync(passwordInts);
         }
         catch (Exception e)
         {

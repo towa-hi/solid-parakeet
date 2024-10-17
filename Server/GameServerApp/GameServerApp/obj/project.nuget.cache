@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "W/doce4E870=",
+  "dgSpecHash": "bbaUYz87Hzk=",
   "success": true,
   "projectFilePath": "C:\\Users\\mokou\\scryingstratego\\Server\\GameServerApp\\GameServerApp\\GameServerApp.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\mokou\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512"
+  ],
   "logs": []
 }
