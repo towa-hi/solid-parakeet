@@ -14,7 +14,6 @@ class Program
     {
         GameServer server = new GameServer(12345);
         server.Start();
-        Console.ReadLine();
     }
 }
 
