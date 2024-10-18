@@ -122,25 +122,40 @@ public class GameServer
     async Task OnClientConnected(TcpClient tcpClient)
     {
         ClientInfo unregisteredClientInfo = new ClientInfo(tcpClient);
+        Console.WriteLine($"OnClientConnected {unregisteredClientInfo.ipAddress.ToString()} client started");
         try
         {
+            // Expect client to register immediately after connecting
+            (MessageType initialMessageType, byte[] initialData) = await MessageDeserializer.DeserializeMessageAsync(unregisteredClientInfo.stream);
+            if (initialMessageType != MessageType.REGISTERCLIENT)
+            {
+                string errorMessage = $"OnClientConnected {unregisteredClientInfo.GetIdentifier()} Expected REGISTERCLIENT message type.";
+                Console.WriteLine(errorMessage);
+                await SendMessageAsync(unregisteredClientInfo, MessageType.SERVERERROR, new Response(false, 1, errorMessage));
+                tcpClient.Close();
+                return;
+            }
+            // Handle client registration
+            await OnRegisterClient(unregisteredClientInfo, initialData);
+            ClientInfo registeredClientInfo = unregisteredClientInfo;
+            // Continue processing messages from the client
             while (isRunning && tcpClient.Connected)
             {
                 try
                 {
-                    (MessageType type, byte[] data) = await MessageDeserializer.DeserializeMessageAsync(unregisteredClientInfo.stream);
-                    await ProcessClientMessageAsync(unregisteredClientInfo, type, data);
+                    (MessageType type, byte[] data) = await MessageDeserializer.DeserializeMessageAsync(registeredClientInfo.stream);
+                    await ProcessClientMessageAsync(registeredClientInfo, type, data);
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Error reading from client '{unregisteredClientInfo.ipAddress}': {e.Message}");
+                    Console.WriteLine($"OnClientConnected {registeredClientInfo.GetIdentifier()} Error: {e.Message}");
                     break; // Exit on error
                 }
             }
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Exception in OnClientConnected: {e.Message}");
+            Console.WriteLine($"OnClientConnected {unregisteredClientInfo.ipAddress.ToString()} Error: {e.Message}");
         }
         finally
         {
@@ -150,21 +165,21 @@ public class GameServer
 
     void OnClientAbruptDisconnect(ClientInfo clientInfo)
     {
-        Console.WriteLine($"Client '{clientInfo.GetIdentifier()}' disconnected abruptly.");
+        Console.WriteLine($"OnClientAbruptDisconnect {clientInfo.GetIdentifier()} disconnected abruptly.");
         clientInfo.isConnected = false;
-
-        // Start a timer to remove the client after 5 minutes if they don't reconnect
-        Task.Run(async () =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            if (!clientInfo.isConnected)
-            {
-                if (allClients.TryRemove(clientInfo.clientId, out _))
-                {
-                    Console.WriteLine($"Client '{clientInfo.GetIdentifier()}' has been deregistered after timeout.");
-                }
-            }
-        });
+        allClients.TryRemove(clientInfo.clientId, out _);
+        // // Start a timer to remove the client after 5 minutes if they don't reconnect
+        // Task.Run(async () =>
+        // {
+        //     await Task.Delay(TimeSpan.FromSeconds(5));
+        //     if (!clientInfo.isConnected)
+        //     {
+        //         if (allClients.TryRemove(clientInfo.clientId, out _))
+        //         {
+        //             Console.WriteLine($"Client '{clientInfo.GetIdentifier()}' has been deregistered after timeout.");
+        //         }
+        //     }
+        // });
     }
 
     async Task ProcessClientMessageAsync(ClientInfo unregisteredClientInfo, MessageType messageType, byte[] data)
@@ -175,10 +190,9 @@ public class GameServer
             case MessageType.SERVERERROR:
                 break;
             case MessageType.REGISTERCLIENT:
-                OnRegisterClient(unregisteredClientInfo, data);
                 break;
             case MessageType.REGISTERNICKNAME:
-                await OnRegisterNickname(data);
+                await OnRegisterNickname(unregisteredClientInfo, data);
                 break;
             case MessageType.CHANGENICKNAME:
             case MessageType.GAMELOBBY:
@@ -190,73 +204,77 @@ public class GameServer
         }
     }
 
-    void OnRegisterClient(ClientInfo unregisteredClient, byte[] data)
+    async Task OnRegisterClient(ClientInfo clientInfo, byte[] data)
     {
+        Console.WriteLine($"OnRegisterClient unknown client started");
         string json = Encoding.UTF8.GetString(data);
         RegisterClientRequest registerClientRequest = JsonConvert.DeserializeObject<RegisterClientRequest>(json) ?? throw new InvalidOperationException();
-        if (allClients.ContainsKey(registerClientRequest.clientId))
+        // Assign the clientId provided by client
+        clientInfo.RegisterClient(registerClientRequest.clientId);
+        // Check if a client with this clientId is already connected
+        if (allClients.TryGetValue(clientInfo.clientId, out ClientInfo existingClient))
         {
-            // client is already registered
-            return;
-        }
-        unregisteredClient.RegisterClient(registerClientRequest.clientId);
-        allClients[registerClientRequest.clientId] = unregisteredClient;
-        string ackMessage = $"Client '{unregisteredClient.GetIdentifier()}' registered.";
-        Console.WriteLine(ackMessage);
-    }
-
-    async Task OnRegisterNickname(byte[] data)
-    {
-        // Deserialize the registration data
-        string json = Encoding.UTF8.GetString(data);
-        Console.WriteLine("OnRegisterNickname: " + json);
-        RegisterNicknameRequest registerNicknameRequest = JsonConvert.DeserializeObject<RegisterNicknameRequest>(json) ?? throw new InvalidOperationException();
-        ClientInfo clientInfo = allClients[registerNicknameRequest.clientId];
-        if (!IsNicknameValid(registerNicknameRequest.nickname))
-        {
-            await SendMessageAsync(clientInfo, MessageType.SERVERERROR, new Response(false, 1, "Invalid nickname."));
-            clientInfo.tcpClient.Close();
-            return;
-        }
-        //if clients list already has id check if same person and reregister
-        if (allClients.ContainsKey(registerNicknameRequest.clientId))
-        {
-            
-        }
-        else
-        {
-            
-        }
-        if (registerNicknameRequest.clientId == Guid.Empty || !allClients.TryGetValue(registerNicknameRequest.clientId, out clientInfo))
-        {
-            // New client registration
-            clientInfo.isRegistered = true;
-            clientInfo.nickname = registerNicknameRequest.nickname;
-            clientInfo.clientId = registerNicknameRequest.clientId != Guid.Empty ? registerNicknameRequest.clientId : Guid.NewGuid();
-            if (allClients.TryAdd(clientInfo.clientId, clientInfo))
+            if (existingClient.isConnected)
             {
-                Console.WriteLine($"New client registered: {clientInfo.GetIdentifier()}");
+                // Handle the case where the clientId is already connected
+                string errorMessage = $"OnRegisterClient {clientInfo.GetIdentifier()} clientId is already in use by another connected client.";
+                Console.WriteLine(errorMessage);
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(false, 2, errorMessage));
+                clientInfo.tcpClient.Close();
+                return;
             }
             else
             {
-                Console.WriteLine($"Failed to add client {clientInfo.clientId} to the client list.");
-                await SendMessageAsync(clientInfo, MessageType.SERVERERROR, new Response(false, 2, "Failed to register client."));
+                // Reconnecting client
+                existingClient.isConnected = true;
+                existingClient.tcpClient = clientInfo.tcpClient;
+                existingClient.stream = clientInfo.stream;
+                existingClient.ipAddress = clientInfo.ipAddress;
+                clientInfo = existingClient;
+                string message = $"OnRegisterClient {clientInfo.GetIdentifier()} reconnected successfully.";
+                Console.WriteLine(message);
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(true, 1, message));
+            }
+        }
+        else
+        {
+            // New client registration
+            clientInfo.isRegistered = true;
+            if (allClients.TryAdd(clientInfo.clientId, clientInfo))
+            {
+                string message = $"OnRegisterClient {clientInfo.GetIdentifier()} registered successfully.";
+                Console.WriteLine(message);
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(true, 0, message));
+            }
+            else
+            {
+                string errorMessage = $"OnRegisterClient {clientInfo.clientId} registration failed.";
+                Console.WriteLine(errorMessage);
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(false, 3, errorMessage));
                 clientInfo.tcpClient.Close();
                 return;
             }
         }
-        else
-        {
-            // Existing client reconnecting
-            clientInfo.isConnected = true;
-            clientInfo.nickname = registerNicknameRequest.nickname;
-            Console.WriteLine($"Client reconnected: {clientInfo.GetIdentifier()}");
-        }
+    }
 
-        // Send acknowledgment to the client
-        string ackMessage = $"Client '{clientInfo.nickname}' connected successfully.";
-        await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response(true, 0, ackMessage));
-            
+    async Task OnRegisterNickname(ClientInfo clientInfo, byte[] data)
+    {
+        Console.WriteLine($"OnRegisterNickname {clientInfo.GetIdentifier()} started");
+        // Deserialize the registration data
+        string json = Encoding.UTF8.GetString(data);
+        Console.WriteLine($"OnRegisterNickname {clientInfo.GetIdentifier()} {json}");
+        RegisterNicknameRequest registerNicknameRequest = JsonConvert.DeserializeObject<RegisterNicknameRequest>(json) ?? throw new InvalidOperationException();
+        if (!IsNicknameValid(registerNicknameRequest.nickname))
+        {
+            string errorMessage = $"OnRegisterNickname {clientInfo.GetIdentifier()} invalid nickname {registerNicknameRequest.nickname}";
+            Console.WriteLine(errorMessage);
+            await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response(false, 1, errorMessage));
+            return;
+        }
+        clientInfo.nickname = registerNicknameRequest.nickname;
+        string message = $"OnRegisterNickname {clientInfo.GetIdentifier()} set to {registerNicknameRequest.nickname}";
+        Console.WriteLine(message);
+        await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response(true, 0, message));
     }
     
     const int ALIASMAXLENGTH = 20;
@@ -359,6 +377,11 @@ public class GameServer
         Console.WriteLine("  list  - Lists all connected clients.");
         Console.WriteLine("  help  - Shows this help message.");
         Console.WriteLine("  exit  - Shuts down the server.");
+    }
+
+    ClientInfo GetClientInfo(Guid clientId)
+    {
+        return allClients.TryGetValue(clientId, out ClientInfo? info) ? info : null;
     }
 }
 

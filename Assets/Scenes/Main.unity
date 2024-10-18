@@ -4282,9 +4282,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a18898e2188c5c4e9054f612a27f7e8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ConnectButton: {fileID: 0}
-  SendNickButton: {fileID: 0}
-  StartLobbyButton: {fileID: 0}
+  ConnectButton: {fileID: 257251422}
+  SendNickButton: {fileID: 583676064}
+  StartLobbyButton: {fileID: 1528625091}
 --- !u!1 &1528625089
 GameObject:
   m_ObjectHideFlags: 0

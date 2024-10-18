@@ -41,7 +41,8 @@ public class ServerTester : MonoBehaviour
 
     public void OnSendNickButton()
     {
-        RegisterNickname("hi lad");
+        string testNickname = clientId.ToString().Substring(0, 4);
+        RegisterNickname(testNickname);
     }
 
     public void OnStartLobbyButton()
@@ -183,7 +184,9 @@ public class ServerTester : MonoBehaviour
                         Debug.LogError($"Server error: {responseError.data}");
                         HandleServerDisconnection();
                         break;
-
+                    case MessageType.CHANGENICKNAME:
+                        
+                        break;
                     default:
                         Debug.Log($"Received message of type {messageType}");
                         break;
@@ -251,14 +254,14 @@ public enum MessageType : uint
     GAME, // request holds piece deployment or move data, response is a gamestate object
 }
 
-public class Response
+public struct Response
 {
     public bool success;
     public int responseCode;
     public object data;
 }
 
-public class Request
+public struct Request
 {
     public MessageType messageType;
     public object data;
