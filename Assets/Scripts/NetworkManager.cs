@@ -139,18 +139,7 @@ public class NetworkManager
         while (messageQueue.TryDequeue(out var message))
         {
             var (type, data) = message;
-            switch (type)
-            {
-                case MessageType.CONNECTION:
-                    string connection = Encoding.UTF8.GetString(data);
-                    Console.WriteLine("Welcome: " + connection);
-                    //OnWelcomeReceived?.Invoke(connection);
-                    break;
-                default:
-                    Console.WriteLine($"Unknown message type received: {type}");
-                    OnErrorReceived?.Invoke("Unknown message type received.");
-                    break;
-            }
+
         }
     }
 }

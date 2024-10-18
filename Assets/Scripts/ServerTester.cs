@@ -4,9 +4,14 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using UnityEngine.UI;
 
 public class ServerTester : MonoBehaviour
 {
+    public Button ConnectButton;
+    public Button SendNickButton;
+    public Button StartLobbyButton;
+    
     private TcpClient client;
     private NetworkStream stream;
     private bool isConnected = false;
@@ -21,13 +26,27 @@ public class ServerTester : MonoBehaviour
     // TaskCompletionSources for synchronization
     private TaskCompletionSource<Response> acknowledgmentReceived = new TaskCompletionSource<Response>();
 
-    void Start()
+    void Awake()
     {
-        // Load or generate ClientId
-        LoadOrGenerateClientId();
+        ConnectButton.onClick.AddListener(OnConnectButton);
+        SendNickButton.onClick.AddListener(OnSendNickButton);
+        StartLobbyButton.onClick.AddListener(OnStartLobbyButton);
+    }
 
-        // Connect to server
+    public void OnConnectButton()
+    {
+        LoadOrGenerateClientId();
         ConnectToServer();
+    }
+
+    public void OnSendNickButton()
+    {
+        RegisterNickname("hi lad");
+    }
+
+    public void OnStartLobbyButton()
+    {
+        
     }
 
     void LoadOrGenerateClientId()
@@ -66,12 +85,13 @@ public class ServerTester : MonoBehaviour
             stream = client.GetStream();
             isConnected = true;
             Debug.Log("Connected to server.");
-
             // Start reading messages from the server
-            _ = ReadMessagesFromServer();
+            await RegisterClient();
+            
+            _ = ReadResponsesFromServer();
+            
+            
 
-            // Send registration data
-            await RegisterNickname("UnityPlayer", clientId);
         }
         catch (Exception e)
         {
@@ -80,36 +100,63 @@ public class ServerTester : MonoBehaviour
         }
     }
 
-    async Task RegisterNickname(string nickname, Guid clientId)
+    async Task RegisterClient()
     {
         try
         {
-            RegistrationData registrationData = new RegistrationData
+            RegisterClientRequest registerClientRequest = new RegisterClientRequest
             {
-                Nickname = nickname,
-                ClientId = clientId
+                clientId = clientId
             };
-
-            string json = JsonConvert.SerializeObject(registrationData);
-            byte[] data = Encoding.UTF8.GetBytes(json);
-            byte[] message = MessageSerializer.SerializeMessage(MessageType.REGISTERNICKNAME, data);
-
-            await stream.WriteAsync(message, 0, message.Length);
-            await stream.FlushAsync();
-            Debug.Log("Sent registration data.");
-
-            // Wait for acknowledgment from the server
-            var ackResponse = await acknowledgmentReceived.Task;
-            Debug.Log($"Server acknowledgment: {ackResponse.data}");
+            await SendRequestToServer(MessageType.REGISTERCLIENT, registerClientRequest);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+    }
+    
+    async Task RegisterNickname(string nickname)
+    {
+        try
+        {
+            RegisterNicknameRequest registerNicknameRequest = new RegisterNicknameRequest
+            {
+                nickname = nickname,
+                clientId = clientId
+            };
+            await SendRequestToServer(MessageType.REGISTERNICKNAME, registerNicknameRequest);
         }
         catch (Exception e)
         {
             Debug.LogError($"Error registering nickname: {e.Message}");
-            HandleServerDisconnection();
+            //HandleServerDisconnection();
         }
     }
 
-    async Task ReadMessagesFromServer()
+    async Task SendRequestToServer(MessageType messageType, object objectData)
+    {
+        if (isConnected)
+        {
+            try
+            {
+                string json = JsonConvert.SerializeObject(objectData);
+                byte[] data = Encoding.UTF8.GetBytes(json);
+                byte[] message = MessageSerializer.SerializeMessage(messageType, data);
+                await stream.WriteAsync(message, 0, message.Length);
+                await stream.FlushAsync();
+                Debug.Log($"Sent: '{json}'");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+    }
+    
+    async Task ReadResponsesFromServer()
     {
         while (isConnected)
         {
@@ -119,9 +166,10 @@ public class ServerTester : MonoBehaviour
 
                 switch (messageType)
                 {
-                    case MessageType.CONNECTION:
+                    case MessageType.REGISTERCLIENT:
                         // Handle acknowledgment
                         string jsonAck = Encoding.UTF8.GetString(data);
+                        Debug.Log(jsonAck);
                         Response responseAck = JsonConvert.DeserializeObject<Response>(jsonAck);
                         // Signal that acknowledgment is received
                         acknowledgmentReceived.TrySetResult(responseAck);
@@ -130,6 +178,7 @@ public class ServerTester : MonoBehaviour
                     case MessageType.SERVERERROR:
                         // Handle server error messages
                         string jsonError = Encoding.UTF8.GetString(data);
+                        Debug.Log(jsonError);
                         Response responseError = JsonConvert.DeserializeObject<Response>(jsonError);
                         Debug.LogError($"Server error: {responseError.data}");
                         HandleServerDisconnection();
@@ -193,9 +242,13 @@ public class ServerTester : MonoBehaviour
 
 public enum MessageType : uint
 {
-    SERVERERROR,
-    CONNECTION,
-    REGISTERNICKNAME,
+    SERVERERROR, // only called when error is server fault
+    REGISTERCLIENT, // response only, just an ack 
+    REGISTERNICKNAME, // request registration data
+    CHANGENICKNAME,
+    GAMELOBBY, // request has password
+    JOINGAMELOBBY, // request has password
+    GAME, // request holds piece deployment or move data, response is a gamestate object
 }
 
 public class Response
@@ -205,11 +258,29 @@ public class Response
     public object data;
 }
 
-public class RegistrationData
+public class Request
 {
-    public Guid ClientId { get; set; }
-    public string Nickname { get; set; }
+    public MessageType messageType;
+    public object data;
 }
+
+public struct RegisterClientRequest
+{
+    public Guid clientId { get; set; }
+}
+
+public struct RegisterNicknameRequest
+{
+    public Guid clientId { get; set; }
+    public string nickname { get; set; }
+}
+
+public struct NewGameRequest
+{
+    public Guid clientId { get; set; }
+    public int gameMode { get; set; }
+}
+
 
 public static class MessageSerializer
 {

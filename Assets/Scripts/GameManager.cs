@@ -76,7 +76,7 @@ public class GameManager : MonoBehaviour
         try
         {
             // StartAsync: Connect to the server and send the alias
-            _ = gameClient.StartAsync("127.0.0.1", 12345, "bob");
+            //_ = gameClient.StartAsync("127.0.0.1", 12345, "bob");
             
         }
         catch (Exception e)

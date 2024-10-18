@@ -41,8 +41,17 @@ public class GameServer
         Console.WriteLine("Game Server started.");
         ListenForClients();
 
-        // Start the console command listener
-        _ = ProcessConsoleCommands(consoleCommandCancellation.Token);
+        // Start the console command listener on a new thread
+        Thread consoleThread = new Thread(ProcessConsoleCommands);
+        consoleThread.Start();
+
+        // Handle Ctrl+C
+        Console.CancelKeyPress += (sender, e) =>
+        {
+            e.Cancel = true; // Cancel the default behavior
+            Console.WriteLine("Shutting down the server...");
+            Stop();
+        };
     }
 
     public void Stop()
@@ -50,9 +59,6 @@ public class GameServer
         isRunning = false;
         listener.Stop();
         Console.WriteLine("Server stopped");
-
-        // Cancel the console command listener
-        consoleCommandCancellation.Cancel();
 
         foreach (var client in allClients.Values)
         {
@@ -69,6 +75,9 @@ public class GameServer
             }
         }
         allClients.Clear();
+
+        // Signal the console thread to stop
+        Console.WriteLine("Press ENTER to exit.");
     }
 
     async Task SendMessageAsync(ClientInfo clientInfo, MessageType type, Response response)
@@ -113,83 +122,20 @@ public class GameServer
 
     async Task OnClientConnected(TcpClient tcpClient)
     {
-        NetworkStream stream = tcpClient.GetStream();
-        IPAddress ipAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
-        ClientInfo clientInfo = null;
-
+        ClientInfo unregisteredClientInfo = new ClientInfo(tcpClient);
         try
         {
-            // Wait for the client to send the registration data
-            var (msgType, msgData) = await MessageDeserializer.DeserializeMessageAsync(stream);
-
-            if (msgType != MessageType.REGISTERNICKNAME)
-            {
-                Console.WriteLine("Expected REGISTERNICKNAME message type.");
-                await SendMessageAsync(new ClientInfo(tcpClient), MessageType.SERVERERROR, new Response(false, 1, "Expected REGISTERNICKNAME message type."));
-                tcpClient.Close();
-                return;
-            }
-
-            // Deserialize the registration data
-            string json = Encoding.UTF8.GetString(msgData);
-            var registrationData = JsonConvert.DeserializeObject<RegistrationData>(json);
-
-            if (!IsAliasValid(registrationData.Nickname))
-            {
-                await SendMessageAsync(new ClientInfo(tcpClient), MessageType.SERVERERROR, new Response(false, 1, "Invalid nickname."));
-                tcpClient.Close();
-                return;
-            }
-
-            if (registrationData.ClientId == Guid.Empty || !allClients.TryGetValue(registrationData.ClientId, out clientInfo))
-            {
-                // New client registration
-                clientInfo = new ClientInfo(tcpClient)
-                {
-                    nickname = registrationData.Nickname,
-                    isRegistered = true,
-                    clientId = registrationData.ClientId != Guid.Empty ? registrationData.ClientId : Guid.NewGuid()
-                };
-
-                if (allClients.TryAdd(clientInfo.clientId, clientInfo))
-                {
-                    Console.WriteLine($"New client registered: {clientInfo.GetIdentifier()}");
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to add client {clientInfo.clientId} to the client list.");
-                    await SendMessageAsync(clientInfo, MessageType.SERVERERROR, new Response(false, 2, "Failed to register client."));
-                    tcpClient.Close();
-                    return;
-                }
-            }
-            else
-            {
-                // Existing client reconnecting
-                clientInfo.isConnected = true;
-                clientInfo.nickname = registrationData.Nickname;
-                clientInfo.tcpClient = tcpClient;
-                clientInfo.stream = stream;
-                clientInfo.ipAddress = ipAddress;
-                Console.WriteLine($"Client reconnected: {clientInfo.GetIdentifier()}");
-            }
-
-            // Send acknowledgment to the client
-            string ackMessage = $"Client '{clientInfo.nickname}' connected successfully.";
-            await SendMessageAsync(clientInfo, MessageType.CONNECTION, new Response(true, 0, ackMessage));
-
             while (isRunning && tcpClient.Connected)
             {
                 try
                 {
-                    var (msgType2, msgData2) = await MessageDeserializer.DeserializeMessageAsync(clientInfo.stream);
-                    await ProcessClientMessageAsync(clientInfo, msgType2, msgData2);
+                    (MessageType type, byte[] data) = await MessageDeserializer.DeserializeMessageAsync(unregisteredClientInfo.stream);
+                    await ProcessClientMessageAsync(unregisteredClientInfo, type, data);
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Error reading from client '{clientInfo.ipAddress.ToString()}': {e.Message}");
-                    Console.WriteLine($"Stack Trace: {e.StackTrace}");
-                    break;
+                    Console.WriteLine($"Error reading from client '{unregisteredClientInfo.ipAddress}': {e.Message}");
+                    break; // Exit on error
                 }
             }
         }
@@ -199,10 +145,7 @@ public class GameServer
         }
         finally
         {
-            if (clientInfo != null)
-                OnClientAbruptDisconnect(clientInfo);
-            else
-                tcpClient.Close();
+            OnClientAbruptDisconnect(unregisteredClientInfo);
         }
     }
 
@@ -214,7 +157,7 @@ public class GameServer
         // Start a timer to remove the client after 5 minutes if they don't reconnect
         Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromMinutes(5));
+            await Task.Delay(TimeSpan.FromSeconds(5));
             if (!clientInfo.isConnected)
             {
                 if (allClients.TryRemove(clientInfo.clientId, out _))
@@ -225,19 +168,100 @@ public class GameServer
         });
     }
 
-    async Task ProcessClientMessageAsync(ClientInfo client, MessageType messageType, byte[] data)
+    async Task ProcessClientMessageAsync(ClientInfo unregisteredClientInfo, MessageType messageType, byte[] data)
     {
         switch (messageType)
         {
             // Handle other message types as needed
+            case MessageType.SERVERERROR:
+                break;
+            case MessageType.REGISTERCLIENT:
+                OnRegisterClient(unregisteredClientInfo, data);
+                break;
+            case MessageType.REGISTERNICKNAME:
+                await OnRegisterNickname(data);
+                break;
+            case MessageType.CHANGENICKNAME:
+            case MessageType.GAMELOBBY:
+            case MessageType.JOINGAMELOBBY:
+            case MessageType.GAME:
             default:
                 Console.WriteLine($"Unhandled message type: {messageType}");
                 break;
         }
     }
 
+    void OnRegisterClient(ClientInfo unregisteredClient, byte[] data)
+    {
+        string json = Encoding.UTF8.GetString(data);
+        RegisterClientRequest registerClientRequest = JsonConvert.DeserializeObject<RegisterClientRequest>(json) ?? throw new InvalidOperationException();
+        if (allClients.ContainsKey(registerClientRequest.clientId))
+        {
+            // client is already registered
+            return;
+        }
+        unregisteredClient.RegisterClient(registerClientRequest.clientId);
+        allClients[registerClientRequest.clientId] = unregisteredClient;
+        string ackMessage = $"Client '{unregisteredClient.GetIdentifier()}' registered.";
+        Console.WriteLine(ackMessage);
+    }
+
+    async Task OnRegisterNickname(byte[] data)
+    {
+        // Deserialize the registration data
+        string json = Encoding.UTF8.GetString(data);
+        Console.WriteLine("OnRegisterNickname: " + json);
+        RegisterNicknameRequest registerNicknameRequest = JsonConvert.DeserializeObject<RegisterNicknameRequest>(json) ?? throw new InvalidOperationException();
+        ClientInfo clientInfo = allClients[registerNicknameRequest.clientId];
+        if (!IsNicknameValid(registerNicknameRequest.nickname))
+        {
+            await SendMessageAsync(clientInfo, MessageType.SERVERERROR, new Response(false, 1, "Invalid nickname."));
+            clientInfo.tcpClient.Close();
+            return;
+        }
+        //if clients list already has id check if same person and reregister
+        if (allClients.ContainsKey(registerNicknameRequest.clientId))
+        {
+            
+        }
+        else
+        {
+            
+        }
+        if (registerNicknameRequest.clientId == Guid.Empty || !allClients.TryGetValue(registerNicknameRequest.clientId, out clientInfo))
+        {
+            // New client registration
+            clientInfo.isRegistered = true;
+            clientInfo.nickname = registerNicknameRequest.nickname;
+            clientInfo.clientId = registerNicknameRequest.clientId != Guid.Empty ? registerNicknameRequest.clientId : Guid.NewGuid();
+            if (allClients.TryAdd(clientInfo.clientId, clientInfo))
+            {
+                Console.WriteLine($"New client registered: {clientInfo.GetIdentifier()}");
+            }
+            else
+            {
+                Console.WriteLine($"Failed to add client {clientInfo.clientId} to the client list.");
+                await SendMessageAsync(clientInfo, MessageType.SERVERERROR, new Response(false, 2, "Failed to register client."));
+                clientInfo.tcpClient.Close();
+                return;
+            }
+        }
+        else
+        {
+            // Existing client reconnecting
+            clientInfo.isConnected = true;
+            clientInfo.nickname = registerNicknameRequest.nickname;
+            Console.WriteLine($"Client reconnected: {clientInfo.GetIdentifier()}");
+        }
+
+        // Send acknowledgment to the client
+        string ackMessage = $"Client '{clientInfo.nickname}' connected successfully.";
+        await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response(true, 0, ackMessage));
+            
+    }
+    
     const int ALIASMAXLENGTH = 20;
-    static bool IsAliasValid(string alias)
+    static bool IsNicknameValid(string alias)
     {
         if (string.IsNullOrWhiteSpace(alias))
         {
@@ -250,23 +274,18 @@ public class GameServer
         return true;
     }
 
-    private async Task ProcessConsoleCommands(CancellationToken token)
+    private void ProcessConsoleCommands()
     {
         Console.WriteLine("Console Command Listener started. Type 'help' for a list of commands.");
 
-        while (!token.IsCancellationRequested)
+        while (isRunning)
         {
             Console.Write("> ");
             string input = null;
 
             try
             {
-                input = await Task.Run(() => Console.ReadLine(), token);
-            }
-            catch (OperationCanceledException)
-            {
-                // Gracefully exit the loop if cancellation is requested
-                break;
+                input = Console.ReadLine();
             }
             catch (Exception ex)
             {
@@ -358,6 +377,7 @@ public class ClientInfo
     public ClientInfo(TcpClient inTcpClient)
     {
         isConnected = true;
+        clientId = Guid.Empty;
         isRegistered = false;
         tcpClient = inTcpClient;
         stream = tcpClient.GetStream();
@@ -365,16 +385,41 @@ public class ClientInfo
         isInSession = false;
     }
 
+    public void RegisterClient(Guid inClientId)
+    {
+        if (isRegistered)
+        {
+            throw new Exception("Client is already registered");
+        }
+
+        if (inClientId == Guid.Empty)
+        {
+            throw new Exception("ClientId cannot be empty");
+        }
+        clientId = inClientId;
+        isRegistered = true;
+    }
     public string GetIdentifier()
     {
-        return $"alias: '{nickname}', ip: '{ipAddress}'";
+        return $"id: '{clientId.ToString()}' alias: '{nickname}', ip: '{ipAddress}'";
     }
 }
 
-public class RegistrationData
+public class RegisterClientRequest
 {
-    public Guid ClientId { get; set; }
-    public string Nickname { get; set; }
+    public Guid clientId { get; set; }
+}
+
+public class RegisterNicknameRequest
+{
+    public Guid clientId { get; set; }
+    public string nickname { get; set; }
+}
+
+public class NewGameRequest
+{
+    public Guid clientId { get; set; }
+    public int gameMode { get; set; }
 }
 
 public static class MessageSerializer
@@ -407,36 +452,38 @@ public static class MessageDeserializer
         {
             int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
             if (read == 0)
+            {
                 throw new Exception("Disconnected");
+            }
             bytesRead += read;
         }
-
-        // Read message type
         MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
-
-        // Read data length
         uint length = BitConverter.ToUInt32(header, 4);
-
-        // Read data
         byte[] data = new byte[length];
         bytesRead = 0;
         while (bytesRead < length)
         {
             int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
             if (read == 0)
-                throw new Exception("Disconnected during data reception");
+            {
+                throw new Exception("Disconnected");
+            }
             bytesRead += read;
         }
-
         return (type, data);
     }
 }
 
 public enum MessageType : uint
 {
-    SERVERERROR,
-    CONNECTION,
-    REGISTERNICKNAME,
+    SERVERERROR, // only called when error is server fault
+    REGISTERCLIENT, // response only, just an ack 
+    REGISTERNICKNAME, // request registration data
+    CHANGENICKNAME,
+    GAMELOBBY, // request has password
+    JOINGAMELOBBY, // request has password
+    GAME, // request holds piece deployment or move data, response is a gamestate object
+    
 }
 
 public class Response
@@ -457,3 +504,4 @@ public class Response
         return $"'{success}' '{responseCode}'";
     }
 }
+
