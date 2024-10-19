@@ -23,9 +23,6 @@ public class ServerTester : MonoBehaviour
 
     public string nickname;
     
-    // TaskCompletionSources for synchronization
-    private TaskCompletionSource<Response> acknowledgmentReceived = new TaskCompletionSource<Response>();
-
 
 
     public void OnConnectButton()
@@ -137,7 +134,7 @@ public class ServerTester : MonoBehaviour
         {
             clientId = clientId,
             gameMode = 0,
-            boardDef = GameManager.instance.tempBoardDef
+            sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef)
         };
         await SendRequestToServer(MessageType.GAMELOBBY, gameLobbyRequest);
     }
@@ -170,44 +167,64 @@ public class ServerTester : MonoBehaviour
             try
             {
                 var (messageType, data) = await MessageDeserializer.DeserializeMessageAsync(stream);
-                Response response = Response.StringDataToResponse(data);
+                string jsonResponse = Encoding.UTF8.GetString(data);
+
                 switch (messageType)
                 {
                     case MessageType.REGISTERCLIENT:
-                        acknowledgmentReceived.TrySetResult(response);
-                        break;
+                        {
+                            var response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
+                            break;
+                        }
                     case MessageType.SERVERERROR:
-                        Debug.LogError($"Server error: {response.data}");
-                        HandleServerDisconnection();
-                        break;
+                        {
+                            var response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
+                            Debug.LogError($"Server error: {response.data}");
+                            HandleServerDisconnection();
+                            break;
+                        }
                     case MessageType.REGISTERNICKNAME:
-                        if (response.success)
                         {
-                            string responseData = (string)response.data;
-                            Debug.Log("nickname set to " + responseData);
-                            nickname = responseData;
-                            isNicknameRegistered = true;
+                            var response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
+                            if (response.success)
+                            {
+                                Debug.Log("Nickname set to " + response.data);
+                                nickname = response.data;
+                                isNicknameRegistered = true;
+                            }
+                            else
+                            {
+                                Debug.LogError("Server rejected nickname with response code " + response.responseCode);
+                                isNicknameRegistered = false;
+                            }
+                            break;
                         }
-                        else
-                        {
-                            Debug.LogError("server rejected nickname with response code " + response.responseCode);
-                            isNicknameRegistered = false;
-                        }
-                        break;
                     case MessageType.GAMELOBBY:
-                        if (response.success)
                         {
-                            string responseData = (string)response.data;
-                            Debug.Log("lobby message:  " + responseData);
+                            Debug.Log($"Deserializing GAMELOBBY message: {jsonResponse}");
+                            var response = JsonConvert.DeserializeObject<Response<SLobby>>(jsonResponse);
+                            if (response != null && response.success)
+                            {
+                                SLobby sLobby = response.data;
+
+                                BoardDef boardDef = sLobby.sBoardDef.ToUnity();
+                                // TODO: do something with boardDef
+                            }
+                            else if (response != null)
+                            {
+                                Debug.LogError($"Server rejected lobby with response code {response.responseCode}");
+                            }
+                            else
+                            {
+                                Debug.LogError("Failed to deserialize GameLobbyResponse.");
+                            }
+                            break;
                         }
-                        else
-                        {
-                            Debug.LogError("server rejected lobby with response code " + response.responseCode);
-                        }
-                        break;
                     default:
-                        Debug.Log($"Received message of type {messageType}");
-                        break;
+                        {
+                            Debug.Log($"Received message of type {messageType}");
+                            break;
+                        }
                 }
             }
             catch (Exception e)
@@ -263,53 +280,66 @@ public class ServerTester : MonoBehaviour
 
 public enum MessageType : uint
 {
-    SERVERERROR, // only called when error is server fault
-    REGISTERCLIENT, // response only, just an ack 
-    REGISTERNICKNAME, // request registration data
-    GAMELOBBY, // request has password
-    JOINGAMELOBBY, // request has password
+    SERVERERROR, // only called when error is server fault, disconnects the client forcibly
+    REGISTERCLIENT, // request: clientId only, response: none 
+    REGISTERNICKNAME, // request: nickname, response: success
+    GAMELOBBY, // request: lobby parameters, response: lobby
+    JOINGAMELOBBY, // request: password, response: lobby 
     GAME, // request holds piece deployment or move data, response is a gamestate object
 }
 
-public struct Response
+public class Response<T>
 {
     public bool success;
     public int responseCode;
-    public object data;
-
-    public static Response StringDataToResponse(byte[] data)
+    public T data;
+    
+    public Response(bool inSuccess, int inResponseCode, T inData)
     {
-        string json = Encoding.UTF8.GetString(data);
-        Debug.Log(json);
-        return JsonConvert.DeserializeObject<Response>(json);
+        success = inSuccess;
+        responseCode = inResponseCode;
+        data = inData;
+    }
+
+    public string GetHeaderAsString()
+    {
+        return $"'{success}' '{responseCode}'";
+    }
+
+    public static Response<T> StringDataToResponse(byte[] data)
+    {
+        string jsonResponse = Encoding.UTF8.GetString(data);
+        Response<T> response = JsonConvert.DeserializeObject<Response<T>>(jsonResponse);
+        return response;
     }
 }
 
-public struct Request
+public class Request
 {
     public MessageType messageType;
     public object data;
 }
 
-public struct RegisterClientRequest
+public class RegisterClientRequest
 {
     public Guid clientId { get; set; }
 }
 
-public struct RegisterNicknameRequest
+public class RegisterNicknameRequest
 {
     public Guid clientId { get; set; }
     public string nickname { get; set; }
 }
 
-public struct GameLobbyRequest
+public class GameLobbyRequest
 {
     public Guid clientId { get; set; }
     public int gameMode { get; set; }
-    public BoardDef boardDef { get; set; }
+    public SBoardDef sBoardDef { get; set; }
 }
 
-public struct NewGameRequest
+
+public class NewGameRequest
 {
     public Guid clientId { get; set; }
     public int gameMode { get; set; }

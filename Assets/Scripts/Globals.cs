@@ -1,4 +1,7 @@
-using System.Collections.Generic;using UnityEngine;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
 
 public static class Globals
 {
@@ -20,6 +23,7 @@ public static class Globals
         { "Sergeant", "4"},
         { "Spy", "dagger"},
     };
+    
 }
 
 public enum AppState
@@ -41,4 +45,86 @@ public enum Player
     NONE,
     RED,
     BLUE
+}
+
+
+[Serializable]
+public class SLobby
+{
+    public Guid lobbyId;
+    public Guid hostId;
+    public Guid guestId;
+    public SBoardDef sBoardDef;
+    public int gameMode;
+    public bool isGameStarted;
+    public string password;
+    public SLobby() { }
+}
+
+[Serializable]
+public class SBoardDef
+{
+    public SVector2Int boardSize;
+    public STile[] tiles;
+
+    public SBoardDef() { }
+
+    public SBoardDef(BoardDef boardDef)
+    {
+        boardSize = new SVector2Int(boardDef.boardSize);
+        tiles = new STile[boardDef.tiles.Length];
+        tiles = boardDef.tiles.Select(tile => new STile(tile)).ToArray();
+    }
+    public BoardDef ToUnity()
+    {
+        BoardDef boardDef = ScriptableObject.CreateInstance<BoardDef>();
+        boardDef.boardSize = this.boardSize.ToUnity();
+        boardDef.tiles = this.tiles.Select(sTile => sTile.ToUnity()).ToArray();
+        return boardDef;
+    }
+}
+
+
+[Serializable]
+public class SVector2Int
+{
+    public int x;
+    public int y;
+    
+    public SVector2Int() { }
+    
+    public SVector2Int(Vector2Int vector)
+    {
+        x = vector.x;
+        y = vector.y;
+    }
+    public Vector2Int ToUnity()
+    {
+        return new Vector2Int(this.x, this.y);
+    }
+}
+
+[Serializable]
+public class STile
+{
+    public SVector2Int pos;
+    public bool isPassable;
+    public int setupPlayer;
+    
+    public STile () { }
+    public STile(Tile tile)
+    {
+        pos = new SVector2Int(tile.pos);
+        isPassable = tile.isPassable;
+        setupPlayer = (int)tile.setupPlayer;
+    }
+    public Tile ToUnity()
+    {
+        return new Tile
+        {
+            pos = this.pos.ToUnity(),
+            isPassable = this.isPassable,
+            setupPlayer = (Player)this.setupPlayer
+        };
+    }
 }

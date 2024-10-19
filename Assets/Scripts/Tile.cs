@@ -5,7 +5,8 @@ public class Tile
 {
     public Vector2Int pos;
     public bool isPassable = true;
-    public Player setupPlayer = Player.NONE;
+    public Player setupPlayer;
+
     public void Initialize(Vector2Int inPos)
     {
         pos = inPos;

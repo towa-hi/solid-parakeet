@@ -4,6 +4,14 @@ using System.Net.Sockets;
 public static class Globals
 {
     public static Random random = new Random();
+    
+    
+    public static string GeneratePassword()
+    {
+        const string chars = "abcdefghijklmnopqrstuvwxyz";
+        return new string(Enumerable.Repeat(chars, 6)
+            .Select(s => s[Globals.random.Next(s.Length)]).ToArray());
+    }
 }
 
 public static class MessageSerializer
@@ -111,13 +119,13 @@ public class ClientInfo
 
 // networking stuff start
 
-public class Response
+public class Response<T>
 {
     public bool success;
     public int responseCode;
-    public object data;
+    public T data;
 
-    public Response(bool inSuccess, int inResponseCode, object inData)
+    public Response(bool inSuccess, int inResponseCode, T inData)
     {
         success = inSuccess;
         responseCode = inResponseCode;
@@ -143,78 +151,49 @@ public class RegisterNicknameRequest
 
 public class GameLobbyRequest
 {
-    public string clientId { get; set; }
+    public Guid clientId { get; set; }
     public int gameMode { get; set; }
-    public BoardDef boardDef { get; set; }
+    public SBoardDef sBoardDef { get; set; }
 }
 
 // networking stuff end
 
 // gameplay stuff start
 
-public class Lobby
+
+[Serializable]
+public class SLobby
 {
     public Guid lobbyId;
-    public Guid? hostId;
-    public Guid? guestId;
-    public BoardDef boardDef;
+    public Guid hostId;
+    public Guid guestId;
+    public SBoardDef sBoardDef;
     public int gameMode;
     public bool isGameStarted;
     public string password;
     
-    public Lobby(Guid inHostId, BoardDef inBoardDef, int inGameMode)
-    {
-        lobbyId = Guid.NewGuid();
-        hostId = inHostId;
-        boardDef = inBoardDef;
-        gameMode = inGameMode;
-        isGameStarted = false;
-        password = GeneratePassword();
-    }
-
-    public bool IsLobbyFull()
-    {
-        return hostId != null && guestId != null;
-    }
-
-    public string GeneratePassword()
-    {
-        const string chars = "abcdefghijklmnopqrstuvwxyz";
-        return new string(Enumerable.Repeat(chars, 6)
-            .Select(s => s[Globals.random.Next(s.Length)]).ToArray());
-    }
 }
 
-public class BoardDef
+[Serializable]
+public class SBoardDef
 {
-    public BoardSize boardSize { get; set; }
-    public List<Tile> tiles { get; set; }
-    public string name { get; set; }
-    public int hideFlags { get; set; }
+    public SVector2Int boardSize;
+    public STile[] tiles;
 }
 
-public class BoardSize
+
+[Serializable]
+public class SVector2Int
 {
-    public int x { get; set; }
-    public int y { get; set; }
-    public double magnitude { get; set; }
-    public int sqrMagnitude { get; set; }
+    public int x;
+    public int y;
 }
 
-public class Pos
+[Serializable]
+public class STile
 {
-    public int x { get; set; }
-    public int y { get; set; }
-    public double magnitude { get; set; }
-    public int sqrMagnitude { get; set; }
+    public SVector2Int pos;
+    public bool isPassable;
+    public int setupPlayer;
+    
 }
-
-public class Tile
-{
-    public Pos pos { get; set; }
-    public bool isPassable { get; set; }
-    public int setupPlayer { get; set; }
-}
-
-// gameplay stuff end
-
