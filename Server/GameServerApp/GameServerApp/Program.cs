@@ -283,11 +283,21 @@ public class GameServer
         Console.WriteLine($"OnGameLobby {clientInfo.GetIdentifier()} started");
         string json = Encoding.UTF8.GetString(data);
         Console.WriteLine($"OnGameLobby {clientInfo.GetIdentifier()} {json}");
-        GameLobbyRequest lobbyRequest = JsonConvert.DeserializeObject<GameLobbyRequest>(json);
-        if (lobbyRequest != null)
+        GameLobbyRequest? lobbyRequest = JsonConvert.DeserializeObject<GameLobbyRequest>(json);
+        if (lobbyRequest == null)
+        {
+            string passwordCollisionMessage = $"OnGameLobby {clientInfo.GetIdentifier()} failed to read json {json}";
+            await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response(false, 1, passwordCollisionMessage));
+        }
+        else
         {
             Lobby lobby = new Lobby(clientInfo.clientId, lobbyRequest.boardDef, lobbyRequest.gameMode);
-            string message = $"OnGameLobby {clientInfo.GetIdentifier()} received a valid request";
+            if (allLobbies.ContainsKey(lobby.password))
+            {
+                string passwordCollisionMessage = $"OnGameLobby {clientInfo.GetIdentifier()} already has a lobby with password {lobby.password}";
+                await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response(false, 2, passwordCollisionMessage));
+            }
+            allLobbies[lobby.password] = lobby;
             await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response(true, 0, lobby.password));
         }
     }
