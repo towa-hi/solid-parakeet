@@ -147,7 +147,7 @@ public class ServerTester : MonoBehaviour
             {
                 string json = JsonConvert.SerializeObject(objectData);
                 byte[] data = Encoding.UTF8.GetBytes(json);
-                byte[] message = MessageSerializer.SerializeMessage(messageType, data);
+                byte[] message = Globals.SerializeMessage(messageType, data);
                 await stream.WriteAsync(message, 0, message.Length);
                 await stream.FlushAsync();
                 Debug.Log($"Sent: '{json}'");
@@ -166,26 +166,26 @@ public class ServerTester : MonoBehaviour
         {
             try
             {
-                var (messageType, data) = await MessageDeserializer.DeserializeMessageAsync(stream);
+                (MessageType messageType, byte[] data) = await Globals.DeserializeMessageAsync(stream);
                 string jsonResponse = Encoding.UTF8.GetString(data);
 
                 switch (messageType)
                 {
                     case MessageType.REGISTERCLIENT:
                         {
-                            var response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
+                            Response<string> response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
                             break;
                         }
                     case MessageType.SERVERERROR:
                         {
-                            var response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
+                            Response<string> response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
                             Debug.LogError($"Server error: {response.data}");
                             HandleServerDisconnection();
                             break;
                         }
                     case MessageType.REGISTERNICKNAME:
                         {
-                            var response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
+                            Response<string> response = JsonConvert.DeserializeObject<Response<string>>(jsonResponse);
                             if (response.success)
                             {
                                 Debug.Log("Nickname set to " + response.data);
@@ -220,6 +220,8 @@ public class ServerTester : MonoBehaviour
                             }
                             break;
                         }
+                    case MessageType.JOINGAMELOBBY:
+                    case MessageType.GAME:
                     default:
                         {
                             Debug.Log($"Received message of type {messageType}");
@@ -276,23 +278,13 @@ public class ServerTester : MonoBehaviour
     }
 }
 
-// Additional classes and enums (should match your server code)
-
-public enum MessageType : uint
-{
-    SERVERERROR, // only called when error is server fault, disconnects the client forcibly
-    REGISTERCLIENT, // request: clientId only, response: none 
-    REGISTERNICKNAME, // request: nickname, response: success
-    GAMELOBBY, // request: lobby parameters, response: lobby
-    JOINGAMELOBBY, // request: password, response: lobby 
-    GAME, // request holds piece deployment or move data, response is a gamestate object
-}
-
 public class Response<T>
 {
     public bool success;
     public int responseCode;
     public T data;
+    
+    public Response() { }
     
     public Response(bool inSuccess, int inResponseCode, T inData)
     {
@@ -301,17 +293,6 @@ public class Response<T>
         data = inData;
     }
 
-    public string GetHeaderAsString()
-    {
-        return $"'{success}' '{responseCode}'";
-    }
-
-    public static Response<T> StringDataToResponse(byte[] data)
-    {
-        string jsonResponse = Encoding.UTF8.GetString(data);
-        Response<T> response = JsonConvert.DeserializeObject<Response<T>>(jsonResponse);
-        return response;
-    }
 }
 
 public class Request
@@ -336,69 +317,4 @@ public class GameLobbyRequest
     public Guid clientId { get; set; }
     public int gameMode { get; set; }
     public SBoardDef sBoardDef { get; set; }
-}
-
-
-public class NewGameRequest
-{
-    public Guid clientId { get; set; }
-    public int gameMode { get; set; }
-}
-
-
-public static class MessageSerializer
-{
-    public static byte[] SerializeMessage(MessageType type, byte[] data)
-    {
-        using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
-        {
-            // Convert MessageType to bytes (4 bytes, little endian)
-            byte[] typeBytes = BitConverter.GetBytes((uint)type);
-            ms.Write(typeBytes, 0, typeBytes.Length);
-
-            // Convert data length to bytes (4 bytes, little endian)
-            byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
-            ms.Write(lengthBytes, 0, lengthBytes.Length);
-
-            // Write data bytes
-            ms.Write(data, 0, data.Length);
-
-            return ms.ToArray();
-        }
-    }
-}
-
-public static class MessageDeserializer
-{
-    public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
-    {
-        byte[] header = new byte[8];
-        int bytesRead = 0;
-        while (bytesRead < 8)
-        {
-            int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
-            if (read == 0)
-                throw new Exception("Disconnected");
-            bytesRead += read;
-        }
-
-        // Read message type
-        MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
-
-        // Read data length
-        uint length = BitConverter.ToUInt32(header, 4);
-
-        // Read data
-        byte[] data = new byte[length];
-        bytesRead = 0;
-        while (bytesRead < length)
-        {
-            int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
-            if (read == 0)
-                throw new Exception("Disconnected during data reception");
-            bytesRead += read;
-        }
-
-        return (type, data);
-    }
 }

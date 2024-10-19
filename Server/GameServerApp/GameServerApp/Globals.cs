@@ -141,12 +141,16 @@ public class Response<T>
 public class RegisterClientRequest
 {
     public Guid clientId { get; set; }
+    
+    public RegisterClientRequest() { }
 }
 
 public class RegisterNicknameRequest
 {
     public Guid clientId { get; set; }
     public string nickname { get; set; }
+    
+    public RegisterNicknameRequest() { }
 }
 
 public class GameLobbyRequest
@@ -154,6 +158,8 @@ public class GameLobbyRequest
     public Guid clientId { get; set; }
     public int gameMode { get; set; }
     public SBoardDef sBoardDef { get; set; }
+    
+    public GameLobbyRequest() { }
 }
 
 // networking stuff end

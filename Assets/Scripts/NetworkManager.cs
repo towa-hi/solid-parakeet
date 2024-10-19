@@ -86,7 +86,7 @@ public class NetworkManager
     public async Task SendMessageAsync(MessageType type, string message)
     {
         byte[] data = Encoding.UTF8.GetBytes(message);
-        byte[] serializedMessage = MessageSerializer.SerializeMessage(type, data);
+        byte[] serializedMessage = Globals.SerializeMessage(type, data);
         try
         {
             await stream.WriteAsync(serializedMessage, 0, serializedMessage.Length);
@@ -101,7 +101,7 @@ public class NetworkManager
     // Overload for byte array data
     public async Task SendMessageAsync(MessageType type, byte[] data)
     {
-        byte[] message = MessageSerializer.SerializeMessage(type, data);
+        byte[] message = Globals.SerializeMessage(type, data);
         try
         {
             await stream.WriteAsync(message, 0, message.Length);
@@ -118,7 +118,7 @@ public class NetworkManager
         {
             while (!token.IsCancellationRequested && isConnected)
             {
-                var (type, data) = await MessageDeserializer.DeserializeMessageAsync(stream);
+                var (type, data) = await Globals.DeserializeMessageAsync(stream);
                 messageQueue.Enqueue((type, data));
                 ProcessIncomingMessages();
             }

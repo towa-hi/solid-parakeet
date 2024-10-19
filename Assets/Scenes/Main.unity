@@ -3394,7 +3394,6 @@ GameObject:
   - component: {fileID: 1095688770}
   - component: {fileID: 1095688769}
   - component: {fileID: 1095688768}
-  - component: {fileID: 1095688767}
   - component: {fileID: 1095688771}
   m_Layer: 5
   m_Name: ServerTester
@@ -3426,21 +3425,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 500, y: 500}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1095688767
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1095688765}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8834dc8c65960c408c1eb2be4bfdf31, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  startButton: {fileID: 257251422}
-  settingsButton: {fileID: 583676064}
-  exitButton: {fileID: 1528625091}
 --- !u!114 &1095688768
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3517,7 +3501,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a18898e2188c5c4e9054f612a27f7e8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nickname: 
+  isNicknameRegistered: 0
+  nickname: steve
 --- !u!1 &1107347429
 GameObject:
   m_ObjectHideFlags: 0
