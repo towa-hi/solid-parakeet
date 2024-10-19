@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "Board", menuName = "Scriptable Objects/Board")]
@@ -8,7 +9,7 @@ public class BoardDef : ScriptableObject
     public Vector2Int boardSize;
     public Tile[] tiles;
 
-    public void InitializeTiles()
+    public void Initialize()
     {
         tiles = new Tile[boardSize.x * boardSize.y];
         

@@ -23,6 +23,7 @@ public class GameServer
     bool isRunning;
 
     readonly ConcurrentDictionary<Guid, ClientInfo> allClients;
+    readonly ConcurrentDictionary<string, Lobby> allLobbies;
 
     // Add a cancellation token to gracefully stop the console command listener
     private CancellationTokenSource consoleCommandCancellation = new CancellationTokenSource();
@@ -31,6 +32,7 @@ public class GameServer
     {
         listener = new TcpListener(IPAddress.Any, port);
         allClients = new ConcurrentDictionary<Guid, ClientInfo>();
+        allLobbies = new ConcurrentDictionary<string, Lobby>();
     }
 
     public void Start()
@@ -194,8 +196,9 @@ public class GameServer
             case MessageType.REGISTERNICKNAME:
                 await OnRegisterNickname(unregisteredClientInfo, data);
                 break;
-            case MessageType.CHANGENICKNAME:
             case MessageType.GAMELOBBY:
+                await OnGameLobby(unregisteredClientInfo, data);
+                break;
             case MessageType.JOINGAMELOBBY:
             case MessageType.GAME:
             default:
@@ -221,7 +224,6 @@ public class GameServer
                 Console.WriteLine(errorMessage);
                 await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(false, 2, errorMessage));
                 clientInfo.tcpClient.Close();
-                return;
             }
             else
             {
@@ -240,19 +242,18 @@ public class GameServer
         {
             // New client registration
             clientInfo.isRegistered = true;
-            if (allClients.TryAdd(clientInfo.clientId, clientInfo))
-            {
-                string message = $"OnRegisterClient {clientInfo.GetIdentifier()} registered successfully.";
-                Console.WriteLine(message);
-                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(true, 0, message));
-            }
-            else
+            if (!allClients.TryAdd(clientInfo.clientId, clientInfo))
             {
                 string errorMessage = $"OnRegisterClient {clientInfo.clientId} registration failed.";
                 Console.WriteLine(errorMessage);
                 await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(false, 3, errorMessage));
                 clientInfo.tcpClient.Close();
-                return;
+            }
+            else
+            {
+                string message = $"OnRegisterClient {clientInfo.GetIdentifier()} registered successfully.";
+                Console.WriteLine(message);
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response(true, 0, message));
             }
         }
     }
@@ -274,7 +275,21 @@ public class GameServer
         clientInfo.nickname = registerNicknameRequest.nickname;
         string message = $"OnRegisterNickname {clientInfo.GetIdentifier()} set to {registerNicknameRequest.nickname}";
         Console.WriteLine(message);
-        await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response(true, 0, message));
+        await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response(true, 0, registerNicknameRequest.nickname));
+    }
+
+    async Task OnGameLobby(ClientInfo clientInfo, byte[] data)
+    {
+        Console.WriteLine($"OnGameLobby {clientInfo.GetIdentifier()} started");
+        string json = Encoding.UTF8.GetString(data);
+        Console.WriteLine($"OnGameLobby {clientInfo.GetIdentifier()} {json}");
+        GameLobbyRequest lobbyRequest = JsonConvert.DeserializeObject<GameLobbyRequest>(json);
+        if (lobbyRequest != null)
+        {
+            Lobby lobby = new Lobby(clientInfo.clientId, lobbyRequest.boardDef, lobbyRequest.gameMode);
+            string message = $"OnGameLobby {clientInfo.GetIdentifier()} received a valid request";
+            await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response(true, 0, lobby.password));
+        }
     }
     
     const int ALIASMAXLENGTH = 20;
@@ -384,146 +399,3 @@ public class GameServer
         return allClients.TryGetValue(clientId, out ClientInfo? info) ? info : null;
     }
 }
-
-public class ClientInfo
-{
-    public bool isConnected;
-    public Guid clientId;
-    public bool isRegistered;
-    public string nickname = "";
-    public TcpClient tcpClient;
-    public NetworkStream stream;
-    public IPAddress ipAddress;
-    public bool isInSession;
-
-    public ClientInfo(TcpClient inTcpClient)
-    {
-        isConnected = true;
-        clientId = Guid.Empty;
-        isRegistered = false;
-        tcpClient = inTcpClient;
-        stream = tcpClient.GetStream();
-        ipAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
-        isInSession = false;
-    }
-
-    public void RegisterClient(Guid inClientId)
-    {
-        if (isRegistered)
-        {
-            throw new Exception("Client is already registered");
-        }
-
-        if (inClientId == Guid.Empty)
-        {
-            throw new Exception("ClientId cannot be empty");
-        }
-        clientId = inClientId;
-        isRegistered = true;
-    }
-    public string GetIdentifier()
-    {
-        return $"id: '{clientId.ToString()}' alias: '{nickname}', ip: '{ipAddress}'";
-    }
-}
-
-public class RegisterClientRequest
-{
-    public Guid clientId { get; set; }
-}
-
-public class RegisterNicknameRequest
-{
-    public Guid clientId { get; set; }
-    public string nickname { get; set; }
-}
-
-public class NewGameRequest
-{
-    public Guid clientId { get; set; }
-    public int gameMode { get; set; }
-}
-
-public static class MessageSerializer
-{
-    public static byte[] SerializeMessage(MessageType type, byte[] data)
-    {
-        using MemoryStream ms = new MemoryStream();
-        // Convert MessageType to bytes (4 bytes, little endian)
-        byte[] typeBytes = BitConverter.GetBytes((uint)type);
-        ms.Write(typeBytes, 0, typeBytes.Length);
-
-        // Convert data length to bytes (4 bytes, little endian)
-        byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
-        ms.Write(lengthBytes, 0, lengthBytes.Length);
-
-        // Write data bytes
-        ms.Write(data, 0, data.Length);
-
-        return ms.ToArray();
-    }
-}
-
-public static class MessageDeserializer
-{
-    public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
-    {
-        byte[] header = new byte[8];
-        int bytesRead = 0;
-        while (bytesRead < 8)
-        {
-            int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
-            if (read == 0)
-            {
-                throw new Exception("Disconnected");
-            }
-            bytesRead += read;
-        }
-        MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
-        uint length = BitConverter.ToUInt32(header, 4);
-        byte[] data = new byte[length];
-        bytesRead = 0;
-        while (bytesRead < length)
-        {
-            int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
-            if (read == 0)
-            {
-                throw new Exception("Disconnected");
-            }
-            bytesRead += read;
-        }
-        return (type, data);
-    }
-}
-
-public enum MessageType : uint
-{
-    SERVERERROR, // only called when error is server fault
-    REGISTERCLIENT, // response only, just an ack 
-    REGISTERNICKNAME, // request registration data
-    CHANGENICKNAME,
-    GAMELOBBY, // request has password
-    JOINGAMELOBBY, // request has password
-    GAME, // request holds piece deployment or move data, response is a gamestate object
-    
-}
-
-public class Response
-{
-    public bool success;
-    public int responseCode;
-    public object data;
-
-    public Response(bool inSuccess, int inResponseCode, object inData)
-    {
-        success = inSuccess;
-        responseCode = inResponseCode;
-        data = inData;
-    }
-
-    public string GetHeaderAsString()
-    {
-        return $"'{success}' '{responseCode}'";
-    }
-}
-

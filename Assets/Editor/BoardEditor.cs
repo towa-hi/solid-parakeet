@@ -14,7 +14,7 @@ public class BoardEditor : Editor
         // Display the "Initialize Tiles" button first
         if (GUILayout.Button("Initialize Tiles (RESETS BOARD!!!)"))
         {
-            board.InitializeTiles();
+            board.Initialize();
             EditorUtility.SetDirty(board);  // Mark the object as dirty so changes are saved
         }
 

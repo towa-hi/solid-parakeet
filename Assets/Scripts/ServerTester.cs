@@ -8,14 +8,12 @@ using UnityEngine.UI;
 
 public class ServerTester : MonoBehaviour
 {
-    public Button ConnectButton;
-    public Button SendNickButton;
-    public Button StartLobbyButton;
-    
+
     private TcpClient client;
     private NetworkStream stream;
     private bool isConnected = false;
 
+    public bool isNicknameRegistered = false;
     // Replace with your server's IP and port
     private string serverIP = "127.0.0.1"; // Assuming the server is running locally
     private int serverPort = 12345;
@@ -23,15 +21,12 @@ public class ServerTester : MonoBehaviour
     // Store the client ID to handle reconnections
     private Guid clientId;
 
+    public string nickname;
+    
     // TaskCompletionSources for synchronization
     private TaskCompletionSource<Response> acknowledgmentReceived = new TaskCompletionSource<Response>();
 
-    void Awake()
-    {
-        ConnectButton.onClick.AddListener(OnConnectButton);
-        SendNickButton.onClick.AddListener(OnSendNickButton);
-        StartLobbyButton.onClick.AddListener(OnStartLobbyButton);
-    }
+
 
     public void OnConnectButton()
     {
@@ -41,13 +36,13 @@ public class ServerTester : MonoBehaviour
 
     public void OnSendNickButton()
     {
-        string testNickname = clientId.ToString().Substring(0, 4);
-        RegisterNickname(testNickname);
+        string testNickname = clientId.ToString().Substring(0, 4) + nickname;
+        _ = SendRegisterNickname(testNickname);
     }
-
+    
     public void OnStartLobbyButton()
     {
-        
+        _ = SendGameLobby();
     }
 
     void LoadOrGenerateClientId()
@@ -87,7 +82,7 @@ public class ServerTester : MonoBehaviour
             isConnected = true;
             Debug.Log("Connected to server.");
             // Start reading messages from the server
-            await RegisterClient();
+            await SendRegisterClient();
             
             _ = ReadResponsesFromServer();
             
@@ -101,7 +96,7 @@ public class ServerTester : MonoBehaviour
         }
     }
 
-    async Task RegisterClient()
+    async Task SendRegisterClient()
     {
         try
         {
@@ -118,7 +113,7 @@ public class ServerTester : MonoBehaviour
         }
     }
     
-    async Task RegisterNickname(string nickname)
+    async Task SendRegisterNickname(string nickname)
     {
         try
         {
@@ -136,6 +131,17 @@ public class ServerTester : MonoBehaviour
         }
     }
 
+    async Task SendGameLobby()
+    {
+        GameLobbyRequest gameLobbyRequest = new GameLobbyRequest
+        {
+            clientId = clientId,
+            gameMode = 0,
+            boardDef = GameManager.instance.tempBoardDef
+        };
+        await SendRequestToServer(MessageType.GAMELOBBY, gameLobbyRequest);
+    }
+    
     async Task SendRequestToServer(MessageType messageType, object objectData)
     {
         if (isConnected)
@@ -164,28 +170,40 @@ public class ServerTester : MonoBehaviour
             try
             {
                 var (messageType, data) = await MessageDeserializer.DeserializeMessageAsync(stream);
-
+                Response response = Response.StringDataToResponse(data);
                 switch (messageType)
                 {
                     case MessageType.REGISTERCLIENT:
-                        // Handle acknowledgment
-                        string jsonAck = Encoding.UTF8.GetString(data);
-                        Debug.Log(jsonAck);
-                        Response responseAck = JsonConvert.DeserializeObject<Response>(jsonAck);
-                        // Signal that acknowledgment is received
-                        acknowledgmentReceived.TrySetResult(responseAck);
+                        acknowledgmentReceived.TrySetResult(response);
                         break;
-
                     case MessageType.SERVERERROR:
-                        // Handle server error messages
-                        string jsonError = Encoding.UTF8.GetString(data);
-                        Debug.Log(jsonError);
-                        Response responseError = JsonConvert.DeserializeObject<Response>(jsonError);
-                        Debug.LogError($"Server error: {responseError.data}");
+                        Debug.LogError($"Server error: {response.data}");
                         HandleServerDisconnection();
                         break;
-                    case MessageType.CHANGENICKNAME:
-                        
+                    case MessageType.REGISTERNICKNAME:
+                        if (response.success)
+                        {
+                            string responseData = (string)response.data;
+                            Debug.Log("nickname set to " + responseData);
+                            nickname = responseData;
+                            isNicknameRegistered = true;
+                        }
+                        else
+                        {
+                            Debug.LogError("server rejected nickname with response code " + response.responseCode);
+                            isNicknameRegistered = false;
+                        }
+                        break;
+                    case MessageType.GAMELOBBY:
+                        if (response.success)
+                        {
+                            string responseData = (string)response.data;
+                            Debug.Log("lobby message:  " + responseData);
+                        }
+                        else
+                        {
+                            Debug.LogError("server rejected lobby with response code " + response.responseCode);
+                        }
                         break;
                     default:
                         Debug.Log($"Received message of type {messageType}");
@@ -248,7 +266,6 @@ public enum MessageType : uint
     SERVERERROR, // only called when error is server fault
     REGISTERCLIENT, // response only, just an ack 
     REGISTERNICKNAME, // request registration data
-    CHANGENICKNAME,
     GAMELOBBY, // request has password
     JOINGAMELOBBY, // request has password
     GAME, // request holds piece deployment or move data, response is a gamestate object
@@ -259,6 +276,13 @@ public struct Response
     public bool success;
     public int responseCode;
     public object data;
+
+    public static Response StringDataToResponse(byte[] data)
+    {
+        string json = Encoding.UTF8.GetString(data);
+        Debug.Log(json);
+        return JsonConvert.DeserializeObject<Response>(json);
+    }
 }
 
 public struct Request
@@ -276,6 +300,13 @@ public struct RegisterNicknameRequest
 {
     public Guid clientId { get; set; }
     public string nickname { get; set; }
+}
+
+public struct GameLobbyRequest
+{
+    public Guid clientId { get; set; }
+    public int gameMode { get; set; }
+    public BoardDef boardDef { get; set; }
 }
 
 public struct NewGameRequest
