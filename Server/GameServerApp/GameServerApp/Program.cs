@@ -170,18 +170,6 @@ public class GameServer
         Console.WriteLine($"OnClientAbruptDisconnect {clientInfo.GetIdentifier()} disconnected abruptly.");
         clientInfo.isConnected = false;
         allClients.TryRemove(clientInfo.clientId, out _);
-        // // Start a timer to remove the client after 5 minutes if they don't reconnect
-        // Task.Run(async () =>
-        // {
-        //     await Task.Delay(TimeSpan.FromSeconds(5));
-        //     if (!clientInfo.isConnected)
-        //     {
-        //         if (allClients.TryRemove(clientInfo.clientId, out _))
-        //         {
-        //             Console.WriteLine($"Client '{clientInfo.GetIdentifier()}' has been deregistered after timeout.");
-        //         }
-        //     }
-        // });
     }
 
     async Task ProcessClientMessageAsync(ClientInfo unregisteredClientInfo, MessageType messageType, byte[] data)
@@ -307,18 +295,19 @@ public class GameServer
                 await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<string>(false, 2, passwordCollisionMessage));
             }
             allLobbies[sLobby.password] = sLobby;
+            clientInfo.lobbyId = sLobby.lobbyId;
             await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<SLobby>(true, 0, sLobby));
         }
     }
     
-    const int ALIASMAXLENGTH = 20;
-    static bool IsNicknameValid(string alias)
+    const int NICKNAMEMAXLENGTH = 20;
+    static bool IsNicknameValid(string nickname)
     {
-        if (string.IsNullOrWhiteSpace(alias))
+        if (string.IsNullOrWhiteSpace(nickname))
         {
             return false;
         }
-        if (alias.Length > ALIASMAXLENGTH)
+        if (nickname.Length > NICKNAMEMAXLENGTH)
         {
             return false;
         }

@@ -51,8 +51,6 @@ public class GameManager : MonoBehaviour
         gameClient = new GameClient(networkManager);
         ChangeAppState(appState);
         Globals.inputActions.Enable();
-        PasswordModal.instance.Show(false);
-        
     }
     
     void ChangeAppState(AppState inAppState)

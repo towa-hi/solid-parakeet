@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class PasswordModal : MonoBehaviour
 {
     public static PasswordModal instance;
-    
+    public Vector2 homePosition = new Vector2(-2000, 0);
     public TMP_InputField passwordInput;
     public Button backButton;
     public Button startButton;
@@ -21,17 +21,18 @@ public class PasswordModal : MonoBehaviour
         backButton.onClick.AddListener(OnBackButtonClicked);
         startButton.onClick.AddListener(OnStartButton);
         passwordInput.onValueChanged.AddListener(OnPasswordChanged);
+        Show(false);
     }
     
     public void Show(bool show)
     {
-        gameObject.SetActive(show);
+        RectTransform rect = GetComponent<RectTransform>();
+        rect.anchoredPosition = show ? Vector2.zero : homePosition;
         passwordInput.text = "";
         password = "";
         passwordValid = false;
         // Disable the continue button initially
         startButton.interactable = false;
-        
     }
     
     void OnBackButtonClicked()

@@ -84,7 +84,7 @@ public class ClientInfo
     public TcpClient tcpClient;
     public NetworkStream stream;
     public IPAddress ipAddress;
-    public bool isInSession;
+    public Guid? lobbyId;
 
     public ClientInfo(TcpClient inTcpClient)
     {
@@ -94,7 +94,7 @@ public class ClientInfo
         tcpClient = inTcpClient;
         stream = tcpClient.GetStream();
         ipAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
-        isInSession = false;
+        lobbyId = null;
     }
 
     public void RegisterClient(Guid inClientId)
