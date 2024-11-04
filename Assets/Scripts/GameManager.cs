@@ -15,23 +15,18 @@ using Debug = UnityEngine.Debug;
 public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
-    public AppState appState = AppState.MAIN;
-    public MainMenu mainMenu;
-    public PawnSelector pawnSelector;
     public Camera mainCamera;
 
-    public NetworkManager networkManager;
-    public GameClient gameClient;
-    
-    // clear these on new game
-    //public GameState gameState = null;
+    public AppState appState = AppState.MAIN;
     public BoardManager boardManager;
-    public BoardManager boardManager2;
+    
+    
     
     // temp param, should be chosen by a UI widget later
     public BoardDef tempBoardDef;
 
-    public bool isLoading;
+    public string nickname = "wewlad";
+    public Action<string> onNicknameChanged;
     
     void Awake()
     {
@@ -47,8 +42,8 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        networkManager = new NetworkManager();
-        gameClient = new GameClient(networkManager);
+        //gameClient = new GameClient(networkManager);
+        
         ChangeAppState(appState);
         Globals.inputActions.Enable();
     }
@@ -70,7 +65,6 @@ public class GameManager : MonoBehaviour
 
     public void StartGame()
     {
-        SetIsLoading(true);
         try
         {
             // StartAsync: Connect to the server and send the alias
@@ -88,33 +82,7 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        if (networkManager.isConnected)
-        {
-            networkManager.ProcessIncomingMessages();
-        }
-    }
 
-    public async void OnPasswordEntered(string password)
-    {
-        PasswordModal.instance.Show(false);
-        Debug.Log(password);
-        int[] passwordInts = ParsePassword(password);
-        SetIsLoading(true);
-        try
-        {
-            // CreateNewGameAsync: Send NEWGAME message with the password
-            //await gameClient.CreateNewGameAsync(passwordInts);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error during matchmaking: {e.Message}");
-            // Optionally, display an error message to the user via UI
-        }
-        finally
-        {
-            // Hide the loading screen
-            SetIsLoading(false);
-        }
     }
     
     private int[] ParsePassword(string password)
@@ -164,27 +132,7 @@ public class GameManager : MonoBehaviour
     
     public void OnTileClicked(TileView tileView, Vector2 mousePos)
     {
-        // switch (GameServer.instance.gameState.phase)
-        // {
-        //     case GamePhase.UNINITIALIZED:
-        //         break;
-        //     case GamePhase.SETUP:
-        //     {
-        //         if (tileView.IsTileInteractableDuringSetup())
-        //         {
-        //             pawnSelector.OpenAndInitialize(tileView);
-        //         }
-        //         break;
-        //     }
-        //     case GamePhase.MOVE:
-        //         break;
-        //     case GamePhase.RESOLVE:
-        //         break;
-        //     case GamePhase.END:
-        //         break;
-        //     default:
-        //         throw new ArgumentOutOfRangeException();
-        // }
+
     }
     
     public void OnSetupPawnSelectorSelected(TileView tileView, PawnDef pawnDef)
@@ -202,10 +150,8 @@ public class GameManager : MonoBehaviour
     
     void OnMain()
     {
-        // clear all game related stuff
-        //gameState = null;
         boardManager.ClearBoard();
-        mainMenu.ShowMainMenu(true);
+        //mainMenu.ShowMainMenu(true);
     }
 
     async void OnGame()
@@ -214,20 +160,19 @@ public class GameManager : MonoBehaviour
         PlayerProfile guestProfile = new PlayerProfile(Guid.NewGuid());
         // params should be passed in from a game settings widget later
         //gameState = new GameState(tempBoardDef);
-        mainMenu.ShowMainMenu(false);
-        SetIsLoading(true);
+        //mainMenu.ShowMainMenu(false);
+        //SetIsLoading(true);
     }
 
     void ResGameStarted(GameState state)
     {
         boardManager.StartBoard(Player.RED, state);
-        boardManager2.StartBoard(Player.BLUE, state);
-        SetIsLoading(false);
     }
 
-    public void SetIsLoading(bool inIsLoading)
+    public void SetNickname(string inNickname)
     {
-        isLoading = inIsLoading;
-        LoadingScreen.instance.ShowLoadingScreen(isLoading);
+        nickname = inNickname;
+        onNicknameChanged.Invoke(nickname);
     }
+    
 }

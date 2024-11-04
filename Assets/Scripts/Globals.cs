@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -76,7 +77,65 @@ public static class Globals
 
         return (type, data);
     }
+    public static int[] ParsePassword(string password)
+    {
+        // Remove any non-digit and non-separator characters
+        string cleanedPassword = Regex.Replace(password, "[^0-9, ]", "");
 
+        // Split the string by commas or spaces
+        string[] parts = cleanedPassword.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 5)
+        {
+            int[] passwordInts = new int[5];
+            for (int i = 0; i < 5; i++)
+            {
+                if (!int.TryParse(parts[i], out passwordInts[i]))
+                {
+                    Debug.LogError($"Failed to parse part {i + 1}: '{parts[i]}'");
+                    return null; // Parsing failed
+                }
+            }
+            Debug.Log($"Parsed password with separators: [{string.Join(", ", passwordInts)}]");
+            return passwordInts;
+        }
+        else if (cleanedPassword.Length == 5)
+        {
+            int[] passwordInts = new int[5];
+            for (int i = 0; i < 5; i++)
+            {
+                char c = cleanedPassword[i];
+                if (!char.IsDigit(c))
+                {
+                    Debug.LogError($"Non-digit character found at position {i + 1}: '{c}'");
+                    return null; // Invalid character
+                }
+                passwordInts[i] = c - '0';
+            }
+            Debug.Log($"Parsed password without separators: [{string.Join(", ", passwordInts)}]");
+            return passwordInts;
+        }
+        else
+        {
+            Debug.LogError($"Invalid password format. Expected 5 integers separated by commas/spaces or a continuous 5-digit number. Received: '{password}'");
+            return null; // Invalid format
+        }
+    }
+
+    public static bool IsNicknameValid(string nickname)
+    {
+        // Check length constraints
+        if (string.IsNullOrEmpty(nickname) || nickname.Length >= 16)
+            return false;
+
+        // Check for alphanumeric characters and spaces only
+        return Regex.IsMatch(nickname, @"^[a-zA-Z0-9 ]+$");
+    }
+
+    public static bool IsPasswordValid(string password)
+    {
+        return true;
+    }
 }
 
 public enum MessageType : uint
