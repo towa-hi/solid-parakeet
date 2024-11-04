@@ -1,16 +1,30 @@
+using System;
+using TMPro;
 using UnityEngine;
-
-public class GuiLobbyMenu : MonoBehaviour
+using UnityEngine.UI;
+public class GuiLobbyMenu : MenuElement
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    public Button cancelButton;
+    public Button readyButton;
+    
+    // chat is handled in it's own component
+    
+    public event Action OnCancelButton;
+    public event Action OnReadyButton;
+
     void Start()
     {
-        
+        cancelButton.onClick.AddListener(HandleCancelButton);
+        readyButton.onClick.AddListener(HandleReadyButton);
+    }
+    
+    void HandleCancelButton()
+    {
+        OnCancelButton?.Invoke();
     }
 
-    // Update is called once per frame
-    void Update()
+    void HandleReadyButton()
     {
-        
+        OnReadyButton?.Invoke();
     }
 }

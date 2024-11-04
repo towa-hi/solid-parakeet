@@ -1389,6 +1389,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hiddenPosition: {x: 0, y: 0}
   activePosition: {x: 0, y: 0}
+  isShow: 0
   nicknameText: {fileID: 2848714211052758146}
   changeNicknameButton: {fileID: 3232073341413734836}
   newLobbyButton: {fileID: 4214774446701474690}
