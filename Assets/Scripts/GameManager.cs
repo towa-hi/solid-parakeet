@@ -21,12 +21,13 @@ public class GameManager : MonoBehaviour
     public BoardManager boardManager;
     
     
-    
     // temp param, should be chosen by a UI widget later
     public BoardDef tempBoardDef;
 
     public string nickname = "wewlad";
     public Action<string> onNicknameChanged;
+    public NetworkManager networkManager;
+    public GameClient client;
     
     void Awake()
     {
@@ -42,7 +43,8 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        //gameClient = new GameClient(networkManager);
+        networkManager = new NetworkManager();
+        client = new GameClient(networkManager);
         
         ChangeAppState(appState);
         Globals.inputActions.Enable();
@@ -63,23 +65,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void StartGame()
-    {
-        try
-        {
-            // StartAsync: Connect to the server and send the alias
-            //_ = gameClient.StartAsync("127.0.0.1", 12345, "bob");
-            
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error during matchmaking: {e.Message}");
-            // Optionally, display an error message to the user via UI
-        }
-        
-        //ChangeAppState(AppState.GAME);
-    }
-
+    
     void Update()
     {
 

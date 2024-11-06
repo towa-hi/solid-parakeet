@@ -9,17 +9,17 @@ using UnityEngine.UI;
 public class ServerTester : MonoBehaviour
 {
 
-    private TcpClient client;
-    private NetworkStream stream;
-    private bool isConnected = false;
+    TcpClient client;
+    NetworkStream stream;
+    bool isConnected = false;
 
     public bool isNicknameRegistered = false;
     // Replace with your server's IP and port
-    private string serverIP = "127.0.0.1"; // Assuming the server is running locally
-    private int serverPort = 12345;
+    string serverIP = "127.0.0.1"; // Assuming the server is running locally
+    int serverPort = 12345;
 
     // Store the client ID to handle reconnections
-    private Guid clientId;
+    Guid clientId;
 
     public string nickname;
     
@@ -276,45 +276,4 @@ public class ServerTester : MonoBehaviour
             client = null;
         }
     }
-}
-
-public class Response<T>
-{
-    public bool success;
-    public int responseCode;
-    public T data;
-    
-    public Response() { }
-    
-    public Response(bool inSuccess, int inResponseCode, T inData)
-    {
-        success = inSuccess;
-        responseCode = inResponseCode;
-        data = inData;
-    }
-
-}
-
-public class Request
-{
-    public MessageType messageType;
-    public object data;
-}
-
-public class RegisterClientRequest
-{
-    public Guid clientId { get; set; }
-}
-
-public class RegisterNicknameRequest
-{
-    public Guid clientId { get; set; }
-    public string nickname { get; set; }
-}
-
-public class GameLobbyRequest
-{
-    public Guid clientId { get; set; }
-    public int gameMode { get; set; }
-    public SBoardDef sBoardDef { get; set; }
 }

@@ -136,6 +136,35 @@ public static class Globals
     {
         return true;
     }
+    
+    public static Guid LoadOrGenerateClientId()
+    {
+        if (PlayerPrefs.HasKey("ClientId"))
+        {
+            string clientIdStr = PlayerPrefs.GetString("ClientId");
+            if (Guid.TryParse(clientIdStr, out Guid parsedId))
+            {
+                Debug.Log($"Loaded existing ClientId: {parsedId}");
+                return parsedId;
+            }
+            else
+            {
+                Guid newId = Guid.NewGuid();
+                PlayerPrefs.SetString("ClientId", newId.ToString());
+                PlayerPrefs.Save();
+                Debug.Log($"Generated new ClientId (invalid stored ID was replaced): {newId}");
+                return newId;
+            }
+        }
+        else
+        {
+            Guid newId = Guid.NewGuid();
+            PlayerPrefs.SetString("ClientId", newId.ToString());
+            PlayerPrefs.Save();
+            Debug.Log($"Generated new ClientId: {newId}");
+            return newId;
+        }
+    }
 }
 
 public enum MessageType : uint
