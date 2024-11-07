@@ -29,6 +29,11 @@ public class GuiPasswordModal : ModalElement
         }
     }
 
+    public string GetPassword()
+    {
+        return passwordInputField.text;
+    }
+    
     void Reset()
     {
         passwordInputField.text = String.Empty;

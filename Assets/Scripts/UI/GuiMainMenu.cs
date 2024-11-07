@@ -25,6 +25,12 @@ public class GuiMainMenu : MenuElement
         joinLobbyButton.onClick.AddListener(HandleJoinLobbyButton);
         settingsButton.onClick.AddListener(HandleSettingsButton);
         exitButton.onClick.AddListener(HandleExitButton);
+        RefreshNicknameText();
+    }
+
+    public void RefreshNicknameText()
+    {
+        nicknameText.text = GameManager.instance.client.isNicknameRegistered ? Globals.GetNickname() : "SET NICKNAME";
     }
     
     void HandleChangeNicknameButton()

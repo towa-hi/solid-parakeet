@@ -30,6 +30,17 @@ public class GuiNicknameModal : ModalElement
         }
     }
 
+    public override void EnableElement(bool enable)
+    {
+        cancelButton.interactable = enable;
+        confirmButton.interactable = enable;
+    }
+    
+    public string GetNickname()
+    {
+        return nicknameInputField.text;
+    }
+    
     void Reset()
     {
         nicknameInputField.text = string.Empty;

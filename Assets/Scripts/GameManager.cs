@@ -24,7 +24,6 @@ public class GameManager : MonoBehaviour
     // temp param, should be chosen by a UI widget later
     public BoardDef tempBoardDef;
 
-    public string nickname = "wewlad";
     public Action<string> onNicknameChanged;
     public NetworkManager networkManager;
     public GameClient client;
@@ -34,17 +33,19 @@ public class GameManager : MonoBehaviour
         if (instance == null)
         {
             instance = this;
+            networkManager = new NetworkManager();
+            client = new GameClient(networkManager);
         }
         else
         {
             Debug.LogWarning("MORE THAN ONE SINGLETON");
         }
+        
     }
 
     void Start()
     {
-        networkManager = new NetworkManager();
-        client = new GameClient(networkManager);
+        
         
         ChangeAppState(appState);
         Globals.inputActions.Enable();
@@ -62,57 +63,6 @@ public class GameManager : MonoBehaviour
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(inAppState), inAppState, null);
-        }
-    }
-
-    
-    void Update()
-    {
-
-    }
-    
-    private int[] ParsePassword(string password)
-    {
-        // Remove any non-digit and non-separator characters
-        string cleanedPassword = Regex.Replace(password, "[^0-9, ]", "");
-
-        // Split the string by commas or spaces
-        string[] parts = cleanedPassword.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length == 5)
-        {
-            int[] passwordInts = new int[5];
-            for (int i = 0; i < 5; i++)
-            {
-                if (!int.TryParse(parts[i], out passwordInts[i]))
-                {
-                    Debug.LogError($"Failed to parse part {i + 1}: '{parts[i]}'");
-                    return null; // Parsing failed
-                }
-            }
-            Debug.Log($"Parsed password with separators: [{string.Join(", ", passwordInts)}]");
-            return passwordInts;
-        }
-        else if (cleanedPassword.Length == 5)
-        {
-            int[] passwordInts = new int[5];
-            for (int i = 0; i < 5; i++)
-            {
-                char c = cleanedPassword[i];
-                if (!char.IsDigit(c))
-                {
-                    Debug.LogError($"Non-digit character found at position {i + 1}: '{c}'");
-                    return null; // Invalid character
-                }
-                passwordInts[i] = c - '0';
-            }
-            Debug.Log($"Parsed password without separators: [{string.Join(", ", passwordInts)}]");
-            return passwordInts;
-        }
-        else
-        {
-            Debug.LogError($"Invalid password format. Expected 5 integers separated by commas/spaces or a continuous 5-digit number. Received: '{password}'");
-            return null; // Invalid format
         }
     }
     
@@ -153,12 +103,6 @@ public class GameManager : MonoBehaviour
     void ResGameStarted(GameState state)
     {
         boardManager.StartBoard(Player.RED, state);
-    }
-
-    public void SetNickname(string inNickname)
-    {
-        nickname = inNickname;
-        onNicknameChanged.Invoke(nickname);
     }
     
 }

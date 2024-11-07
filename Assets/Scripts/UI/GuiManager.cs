@@ -1,3 +1,4 @@
+using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
 
 public class GuiManager : MonoBehaviour
@@ -55,18 +56,69 @@ public class GuiManager : MonoBehaviour
 
     void Start()
     {
+        
+        GameClient client = GameManager.instance.client;
+        client.OnRegisterClientResponse += OnRegisterClientResponse;
+        client.OnDisconnect += OnDisconnect;
+        client.OnErrorResponse += OnErrorResponse;
+        client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
+        client.OnGameLobbyResponse += OnGameLobbyResponse;
         Debug.Log("showing startmenu");
         ShowMenu(startMenu);
     }
+    
+    void OnRegisterClientResponse(Response<string> response)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            startMenu.EnableElement(true);
+            if (response.success)
+            {
+                ShowMenu(mainMenu);
+            }
+        });
+    }
 
+    void OnDisconnect(Response<string> response)
+    {
+        // reset the menu state 
+    }
+
+    void OnErrorResponse(ResponseBase response)
+    {
+        // reset the menu state 
+    }
+
+    void OnRegisterNicknameResponse(Response<string> response)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            mainMenu.EnableElement(true);
+            if (response.success)
+            {
+                if (currentModal == nicknameModal)
+                {
+                    CloseCurrentModal();
+                }
+                mainMenu.RefreshNicknameText();
+            }
+        });
+    }
+
+    void OnGameLobbyResponse(Response<SLobby> response)
+    {
+        
+    }
+    
     // start menu
     
     void OnConnectButton()
     {
         Debug.Log("OnConnectButton");
-        ShowMenu(mainMenu);
+        startMenu.EnableElement(false);
+        _ = GameManager.instance.client.ConnectToServer();
     }
-
+    
     void OnOfflineButton()
     {
         Debug.Log("OnOfflineButton");
@@ -85,27 +137,24 @@ public class GuiManager : MonoBehaviour
     {
         Debug.Log("OnNewLobbyButton");
         ShowMenu(lobbySetupMenu);
-        return;
     }
 
     void OnJoinLobbyButton()
     {
         Debug.Log("OnJoinLobbyButton");
         ShowModal(passwordModal);
-        return;
     }
 
     void OnSettingsButton()
     {
         Debug.Log("OnSettingsButton");
         ShowMenu(settingsMenu);
-        return;
     }
 
     void OnExitButton()
     {
         Debug.Log("OnExitButton");
-        return;
+        GameManager.instance.QuitGame();
     }
 
     // settings menu
@@ -165,9 +214,8 @@ public class GuiManager : MonoBehaviour
         Debug.Log("OnNicknameModalConfirm");
         if (currentModal == nicknameModal)
         {
-            // await network stuff
-            // if ok close current modal
-            CloseCurrentModal();
+            nicknameModal.EnableElement(false);
+            GameManager.instance.client.SendRegisterNickname(nicknameModal.GetNickname());
             
         }
     }
@@ -188,8 +236,7 @@ public class GuiManager : MonoBehaviour
         Debug.Log("OnPasswordModalConfirm");
         if (currentModal == passwordModal)
         {
-            // await network stuff
-            // if ok, go to lobby menu 
+            // network send request
             CloseCurrentModal();
             ShowMenu(lobbyMenu);
         }

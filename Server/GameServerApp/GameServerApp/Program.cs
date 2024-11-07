@@ -67,7 +67,7 @@ public class GameServer
             {
                 string errorMessage = $"Error: Server stopped.";
                 Console.WriteLine(errorMessage);
-                SendMessageAsync(client, MessageType.SERVERERROR, new Response<string>(false, 0, errorMessage)).Wait();
+                SendMessageAsync(client, MessageType.SERVERERROR, new Response<string>(Guid.Empty, false, 0, errorMessage)).Wait();
                 client.tcpClient.Close();
             }
             catch (Exception e)
@@ -83,8 +83,8 @@ public class GameServer
 
     async Task SendMessageAsync<T>(ClientInfo clientInfo, MessageType type, Response<T> response)
     {
-        Console.WriteLine($"SendMessageAsync: '{clientInfo.ipAddress}' '{type.ToString()}' '{response.GetHeaderAsString()}'");
         string jsonResponse = JsonConvert.SerializeObject(response);
+        Console.WriteLine($"SendMessageAsync: Sending JSON Response: {jsonResponse}");
         byte[] data = Encoding.UTF8.GetBytes(jsonResponse);
         byte[] serializedMessage = MessageSerializer.SerializeMessage(type, data);
         try
@@ -133,7 +133,7 @@ public class GameServer
             {
                 string errorMessage = $"OnClientConnected {unregisteredClientInfo.GetIdentifier()} Expected REGISTERCLIENT message type.";
                 Console.WriteLine(errorMessage);
-                await SendMessageAsync(unregisteredClientInfo, MessageType.SERVERERROR, new Response<string>(false, 1, errorMessage));
+                await SendMessageAsync(unregisteredClientInfo, MessageType.SERVERERROR, new Response<string>(Guid.Empty, false, 1, errorMessage));
                 tcpClient.Close();
                 return;
             }
@@ -200,6 +200,7 @@ public class GameServer
         Console.WriteLine($"OnRegisterClient unknown client started");
         string json = Encoding.UTF8.GetString(data);
         RegisterClientRequest registerClientRequest = JsonConvert.DeserializeObject<RegisterClientRequest>(json) ?? throw new InvalidOperationException();
+        Guid requestId = registerClientRequest.requestId;
         // Assign the clientId provided by client
         clientInfo.RegisterClient(registerClientRequest.clientId);
         // Check if a client with this clientId is already connected
@@ -210,7 +211,7 @@ public class GameServer
                 // Handle the case where the clientId is already connected
                 string errorMessage = $"OnRegisterClient {clientInfo.GetIdentifier()} clientId is already in use by another connected client.";
                 Console.WriteLine(errorMessage);
-                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(false, 2, errorMessage));
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(requestId, false, 2, errorMessage));
                 clientInfo.tcpClient.Close();
             }
             else
@@ -223,7 +224,7 @@ public class GameServer
                 clientInfo = existingClient;
                 string message = $"OnRegisterClient {clientInfo.GetIdentifier()} reconnected successfully.";
                 Console.WriteLine(message);
-                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(true, 1, message));
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(requestId, true, 1, message));
             }
         }
         else
@@ -234,14 +235,14 @@ public class GameServer
             {
                 string errorMessage = $"OnRegisterClient {clientInfo.clientId} registration failed.";
                 Console.WriteLine(errorMessage);
-                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(false, 3, errorMessage));
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(requestId, false, 3, errorMessage));
                 clientInfo.tcpClient.Close();
             }
             else
             {
                 string message = $"OnRegisterClient {clientInfo.GetIdentifier()} registered successfully.";
                 Console.WriteLine(message);
-                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(true, 0, message));
+                await SendMessageAsync(clientInfo, MessageType.REGISTERCLIENT, new Response<string>(requestId,true, 0, message));
             }
         }
     }
@@ -257,13 +258,13 @@ public class GameServer
         {
             string errorMessage = $"OnRegisterNickname {clientInfo.GetIdentifier()} invalid nickname {registerNicknameRequest.nickname}";
             Console.WriteLine(errorMessage);
-            await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response<string>(false, 1, errorMessage));
+            await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response<string>(registerNicknameRequest.requestId,false, 1, errorMessage));
             return;
         }
         clientInfo.nickname = registerNicknameRequest.nickname;
         string message = $"OnRegisterNickname {clientInfo.GetIdentifier()} set to {registerNicknameRequest.nickname}";
         Console.WriteLine(message);
-        await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response<string>(true, 0, registerNicknameRequest.nickname));
+        await SendMessageAsync(clientInfo, MessageType.REGISTERNICKNAME, new Response<string>(registerNicknameRequest.requestId,true, 0, registerNicknameRequest.nickname));
     }
 
     async Task OnGameLobby(ClientInfo clientInfo, byte[] data)
@@ -271,33 +272,25 @@ public class GameServer
         Console.WriteLine($"OnGameLobby {clientInfo.GetIdentifier()} started");
         string json = Encoding.UTF8.GetString(data);
         Console.WriteLine($"OnGameLobby {clientInfo.GetIdentifier()} {json}");
-        GameLobbyRequest? lobbyRequest = JsonConvert.DeserializeObject<GameLobbyRequest>(json);
-        if (lobbyRequest == null)
+        GameLobbyRequest lobbyRequest = JsonConvert.DeserializeObject<GameLobbyRequest>(json) ?? throw new InvalidOperationException();
+        SLobby sLobby = new SLobby
         {
-            string passwordCollisionMessage = $"OnGameLobby {clientInfo.GetIdentifier()} failed to read json {json}";
-            await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<string>(false, 1, passwordCollisionMessage));
-        }
-        else
+            lobbyId = Guid.NewGuid(),
+            hostId = clientInfo.clientId,
+            guestId = Guid.Empty,
+            sBoardDef = lobbyRequest.sBoardDef,
+            gameMode = lobbyRequest.gameMode,
+            isGameStarted = false,
+            password = Globals.GeneratePassword()
+        };
+        if (allLobbies.ContainsKey(sLobby.password))
         {
-            SLobby sLobby = new SLobby
-            {
-                lobbyId = Guid.NewGuid(),
-                hostId = clientInfo.clientId,
-                guestId = Guid.Empty,
-                sBoardDef = lobbyRequest.sBoardDef,
-                gameMode = lobbyRequest.gameMode,
-                isGameStarted = false,
-                password = Globals.GeneratePassword()
-            };
-            if (allLobbies.ContainsKey(sLobby.password))
-            {
-                string passwordCollisionMessage = $"OnGameLobby {clientInfo.GetIdentifier()} already has a lobby with password {sLobby.password}";
-                await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<string>(false, 2, passwordCollisionMessage));
-            }
-            allLobbies[sLobby.password] = sLobby;
-            clientInfo.lobbyId = sLobby.lobbyId;
-            await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<SLobby>(true, 0, sLobby));
+            string passwordCollisionMessage = $"OnGameLobby {clientInfo.GetIdentifier()} already has a lobby with password {sLobby.password}";
+            await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<string>(lobbyRequest.clientId,false, 2, passwordCollisionMessage));
         }
+        allLobbies[sLobby.password] = sLobby;
+        clientInfo.lobbyId = sLobby.lobbyId;
+        await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<SLobby>(lobbyRequest.clientId,true, 0, sLobby));
     }
     
     const int NICKNAMEMAXLENGTH = 20;

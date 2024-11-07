@@ -15,6 +15,11 @@ public class GuiElement : MonoBehaviour
         ShowElement(false);
     }
 
+    public virtual void EnableElement(bool enable)
+    {
+        
+    }
+    
     public virtual void ShowElement(bool show)
     {
         if (show == isShow)

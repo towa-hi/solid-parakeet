@@ -119,14 +119,21 @@ public class ClientInfo
 
 // networking stuff start
 
-public class Response<T>
+public class ResponseBase
 {
-    public bool success;
-    public int responseCode;
-    public T data;
+    public Guid requestId { get; set; }
+    public bool success { get; set; }
+    public int responseCode { get; set; }
+    public string message { get; set; }
+}
 
-    public Response(bool inSuccess, int inResponseCode, T inData)
+public class Response<T> : ResponseBase
+{
+    public T data { get; set; }
+
+    public Response(Guid inRequestId, bool inSuccess, int inResponseCode, T inData)
     {
+        requestId = inRequestId;
         success = inSuccess;
         responseCode = inResponseCode;
         data = inData;
@@ -138,24 +145,26 @@ public class Response<T>
     }
 }
 
-public class RegisterClientRequest
+public class RequestBase
 {
     public Guid clientId { get; set; }
-    
+    public Guid requestId { get; set; }
+}
+
+public class RegisterClientRequest : RequestBase
+{
     public RegisterClientRequest() { }
 }
 
-public class RegisterNicknameRequest
+public class RegisterNicknameRequest : RequestBase
 {
-    public Guid clientId { get; set; }
     public string nickname { get; set; }
     
     public RegisterNicknameRequest() { }
 }
 
-public class GameLobbyRequest
+public class GameLobbyRequest : RequestBase
 {
-    public Guid clientId { get; set; }
     public int gameMode { get; set; }
     public SBoardDef sBoardDef { get; set; }
     

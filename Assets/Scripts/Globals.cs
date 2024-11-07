@@ -165,6 +165,17 @@ public static class Globals
             return newId;
         }
     }
+    
+    public static string GetNickname()
+    {
+        string nick = PlayerPrefs.GetString("nickname");
+        if (nick == String.Empty)
+        {
+            PlayerPrefs.SetString("nickname", "defaultnick");
+        }
+        return PlayerPrefs.GetString("nickname");
+    }
+    
 }
 
 public enum MessageType : uint
