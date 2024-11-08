@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -19,12 +20,21 @@ public class GameClient
     string serverIP = "127.0.0.1"; // Assuming the server is running locally
     int serverPort = 12345;
     public bool isNicknameRegistered = false;
-
+    
+    [CanBeNull] SLobby currentLobby;
+    
     public event Action<Response<string>> OnRegisterClientResponse;
     public event Action<Response<string>> OnDisconnect;
     public event Action<ResponseBase> OnErrorResponse;
     public event Action<Response<string>> OnRegisterNicknameResponse;
     public event Action<Response<SLobby>> OnGameLobbyResponse;
+    public event Action<Response<string>> OnLeaveGameLobbyResponse;
+
+    public event Action<Response<string>> OnJoinGameLobbyResponse;
+    public event Action<Response<SLobby>> OnReadyLobbyResponse;
+
+    public event Action OnDemoStarted;
+    
     public event Action OnLobbyResponse;
     public RequestManager requestManager;
     
@@ -67,10 +77,10 @@ public class GameClient
         }
         try
         {
-            RegisterNicknameRequest registerNicknameRequest = new RegisterNicknameRequest
+            RegisterNicknameRequest registerNicknameRequest = new()
             {
+                clientId = clientId,
                 nickname = nicknameInput,
-                clientId = clientId
             };
             await SendRequestToServer<string>(MessageType.REGISTERNICKNAME, registerNicknameRequest);
         }
@@ -85,7 +95,7 @@ public class GameClient
     {
         try
         {
-            RegisterClientRequest registerClientRequest = new RegisterClientRequest
+            RegisterClientRequest registerClientRequest = new()
             {
                 clientId = clientId
             };
@@ -97,7 +107,53 @@ public class GameClient
             throw;
         }
     }
+
+    public async Task SendGameLobby()
+    {
+        // this will have params later we just use temp stuff for now
+        GameLobbyRequest gameLobbyRequest = new()
+        {
+            clientId = clientId,
+            gameMode = 0,
+            sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef)
+        };
+        await SendRequestToServer<SLobby>(MessageType.GAMELOBBY, gameLobbyRequest);
+
+    }
+
+    public async Task SendGameLobbyLeaveRequest()
+    {
+        LeaveGameLobbyRequest gameLobbyLeaveRequest = new()
+        {
+            clientId = clientId,
+        };
+        await SendRequestToServer<string>(MessageType.LEAVEGAMELOBBY, gameLobbyLeaveRequest);
+    }
+
+    public async Task SendGameLobbyJoinRequest()
+    {
+        
+    }
+
+    public async Task SendGameLobbyReadyRequest(bool ready)
+    {
+        ReadyGameLobbyRequest readyGameLobbyRequest = new()
+        {
+            ready = ready,
+        };
+        await SendRequestToServer<SLobby>(MessageType.READYLOBBY, readyGameLobbyRequest);
+    }
+
+    // DEMO CODE NOT REAL
+    public async Task StartGameDemoRequest()
+    {
+        // NOTE: this is not a real request we aren't talking to the server
+        await Task.Delay(100);
+        OnDemoStarted?.Invoke();
+    }
     
+    
+    // END OF DEMO CODE NOT REAL
     async Task SendRequestToServer<TResponse>(MessageType messageType, RequestBase requestData)
     {
         if (isConnected)
@@ -155,18 +211,14 @@ public class GameClient
         if (requestManager.TryGetResponseType(responseBase.requestId, out var responseType))
         {
             // Deserialize the response into the appropriate type
-            var genericResponseType = typeof(Response<>).MakeGenericType(responseType);
-            var response = JsonConvert.DeserializeObject(jsonResponse, genericResponseType) as ResponseBase;
-
+            Type genericResponseType = typeof(Response<>).MakeGenericType(responseType);
+            ResponseBase response = JsonConvert.DeserializeObject(jsonResponse, genericResponseType) as ResponseBase;
             if (response == null)
             {
-                Debug.LogError("Failed to deserialize response into expected type.");
-                return;
+                throw new Exception("Failed to deserialize response into expected type.");
             }
-
             // Remove the request from pending requests
             requestManager.RemoveRequest(responseBase.requestId);
-
             // Process the response based on the message type
             ProcessResponse(response, messageType);
         }
@@ -178,6 +230,7 @@ public class GameClient
     
     void ProcessResponse(ResponseBase response, MessageType messageType)
     {
+        Debug.Log($"ProcessResponse: {messageType}");
         switch (response)
         {
             case Response<string> stringResponse when messageType == MessageType.REGISTERCLIENT:
@@ -189,6 +242,15 @@ public class GameClient
             case Response<SLobby> lobbyResponse when messageType == MessageType.GAMELOBBY:
                 HandleGameLobbyResponse(lobbyResponse);
                 break;
+            case Response<string> stringResponse when messageType == MessageType.LEAVEGAMELOBBY:
+                HandleLeaveGameLobbyResponse(stringResponse);
+                break;
+            case Response<string> stringResponse when messageType == MessageType.JOINGAMELOBBY:
+                HandleJoinGameLobbyResponse(stringResponse);
+                break;
+            case Response<SLobby> lobbyResponse when messageType == MessageType.READYLOBBY:
+                HandleReadyLobbyResponse(lobbyResponse);
+                break;
             default:
                 Debug.LogWarning($"Unhandled response type for message: {messageType}");
                 break;
@@ -199,9 +261,8 @@ public class GameClient
     {
         if (response.success)
         {
-            // Update game state if necessary
-            // Raise event to notify UI or other components
             OnRegisterClientResponse?.Invoke(response);
+            //after response, register nickname immediately after
             SendRegisterNickname(Globals.GetNickname());
         }
         else
@@ -216,16 +277,14 @@ public class GameClient
     {
         if (response.success)
         {
+            // TODO: set nickname somewhere else later
             PlayerPrefs.SetString("nickname", response.data);
             isNicknameRegistered = true;
-            // Update game state
-            // Raise event
             OnRegisterNicknameResponse?.Invoke(response);
         }
         else
         {
             isNicknameRegistered = false;
-            // Handle error
             Debug.LogError("Register nickname failed: " + response.message);
             OnErrorResponse?.Invoke(response);
         }
@@ -235,16 +294,34 @@ public class GameClient
     {
         if (response.success)
         {
-            // Update game state with lobby information
-            // Raise event
+            if (currentLobby != null)
+            {
+                currentLobby = response.data;
+            }
             OnGameLobbyResponse?.Invoke(response);
         }
         else
         {
-            // Handle error
             Debug.LogError("Game lobby response error: " + response.message);
             OnErrorResponse?.Invoke(response);
         }
+    }
+
+    void HandleLeaveGameLobbyResponse(Response<string> response)
+    {
+        OnLeaveGameLobbyResponse?.Invoke(response);
+    }
+    
+    void HandleJoinGameLobbyResponse(Response<string> response)
+    {
+        
+    }
+
+    void HandleReadyLobbyResponse(Response<SLobby> response)
+    {
+        Debug.Log(OnReadyLobbyResponse.GetInvocationList().Length);
+        OnReadyLobbyResponse?.Invoke(response);
+        Debug.Log(response);
     }
     
     void HandleServerDisconnection()
@@ -298,10 +375,9 @@ public class Response<T> : ResponseBase
 
 public class RequestBase
 {
+    public MessageType messageType;
     public Guid requestId;
     public Guid clientId;
-    public MessageType messageType;
-    public object data;
 }
 
 public class RegisterClientRequest : RequestBase
@@ -317,6 +393,21 @@ public class GameLobbyRequest : RequestBase
 {
     public int gameMode { get; set; }
     public SBoardDef sBoardDef { get; set; }
+}
+
+public class LeaveGameLobbyRequest : RequestBase
+{
+    
+}
+
+public class JoinGameLobbyRequest : RequestBase
+{
+    
+}
+
+public class ReadyGameLobbyRequest : RequestBase
+{
+    public bool ready { set; get; }
 }
 
 public class RequestManager

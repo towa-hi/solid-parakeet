@@ -184,7 +184,10 @@ public enum MessageType : uint
     REGISTERCLIENT, // request: clientId only, response: none 
     REGISTERNICKNAME, // request: nickname, response: success
     GAMELOBBY, // request: lobby parameters, response: lobby
+    LEAVEGAMELOBBY, // request: clientId only, response: leave notification
     JOINGAMELOBBY, // request: password, response: lobby 
+    READYLOBBY,
+    GAMESTART,
     GAME, // request holds piece deployment or move data, response is a gamestate object
 }
 
@@ -220,12 +223,20 @@ public class SLobby
     public int gameMode;
     public bool isGameStarted;
     public string password;
+    public bool hostReady;
+    public bool guestReady;
     public SLobby() { }
+
+    public bool IsHost(Guid clientId)
+    {
+        return clientId == hostId;
+    }
 }
 
 [Serializable]
 public class SBoardDef
 {
+    public string boardName;
     public SVector2Int boardSize;
     public STile[] tiles;
 
@@ -233,6 +244,7 @@ public class SBoardDef
 
     public SBoardDef(BoardDef boardDef)
     {
+        boardName = boardDef.boardName;
         boardSize = new SVector2Int(boardDef.boardSize);
         tiles = new STile[boardDef.tiles.Length];
         tiles = boardDef.tiles.Select(tile => new STile(tile)).ToArray();
@@ -240,6 +252,7 @@ public class SBoardDef
     public BoardDef ToUnity()
     {
         BoardDef boardDef = ScriptableObject.CreateInstance<BoardDef>();
+        boardDef.boardName = boardName;
         boardDef.boardSize = this.boardSize.ToUnity();
         boardDef.tiles = this.tiles.Select(sTile => sTile.ToUnity()).ToArray();
         return boardDef;

@@ -18,6 +18,12 @@ public class GuiSettingsMenu : MenuElement
         saveSettingsButton.onClick.AddListener(HandleSaveSettingsButton);
     }
 
+    public override void EnableElement(bool enable)
+    {
+        cancelChangesButton.interactable = enable;
+        saveSettingsButton.interactable = enable;
+    }
+    
     void HandleCancelChangesButton()
     {
         OnCancelChangesButton?.Invoke();

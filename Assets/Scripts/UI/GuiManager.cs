@@ -41,6 +41,7 @@ public class GuiManager : MonoBehaviour
             // lobby menu events
             lobbyMenu.OnCancelButton += OnLobbyCancelButton;
             lobbyMenu.OnReadyButton += OnLobbyReadyButton;
+            lobbyMenu.OnDemoButton += OnLobbyDemoButton;
             // nickname modal events
             nicknameModal.OnCancel += OnNicknameModalCancel;
             nicknameModal.OnConfirm += OnNicknameModalConfirm;
@@ -63,6 +64,9 @@ public class GuiManager : MonoBehaviour
         client.OnErrorResponse += OnErrorResponse;
         client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
         client.OnGameLobbyResponse += OnGameLobbyResponse;
+        client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
+        client.OnReadyLobbyResponse += OnReadyLobbyResponse;
+        client.OnDemoStarted += OnDemoStartedResponse;
         Debug.Log("showing startmenu");
         ShowMenu(startMenu);
     }
@@ -107,7 +111,42 @@ public class GuiManager : MonoBehaviour
 
     void OnGameLobbyResponse(Response<SLobby> response)
     {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            mainMenu.EnableElement(true);
+            if (response.success)
+            {
+                SLobby lobby = response.data;
+                lobbyMenu.SetLobby(lobby);
+                ShowMenu(lobbyMenu);
+            }
+        });
         
+    }
+
+    void OnLeaveGameLobbyResponse(Response<string> response)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            lobbyMenu.EnableElement(true);
+            ShowMenu(mainMenu);
+        });
+        
+    }
+
+    void OnReadyLobbyResponse(Response<SLobby> response)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            lobbyMenu.EnableElement(true);
+            lobbyMenu.SetLobby(response.data);
+        });
+    }
+
+    void OnDemoStartedResponse()
+    {
+        lobbyMenu.EnableElement(true);
+        Debug.Log("OnDemoStarted");
     }
     
     // start menu
@@ -175,13 +214,14 @@ public class GuiManager : MonoBehaviour
     void OnLobbySetupCancelButton()
     {
         Debug.Log("OnLobbySetupCancelButton");
-        ShowMenu(mainMenu);
+        _ = GameManager.instance.client.SendGameLobbyLeaveRequest();
     }
 
     void OnLobbySetupStartButton()
     {
         Debug.Log("OnLobbySetupStartButton");
-        ShowMenu(lobbyMenu);
+        mainMenu.EnableElement(false);
+        _ = GameManager.instance.client.SendGameLobby();
     }
 
     // lobby menu
@@ -189,13 +229,22 @@ public class GuiManager : MonoBehaviour
     void OnLobbyCancelButton()
     {
         Debug.Log("OnLobbyCancelButton");
-        ShowMenu(mainMenu);
+        lobbyMenu.EnableElement(false);
+        _ = GameManager.instance.client.SendGameLobbyLeaveRequest();
     }
 
-    void OnLobbyReadyButton()
+    void OnLobbyReadyButton(bool ready)
     {
         Debug.Log("OnLobbyReadyButton");
-        // start game
+        lobbyMenu.EnableElement(false);
+        _ = GameManager.instance.client.SendGameLobbyReadyRequest(ready);
+    }
+
+    void OnLobbyDemoButton()
+    {
+        Debug.Log("OnLobbyDemoButton");
+        lobbyMenu.EnableElement(false);
+        _ = GameManager.instance.client.StartGameDemoRequest();
     }
     
     // nickname modal

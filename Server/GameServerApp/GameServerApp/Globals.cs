@@ -69,7 +69,10 @@ public enum MessageType : uint
     REGISTERCLIENT, // response only, just an ack 
     REGISTERNICKNAME, // request registration data
     GAMELOBBY, // request has password
+    LEAVEGAMELOBBY,
     JOINGAMELOBBY, // request has password
+    READYLOBBY,
+    GAMESTART,
     GAME, // request holds piece deployment or move data, response is a gamestate object
     
 }
@@ -147,8 +150,9 @@ public class Response<T> : ResponseBase
 
 public class RequestBase
 {
-    public Guid clientId { get; set; }
+    public MessageType messageType { get; set; }
     public Guid requestId { get; set; }
+    public Guid clientId { get; set; }
 }
 
 public class RegisterClientRequest : RequestBase
@@ -171,6 +175,24 @@ public class GameLobbyRequest : RequestBase
     public GameLobbyRequest() { }
 }
 
+public class LeaveGameLobbyRequest : RequestBase
+{
+    public LeaveGameLobbyRequest() { }
+}
+
+public class JoinGameLobbyRequest : RequestBase
+{
+    public JoinGameLobbyRequest() { }
+}
+
+public class ReadyGameLobbyRequest : RequestBase
+{
+    public bool ready { set; get; }
+    
+    public ReadyGameLobbyRequest() { }
+}
+
+
 // networking stuff end
 
 // gameplay stuff start
@@ -186,12 +208,14 @@ public class SLobby
     public int gameMode;
     public bool isGameStarted;
     public string password;
-    
+    public bool hostReady;
+    public bool guestReady;
 }
 
 [Serializable]
 public class SBoardDef
 {
+    public string boardName;
     public SVector2Int boardSize;
     public STile[] tiles;
 }

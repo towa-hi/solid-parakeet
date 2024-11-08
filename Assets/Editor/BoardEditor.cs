@@ -11,6 +11,8 @@ public class BoardEditor : Editor
         // Get a reference to the BoardData target
         BoardDef board = (BoardDef)target;
 
+        board.boardName = EditorGUILayout.TextField("Board Name", board.boardName);
+        
         // Display the "Initialize Tiles" button first
         if (GUILayout.Button("Initialize Tiles (RESETS BOARD!!!)"))
         {

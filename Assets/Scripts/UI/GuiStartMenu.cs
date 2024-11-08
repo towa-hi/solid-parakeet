@@ -17,6 +17,12 @@ public class GuiStartMenu : MenuElement
         offlineButton.onClick.AddListener(HandleOfflineButton);
     }
 
+    public override void EnableElement(bool enable)
+    {
+        connectButton.interactable = enable;
+        offlineButton.interactable = enable;
+    }
+    
     void HandleConnectButton()
     {
         OnConnectButton?.Invoke();
@@ -25,11 +31,5 @@ public class GuiStartMenu : MenuElement
     void HandleOfflineButton()
     {
         OnOfflineButton?.Invoke();
-    }
-
-    public override void EnableElement(bool enable)
-    {
-        connectButton.interactable = enable;
-        offlineButton.interactable = enable;
     }
 }

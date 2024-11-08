@@ -6,16 +6,57 @@ public class GuiLobbyMenu : MenuElement
 {
     public Button cancelButton;
     public Button readyButton;
+    public Button demoButton;
+    public TextMeshProUGUI readyButtonText;
+    public TextMeshProUGUI passwordText;
+    public TextMeshProUGUI boardNameText;
+    [SerializeField] bool isHost;
+    [SerializeField] bool readyButtonState;
     
     // chat is handled in it's own component
     
     public event Action OnCancelButton;
-    public event Action OnReadyButton;
+    public event Action<bool> OnReadyButton;
+
+    public event Action OnDemoButton;
 
     void Start()
     {
         cancelButton.onClick.AddListener(HandleCancelButton);
         readyButton.onClick.AddListener(HandleReadyButton);
+        demoButton.onClick.AddListener(HandleDemoButton);
+    }
+
+    public override void EnableElement(bool enable)
+    {
+        cancelButton.interactable = enable;
+        readyButton.interactable = enable;
+        demoButton.interactable = enable;
+    }
+
+    public void SetLobby(SLobby lobby)
+    {
+        passwordText.text = $"Password: {lobby.password}";
+        boardNameText.text = lobby.sBoardDef.boardName;
+        isHost = lobby.IsHost(Globals.LoadOrGenerateClientId());
+        SetReadyButtonState(isHost ? lobby.hostReady : lobby.guestReady);
+
+    }
+
+    void SetReadyButtonState(bool state)
+    {
+        readyButtonState = state;
+        if (readyButtonState)
+        {
+            readyButton.image.color = Color.red;
+            readyButtonText.text = "Click to unready";
+        }
+        else
+        {
+            readyButton.image.color = Color.green;
+            readyButtonText.text = "Click to ready";
+        }
+        
     }
     
     void HandleCancelButton()
@@ -25,6 +66,11 @@ public class GuiLobbyMenu : MenuElement
 
     void HandleReadyButton()
     {
-        OnReadyButton?.Invoke();
+        OnReadyButton?.Invoke(!readyButtonState);
+    }
+
+    void HandleDemoButton()
+    {
+        OnDemoButton?.Invoke();
     }
 }

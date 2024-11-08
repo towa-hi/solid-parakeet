@@ -187,8 +187,19 @@ public class GameServer
             case MessageType.GAMELOBBY:
                 await OnGameLobby(unregisteredClientInfo, data);
                 break;
+            case MessageType.LEAVEGAMELOBBY:
+                await OnLeaveGameLobby(unregisteredClientInfo, data);
+                break;
             case MessageType.JOINGAMELOBBY:
+                await OnJoinGameLobby(unregisteredClientInfo, data);
+                break;
+            case MessageType.READYLOBBY:
+                await OnReadyLobby(unregisteredClientInfo, data);
+                break;
+            case MessageType.GAMESTART:
+                break;
             case MessageType.GAME:
+                break;
             default:
                 Console.WriteLine($"Unhandled message type: {messageType}");
                 break;
@@ -283,6 +294,7 @@ public class GameServer
             isGameStarted = false,
             password = Globals.GeneratePassword()
         };
+        // TODO: make this password thing not retarded so we dont have to deal with collisions
         if (allLobbies.ContainsKey(sLobby.password))
         {
             string passwordCollisionMessage = $"OnGameLobby {clientInfo.GetIdentifier()} already has a lobby with password {sLobby.password}";
@@ -290,9 +302,158 @@ public class GameServer
         }
         allLobbies[sLobby.password] = sLobby;
         clientInfo.lobbyId = sLobby.lobbyId;
-        await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<SLobby>(lobbyRequest.clientId,true, 0, sLobby));
+        await SendMessageAsync(clientInfo, MessageType.GAMELOBBY, new Response<SLobby>(lobbyRequest.requestId,true, 0, sLobby));
     }
-    
+
+    async Task OnLeaveGameLobby(ClientInfo clientInfo, byte[] data)
+    {
+        // NOTE: this is very brittle dont improve it until game loop is done
+        Console.WriteLine($"OnLeaveGameLobby {clientInfo.GetIdentifier()} started");
+        string json = Encoding.UTF8.GetString(data);
+        LeaveGameLobbyRequest leaveGameLobbyRequest = JsonConvert.DeserializeObject<LeaveGameLobbyRequest>(json) ?? throw new InvalidOperationException();
+        Guid requestId = leaveGameLobbyRequest.requestId;
+        SLobby? currentLobby = GetLobbyFromLobbyId(clientInfo.lobbyId!);
+        if (currentLobby == null)
+        {
+            string errorMessage = $"OnLeaveGameLobby {clientInfo.GetIdentifier()} is not in any lobby.";
+            Console.WriteLine(errorMessage);
+            await SendMessageAsync(clientInfo, MessageType.LEAVEGAMELOBBY, new Response<string>(requestId, false, 1, errorMessage));
+            return;
+        }
+        bool didHostLeave = false;
+        if (currentLobby.hostId == clientInfo.clientId)
+        {
+            // Host is leaving
+            didHostLeave = true;
+        }
+        else if (currentLobby.guestId == clientInfo.clientId)
+        {
+            // Guest is leaving
+            didHostLeave = false;
+            currentLobby.guestReady = false;
+        }
+        else
+        {
+            string errorMessage = $"OnLeaveGameLobby {clientInfo.GetIdentifier()} is not part of lobby {currentLobby.lobbyId}";
+            Console.WriteLine(errorMessage);
+            await SendMessageAsync(clientInfo, MessageType.LEAVEGAMELOBBY, new Response<string>(requestId, false, 2, errorMessage));
+            return;
+        }
+        // Remove the lobby
+        allLobbies.TryRemove(currentLobby.password, out _);
+        // Reset lobbyId for the client who left
+        clientInfo.lobbyId = null;
+        // Prepare messages
+        string leftClientMessage = "You have left the lobby.";
+        string otherClientMessage = didHostLeave ? "Host has left the lobby. Lobby is closed." : "Guest has left the lobby. Lobby is closed.";
+        // Send response to the client who left
+        Response<string> leavingResponse = new Response<string>(requestId, true, 0, null);
+        await SendMessageAsync(clientInfo, MessageType.LEAVEGAMELOBBY, new Response<string>(requestId, true, 0, leftClientMessage));
+        // Notify the other client if they are connected
+        Guid otherClientId = didHostLeave ? currentLobby.guestId : currentLobby.hostId;
+        if (otherClientId != Guid.Empty && allClients.TryGetValue(otherClientId, out ClientInfo otherClient))
+        {
+            otherClient.lobbyId = null;
+
+            // Use Guid.Empty for requestId since this is a notification
+            await SendMessageAsync(otherClient, MessageType.LEAVEGAMELOBBY, new Response<string>(Guid.Empty, true, 0, otherClientMessage));
+        }
+        Console.WriteLine($"OnLeaveGameLobby {clientInfo.GetIdentifier()} completed");
+    }
+
+    async Task OnJoinGameLobby(ClientInfo clientInfo, byte[] data)
+    {
+        
+    }
+
+    async Task OnReadyLobby(ClientInfo clientInfo, byte[] data)
+    {
+        Console.WriteLine($"OnReadyLobby {clientInfo.GetIdentifier()} started");
+        string json = Encoding.UTF8.GetString(data);
+        ReadyGameLobbyRequest readyGameLobbyRequest = JsonConvert.DeserializeObject<ReadyGameLobbyRequest>(json) ?? throw new InvalidOperationException();
+        Guid requestId = readyGameLobbyRequest.requestId;
+
+        SLobby? lobby = GetLobbyFromLobbyId(clientInfo.lobbyId);
+        if (lobby == null)
+        {
+            string errorMessage = $"Client {clientInfo.GetIdentifier()} is not in any lobby.";
+            Console.WriteLine(errorMessage);
+            await SendMessageAsync(clientInfo, MessageType.READYLOBBY, new Response<string>(requestId, false, 1, errorMessage));
+            return;
+        }
+
+        // Determine if the client is the host or the guest
+        bool isHost = false;
+        if (lobby.hostId == clientInfo.clientId)
+        {
+            isHost = true;
+        }
+        else if (lobby.guestId == clientInfo.clientId)
+        {
+            isHost = false;
+        }
+        else
+        {
+            string errorMessage = $"Client {clientInfo.GetIdentifier()} is not part of lobby {lobby.lobbyId}";
+            Console.WriteLine(errorMessage);
+            await SendMessageAsync(clientInfo, MessageType.READYLOBBY, new Response<string>(requestId, false, 2, errorMessage));
+            return;
+        }
+
+        // Update the lobby's ready state
+        if (isHost)
+        {
+            lobby.hostReady = readyGameLobbyRequest.ready;
+        }
+        else
+        {
+            lobby.guestReady = readyGameLobbyRequest.ready;
+        }
+
+        Console.WriteLine($"OnReadyLobby {clientInfo.GetIdentifier()} set ready to {readyGameLobbyRequest.ready}");
+
+        // Update the lobby in the allLobbies collection
+        allLobbies[lobby.password] = lobby;
+
+        // Create the response
+        Response<SLobby> lobbyResponse = new Response<SLobby>(requestId, true, 0, lobby);
+
+        // Send response to the client who sent the ready request
+        await SendMessageAsync(clientInfo, MessageType.READYLOBBY, lobbyResponse);
+
+        // Notify the other client of the updated lobby state
+        Guid otherClientId = isHost ? lobby.guestId : lobby.hostId;
+        if (otherClientId != Guid.Empty && allClients.TryGetValue(otherClientId, out ClientInfo otherClient))
+        {
+            // Use Guid.Empty for requestId since this is a notification
+            Response<SLobby> notifyResponse = new Response<SLobby>(Guid.Empty, true, 0, lobby);
+            await SendMessageAsync(otherClient, MessageType.READYLOBBY, notifyResponse);
+        }
+        //
+        // // Check if both players are ready
+        // if (lobby.hostReady && lobby.guestReady)
+        // {
+        //     // Both players are ready, start the game
+        //     lobby.isGameStarted = true;
+        //
+        //     // Update the lobby in the allLobbies collection
+        //     allLobbies[lobby.password] = lobby;
+        //
+        //     // Send a message to both clients indicating the game is starting
+        //     Response<SLobby> gameStartResponse = new Response<SLobby>(Guid.Empty, true, 0, lobby);
+        //     await SendMessageAsync(clientInfo, MessageType.GAMESTART, gameStartResponse);
+        //
+        //     if (otherClientId != Guid.Empty && allClients.TryGetValue(otherClientId, out otherClient))
+        //     {
+        //         await SendMessageAsync(otherClient, MessageType.GAMESTART, gameStartResponse);
+        //     }
+        //
+        //     Console.WriteLine($"Game started in lobby {lobby.lobbyId}");
+        // }
+
+        Console.WriteLine($"OnReadyLobby {clientInfo.GetIdentifier()} completed");
+    }
+
     const int NICKNAMEMAXLENGTH = 20;
     static bool IsNicknameValid(string nickname)
     {
@@ -307,7 +468,12 @@ public class GameServer
         return true;
     }
 
-    private void ProcessConsoleCommands()
+    SLobby? GetLobbyFromLobbyId(Guid? lobbyId)
+    {
+        return allLobbies.Values.FirstOrDefault(lobby => lobby.lobbyId == lobbyId);
+    }
+    
+    void ProcessConsoleCommands()
     {
         Console.WriteLine("Console Command Listener started. Type 'help' for a list of commands.");
 
@@ -359,7 +525,7 @@ public class GameServer
         Console.WriteLine("Console Command Listener stopped.");
     }
 
-    private void ListConnectedClients()
+    void ListConnectedClients()
     {
         try
         {
@@ -373,10 +539,20 @@ public class GameServer
             Console.WriteLine("-------------------");
             foreach (var client in allClients.Values)
             {
+                string lobbyStatus;
+                if (client.lobbyId == null)
+                {
+                    lobbyStatus = "Not in lobby";
+                }
+                else
+                {
+                    lobbyStatus = client.lobbyId.ToString();
+                }
                 string status = client.isConnected ? "Connected" : "Disconnected";
                 Console.WriteLine($"Client ID: {client.clientId}");
                 Console.WriteLine($"Nickname: {client.nickname}");
                 Console.WriteLine($"IP Address: {client.ipAddress}");
+                Console.WriteLine($"Lobby: {lobbyStatus}");
                 Console.WriteLine($"Status: {status}");
                 Console.WriteLine("-------------------");
             }

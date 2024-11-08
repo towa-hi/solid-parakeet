@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e10cd5b24cda104a99432c82ca653c7, type: 3}
   m_Name: DefaultBoard
   m_EditorClassIdentifier: 
+  boardName: Default Board
   boardSize: {x: 10, y: 10}
   tiles:
   - pos: {x: 0, y: 0}

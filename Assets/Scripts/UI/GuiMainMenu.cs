@@ -28,6 +28,15 @@ public class GuiMainMenu : MenuElement
         RefreshNicknameText();
     }
 
+    public override void EnableElement(bool enable)
+    {
+        changeNicknameButton.interactable = enable;
+        newLobbyButton.interactable = enable;
+        joinLobbyButton.interactable = enable;
+        settingsButton.interactable = enable;
+        exitButton.interactable = enable;
+    }
+    
     public void RefreshNicknameText()
     {
         nicknameText.text = GameManager.instance.client.isNicknameRegistered ? Globals.GetNickname() : "SET NICKNAME";

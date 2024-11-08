@@ -16,6 +16,12 @@ public class GuiLobbySetupMenu : MenuElement
         startButton.onClick.AddListener(HandleStartButton);
     }
 
+    public override void EnableElement(bool enable)
+    {
+        cancelButton.interactable = enable;
+        startButton.interactable = enable;
+    }
+    
     void HandleCancelButton()
     {
         OnCancelButton?.Invoke();

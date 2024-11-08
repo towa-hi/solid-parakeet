@@ -6,6 +6,7 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "Board", menuName = "Scriptable Objects/Board")]
 public class BoardDef : ScriptableObject
 {
+    public string boardName;
     public Vector2Int boardSize;
     public Tile[] tiles;
 
