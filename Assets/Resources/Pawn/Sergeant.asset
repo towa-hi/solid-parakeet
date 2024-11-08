@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pawnName: Sergeant
   power: 4
+  icon: {fileID: 21300000, guid: ab7c8ffb96ce6fd429269a9c4f7d6fc6, type: 3}

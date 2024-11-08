@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pawnName: General
   power: 9
+  icon: {fileID: 21300000, guid: 28d06776f41c4134ab32ad6e0b368eb9, type: 3}

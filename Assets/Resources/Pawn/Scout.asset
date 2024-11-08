@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pawnName: Scout
   power: 2
+  icon: {fileID: 21300000, guid: ad9ef61c9d1052c44928a6871ac688ce, type: 3}

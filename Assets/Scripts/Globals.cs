@@ -303,3 +303,51 @@ public class STile
         };
     }
 }
+
+[Serializable]
+public class SPawnDef
+{
+    public string pawnName;
+    public int power;
+    
+    // figure out how to link this to pawndef later
+}
+
+public class SetupParameters
+{
+    public Dictionary<PawnDef, int> maxPawnsDictionary;
+    
+    public SetupParameters()
+    {
+        PawnDef bomb = Resources.Load<PawnDef>("Pawn/Bomb");
+        PawnDef captain = Resources.Load<PawnDef>("Pawn/Captain");
+        PawnDef colonel = Resources.Load<PawnDef>("Pawn/Colonel");
+        PawnDef flag = Resources.Load<PawnDef>("Pawn/Flag");
+        PawnDef general = Resources.Load<PawnDef>("Pawn/General");
+        PawnDef lieutenant = Resources.Load<PawnDef>("Pawn/Lieutenant");
+        PawnDef major = Resources.Load<PawnDef>("Pawn/Major");
+        PawnDef marshal = Resources.Load<PawnDef>("Pawn/Marshal");
+        PawnDef miner = Resources.Load<PawnDef>("Pawn/Miner");
+        PawnDef scout = Resources.Load<PawnDef>("Pawn/Scout");
+        PawnDef sergeant = Resources.Load<PawnDef>("Pawn/Sergeant");
+        PawnDef spy = Resources.Load<PawnDef>("Pawn/Spy");
+        
+        // add temp parameters for now
+        maxPawnsDictionary = new Dictionary<PawnDef, int>
+        {
+            { flag, 1 },
+            { bomb, 6 },
+            { marshal, 1 },
+            { general, 1 },
+            { colonel, 2 },
+            { major, 3 },
+            { captain, 4 },
+            { lieutenant, 4 },
+            { sergeant, 4 },
+            { miner, 5 },
+            { scout, 8 },
+            { spy, 1 }
+        };
+    }
+}
+

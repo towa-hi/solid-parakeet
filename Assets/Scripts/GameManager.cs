@@ -90,7 +90,7 @@ public class GameManager : MonoBehaviour
         //mainMenu.ShowMainMenu(true);
     }
 
-    async void OnGame()
+    void OnGame()
     {
         PlayerProfile hostProfile = new PlayerProfile(Guid.NewGuid());
         PlayerProfile guestProfile = new PlayerProfile(Guid.NewGuid());
