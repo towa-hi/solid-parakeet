@@ -8,7 +8,7 @@ public class GuiManager : MonoBehaviour
     public GuiSettingsMenu settingsMenu;
     public GuiLobbySetupMenu lobbySetupMenu;
     public GuiLobbyMenu lobbyMenu;
-    
+    public GuiGame gameOverlay;
     public GuiNicknameModal nicknameModal;
     public GuiPasswordModal passwordModal;
     
@@ -165,9 +165,12 @@ public class GuiManager : MonoBehaviour
     {
         lobbyMenu.EnableElement(true);
         Debug.Log("OnDemoStarted");
-        // NOTE: this code should not be here
         ShowMenu(null);
-        ShowPawnSetupGui(true);
+        // this should be a fully fledged response
+        SetupParameters setupParameters = new SetupParameters();
+        gameOverlay.ShowElement(true);
+        gameOverlay.InitializeSetup(setupParameters);
+        GameManager.instance.boardManager.StartBoardSetup(Player.RED, setupParameters);
     }
     
     // start menu
@@ -347,9 +350,5 @@ public class GuiManager : MonoBehaviour
         modalPanel.SetActive(false);
         currentModal = null;
     }
-    
-    void ShowPawnSetupGui(bool show)
-    {
-        
-    }
+
 }

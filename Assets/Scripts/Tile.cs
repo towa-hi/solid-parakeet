@@ -11,4 +11,9 @@ public class Tile
     {
         pos = inPos;
     }
+
+    public bool IsTileEligibleForPlayer(Player player)
+    {
+        return isPassable && setupPlayer == player;
+    }
 }

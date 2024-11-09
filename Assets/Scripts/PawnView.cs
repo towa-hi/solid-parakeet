@@ -12,13 +12,6 @@ public class PawnView : MonoBehaviour
     
     public Pawn pawn;
 
-    public PawnDef tempPawnDef;
-    
-    void Start()
-    {
-        //Initialize(tempPawnDef);
-        
-    }
     
     public void Initialize(Pawn inPawn, TileView tileView)
     {

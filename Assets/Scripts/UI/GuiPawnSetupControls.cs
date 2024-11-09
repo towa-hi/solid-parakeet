@@ -7,16 +7,25 @@ public class GuiPawnSetupControls : MonoBehaviour
 
     public event Action OnUndoButton;
     public event Action OnStartButton;
+    public event Action OnAutoSetupButton;
+    
     
     public Button undoButton;
     public Button startButton;
-
-    void Start()
+    public Button autoSetupButton;
+    
+    void Awake()
     {
         undoButton.onClick.AddListener(HandleUndoButton);
         startButton.onClick.AddListener(HandleStartButton);
+        autoSetupButton.onClick.AddListener(HandleAutoSetupButton);
     }
 
+    public void Initialize()
+    {
+        
+    }
+    
     void HandleUndoButton()
     {
         OnUndoButton?.Invoke();
@@ -25,5 +34,10 @@ public class GuiPawnSetupControls : MonoBehaviour
     void HandleStartButton()
     {
         OnStartButton?.Invoke();
+    }
+
+    void HandleAutoSetupButton()
+    {
+        OnAutoSetupButton?.Invoke();
     }
 }

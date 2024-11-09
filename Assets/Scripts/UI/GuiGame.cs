@@ -1,16 +1,55 @@
+using System;
 using UnityEngine;
 
-public class GuiGame : MonoBehaviour
+public class GuiGame : GuiElement
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public GamePhase gamePhase;
+    public GuiPawnSetup pawnSetup;
+    public SetupParameters setupParameters;
+    public void InitializeSetup(SetupParameters inSetupParameters)
     {
-        
+        setupParameters = inSetupParameters;
+        SetGamePhase(GamePhase.SETUP);
     }
 
-    // Update is called once per frame
-    void Update()
+    public void SetGamePhase(GamePhase phase)
     {
-        
+        switch (gamePhase)
+        {
+            case GamePhase.UNINITIALIZED:
+                break;
+            case GamePhase.SETUP:
+                break;
+            case GamePhase.MOVE:
+                break;
+            case GamePhase.RESOLVE:
+                break;
+            case GamePhase.END:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+        gamePhase = phase;
+        switch (gamePhase)
+        {
+            case GamePhase.UNINITIALIZED:
+                pawnSetup.enabled = false;
+                break;
+            case GamePhase.SETUP:
+                pawnSetup.enabled = true;
+                pawnSetup.Initialize(setupParameters);
+                break;
+            case GamePhase.MOVE:
+                pawnSetup.enabled = false;
+                break;
+            case GamePhase.RESOLVE:
+                pawnSetup.enabled = false;
+                break;
+            case GamePhase.END:
+                pawnSetup.enabled = false;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
     }
 }

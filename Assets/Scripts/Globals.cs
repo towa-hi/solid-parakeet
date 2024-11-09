@@ -176,6 +176,48 @@ public static class Globals
         return PlayerPrefs.GetString("nickname");
     }
     
+    public static List<KeyValuePair<PawnDef, int>> GetOrderedPawnList()
+    {
+        // Return the pawn entries in the specific order
+        // You can adjust the order here as needed
+        List<KeyValuePair<PawnDef, int>> orderedPawns = new List<KeyValuePair<PawnDef, int>>();
+
+        // Assuming you have variables for each PawnDef as in SetupParameters
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Flag"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Spy"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Bomb"), 6));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Marshal"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/General"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Colonel"), 2));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Major"), 3));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Captain"), 4));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Lieutenant"), 4));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Sergeant"), 4));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Miner"), 5));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Scout"), 8));
+        return orderedPawns;
+    }
+    
+    public static int GetNumberOfRowsForPawn(PawnDef pawnDef)
+    {
+        switch (pawnDef.name)
+        {
+            case "Flag":
+                // Rule 1: Flag goes in the back row
+                return 1;
+            case "Spy":
+                // Rule 2: Spy goes somewhere in the two furthest back rows
+                return 2;
+            case "Bomb":
+            case "Marshal":
+            case "General":
+                // Rule 3 & 4: Bombs, Marshal, General in three furthest back rows
+                return 3;
+            default:
+                // Other pawns have no specific back row requirement
+                return 0;
+        }
+    }
 }
 
 public enum MessageType : uint
@@ -315,40 +357,19 @@ public class SPawnDef
 
 public class SetupParameters
 {
-    public Dictionary<PawnDef, int> maxPawnsDictionary;
+    public List<KeyValuePair<PawnDef, int>> maxPawnsList;
+    public BoardDef board;
     
     public SetupParameters()
     {
-        PawnDef bomb = Resources.Load<PawnDef>("Pawn/Bomb");
-        PawnDef captain = Resources.Load<PawnDef>("Pawn/Captain");
-        PawnDef colonel = Resources.Load<PawnDef>("Pawn/Colonel");
-        PawnDef flag = Resources.Load<PawnDef>("Pawn/Flag");
-        PawnDef general = Resources.Load<PawnDef>("Pawn/General");
-        PawnDef lieutenant = Resources.Load<PawnDef>("Pawn/Lieutenant");
-        PawnDef major = Resources.Load<PawnDef>("Pawn/Major");
-        PawnDef marshal = Resources.Load<PawnDef>("Pawn/Marshal");
-        PawnDef miner = Resources.Load<PawnDef>("Pawn/Miner");
-        PawnDef scout = Resources.Load<PawnDef>("Pawn/Scout");
-        PawnDef sergeant = Resources.Load<PawnDef>("Pawn/Sergeant");
-        PawnDef spy = Resources.Load<PawnDef>("Pawn/Spy");
-        
-        // add temp parameters for now
-        maxPawnsDictionary = new Dictionary<PawnDef, int>
-        {
-            { flag, 1 },
-            { bomb, 6 },
-            { marshal, 1 },
-            { general, 1 },
-            { colonel, 2 },
-            { major, 3 },
-            { captain, 4 },
-            { lieutenant, 4 },
-            { sergeant, 4 },
-            { miner, 5 },
-            { scout, 8 },
-            { spy, 1 }
-        };
+        board = GameManager.instance.tempBoardDef;
+        maxPawnsList = Globals.GetOrderedPawnList();
     }
+}
+
+public class SSetupParameters
+{
+    
 }
 
 public interface IGameClient
