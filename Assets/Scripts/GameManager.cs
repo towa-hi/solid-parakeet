@@ -15,57 +15,53 @@ using Debug = UnityEngine.Debug;
 public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
-    public Camera mainCamera;
 
-    public AppState appState = AppState.MAIN;
     public BoardManager boardManager;
-    
-    
-    // temp param, should be chosen by a UI widget later
-    public BoardDef tempBoardDef;
-
+    public GuiManager guiManager;
     public Action<string> onNicknameChanged;
-    public NetworkManager networkManager;
-    public GameClient client;
+    public IGameClient client;
+    public bool offlineMode;
+    public Camera mainCamera;
     
+    public BoardDef tempBoardDef;
+    
+    public event Action<IGameClient, IGameClient> OnClientChanged;
+
     void Awake()
     {
         if (instance == null)
         {
             instance = this;
-            networkManager = new NetworkManager();
-            client = new GameClient(networkManager);
         }
         else
         {
             Debug.LogWarning("MORE THAN ONE SINGLETON");
         }
-        
     }
 
     void Start()
     {
-        
-        
-        ChangeAppState(appState);
-        Globals.inputActions.Enable();
+        guiManager.Initialize();
     }
-    
-    void ChangeAppState(AppState inAppState)
+    public void SetOfflineMode(bool inOfflineMode)
     {
-        switch (inAppState)
+        offlineMode = inOfflineMode;
+        IGameClient oldGameClient = client;
+        if (inOfflineMode)
         {
-            case AppState.MAIN:
-                OnMain();
-                break;
-            case AppState.GAME:
-                OnGame();
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(inAppState), inAppState, null);
+            client = new FakeClient();
+            Debug.Log("GameManager: Initialized FakeClient for offline mode.");
         }
+        else
+        {
+            client = new GameClient();
+            Debug.Log("GameManager: Initialized GameClient for online mode.");
+        }
+
+        // Invoke the event to notify listeners that the client has changed
+        OnClientChanged?.Invoke(oldGameClient, client);
     }
-    
+
     public void OnTileClicked(TileView tileView, Vector2 mousePos)
     {
 
@@ -83,26 +79,4 @@ public class GameManager : MonoBehaviour
         UnityEditor.EditorApplication.isPlaying = false;
 #endif
     }
-    
-    void OnMain()
-    {
-        boardManager.ClearBoard();
-        //mainMenu.ShowMainMenu(true);
-    }
-
-    void OnGame()
-    {
-        PlayerProfile hostProfile = new PlayerProfile(Guid.NewGuid());
-        PlayerProfile guestProfile = new PlayerProfile(Guid.NewGuid());
-        // params should be passed in from a game settings widget later
-        //gameState = new GameState(tempBoardDef);
-        //mainMenu.ShowMainMenu(false);
-        //SetIsLoading(true);
-    }
-
-    void ResGameStarted(GameState state)
-    {
-        boardManager.StartBoard(Player.RED, state);
-    }
-    
 }

@@ -8,7 +8,7 @@ using JetBrains.Annotations;
 using Newtonsoft.Json;
 using UnityEngine;
 
-public class GameClient
+public class GameClient : IGameClient
 {
     //NetworkManager networkManager;
     
@@ -36,9 +36,9 @@ public class GameClient
     public event Action OnDemoStarted;
     
     public event Action OnLobbyResponse;
-    public RequestManager requestManager;
+    RequestManager requestManager;
     
-    public GameClient(NetworkManager inNetworkManager)
+    public GameClient()
     {
         requestManager = new RequestManager();
     }
@@ -349,6 +349,10 @@ public class GameClient
         }
     }
 }
+
+
+
+
 
 public class ResponseBase
 {

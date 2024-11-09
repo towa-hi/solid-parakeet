@@ -351,3 +351,25 @@ public class SetupParameters
     }
 }
 
+public interface IGameClient
+{
+    // Events
+    event Action<Response<string>> OnRegisterClientResponse;
+    event Action<Response<string>> OnDisconnect;
+    event Action<ResponseBase> OnErrorResponse;
+    event Action<Response<string>> OnRegisterNicknameResponse;
+    event Action<Response<SLobby>> OnGameLobbyResponse;
+    event Action<Response<string>> OnLeaveGameLobbyResponse;
+    event Action<Response<string>> OnJoinGameLobbyResponse;
+    event Action<Response<SLobby>> OnReadyLobbyResponse;
+    event Action OnDemoStarted;
+    event Action OnLobbyResponse;
+    
+    // Methods
+    Task ConnectToServer();
+    Task SendRegisterNickname(string nicknameInput);
+    Task SendGameLobby();
+    Task SendGameLobbyLeaveRequest();
+    Task SendGameLobbyReadyRequest(bool ready);
+    Task StartGameDemoRequest();
+}

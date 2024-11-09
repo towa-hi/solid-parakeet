@@ -3,8 +3,6 @@ using UnityEngine;
 
 public class GuiManager : MonoBehaviour
 {
-    public static GuiManager instance;
-    
     public GuiStartMenu startMenu;
     public GuiMainMenu mainMenu;
     public GuiSettingsMenu settingsMenu;
@@ -16,49 +14,59 @@ public class GuiManager : MonoBehaviour
     
     public GameObject modalPanel;
 
-    GuiElement currentMenu;
-    ModalElement currentModal;
-    void Awake()
+    [SerializeField] GuiElement currentMenu;
+    [SerializeField] ModalElement currentModal;
+    
+    public void Initialize()
     {
-        if (instance == null)
-        {
-            instance = this;
-            // start menu events
-            startMenu.OnConnectButton += OnConnectButton;
-            startMenu.OnOfflineButton += OnOfflineButton;
-            // main menu events
-            mainMenu.OnChangeNicknameButton += OnChangeNicknameButton;
-            mainMenu.OnNewLobbyButton += OnNewLobbyButton;
-            mainMenu.OnJoinLobbyButton += OnJoinLobbyButton;
-            mainMenu.OnSettingsButton += OnSettingsButton;
-            mainMenu.OnExitButton += OnExitButton;
-            // settings menu events
-            settingsMenu.OnCancelChangesButton += OnCancelChangesButton;
-            settingsMenu.OnSaveSettingsButton += OnSaveSettingsButton;
-            // lobby setup menu events
-            lobbySetupMenu.OnCancelButton += OnLobbySetupCancelButton;
-            lobbySetupMenu.OnStartButton += OnLobbySetupStartButton;
-            // lobby menu events
-            lobbyMenu.OnCancelButton += OnLobbyCancelButton;
-            lobbyMenu.OnReadyButton += OnLobbyReadyButton;
-            lobbyMenu.OnDemoButton += OnLobbyDemoButton;
-            // nickname modal events
-            nicknameModal.OnCancel += OnNicknameModalCancel;
-            nicknameModal.OnConfirm += OnNicknameModalConfirm;
-            // password modal events
-            passwordModal.OnCancel += OnPasswordModalCancel;
-            passwordModal.OnConfirm += OnPasswordModalConfirm;
-        }
-        else
-        {
-            Debug.LogWarning("MORE THAN ONE SINGLETON");
-        }
+        InitializeUIEvents();
+        Debug.Log("GuiManager: Showing start menu.");
+        GameManager.instance.OnClientChanged += OnClientChanged;
+        ShowMenu(startMenu);
     }
 
-    void Start()
+    // Initialize UI event handlers
+    void InitializeUIEvents()
     {
-        
-        GameClient client = GameManager.instance.client;
+        // Start menu events
+        startMenu.OnConnectButton += OnConnectButton;
+        startMenu.OnOfflineButton += OnOfflineButton;
+        // Main menu events
+        mainMenu.OnChangeNicknameButton += OnChangeNicknameButton;
+        mainMenu.OnNewLobbyButton += OnNewLobbyButton;
+        mainMenu.OnJoinLobbyButton += OnJoinLobbyButton;
+        mainMenu.OnSettingsButton += OnSettingsButton;
+        mainMenu.OnExitButton += OnExitButton;
+        // Settings menu events
+        settingsMenu.OnCancelChangesButton += OnCancelChangesButton;
+        settingsMenu.OnSaveSettingsButton += OnSaveSettingsButton;
+        // Lobby setup menu events
+        lobbySetupMenu.OnCancelButton += OnLobbySetupCancelButton;
+        lobbySetupMenu.OnStartButton += OnLobbySetupStartButton;
+        // Lobby menu events
+        lobbyMenu.OnCancelButton += OnLobbyCancelButton;
+        lobbyMenu.OnReadyButton += OnLobbyReadyButton;
+        lobbyMenu.OnDemoButton += OnLobbyDemoButton;
+        // Nickname modal events
+        nicknameModal.OnCancel += OnNicknameModalCancel;
+        nicknameModal.OnConfirm += OnNicknameModalConfirm;
+        // Password modal events
+        passwordModal.OnCancel += OnPasswordModalCancel;
+        passwordModal.OnConfirm += OnPasswordModalConfirm;
+    }
+
+    void OnClientChanged(IGameClient oldClient, IGameClient newClient)
+    {
+        // Unsubscribe from previous client's events if necessary
+        if (oldClient != null)
+        {
+            UnsubscribeClientEvents(oldClient);
+        }
+        SubscribeClientEvents(newClient);
+    }
+
+    void SubscribeClientEvents(IGameClient client)
+    {
         client.OnRegisterClientResponse += OnRegisterClientResponse;
         client.OnDisconnect += OnDisconnect;
         client.OnErrorResponse += OnErrorResponse;
@@ -67,8 +75,18 @@ public class GuiManager : MonoBehaviour
         client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
         client.OnReadyLobbyResponse += OnReadyLobbyResponse;
         client.OnDemoStarted += OnDemoStartedResponse;
-        Debug.Log("showing startmenu");
-        ShowMenu(startMenu);
+    }
+
+    void UnsubscribeClientEvents(IGameClient client)
+    {
+        client.OnRegisterClientResponse -= OnRegisterClientResponse;
+        client.OnDisconnect -= OnDisconnect;
+        client.OnErrorResponse -= OnErrorResponse;
+        client.OnRegisterNicknameResponse -= OnRegisterNicknameResponse;
+        client.OnGameLobbyResponse -= OnGameLobbyResponse;
+        client.OnLeaveGameLobbyResponse -= OnLeaveGameLobbyResponse;
+        client.OnReadyLobbyResponse -= OnReadyLobbyResponse;
+        client.OnDemoStarted -= OnDemoStartedResponse;
     }
     
     void OnRegisterClientResponse(Response<string> response)
@@ -147,6 +165,9 @@ public class GuiManager : MonoBehaviour
     {
         lobbyMenu.EnableElement(true);
         Debug.Log("OnDemoStarted");
+        // NOTE: this code should not be here
+        ShowMenu(null);
+        ShowPawnSetupGui(true);
     }
     
     // start menu
@@ -155,13 +176,16 @@ public class GuiManager : MonoBehaviour
     {
         Debug.Log("OnConnectButton");
         startMenu.EnableElement(false);
+        GameManager.instance.SetOfflineMode(false);
         _ = GameManager.instance.client.ConnectToServer();
     }
     
     void OnOfflineButton()
     {
         Debug.Log("OnOfflineButton");
-        ShowMenu(mainMenu);
+        startMenu.EnableElement(false);
+        GameManager.instance.SetOfflineMode(true);
+        _ = GameManager.instance.client.ConnectToServer();
     }
     
     // main menu
@@ -214,7 +238,7 @@ public class GuiManager : MonoBehaviour
     void OnLobbySetupCancelButton()
     {
         Debug.Log("OnLobbySetupCancelButton");
-        _ = GameManager.instance.client.SendGameLobbyLeaveRequest();
+        ShowMenu(mainMenu);
     }
 
     void OnLobbySetupStartButton()
@@ -222,6 +246,7 @@ public class GuiManager : MonoBehaviour
         Debug.Log("OnLobbySetupStartButton");
         mainMenu.EnableElement(false);
         _ = GameManager.instance.client.SendGameLobby();
+        
     }
 
     // lobby menu
@@ -265,7 +290,6 @@ public class GuiManager : MonoBehaviour
         {
             nicknameModal.EnableElement(false);
             GameManager.instance.client.SendRegisterNickname(nicknameModal.GetNickname());
-            
         }
     }
     
@@ -293,19 +317,16 @@ public class GuiManager : MonoBehaviour
 
     void ShowMenu(MenuElement menu)
     {
-        if (currentMenu != null && currentMenu != menu)
+        if (currentMenu != null)
         {
-            CloseCurrentMenu();
+            currentMenu.ShowElement(false);
+            Debug.Log($"{currentMenu} is hidden");
         }
-        menu.ShowElement(true);
         currentMenu = menu;
-    }
-
-    void CloseCurrentMenu()
-    {
-        if (currentMenu == null) return;
-        currentMenu.ShowElement(false);
-        currentMenu = null;
+        if (currentMenu != null)
+        {
+            menu.ShowElement(true);
+        }
     }
     
     void ShowModal(ModalElement modal)
@@ -325,5 +346,10 @@ public class GuiManager : MonoBehaviour
         currentModal.ShowElement(false);
         modalPanel.SetActive(false);
         currentModal = null;
+    }
+    
+    void ShowPawnSetupGui(bool show)
+    {
+        
     }
 }

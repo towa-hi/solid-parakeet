@@ -27,6 +27,10 @@ public class GuiElement : MonoBehaviour
             return;
         }
         isShow = show; // Update isShow
+        if (rectTransform == null)
+        {
+            rectTransform = GetComponent<RectTransform>();
+        }
         rectTransform.anchoredPosition = show ? activePosition : hiddenPosition;
     }
 

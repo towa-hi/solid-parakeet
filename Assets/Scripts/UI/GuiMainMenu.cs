@@ -39,7 +39,7 @@ public class GuiMainMenu : MenuElement
     
     public void RefreshNicknameText()
     {
-        nicknameText.text = GameManager.instance.client.isNicknameRegistered ? Globals.GetNickname() : "SET NICKNAME";
+        nicknameText.text = Globals.GetNickname();
     }
     
     void HandleChangeNicknameButton()
