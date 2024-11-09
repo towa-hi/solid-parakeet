@@ -161,7 +161,7 @@ SpriteRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4628738676444552350}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 0
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1
@@ -276,7 +276,6 @@ MonoBehaviour:
     def: {fileID: 0}
     player: 0
     pos: {x: 0, y: 0}
-  tempPawnDef: {fileID: 11400000, guid: 129cba558530092478a63f9931d34b6b, type: 2}
 --- !u!114 &1615617418607774367
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -361,7 +360,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 2eaf4e8b1e5060d4593aef73f75a126c, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

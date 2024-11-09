@@ -1,0 +1,26 @@
+{
+  "name": "dev.ameye.linework",
+  "version": "1.2.2",
+  "displayName": "Linework",
+  "description": "Linework is a practical toolkit for rendering outlines in Unity. Linework supports rendering multiple types of outlines and fills with lots of customization options. Linework has been designed to be performant and easy-to-use.",
+  "unity": "2022.3",
+  "documentationUrl": "https://linework.ameye.dev/",
+  "changelogUrl": "https://linework.ameye.dev/support/changelog",
+  "keywords": [
+    "outlines",
+    "fills"
+  ],
+  "author": {
+    "name": "Alexander Ameye",
+    "email": "alexanderameye@gmail.com",
+    "url": "https://ameye.dev"
+  },
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Linework Samples",
+      "description": "An example scene showing how the different outlines and fills available in Linework may be used.",
+      "path": "Samples~/Linework"
+    }
+  ]
+}

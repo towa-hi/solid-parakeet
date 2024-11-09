@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: ebbc2128da914f45af22437ef28eb212
+timeCreated: 1723394800
+AssetOrigin:
+  serializedVersion: 1
+  productId: 294140
+  packageName: 'Linework: Easy Outlines, Edges and Fills'
+  packageVersion: 1.2.2
+  assetPath: Packages/dev.ameye.linework/Runtime/Common/Shaders/Clear Stencil.shader
+  uploadId: 706398

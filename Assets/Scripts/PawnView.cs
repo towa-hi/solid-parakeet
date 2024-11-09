@@ -20,9 +20,18 @@ public class PawnView : MonoBehaviour
         GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
         DisplaySymbol(Globals.pawnSprites[inPawn.def.pawnName]);
         transform.position = tileView.pawnOrigin.position;
+        switch (inPawn.player)
+        {
+            case Player.RED:
+                SetCubeColor(Color.red);
+                break;
+            case Player.BLUE:
+                SetCubeColor(Color.blue);
+                break;
+        }
     }
 
-    public void DisplaySymbol(string index)
+    void DisplaySymbol(string index)
     {
         
         Sprite sprite = symbols.GetSprite(index);
@@ -33,5 +42,13 @@ public class PawnView : MonoBehaviour
         }
         symbolRenderer.sprite = sprite;
     }
-    
+
+    void SetCubeColor(Color color)
+    {
+        Renderer cubeRenderer = cube.GetComponent<Renderer>();
+        cubeRenderer.material = new(cubeRenderer.material)
+        {
+            color = color
+        };
+    }
 }

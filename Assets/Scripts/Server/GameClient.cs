@@ -133,6 +133,7 @@ public class GameClient : IGameClient
     public async Task SendGameLobbyJoinRequest()
     {
         
+        await Task.Delay(100);
     }
 
     public async Task SendGameLobbyReadyRequest(bool ready)
@@ -263,7 +264,7 @@ public class GameClient : IGameClient
         {
             OnRegisterClientResponse?.Invoke(response);
             //after response, register nickname immediately after
-            SendRegisterNickname(Globals.GetNickname());
+            _ = SendRegisterNickname(Globals.GetNickname());
         }
         else
         {
