@@ -23,7 +23,7 @@ MonoBehaviour:
   alphaCutout: 0
   alphaCutoutTexture: {fileID: 0}
   alphaCutoutThreshold: 0.5
-  color: {r: 1, g: 0.2768682, b: 0, a: 1}
+  color: {r: 1, g: 0, b: 0.7921586, a: 1}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -43,7 +43,7 @@ MonoBehaviour:
   outlines:
   - {fileID: -8888050955176017215}
   scaling: 0
-  width: 3.1
+  width: 3
   minWidth: 0
   blendMode: 0
   customDepthBuffer: 0
