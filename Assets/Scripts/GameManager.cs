@@ -42,6 +42,9 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         guiManager.Initialize();
+        
+        Debug.Log("Enable input action");
+        Globals.inputActions.Game.Enable();
     }
     public void SetOfflineMode(bool inOfflineMode)
     {

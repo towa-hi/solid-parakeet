@@ -25,6 +25,11 @@ public class SpriteToMesh : MonoBehaviour
         // Assign the mesh to the MeshFilter
         meshFilter.mesh = mesh;
 
+        MeshCollider collider = GetComponent<MeshCollider>();
+        if (collider)
+        {
+            collider.sharedMesh = mesh;
+        }
         // Get the MeshRenderer component
         MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
 

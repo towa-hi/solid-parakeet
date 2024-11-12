@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.U2D;
 
@@ -6,12 +7,14 @@ public class PawnView : MonoBehaviour
     public GameObject model;
     public GameObject cube;
     public GameObject plane;
-
+    public PawnClickableHandler pawnClickableHandler;
+    
     public SpriteAtlas symbols;
     public SpriteRenderer symbolRenderer;
     
     public Pawn pawn;
 
+    public event Action OnClick;
     
     public void Initialize(Pawn inPawn, TileView tileView)
     {
@@ -51,4 +54,5 @@ public class PawnView : MonoBehaviour
             color = color
         };
     }
+    
 }

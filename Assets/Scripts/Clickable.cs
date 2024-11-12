@@ -64,16 +64,27 @@ public class Clickable : MonoBehaviour
             // The pointer is over a UI element, so we return false
             return false;
         }
-
         // Cast a ray from the camera through the pointer position
         Ray ray = GameManager.instance.mainCamera.ScreenPointToRay(pointerPosition);
-
-        // Perform a RaycastAll to get all hits along the ray, using the layer mask
-        RaycastHit[] hits = Physics.RaycastAll(ray, Mathf.Infinity, interactionLayerMask);
-
-        // Check if this GameObject is among the hits
-        foreach (RaycastHit hit in hits)
+        // // Perform a RaycastAll to get all hits along the ray, using the layer mask
+        // RaycastHit[] hits = Physics.RaycastAll(ray, Mathf.Infinity, interactionLayerMask);
+        // // Check if this GameObject is among the hits
+        // foreach (RaycastHit hit in hits)
+        // {
+        //     if (hit.collider.gameObject != gameObject)
+        //     {
+        //         return false;
+        //     }
+        //     if (hit.collider.gameObject == gameObject)
+        //     {
+        //         return true;
+        //     }
+        // }
+        RaycastHit hit;
+        // Perform a Raycast to get the first hit along the ray, using the layer mask
+        if (Physics.Raycast(ray, out hit, Mathf.Infinity, interactionLayerMask))
         {
+            // Check if the hit is this GameObject
             if (hit.collider.gameObject == gameObject)
             {
                 return true;
