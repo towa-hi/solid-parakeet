@@ -168,9 +168,9 @@ public class GuiManager : MonoBehaviour
         ShowMenu(null);
         // this should be a fully fledged response
         SetupParameters setupParameters = new SetupParameters();
+        GameManager.instance.boardManager.StartBoardSetup(Player.RED, setupParameters);
         gameOverlay.ShowElement(true);
         gameOverlay.InitializeSetup(setupParameters);
-        GameManager.instance.boardManager.StartBoardSetup(Player.RED, setupParameters);
     }
     
     // start menu

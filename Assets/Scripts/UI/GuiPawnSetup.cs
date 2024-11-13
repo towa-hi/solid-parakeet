@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class GuiPawnSetup : MonoBehaviour
@@ -13,9 +14,9 @@ public class GuiPawnSetup : MonoBehaviour
         pawnSetupControls.OnSubmitButton += OnSubmitButton;
     }
     
-    public void Initialize(SetupParameters setupParameters)
+    public void Initialize(SetupParameters setupParameters, Dictionary<PawnDef, int> pawnsLeft)
     {
-        pawnSetupList.Initialize(setupParameters);
+        pawnSetupList.Initialize(pawnsLeft);
         pawnSetupControls.Initialize();
     }
 

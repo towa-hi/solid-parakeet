@@ -451,6 +451,7 @@ MonoBehaviour:
   model: {fileID: 4572381553454927573}
   cube: {fileID: 7474250417178598634}
   plane: {fileID: 3752078669105340297}
+  pawnClickableHandler: {fileID: 1063536997268246500}
   symbols: {fileID: 100100200, guid: a4d07ee77b641814fa3aebc56e74202a, type: 3}
   symbolRenderer: {fileID: 1314133001686816306}
   pawn:
@@ -490,7 +491,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   billboardClickable: {fileID: 3458800956015347118}
   planeClickable: {fileID: 4338196756598604128}
-  wideOutlineLayerName: Wide Outline
 --- !u!1 &7474250417178598634
 GameObject:
   m_ObjectHideFlags: 0

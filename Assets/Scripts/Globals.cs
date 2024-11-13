@@ -197,7 +197,24 @@ public static class Globals
         orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Scout"), 8));
         return orderedPawns;
     }
-    
+
+    public static Dictionary<PawnDef, int> GetUnorderedPawnDefDict()
+    {
+        Dictionary<PawnDef, int> unorderedPawnDefDict = new();
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Flag"), 1);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Spy"), 1);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Bomb"), 6);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Marshal"), 1);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/General"), 1);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Colonel"), 2);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Major"), 3);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Captain"), 4);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Lieutenant"), 4);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Sergeant"), 4);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Miner"), 5);
+        unorderedPawnDefDict.Add(Resources.Load<PawnDef>("Pawn/Scout"), 8);
+        return unorderedPawnDefDict;
+    }
     public static int GetNumberOfRowsForPawn(PawnDef pawnDef)
     {
         switch (pawnDef.name)
@@ -357,13 +374,13 @@ public class SPawnDef
 
 public class SetupParameters
 {
-    public List<KeyValuePair<PawnDef, int>> maxPawnsList;
+    public Dictionary<PawnDef, int> maxPawnsDict;
     public BoardDef board;
     
     public SetupParameters()
     {
         board = GameManager.instance.tempBoardDef;
-        maxPawnsList = Globals.GetOrderedPawnList();
+        maxPawnsDict = Globals.GetUnorderedPawnDefDict();
     }
 }
 

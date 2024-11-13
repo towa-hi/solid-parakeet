@@ -15,6 +15,11 @@ public class PawnView : MonoBehaviour
     public Pawn pawn;
 
     public event Action OnClick;
+
+    void OnDestroy()
+    {
+        
+    }
     
     public void Initialize(Pawn inPawn, TileView tileView)
     {

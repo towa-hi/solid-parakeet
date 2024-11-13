@@ -5,10 +5,8 @@ public class GuiGame : GuiElement
 {
     public GamePhase gamePhase;
     public GuiPawnSetup pawnSetup;
-    public SetupParameters setupParameters;
     public void InitializeSetup(SetupParameters inSetupParameters)
     {
-        setupParameters = inSetupParameters;
         SetGamePhase(GamePhase.SETUP);
     }
 
@@ -37,7 +35,7 @@ public class GuiGame : GuiElement
                 break;
             case GamePhase.SETUP:
                 pawnSetup.enabled = true;
-                pawnSetup.Initialize(setupParameters);
+                pawnSetup.Initialize(GameManager.instance.boardManager.setupParameters, GameManager.instance.boardManager.pawnsLeft);
                 break;
             case GamePhase.MOVE:
                 pawnSetup.enabled = false;

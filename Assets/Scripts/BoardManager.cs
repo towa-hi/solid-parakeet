@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -16,19 +17,26 @@ public class BoardManager : MonoBehaviour
     readonly List<PawnView> pawnViews = new();
     
     public Player player;
+    
+    // setup stuff
     public SetupParameters setupParameters;
+    public Dictionary<PawnDef, int> pawnsLeft;
+    public PawnDef setupSelectedPawnDef = null;
 
-    public event Action<PawnView> OnPawnAdded; 
-    public event Action<PawnView> OnPawnRemoved;
+    public event Action<Dictionary<PawnDef, int>, Pawn> OnPawnAdded; 
+    public event Action<Dictionary<PawnDef, int>, Pawn> OnPawnRemoved;
     
     public void StartBoardSetup(Player inPlayer, SetupParameters inSetupParameters)
     {
         setupParameters = inSetupParameters;
+        pawnsLeft = new();
+        setupSelectedPawnDef = null;
         if (inPlayer == Player.NONE)
         {
             throw new Exception("BoardManager cannot have player == Player.NONE");
         }
         player = inPlayer;
+        pawnsLeft = new Dictionary<PawnDef, int>(setupParameters.maxPawnsDict);
         LoadBoardData(setupParameters.board);
     }
     
@@ -64,7 +72,7 @@ public class BoardManager : MonoBehaviour
             .Where(tileView => tileView.tile.IsTileEligibleForPlayer(player))
             .Select(tileView => tileView.tile.pos)
             .ToList();
-        foreach ((PawnDef pawnDef, int pawnCount) in setupParameters.maxPawnsList)
+        foreach ((PawnDef pawnDef, int pawnCount) in setupParameters.maxPawnsDict)
         {
             List<Vector2Int> eligiblePositions = boardDef.GetEligiblePositionsForPawn(player, pawnDef, usedPositions);
             // Check if there are enough eligible positions
@@ -93,22 +101,41 @@ public class BoardManager : MonoBehaviour
     
     void AddPawn(Pawn pawn)
     {
+        int pawnCount = FindPawnCount(pawn.def);
+        if (pawnCount <= 0)
+        {
+            throw new Exception();
+        }
+        pawnsLeft[pawn.def] -= 1;
         GameObject pawnObject = Instantiate(pawnPrefab, transform);
         PawnView pawnView = pawnObject.GetComponent<PawnView>();
         pawnView.Initialize(pawn, GetTileView(pawn.pos));
         pawnViews.Add(pawnView);
-        OnPawnAdded?.Invoke(pawnView);
+        OnPawnAdded?.Invoke(pawnsLeft, pawnView.pawn);
     }
 
     void DeletePawn(Pawn pawn)
     {
+        // TODO: make this not retarded
+        pawnsLeft[pawn.def] += 1;
         PawnView pawnView = GetPawnViewFromPawn(pawn);
         if (!pawnView) return;
-        Destroy(pawnView.gameObject);
         pawnViews.Remove(pawnView);
-        OnPawnRemoved?.Invoke(pawnView);
+        // Deactivate the GameObject immediately
+        pawnView.gameObject.SetActive(false);
+        pawnView.pawnClickableHandler.billboardClickable.enabled = false;
+        pawnView.pawnClickableHandler.planeClickable.enabled = false;
+        // Schedule destruction at the end of the frame
+        StartCoroutine(DestroyPawnViewAtEndOfFrame(pawnView.gameObject));
+        OnPawnRemoved?.Invoke(pawnsLeft, pawnView.pawn);
     }
-
+    
+    IEnumerator DestroyPawnViewAtEndOfFrame(GameObject obj)
+    {
+        yield return new WaitForEndOfFrame();
+        Destroy(obj);
+    }
+    
     void ClearTiles()
     {
         // this also clears all pawns
@@ -126,10 +153,10 @@ public class BoardManager : MonoBehaviour
 
     void ClearPawns()
     {
-        foreach (PawnView pawnView in pawnViews)
+        List<PawnView> tempPawnViews = new(pawnViews);
+        foreach (PawnView pawnView in tempPawnViews)
         {
-            Destroy(pawnView.gameObject);
-            OnPawnRemoved?.Invoke(pawnView);
+            DeletePawn(pawnView.pawn);
         }
         pawnViews.Clear();
     }
@@ -157,4 +184,56 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+    public void OnTileClicked(TileView tileView)
+    {
+        Debug.Log("tile clicked");
+        PawnView pawnViewOnTile = GetPawnViewAtPos(tileView.tile.pos);
+        if (pawnViewOnTile != null)
+        {
+            if (pawnViewOnTile.pawn.def != setupSelectedPawnDef)
+            {
+                Debug.Log($"tileView {tileView.tile.pos} removing pawn to replace with another type or null");
+                DeletePawn(pawnViewOnTile.pawn);
+            }
+            else
+            {
+                Debug.LogWarning($"tileView {tileView.tile.pos} OK clicked but pawn of this def already exists");
+                return;
+            }
+        }
+
+        if (setupSelectedPawnDef == null)
+        {
+            Debug.Log($"tileView {tileView.tile.pos} cleared OK");
+            return;
+        }
+
+        if (!tileView.tile.IsTileEligibleForPlayer(player))
+        {
+            Debug.LogWarning($"tileView {tileView.tile.pos} cleared but no new pawn added because not eligible");
+            return;
+        }
+
+        if (pawnsLeft[setupSelectedPawnDef] <= 0)
+        {
+            Debug.LogWarning($"tileView {tileView.tile.pos} cleared but no new pawn added because no pawns remaining of this def");;
+            return;
+        }
+        Pawn newPawn = new(setupSelectedPawnDef, player, tileView.tile.pos);
+        AddPawn(newPawn);
+        Debug.Log($"tileView {tileView.tile.pos} added new pawn OK");
+    }
+
+    int FindPawnCount(PawnDef targetPawnDef)
+    {
+        foreach (var pair in pawnsLeft)
+        {
+            if (pair.Key == targetPawnDef)
+            {
+                return pair.Value; // Return the associated int if the PawnDef matches
+            }
+        }
+        // Return a default value if the PawnDef is not found
+        return -1;
+    }
 }

@@ -1,9 +1,10 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class GuiPawnSetupListEntry : MonoBehaviour
+public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
 {
     public Image pawnIconImage;
     public TextMeshProUGUI pawnNameText;
@@ -13,6 +14,16 @@ public class GuiPawnSetupListEntry : MonoBehaviour
     public int remainingPawns;
     Color originalColor = new Color(1f, 1f, 1f, 100f / 255f);
     Color exhaustedColor = Color.black;
+    Color selectedColor = Color.red;
+
+    [SerializeField] bool isSelected;
+
+    public event Action<GuiPawnSetupListEntry> OnEntryClicked;
+    
+    void Start()
+    {
+        
+    }
     
     public void SetPawn(PawnDef inPawnDef, int inRemainingPawns)
     {
@@ -23,21 +34,34 @@ public class GuiPawnSetupListEntry : MonoBehaviour
         UpdateEntry();
     }
 
-    public void DecrementCount()
+    public void SetCount(int count)
     {
-        remainingPawns -= 1;
+        remainingPawns = count;
         UpdateEntry();
     }
-
-    public void IncrementCount()
-    {
-        remainingPawns += 1;
-        UpdateEntry();
-    }
-
+    
     void UpdateEntry()
     {
         remainingPawnsText.text = remainingPawns.ToString();
-        panelBackground.color = remainingPawns == 0 ? exhaustedColor : originalColor;
+        if (isSelected)
+        {
+            panelBackground.color = selectedColor;
+        }
+        else
+        {
+            panelBackground.color = remainingPawns == 0 ? exhaustedColor : originalColor;
+        }
     }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        OnEntryClicked?.Invoke(this);
+    }
+
+    public void SelectEntry(bool inIsSelected)
+    {
+        isSelected = inIsSelected;
+        UpdateEntry();
+    }
+    
 }

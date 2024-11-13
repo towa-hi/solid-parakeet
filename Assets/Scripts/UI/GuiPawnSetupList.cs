@@ -9,13 +9,19 @@ public class GuiPawnSetupList : MonoBehaviour
     public GameObject body;
     public GameObject entryPrefab;
 
-    public void Initialize(SetupParameters setupParameters)
+    public void Initialize(Dictionary<PawnDef, int> pawnsLeft)
     {
-        foreach (var kvp in setupParameters.maxPawnsList)
+        foreach (var entry in entries)
+        {
+            Destroy(entry);
+        }
+        entries.Clear();
+        foreach (var kvp in pawnsLeft)
         {
             GameObject entryObject = Instantiate(entryPrefab, body.transform);
             GuiPawnSetupListEntry entry = entryObject.GetComponent<GuiPawnSetupListEntry>();
             entry.SetPawn(kvp.Key, kvp.Value);
+            entry.OnEntryClicked += OnEntryClicked;
             entries.Add(entry);
         }
 
@@ -23,19 +29,36 @@ public class GuiPawnSetupList : MonoBehaviour
         GameManager.instance.boardManager.OnPawnRemoved += OnPawnRemoved;
     }
 
-    void OnPawnAdded(PawnView addedPawnView)
+    void OnPawnAdded(Dictionary<PawnDef, int> pawnsLeft, Pawn addedPawn)
     {
-        foreach (GuiPawnSetupListEntry entry in entries.Where(entry => entry.pawnDef == addedPawnView.pawn.def))
+        foreach (var entry in entries)
         {
-            entry.DecrementCount();
+            entry.SetCount(pawnsLeft[entry.pawnDef]);
         }
     }
 
-    void OnPawnRemoved(PawnView removedPawnView)
+    void OnPawnRemoved(Dictionary<PawnDef, int> pawnsLeft, Pawn removedPawn)
     {
-        foreach (GuiPawnSetupListEntry entry in entries.Where(entry => entry.pawnDef == removedPawnView.pawn.def))
+        foreach (var entry in entries)
         {
-            entry.IncrementCount();
+            entry.SetCount(pawnsLeft[entry.pawnDef]);
         }
+    }
+
+    void OnEntryClicked(GuiPawnSetupListEntry selectedEntry)
+    {
+        PawnDef selectedPawnDef = GameManager.instance.boardManager.setupSelectedPawnDef;
+        // if entry is already selected, unselect it
+        PawnDef newSelectedPawnDef = selectedEntry.pawnDef == selectedPawnDef ? null : selectedEntry.pawnDef;
+        GameManager.instance.boardManager.setupSelectedPawnDef = newSelectedPawnDef;
+        foreach (var entry in entries)
+        {
+            entry.SelectEntry(entry.pawnDef == newSelectedPawnDef);
+        }
+    }
+
+    GuiPawnSetupListEntry GetEntryByPawnDef(PawnDef pawnDef)
+    {
+        return entries.Where(entry => entry.pawnDef == pawnDef).FirstOrDefault();
     }
 }

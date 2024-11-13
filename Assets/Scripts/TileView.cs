@@ -87,8 +87,8 @@ public class TileView : MonoBehaviour
 
     void OnClicked(Vector2 mousePos)
     {
-        GameManager.instance.OnTileClicked(this, mousePos);
-        
+        GameManager.instance.boardManager.OnTileClicked(this);
+
     }
 
     public bool IsTileInteractableDuringSetup()
