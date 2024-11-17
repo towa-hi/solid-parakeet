@@ -21,7 +21,6 @@ public class GuiManager : MonoBehaviour
     {
         InitializeUIEvents();
         Debug.Log("GuiManager: Showing start menu.");
-        GameManager.instance.OnClientChanged += OnClientChanged;
         ShowMenu(startMenu);
     }
 
@@ -55,45 +54,11 @@ public class GuiManager : MonoBehaviour
         passwordModal.OnConfirm += OnPasswordModalConfirm;
     }
 
-    void OnClientChanged(IGameClient oldClient, IGameClient newClient)
-    {
-        // Unsubscribe from previous client's events if necessary
-        if (oldClient != null)
-        {
-            UnsubscribeClientEvents(oldClient);
-        }
-        SubscribeClientEvents(newClient);
-    }
-
-    void SubscribeClientEvents(IGameClient client)
-    {
-        client.OnRegisterClientResponse += OnRegisterClientResponse;
-        client.OnDisconnect += OnDisconnect;
-        client.OnErrorResponse += OnErrorResponse;
-        client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
-        client.OnGameLobbyResponse += OnGameLobbyResponse;
-        client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
-        client.OnReadyLobbyResponse += OnReadyLobbyResponse;
-        client.OnDemoStarted += OnDemoStartedResponse;
-    }
-
-    void UnsubscribeClientEvents(IGameClient client)
-    {
-        client.OnRegisterClientResponse -= OnRegisterClientResponse;
-        client.OnDisconnect -= OnDisconnect;
-        client.OnErrorResponse -= OnErrorResponse;
-        client.OnRegisterNicknameResponse -= OnRegisterNicknameResponse;
-        client.OnGameLobbyResponse -= OnGameLobbyResponse;
-        client.OnLeaveGameLobbyResponse -= OnLeaveGameLobbyResponse;
-        client.OnReadyLobbyResponse -= OnReadyLobbyResponse;
-        client.OnDemoStarted -= OnDemoStartedResponse;
-    }
     
-    void OnRegisterClientResponse(Response<string> response)
+    public void OnRegisterClientResponse(Response<string> response)
     {
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
-            startMenu.EnableElement(true);
             if (response.success)
             {
                 ShowMenu(mainMenu);
@@ -101,21 +66,26 @@ public class GuiManager : MonoBehaviour
         });
     }
 
-    void OnDisconnect(Response<string> response)
-    {
-        // reset the menu state 
-    }
-
-    void OnErrorResponse(ResponseBase response)
-    {
-        // reset the menu state 
-    }
-
-    void OnRegisterNicknameResponse(Response<string> response)
+    public void OnDisconnect(Response<string> response)
     {
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
-            mainMenu.EnableElement(true);
+            ShowMenu(startMenu);
+        });
+    }
+
+    public void OnErrorResponse(ResponseBase response)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            ShowMenu(startMenu);
+        });
+    }
+
+    public void OnRegisterNicknameResponse(Response<string> response)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
             if (response.success)
             {
                 if (currentModal == nicknameModal)
@@ -127,11 +97,11 @@ public class GuiManager : MonoBehaviour
         });
     }
 
-    void OnGameLobbyResponse(Response<SLobby> response)
+    public void OnGameLobbyResponse(Response<SLobby> response)
     {
+        Debug.Log("GuiManager: OnGameLobbyResponse");
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
-            mainMenu.EnableElement(true);
             if (response.success)
             {
                 SLobby lobby = response.data;
@@ -142,35 +112,28 @@ public class GuiManager : MonoBehaviour
         
     }
 
-    void OnLeaveGameLobbyResponse(Response<string> response)
+    public void OnLeaveGameLobbyResponse(Response<string> response)
     {
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
-            lobbyMenu.EnableElement(true);
             ShowMenu(mainMenu);
         });
         
     }
 
-    void OnReadyLobbyResponse(Response<SLobby> response)
+    public void OnReadyLobbyResponse(Response<SLobby> response)
     {
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
-            lobbyMenu.EnableElement(true);
             lobbyMenu.SetLobby(response.data);
         });
     }
 
-    void OnDemoStartedResponse()
+    public void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
-        lobbyMenu.EnableElement(true);
-        Debug.Log("OnDemoStarted");
-        ShowMenu(null);
-        // this should be a fully fledged response
-        SetupParameters setupParameters = new SetupParameters();
-        GameManager.instance.boardManager.StartBoardSetup(Player.RED, setupParameters);
-        gameOverlay.ShowElement(true);
-        gameOverlay.InitializeSetup(setupParameters);
+        Debug.Log("GuiManager: OnDemoStarted");
+        ShowMenu(gameOverlay);
+        gameOverlay.Initialize(new SetupParameters(response.data));
     }
     
     // start menu
@@ -178,17 +141,13 @@ public class GuiManager : MonoBehaviour
     void OnConnectButton()
     {
         Debug.Log("OnConnectButton");
-        startMenu.EnableElement(false);
         GameManager.instance.SetOfflineMode(false);
-        _ = GameManager.instance.client.ConnectToServer();
     }
     
     void OnOfflineButton()
     {
         Debug.Log("OnOfflineButton");
-        startMenu.EnableElement(false);
         GameManager.instance.SetOfflineMode(true);
-        _ = GameManager.instance.client.ConnectToServer();
     }
     
     // main menu
@@ -247,7 +206,6 @@ public class GuiManager : MonoBehaviour
     void OnLobbySetupStartButton()
     {
         Debug.Log("OnLobbySetupStartButton");
-        mainMenu.EnableElement(false);
         _ = GameManager.instance.client.SendGameLobby();
         
     }
@@ -257,22 +215,20 @@ public class GuiManager : MonoBehaviour
     void OnLobbyCancelButton()
     {
         Debug.Log("OnLobbyCancelButton");
-        lobbyMenu.EnableElement(false);
         _ = GameManager.instance.client.SendGameLobbyLeaveRequest();
     }
 
     void OnLobbyReadyButton(bool ready)
     {
         Debug.Log("OnLobbyReadyButton");
-        lobbyMenu.EnableElement(false);
         _ = GameManager.instance.client.SendGameLobbyReadyRequest(ready);
     }
 
     void OnLobbyDemoButton()
     {
         Debug.Log("OnLobbyDemoButton");
-        lobbyMenu.EnableElement(false);
         _ = GameManager.instance.client.StartGameDemoRequest();
+        
     }
     
     // nickname modal
@@ -291,7 +247,6 @@ public class GuiManager : MonoBehaviour
         Debug.Log("OnNicknameModalConfirm");
         if (currentModal == nicknameModal)
         {
-            nicknameModal.EnableElement(false);
             GameManager.instance.client.SendRegisterNickname(nicknameModal.GetNickname());
         }
     }
@@ -318,7 +273,7 @@ public class GuiManager : MonoBehaviour
         }
     }
 
-    void ShowMenu(MenuElement menu)
+    public void ShowMenu(MenuElement menu)
     {
         if (currentMenu != null)
         {
@@ -329,6 +284,7 @@ public class GuiManager : MonoBehaviour
         if (currentMenu != null)
         {
             menu.ShowElement(true);
+            Debug.Log($"{currentMenu} is shown");
         }
     }
     

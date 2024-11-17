@@ -11,33 +11,127 @@ public class BoardManager : MonoBehaviour
 {
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
+    public GameObject setupPawnPrefab;
     public Grid grid;
-
-    readonly Dictionary<Vector2Int, TileView> tileViews = new();
-    readonly List<PawnView> pawnViews = new();
+    public GamePhase phase;
     
-    public Player player;
-    
-    // setup stuff
-    public SetupParameters setupParameters;
-    public Dictionary<PawnDef, int> pawnsLeft;
-    public PawnDef setupSelectedPawnDef = null;
-
     public event Action<Dictionary<PawnDef, int>, Pawn> OnPawnAdded; 
     public event Action<Dictionary<PawnDef, int>, Pawn> OnPawnRemoved;
+    //public event Action<GamePhase, GamePhase> OnPhaseChanged;
     
-    public void StartBoardSetup(Player inPlayer, SetupParameters inSetupParameters)
+    
+    // setup stuff
+    
+    public Player player;
+    public SetupParameters setupParameters;
+    public PawnDef setupSelectedPawnDef = null;
+    readonly Dictionary<Vector2Int, TileView> tileViews = new();
+    readonly List<SetupPawnView> setupPawnViews = new();
+    
+    
+    // game stuff
+    readonly List<PawnView> pawnViews = new();
+    
+
+
+
+    void SetPhase(GamePhase inPhase)
     {
-        setupParameters = inSetupParameters;
-        pawnsLeft = new();
-        setupSelectedPawnDef = null;
-        if (inPlayer == Player.NONE)
+        GamePhase oldPhase = phase;
+        switch (oldPhase)
         {
-            throw new Exception("BoardManager cannot have player == Player.NONE");
+            case GamePhase.UNINITIALIZED:
+                break;
+            case GamePhase.SETUP:
+                break;
+            case GamePhase.MOVE:
+                break;
+            case GamePhase.RESOLVE:
+                break;
+            case GamePhase.END:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-        player = inPlayer;
-        pawnsLeft = new Dictionary<PawnDef, int>(setupParameters.maxPawnsDict);
+
+        phase = inPhase;
+        switch (phase)
+        {
+            case GamePhase.UNINITIALIZED:
+                break;
+            case GamePhase.SETUP:
+                
+                break;
+            case GamePhase.MOVE:
+                break;
+            case GamePhase.RESOLVE:
+                break;
+            case GamePhase.END:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+        //OnPhaseChanged?.Invoke(oldPhase, phase);
+    }
+    
+    public void OnDemoStartedResponse(Response<SSetupParameters> response)
+    {
+        setupParameters = new(response.data);
+        Debug.Log("setup parameters set");
+        player = response.data.player;
+        Debug.Log("player set");
+        setupSelectedPawnDef = null;
+        Debug.Log("setupSelectedPawnDef set");
         LoadBoardData(setupParameters.board);
+        Debug.Log("board set");
+        SetPhase(GamePhase.SETUP);
+        Debug.Log("phase set");
+    }
+    
+    SetupPawnView AddPawnPreview(Player targetPlayer, PawnDef pawnDef, Vector2Int position)
+    {
+        // if  tile doesnt exist
+        TileView tileView = GetTileView(position);
+        if (!tileView)
+        {
+            return null;
+        }
+        // if tile is not eligible
+        if (!tileView.tile.IsTileEligibleForPlayer(targetPlayer))
+        {
+            return null;
+        }
+        // if trying to place a pawn over max pawn limit
+        int pawnsAlreadyPlaced = FindPawnPreviewCount(targetPlayer, pawnDef);
+        if (pawnsAlreadyPlaced >= setupParameters.maxPawnsDict[pawnDef])
+        {
+            return null;
+        }
+        // if trying to place on a occupied position
+        SetupPawnView pawnOnLocation = GetSetupPawnViewAtPos(position);
+        if (pawnOnLocation)
+        {
+            return null;
+        }
+        // make preview
+        GameObject setupPawnObject = Instantiate(setupPawnPrefab, transform);
+        SetupPawnView setupPawnView = setupPawnObject.GetComponent<SetupPawnView>();
+        Pawn previewPawn = new(pawnDef, targetPlayer, position);
+        setupPawnView.Initialize(previewPawn, tileView);
+        setupPawnViews.Add(setupPawnView);
+        // OnPawnAdded?.Invoke(pawnsLeft, pawnView.pawn);
+        return setupPawnView;
+    }
+
+    SetupPawnView GetSetupPawnViewAtPos(Vector2Int position)
+    {
+        return setupPawnViews.FirstOrDefault(pawnView => pawnView.pawn.pos == position);
+    }
+    
+    int FindPawnPreviewCount(Player targetPlayer, PawnDef targetPawnDef)
+    {
+        return setupPawnViews.Where(pawnView => pawnView.pawn.def == targetPawnDef).Count(pawnView => pawnView.pawn.player == targetPlayer);
+
     }
     
     void LoadBoardData(BoardDef boardDef)
@@ -61,20 +155,24 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    public void AutoSetup()
+    public void AutoSetup(Player targetPlayer)
     {
-        ClearPawns();
+        if (targetPlayer == Player.NONE)
+        {
+            throw new Exception("Player can't be none");
+        }
+        ClearSetupPawns(targetPlayer);
         BoardDef boardDef = setupParameters.board;
         // Keep track of positions that have already been used
         HashSet<Vector2Int> usedPositions = new();
         // Get all eligible positions for the player
         List<Vector2Int> allEligiblePositions = tileViews.Values
-            .Where(tileView => tileView.tile.IsTileEligibleForPlayer(player))
+            .Where(tileView => tileView.tile.IsTileEligibleForPlayer(targetPlayer))
             .Select(tileView => tileView.tile.pos)
             .ToList();
         foreach ((PawnDef pawnDef, int pawnCount) in setupParameters.maxPawnsDict)
         {
-            List<Vector2Int> eligiblePositions = boardDef.GetEligiblePositionsForPawn(player, pawnDef, usedPositions);
+            List<Vector2Int> eligiblePositions = boardDef.GetEligiblePositionsForPawn(targetPlayer, pawnDef, usedPositions);
             // Check if there are enough eligible positions
             if (eligiblePositions.Count < pawnCount)
             {
@@ -93,74 +191,108 @@ public class BoardManager : MonoBehaviour
                 Vector2Int pos = eligiblePositions[index];
                 eligiblePositions.RemoveAt(index);
                 usedPositions.Add(pos);
-                Pawn pawn = new(pawnDef, player, pos);
-                AddPawn(pawn);
+                SetupPawnView setupPawnView = AddPawnPreview(targetPlayer, pawnDef, pos);
+                if (setupPawnView == null)
+                {
+                    throw new Exception("setupPawnView was null");
+                }
             }
         }
     }
-    
-    void AddPawn(Pawn pawn)
-    {
-        int pawnCount = FindPawnCount(pawn.def);
-        if (pawnCount <= 0)
-        {
-            throw new Exception();
-        }
-        pawnsLeft[pawn.def] -= 1;
-        GameObject pawnObject = Instantiate(pawnPrefab, transform);
-        PawnView pawnView = pawnObject.GetComponent<PawnView>();
-        pawnView.Initialize(pawn, GetTileView(pawn.pos));
-        pawnViews.Add(pawnView);
-        OnPawnAdded?.Invoke(pawnsLeft, pawnView.pawn);
-    }
 
-    void DeletePawn(Pawn pawn)
-    {
-        // TODO: make this not retarded
-        pawnsLeft[pawn.def] += 1;
-        PawnView pawnView = GetPawnViewFromPawn(pawn);
-        if (!pawnView) return;
-        pawnViews.Remove(pawnView);
-        // Deactivate the GameObject immediately
-        pawnView.gameObject.SetActive(false);
-        pawnView.pawnClickableHandler.billboardClickable.enabled = false;
-        pawnView.pawnClickableHandler.planeClickable.enabled = false;
-        // Schedule destruction at the end of the frame
-        StartCoroutine(DestroyPawnViewAtEndOfFrame(pawnView.gameObject));
-        OnPawnRemoved?.Invoke(pawnsLeft, pawnView.pawn);
-    }
     
-    IEnumerator DestroyPawnViewAtEndOfFrame(GameObject obj)
-    {
-        yield return new WaitForEndOfFrame();
-        Destroy(obj);
-    }
+
+    
+    
+    // void AddPawn(Pawn pawn)
+    // {
+    //     int pawnCount = FindPawnCount(player, pawn.def);
+    //     if (pawnCount <= 0)
+    //     {
+    //         throw new Exception();
+    //     }
+    //     //pawnsLeft[pawn.def] -= 1;
+    //     GameObject pawnObject = Instantiate(pawnPrefab, transform);
+    //     PawnView pawnView = pawnObject.GetComponent<PawnView>();
+    //     pawnView.Initialize(pawn, GetTileView(pawn.pos));
+    //     //pawnViews.Add(pawnView);
+    //     //OnPawnAdded?.Invoke(pawnsLeft, pawnView.pawn);
+    // }
+
+    // void DeletePawn(Pawn pawn)
+    // {
+    //     // TODO: make this not retarded
+    //     //pawnsLeft[pawn.def] += 1;
+    //     PawnView pawnView = GetPawnViewFromPawn(pawn);
+    //     if (!pawnView) return;
+    //     //pawnViews.Remove(pawnView);
+    //     // Deactivate the GameObject immediately
+    //     pawnView.gameObject.SetActive(false);
+    //     pawnView.pawnClickableHandler.billboardClickable.enabled = false;
+    //     pawnView.pawnClickableHandler.planeClickable.enabled = false;
+    //     // Schedule destruction at the end of the frame
+    //     StartCoroutine(DestroyPawnViewAtEndOfFrame(pawnView.gameObject));
+    //     //OnPawnRemoved?.Invoke(pawnsLeft, pawnView.pawn);
+    // }
+    
+    // IEnumerator DestroyPawnViewAtEndOfFrame(GameObject obj)
+    // {
+    //     yield return new WaitForEndOfFrame();
+    //     Destroy(obj);
+    // }
     
     void ClearTiles()
     {
         // this also clears all pawns
+        ClearSetupPawns(Player.RED);
+        ClearSetupPawns(Player.BLUE);
+        ClearPawns();
         foreach (TileView tileView in tileViews.Values)
         {
             Destroy(tileView.gameObject);
-            PawnView pawnView = GetPawnViewAtPos(tileView.tile.pos);
-            if (pawnView)
-            {
-                DeletePawn(pawnView.pawn);
-            }
         }
         tileViews.Clear();
     }
-
+    
+    void ClearSetupPawns(Player targetPlayer)
+    {
+        var pawnsToRemove = setupPawnViews.Where(spv => spv.pawn.player == targetPlayer).ToList();
+        foreach (var spv in pawnsToRemove)
+        {
+            DeleteSetupPawnView(spv);
+        }
+    }
+    
     void ClearPawns()
     {
         List<PawnView> tempPawnViews = new(pawnViews);
         foreach (PawnView pawnView in tempPawnViews)
         {
-            DeletePawn(pawnView.pawn);
+            DeletePawnView(pawnView);
         }
         pawnViews.Clear();
     }
+    
+    void DeleteSetupPawnView(SetupPawnView setupPawnView)
+    {
+        if (setupPawnView == null)
+        {
+            return;
+        }
+        setupPawnViews.Remove(setupPawnView);
+        Destroy(setupPawnView.gameObject);
+    }
 
+    void DeletePawnView(PawnView pawnView)
+    {
+        if (pawnView == null)
+        {
+            return;
+        }
+        pawnViews.Remove(pawnView);
+        Destroy(pawnView.gameObject);
+    }
+    
     public PawnView GetPawnViewAtPos(Vector2Int pos)
     {
         return pawnViews.FirstOrDefault(pawnView => pawnView.pawn.pos == pos);
@@ -184,6 +316,11 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+    public void OnSetupPawnClicked(SetupPawnView setupPawnView)
+    {
+        
+    }
+    
     public void OnTileClicked(TileView tileView)
     {
         Debug.Log("tile clicked");
@@ -193,7 +330,7 @@ public class BoardManager : MonoBehaviour
             if (pawnViewOnTile.pawn.def != setupSelectedPawnDef)
             {
                 Debug.Log($"tileView {tileView.tile.pos} removing pawn to replace with another type or null");
-                DeletePawn(pawnViewOnTile.pawn);
+                //DeletePawn(pawnViewOnTile.pawn);
             }
             else
             {
@@ -214,26 +351,20 @@ public class BoardManager : MonoBehaviour
             return;
         }
 
-        if (pawnsLeft[setupSelectedPawnDef] <= 0)
-        {
-            Debug.LogWarning($"tileView {tileView.tile.pos} cleared but no new pawn added because no pawns remaining of this def");;
-            return;
-        }
+        // if (pawnsLeft[setupSelectedPawnDef] <= 0)
+        // {
+        //     Debug.LogWarning($"tileView {tileView.tile.pos} cleared but no new pawn added because no pawns remaining of this def");;
+        //     return;
+        // }
         Pawn newPawn = new(setupSelectedPawnDef, player, tileView.tile.pos);
-        AddPawn(newPawn);
+        //AddPawn(newPawn);
+        AddPawnPreview(player, setupSelectedPawnDef, tileView.tile.pos);
         Debug.Log($"tileView {tileView.tile.pos} added new pawn OK");
     }
 
-    int FindPawnCount(PawnDef targetPawnDef)
+    int FindPawnCount(Player targetPlayer, PawnDef targetPawnDef)
     {
-        foreach (var pair in pawnsLeft)
-        {
-            if (pair.Key == targetPawnDef)
-            {
-                return pair.Value; // Return the associated int if the PawnDef matches
-            }
-        }
-        // Return a default value if the PawnDef is not found
-        return -1;
+        return pawnViews.Where(pawnView => pawnView.pawn.def == targetPawnDef).Count(pawnView => pawnView.pawn.player == targetPlayer);
     }
+
 }

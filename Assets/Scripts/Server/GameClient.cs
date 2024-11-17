@@ -33,7 +33,7 @@ public class GameClient : IGameClient
     public event Action<Response<string>> OnJoinGameLobbyResponse;
     public event Action<Response<SLobby>> OnReadyLobbyResponse;
 
-    public event Action OnDemoStarted;
+    public event Action<Response<SSetupParameters>> OnDemoStarted;
     
     public event Action OnLobbyResponse;
     RequestManager requestManager;
@@ -150,7 +150,7 @@ public class GameClient : IGameClient
     {
         // NOTE: this is not a real request we aren't talking to the server
         await Task.Delay(100);
-        OnDemoStarted?.Invoke();
+        //OnDemoStarted?.Invoke();
     }
     
     
@@ -163,7 +163,6 @@ public class GameClient : IGameClient
             {
                 Guid requestId = requestManager.AddRequest<TResponse>();
                 requestData.requestId = requestId;
-                requestData.messageType = messageType;
 
                 string json = JsonConvert.SerializeObject(requestData);
                 byte[] data = Encoding.UTF8.GetBytes(json);
@@ -380,7 +379,6 @@ public class Response<T> : ResponseBase
 
 public class RequestBase
 {
-    public MessageType messageType;
     public Guid requestId;
     public Guid clientId;
 }
@@ -413,6 +411,11 @@ public class JoinGameLobbyRequest : RequestBase
 public class ReadyGameLobbyRequest : RequestBase
 {
     public bool ready { set; get; }
+}
+
+public class StartGameRequest : RequestBase
+{
+    public SSetupParameters setupParameters;
 }
 
 public class RequestManager

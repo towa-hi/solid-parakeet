@@ -198,6 +198,13 @@ public static class Globals
         return orderedPawns;
     }
 
+    public static PawnDef GetPawnDefFromName(string name)
+    {
+        // NOTE: VERY DANGEROUS
+        PawnDef pawnDef = Resources.Load<PawnDef>($"Pawn/{name}");
+        return pawnDef;
+    }
+    
     public static Dictionary<PawnDef, int> GetUnorderedPawnDefDict()
     {
         Dictionary<PawnDef, int> unorderedPawnDefDict = new();
@@ -377,15 +384,57 @@ public class SetupParameters
     public Dictionary<PawnDef, int> maxPawnsDict;
     public BoardDef board;
     
-    public SetupParameters()
+    public SetupParameters(SSetupParameters serialized)
     {
-        board = GameManager.instance.tempBoardDef;
-        maxPawnsDict = Globals.GetUnorderedPawnDefDict();
+        board = serialized.board.ToUnity();
+        maxPawnsDict = new();
+        foreach (SSetupPawnData data in serialized.setupPawnDatas)
+        {
+            PawnDef pawnDef = Globals.GetPawnDefFromName(data.pawnName);
+            maxPawnsDict.Add(pawnDef, data.maxPawns);
+        }
     }
 }
 
 public class SSetupParameters
 {
+    public List<SSetupPawnData> setupPawnDatas;
+    public SBoardDef board;
+    public Player player;
+    
+    public SSetupParameters(Player inPlayer, SBoardDef inBoard)
+    {
+        setupPawnDatas = new();
+        Dictionary<PawnDef, int> maxPawnsDict = Globals.GetUnorderedPawnDefDict();
+        foreach ((PawnDef pawnDef, int max) in maxPawnsDict)
+        {
+            SSetupPawnData setupPawnData = new()
+            {
+                pawnName = pawnDef.pawnName,
+                maxPawns = max,
+            };
+            setupPawnDatas.Add(setupPawnData);
+        }
+        player = inPlayer;
+        board = inBoard;
+    }
+}
+
+public class SSetupPawnData
+{
+    public string pawnName;
+    public int maxPawns;
+}
+public class SetupState
+{
+    public Player player;
+    public List<Pawn> pawnList;
+    public SetupState(Player inPlayer, List<Pawn> inPawnList)
+    {
+        player = inPlayer;
+        pawnList = inPawnList;
+    }
+    
     
 }
 
@@ -400,7 +449,7 @@ public interface IGameClient
     event Action<Response<string>> OnLeaveGameLobbyResponse;
     event Action<Response<string>> OnJoinGameLobbyResponse;
     event Action<Response<SLobby>> OnReadyLobbyResponse;
-    event Action OnDemoStarted;
+    event Action<Response<SSetupParameters>> OnDemoStarted;
     event Action OnLobbyResponse;
     
     // Methods

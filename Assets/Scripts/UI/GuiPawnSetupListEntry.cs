@@ -15,14 +15,20 @@ public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
     Color originalColor = new Color(1f, 1f, 1f, 100f / 255f);
     Color exhaustedColor = Color.black;
     Color selectedColor = Color.red;
-
+    
     [SerializeField] bool isSelected;
-
     public event Action<GuiPawnSetupListEntry> OnEntryClicked;
     
-    void Start()
+    public void Initialize(PawnDef inPawnDef, int inMaxPawns, Action<GuiPawnSetupListEntry> action)
     {
         
+        Debug.Log("GuiPawnSetupListEntry Initialize");
+        OnEntryClicked += action;
+        pawnDef = inPawnDef;
+        remainingPawns = inMaxPawns;
+        pawnNameText.text = inPawnDef.pawnName;
+        pawnIconImage.sprite = inPawnDef.icon;
+        UpdateEntry();
     }
     
     public void SetPawn(PawnDef inPawnDef, int inRemainingPawns)

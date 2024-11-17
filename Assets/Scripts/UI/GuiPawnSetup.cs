@@ -14,9 +14,10 @@ public class GuiPawnSetup : MonoBehaviour
         pawnSetupControls.OnSubmitButton += OnSubmitButton;
     }
     
-    public void Initialize(SetupParameters setupParameters, Dictionary<PawnDef, int> pawnsLeft)
+    public void Initialize(SetupParameters setupParameters)
     {
-        pawnSetupList.Initialize(pawnsLeft);
+        Debug.Log("GuiPawnSetup Initialization");
+        pawnSetupList.Initialize(setupParameters);
         pawnSetupControls.Initialize();
     }
 
@@ -32,7 +33,7 @@ public class GuiPawnSetup : MonoBehaviour
 
     void OnAutoSetupButton()
     {
-        GameManager.instance.boardManager.AutoSetup();
+        GameManager.instance.boardManager.AutoSetup(GameManager.instance.boardManager.player);
     }
 
     void OnSubmitButton()
@@ -40,4 +41,6 @@ public class GuiPawnSetup : MonoBehaviour
         // TODO: submit pieces 
         Debug.Log("Submitting pieces");
     }
+    
+    
 }

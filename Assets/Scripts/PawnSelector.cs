@@ -96,7 +96,7 @@ public class PawnSelector : MonoBehaviour
 
     void OnSelected(PawnDef pawnDef)
     {
-        GameManager.instance.OnSetupPawnSelectorSelected(tileView, pawnDef);
+        //GameManager.instance.OnSetupPawnSelectorSelected(tileView, pawnDef);
         Close();
     }
     

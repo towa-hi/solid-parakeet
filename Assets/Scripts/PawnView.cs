@@ -7,6 +7,7 @@ public class PawnView : MonoBehaviour
     public GameObject model;
     public GameObject cube;
     public GameObject plane;
+    public GameObject billboard;
     public PawnClickableHandler pawnClickableHandler;
     
     public SpriteAtlas symbols;
@@ -21,13 +22,12 @@ public class PawnView : MonoBehaviour
         
     }
     
-    public void Initialize(Pawn inPawn, TileView tileView)
+    public virtual void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
         gameObject.name = $"Pawn {pawn.def.pawnName}";
         GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
         DisplaySymbol(Globals.pawnSprites[inPawn.def.pawnName]);
-        transform.position = tileView.pawnOrigin.position;
         switch (inPawn.player)
         {
             case Player.RED:
@@ -37,9 +37,10 @@ public class PawnView : MonoBehaviour
                 SetCubeColor(Color.blue);
                 break;
         }
+        transform.position = tileView.pawnOrigin.position;
     }
 
-    void DisplaySymbol(string index)
+    protected void DisplaySymbol(string index)
     {
         
         Sprite sprite = symbols.GetSprite(index);
@@ -51,7 +52,7 @@ public class PawnView : MonoBehaviour
         symbolRenderer.sprite = sprite;
     }
 
-    void SetCubeColor(Color color)
+    protected void SetCubeColor(Color color)
     {
         Renderer cubeRenderer = cube.GetComponent<Renderer>();
         cubeRenderer.material = new(cubeRenderer.material)

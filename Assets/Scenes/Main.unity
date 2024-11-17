@@ -421,7 +421,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tilePrefab: {fileID: 295967387164842906, guid: 88c29a6a30cf7ee4aa8b9210c4b5cd9a, type: 3}
   pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
+  setupPawnPrefab: {fileID: 2420147050437188656, guid: 5411e15466f890045b5dae2fe4a78126, type: 3}
   grid: {fileID: 1153439521}
+  phase: 0
   player: 0
   setupSelectedPawnDef: {fileID: 0}
 --- !u!4 &1153439523

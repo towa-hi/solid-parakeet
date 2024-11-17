@@ -6,27 +6,43 @@ using UnityEngine;
 public class GuiPawnSetupList : MonoBehaviour
 {
     HashSet<GuiPawnSetupListEntry> entries = new();
-    public GameObject body;
+    public Transform body;
     public GameObject entryPrefab;
-
-    public void Initialize(Dictionary<PawnDef, int> pawnsLeft)
+    
+    void OnDestroy()
     {
+    }
+
+    public void Initialize(SetupParameters setupParameters)
+    {
+        Debug.Log("GuiPawnSetupList Initialize");
+        GameManager.instance.boardManager.OnPawnAdded += OnPawnAdded;
+        GameManager.instance.boardManager.OnPawnRemoved += OnPawnRemoved;
+        // clear entries
         foreach (var entry in entries)
         {
             Destroy(entry);
         }
         entries.Clear();
-        foreach (var kvp in pawnsLeft)
+        foreach ((PawnDef pawnDef, int maxPawns) in setupParameters.maxPawnsDict)
         {
-            GameObject entryObject = Instantiate(entryPrefab, body.transform);
+            GameObject entryObject = Instantiate(entryPrefab, body);
             GuiPawnSetupListEntry entry = entryObject.GetComponent<GuiPawnSetupListEntry>();
-            entry.SetPawn(kvp.Key, kvp.Value);
-            entry.OnEntryClicked += OnEntryClicked;
+            entry.SetPawn(pawnDef, maxPawns);
+            entry.Initialize(pawnDef, maxPawns, OnEntryClicked);
             entries.Add(entry);
         }
+        
+        // foreach (var kvp in pawnsLeft)
+        // {
+        //     GameObject entryObject = Instantiate(entryPrefab, body);
+        //     GuiPawnSetupListEntry entry = entryObject.GetComponent<GuiPawnSetupListEntry>();
+        //     entry.SetPawn(kvp.Key, kvp.Value);
+        //     entry.OnEntryClicked += OnEntryClicked;
+        //     entries.Add(entry);
+        // }
 
-        GameManager.instance.boardManager.OnPawnAdded += OnPawnAdded;
-        GameManager.instance.boardManager.OnPawnRemoved += OnPawnRemoved;
+        
     }
 
     void OnPawnAdded(Dictionary<PawnDef, int> pawnsLeft, Pawn addedPawn)

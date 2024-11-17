@@ -1,22 +1,29 @@
 using System;
 using UnityEngine;
 
-public class GuiGame : GuiElement
+public class GuiGame : MenuElement
 {
-    public GamePhase gamePhase;
+    //public GamePhase gamePhase;
     public GuiPawnSetup pawnSetup;
-    public void InitializeSetup(SetupParameters inSetupParameters)
+
+    void Start()
     {
-        SetGamePhase(GamePhase.SETUP);
+        //GameManager.instance.boardManager.OnPhaseChanged += OnPhaseChanged;
     }
 
-    public void SetGamePhase(GamePhase phase)
+    public void Initialize(SetupParameters setupParameters)
     {
-        switch (gamePhase)
+        pawnSetup.gameObject.SetActive(true);
+        pawnSetup.Initialize(setupParameters);
+    }
+    void OnPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
+    {
+        switch (oldPhase)
         {
             case GamePhase.UNINITIALIZED:
                 break;
             case GamePhase.SETUP:
+                pawnSetup.gameObject.SetActive(false);
                 break;
             case GamePhase.MOVE:
                 break;
@@ -25,29 +32,24 @@ public class GuiGame : GuiElement
             case GamePhase.END:
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(oldPhase), oldPhase, null);
         }
-        gamePhase = phase;
-        switch (gamePhase)
+        switch (newPhase)
         {
             case GamePhase.UNINITIALIZED:
-                pawnSetup.enabled = false;
                 break;
             case GamePhase.SETUP:
-                pawnSetup.enabled = true;
-                pawnSetup.Initialize(GameManager.instance.boardManager.setupParameters, GameManager.instance.boardManager.pawnsLeft);
+                pawnSetup.gameObject.SetActive(true);
+                pawnSetup.Initialize(GameManager.instance.boardManager.setupParameters);
                 break;
             case GamePhase.MOVE:
-                pawnSetup.enabled = false;
                 break;
             case GamePhase.RESOLVE:
-                pawnSetup.enabled = false;
                 break;
             case GamePhase.END:
-                pawnSetup.enabled = false;
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(newPhase), newPhase, null);
         }
     }
 }

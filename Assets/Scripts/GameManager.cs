@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
@@ -42,10 +43,10 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         guiManager.Initialize();
-        
         Debug.Log("Enable input action");
         Globals.inputActions.Game.Enable();
     }
+    
     public void SetOfflineMode(bool inOfflineMode)
     {
         offlineMode = inOfflineMode;
@@ -60,21 +61,80 @@ public class GameManager : MonoBehaviour
             client = new GameClient();
             Debug.Log("GameManager: Initialized GameClient for online mode.");
         }
-
         // Invoke the event to notify listeners that the client has changed
+        client.OnRegisterClientResponse += OnRegisterClientResponse;
+        client.OnDisconnect += OnDisconnect;
+        client.OnErrorResponse += OnErrorResponse;
+        client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
+        client.OnGameLobbyResponse += OnGameLobbyResponse;
+        client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
+        client.OnReadyLobbyResponse += OnReadyLobbyResponse;
+        client.OnDemoStarted += OnDemoStartedResponse;
         OnClientChanged?.Invoke(oldGameClient, client);
-    }
-
-    public void OnTileClicked(TileView tileView, Vector2 mousePos)
-    {
-
+        _ = client.ConnectToServer();
     }
     
-    public void OnSetupPawnSelectorSelected(TileView tileView, PawnDef pawnDef)
+    void OnRegisterClientResponse(Response<string> response)
     {
-        //gameState.OnSetupPawnSelectorSelected(pawnDef,  tileView.tile);
+        guiManager.OnRegisterClientResponse(response);
     }
     
+    void OnDisconnect(Response<string> response)
+    {
+        guiManager.OnDisconnect(response);
+    }
+    
+    void OnErrorResponse(ResponseBase response)
+    {
+        Debug.LogError(response.message);
+        guiManager.OnErrorResponse(response);
+    }
+    
+    void OnRegisterNicknameResponse(Response<string> response)
+    {
+        guiManager.OnRegisterNicknameResponse(response);
+    }
+    
+    void OnGameLobbyResponse(Response<SLobby> response)
+    {
+        guiManager.OnGameLobbyResponse(response);
+    }
+    
+    void OnLeaveGameLobbyResponse(Response<string> response)
+    {
+        guiManager.OnLeaveGameLobbyResponse(response);
+    }
+    void OnReadyLobbyResponse(Response<SLobby> response)
+    {
+        guiManager.OnReadyLobbyResponse(response);
+    }
+    
+    void OnDemoStartedResponse(Response<SSetupParameters> response)
+    {
+        Debug.Log("GameManager: OnDemoStarted");
+        try
+        {
+            boardManager.OnDemoStartedResponse(response);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("exception in board manager");
+            throw;
+        }
+        
+        Debug.Log("GameManager: guiManager OnDemoStarted");
+        try
+        {
+            guiManager.OnDemoStartedResponse(response);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+        
+    }
+
     public void QuitGame()
     {
         Application.Quit();

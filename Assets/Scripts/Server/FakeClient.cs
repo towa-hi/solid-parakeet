@@ -13,15 +13,18 @@ public class FakeClient : IGameClient
     public event Action<Response<string>> OnLeaveGameLobbyResponse;
     public event Action<Response<string>> OnJoinGameLobbyResponse;
     public event Action<Response<SLobby>> OnReadyLobbyResponse;
-    public event Action OnDemoStarted;
+    public event Action<Response<SSetupParameters>> OnDemoStarted;
     public event Action OnLobbyResponse;
 
     // Internal state
-    private Guid clientId;
-    private bool isConnected = false;
-    private bool isNicknameRegistered = false;
-    private SLobby currentLobby;
+    Guid clientId;
+    bool isConnected = false;
+    bool isNicknameRegistered = false;
+    SLobby currentLobby;
 
+    // simulated state of server lobby
+    SLobby fakeServerLobby;
+    
     public FakeClient()
     {
         clientId = Globals.LoadOrGenerateClientId();
@@ -34,222 +37,268 @@ public class FakeClient : IGameClient
 
     public async Task ConnectToServer()
     {
-        Debug.Log("FakeClient: Simulating connection to server...");
-        // Simulate connection delay
-        await Task.Delay(100);
+        RegisterClientRequest registerClientRequest = new();
         isConnected = true;
-        Debug.Log("FakeClient: Simulated connection established.");
-
-        // Simulate server sending a client registration response
-        SimulateRegisterClientResponse();
+        await SendFakeRequestToServer<string>(MessageType.REGISTERCLIENT, registerClientRequest);
     }
 
     public async Task SendRegisterNickname(string nicknameInput)
     {
-        Debug.Log($"FakeClient: Sending register nickname request with nickname '{nicknameInput}'");
-
-        if (!Globals.IsNicknameValid(nicknameInput))
+        RegisterNicknameRequest registerNicknameRequest = new()
         {
-            Debug.LogError($"FakeClient: Invalid nickname '{nicknameInput}'.");
-            SimulateErrorResponse("Invalid nickname.", MessageType.REGISTERNICKNAME);
-            return;
-        }
-
-        // Simulate server processing delay
-        await Task.Delay(100);
-
-        // Simulate successful nickname registration
-        isNicknameRegistered = true;
-        PlayerPrefs.SetString("nickname", nicknameInput);
-        Debug.Log($"FakeClient: Nickname '{nicknameInput}' registered successfully.");
-
-        var response = new Response<string>
-        {
-            requestId = Guid.NewGuid(),
-            success = true,
-            responseCode = 0,
-            data = nicknameInput
+            nickname = nicknameInput,
         };
-
-        OnRegisterNicknameResponse?.Invoke(response);
+        await SendFakeRequestToServer<string>(MessageType.REGISTERNICKNAME, registerNicknameRequest);
     }
 
     public async Task SendGameLobby()
     {
-        Debug.Log("FakeClient: Sending game lobby creation request...");
-
-        // Simulate server processing delay
-        await Task.Delay(100);
-
-        // Create a simulated lobby
-        currentLobby = new SLobby
+        GameLobbyRequest gameLobbyRequest = new()
         {
-            lobbyId = Guid.NewGuid(),
-            hostId = clientId,
-            guestId = Guid.Empty, // No guest in single-player
-            sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef),
             gameMode = 0,
-            isGameStarted = false,
-            password = "offline",
-            hostReady = false,
-            guestReady = false
+            sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef),
         };
-
-        Debug.Log($"FakeClient: Game lobby created with lobbyId {currentLobby.lobbyId}");
-
-        var response = new Response<SLobby>
-        {
-            requestId = Guid.NewGuid(),
-            success = true,
-            responseCode = 0,
-            data = currentLobby
-        };
-
-        OnGameLobbyResponse?.Invoke(response);
+        await SendFakeRequestToServer<SLobby>(MessageType.GAMELOBBY, gameLobbyRequest);
     }
 
     public async Task SendGameLobbyLeaveRequest()
     {
-        Debug.Log("FakeClient: Sending game lobby leave request...");
-
-        // Simulate server processing delay
-        await Task.Delay(100);
-
-        currentLobby = null;
-
-        Debug.Log("FakeClient: Left the lobby successfully.");
-
-        var response = new Response<string>
-        {
-            requestId = Guid.NewGuid(),
-            success = true,
-            responseCode = 0,
-            data = "Left the lobby successfully."
-        };
-
-        OnLeaveGameLobbyResponse?.Invoke(response);
+        LeaveGameLobbyRequest leaveGameLobbyRequest = new();
+        await SendFakeRequestToServer<string>(MessageType.LEAVEGAMELOBBY, leaveGameLobbyRequest);
     }
 
     public async Task SendGameLobbyJoinRequest(string password)
     {
-        Debug.Log($"FakeClient: Sending game lobby join request with password '{password}'");
-
-        // Simulate server processing delay
-        await Task.Delay(100);
-
-        // Simulate successful lobby join
-        Debug.Log("FakeClient: Joined the lobby successfully.");
-
-        var response = new Response<string>
-        {
-            requestId = Guid.NewGuid(),
-            success = true,
-            responseCode = 0,
-            data = "Joined the lobby successfully."
-        };
-
-        OnJoinGameLobbyResponse?.Invoke(response);
+        // NOTE: this should never be happening in offline mode
+        JoinGameLobbyRequest joinGameLobbyRequest = new();
+        await SendFakeRequestToServer<SLobby>(MessageType.JOINGAMELOBBY, joinGameLobbyRequest);
     }
 
     public async Task SendGameLobbyReadyRequest(bool ready)
     {
-        Debug.Log($"FakeClient: Sending game lobby ready request. Ready status: {ready}");
-
-        // Simulate server processing delay
-        await Task.Delay(100);
-
-        if (currentLobby == null)
+        ReadyGameLobbyRequest readyGameLobbyRequest = new()
         {
-            Debug.LogError("FakeClient: No lobby found to set ready status.");
-            SimulateErrorResponse("No lobby found.", MessageType.READYLOBBY);
-            return;
-        }
-
-        currentLobby.hostReady = ready;
-
-        Debug.Log("FakeClient: Lobby ready status updated.");
-
-        var response = new Response<SLobby>
-        {
-            requestId = Guid.NewGuid(),
-            success = true,
-            responseCode = 0,
-            data = currentLobby
+            ready = true,
         };
-
-        OnReadyLobbyResponse?.Invoke(response);
-
-        // If host is ready, start the game
-        if (currentLobby.hostReady)
-        {
-            SimulateGameStart();
-        }
+        await SendFakeRequestToServer<SLobby>(MessageType.READYLOBBY, readyGameLobbyRequest);
     }
 
     public async Task StartGameDemoRequest()
     {
-        Debug.Log("FakeClient: Starting game demo...");
-
-        // Simulate starting a demo game
-        await Task.Delay(100);
-        Debug.Log("FakeClient: Game demo started.");
-        OnDemoStarted?.Invoke();
+        SSetupParameters setupParameters = new SSetupParameters(Player.RED, currentLobby.sBoardDef);
+        StartGameRequest startGameRequest = new()
+        {
+            setupParameters = setupParameters,
+        };
+        await SendFakeRequestToServer<SSetupParameters>(MessageType.GAMESTART, startGameRequest);
     }
+
+
+    async Task SendFakeRequestToServer<TResponse>(MessageType messageType, RequestBase requestData)
+    {
+        Debug.Log($"OFFLINE: Sending fake Request of type {messageType}");
+        if (isConnected)
+        {
+            await Task.Delay(55);
+            requestData.clientId = clientId;
+            requestData.requestId = new Guid();
+            ResponseBase response = null;
+            switch (requestData)
+            {
+                case RegisterClientRequest registerClientRequest:
+                    response = new Response<string>
+                    {
+                        requestId = requestData.requestId,
+                        success = true,
+                        responseCode = 0,
+                        data = "Client registered successfully."
+                    };
+                    break;
+                case RegisterNicknameRequest registerNicknameRequest:
+                    response = new Response<string>
+                    {
+                        requestId = requestData.requestId,
+                        success = true,
+                        responseCode = 0,
+                        data = registerNicknameRequest.nickname
+                    };
+                    break;
+                case GameLobbyRequest gameLobbyRequest:
+                    fakeServerLobby = new()
+                    {
+                        lobbyId = Guid.NewGuid(),
+                        hostId = clientId,
+                        guestId = Guid.Empty,
+                        sBoardDef = gameLobbyRequest.sBoardDef,
+                        gameMode = 0,
+                        isGameStarted = false,
+                        password = "offline",
+                        hostReady = false,
+                        guestReady = false,
+                    };
+                    response = new Response<SLobby>
+                    {
+                        requestId = requestData.requestId,
+                        success = true,
+                        responseCode = 0,
+                        data = fakeServerLobby,
+                    };
+                    break;
+                case LeaveGameLobbyRequest leaveGameLobbyRequest:
+                    if (fakeServerLobby == null)
+                    {
+                        throw new Exception("need to have started a fake server first");
+                    }
+                    if (leaveGameLobbyRequest.clientId == fakeServerLobby.hostId)
+                    {
+                        fakeServerLobby.hostReady = false;
+                    }
+                    else if (leaveGameLobbyRequest.clientId == fakeServerLobby.guestId)
+                    {
+                        fakeServerLobby.guestReady = false;
+                    }
+                    response = new Response<string> 
+                    {
+                        requestId = requestData.requestId,
+                        success = true,
+                        responseCode = 0,
+                        data = "Left the lobby successfully."
+                    };
+                    break;
+                case JoinGameLobbyRequest joinGameLobbyRequest:
+                    if (fakeServerLobby == null)
+                    {
+                        throw new Exception("need to have started a fake server first");
+                    }
+                    fakeServerLobby.guestId = joinGameLobbyRequest.clientId;
+                    fakeServerLobby.guestReady = false;
+                    response = new Response<SLobby>
+                    {
+                        data = fakeServerLobby,
+                    };
+                    break;
+                case ReadyGameLobbyRequest readyGameLobbyRequest:
+                    if (fakeServerLobby == null)
+                    {
+                        throw new Exception("need to have started a fake server first");
+                    }
+                    if (readyGameLobbyRequest.clientId == fakeServerLobby.hostId)
+                    {
+                        fakeServerLobby.hostReady = true;
+                    }
+                    else if (readyGameLobbyRequest.clientId == fakeServerLobby.guestId)
+                    {
+                        fakeServerLobby.guestReady = true;
+                    }
+                    response = new Response<SLobby>
+                    {
+                        data = fakeServerLobby,
+                    };
+                    break;
+                case StartGameRequest startGameRequest:
+                    if (fakeServerLobby == null)
+                    {
+                        throw new Exception("need to have started a fake server first");
+                    }
+                    fakeServerLobby.isGameStarted = true;
+                    response = new Response<SSetupParameters>
+                    {
+                        data = startGameRequest.setupParameters,
+                    };
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(requestData));
+            }
+            ProcessFakeResponse(response, messageType);
+        }
+    }
+    
+    void ProcessFakeResponse(ResponseBase response, MessageType messageType)
+    {
+        Debug.Log($"OFFLINE: Processing fake response of type {messageType}");
+        switch (messageType)
+        {
+            case MessageType.SERVERERROR:
+                // TODO: not yet implemented
+                break;
+            case MessageType.REGISTERCLIENT:
+                Response<string> registerClientResponse = (Response<string>)response;
+                HandleRegisterClientResponse(registerClientResponse);
+                break;
+            case MessageType.REGISTERNICKNAME:
+                Response<string> registerNicknameResponse = (Response<string>)response;
+                HandleRegisterNicknameResponse(registerNicknameResponse);
+                break;
+            case MessageType.GAMELOBBY:
+                Response<SLobby> startLobbyResponse = (Response<SLobby>)response;
+                HandleGameLobbyResponse(startLobbyResponse);
+                break;
+            case MessageType.LEAVEGAMELOBBY:
+                Response<string> leaveGameLobbyResponse = (Response<string>)response;
+                HandleLeaveGameLobbyResponse(leaveGameLobbyResponse);
+                break;
+            case MessageType.JOINGAMELOBBY:
+                // TODO: not yet implemented
+                break;
+            case MessageType.READYLOBBY:
+                Response<SLobby> readyLobbyResponse = (Response<SLobby>)response;
+                HandleReadyLobbyResponse(readyLobbyResponse);
+                break;
+            case MessageType.GAMESTART:
+                Response<SSetupParameters> gameStartResponse = (Response<SSetupParameters>)response;
+                HandleGameStartResponse(gameStartResponse);
+                break;
+            case MessageType.GAME:
+                // TODO: not yet implemented
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null);
+        }
+    }
+
 
     // Helper methods to simulate server responses
-
-    private void SimulateRegisterClientResponse()
+    
+    void HandleRegisterClientResponse(Response<string> response)
     {
-        Debug.Log("FakeClient: Simulating register client response...");
-
-        var response = new Response<string>
-        {
-            requestId = Guid.NewGuid(),
-            success = true,
-            responseCode = 0,
-            data = "Client registered successfully."
-        };
-
+        _ = SendRegisterNickname(Globals.GetNickname());
+        Debug.Log("Invoking OnRegisterClientResponse");
         OnRegisterClientResponse?.Invoke(response);
-        Debug.Log("FakeClient: Register client response sent.");
-
-        // Automatically send nickname registration after client registration
-        SendRegisterNickname(Globals.GetNickname());
+    }
+    
+    void HandleRegisterNicknameResponse(Response<string> response)
+    {
+        PlayerPrefs.SetString("nickname", response.data);
+        isNicknameRegistered = true;
+        Debug.Log("Invoking OnRegisterNicknameResponse");
+        OnRegisterNicknameResponse?.Invoke(response);
+        
+    }
+    
+    void HandleGameLobbyResponse(Response<SLobby> response)
+    {
+        currentLobby = response.data;
+        Debug.Log("Invoking OnGameLobbyResponse");
+        OnGameLobbyResponse?.Invoke(response);
+    }
+    
+    
+    void HandleLeaveGameLobbyResponse(Response<string> response)
+    {
+        Debug.Log("Invoking OnLeaveGameLobbyResponse");
+        OnLeaveGameLobbyResponse?.Invoke(response);
     }
 
-    private void SimulateErrorResponse(string message, MessageType messageType)
+    void HandleReadyLobbyResponse(Response<SLobby> response)
     {
-        Debug.LogError($"FakeClient: Simulating error response. MessageType: {messageType}, Message: {message}");
-
-        var response = new ResponseBase
-        {
-            requestId = Guid.NewGuid(),
-            success = false,
-            responseCode = 1,
-            message = message
-        };
-
-        OnErrorResponse?.Invoke(response);
-    }
-
-    private void SimulateGameStart()
-    {
-        Debug.Log("FakeClient: Simulating game start...");
-
-        currentLobby.isGameStarted = true;
-
-        var response = new Response<SLobby>
-        {
-            requestId = Guid.NewGuid(),
-            success = true,
-            responseCode = 0,
-            data = currentLobby,
-            message = "Game started."
-        };
-
-        // You might have an event for game start
+        Debug.Log("Invoking OnReadyLobbyResponse");
         OnReadyLobbyResponse?.Invoke(response);
-
-        Debug.Log("FakeClient: Game started.");
+    }
+    
+    
+    void HandleGameStartResponse(Response<SSetupParameters> gameStartResponse)
+    {
+        Debug.Log($"Invoking OnDemoStarted to {OnDemoStarted?.GetInvocationList().Length} listeners");
+        OnDemoStarted?.Invoke(gameStartResponse);
     }
 }
