@@ -97,120 +97,106 @@ public class FakeClient : IGameClient
     async Task SendFakeRequestToServer<TResponse>(MessageType messageType, RequestBase requestData)
     {
         Debug.Log($"OFFLINE: Sending fake Request of type {messageType}");
-        if (isConnected)
+        if (!isConnected)
         {
-            await Task.Delay(55);
-            requestData.clientId = clientId;
-            requestData.requestId = new Guid();
-            ResponseBase response = null;
-            switch (requestData)
-            {
-                case RegisterClientRequest registerClientRequest:
-                    response = new Response<string>
-                    {
-                        requestId = requestData.requestId,
-                        success = true,
-                        responseCode = 0,
-                        data = "Client registered successfully."
-                    };
-                    break;
-                case RegisterNicknameRequest registerNicknameRequest:
-                    response = new Response<string>
-                    {
-                        requestId = requestData.requestId,
-                        success = true,
-                        responseCode = 0,
-                        data = registerNicknameRequest.nickname
-                    };
-                    break;
-                case GameLobbyRequest gameLobbyRequest:
-                    fakeServerLobby = new()
-                    {
-                        lobbyId = Guid.NewGuid(),
-                        hostId = clientId,
-                        guestId = Guid.Empty,
-                        sBoardDef = gameLobbyRequest.sBoardDef,
-                        gameMode = 0,
-                        isGameStarted = false,
-                        password = "offline",
-                        hostReady = false,
-                        guestReady = false,
-                    };
-                    response = new Response<SLobby>
-                    {
-                        requestId = requestData.requestId,
-                        success = true,
-                        responseCode = 0,
-                        data = fakeServerLobby,
-                    };
-                    break;
-                case LeaveGameLobbyRequest leaveGameLobbyRequest:
-                    if (fakeServerLobby == null)
-                    {
-                        throw new Exception("need to have started a fake server first");
-                    }
-                    if (leaveGameLobbyRequest.clientId == fakeServerLobby.hostId)
-                    {
-                        fakeServerLobby.hostReady = false;
-                    }
-                    else if (leaveGameLobbyRequest.clientId == fakeServerLobby.guestId)
-                    {
-                        fakeServerLobby.guestReady = false;
-                    }
-                    response = new Response<string> 
-                    {
-                        requestId = requestData.requestId,
-                        success = true,
-                        responseCode = 0,
-                        data = "Left the lobby successfully."
-                    };
-                    break;
-                case JoinGameLobbyRequest joinGameLobbyRequest:
-                    if (fakeServerLobby == null)
-                    {
-                        throw new Exception("need to have started a fake server first");
-                    }
-                    fakeServerLobby.guestId = joinGameLobbyRequest.clientId;
-                    fakeServerLobby.guestReady = false;
-                    response = new Response<SLobby>
-                    {
-                        data = fakeServerLobby,
-                    };
-                    break;
-                case ReadyGameLobbyRequest readyGameLobbyRequest:
-                    if (fakeServerLobby == null)
-                    {
-                        throw new Exception("need to have started a fake server first");
-                    }
-                    if (readyGameLobbyRequest.clientId == fakeServerLobby.hostId)
-                    {
-                        fakeServerLobby.hostReady = true;
-                    }
-                    else if (readyGameLobbyRequest.clientId == fakeServerLobby.guestId)
-                    {
-                        fakeServerLobby.guestReady = true;
-                    }
-                    response = new Response<SLobby>
-                    {
-                        data = fakeServerLobby,
-                    };
-                    break;
-                case StartGameRequest startGameRequest:
-                    if (fakeServerLobby == null)
-                    {
-                        throw new Exception("need to have started a fake server first");
-                    }
-                    fakeServerLobby.isGameStarted = true;
-                    response = new Response<SSetupParameters>
-                    {
-                        data = startGameRequest.setupParameters,
-                    };
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(requestData));
-            }
-            ProcessFakeResponse(response, messageType);
+            return;
         }
+        requestData.clientId = clientId;
+        requestData.requestId = new Guid();
+        ResponseBase response = null;
+        switch (requestData)
+        {
+            case RegisterClientRequest registerClientRequest:
+                response = new Response<string>
+                {
+                    requestId = requestData.requestId,
+                    success = true,
+                    responseCode = 0,
+                    data = "Client registered successfully."
+                };
+                break;
+            case RegisterNicknameRequest registerNicknameRequest:
+                response = new Response<string>
+                {
+                    requestId = requestData.requestId,
+                    success = true,
+                    responseCode = 0,
+                    data = registerNicknameRequest.nickname
+                };
+                break;
+            case GameLobbyRequest gameLobbyRequest:
+                fakeServerLobby = new()
+                {
+                    lobbyId = Guid.NewGuid(),
+                    hostId = clientId,
+                    guestId = Guid.Empty,
+                    sBoardDef = gameLobbyRequest.sBoardDef,
+                    gameMode = 0,
+                    isGameStarted = false,
+                    password = "offline",
+                    hostReady = false,
+                    guestReady = false,
+                };
+                response = new Response<SLobby>
+                {
+                    requestId = requestData.requestId,
+                    success = true,
+                    responseCode = 0,
+                    data = fakeServerLobby,
+                };
+                break;
+            case LeaveGameLobbyRequest leaveGameLobbyRequest:
+                if (leaveGameLobbyRequest.clientId == fakeServerLobby.hostId)
+                {
+                    fakeServerLobby.hostReady = false;
+                }
+                else if (leaveGameLobbyRequest.clientId == fakeServerLobby.guestId)
+                {
+                    fakeServerLobby.guestReady = false;
+                }
+                response = new Response<string>
+                {
+                    requestId = requestData.requestId,
+                    success = true,
+                    responseCode = 0,
+                    data = "Left the lobby successfully.",
+                };
+                break;
+            case JoinGameLobbyRequest joinGameLobbyRequest:
+                fakeServerLobby.guestId = joinGameLobbyRequest.clientId;
+                fakeServerLobby.guestReady = false;
+                response = new Response<SLobby>
+                {
+                    requestId =  requestData.requestId,
+                    data = fakeServerLobby,
+                };
+                break;
+            case ReadyGameLobbyRequest readyGameLobbyRequest:
+                if (readyGameLobbyRequest.clientId == fakeServerLobby.hostId)
+                {
+                    fakeServerLobby.hostReady = true;
+                }
+                else if (readyGameLobbyRequest.clientId == fakeServerLobby.guestId)
+                {
+                    fakeServerLobby.guestReady = true;
+                }
+                response = new Response<SLobby>
+                {
+                    data = fakeServerLobby,
+                };
+                break;
+            case StartGameRequest startGameRequest:
+                fakeServerLobby.isGameStarted = true;
+                response = new Response<SSetupParameters>
+                {
+                    data = startGameRequest.setupParameters,
+                };
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(requestData));
+        }
+        await Task.Delay(55);
+        ProcessFakeResponse(response, messageType);
     }
     
     void ProcessFakeResponse(ResponseBase response, MessageType messageType)
@@ -255,8 +241,7 @@ public class FakeClient : IGameClient
                 throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null);
         }
     }
-
-
+    
     // Helper methods to simulate server responses
     
     void HandleRegisterClientResponse(Response<string> response)
@@ -282,7 +267,6 @@ public class FakeClient : IGameClient
         OnGameLobbyResponse?.Invoke(response);
     }
     
-    
     void HandleLeaveGameLobbyResponse(Response<string> response)
     {
         Debug.Log("Invoking OnLeaveGameLobbyResponse");
@@ -294,7 +278,6 @@ public class FakeClient : IGameClient
         Debug.Log("Invoking OnReadyLobbyResponse");
         OnReadyLobbyResponse?.Invoke(response);
     }
-    
     
     void HandleGameStartResponse(Response<SSetupParameters> gameStartResponse)
     {

@@ -61,7 +61,6 @@ public class GameManager : MonoBehaviour
             client = new GameClient();
             Debug.Log("GameManager: Initialized GameClient for online mode.");
         }
-        // Invoke the event to notify listeners that the client has changed
         client.OnRegisterClientResponse += OnRegisterClientResponse;
         client.OnDisconnect += OnDisconnect;
         client.OnErrorResponse += OnErrorResponse;
