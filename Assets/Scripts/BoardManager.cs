@@ -15,16 +15,10 @@ public class BoardManager : MonoBehaviour
     public Grid grid;
     public GamePhase phase;
     
-    public event Action<Dictionary<PawnDef, int>, Pawn> OnPawnAdded; 
-    public event Action<Dictionary<PawnDef, int>, Pawn> OnPawnRemoved;
-    
-    
-    
     // setup stuff
     
     public Player player;
     public SetupParameters setupParameters;
-    public PawnDef setupSelectedPawnDef = null;
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     readonly List<SetupPawnView> setupPawnViews = new();
     public event Action<List<SetupPawnView>> OnSetupPawnViewsChanged;
@@ -77,7 +71,6 @@ public class BoardManager : MonoBehaviour
         Debug.Log("setup parameters set");
         player = response.data.player;
         Debug.Log("player set");
-        setupSelectedPawnDef = null;
         Debug.Log("setupSelectedPawnDef set");
         LoadBoardData(setupParameters.board);
         Debug.Log("board set");

@@ -99,7 +99,6 @@ GameObject:
   - component: {fileID: 8162835202024786601}
   - component: {fileID: 4985849114690841963}
   - component: {fileID: 4041358240887583937}
-  - component: {fileID: 4338196756598604128}
   m_Layer: 7
   m_Name: Plane
   m_TagString: Untagged
@@ -197,22 +196,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
---- !u!114 &4338196756598604128
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3752078669105340297}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af978cba7613e734c83a538100798eab, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  isPointerOver: 0
-  interactionLayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
 --- !u!1 &4572381553454927573
 GameObject:
   m_ObjectHideFlags: 0
@@ -261,8 +244,6 @@ GameObject:
   - component: {fileID: 2404733835781441564}
   - component: {fileID: 6410717650942280037}
   - component: {fileID: 2890186815516451311}
-  - component: {fileID: 3458800956015347118}
-  - component: {fileID: 7090223858052074405}
   m_Layer: 7
   m_Name: Billboard
   m_TagString: Untagged
@@ -373,34 +354,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sprite: {fileID: 21300000, guid: b30da73a8ba1a45488f5edd75f16f9de, type: 3}
---- !u!114 &3458800956015347118
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4628738676444552350}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af978cba7613e734c83a538100798eab, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  isPointerOver: 0
-  interactionLayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
---- !u!114 &7090223858052074405
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4628738676444552350}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ff063b7074047aa46999fb4e3f06eb9b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &5772243482056531592
 GameObject:
   m_ObjectHideFlags: 0
@@ -412,7 +365,6 @@ GameObject:
   - component: {fileID: 3632561711495789865}
   - component: {fileID: 6549313451087201031}
   - component: {fileID: 1615617418607774367}
-  - component: {fileID: 1063536997268246500}
   m_Layer: 0
   m_Name: Pawn
   m_TagString: Untagged
@@ -452,7 +404,6 @@ MonoBehaviour:
   cube: {fileID: 7474250417178598634}
   plane: {fileID: 3752078669105340297}
   billboard: {fileID: 4628738676444552350}
-  pawnClickableHandler: {fileID: 1063536997268246500}
   symbols: {fileID: 100100200, guid: a4d07ee77b641814fa3aebc56e74202a, type: 3}
   symbolRenderer: {fileID: 1314133001686816306}
   pawn:
@@ -479,20 +430,6 @@ MonoBehaviour:
   dotSizePx: 10
   color: {r: 1, g: 1, b: 1, a: 1}
   texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
---- !u!114 &1063536997268246500
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5772243482056531592}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 391744cc06757034597a48faf5ba563c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  billboardClickable: {fileID: 3458800956015347118}
-  planeClickable: {fileID: 4338196756598604128}
 --- !u!1 &7474250417178598634
 GameObject:
   m_ObjectHideFlags: 0

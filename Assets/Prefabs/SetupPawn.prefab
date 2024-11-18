@@ -133,7 +133,6 @@ GameObject:
   - component: {fileID: 6723883783240689891}
   - component: {fileID: 766249811566275676}
   - component: {fileID: 1069116599556454379}
-  - component: {fileID: 2022908064651080504}
   m_Layer: 0
   m_Name: SetupPawn
   m_TagString: Untagged
@@ -173,7 +172,6 @@ MonoBehaviour:
   cube: {fileID: 6149090614080286275}
   plane: {fileID: 8448974123350170091}
   billboard: {fileID: 7810351527089977588}
-  pawnClickableHandler: {fileID: 2022908064651080504}
   symbols: {fileID: 100100200, guid: a4d07ee77b641814fa3aebc56e74202a, type: 3}
   symbolRenderer: {fileID: 1483340896597917399}
   pawn:
@@ -200,20 +198,6 @@ MonoBehaviour:
   dotSizePx: 10
   color: {r: 1, g: 1, b: 1, a: 1}
   texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
---- !u!114 &2022908064651080504
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2420147050437188656}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 391744cc06757034597a48faf5ba563c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  billboardClickable: {fileID: 1373683804420337664}
-  planeClickable: {fileID: 4062945730670977238}
 --- !u!1 &6149090614080286275
 GameObject:
   m_ObjectHideFlags: 0
@@ -335,7 +319,6 @@ GameObject:
   - component: {fileID: 1387598623870199805}
   - component: {fileID: 3890566795418731931}
   - component: {fileID: 4174504277372578826}
-  - component: {fileID: 1373683804420337664}
   - component: {fileID: 1406214870402124543}
   m_Layer: 7
   m_Name: Billboard
@@ -447,22 +430,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sprite: {fileID: 21300000, guid: b30da73a8ba1a45488f5edd75f16f9de, type: 3}
---- !u!114 &1373683804420337664
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7810351527089977588}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af978cba7613e734c83a538100798eab, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  isPointerOver: 0
-  interactionLayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
 --- !u!114 &1406214870402124543
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -487,7 +454,6 @@ GameObject:
   - component: {fileID: 5131481914639313105}
   - component: {fileID: 1066085034896648542}
   - component: {fileID: 3452008218569061986}
-  - component: {fileID: 4062945730670977238}
   m_Layer: 7
   m_Name: Plane
   m_TagString: Untagged
@@ -585,19 +551,3 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
---- !u!114 &4062945730670977238
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8448974123350170091}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af978cba7613e734c83a538100798eab, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  isPointerOver: 0
-  interactionLayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
