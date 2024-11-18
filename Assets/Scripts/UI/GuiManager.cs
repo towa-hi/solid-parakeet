@@ -1,4 +1,3 @@
-using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
 
 public class GuiManager : MonoBehaviour
@@ -57,76 +56,52 @@ public class GuiManager : MonoBehaviour
     
     public void OnRegisterClientResponse(Response<string> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        if (response.success)
         {
-            if (response.success)
-            {
-                ShowMenu(mainMenu);
-            }
-        });
+            ShowMenu(mainMenu);
+        }
     }
 
     public void OnDisconnect(Response<string> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            ShowMenu(startMenu);
-        });
+        ShowMenu(startMenu);
     }
 
     public void OnErrorResponse(ResponseBase response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            ShowMenu(startMenu);
-        });
+        ShowMenu(startMenu);
     }
 
     public void OnRegisterNicknameResponse(Response<string> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        if (response.success)
         {
-            if (response.success)
+            if (currentModal == nicknameModal)
             {
-                if (currentModal == nicknameModal)
-                {
-                    CloseCurrentModal();
-                }
-                mainMenu.RefreshNicknameText();
+                CloseCurrentModal();
             }
-        });
+            mainMenu.RefreshNicknameText();
+        }
     }
 
     public void OnGameLobbyResponse(Response<SLobby> response)
     {
-        Debug.Log("GuiManager: OnGameLobbyResponse");
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        if (response.success)
         {
-            if (response.success)
-            {
-                SLobby lobby = response.data;
-                lobbyMenu.SetLobby(lobby);
-                ShowMenu(lobbyMenu);
-            }
-        });
-        
+            SLobby lobby = response.data;
+            lobbyMenu.SetLobby(lobby);
+            ShowMenu(lobbyMenu);
+        }
     }
 
     public void OnLeaveGameLobbyResponse(Response<string> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            ShowMenu(mainMenu);
-        });
-        
+        ShowMenu(mainMenu);
     }
 
     public void OnReadyLobbyResponse(Response<SLobby> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            lobbyMenu.SetLobby(response.data);
-        });
+        lobbyMenu.SetLobby(response.data);
     }
 
     public void OnDemoStartedResponse(Response<SSetupParameters> response)

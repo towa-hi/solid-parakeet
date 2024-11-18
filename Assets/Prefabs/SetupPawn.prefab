@@ -180,6 +180,7 @@ MonoBehaviour:
     def: {fileID: 0}
     player: 0
     pos: {x: 0, y: 0}
+    isSetup: 0
 --- !u!114 &1069116599556454379
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -231,7 +232,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1683431231631567496
 Transform:
   m_ObjectHideFlags: 0
@@ -317,7 +318,7 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
@@ -336,7 +337,7 @@ GameObject:
   - component: {fileID: 4174504277372578826}
   - component: {fileID: 1373683804420337664}
   - component: {fileID: 1406214870402124543}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Billboard
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -487,7 +488,7 @@ GameObject:
   - component: {fileID: 1066085034896648542}
   - component: {fileID: 3452008218569061986}
   - component: {fileID: 4062945730670977238}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}

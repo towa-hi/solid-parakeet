@@ -1,3 +1,5 @@
+#pragma warning disable // Suppresses unused variable warning
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -353,71 +355,6 @@ public class GameClient : IGameClient
 
 
 
-
-public class ResponseBase
-{
-    public Guid requestId;
-    public bool success;
-    public int responseCode;
-    public string message;
-}
-
-public class Response<T> : ResponseBase
-{
-    public T data;
-    
-    public Response() { }
-    
-    public Response(bool inSuccess, int inResponseCode, T inData)
-    {
-        success = inSuccess;
-        responseCode = inResponseCode;
-        data = inData;
-    }
-
-}
-
-public class RequestBase
-{
-    public Guid requestId;
-    public Guid clientId;
-}
-
-public class RegisterClientRequest : RequestBase
-{
-}
-
-public class RegisterNicknameRequest : RequestBase
-{
-    public string nickname { get; set; }
-}
-
-public class GameLobbyRequest : RequestBase
-{
-    public int gameMode { get; set; }
-    public SBoardDef sBoardDef { get; set; }
-}
-
-public class LeaveGameLobbyRequest : RequestBase
-{
-    
-}
-
-public class JoinGameLobbyRequest : RequestBase
-{
-    
-}
-
-public class ReadyGameLobbyRequest : RequestBase
-{
-    public bool ready { set; get; }
-}
-
-public class StartGameRequest : RequestBase
-{
-    public SSetupParameters setupParameters;
-}
-
 public class RequestManager
 {
     ConcurrentDictionary<Guid, Type> pendingRequests = new();
@@ -440,3 +377,5 @@ public class RequestManager
         pendingRequests.Remove(requestId, out _);
     }
 }
+
+#pragma warning restore // Re-enables the warning

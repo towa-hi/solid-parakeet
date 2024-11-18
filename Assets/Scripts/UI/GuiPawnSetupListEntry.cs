@@ -11,6 +11,7 @@ public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
     public TextMeshProUGUI remainingPawnsText;
     public Image panelBackground;
     public PawnDef pawnDef;
+    public int maxPawns;
     public int remainingPawns;
     Color originalColor = new Color(1f, 1f, 1f, 100f / 255f);
     Color exhaustedColor = Color.black;
@@ -22,9 +23,10 @@ public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
     public void Initialize(PawnDef inPawnDef, int inMaxPawns, Action<GuiPawnSetupListEntry> action)
     {
         
-        Debug.Log("GuiPawnSetupListEntry Initialize");
+        //Debug.Log("GuiPawnSetupListEntry Initialize");
         OnEntryClicked += action;
         pawnDef = inPawnDef;
+        maxPawns = inMaxPawns;
         remainingPawns = inMaxPawns;
         pawnNameText.text = inPawnDef.pawnName;
         pawnIconImage.sprite = inPawnDef.icon;

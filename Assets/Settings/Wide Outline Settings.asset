@@ -18,8 +18,8 @@ MonoBehaviour:
   RenderingLayer:
     serializedVersion: 0
     m_Bits: 128
-  occlusion: 0
-  closedLoop: 0
+  occlusion: 2
+  closedLoop: 1
   alphaCutout: 0
   alphaCutoutTexture: {fileID: 0}
   alphaCutoutThreshold: 0.5

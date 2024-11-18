@@ -15,7 +15,7 @@ public class GuiPawnSetupList : MonoBehaviour
 
     public void Initialize(SetupParameters setupParameters)
     {
-        Debug.Log("GuiPawnSetupList Initialize");
+        //Debug.Log("GuiPawnSetupList Initialize");
         GameManager.instance.boardManager.OnPawnAdded += OnPawnAdded;
         GameManager.instance.boardManager.OnPawnRemoved += OnPawnRemoved;
         // clear entries
@@ -76,5 +76,17 @@ public class GuiPawnSetupList : MonoBehaviour
     GuiPawnSetupListEntry GetEntryByPawnDef(PawnDef pawnDef)
     {
         return entries.Where(entry => entry.pawnDef == pawnDef).FirstOrDefault();
+    }
+
+    public void UpdateList(List<SetupPawnView> setupPawnViews)
+    {
+        Player currentPlayer = GameManager.instance.boardManager.player;
+        foreach (var entry in entries)
+        {
+            int numPlacedPawns = setupPawnViews.Count(pawnView =>
+                pawnView.pawn.def == entry.pawnDef && pawnView.pawn.player == currentPlayer);
+            int remainingPawns = entry.maxPawns - numPlacedPawns;
+            entry.SetCount(remainingPawns);
+        }
     }
 }

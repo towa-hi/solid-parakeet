@@ -50,10 +50,11 @@ MonoBehaviour:
   tile:
     pos: {x: 0, y: 0}
     isPassable: 1
-    tileSetup: 0
+    setupPlayer: 0
   model: {fileID: 2499942000709535878}
   floor: {fileID: 3459765316155163400}
   pawnOrigin: {fileID: 2505367880817683050}
+  boardManager: {fileID: 0}
 --- !u!114 &4418170331486867016
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -149,9 +150,8 @@ GameObject:
   - component: {fileID: 2016143989431756082}
   - component: {fileID: 1984609900548371214}
   - component: {fileID: 5052443731221493961}
-  - component: {fileID: 7624107001096763234}
-  m_Layer: 6
-  m_Name: Floor
+  m_Layer: 8
+  m_Name: Tile Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -187,7 +187,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3459765316155163400}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -247,22 +247,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
---- !u!114 &7624107001096763234
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3459765316155163400}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af978cba7613e734c83a538100798eab, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  isPointerOver: 0
-  interactionLayerMask:
-    serializedVersion: 2
-    m_Bits: 64
 --- !u!1 &6933678989567680503
 GameObject:
   m_ObjectHideFlags: 0
@@ -367,7 +351,7 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}

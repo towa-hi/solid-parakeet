@@ -11,7 +11,6 @@ public class TileView : MonoBehaviour
     
     Renderer modelRenderer;
     Renderer floorRenderer;
-    Clickable clickable;
 
     void Awake()
     {
@@ -21,11 +20,7 @@ public class TileView : MonoBehaviour
             Debug.Log("wtf");
         }
         floorRenderer = floor.GetComponent<Renderer>();
-        clickable = floor.GetComponent<Clickable>();
         floorRenderer.enabled = false;
-        clickable.OnHoverEnter += OnHoverEnter;
-        clickable.OnHoverExit += OnHoverExit;
-        clickable.OnClick += OnClicked;
     }
 
     void OnDestroy()
@@ -87,7 +82,9 @@ public class TileView : MonoBehaviour
 
     void OnClicked(Vector2 mousePos)
     {
-        GameManager.instance.boardManager.OnTileClicked(this);
+        Debug.Log($"Tileview {gameObject.name} clicked");
+        
+        //GameManager.instance.boardManager.OnTileClicked(this);
 
     }
 

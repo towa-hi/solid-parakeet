@@ -1,9 +1,11 @@
 using System;
 using System.Threading.Tasks;
+using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
 
 public class FakeClient : IGameClient
 {
+#pragma warning disable // Suppresses unused variable warning
     // Events
     public event Action<Response<string>> OnRegisterClientResponse;
     public event Action<Response<string>> OnDisconnect;
@@ -15,7 +17,8 @@ public class FakeClient : IGameClient
     public event Action<Response<SLobby>> OnReadyLobbyResponse;
     public event Action<Response<SSetupParameters>> OnDemoStarted;
     public event Action OnLobbyResponse;
-
+#pragma warning restore // Re-enables the warning
+    
     // Internal state
     Guid clientId;
     bool isConnected = false;
@@ -246,42 +249,66 @@ public class FakeClient : IGameClient
     
     void HandleRegisterClientResponse(Response<string> response)
     {
-        _ = SendRegisterNickname(Globals.GetNickname());
-        Debug.Log("Invoking OnRegisterClientResponse");
-        OnRegisterClientResponse?.Invoke(response);
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            _ = SendRegisterNickname(Globals.GetNickname());
+            Debug.Log("Invoking OnRegisterClientResponse");
+            OnRegisterClientResponse?.Invoke(response);
+        });
+        
     }
     
     void HandleRegisterNicknameResponse(Response<string> response)
     {
-        PlayerPrefs.SetString("nickname", response.data);
-        isNicknameRegistered = true;
-        Debug.Log("Invoking OnRegisterNicknameResponse");
-        OnRegisterNicknameResponse?.Invoke(response);
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            PlayerPrefs.SetString("nickname", response.data);
+            isNicknameRegistered = true;
+            Debug.Log("Invoking OnRegisterNicknameResponse");
+            OnRegisterNicknameResponse?.Invoke(response);
+        });
+        
         
     }
     
     void HandleGameLobbyResponse(Response<SLobby> response)
     {
-        currentLobby = response.data;
-        Debug.Log("Invoking OnGameLobbyResponse");
-        OnGameLobbyResponse?.Invoke(response);
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            currentLobby = response.data;
+            Debug.Log("Invoking OnGameLobbyResponse");
+            OnGameLobbyResponse?.Invoke(response);
+        });
+        
     }
     
     void HandleLeaveGameLobbyResponse(Response<string> response)
     {
-        Debug.Log("Invoking OnLeaveGameLobbyResponse");
-        OnLeaveGameLobbyResponse?.Invoke(response);
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            Debug.Log("Invoking OnLeaveGameLobbyResponse");
+            OnLeaveGameLobbyResponse?.Invoke(response);
+        });
+        
     }
 
     void HandleReadyLobbyResponse(Response<SLobby> response)
     {
-        Debug.Log("Invoking OnReadyLobbyResponse");
-        OnReadyLobbyResponse?.Invoke(response);
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            Debug.Log("Invoking OnReadyLobbyResponse");
+            OnReadyLobbyResponse?.Invoke(response);
+        });
+        
     }
     
     void HandleGameStartResponse(Response<SSetupParameters> gameStartResponse)
     {
-        Debug.Log($"Invoking OnDemoStarted to {OnDemoStarted?.GetInvocationList().Length} listeners");
-        OnDemoStarted?.Invoke(gameStartResponse);
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            Debug.Log($"Invoking OnDemoStarted to {OnDemoStarted?.GetInvocationList().Length} listeners");
+            OnDemoStarted?.Invoke(gameStartResponse);
+        });
+        
     }
 }

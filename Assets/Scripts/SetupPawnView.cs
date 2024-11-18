@@ -7,6 +7,6 @@ public class SetupPawnView : PawnView
     public override void Initialize(Pawn inPawn, TileView tileView)
     {
         base.Initialize(inPawn, tileView);
-        billboard.SetActive(false);
+        //billboard.SetActive(false);
     }
 }

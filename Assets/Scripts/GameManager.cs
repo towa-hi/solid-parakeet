@@ -5,7 +5,6 @@ using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
@@ -19,6 +18,7 @@ public class GameManager : MonoBehaviour
 
     public BoardManager boardManager;
     public GuiManager guiManager;
+    public BoardClickInputManager boardClickInputManager;
     public Action<string> onNicknameChanged;
     public IGameClient client;
     public bool offlineMode;
@@ -69,12 +69,14 @@ public class GameManager : MonoBehaviour
         client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
         client.OnReadyLobbyResponse += OnReadyLobbyResponse;
         client.OnDemoStarted += OnDemoStartedResponse;
+        
         OnClientChanged?.Invoke(oldGameClient, client);
         _ = client.ConnectToServer();
     }
     
     void OnRegisterClientResponse(Response<string> response)
     {
+
         guiManager.OnRegisterClientResponse(response);
     }
     
@@ -107,31 +109,16 @@ public class GameManager : MonoBehaviour
     {
         guiManager.OnReadyLobbyResponse(response);
     }
-    
+
     void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
-        Debug.Log("GameManager: OnDemoStarted");
-        try
-        {
-            boardManager.OnDemoStartedResponse(response);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine("exception in board manager");
-            throw;
-        }
-        
-        Debug.Log("GameManager: guiManager OnDemoStarted");
-        try
-        {
-            guiManager.OnDemoStartedResponse(response);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        
+        Debug.Log("GameManager: OnDemoStartedResponse");
+        Debug.Log("GameManager: sent to boardmanager");
+        boardManager.OnDemoStartedResponse(response);
+        Debug.Log("GameManager: sent to guimanager");
+        guiManager.OnDemoStartedResponse(response);
+        Debug.Log("GameManager: sent to boardclickinputmanager");
+        boardClickInputManager.Initialize(boardManager);
     }
 
     public void QuitGame()

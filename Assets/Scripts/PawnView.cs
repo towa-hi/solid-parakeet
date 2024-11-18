@@ -8,16 +8,18 @@ public class PawnView : MonoBehaviour
     public GameObject cube;
     public GameObject plane;
     public GameObject billboard;
-    public PawnClickableHandler pawnClickableHandler;
     
     public SpriteAtlas symbols;
     public SpriteRenderer symbolRenderer;
     
     public Pawn pawn;
-
-    public event Action OnClick;
-
+    
     void OnDestroy()
+    {
+        
+    }
+
+    void Start()
     {
         
     }
