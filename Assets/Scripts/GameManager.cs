@@ -76,8 +76,8 @@ public class GameManager : MonoBehaviour
     
     void OnRegisterClientResponse(Response<string> response)
     {
-
         guiManager.OnRegisterClientResponse(response);
+        _ = client.SendRegisterNickname(Globals.GetNickname());
     }
     
     void OnDisconnect(Response<string> response)

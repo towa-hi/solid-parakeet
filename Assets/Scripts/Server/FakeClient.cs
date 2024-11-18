@@ -6,6 +6,7 @@ using UnityEngine;
 public class FakeClient : IGameClient
 {
 #pragma warning disable // Suppresses unused variable warning
+    
     // Events
     public event Action<Response<string>> OnRegisterClientResponse;
     public event Action<Response<string>> OnDisconnect;
@@ -17,7 +18,6 @@ public class FakeClient : IGameClient
     public event Action<Response<SLobby>> OnReadyLobbyResponse;
     public event Action<Response<SSetupParameters>> OnDemoStarted;
     public event Action OnLobbyResponse;
-#pragma warning restore // Re-enables the warning
     
     // Internal state
     Guid clientId;
@@ -27,6 +27,8 @@ public class FakeClient : IGameClient
 
     // simulated state of server lobby
     SLobby fakeServerLobby;
+    
+#pragma warning restore // Re-enables the warning
     
     public FakeClient()
     {
@@ -251,7 +253,6 @@ public class FakeClient : IGameClient
     {
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
-            _ = SendRegisterNickname(Globals.GetNickname());
             Debug.Log("Invoking OnRegisterClientResponse");
             OnRegisterClientResponse?.Invoke(response);
         });
