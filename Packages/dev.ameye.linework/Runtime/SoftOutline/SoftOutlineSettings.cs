@@ -27,6 +27,9 @@ namespace Linework.SoftOutline
         [Range(0, 50)] public int kernelSize = 20;
         [Range(0.5f, 50.0f)] public float blurSpread = 1.35f;
         [Range(2, 10)] public int blurPasses = 1;
+        public bool scaleWithResolution = true;
+        public Resolution referenceResolution = Resolution._1080;
+        public float customResolution;
 
         public InjectionPoint InjectionPoint => injectionPoint;
         public bool ShowInSceneView => showInSceneView;

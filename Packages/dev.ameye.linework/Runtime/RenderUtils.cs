@@ -51,6 +51,18 @@ namespace Linework
         B,
         A
     }
+    
+    public enum Resolution
+    {
+        [InspectorName("480px")]
+        _480,
+        [InspectorName("720px")]
+        _720,
+        [InspectorName("1080px")]
+        _1080,
+        [InspectorName("Custom")]
+        Custom
+    }
 
     static class CommonShaderPropertyId
     {
@@ -73,6 +85,7 @@ namespace Linework
         public static readonly int AlphaCutout = Shader.PropertyToID("ALPHA_CUTOUT");
         public static readonly int AlphaCutoutTexture = Shader.PropertyToID("_AlphaCutoutTexture");
         public static readonly int AlphaCutoutThreshold = Shader.PropertyToID("_AlphaCutoutThreshold");
+        public static readonly int ReferenceResolution = Shader.PropertyToID("_ReferenceResolution");
     }
 
     public static class RenderUtils

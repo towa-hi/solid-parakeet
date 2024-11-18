@@ -137,7 +137,7 @@ namespace Linework.Editor.Common
                     paddingLeft = 2
                 }
             };
-            var versionLabel = new Label("1.2.2 • November 2024")
+            var versionLabel = new Label("1.2.4 • November 2024")
             {
                 style =
                 {

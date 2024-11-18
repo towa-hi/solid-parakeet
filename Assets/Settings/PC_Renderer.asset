@@ -27,7 +27,8 @@ MonoBehaviour:
   m_RendererFeatures:
   - {fileID: 7833122117494664109}
   - {fileID: 6172704238935026450}
-  m_RendererFeatureMap: ad6b866f10d7b46c122b4509cdd9a955
+  - {fileID: 354776046790081440}
+  m_RendererFeatureMap: ad6b866f10d7b46c122b4509cdd9a955a07bbd53ef6aec04
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -53,6 +54,25 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+--- !u!114 &354776046790081440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 521933c422ef94aa58e7d435b6f8921a, type: 3}
+  m_Name: WideOutline
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  settings: {fileID: 11400000, guid: fb31844ea12f26f46a9ae9df654e5aa9, type: 2}
+  shaders:
+    clear: {fileID: 4800000, guid: ebbc2128da914f45af22437ef28eb212, type: 3}
+    mask: {fileID: 4800000, guid: 1ed7bc804a124d559675facf61722b63, type: 3}
+    silhouette: {fileID: 4800000, guid: 2a1be836d8f24bbb91714e9a51f8fec1, type: 3}
+    outline: {fileID: 4800000, guid: 90865e175cad4ccd80a2e1965c38f3e9, type: 3}
 --- !u!114 &6172704238935026450
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -66,7 +86,7 @@ MonoBehaviour:
   m_Name: WideOutline
   m_EditorClassIdentifier: 
   m_Active: 1
-  settings: {fileID: 11400000, guid: c6faa49be4dfd344bbb03e81678ea049, type: 2}
+  settings: {fileID: 11400000, guid: 3bfda49f3e9c0ab4288abf96265fe881, type: 2}
   shaders:
     clear: {fileID: 4800000, guid: ebbc2128da914f45af22437ef28eb212, type: 3}
     mask: {fileID: 4800000, guid: 1ed7bc804a124d559675facf61722b63, type: 3}

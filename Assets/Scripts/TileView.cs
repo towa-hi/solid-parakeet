@@ -12,6 +12,9 @@ public class TileView : MonoBehaviour
     Renderer modelRenderer;
     Renderer floorRenderer;
 
+    public bool isSelected = false;
+    public bool isHovered = false;
+    
     void Awake()
     {
         modelRenderer = model.GetComponentInChildren<Renderer>();
@@ -20,14 +23,32 @@ public class TileView : MonoBehaviour
             Debug.Log("wtf");
         }
         floorRenderer = floor.GetComponent<Renderer>();
-        floorRenderer.enabled = false;
     }
 
-    void OnDestroy()
+
+
+    public void OnPositionClicked(Vector2Int pos)
     {
-        
+        //SetMeshOutline(tile.pos == pos);
+        isSelected = tile.pos == pos;
+        SetMeshOutline(isHovered, "SelectOutline");
+        if (isSelected)
+        {
+            Debug.Log($"{gameObject.name}: OnPositionClicked");
+        }
     }
     
+    public void OnPositionHovered(Vector2Int pos)
+    {
+        isHovered = tile.pos == pos;
+        SetMeshOutline(isHovered, "HoverOutline");
+        if (isHovered)
+        {
+            Debug.Log($"{gameObject.name}: OnPositionHovered");
+        }
+    }
+
+
     public void Initialize(Tile inTile, BoardManager inBoardManager)
     {
         tile = inTile;
@@ -80,14 +101,6 @@ public class TileView : MonoBehaviour
         floorRenderer.enabled = false;
     }
 
-    void OnClicked(Vector2 mousePos)
-    {
-        Debug.Log($"Tileview {gameObject.name} clicked");
-        
-        //GameManager.instance.boardManager.OnTileClicked(this);
-
-    }
-
     public bool IsTileInteractableDuringSetup()
     {
         if (tile.setupPlayer == Player.NONE)
@@ -100,5 +113,33 @@ public class TileView : MonoBehaviour
             throw new Exception("boardManager.player cannot be NONE");
         }
         return tile.setupPlayer == boardManager.player;
+    }
+
+    uint currentRenderingLayerMask;
+    void SetMeshOutline(bool enable, string outlineType)
+    {
+        uint outlineLayer = 0;
+        switch (outlineType)
+        {
+            case "HoverOutline":
+                outlineLayer = (1 << 7);
+                break;
+            case "SelectOutline":
+                outlineLayer = (1 << 8);
+                break;
+        }
+
+        if (enable)
+        {
+            currentRenderingLayerMask |= outlineLayer;
+        }
+        else
+        {
+            currentRenderingLayerMask &= ~outlineLayer;
+        }
+        currentRenderingLayerMask |= (1 << 0);
+
+        floorRenderer.renderingLayerMask = currentRenderingLayerMask;
+        floorRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
 }

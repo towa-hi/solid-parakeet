@@ -21,6 +21,7 @@ namespace Linework.Editor.Utils
             public static readonly GUIContent AlphaCutout = EditorGUIUtility.TrTextContent("Alpha Cutout", "Enable alpha cutout.");
             public static readonly GUIContent AlphaCutoutTexture = EditorGUIUtility.TrTextContent("Texture", "The alpha cutout texture.");
             public static readonly GUIContent AlphaCutoutThreshold = EditorGUIUtility.TrTextContent("Threshold", "The alpha clip threshold.");
+            
 
             // Shared outlines.
             public static readonly GUIContent Outlines = EditorGUIUtility.TrTextContent("Outlines", "The list of outlines to render.");
@@ -31,6 +32,8 @@ namespace Linework.Editor.Utils
             public static readonly GUIContent OutlineColor = EditorGUIUtility.TrTextContent("Color", "The color of the outline.");
             public static readonly GUIContent OutlineOccludedColor = EditorGUIUtility.TrTextContent("Occluded Color", "The color of the outline when it is occluded.");
             public static readonly GUIContent OutlineWidth = EditorGUIUtility.TrTextContent("Width", "The width of the outline.");
+            public static readonly GUIContent ScaleWithResolution = EditorGUIUtility.TrTextContent("Scale With Resolution", "Scale the thickness of the outline with the resolution of the screen.");
+            public static readonly GUIContent ReferenceResolution = EditorGUIUtility.TrTextContent("Reference", "Scale the thickness of the outline with the resolution of the screen.");
 
             // Surface fill.
             public static readonly GUIContent Fills = EditorGUIUtility.TrTextContent("Fills", "The list of fills to render.");
@@ -65,6 +68,7 @@ namespace Linework.Editor.Utils
             public static readonly GUIContent DilationMethod = EditorGUIUtility.TrTextContent("Method", "The method used to dilate the outline.");
             public static readonly GUIContent Spread = EditorGUIUtility.TrTextContent("Spread", "The spread of the Gaussian kernel (Gaussian Blur).");
             public static readonly GUIContent Passes = EditorGUIUtility.TrTextContent("Passes", "How many blur passes to perform (Kawase Blur).");
+            public static readonly GUIContent KernelSize = EditorGUIUtility.TrTextContent("Width (pixels)", "The width of the outline.");
 
             // Wide outline.
             public static readonly GUIContent CustomDepthBuffer

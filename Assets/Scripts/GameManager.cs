@@ -18,7 +18,6 @@ public class GameManager : MonoBehaviour
 
     public BoardManager boardManager;
     public GuiManager guiManager;
-    public BoardClickInputManager boardClickInputManager;
     public Action<string> onNicknameChanged;
     public IGameClient client;
     public bool offlineMode;
@@ -118,7 +117,6 @@ public class GameManager : MonoBehaviour
         Debug.Log("GameManager: sent to guimanager");
         guiManager.OnDemoStartedResponse(response);
         Debug.Log("GameManager: sent to boardclickinputmanager");
-        boardClickInputManager.Initialize(boardManager);
     }
 
     public void QuitGame()

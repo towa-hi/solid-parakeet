@@ -8,6 +8,7 @@ using UnityEngine;
 
 public static class Globals
 {
+    public static Vector2Int pugatory = new(-666, -666);
     // Static instance of GameInputActions to be shared among all Hoverable instances
     public static readonly InputSystem_Actions inputActions = new();
 

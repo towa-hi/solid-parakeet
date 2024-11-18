@@ -3,6 +3,7 @@ using Linework.Editor.Utils;
 using Linework.SoftOutline;
 using UnityEditor;
 using UnityEditor.Rendering;
+using UnityEngine;
 
 namespace Linework.Editor.SoftOutline
 {
@@ -24,6 +25,9 @@ namespace Linework.Editor.SoftOutline
         private SerializedProperty blurSpread;
         private SerializedProperty blurPasses;
         private SerializedProperty occlusion;
+        private SerializedProperty scaleWithResolution;
+        private SerializedProperty referenceResolution;
+        private SerializedProperty customReferenceResolution;
 
         private SerializedProperty outlines;
         private EditorList<Outline> outlineList;
@@ -44,6 +48,9 @@ namespace Linework.Editor.SoftOutline
             kernelSize = serializedObject.FindProperty(nameof(SoftOutlineSettings.kernelSize));
             blurSpread = serializedObject.FindProperty(nameof(SoftOutlineSettings.blurSpread));
             blurPasses = serializedObject.FindProperty(nameof(SoftOutlineSettings.blurPasses));
+            scaleWithResolution = serializedObject.FindProperty(nameof(SoftOutlineSettings.scaleWithResolution));
+            referenceResolution = serializedObject.FindProperty(nameof(SoftOutlineSettings.referenceResolution));
+            customReferenceResolution = serializedObject.FindProperty(nameof(SoftOutlineSettings.customResolution));
             
             outlines = serializedObject.FindProperty("outlines");
             outlineList = new EditorList<Outline>(this, outlines, ForceSave, "Add Outline", "No outlines added.");
@@ -99,22 +106,35 @@ namespace Linework.Editor.SoftOutline
             switch ((DilationMethod) dilationMethod.intValue)
             {
                 case DilationMethod.Box:
-                    EditorGUILayout.PropertyField(kernelSize, EditorUtils.CommonStyles.OutlineWidth);
+                    EditorGUILayout.PropertyField(kernelSize, EditorUtils.CommonStyles.KernelSize);
                     break;
                 case DilationMethod.Gaussian:
-                    EditorGUILayout.PropertyField(kernelSize, EditorUtils.CommonStyles.OutlineWidth);
+                    EditorGUILayout.PropertyField(kernelSize, EditorUtils.CommonStyles.KernelSize);
                     EditorGUILayout.PropertyField(blurSpread, EditorUtils.CommonStyles.Spread);
                     break;
                 case DilationMethod.Kawase:
                     EditorGUILayout.PropertyField(blurPasses, EditorUtils.CommonStyles.Passes);
                     break;
                 case DilationMethod.Dilate:
-                    EditorGUILayout.PropertyField(kernelSize, EditorUtils.CommonStyles.OutlineWidth);
+                    EditorGUILayout.PropertyField(kernelSize, EditorUtils.CommonStyles.KernelSize);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PropertyField(scaleWithResolution, EditorUtils.CommonStyles.ScaleWithResolution);
+            if (scaleWithResolution.boolValue)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.PropertyField(referenceResolution,  GUIContent.none);
+                if ((Resolution) referenceResolution.intValue == Resolution.Custom) EditorGUILayout.PropertyField(customReferenceResolution, GUIContent.none, GUILayout.Width(100));
+                EditorGUILayout.EndHorizontal();
+                EditorGUI.indentLevel--;
+            }
+            EditorGUILayout.EndHorizontal();
             EditorGUI.indentLevel--;
+            
          
             if ((OutlineType) type.intValue == OutlineType.Hard)
             {

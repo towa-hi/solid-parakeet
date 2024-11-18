@@ -58,5 +58,7 @@ public class GuiPawnSetupList : MonoBehaviour
             selectedEntry = inSelectedEntry;
             selectedEntry.SelectEntry(true);
         }
+        PawnDef pawnDef = selectedEntry == null ? null : selectedEntry.pawnDef;
+        GameManager.instance.boardManager.OnSetupPawnEntrySelected(pawnDef);
     }
 }

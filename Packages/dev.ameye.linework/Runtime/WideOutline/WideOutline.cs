@@ -12,7 +12,7 @@ using UnityEngine.Rendering.Universal;
 namespace Linework.WideOutline
 {
     [ExcludeFromPreset]
-    [DisallowMultipleRendererFeature("Wide Outline")]
+    //[DisallowMultipleRendererFeature("Wide Outline")]
 #if UNITY_6000_0_OR_NEWER
     [SupportedOnRenderer(typeof(UniversalRendererData))]
 #endif
@@ -378,7 +378,9 @@ namespace Linework.WideOutline
 
                 // Ping pong buffers.
                 var pingPongDescriptor = cameraData.cameraTargetDescriptor;
-                pingPongDescriptor.graphicsFormat = GraphicsFormat.R16G16_SNorm;
+                pingPongDescriptor.graphicsFormat = SystemInfo.IsFormatSupported(GraphicsFormat.R16G16_SNorm, GraphicsFormatUsage.Render) 
+                    ? GraphicsFormat.R16G16_SNorm 
+                    : GraphicsFormat.R32G32_SFloat;
                 pingPongDescriptor.depthBufferBits = (int) DepthBits.None;
                 pingPongDescriptor.msaaSamples = 1;
                 pingHandle = UniversalRenderer.CreateRenderGraphTexture(renderGraph, pingPongDescriptor, Buffer.Ping, false);
@@ -422,7 +424,9 @@ namespace Linework.WideOutline
                 
                 // Ping pong buffers.
                 var pingPongDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-                pingPongDescriptor.graphicsFormat = GraphicsFormat.R16G16_SNorm;
+                pingPongDescriptor.graphicsFormat = SystemInfo.IsFormatSupported(GraphicsFormat.R16G16_SNorm, FormatUsage.Render) 
+                    ? GraphicsFormat.R16G16_SNorm 
+                    : GraphicsFormat.R32G32_SFloat;
                 pingPongDescriptor.depthBufferBits = (int) DepthBits.None;
                 pingPongDescriptor.msaaSamples = 1;
                 RenderingUtils.ReAllocateIfNeeded(ref pingRTHandle, pingPongDescriptor, FilterMode.Point, TextureWrapMode.Clamp, name: Buffer.Ping);

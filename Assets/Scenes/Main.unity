@@ -268,6 +268,57 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 886f0e8a93ba5be438a66c7c68b8d2e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &697788153
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 697788154}
+  - component: {fileID: 697788155}
+  m_Layer: 0
+  m_Name: Purgatory
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &697788154
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697788153}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.69, y: 0, z: 2.42}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1153439523}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &697788155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697788153}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cba99d608eafee4589683b71f4ef862, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  target: {fileID: 697788154}
+  offset: {x: 0, y: 0, z: 0}
+  message: debug info
+  fontSize: 11
+  dotSizePx: 10
+  color: {r: 1, g: 1, b: 1, a: 1}
+  texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!1 &896077643
 GameObject:
   m_ObjectHideFlags: 0
@@ -420,12 +471,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e16abf40bcd45a346bb20305fadf8c7c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  purgatory: {fileID: 697788154}
+  boardClickInputManager: {fileID: 1153439525}
   tilePrefab: {fileID: 295967387164842906, guid: 88c29a6a30cf7ee4aa8b9210c4b5cd9a, type: 3}
   pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
   setupPawnPrefab: {fileID: 2420147050437188656, guid: 5411e15466f890045b5dae2fe4a78126, type: 3}
   grid: {fileID: 1153439521}
   phase: 0
   player: 0
+  selectedPos: {x: 0, y: 0}
+  hoveredPos: {x: 0, y: 0}
   setupSelectedPawnDef: {fileID: 0}
 --- !u!4 &1153439523
 Transform:
@@ -439,7 +494,8 @@ Transform:
   m_LocalPosition: {x: -4.5, y: 0, z: -4.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 697788154}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1153439524
@@ -467,11 +523,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 87802fdab18ac5b43ba204778363165c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  currentHoveredPosition: {x: -1, y: -1}
   currentHoveredTileView: {fileID: 0}
   currentHoveredPawnView: {fileID: 0}
   screenPointerPosition: {x: 0, y: 0}
-  currentHoveredObject: {fileID: 0}
+  currentClickedTileView: {fileID: 0}
+  currentClickedPawnView: {fileID: 0}
   isUpdating: 0
+  isPointerOverUI: 0
 --- !u!1 &1246264307
 GameObject:
   m_ObjectHideFlags: 0
@@ -594,7 +653,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   boardManager: {fileID: 1153439522}
   guiManager: {fileID: 15766417}
-  boardClickInputManager: {fileID: 1153439525}
   offlineMode: 0
   mainCamera: {fileID: 2045201818}
   tempBoardDef: {fileID: 11400000, guid: c6fcd58d95dea99429c81d521f5a5325, type: 2}

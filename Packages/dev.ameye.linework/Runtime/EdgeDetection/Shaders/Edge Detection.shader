@@ -188,8 +188,8 @@
                 float edgeLuminance = 0;
                 float edgeSection = 0;
 
-                float2 texel_size = _BlitTexture_TexelSize.xy;
-
+                float2 texel_size = float2(1.0 / _ScreenParams.x, 1.0 / _ScreenParams.y);
+                
                 #if defined(OPERATOR_CROSS)
                 const float half_width_f = floor(_OutlineWidth * 0.5);
                 const float half_width_c = ceil(_OutlineWidth * 0.5);
@@ -225,15 +225,15 @@
                 }
 
                 #if defined(DEPTH)
-                edgeDepth = RobertsCross(depth_samples);
+                edgeDepth = mask ? 0 : RobertsCross(depth_samples);
                 #endif
 
                 #if defined(NORMALS)
-                edgeNormal = RobertsCross(normal_samples);
+                edgeNormal = mask ? 0 : RobertsCross(normal_samples);
                 #endif
 
                 #if defined(LUMINANCE)
-                edgeLuminance = RobertsCross(luminance_samples);
+                edgeLuminance = mask ? 0 : RobertsCross(luminance_samples);
                 #endif
 
                 #if defined(SECTIONS)
@@ -278,15 +278,15 @@
                 }
                 
                 #if defined(DEPTH)
-                edgeDepth = Sobel(depth_samples);
+                edgeDepth = mask ? 0 : Sobel(depth_samples);
                 #endif
 
                 #if defined(NORMALS)
-                edgeNormal = Sobel(normal_samples);
+                edgeNormal = mask ? 0 : Sobel(normal_samples);
                 #endif
 
                 #if defined(LUMINANCE)
-                edgeLuminance = Sobel(luminance_samples);
+                edgeLuminance = mask ? 0 : Sobel(luminance_samples);
                 #endif
 
                 #if defined(SECTIONS)

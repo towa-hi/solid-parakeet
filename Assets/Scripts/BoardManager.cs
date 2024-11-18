@@ -9,6 +9,8 @@ using UnityEngine;
 
 public class BoardManager : MonoBehaviour
 {
+    public Transform purgatory;
+    public BoardClickInputManager boardClickInputManager;
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
     public GameObject setupPawnPrefab;
@@ -22,6 +24,8 @@ public class BoardManager : MonoBehaviour
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     readonly List<SetupPawnView> setupPawnViews = new();
     public event Action<List<SetupPawnView>> OnSetupPawnViewsChanged;
+
+    public event Action<Pawn> OnPawnModified;
     
     // game stuff
     readonly List<PawnView> pawnViews = new();
@@ -67,17 +71,196 @@ public class BoardManager : MonoBehaviour
     
     public void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
+        boardClickInputManager.Initialize();
+        boardClickInputManager.OnPositionClicked += OnPositionClicked;
+        boardClickInputManager.OnPositionHovered += OnPositionHovered;
         setupParameters = new(response.data);
         Debug.Log("setup parameters set");
         player = response.data.player;
         Debug.Log("player set");
         Debug.Log("setupSelectedPawnDef set");
         LoadBoardData(setupParameters.board);
+        LoadPawns(player);
         Debug.Log("board set");
         SetPhase(GamePhase.SETUP);
         Debug.Log("phase set");
     }
 
+    void LoadPawns(Player targetPlayer)
+    {
+        foreach ((PawnDef pawnDef, int max) in setupParameters.maxPawnsDict)
+        {
+            for (int i = 0; i < max; i++)
+            {
+                Pawn pawn = new Pawn(pawnDef, targetPlayer, true);
+                GameObject pawnObject = Instantiate(pawnPrefab, transform);
+                PawnView pawnView = pawnObject.GetComponent<PawnView>();
+                pawnViews.Add(pawnView);
+                pawnView.Initialize(pawn, null);
+                OnPawnModified?.Invoke(pawn);
+            }
+        }
+    }
+
+    Pawn GetPawnFromPurgatoryByPawnDef(PawnDef pawnDef, Vector2Int pos)
+    {
+        foreach (var pawnView in pawnViews)
+        {
+            Pawn pawn = pawnView.pawn;
+            if (pawn.def == pawnDef)
+            {
+                if (pawn.isSetup)
+                {
+                    if (!pawn.isAlive)
+                    {
+                        pawn.SetAlive(true, pos);
+                        OnPawnModified?.Invoke(pawn);
+                        return pawn;
+                    }
+                }
+            }
+            
+        }
+        Debug.Log($"can't find any pawns of pawnDef {pawnDef.name}");
+        return null;
+    }
+
+    void SendPawnToPurgatory(Pawn pawn)
+    {
+        pawn.SetAlive(false, null);
+        ResetPosSelection();
+        OnPawnModified?.Invoke(pawn);
+    }
+    
+    public Vector2Int selectedPos;
+    public Vector2Int hoveredPos;
+
+    void ResetPosSelection()
+    {
+        Debug.Log("ResetPosSelection");
+        Vector2Int badPos = new Vector2Int(-1, -1);
+        selectedPos = badPos;
+        hoveredPos = badPos;
+        // unselect all setupPawnViews
+        foreach (SetupPawnView setupPawnView in setupPawnViews)
+        {
+            setupPawnView.OnPositionClicked(badPos);
+            setupPawnView.OnPositionHovered(badPos);
+        }
+        // unselect all tiles
+        foreach (TileView tileView in tileViews.Values)
+        {
+            tileView.OnPositionClicked(badPos);
+            tileView.OnPositionHovered(badPos);
+        }
+    }
+
+    public PawnDef setupSelectedPawnDef;
+
+    public void OnSetupPawnEntrySelected(PawnDef pawnDef)
+    {
+        setupSelectedPawnDef = pawnDef;
+    }
+    
+    void OnPositionClicked(Vector2Int pos)
+    {
+        Debug.Log($"BoardManager: OnPositionClicked {pos}");
+        selectedPos = pos;
+        TileView tileView = GetTileView(pos);
+        if (tileView && !tileView.tile.IsTileEligibleForPlayer(player))
+        {
+            Debug.Log("not a tile you can interact with");
+            return;
+        }
+        Pawn clickedPawn = null;
+        foreach (PawnView pawnView in pawnViews)
+        {
+            Pawn pawn = pawnView.pawn;
+            if (pawn.pos == pos)
+            {
+                if (pawn.player == player)
+                {
+                    if (pawn.isAlive)
+                    {
+                        if (pawn.isSetup)
+                        {
+                            clickedPawn = pawnView.pawn;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (clickedPawn != null)
+        {
+            SendPawnToPurgatory(clickedPawn);
+        }
+        else if (setupSelectedPawnDef)
+        {
+            Pawn alivePawn = GetPawnFromPurgatoryByPawnDef(setupSelectedPawnDef, pos);
+            if (alivePawn == null)
+            {
+                Debug.LogWarning("did not spawn pawn");
+            }
+        }
+    }
+
+    void OnPositionHovered(Vector2Int pos)
+    {
+        Debug.Log($"BoardManager: OnPositionHovered {pos}");
+        hoveredPos = pos;
+        Pawn hoveredPawn = null;
+        foreach (PawnView pawnView in pawnViews)
+        {
+            Pawn pawn = pawnView.pawn;
+            if (pawn.isAlive)
+            {
+                if (pawn.pos == pos)
+                {
+                    if (pawn.player == player)
+                    {
+                        if (pawn.isAlive)
+                        {
+                            if (pawn.isSetup)
+                            {
+                                hoveredPawn = pawnView.pawn;
+                            }
+                        }
+                    }
+                }
+            }
+            pawnView.OnPositionHovered(pos);
+        }
+        foreach (TileView tileView in tileViews.Values)
+        {
+            if (hoveredPawn != null)
+            {
+                tileView.OnPositionHovered(new Vector2Int(-1, -1));
+            }
+            else
+            {
+                tileView.OnPositionHovered(hoveredPos);
+            }
+        }
+        // // do setup pawns first
+        // bool wasPosOccupiedBySetupPawn = false;
+        // foreach (SetupPawnView setupPawnView in setupPawnViews)
+        // {
+        //     setupPawnView.OnPositionHovered(hoveredPos);
+        //     if (setupPawnView.pawn.pos == hoveredPos)
+        //     {
+        //         wasPosOccupiedBySetupPawn = true;
+        //     }
+        // }
+        
+    }
+
+    PawnView GetSelectedSetupPawnView()
+    {
+        return setupPawnViews.FirstOrDefault(setupPawnView => setupPawnView.isSelected);
+    }
+    
     public void StartDemoGame()
     {
         bool setupValid = IsSetupValid(player);
@@ -193,7 +376,8 @@ public class BoardManager : MonoBehaviour
                 TileView tileView = tileObject.GetComponent<TileView>();
                 Tile tile = boardDef.tiles[x + y * boardDef.boardSize.x];
                 tileView.Initialize(tile, this);
-                tileViews.Add(new(x, y), tileView);
+                Vector2Int pos = new(x, y);
+                tileViews.Add(pos, tileView);
             }
         }
     }
@@ -204,7 +388,14 @@ public class BoardManager : MonoBehaviour
         {
             throw new Exception("Player can't be none");
         }
-        ClearSetupPawns(targetPlayer);
+        ResetPosSelection();
+        
+        // Kill everything
+        // TODO: make this not call the same event 1600 times
+        foreach (var pawnView in pawnViews)
+        {
+            SendPawnToPurgatory(pawnView.pawn);
+        }
         BoardDef boardDef = setupParameters.board;
         // Keep track of positions that have already been used
         HashSet<Vector2Int> usedPositions = new();
@@ -234,11 +425,7 @@ public class BoardManager : MonoBehaviour
                 Vector2Int pos = eligiblePositions[index];
                 eligiblePositions.RemoveAt(index);
                 usedPositions.Add(pos);
-                SetupPawnView setupPawnView = AddSetupPawnView(targetPlayer, pawnDef, pos);
-                if (setupPawnView == null)
-                {
-                    throw new Exception("setupPawnView was null");
-                }
+                GetPawnFromPurgatoryByPawnDef(pawnDef, pos);
             }
         }
     }
@@ -286,9 +473,6 @@ public class BoardManager : MonoBehaviour
     
     void ClearTiles()
     {
-        // this also clears all pawns
-        ClearSetupPawns(Player.RED);
-        ClearSetupPawns(Player.BLUE);
         ClearPawns();
         foreach (TileView tileView in tileViews.Values)
         {
@@ -331,6 +515,11 @@ public class BoardManager : MonoBehaviour
         return pawnViews.FirstOrDefault(pawnView => pawnView.pawn.pos == pos);
     }
 
+    public SetupPawnView GetSetupPawnAtPos(Vector2Int pos)
+    {
+        return setupPawnViews.FirstOrDefault(setupPawnView => setupPawnView.pawn.pos == pos);
+    }
+
     public PawnView GetPawnViewFromPawn(Pawn pawn)
     {
         return pawnViews.FirstOrDefault(pawnView => pawnView.pawn == pawn);
@@ -344,7 +533,6 @@ public class BoardManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError($"TileView not found at position {pos}");
             return null;
         }
     }

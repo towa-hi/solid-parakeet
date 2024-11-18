@@ -83,6 +83,24 @@ namespace Linework.SoftOutline
                 }
 
                 // Set blur material properties.
+                if (settings.scaleWithResolution) blur.EnableKeyword(ShaderFeature.ScaleWithResolution);
+                else blur.DisableKeyword(ShaderFeature.ScaleWithResolution);
+                switch (settings.referenceResolution)
+                {
+                    case Resolution._480:
+                        blur.SetFloat(CommonShaderPropertyId.ReferenceResolution, 480.0f);
+                        break;
+                    case Resolution._720:
+                        blur.SetFloat(CommonShaderPropertyId.ReferenceResolution, 720.0f);
+                        break;
+                    case Resolution._1080:
+                        blur.SetFloat(CommonShaderPropertyId.ReferenceResolution, 1080.0f);
+                        break;
+                    case Resolution.Custom:
+                        blur.SetFloat(CommonShaderPropertyId.ReferenceResolution, settings.customResolution);
+                        break;
+                }
+                
                 if (settings.dilationMethod is DilationMethod.Box or DilationMethod.Gaussian or DilationMethod.Dilate)
                 {
                     blur.SetInt(ShaderPropertyId.KernelSize, settings.kernelSize);

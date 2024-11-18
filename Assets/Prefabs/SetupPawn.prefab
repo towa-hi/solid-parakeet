@@ -179,6 +179,8 @@ MonoBehaviour:
     player: 0
     pos: {x: 0, y: 0}
     isSetup: 0
+  billboardRenderer: {fileID: 3890566795418731931}
+  planeRenderer: {fileID: 1066085034896648542}
 --- !u!114 &1069116599556454379
 MonoBehaviour:
   m_ObjectHideFlags: 0

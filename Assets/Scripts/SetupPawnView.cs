@@ -9,4 +9,5 @@ public class SetupPawnView : PawnView
         base.Initialize(inPawn, tileView);
         //billboard.SetActive(false);
     }
+
 }

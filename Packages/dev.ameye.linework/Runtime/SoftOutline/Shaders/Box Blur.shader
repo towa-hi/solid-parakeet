@@ -17,14 +17,15 @@ Shader "Hidden/Outlines/Soft Outline/Box Blur"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
+        #pragma multi_compile_local _ SCALE_WITH_RESOLUTION
+
         CBUFFER_START(UnityPerMaterial)
             int _KernelSize;
             int _Samples;
+            float _ReferenceResolution;
             SAMPLER(sampler_BlitTexture);
-         #if UNITY_VERSION < 202300
-        
+            #if UNITY_VERSION < 202300
             float4 _BlitTexture_TexelSize;
-
             #endif
         CBUFFER_END
         ENDHLSL
@@ -32,8 +33,8 @@ Shader "Hidden/Outlines/Soft Outline/Box Blur"
         Pass // 0: VERTICAL BLUR
         {
             Name "VERTICAL BLUR"
-            
-          Stencil
+
+            Stencil
             {
                 Ref 1
                 Comp Always
@@ -48,9 +49,14 @@ Shader "Hidden/Outlines/Soft Outline/Box Blur"
             float4 frag(Varyings IN) : SV_TARGET
             {
                 float4 sum = 0;
-
+                float scale = 1;
+                
+                #if defined(SCALE_WITH_RESOLUTION)
+                scale = 1 * _ScreenParams.y / _ReferenceResolution;
+                #endif
+                
                 for (float y = 0; y < _Samples; y++) {
-                    float2 offset = float2(0, y - _KernelSize) * _BlitTexture_TexelSize.xy;
+                    float2 offset = float2(0, y - _KernelSize) * _BlitTexture_TexelSize.xy * scale;
                     sum += SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, IN.texcoord + offset);
                 }
 
@@ -70,9 +76,14 @@ Shader "Hidden/Outlines/Soft Outline/Box Blur"
             float4 frag(Varyings IN) : SV_TARGET
             {
                 float4 sum = 0;
+                float scale = 1;
+
+                #if defined(SCALE_WITH_RESOLUTION)
+                scale = 1 * _ScreenParams.y / _ReferenceResolution;
+                #endif
 
                 for (float x = 0; x < _Samples; x++) {
-                    float2 offset = float2(x - _KernelSize, 0) * _BlitTexture_TexelSize.xy;
+                    float2 offset = float2(x - _KernelSize, 0) * _BlitTexture_TexelSize.xy * scale;
                     sum += SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, IN.texcoord + offset);
                 }
 

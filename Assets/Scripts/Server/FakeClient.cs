@@ -21,8 +21,8 @@ public class FakeClient : IGameClient
     
     // Internal state
     Guid clientId;
-    bool isConnected = false;
-    bool isNicknameRegistered = false;
+    bool isConnected;
+    bool isNicknameRegistered;
     SLobby currentLobby;
 
     // simulated state of server lobby
@@ -44,7 +44,7 @@ public class FakeClient : IGameClient
     {
         RegisterClientRequest registerClientRequest = new();
         isConnected = true;
-        await SendFakeRequestToServer<string>(MessageType.REGISTERCLIENT, registerClientRequest);
+        await SendFakeRequestToServer(MessageType.REGISTERCLIENT, registerClientRequest);
     }
 
     public async Task SendRegisterNickname(string nicknameInput)
@@ -53,7 +53,7 @@ public class FakeClient : IGameClient
         {
             nickname = nicknameInput,
         };
-        await SendFakeRequestToServer<string>(MessageType.REGISTERNICKNAME, registerNicknameRequest);
+        await SendFakeRequestToServer(MessageType.REGISTERNICKNAME, registerNicknameRequest);
     }
 
     public async Task SendGameLobby()
@@ -63,20 +63,20 @@ public class FakeClient : IGameClient
             gameMode = 0,
             sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef),
         };
-        await SendFakeRequestToServer<SLobby>(MessageType.GAMELOBBY, gameLobbyRequest);
+        await SendFakeRequestToServer(MessageType.GAMELOBBY, gameLobbyRequest);
     }
 
     public async Task SendGameLobbyLeaveRequest()
     {
         LeaveGameLobbyRequest leaveGameLobbyRequest = new();
-        await SendFakeRequestToServer<string>(MessageType.LEAVEGAMELOBBY, leaveGameLobbyRequest);
+        await SendFakeRequestToServer(MessageType.LEAVEGAMELOBBY, leaveGameLobbyRequest);
     }
 
     public async Task SendGameLobbyJoinRequest(string password)
     {
         // NOTE: this should never be happening in offline mode
         JoinGameLobbyRequest joinGameLobbyRequest = new();
-        await SendFakeRequestToServer<SLobby>(MessageType.JOINGAMELOBBY, joinGameLobbyRequest);
+        await SendFakeRequestToServer(MessageType.JOINGAMELOBBY, joinGameLobbyRequest);
     }
 
     public async Task SendGameLobbyReadyRequest(bool ready)
@@ -85,21 +85,21 @@ public class FakeClient : IGameClient
         {
             ready = true,
         };
-        await SendFakeRequestToServer<SLobby>(MessageType.READYLOBBY, readyGameLobbyRequest);
+        await SendFakeRequestToServer(MessageType.READYLOBBY, readyGameLobbyRequest);
     }
 
     public async Task StartGameDemoRequest()
     {
-        SSetupParameters setupParameters = new SSetupParameters(Player.RED, currentLobby.sBoardDef);
+        SSetupParameters setupParameters = new(Player.RED, currentLobby.sBoardDef);
         StartGameRequest startGameRequest = new()
         {
             setupParameters = setupParameters,
         };
-        await SendFakeRequestToServer<SSetupParameters>(MessageType.GAMESTART, startGameRequest);
+        await SendFakeRequestToServer(MessageType.GAMESTART, startGameRequest);
     }
 
 
-    async Task SendFakeRequestToServer<TResponse>(MessageType messageType, RequestBase requestData)
+    async Task SendFakeRequestToServer(MessageType messageType, RequestBase requestData)
     {
         Debug.Log($"OFFLINE: Sending fake Request of type {messageType}");
         if (!isConnected)
@@ -108,10 +108,10 @@ public class FakeClient : IGameClient
         }
         requestData.clientId = clientId;
         requestData.requestId = new Guid();
-        ResponseBase response = null;
+        ResponseBase response;
         switch (requestData)
         {
-            case RegisterClientRequest registerClientRequest:
+            case RegisterClientRequest:
                 response = new Response<string>
                 {
                     requestId = requestData.requestId,
@@ -130,7 +130,7 @@ public class FakeClient : IGameClient
                 };
                 break;
             case GameLobbyRequest gameLobbyRequest:
-                fakeServerLobby = new()
+                fakeServerLobby = new SLobby
                 {
                     lobbyId = Guid.NewGuid(),
                     hostId = clientId,
@@ -268,8 +268,6 @@ public class FakeClient : IGameClient
             Debug.Log("Invoking OnRegisterNicknameResponse");
             OnRegisterNicknameResponse?.Invoke(response);
         });
-        
-        
     }
     
     void HandleGameLobbyResponse(Response<SLobby> response)
@@ -280,7 +278,6 @@ public class FakeClient : IGameClient
             Debug.Log("Invoking OnGameLobbyResponse");
             OnGameLobbyResponse?.Invoke(response);
         });
-        
     }
     
     void HandleLeaveGameLobbyResponse(Response<string> response)
@@ -290,7 +287,6 @@ public class FakeClient : IGameClient
             Debug.Log("Invoking OnLeaveGameLobbyResponse");
             OnLeaveGameLobbyResponse?.Invoke(response);
         });
-        
     }
 
     void HandleReadyLobbyResponse(Response<SLobby> response)
@@ -300,7 +296,6 @@ public class FakeClient : IGameClient
             Debug.Log("Invoking OnReadyLobbyResponse");
             OnReadyLobbyResponse?.Invoke(response);
         });
-        
     }
     
     void HandleGameStartResponse(Response<SSetupParameters> gameStartResponse)
@@ -310,6 +305,5 @@ public class FakeClient : IGameClient
             Debug.Log($"Invoking OnDemoStarted to {OnDemoStarted?.GetInvocationList().Length} listeners");
             OnDemoStarted?.Invoke(gameStartResponse);
         });
-        
     }
 }

@@ -1,14 +1,14 @@
 Shader "Hidden/Outlines/Soft Outline/Dilate"
 {
     Properties {}
-    
+
     SubShader
     {
         Tags
         {
             "RenderPipeline"="UniversalPipeline"
         }
-        
+
         Cull Off
         ZWrite Off
         ZTest Always
@@ -17,13 +17,14 @@ Shader "Hidden/Outlines/Soft Outline/Dilate"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
+        #pragma multi_compile_local _ SCALE_WITH_RESOLUTION
+        
         CBUFFER_START(UnityPerMaterial)
             float _KernelSize;
+            float _ReferenceResolution;
             SAMPLER(sampler_BlitTexture);
-        #if UNITY_VERSION < 202300
-           
+            #if UNITY_VERSION < 202300
             float4 _BlitTexture_TexelSize;
-
             #endif
         CBUFFER_END
         ENDHLSL
@@ -41,18 +42,22 @@ Shader "Hidden/Outlines/Soft Outline/Dilate"
                 float sum = 0;
                 int shortestActivePixelDistance = _KernelSize + 1;
                 float3 nearestActivePixelColor = float3(0, 0, 0);
+
+                float scale = 1;
                 
-                for (int x = -_KernelSize; x <= _KernelSize; x++)
-                {
-                    float2 offset = float2(x, 0) * _BlitTexture_TexelSize.xy;
+                #if defined(SCALE_WITH_RESOLUTION)
+                scale = 1 * _ScreenParams.y / _ReferenceResolution;
+                #endif
+
+                for (int x = -_KernelSize; x <= _KernelSize; x++) {
+                    float2 offset = float2(x, 0) * _BlitTexture_TexelSize.xy * scale;
                     float4 sample = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_BlitTexture, IN.texcoord + offset);
 
                     int distance = abs(x);
                     float falloff = 1.0f - distance / _KernelSize;
                     sum += sample.a * falloff;
 
-                    if (distance < shortestActivePixelDistance && sample.a >= 1.0)
-                    {
+                    if (distance < shortestActivePixelDistance && sample.a >= 1.0) {
                         shortestActivePixelDistance = distance;
                         nearestActivePixelColor = sample.xyz;
                     }
@@ -66,9 +71,9 @@ Shader "Hidden/Outlines/Soft Outline/Dilate"
         Pass // VERTICAL DILATE
         {
             Name "VERTICAL DILATE"
-            
-             Blend SrcAlpha OneMinusSrcAlpha
-             
+
+            Blend SrcAlpha OneMinusSrcAlpha
+
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment frag
@@ -78,19 +83,23 @@ Shader "Hidden/Outlines/Soft Outline/Dilate"
                 float sum = 0;
                 float3 brightestActivePixelColor = float3(0, 0, 0);
                 float brightestWeightedAlpha = 0;
+
+                float scale = 1;
                 
-                for (int y = -_KernelSize; y <= _KernelSize; y++)
-                {
-                    float2 offset = float2(0, y) * _BlitTexture_TexelSize.xy;
+                #if defined(SCALE_WITH_RESOLUTION)
+                scale = 1 * _ScreenParams.y / _ReferenceResolution;
+                #endif
+
+                for (int y = -_KernelSize; y <= _KernelSize; y++) {
+                    float2 offset = float2(0, y) * _BlitTexture_TexelSize.xy * scale;
                     float4 sample = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_BlitTexture, IN.texcoord + offset);
-                    
+
                     int distance = abs(y);
                     float falloff = 1.0f - distance / _KernelSize;
                     float weightedValue = sample.a * falloff;
                     sum += weightedValue;
-                    
-                    if (weightedValue > brightestWeightedAlpha)
-                    {
+
+                    if (weightedValue > brightestWeightedAlpha) {
                         brightestWeightedAlpha = weightedValue;
                         brightestActivePixelColor = sample.xyz;
                     }
