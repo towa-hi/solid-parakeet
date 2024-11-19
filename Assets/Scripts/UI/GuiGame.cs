@@ -17,5 +17,4 @@ public class GuiGame : MenuElement
         pawnSetup.gameObject.SetActive(true);
         pawnSetup.Initialize(setupParameters);
     }
-    
 }

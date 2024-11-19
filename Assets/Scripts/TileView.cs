@@ -121,6 +121,9 @@ public class TileView : MonoBehaviour
         uint outlineLayer = 0;
         switch (outlineType)
         {
+            case "Fill":
+                outlineLayer = (1 << 6);
+                break;
             case "HoverOutline":
                 outlineLayer = (1 << 7);
                 break;
@@ -146,7 +149,6 @@ public class TileView : MonoBehaviour
     public void OnHovered(bool isHovered)
     {
         this.isHovered = isHovered;
-        Debug.Log($"{gameObject.name} hovered set to {isHovered}");
         SetMeshOutline(isHovered, "HoverOutline");
     }
 }

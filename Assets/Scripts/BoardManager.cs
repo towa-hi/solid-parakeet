@@ -18,21 +18,21 @@ public class BoardManager : MonoBehaviour
     
     // setup stuff
     
+    public ClickInputManager clickInputManager;
     public Player player;
+    public Player opponentPlayer;
     public SetupParameters setupParameters;
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
-    readonly List<PawnView> pawnViews = new();
+    public List<PawnView> pawnViews = new();
     public Vector2Int hoveredPos;
     public event Action<Pawn> OnPawnModified; // subscribed to by all pawnviews
     
-    
-    // game stuff
-
-    public ClickInputManager clickInputManager;
-
     public PawnView currentHoveredPawnView;
     public TileView currentHoveredTileView;
     
+    // game stuff
+
+    public PawnView selectedPawnView;
     
     void SetPhase(GamePhase inPhase)
     {
@@ -59,7 +59,6 @@ public class BoardManager : MonoBehaviour
             case GamePhase.UNINITIALIZED:
                 break;
             case GamePhase.SETUP:
-                
                 break;
             case GamePhase.MOVE:
                 break;
@@ -78,17 +77,25 @@ public class BoardManager : MonoBehaviour
         setupParameters = new(response.data);
         Debug.Log("setup parameters set");
         player = response.data.player;
+        if (player == Player.RED)
+        {
+            opponentPlayer = Player.BLUE;
+        }
+        else
+        {
+            opponentPlayer = Player.RED;
+        }
         Debug.Log("player set");
         Debug.Log("setupSelectedPawnDef set");
         LoadBoardData(setupParameters.board);
         LoadPawns(player);
+        LoadPawns(opponentPlayer);
         Debug.Log("board set");
-        SetPhase(GamePhase.SETUP);
         Debug.Log("phase set");
         clickInputManager.OnPositionHovered += OnPositionHovered;
         clickInputManager.OnClick += OnClick;
         clickInputManager.Initialize();
-        
+        SetPhase(GamePhase.SETUP);
     }
     
     void OnPositionHovered(Vector2Int oldPos, Vector2Int newPos)
@@ -149,21 +156,80 @@ public class BoardManager : MonoBehaviour
         switch (phase)
         {
             case GamePhase.UNINITIALIZED:
+                // Do nothing
                 break;
-            case GamePhase.SETUP:
-                if (currentHoveredPawnView)
-                {
-                    if (currentHoveredPawnView.pawn.pos != hoveredPosition)
-                    {
-                        Debug.LogWarning("pos doesn't match hovered position");
-                        return;
-                    }
 
-                    Pawn clickedPawn = currentHoveredPawnView.pawn;
-                    SendPawnToPurgatory(clickedPawn);
+            case GamePhase.SETUP:
+                if (!IsPosValid(hoveredPosition))
+                {
+                    // Invalid position; do nothing
+                    break;
                 }
+
+                if (currentHoveredPawnView != null)
+                {
+                    // Remove the pawn at the hovered position
+                    SendPawnToPurgatory(currentHoveredPawnView.pawn);
+                }
+                else if (setupSelectedPawnDef != null && GetPawnViewFromPos(hoveredPosition) == null)
+                {
+                    // Place a new pawn if a pawnDef is selected and no pawn is at this position
+                    GetPawnFromPurgatoryByPawnDef(player, setupSelectedPawnDef, hoveredPosition);
+                }
+                // If no pawnDef is selected or a pawn is already at this position, do nothing
                 break;
+
             case GamePhase.MOVE:
+                if (!IsPosValid(hoveredPosition))
+                {
+                    if (selectedPawnView != null)
+                    {
+                        SelectPawnView(null);
+                    }
+                    break;
+                }
+
+                if (selectedPawnView != null)
+                {
+                    if (currentHoveredPawnView != null)
+                    {
+                        if (currentHoveredPawnView == selectedPawnView)
+                        {
+                            SelectPawnView(null);
+                            Debug.Log("OnClick: deselected because clicked the selected pawn");
+                        }
+                        else
+                        {
+                            SelectPawnView(currentHoveredPawnView);
+                            Debug.Log("OnClick: selected a different pawn");
+                        }
+                    }
+                    else
+                    {
+                        bool success = TryGoToTile(hoveredPosition);
+                        if (success)
+                        {
+                            Debug.Log("OnClick: tried to go to a tile");
+                        }
+                        else
+                        {
+                            SelectPawnView(null);
+                            Debug.Log("OnClick: deselected because couldn't go to tile");
+                        }
+                    }
+                }
+                else
+                {
+                    if (currentHoveredPawnView != null)
+                    {
+                        SelectPawnView(currentHoveredPawnView);
+                        Debug.Log("OnClick: selecting pawn");
+                    }
+                    else
+                    {
+                        Debug.Log("OnClick: doing nothing, clicked an empty tile with nothing selected");
+                    }
+                }
                 break;
             case GamePhase.RESOLVE:
                 break;
@@ -174,6 +240,141 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+
+    bool TryGoToTile(Vector2Int pos)
+    {
+        Debug.Log($"TryGoToTile at {pos}");
+        // check if valid move
+        // queue a new PawnAction to go to that position
+        return true;
+    }
+
+List<Tile> GetMovableTiles(Pawn pawn)
+{
+    List<Tile> movableTiles = new List<Tile>();
+    // Check if the pawn is a Scout
+    if (pawn.def.pawnName == "Scout")
+    {
+        // Scouts move any number of tiles in the cardinal directions
+        Vector2Int[] directions = new Vector2Int[]
+        {
+            new Vector2Int(1, 0),   // Right
+            new Vector2Int(-1, 0),  // Left
+            new Vector2Int(0, 1),   // Up
+            new Vector2Int(0, -1)   // Down
+        };
+
+        foreach (Vector2Int dir in directions)
+        {
+            Vector2Int currentPos = pawn.pos;
+            bool enemyEncountered = false;
+
+            while (true)
+            {
+                currentPos += dir;
+
+                // Check if the position is within the board bounds
+                if (!IsPosValid(currentPos))
+                    break;
+
+                // Get the tile at the current position
+                TileView tileView = GetTileView(currentPos);
+                if (tileView == null || !tileView.tile.isPassable)
+                    break; // Cannot move through impassable tiles
+
+                // Check if the tile is occupied by another pawn
+                PawnView pawnAtPos = GetPawnViewFromPos(currentPos);
+
+                if (pawnAtPos != null)
+                {
+                    if (pawnAtPos.pawn.player == pawn.player)
+                    {
+                        // Cannot move through own pawns
+                        break;
+                    }
+                    else // Occupied by enemy pawn
+                    {
+                        movableTiles.Add(tileView.tile);
+
+                        if (!enemyEncountered)
+                        {
+                            enemyEncountered = true;
+                            // Can't move further after encountering an enemy
+                            break;
+                        }
+                        else
+                        {
+                            // Already encountered an enemy; cannot move through more than one enemy
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // Tile is unoccupied
+                    movableTiles.Add(tileView.tile);
+                }
+            }
+        }
+    }
+    else if (pawn.def.pawnName == "Bomb" || pawn.def.pawnName == "Flag")
+    {
+        // Bombs and Flags cannot move
+        // Return an empty list
+        return movableTiles;
+    }
+    else
+    {
+        // Other pawns can move one square in cardinal directions only
+        Vector2Int[] directions = new Vector2Int[]
+        {
+            new Vector2Int(1, 0),   // Right
+            new Vector2Int(-1, 0),  // Left
+            new Vector2Int(0, 1),   // Up
+            new Vector2Int(0, -1)   // Down
+        };
+
+        foreach (Vector2Int dir in directions)
+        {
+            Vector2Int currentPos = pawn.pos + dir;
+
+            // Check if the position is within the board bounds
+            if (!IsPosValid(currentPos))
+                continue;
+
+            // Get the tile at the current position
+            TileView tileView = GetTileView(currentPos);
+            if (tileView == null || !tileView.tile.isPassable)
+                continue; // Cannot move onto impassable tiles
+
+            // Check if the tile is occupied by another pawn
+            PawnView pawnAtPos = GetPawnViewFromPos(currentPos);
+
+            if (pawnAtPos != null)
+            {
+                if (pawnAtPos.pawn.player == pawn.player)
+                {
+                    // Cannot move onto a tile occupied by own pawn
+                    continue;
+                }
+                else
+                {
+                    // Tile is occupied by an enemy pawn; can move onto it
+                    movableTiles.Add(tileView.tile);
+                }
+            }
+            else
+            {
+                // Tile is unoccupied
+                movableTiles.Add(tileView.tile);
+            }
+        }
+    }
+
+    return movableTiles;
+}
+
+    
     void LoadPawns(Player targetPlayer)
     {
         foreach ((PawnDef pawnDef, int max) in setupParameters.maxPawnsDict)
@@ -189,7 +390,7 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    Pawn GetPawnFromPurgatoryByPawnDef(PawnDef pawnDef, Vector2Int pos)
+    Pawn GetPawnFromPurgatoryByPawnDef(Player targetPlayer, PawnDef pawnDef, Vector2Int pos)
     {
         if (!IsPosValid(pos))
         {
@@ -200,13 +401,16 @@ public class BoardManager : MonoBehaviour
             Pawn pawn = pawnView.pawn;
             if (pawn.def == pawnDef)
             {
-                if (pawn.isSetup)
+                if (pawn.player == targetPlayer)
                 {
-                    if (!pawn.isAlive)
+                    if (pawn.isSetup)
                     {
-                        pawn.SetAlive(true, pos);
-                        OnPawnModified?.Invoke(pawn);
-                        return pawn;
+                        if (!pawn.isAlive)
+                        {
+                            pawn.SetAlive(true, pos);
+                            OnPawnModified?.Invoke(pawn);
+                            return pawn;
+                        }
                     }
                 }
             }
@@ -220,8 +424,20 @@ public class BoardManager : MonoBehaviour
         pawn.SetAlive(false, null);
         OnPawnModified?.Invoke(pawn);
     }
-    
 
+    public void SelectPawnView(PawnView pawnView)
+    {
+        if (selectedPawnView)
+        {
+            selectedPawnView.SetSelect(false);
+        }
+        selectedPawnView = pawnView;
+        if (selectedPawnView)
+        {
+            pawnView.SetSelect(true);
+        }
+    }
+    
     public PawnDef setupSelectedPawnDef;
 
     public void OnSetupPawnEntrySelected(PawnDef pawnDef)
@@ -231,45 +447,81 @@ public class BoardManager : MonoBehaviour
     
     public void StartDemoGame()
     {
-        //bool setupValid = IsSetupValid(player);
+        bool setupValid = IsSetupValid(player);
+        if (setupValid)
+        {
+            AutoSetup(opponentPlayer);
+            bool opponentSetupValid = IsSetupValid(opponentPlayer);
+            if (opponentSetupValid)
+            {
+                SetPhase(GamePhase.MOVE);
+            }
+        }
     }
 
     bool IsSetupValid(Player targetPlayer)
+{
+    // Create a copy of the max pawns dict to track counts
+    Dictionary<PawnDef, int> pawnCounts = new Dictionary<PawnDef, int>(setupParameters.maxPawnsDict);
+
+    // Iterate over alive pawns on the board for the target player
+    foreach (PawnView pawnView in pawnViews)
     {
-        // Dictionary<PawnDef, int> pawnDefsOnBoard = new(setupParameters.maxPawnsDict);
-        // foreach (SetupPawnView setupPawnView in setupPawnViews.Where(setupPawnView => setupPawnView.pawn.player == targetPlayer))
-        // {
-        //     if (!setupPawnView.pawn.isSetup)
-        //     {
-        //         Debug.LogError("isSetup was false");
-        //         return false;
-        //     }
-        //     TileView tileView = GetTileView(setupPawnView.pawn.pos);
-        //     if (tileView == null)
-        //     {
-        //         Debug.LogError("tile was null");
-        //         return false;
-        //     }
-        //     if (!tileView.tile.IsTileEligibleForPlayer(targetPlayer))
-        //     {
-        //         Debug.LogError("tile was not eligible for player");
-        //         return false;
-        //     }
-        //     if (pawnDefsOnBoard[setupPawnView.pawn.def] <= 0)
-        //     {
-        //         Debug.LogError("too many pawns of this type");
-        //         return false;
-        //     }
-        //     pawnDefsOnBoard[setupPawnView.pawn.def] -= 1;
-        // }
-        // if (pawnDefsOnBoard.Values.Any(count => count != 0))
-        // {
-        //     Debug.LogError("pawns remaining");
-        //     return false;
-        // }
-        // Debug.Log("setup valid");
-        return true;
+        Pawn pawn = pawnView.pawn;
+        if (pawn.isAlive && pawn.player == targetPlayer)
+        {
+            // Check if pawnDef is in the max pawns dict
+            if (!pawnCounts.ContainsKey(pawn.def))
+            {
+                Debug.LogError($"PawnDef '{pawn.def.pawnName}' not found in max pawns dict");
+                return false;
+            }
+
+            // Decrement the count for this pawnDef
+            pawnCounts[pawn.def] -= 1;
+
+            // If count goes negative, there are too many pawns of this type
+            if (pawnCounts[pawn.def] < 0)
+            {
+                Debug.LogError($"Too many pawns of type '{pawn.def.pawnName}'");
+                return false;
+            }
+
+            // Check if the pawn is on a valid tile
+            if (!IsPosValid(pawn.pos))
+            {
+                Debug.LogError($"Pawn '{pawn.def.pawnName}' is on an invalid position {pawn.pos}");
+                return false;
+            }
+
+            TileView tileView = GetTileView(pawn.pos);
+            if (tileView == null)
+            {
+                Debug.LogError($"Tile at position {pawn.pos} not found for pawn '{pawn.def.pawnName}'");
+                return false;
+            }
+            if (!tileView.tile.IsTileEligibleForPlayer(targetPlayer))
+            {
+                Debug.LogError($"Tile at position {pawn.pos} is not eligible for player '{targetPlayer}'");
+                return false;
+            }
+        }
     }
+
+    // Check if there are any remaining pawns that haven't been placed
+    foreach (var kvp in pawnCounts)
+    {
+        if (kvp.Value > 0)
+        {
+            Debug.LogError($"Not all pawns of type '{kvp.Key.pawnName}' have been placed. {kvp.Value} remaining.");
+            return false;
+        }
+    }
+
+    Debug.Log("Setup is valid");
+    return true;
+}
+
     
     void LoadBoardData(BoardDef boardDef)
     {
@@ -299,12 +551,13 @@ public class BoardManager : MonoBehaviour
         {
             throw new Exception("Player can't be none");
         }
-        
-        // Kill everything
         // TODO: make this not call the same event 1600 times
         foreach (var pawnView in pawnViews)
         {
-            SendPawnToPurgatory(pawnView.pawn);
+            if (pawnView.pawn.player == targetPlayer)
+            {
+                SendPawnToPurgatory(pawnView.pawn);
+            }
         }
         BoardDef boardDef = setupParameters.board;
         // Keep track of positions that have already been used
@@ -335,7 +588,7 @@ public class BoardManager : MonoBehaviour
                 Vector2Int pos = eligiblePositions[index];
                 eligiblePositions.RemoveAt(index);
                 usedPositions.Add(pos);
-                GetPawnFromPurgatoryByPawnDef(pawnDef, pos);
+                GetPawnFromPurgatoryByPawnDef(targetPlayer, pawnDef, pos);
             }
         }
     }

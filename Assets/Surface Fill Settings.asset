@@ -16,4 +16,43 @@ MonoBehaviour:
   showInSceneView: 1
   clearStencil: 0
   debugStage: 0
-  fills: []
+  fills:
+  - {fileID: 8087574231818334729}
+--- !u!114 &8087574231818334729
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d0a7dc71beb4da8aba332c635284136, type: 3}
+  m_Name: Fill
+  m_EditorClassIdentifier: 
+  material: {fileID: 0}
+  isActive: 1
+  RenderingLayer:
+    serializedVersion: 0
+    m_Bits: 64
+  occlusion: 2
+  blendMode: 0
+  alphaCutout: 0
+  alphaCutoutTexture: {fileID: 0}
+  alphaCutoutThreshold: 0.5
+  pattern: 3
+  primaryColor: {r: 1, g: 1, b: 1, a: 0.6117647}
+  secondaryColor: {r: 1, g: 1, b: 1, a: 0}
+  texture: {fileID: 0}
+  channel: 0
+  frequencyX: 83
+  frequencyY: 2
+  density: 0.5
+  rotation: 45
+  direction: 0
+  offset: 0
+  speed: 0.0231
+  scale: 1
+  width: 0.3
+  softness: 0
+  power: 0.8

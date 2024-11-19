@@ -43,9 +43,4 @@ public class GuiPawnSetup : MonoBehaviour
         Debug.Log("Submitting pieces");
         GameManager.instance.boardManager.StartDemoGame();
     }
-    
-    void OnSetupPawnViewsChanged(List<SetupPawnView> setupPawnViews)
-    {
-        pawnSetupList.UpdateList(setupPawnViews);
-    }
 }

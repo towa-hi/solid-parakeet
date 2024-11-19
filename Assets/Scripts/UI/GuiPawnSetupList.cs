@@ -9,6 +9,7 @@ public class GuiPawnSetupList : MonoBehaviour
     public GameObject entryPrefab;
     HashSet<GuiPawnSetupListEntry> entries;
     public GuiPawnSetupListEntry selectedEntry;
+    public bool initialized; 
     
     public void Initialize(SetupParameters setupParameters)
     {
@@ -17,7 +18,7 @@ public class GuiPawnSetupList : MonoBehaviour
         entries ??= new HashSet<GuiPawnSetupListEntry>();
         foreach (GuiPawnSetupListEntry entry in entries)
         {
-            Destroy(entry);
+            Destroy(entry.gameObject);
         }
         entries = new HashSet<GuiPawnSetupListEntry>();
         foreach ((PawnDef pawnDef, int maxPawns) in setupParameters.maxPawnsDict)
@@ -28,18 +29,10 @@ public class GuiPawnSetupList : MonoBehaviour
             entry.Initialize(pawnDef, maxPawns, OnEntryClicked);
             entries.Add(entry);
         }
-    }
-    
-    public void UpdateList(List<SetupPawnView> setupPawnViews)
-    {
-        Player currentPlayer = GameManager.instance.boardManager.player;
-        foreach (GuiPawnSetupListEntry entry in entries)
-        {
-            int numPlacedPawns = setupPawnViews.Count(pawnView =>
-                pawnView.pawn.def == entry.pawnDef && pawnView.pawn.player == currentPlayer);
-            int remainingPawns = entry.maxPawns - numPlacedPawns;
-            entry.SetCount(remainingPawns);
-        }
+
+        GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
+        initialized = true;
+        UpdateList();
     }
     
     void OnEntryClicked(GuiPawnSetupListEntry inSelectedEntry)
@@ -60,5 +53,36 @@ public class GuiPawnSetupList : MonoBehaviour
         }
         PawnDef pawnDef = selectedEntry == null ? null : selectedEntry.pawnDef;
         GameManager.instance.boardManager.OnSetupPawnEntrySelected(pawnDef);
+    }
+
+    void OnPawnModified(Pawn pawn)
+    {
+        if (pawn.player == GameManager.instance.boardManager.player)
+        {
+            UpdateList();
+        }
+    }
+    
+    public void UpdateList()
+    {
+        if (!initialized)
+            return;
+
+        Player currentPlayer = GameManager.instance.boardManager.player;
+
+        // Get all PawnViews from the BoardManager
+        List<PawnView> pawnViews = GameManager.instance.boardManager.pawnViews;
+
+        foreach (GuiPawnSetupListEntry entry in entries)
+        {
+            // Count the number of alive pawns of this PawnDef for the current player
+            int numAlivePawns = pawnViews.Count(pawnView =>
+                pawnView.pawn.def == entry.pawnDef &&
+                pawnView.pawn.player == currentPlayer &&
+                pawnView.pawn.isAlive);
+
+            int remainingPawns = entry.maxPawns - numAlivePawns;
+            entry.SetCount(remainingPawns);
+        }
     }
 }

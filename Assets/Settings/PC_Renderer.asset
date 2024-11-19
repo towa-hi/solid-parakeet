@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: SurfaceFill
   m_EditorClassIdentifier: 
   m_Active: 1
-  settings: {fileID: 0}
+  settings: {fileID: 11400000, guid: 12720be2be7400f4bb67150008427c70, type: 2}
   shaders:
-    clear: {fileID: 0}
-    mask: {fileID: 0}
-    fill: {fileID: 0}
+    clear: {fileID: 4800000, guid: ebbc2128da914f45af22437ef28eb212, type: 3}
+    mask: {fileID: 4800000, guid: 7db39fa69b214149be63e199c01483e7, type: 3}
+    fill: {fileID: -6465566751694194690, guid: 37e37d4fece9f421f8a99286f525bf80, type: 3}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

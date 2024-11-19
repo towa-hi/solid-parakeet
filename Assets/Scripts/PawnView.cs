@@ -72,13 +72,6 @@ public class PawnView : MonoBehaviour
         OnPawnModified(pawn);
     }
 
-
-    public void RemoveFromPurgatory(Vector2Int pos)
-    {
-        pawn.SetAlive(true, pos);
-        transform.position = GameManager.instance.boardManager.GetTileView(pos).pawnOrigin.position;
-    }
-
     protected void DisplaySymbol(string index)
     {
         
@@ -132,7 +125,12 @@ public class PawnView : MonoBehaviour
     public void OnHovered(bool inIsHovered)
     {
         isHovered = inIsHovered;
-        Debug.Log($"{gameObject.name} hovered set to {isHovered}");
         SetMeshOutline(isHovered, "HoverOutline");
+    }
+
+    public void SetSelect(bool inIsSelected)
+    {
+        isSelected = inIsSelected;
+        SetMeshOutline(isSelected, "SelectOutline");
     }
 }
