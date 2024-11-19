@@ -9,6 +9,8 @@ public class BoardClickInputManager : MonoBehaviour
     public Vector2Int currentHoveredPosition = new Vector2Int(-1, -1);
     public TileView currentHoveredTileView;
     public PawnView currentHoveredPawnView;
+    public GameObject currentHoveredObject;
+    public GameObject previousHoveredObject;
     public Vector2 screenPointerPosition;
 
     public TileView currentClickedTileView;
@@ -25,115 +27,123 @@ public class BoardClickInputManager : MonoBehaviour
         Debug.Log("BoardClickInputManager initialized");
         isUpdating = true;
     }
-
+    
     void Update()
+{
+    // Store the previous hovered object
+    previousHoveredObject = currentHoveredObject;
+    // Reset hovered objects at the start
+    currentHoveredObject = null;
+    currentHoveredPawnView = null;
+    currentHoveredTileView = null;
+
+    if (!isUpdating)
     {
-        // Reset hovered objects at the start
-        currentHoveredPawnView = null;
-        currentHoveredTileView = null;
+        return;
+    }
 
-        if (!isUpdating)
+    bool foundSomething = false;
+
+    screenPointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
+    PointerEventData eventData = new(EventSystem.current)
+    {
+        position = screenPointerPosition
+    };
+    List<RaycastResult> results = new();
+    EventSystem.current.RaycastAll(eventData, results);
+    isPointerOverUI = IsPointerOverUI(results);
+
+    if (isPointerOverUI)
+    {
+        // When over UI, reset currentHoveredPosition if it was not already (-1, -1)
+        if (currentHoveredPosition != new Vector2Int(-1, -1) || currentHoveredObject != previousHoveredObject)
         {
-            return;
+            currentHoveredPosition = new Vector2Int(-1, -1);
+            currentHoveredObject = null;
+            OnPositionHovered?.Invoke(currentHoveredPosition);
         }
+        return;
+    }
 
-        bool foundSomething = false;
+    // Define layer priorities
+    Dictionary<int, int> layerPriorities = new Dictionary<int, int>
+    {
+        { LayerMask.NameToLayer("UI"), 0 }, // UI
+        { LayerMask.NameToLayer("PawnView"), 1 }, // Highest priority
+        { LayerMask.NameToLayer("TileView"), 2 }, // Lower priority
+        { LayerMask.NameToLayer("Default"), 3 }   // Default priority for other layers
+    };
 
-        screenPointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
-        PointerEventData eventData = new(EventSystem.current)
+    // Sort results based on layer priority
+    results.Sort((a, b) =>
+    {
+        int layerA = a.gameObject.layer;
+        int layerB = b.gameObject.layer;
+
+        int priorityA = layerPriorities.ContainsKey(layerA) ? layerPriorities[layerA] : int.MaxValue;
+        int priorityB = layerPriorities.ContainsKey(layerB) ? layerPriorities[layerB] : int.MaxValue;
+
+        return priorityA.CompareTo(priorityB);
+    });
+
+    foreach (RaycastResult result in results)
+    {
+        GameObject hitObject = result.gameObject;
+        int hitLayer = hitObject.layer;
+
+        if (hitLayer == LayerMask.NameToLayer("PawnView"))
         {
-            position = screenPointerPosition
-        };
-        List<RaycastResult> results = new();
-        EventSystem.current.RaycastAll(eventData, results);
-        isPointerOverUI = IsPointerOverUI(results);
+            currentHoveredPawnView = hitObject.GetComponentInParent<PawnView>();
+            currentHoveredTileView = null;
+            currentHoveredObject = currentHoveredPawnView != null ? currentHoveredPawnView.gameObject : null;
+            foundSomething = true;
 
-        if (isPointerOverUI)
-        {
-            // When over UI, reset currentHoveredPosition if it was not already (-1, -1)
-            if (currentHoveredPosition != new Vector2Int(-1, -1))
+            Vector2Int newPosition = currentHoveredPawnView.pawn.pos;
+            if (currentHoveredPosition != newPosition || currentHoveredObject != previousHoveredObject)
             {
-                currentHoveredPosition = new Vector2Int(-1, -1);
+                currentHoveredPosition = newPosition;
                 OnPositionHovered?.Invoke(currentHoveredPosition);
             }
-            return;
+            break; // Found the highest priority object
         }
-
-        // Define layer priorities
-        Dictionary<int, int> layerPriorities = new Dictionary<int, int>
+        else if (hitLayer == LayerMask.NameToLayer("TileView"))
         {
-            { LayerMask.NameToLayer("PawnView"), 0 }, // Highest priority
-            { LayerMask.NameToLayer("TileView"), 1 }, // Lower priority
-            { LayerMask.NameToLayer("Default"), 2 }   // Default priority for other layers
-        };
-
-        // Sort results based on layer priority
-        results.Sort((a, b) =>
-        {
-            int layerA = a.gameObject.layer;
-            int layerB = b.gameObject.layer;
-
-            int priorityA = layerPriorities.ContainsKey(layerA) ? layerPriorities[layerA] : int.MaxValue;
-            int priorityB = layerPriorities.ContainsKey(layerB) ? layerPriorities[layerB] : int.MaxValue;
-
-            return priorityA.CompareTo(priorityB);
-        });
-
-        foreach (RaycastResult result in results)
-        {
-            GameObject hitObject = result.gameObject;
-            int hitLayer = hitObject.layer;
-
-            if (hitLayer == LayerMask.NameToLayer("PawnView"))
+            if (!foundSomething)
             {
-                currentHoveredPawnView = hitObject.GetComponentInParent<PawnView>();
-                currentHoveredTileView = null;
+                currentHoveredTileView = hitObject.GetComponentInParent<TileView>();
+                currentHoveredPawnView = null;
+                currentHoveredObject = currentHoveredTileView != null ? currentHoveredTileView.gameObject : null;
                 foundSomething = true;
 
-                Vector2Int newPosition = currentHoveredPawnView.pawn.pos;
-                if (currentHoveredPosition != newPosition)
+                Vector2Int newPosition = currentHoveredTileView.tile.pos;
+                if (currentHoveredPosition != newPosition || currentHoveredObject != previousHoveredObject)
                 {
                     currentHoveredPosition = newPosition;
                     OnPositionHovered?.Invoke(currentHoveredPosition);
                 }
-                break; // Found the highest priority object
-            }
-            else if (hitLayer == LayerMask.NameToLayer("TileView"))
-            {
-                if (!foundSomething)
-                {
-                    currentHoveredTileView = hitObject.GetComponentInParent<TileView>();
-                    currentHoveredPawnView = null;
-                    foundSomething = true;
-
-                    Vector2Int newPosition = currentHoveredTileView.tile.pos;
-                    if (currentHoveredPosition != newPosition)
-                    {
-                        currentHoveredPosition = newPosition;
-                        OnPositionHovered?.Invoke(currentHoveredPosition);
-                    }
-                    // Continue in case a higher priority object is found
-                }
-            }
-            // Continue processing in case a higher priority object is found
-        }
-
-        if (!foundSomething)
-        {
-            // If no valid object is found, reset currentHoveredPosition if it was not already (-1, -1)
-            if (currentHoveredPosition != new Vector2Int(-1, -1))
-            {
-                currentHoveredPosition = new Vector2Int(-1, -1);
-                OnPositionHovered?.Invoke(currentHoveredPosition);
+                // Continue in case a higher priority object is found
             }
         }
+        // Continue processing in case a higher priority object is found
+    }
 
-        if (Globals.inputActions.Game.Click.triggered)
+    if (!foundSomething)
+    {
+        // If no valid object is found, reset currentHoveredPosition if it was not already (-1, -1)
+        if (currentHoveredPosition != new Vector2Int(-1, -1) || currentHoveredObject != previousHoveredObject)
         {
-            HandleClick();
+            currentHoveredPosition = new Vector2Int(-1, -1);
+            currentHoveredObject = null;
+            OnPositionHovered?.Invoke(currentHoveredPosition);
         }
     }
-    
+
+    if (Globals.inputActions.Game.Click.triggered)
+    {
+        HandleClick();
+    }
+}
+
     bool IsPointerOverUI(List<RaycastResult> results)
     {
         return results.Any(result => result.gameObject.layer == LayerMask.NameToLayer("UI"));

@@ -41,10 +41,10 @@ MonoBehaviour:
   customDepthEnabled: 0
   RenderingLayer:
     serializedVersion: 0
-    m_Bits: 128
+    m_Bits: 256
   occlusion: 0
   closedLoop: 1
   alphaCutout: 0
   alphaCutoutTexture: {fileID: 0}
   alphaCutoutThreshold: 0.5
-  color: {r: 1, g: 0.95055497, b: 0.8443396, a: 0.60784316}
+  color: {r: 1, g: 0.36335704, b: 0, a: 1}

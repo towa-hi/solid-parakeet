@@ -17,13 +17,13 @@ MonoBehaviour:
   customDepthEnabled: 0
   RenderingLayer:
     serializedVersion: 0
-    m_Bits: 256
-  occlusion: 0
+    m_Bits: 128
+  occlusion: 2
   closedLoop: 1
   alphaCutout: 0
   alphaCutoutTexture: {fileID: 0}
   alphaCutoutThreshold: 0.5
-  color: {r: 1, g: 0.7129013, b: 0, a: 0.60784316}
+  color: {r: 0.9528302, g: 0.79749197, b: 0.4000089, a: 0.78039217}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -43,7 +43,7 @@ MonoBehaviour:
   outlines:
   - {fileID: -3118965036231983887}
   scaling: 0
-  width: 7
+  width: 3
   minWidth: 0
   blendMode: 0
   customDepthBuffer: 0

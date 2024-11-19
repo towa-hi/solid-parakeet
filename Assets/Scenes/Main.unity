@@ -218,7 +218,7 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
+  m_VertexColorAlwaysGammaSpace: 1
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -437,6 +437,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1153439523}
   - component: {fileID: 1153439522}
+  - component: {fileID: 1153439526}
   - component: {fileID: 1153439525}
   - component: {fileID: 1153439521}
   - component: {fileID: 1153439524}
@@ -475,12 +476,13 @@ MonoBehaviour:
   boardClickInputManager: {fileID: 1153439525}
   tilePrefab: {fileID: 295967387164842906, guid: 88c29a6a30cf7ee4aa8b9210c4b5cd9a, type: 3}
   pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
-  setupPawnPrefab: {fileID: 2420147050437188656, guid: 5411e15466f890045b5dae2fe4a78126, type: 3}
   grid: {fileID: 1153439521}
   phase: 0
   player: 0
-  selectedPos: {x: 0, y: 0}
   hoveredPos: {x: 0, y: 0}
+  clickInputManager: {fileID: 1153439526}
+  currentHoveredPawnView: {fileID: 0}
+  currentHoveredTileView: {fileID: 0}
   setupSelectedPawnDef: {fileID: 0}
 --- !u!4 &1153439523
 Transform:
@@ -526,11 +528,31 @@ MonoBehaviour:
   currentHoveredPosition: {x: -1, y: -1}
   currentHoveredTileView: {fileID: 0}
   currentHoveredPawnView: {fileID: 0}
+  currentHoveredObject: {fileID: 0}
+  previousHoveredObject: {fileID: 0}
   screenPointerPosition: {x: 0, y: 0}
   currentClickedTileView: {fileID: 0}
   currentClickedPawnView: {fileID: 0}
   isUpdating: 0
   isPointerOverUI: 0
+--- !u!114 &1153439526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1153439520}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c38643e8da373c34186b8d73aced3542, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoveredPosition: {x: 0, y: 0}
+  screenPointerPosition: {x: 0, y: 0}
+  isInitialized: 0
+  hoveredObject: {fileID: 0}
+  hoveredPawnView: {fileID: 0}
+  hoveredTileView: {fileID: 0}
 --- !u!1 &1246264307
 GameObject:
   m_ObjectHideFlags: 0

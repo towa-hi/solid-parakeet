@@ -142,4 +142,11 @@ public class TileView : MonoBehaviour
         floorRenderer.renderingLayerMask = currentRenderingLayerMask;
         floorRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
+    
+    public void OnHovered(bool isHovered)
+    {
+        this.isHovered = isHovered;
+        Debug.Log($"{gameObject.name} hovered set to {isHovered}");
+        SetMeshOutline(isHovered, "HoverOutline");
+    }
 }

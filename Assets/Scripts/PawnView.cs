@@ -42,51 +42,6 @@ public class PawnView : MonoBehaviour
         }
     }
 
-    public void OnPositionClicked(Vector2Int pos)
-    {
-        isSelected = pawn.pos == pos;
-        SetMeshOutline(isSelected, "SelectOutline");
-    }
-    
-    public void OnPositionHovered(Vector2Int pos)
-    {
-        isHovered = pawn.pos == pos;
-        SetMeshOutline(isHovered, "HoverOutline");
-        if (isHovered)
-        {
-            Debug.Log($"{gameObject.name}: OnPositionHovered");
-        }
-    }
-
-    uint currentRenderingLayerMask;
-    
-    void SetMeshOutline(bool enable, string outlineType)
-    {
-        uint outlineLayer = 0;
-        switch (outlineType)
-        {
-            case "HoverOutline":
-                outlineLayer = (1 << 7);
-                break;
-            case "SelectOutline":
-                outlineLayer = (1 << 8);
-                break;
-        }
-
-        if (enable)
-        {
-            currentRenderingLayerMask |= outlineLayer;
-        }
-        else
-        {
-            currentRenderingLayerMask &= ~outlineLayer;
-        }
-        currentRenderingLayerMask |= (1 << 0);
-
-        planeRenderer.renderingLayerMask = currentRenderingLayerMask;
-        billboardRenderer.renderingLayerMask = currentRenderingLayerMask;
-    }
-
     public virtual void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
@@ -114,7 +69,7 @@ public class PawnView : MonoBehaviour
         {
             transform.position = tileView.pawnOrigin.position;
         }
-        
+        OnPawnModified(pawn);
     }
 
 
@@ -144,16 +99,40 @@ public class PawnView : MonoBehaviour
             color = color
         };
     }
-
-    public void OnClick()
+    
+    uint currentRenderingLayerMask;
+    
+    void SetMeshOutline(bool enable, string outlineType)
     {
-        Debug.Log($"pawnView {gameObject.name} clicked");
+        uint outlineLayer = 0;
+        switch (outlineType)
+        {
+            case "HoverOutline":
+                outlineLayer = (1 << 7);
+                break;
+            case "SelectOutline":
+                outlineLayer = (1 << 8);
+                break;
+        }
+
+        if (enable)
+        {
+            currentRenderingLayerMask |= outlineLayer;
+        }
+        else
+        {
+            currentRenderingLayerMask &= ~outlineLayer;
+        }
+        currentRenderingLayerMask |= (1 << 0);
+
+        planeRenderer.renderingLayerMask = currentRenderingLayerMask;
+        billboardRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
 
-    public void OnHover()
+    public void OnHovered(bool inIsHovered)
     {
-        throw new NotImplementedException();
+        isHovered = inIsHovered;
+        Debug.Log($"{gameObject.name} hovered set to {isHovered}");
+        SetMeshOutline(isHovered, "HoverOutline");
     }
-    
-    
 }

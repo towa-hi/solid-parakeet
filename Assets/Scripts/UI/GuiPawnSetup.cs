@@ -12,7 +12,6 @@ public class GuiPawnSetup : MonoBehaviour
         pawnSetupControls.OnStartButton += OnStartButton;
         pawnSetupControls.OnAutoSetupButton += OnAutoSetupButton;
         pawnSetupControls.OnSubmitButton += OnSubmitButton;
-        GameManager.instance.boardManager.OnSetupPawnViewsChanged += OnSetupPawnViewsChanged;
 
     }
     
