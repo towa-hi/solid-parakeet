@@ -8,36 +8,37 @@ public class TileView : MonoBehaviour
     public GameObject floor;
     public Transform pawnOrigin;
     public BoardManager boardManager;
-    
+
     Renderer modelRenderer;
     Renderer floorRenderer;
 
     public bool isSelected = false;
     public bool isHovered = false;
-    
+
     void Awake()
     {
         modelRenderer = model.GetComponentInChildren<Renderer>();
         if (modelRenderer == null)
         {
-            Debug.Log("wtf");
+            Debug.LogError("Model renderer is missing!");
         }
         floorRenderer = floor.GetComponent<Renderer>();
+        if (floorRenderer == null)
+        {
+            Debug.LogError("Floor renderer is missing!");
+        }
     }
-
-
 
     public void OnPositionClicked(Vector2Int pos)
     {
-        //SetMeshOutline(tile.pos == pos);
         isSelected = tile.pos == pos;
-        SetMeshOutline(isHovered, "SelectOutline");
+        SetMeshOutline(isSelected, "SelectOutline");
         if (isSelected)
         {
             Debug.Log($"{gameObject.name}: OnPositionClicked");
         }
     }
-    
+
     public void OnPositionHovered(Vector2Int pos)
     {
         isHovered = tile.pos == pos;
@@ -47,7 +48,6 @@ public class TileView : MonoBehaviour
             Debug.Log($"{gameObject.name}: OnPositionHovered");
         }
     }
-
 
     public void Initialize(Tile inTile, BoardManager inBoardManager)
     {
@@ -116,19 +116,20 @@ public class TileView : MonoBehaviour
     }
 
     uint currentRenderingLayerMask;
+
     void SetMeshOutline(bool enable, string outlineType)
     {
         uint outlineLayer = 0;
         switch (outlineType)
         {
             case "Fill":
-                outlineLayer = (1 << 6);
+                outlineLayer = (1u << 6);
                 break;
             case "HoverOutline":
-                outlineLayer = (1 << 7);
+                outlineLayer = (1u << 7);
                 break;
             case "SelectOutline":
-                outlineLayer = (1 << 8);
+                outlineLayer = (1u << 8);
                 break;
         }
 
@@ -140,15 +141,22 @@ public class TileView : MonoBehaviour
         {
             currentRenderingLayerMask &= ~outlineLayer;
         }
-        currentRenderingLayerMask |= (1 << 0);
+        // Ensure that the base layer is always included
+        currentRenderingLayerMask |= (1u << 0);
 
-        floorRenderer.renderingLayerMask = currentRenderingLayerMask;
+        // Apply the updated rendering layer mask to the renderer
         floorRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
-    
+
     public void OnHovered(bool isHovered)
     {
         this.isHovered = isHovered;
         SetMeshOutline(isHovered, "HoverOutline");
+    }
+
+    // Add the OnHighlight method
+    public void OnHighlight(bool inIsHighlighted)
+    {
+        SetMeshOutline(inIsHighlighted, "Fill");
     }
 }

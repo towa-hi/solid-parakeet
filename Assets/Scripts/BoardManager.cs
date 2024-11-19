@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor.Build;
 using UnityEngine;
 
 // BoardManager is responsible for managing the board state, including tiles and pawns.
@@ -21,7 +22,7 @@ public class BoardManager : MonoBehaviour
     public ClickInputManager clickInputManager;
     public Player player;
     public Player opponentPlayer;
-    public SetupParameters setupParameters;
+    SetupParameters setupParameters;
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
     public Vector2Int hoveredPos;
@@ -33,6 +34,7 @@ public class BoardManager : MonoBehaviour
     // game stuff
 
     public PawnView selectedPawnView;
+    public QueuedMove queuedMove;
     
     void SetPhase(GamePhase inPhase)
     {
@@ -206,7 +208,7 @@ public class BoardManager : MonoBehaviour
                     }
                     else
                     {
-                        bool success = TryGoToTile(hoveredPosition);
+                        bool success = TryQueueMove(selectedPawnView, hoveredPosition);
                         if (success)
                         {
                             Debug.Log("OnClick: tried to go to a tile");
@@ -214,6 +216,7 @@ public class BoardManager : MonoBehaviour
                         else
                         {
                             SelectPawnView(null);
+                            ClearQueuedMove();
                             Debug.Log("OnClick: deselected because couldn't go to tile");
                         }
                     }
@@ -241,12 +244,24 @@ public class BoardManager : MonoBehaviour
     }
 
 
-    bool TryGoToTile(Vector2Int pos)
+    bool TryQueueMove(PawnView pawnView, Vector2Int pos)
     {
         Debug.Log($"TryGoToTile at {pos}");
+        List<Tile> movableTilesList = GetMovableTiles(pawnView.pawn);
         // check if valid move
         // queue a new PawnAction to go to that position
+        bool moveIsValid = movableTilesList.Any(tile => tile.pos == pos);
+        if (!moveIsValid)
+        {
+            return false;
+        }
+        
         return true;
+    }
+
+    void ClearQueuedMove()
+    {
+        queuedMove = null;
     }
 
 List<Tile> GetMovableTiles(Pawn pawn)
@@ -425,16 +440,29 @@ List<Tile> GetMovableTiles(Pawn pawn)
         OnPawnModified?.Invoke(pawn);
     }
 
+    List<TileView> highlightedTiles = new();
     public void SelectPawnView(PawnView pawnView)
     {
         if (selectedPawnView)
         {
             selectedPawnView.SetSelect(false);
         }
+        foreach (TileView tileView in highlightedTiles)
+        {
+            tileView.OnHighlight(false);
+        }
         selectedPawnView = pawnView;
         if (selectedPawnView)
         {
+            highlightedTiles.Clear();
             pawnView.SetSelect(true);
+            var tileList = GetMovableTiles(pawnView.pawn);
+            foreach (var tile in tileList)
+            {
+                TileView tileView = GetTileView(tile.pos);
+                tileView.OnHighlight(true);
+                highlightedTiles.Add(tileView);
+            }
         }
     }
     

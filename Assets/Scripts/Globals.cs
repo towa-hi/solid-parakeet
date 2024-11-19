@@ -514,3 +514,15 @@ public class StartGameRequest : RequestBase
 {
     public SSetupParameters setupParameters;
 }
+
+public class QueuedMove
+{
+    Pawn pawn;
+    Vector2Int pos;
+
+    public QueuedMove(Pawn inPawn, Vector2Int inPos)
+    {
+        pawn = inPawn;
+        pos = inPos;
+    }
+}
