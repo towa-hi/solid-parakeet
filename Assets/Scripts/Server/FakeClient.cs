@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
@@ -16,8 +18,9 @@ public class FakeClient : IGameClient
     public event Action<Response<string>> OnLeaveGameLobbyResponse;
     public event Action<Response<string>> OnJoinGameLobbyResponse;
     public event Action<Response<SLobby>> OnReadyLobbyResponse;
-    public event Action<Response<SSetupParameters>> OnDemoStarted;
-    public event Action OnLobbyResponse;
+    public event Action<Response<SSetupParameters>> OnDemoStartedResponse;
+    public event Action<Response<bool>> OnSetupSubmittedResponse;
+    public event Action<Response<SInitialGameState>> OnSetupFinishedResponse;
     
     // Internal state
     Guid clientId;
@@ -27,6 +30,9 @@ public class FakeClient : IGameClient
 
     // simulated state of server lobby
     SLobby fakeServerLobby;
+    SSetupParameters lobbySetupParameters;
+    SBoardDef lobbyBoardDef;
+    List<SPawn> redPlayerSetupPawns;
     
 #pragma warning restore // Re-enables the warning
     
@@ -88,7 +94,7 @@ public class FakeClient : IGameClient
         await SendFakeRequestToServer(MessageType.READYLOBBY, readyGameLobbyRequest);
     }
 
-    public async Task StartGameDemoRequest()
+    public async Task SendStartGameDemoRequest()
     {
         SSetupParameters setupParameters = new(Player.RED, currentLobby.sBoardDef);
         StartGameRequest startGameRequest = new()
@@ -98,7 +104,16 @@ public class FakeClient : IGameClient
         await SendFakeRequestToServer(MessageType.GAMESTART, startGameRequest);
     }
 
+    public async Task SendSetupSubmissionRequest(List<SPawn> setupPawnList)
+    {
+        SetupRequest setupRequest = new()
+        {
+            pawns = setupPawnList,
+        };
+        await SendFakeRequestToServer(MessageType.GAMESETUP, setupRequest);
+    }
 
+    
     async Task SendFakeRequestToServer(MessageType messageType, RequestBase requestData)
     {
         Debug.Log($"OFFLINE: Sending fake Request of type {messageType}");
@@ -130,6 +145,7 @@ public class FakeClient : IGameClient
                 };
                 break;
             case GameLobbyRequest gameLobbyRequest:
+                lobbyBoardDef = gameLobbyRequest.sBoardDef;
                 fakeServerLobby = new SLobby
                 {
                     lobbyId = Guid.NewGuid(),
@@ -192,9 +208,18 @@ public class FakeClient : IGameClient
                 break;
             case StartGameRequest startGameRequest:
                 fakeServerLobby.isGameStarted = true;
+                lobbySetupParameters = startGameRequest.setupParameters;
                 response = new Response<SSetupParameters>
                 {
                     data = startGameRequest.setupParameters,
+                };
+                break;
+            case SetupRequest setupRequest:
+                redPlayerSetupPawns = setupRequest.pawns;
+                // we assume the fake server already has the other players setupRequest
+                response = new Response<bool>
+                {
+                    data = true,
                 };
                 break;
             default:
@@ -239,8 +264,13 @@ public class FakeClient : IGameClient
                 Response<SSetupParameters> gameStartResponse = (Response<SSetupParameters>)response;
                 HandleGameStartResponse(gameStartResponse);
                 break;
-            case MessageType.GAME:
-                // TODO: not yet implemented
+            case MessageType.GAMESETUP:
+                Response<bool> gameSetupResponse = (Response<bool>)response;
+                HandleGameSetupResponse(gameSetupResponse);
+                break;
+            case MessageType.SETUPFINISHED:
+                Response<SInitialGameState> setupFinishedResponse = (Response<SInitialGameState>)response;
+                HandleSetupFinished(setupFinishedResponse);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null);
@@ -302,8 +332,111 @@ public class FakeClient : IGameClient
     {
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
-            Debug.Log($"Invoking OnDemoStarted to {OnDemoStarted?.GetInvocationList().Length} listeners");
-            OnDemoStarted?.Invoke(gameStartResponse);
+            Debug.Log($"Invoking OnDemoStarted to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
+            OnDemoStartedResponse?.Invoke(gameStartResponse);
+        });
+    }
+    
+    
+    void HandleGameSetupResponse(Response<bool> gameSetupResponse)
+    {
+        
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
+            OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
+        });
+        SetNextResponseAfterDelay();
+    }
+
+    
+    async void SetNextResponseAfterDelay()
+    {
+        await Task.Delay(1000);
+        List<SPawn> sPawns = new List<SPawn>(redPlayerSetupPawns);
+        Debug.Log($"sPawns count: {sPawns.Count}");
+        int opponentPlayer = (int)Player.BLUE;
+        // auto setup pawns
+        SBoardDef sBoardDef = lobbySetupParameters.board;
+        HashSet<SVector2Int> usedPositions = new();
+        List<SVector2Int> allEligiblePositions = new();
+        foreach (STile sTile in sBoardDef.tiles)
+        {
+            if (sTile.IsTileEligibleForPlayer(opponentPlayer))
+            {
+                allEligiblePositions.Add(sTile.pos);
+            }
+        }
+        foreach (SSetupPawnData setupPawnData in lobbySetupParameters.setupPawnDatas)
+        {
+            List<SVector2Int> eligiblePositions = sBoardDef.GetEligiblePositionsForPawn(opponentPlayer, setupPawnData.pawnDef, usedPositions);
+            if (eligiblePositions.Count < setupPawnData.maxPawns)
+            {
+                eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
+            }
+            for (int i = 0; i < setupPawnData.maxPawns; i++)
+            {
+                if (eligiblePositions.Count == 0)
+                {
+                    break;
+                }
+                int index = UnityEngine.Random.Range(0, eligiblePositions.Count);
+                SVector2Int pos = eligiblePositions[index];
+                eligiblePositions.RemoveAt(index);
+                usedPositions.Add(pos);
+                SPawn newPawn = new SPawn()
+                {
+                    pawnId = Guid.NewGuid(),
+                    def = setupPawnData.pawnDef,
+                    player = opponentPlayer,
+                    pos = pos,
+                    isSetup = false,
+                    isAlive = true,
+                    hasMoved = false,
+                    isVisibleToPlayer = true,
+                };
+                sPawns.Add(newPawn);
+            }
+        }
+
+        List<SPawn> redPlayerPawnList = new List<SPawn>();
+        List<SPawn> bluePlayerPawnList = new List<SPawn>();
+        //now process all pawns
+        foreach (SPawn sPawn in sPawns)
+        {
+            sPawn.isAlive = true;
+            sPawn.isSetup = false;
+            SPawn redVersionPawn = new SPawn(sPawn);
+            if (sPawn.player != (int)Player.RED)
+            {
+                redVersionPawn.def = null;
+                redVersionPawn.isVisibleToPlayer = false;
+            }
+            redPlayerPawnList.Add(redVersionPawn);
+            SPawn blueVersionPawn = new SPawn(sPawn);
+            if (sPawn.player != (int)Player.BLUE)
+            {
+                blueVersionPawn.def = null;
+                blueVersionPawn.isVisibleToPlayer = false;
+            }
+            bluePlayerPawnList.Add(blueVersionPawn);
+        }
+        // blue state is unused in fake client
+        SInitialGameState blueInitialGameState = new((int)Player.BLUE, bluePlayerPawnList, lobbyBoardDef);
+        SInitialGameState redInitialGameState = new ((int)Player.RED, redPlayerPawnList, lobbyBoardDef);
+        Response<SInitialGameState> initialGameStateResponseRed = new Response<SInitialGameState>
+        {
+            data = redInitialGameState,
+        };
+        ProcessFakeResponse(initialGameStateResponseRed, MessageType.SETUPFINISHED);
+    }
+    
+    
+    void HandleSetupFinished(Response<SInitialGameState> initialGameStateResponse)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            OnSetupFinishedResponse?.Invoke(initialGameStateResponse);
         });
     }
 }

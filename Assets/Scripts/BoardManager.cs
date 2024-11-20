@@ -22,14 +22,17 @@ public class BoardManager : MonoBehaviour
     public ClickInputManager clickInputManager;
     public Player player;
     public Player opponentPlayer;
-    SetupParameters setupParameters;
+    public SetupParameters setupParameters;
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
     public Vector2Int hoveredPos;
     public event Action<Pawn> OnPawnModified; // subscribed to by all pawnviews
+    public event Action<GamePhase> OnPhaseChanged;
     
     public PawnView currentHoveredPawnView;
     public TileView currentHoveredTileView;
+
+    bool setupIsSubmitted;
     
     // game stuff
 
@@ -49,6 +52,8 @@ public class BoardManager : MonoBehaviour
                 break;
             case GamePhase.MOVE:
                 break;
+            case GamePhase.WAITING:
+                break;
             case GamePhase.RESOLVE:
                 break;
             case GamePhase.END:
@@ -63,6 +68,9 @@ public class BoardManager : MonoBehaviour
             case GamePhase.UNINITIALIZED:
                 break;
             case GamePhase.SETUP:
+                break;
+            case GamePhase.WAITING:
+                clickInputManager.Reset();
                 break;
             case GamePhase.MOVE:
                 clickInputManager.Reset();
@@ -92,7 +100,7 @@ public class BoardManager : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException();
         }
-        //OnPhaseChanged?.Invoke(oldPhase, phase);
+        OnPhaseChanged?.Invoke(phase);
     }
     
     public void OnDemoStartedResponse(Response<SSetupParameters> response)
@@ -112,7 +120,7 @@ public class BoardManager : MonoBehaviour
         Debug.Log("setupSelectedPawnDef set");
         LoadBoardData(setupParameters.board);
         LoadPawns(player);
-        LoadPawns(opponentPlayer);
+        //LoadPawns(opponentPlayer);
         Debug.Log("board set");
         Debug.Log("phase set");
         clickInputManager.OnPositionHovered += OnPositionHovered;
@@ -201,7 +209,9 @@ public class BoardManager : MonoBehaviour
                 }
                 // If no pawnDef is selected or a pawn is already at this position, do nothing
                 break;
-
+            case GamePhase.WAITING:
+                // do nothing
+                break;
             case GamePhase.MOVE:
                 if (!IsPosValid(hoveredPosition))
                 {
@@ -300,6 +310,10 @@ public class BoardManager : MonoBehaviour
 List<Tile> GetMovableTiles(Pawn pawn)
 {
     List<Tile> movableTiles = new List<Tile>();
+    if (pawn.def == null)
+    {
+        throw new Exception("GetMovableTiles requires a pawnDef");
+    }
     // Check if the pawn is a Scout
     if (pawn.def.pawnName == "Scout")
     {
@@ -447,21 +461,26 @@ List<Tile> GetMovableTiles(Pawn pawn)
         foreach (var pawnView in pawnViews)
         {
             Pawn pawn = pawnView.pawn;
-            if (pawn.def == pawnDef)
+            if (pawn.player == targetPlayer)
             {
-                if (pawn.player == targetPlayer)
+                if (pawn.def != null)
                 {
-                    if (pawn.isSetup)
+                    if (pawn.def == pawnDef)
                     {
-                        if (!pawn.isAlive)
+                        if (pawn.isSetup)
                         {
-                            pawn.SetAlive(true, pos);
-                            OnPawnModified?.Invoke(pawn);
-                            return pawn;
+                            if (!pawn.isAlive)
+                            {
+                                pawn.SetAlive(true, pos);
+                                OnPawnModified?.Invoke(pawn);
+                                return pawn;
+                            }
                         }
                     }
                 }
             }
+            
+            
         }
         Debug.Log($"can't find any pawns of pawnDef {pawnDef.name}");
         return null;
@@ -529,7 +548,7 @@ List<Tile> GetMovableTiles(Pawn pawn)
         }
     }
 
-    bool IsSetupValid(Player targetPlayer)
+    public bool IsSetupValid(Player targetPlayer)
 {
     // Create a copy of the max pawns dict to track counts
     Dictionary<PawnDef, int> pawnCounts = new Dictionary<PawnDef, int>(setupParameters.maxPawnsDict);
@@ -540,6 +559,10 @@ List<Tile> GetMovableTiles(Pawn pawn)
         Pawn pawn = pawnView.pawn;
         if (pawn.isAlive && pawn.player == targetPlayer)
         {
+            if (pawn.def == null)
+            {
+                return false;
+            }
             // Check if pawnDef is in the max pawns dict
             if (!pawnCounts.ContainsKey(pawn.def))
             {
@@ -724,5 +747,58 @@ List<Tile> GetMovableTiles(Pawn pawn)
     bool IsPosValid(Vector2Int pos)
     {
         return tileViews.Keys.Contains(pos);
+    }
+
+    public List<SPawn> GetSPawnListForSetup()
+    {
+        List<SPawn> sPawnList = new();
+        foreach (var pawnView in pawnViews)
+        {
+            SPawn sPawn = new(pawnView.pawn);
+            if (sPawn.isAlive && sPawn.player == (int)player)
+            {
+                sPawnList.Add(sPawn);
+            }
+        }
+        return sPawnList;
+    }
+
+    public void OnSetupSubmittedResponse(Response<bool> response)
+    {
+        if (response.data)
+        {
+            setupIsSubmitted = true;
+            
+        }
+        
+    }
+
+    public void OnSetupFinishedResponse(Response<SInitialGameState> response)
+    {
+        SInitialGameState sInitialGameState = response.data;
+        foreach (SPawn sPawn in sInitialGameState.pawns)
+        {
+            Debug.Log($"reading sPawn player {sPawn.player} {sPawn.pawnId}");
+            Pawn pawn = GetPawnById(sPawn.pawnId);
+            if (pawn != null)
+            {
+                // apply data from sPawn to pawn
+            }
+            else
+            {
+                TileView tileView = GetTileView(sPawn.pos.ToUnity());
+                Pawn newPawn = sPawn.ToUnity();
+                GameObject pawnObject = Instantiate(pawnPrefab, transform);
+                PawnView pawnView = pawnObject.GetComponent<PawnView>();
+                pawnViews.Add(pawnView);
+                pawnView.Initialize(newPawn, tileView);
+            }
+        }
+        SetPhase(GamePhase.MOVE);
+    }
+
+    Pawn GetPawnById(Guid id)
+    {
+        return pawnViews.Where(pawnView => pawnView.pawn.pawnId == id).Select(pawnView => pawnView.pawn).FirstOrDefault();
     }
 }

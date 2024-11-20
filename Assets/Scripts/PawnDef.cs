@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,4 +13,28 @@ public class PawnDef : ScriptableObject
     public Sprite icon;
     // graphics
     // sounds
+}
+
+[Serializable]
+public class SPawnDef
+{
+    public string pawnName;
+    public int power;
+
+    public SPawnDef(SPawnDef copy)
+    {
+        pawnName = copy.pawnName;
+        power = copy.power;
+    }
+    
+    public SPawnDef(PawnDef pawnDef)
+    {
+        pawnName = pawnDef.pawnName;
+        power = pawnDef.power;
+    }
+
+    public PawnDef ToUnity()
+    {
+        return Globals.GetPawnDefFromName(pawnName);
+    }
 }

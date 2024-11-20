@@ -45,11 +45,20 @@ public class PawnView : MonoBehaviour
     public virtual void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
-        gameObject.name = $"Pawn {pawn.def.pawnName} {pawn.pawnId}";
         if (pawn.def != null)
         {
+            
+        }
+        
+        if (pawn.def != null)
+        {
+            gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {pawn.pawnId}";
             GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
-            DisplaySymbol(Globals.pawnSprites[inPawn.def.pawnName]);
+            DisplaySymbol(Globals.pawnSprites[pawn.def.pawnName]);
+        }
+        else
+        {
+            gameObject.name = $"{pawn.player} Pawn Unknown {pawn.pawnId}";
         }
         switch (inPawn.player)
         {
@@ -60,7 +69,6 @@ public class PawnView : MonoBehaviour
                 SetCubeColor(Color.blue);
                 break;
         }
-
         if (tileView == null)
         {
             transform.position = GameManager.instance.boardManager.purgatory.position;

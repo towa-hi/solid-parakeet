@@ -70,3 +70,71 @@ public class BoardDef : ScriptableObject
         }
     }
 }
+
+[Serializable]
+public class SBoardDef
+{
+    public string boardName;
+    public SVector2Int boardSize;
+    public STile[] tiles;
+
+    public SBoardDef() { }
+
+    public SBoardDef(BoardDef boardDef)
+    {
+        boardName = boardDef.boardName;
+        boardSize = new SVector2Int(boardDef.boardSize);
+        tiles = new STile[boardDef.tiles.Length];
+        tiles = boardDef.tiles.Select(tile => new STile(tile)).ToArray();
+    }
+    public BoardDef ToUnity()
+    {
+        BoardDef boardDef = ScriptableObject.CreateInstance<BoardDef>();
+        boardDef.boardName = boardName;
+        boardDef.boardSize = this.boardSize.ToUnity();
+        boardDef.tiles = this.tiles.Select(sTile => sTile.ToUnity()).ToArray();
+        return boardDef;
+    }
+    
+    public List<SVector2Int> GetEligiblePositionsForPawn(int player, SPawnDef pawnDef, HashSet<SVector2Int> usedPositions)
+    {
+        // Determine the number of back rows based on pawn type
+        int numberOfRows = Globals.GetNumberOfRowsForPawn(pawnDef);
+        if (numberOfRows > 0)
+        {
+            // Get eligible positions within the specified back rows
+            List<SVector2Int> eligiblePositions = tiles
+                .Where(tile => tile.IsTileEligibleForPlayer(player)
+                               && IsTileInBackRows(player, tile.pos, numberOfRows)
+                               && !usedPositions.Contains(tile.pos))
+                .Select(tile => tile.pos)
+                .ToList();
+            return eligiblePositions;
+        }
+        else
+        {
+            // For other pawns, use all eligible positions for the player
+            List<SVector2Int> eligiblePositions = tiles
+                .Where(tile => tile.IsTileEligibleForPlayer(player)
+                               && !usedPositions.Contains(tile.pos))
+                .Select(tile => tile.pos)
+                .ToList();
+            return eligiblePositions;
+        }
+    }
+    
+    bool IsTileInBackRows(int player, SVector2Int pos, int numberOfRows)
+    {
+        int backRowStartY;
+        if (player == (int)Player.RED)
+        {
+            backRowStartY = 0;
+            return pos.y >= backRowStartY && pos.y < numberOfRows;
+        }
+        else
+        {
+            backRowStartY = boardSize.y - numberOfRows;
+            return pos.y >= backRowStartY && pos.y < boardSize.y;
+        }
+    }
+}

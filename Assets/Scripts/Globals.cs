@@ -243,6 +243,27 @@ public static class Globals
                 return 0;
         }
     }
+    
+    public static int GetNumberOfRowsForPawn(SPawnDef pawnDef)
+    {
+        switch (pawnDef.pawnName)
+        {
+            case "Flag":
+                // Rule 1: Flag goes in the back row
+                return 1;
+            case "Spy":
+                // Rule 2: Spy goes somewhere in the two furthest back rows
+                return 2;
+            case "Bomb":
+            case "Marshal":
+            case "General":
+                // Rule 3 & 4: Bombs, Marshal, General in three furthest back rows
+                return 3;
+            default:
+                // Other pawns have no specific back row requirement
+                return 0;
+        }
+    }
 }
 
 public enum MessageType : uint
@@ -255,7 +276,8 @@ public enum MessageType : uint
     JOINGAMELOBBY, // request: password, response: lobby 
     READYLOBBY,
     GAMESTART,
-    GAME, // request holds piece deployment or move data, response is a gamestate object
+    GAMESETUP, // request holds piece deployment or move data, response is a gamestate object
+    SETUPFINISHED,
 }
 
 public enum AppState
@@ -267,6 +289,7 @@ public enum GamePhase
 {
     UNINITIALIZED,
     SETUP,
+    WAITING,
     MOVE,
     RESOLVE,
     END
@@ -300,31 +323,6 @@ public class SLobby
     }
 }
 
-[Serializable]
-public class SBoardDef
-{
-    public string boardName;
-    public SVector2Int boardSize;
-    public STile[] tiles;
-
-    public SBoardDef() { }
-
-    public SBoardDef(BoardDef boardDef)
-    {
-        boardName = boardDef.boardName;
-        boardSize = new SVector2Int(boardDef.boardSize);
-        tiles = new STile[boardDef.tiles.Length];
-        tiles = boardDef.tiles.Select(tile => new STile(tile)).ToArray();
-    }
-    public BoardDef ToUnity()
-    {
-        BoardDef boardDef = ScriptableObject.CreateInstance<BoardDef>();
-        boardDef.boardName = boardName;
-        boardDef.boardSize = this.boardSize.ToUnity();
-        boardDef.tiles = this.tiles.Select(sTile => sTile.ToUnity()).ToArray();
-        return boardDef;
-    }
-}
 
 
 [Serializable]
@@ -346,39 +344,7 @@ public class SVector2Int
     }
 }
 
-[Serializable]
-public class STile
-{
-    public SVector2Int pos;
-    public bool isPassable;
-    public int setupPlayer;
-    
-    public STile () { }
-    public STile(Tile tile)
-    {
-        pos = new SVector2Int(tile.pos);
-        isPassable = tile.isPassable;
-        setupPlayer = (int)tile.setupPlayer;
-    }
-    public Tile ToUnity()
-    {
-        return new Tile
-        {
-            pos = this.pos.ToUnity(),
-            isPassable = this.isPassable,
-            setupPlayer = (Player)this.setupPlayer
-        };
-    }
-}
 
-[Serializable]
-public class SPawnDef
-{
-    public string pawnName;
-    public int power;
-    
-    // figure out how to link this to pawndef later
-}
 
 public class SetupParameters
 {
@@ -391,7 +357,7 @@ public class SetupParameters
         maxPawnsDict = new();
         foreach (SSetupPawnData data in serialized.setupPawnDatas)
         {
-            PawnDef pawnDef = Globals.GetPawnDefFromName(data.pawnName);
+            PawnDef pawnDef = Globals.GetPawnDefFromName(data.pawnDef.pawnName);
             maxPawnsDict.Add(pawnDef, data.maxPawns);
         }
     }
@@ -411,7 +377,7 @@ public class SSetupParameters
         {
             SSetupPawnData setupPawnData = new()
             {
-                pawnName = pawnDef.pawnName,
+                pawnDef = new SPawnDef(pawnDef),
                 maxPawns = max,
             };
             setupPawnDatas.Add(setupPawnData);
@@ -421,9 +387,23 @@ public class SSetupParameters
     }
 }
 
+public class SInitialGameState
+{
+    public List<SPawn> pawns;
+    public SBoardDef board;
+    public int player;
+
+    public SInitialGameState(int inPlayer, List<SPawn> inPawns, SBoardDef inBoard)
+    {
+        pawns = inPawns;
+        player = inPlayer;
+        board = inBoard;
+    }
+}
+
 public class SSetupPawnData
 {
-    public string pawnName;
+    public SPawnDef pawnDef;
     public int maxPawns;
 }
 
@@ -438,8 +418,10 @@ public interface IGameClient
     event Action<Response<string>> OnLeaveGameLobbyResponse;
     event Action<Response<string>> OnJoinGameLobbyResponse;
     event Action<Response<SLobby>> OnReadyLobbyResponse;
-    event Action<Response<SSetupParameters>> OnDemoStarted;
-    event Action OnLobbyResponse;
+    event Action<Response<SSetupParameters>> OnDemoStartedResponse;
+    event Action<Response<bool>> OnSetupSubmittedResponse;
+    event Action<Response<SInitialGameState>> OnSetupFinishedResponse;
+    
     
     // Methods
     Task ConnectToServer();
@@ -447,7 +429,8 @@ public interface IGameClient
     Task SendGameLobby();
     Task SendGameLobbyLeaveRequest();
     Task SendGameLobbyReadyRequest(bool ready);
-    Task StartGameDemoRequest();
+    Task SendStartGameDemoRequest();
+    Task SendSetupSubmissionRequest(List<SPawn> setupPawnList);
 }
 
 
@@ -513,6 +496,11 @@ public class ReadyGameLobbyRequest : RequestBase
 public class StartGameRequest : RequestBase
 {
     public SSetupParameters setupParameters;
+}
+
+public class SetupRequest : RequestBase
+{
+    public List<SPawn> pawns;
 }
 
 [Serializable]

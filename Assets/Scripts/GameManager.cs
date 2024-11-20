@@ -57,7 +57,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            client = new GameClient();
+            //client = new GameClient();
             Debug.Log("GameManager: Initialized GameClient for online mode.");
         }
         client.OnRegisterClientResponse += OnRegisterClientResponse;
@@ -67,12 +67,14 @@ public class GameManager : MonoBehaviour
         client.OnGameLobbyResponse += OnGameLobbyResponse;
         client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
         client.OnReadyLobbyResponse += OnReadyLobbyResponse;
-        client.OnDemoStarted += OnDemoStartedResponse;
+        client.OnDemoStartedResponse += OnDemoStartedResponse;
+        client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
+        client.OnSetupFinishedResponse += OnSetupFinishedResponse;
         
         OnClientChanged?.Invoke(oldGameClient, client);
         _ = client.ConnectToServer();
     }
-    
+
     void OnRegisterClientResponse(Response<string> response)
     {
         guiManager.OnRegisterClientResponse(response);
@@ -118,7 +120,22 @@ public class GameManager : MonoBehaviour
         guiManager.OnDemoStartedResponse(response);
         Debug.Log("GameManager: sent to boardclickinputmanager");
     }
+    
+    void OnSetupSubmittedResponse(Response<bool> response)
+    {
+        Debug.Log("GameManager: OnSetupSubmittedResponse");
+        boardManager.OnSetupSubmittedResponse(response);
+        guiManager.OnSetupSubmittedResponse(response);
+        // do nothing, just wait after this 
+    }
 
+
+    void OnSetupFinishedResponse(Response<SInitialGameState> response)
+    {
+        boardManager.OnSetupFinishedResponse(response);
+        guiManager.OnSetupFinishedResponse(response);
+    }
+    
     public void QuitGame()
     {
         Application.Quit();

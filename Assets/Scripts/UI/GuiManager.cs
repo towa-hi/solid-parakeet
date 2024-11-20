@@ -202,8 +202,7 @@ public class GuiManager : MonoBehaviour
     void OnLobbyDemoButton()
     {
         Debug.Log("OnLobbyDemoButton");
-        _ = GameManager.instance.client.StartGameDemoRequest();
-        
+        _ = GameManager.instance.client.SendStartGameDemoRequest();
     }
     
     // nickname modal
@@ -282,4 +281,13 @@ public class GuiManager : MonoBehaviour
         currentModal = null;
     }
 
+    public void OnSetupSubmittedResponse(Response<bool> response)
+    {
+        gameOverlay.OnSetupSubmittedResponse(response);
+    }
+
+    public void OnSetupFinishedResponse(Response<SInitialGameState> response)
+    {
+        gameOverlay.OnSetupFinishedResponse(response);
+    }
 }
