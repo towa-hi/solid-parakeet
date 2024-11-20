@@ -8,7 +8,8 @@ public class TileView : MonoBehaviour
     public GameObject floor;
     public Transform pawnOrigin;
     public BoardManager boardManager;
-
+    public GameObject arrow;
+    
     Renderer modelRenderer;
     Renderer floorRenderer;
 
@@ -158,5 +159,10 @@ public class TileView : MonoBehaviour
     public void OnHighlight(bool inIsHighlighted)
     {
         SetMeshOutline(inIsHighlighted, "Fill");
+    }
+
+    public void OnArrow(bool isArrowed)
+    {
+        arrow.SetActive(isArrowed);
     }
 }

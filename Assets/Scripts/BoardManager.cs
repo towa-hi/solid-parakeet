@@ -35,7 +35,9 @@ public class BoardManager : MonoBehaviour
 
     public PawnView selectedPawnView;
     public QueuedMove queuedMove;
-    
+    List<TileView> highlightedTileViews = new();
+    List<PawnView> highlightedPawnViews = new();
+
     void SetPhase(GamePhase inPhase)
     {
         GamePhase oldPhase = phase;
@@ -63,8 +65,27 @@ public class BoardManager : MonoBehaviour
             case GamePhase.SETUP:
                 break;
             case GamePhase.MOVE:
+                clickInputManager.Reset();
                 break;
             case GamePhase.RESOLVE:
+                
+                clickInputManager.Reset();
+                if (queuedMove == null)
+                {
+                    throw new Exception("Queuedmove cant be null in resolve phase");
+                }
+                TileView queuedTileMove = GetTileView(queuedMove.pos);
+                queuedTileMove.OnArrow(false);
+                
+                foreach (var tileView in highlightedTileViews)
+                {
+                    tileView.OnHighlight(false);
+                }
+                foreach (var pawnView in highlightedPawnViews)
+                {
+                    pawnView.OnHighlight(false);
+                }
+                queuedMove = null;
                 break;
             case GamePhase.END:
                 break;
@@ -193,7 +214,7 @@ public class BoardManager : MonoBehaviour
 
                 if (selectedPawnView != null)
                 {
-                    if (currentHoveredPawnView != null)
+                    if (currentHoveredPawnView != null && currentHoveredPawnView.pawn.player == player)
                     {
                         if (currentHoveredPawnView == selectedPawnView)
                         {
@@ -212,18 +233,18 @@ public class BoardManager : MonoBehaviour
                         if (success)
                         {
                             Debug.Log("OnClick: tried to go to a tile");
+                            SelectPawnView(null);
                         }
                         else
                         {
                             SelectPawnView(null);
-                            ClearQueuedMove();
                             Debug.Log("OnClick: deselected because couldn't go to tile");
                         }
                     }
                 }
                 else
                 {
-                    if (currentHoveredPawnView != null)
+                    if (currentHoveredPawnView != null && currentHoveredPawnView.pawn.player == player)
                     {
                         SelectPawnView(currentHoveredPawnView);
                         Debug.Log("OnClick: selecting pawn");
@@ -246,7 +267,7 @@ public class BoardManager : MonoBehaviour
 
     bool TryQueueMove(PawnView pawnView, Vector2Int pos)
     {
-        Debug.Log($"TryGoToTile at {pos}");
+        Debug.Log($"TryQueueMove at {pos}");
         List<Tile> movableTilesList = GetMovableTiles(pawnView.pawn);
         // check if valid move
         // queue a new PawnAction to go to that position
@@ -255,12 +276,24 @@ public class BoardManager : MonoBehaviour
         {
             return false;
         }
-        
+        if (queuedMove != null)
+        {
+            TileView oldTileView = GetTileView(queuedMove.pos);
+            oldTileView.OnArrow(false);
+        }
+        queuedMove = new QueuedMove(pawnView.pawn, pos);
+        TileView tileView = GetTileView(queuedMove.pos);
+        tileView.OnArrow(true);
         return true;
     }
 
     void ClearQueuedMove()
     {
+        if (queuedMove != null)
+        {
+            TileView tileView = GetTileView(queuedMove.pos);
+            tileView.OnArrow(false);
+        }
         queuedMove = null;
     }
 
@@ -440,28 +473,37 @@ List<Tile> GetMovableTiles(Pawn pawn)
         OnPawnModified?.Invoke(pawn);
     }
 
-    List<TileView> highlightedTiles = new();
     public void SelectPawnView(PawnView pawnView)
     {
         if (selectedPawnView)
         {
             selectedPawnView.SetSelect(false);
         }
-        foreach (TileView tileView in highlightedTiles)
+        foreach (TileView highlightedTileView in highlightedTileViews)
         {
-            tileView.OnHighlight(false);
+            highlightedTileView.OnHighlight(false);
+        }
+        foreach (PawnView highlightedPawnView in highlightedPawnViews)
+        {
+            highlightedPawnView.OnHighlight(false);
         }
         selectedPawnView = pawnView;
         if (selectedPawnView)
         {
-            highlightedTiles.Clear();
+            highlightedTileViews.Clear();
             pawnView.SetSelect(true);
-            var tileList = GetMovableTiles(pawnView.pawn);
-            foreach (var tile in tileList)
+            List<Tile> tileList = GetMovableTiles(pawnView.pawn);
+            foreach (Tile tile in tileList)
             {
                 TileView tileView = GetTileView(tile.pos);
                 tileView.OnHighlight(true);
-                highlightedTiles.Add(tileView);
+                highlightedTileViews.Add(tileView);
+                PawnView pawnViewOnTile = GetPawnViewFromPos(tile.pos);
+                if (pawnViewOnTile)
+                {
+                    highlightedPawnViews.Add(pawnViewOnTile);
+                    pawnViewOnTile.OnHighlight(true);
+                }
             }
         }
     }

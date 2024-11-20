@@ -40,6 +40,15 @@ public class ClickInputManager : MonoBehaviour
         hoveredTileView = null;
     }
 
+    public void Reset()
+    {
+        hoveredPawnView = null;
+        hoveredTileView = null;
+        Vector2Int oldHoveredPosition = hoveredPosition;
+        hoveredPosition = Globals.pugatory;
+        OnPositionHovered?.Invoke(oldHoveredPosition, hoveredPosition);
+    }
+    
     void Update()
     {
         if (!isInitialized) return;

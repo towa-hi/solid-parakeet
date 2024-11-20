@@ -100,11 +100,14 @@ public class PawnView : MonoBehaviour
         uint outlineLayer = 0;
         switch (outlineType)
         {
+            case "Fill":
+                outlineLayer = (1u << 6);
+                break;
             case "HoverOutline":
-                outlineLayer = (1 << 7);
+                outlineLayer = (1u << 7);
                 break;
             case "SelectOutline":
-                outlineLayer = (1 << 8);
+                outlineLayer = (1u << 8);
                 break;
         }
 
@@ -116,10 +119,12 @@ public class PawnView : MonoBehaviour
         {
             currentRenderingLayerMask &= ~outlineLayer;
         }
-        currentRenderingLayerMask |= (1 << 0);
+        // Ensure that the base layer is always included
+        currentRenderingLayerMask |= (1u << 0);
 
-        planeRenderer.renderingLayerMask = currentRenderingLayerMask;
+        // Apply the updated rendering layer mask to the renderer
         billboardRenderer.renderingLayerMask = currentRenderingLayerMask;
+        planeRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
 
     public void OnHovered(bool inIsHovered)
@@ -132,5 +137,10 @@ public class PawnView : MonoBehaviour
     {
         isSelected = inIsSelected;
         SetMeshOutline(isSelected, "SelectOutline");
+    }
+
+    public void OnHighlight(bool inIsHighlighted)
+    {
+        SetMeshOutline(inIsHighlighted, "Fill");
     }
 }
