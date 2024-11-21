@@ -139,6 +139,7 @@ public class GameManager : MonoBehaviour
 
     void OnMoveResponse(Response<bool> response)
     {
+        Debug.Log("GameManager OnMoveResponse()");
         boardManager.OnMoveResponse(response);
         guiManager.OnMoveResponse(response);
     }
@@ -148,6 +149,7 @@ public class GameManager : MonoBehaviour
         Debug.Log("GameManager OnMoveSubmitButton()");
         if (boardManager.queuedMove != null)
         {
+            Debug.Log($"Sending move {boardManager.queuedMove.pawn.def.pawnName} {boardManager.queuedMove.pos}");
             SQueuedMove move = new SQueuedMove(boardManager.queuedMove);
             client.SendMove(move);
         }

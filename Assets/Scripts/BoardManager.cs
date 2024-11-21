@@ -110,7 +110,7 @@ public class BoardManager : MonoBehaviour
     {
         setupParameters = new(response.data);
         Debug.Log("setup parameters set");
-        player = response.data.player;
+        player = (Player)response.data.player;
         if (player == Player.RED)
         {
             opponentPlayer = Player.BLUE;
@@ -137,21 +137,59 @@ public class BoardManager : MonoBehaviour
         if (response.data)
         {
             setupIsSubmitted = true;
-            
+            SetPhase(GamePhase.WAITING);
         }
-        
+        else
+        {
+            SetPhase(GamePhase.SETUP);
+        }
     }
 
     public void OnSetupFinishedResponse(Response<SGameState> response)
     {
-        SGameState sInitialGameState = response.data;
-        foreach (SPawn sPawn in sInitialGameState.pawns)
+        SGameState initialGameState = response.data;
+        UpdateState(initialGameState);
+        SetPhase(GamePhase.MOVE);
+    }
+
+    void UpdateState(SGameState serverState)
+    {
+        foreach (SPawn sPawn in serverState.pawns)
         {
-            Debug.Log($"reading sPawn player {sPawn.player} {sPawn.pawnId}");
             Pawn pawn = GetPawnById(sPawn.pawnId);
             if (pawn != null)
             {
-                // apply data from sPawn to pawn
+                bool posChanged;
+                if (pawn.pos != sPawn.pos.ToUnity())
+                {
+                    posChanged = true;
+                    pawn.pos = sPawn.pos.ToUnity();
+                }
+                bool isSetupChanged;
+                if (pawn.isSetup != sPawn.isSetup)
+                {
+                    isSetupChanged = true;
+                    pawn.isSetup = sPawn.isSetup;
+                }
+                bool isAliveChanged;
+                if (pawn.isAlive != sPawn.isAlive)
+                {
+                    isAliveChanged = true;
+                    pawn.isAlive = sPawn.isAlive;
+                }
+                bool hasMovedChanged;
+                if (pawn.hasMoved != sPawn.hasMoved)
+                {
+                    hasMovedChanged = true;
+                    pawn.hasMoved = sPawn.hasMoved;
+                }
+                bool isVisibleToOpponentChanged;
+                if (pawn.isVisibleToOpponent != sPawn.isVisibleToOpponent)
+                {
+                    isVisibleToOpponentChanged = true;
+                    pawn.isVisibleToOpponent = sPawn.isVisibleToOpponent;
+                }
+                OnPawnModified?.Invoke(pawn);
             }
             else
             {
@@ -163,7 +201,6 @@ public class BoardManager : MonoBehaviour
                 pawnView.Initialize(newPawn, tileView);
             }
         }
-        SetPhase(GamePhase.MOVE);
     }
     
     void OnPositionHovered(Vector2Int oldPos, Vector2Int newPos)
@@ -217,7 +254,6 @@ public class BoardManager : MonoBehaviour
         // Update the hovered position
         hoveredPos = newPos;
     }
-
 
     public void OnMoveResponse(Response<bool> response)
     {

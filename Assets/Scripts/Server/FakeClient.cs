@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using PimDeWitte.UnityMainThreadDispatcher;
 using Unity.VisualScripting;
 using UnityEngine;
+using Random = System.Random;
 
 public class FakeClient : IGameClient
 {
@@ -103,7 +104,7 @@ public class FakeClient : IGameClient
 
     public async Task SendStartGameDemoRequest()
     {
-        SSetupParameters setupParameters = new(Player.RED, currentLobby.sBoardDef);
+        SSetupParameters setupParameters = new((int)Player.RED, currentLobby.sBoardDef);
         StartGameRequest startGameRequest = new()
         {
             setupParameters = setupParameters,
@@ -495,7 +496,7 @@ public class FakeClient : IGameClient
 
     async void OnBothPlayersMoveSubmitted()
     {
-        blueQueuedMove = GenerateValidMoveForOpponent(masterGameState);
+        blueQueuedMove = GenerateValidMove((int)Player.BLUE, masterGameState);
         SGameState nextGameState = Resolve(masterGameState, redQueuedMove, blueQueuedMove);
         masterGameState = nextGameState;
         
@@ -505,17 +506,33 @@ public class FakeClient : IGameClient
         
     }
 
-    static SQueuedMove GenerateValidMoveForOpponent(SGameState gameState)
+    static SQueuedMove GenerateValidMove(int player, SGameState gameState)
     {
-        SQueuedMove move = new()
+        List<SQueuedMove> allPossibleMoves = new List<SQueuedMove>();
+        foreach (SPawn pawn in gameState.pawns)
         {
-            player = (int)Player.BLUE,
-        };
+            if (pawn.player == player)
+            {
+                STile[] movableTiles = gameState.GetMovableTiles(pawn);
+                foreach (var tile in movableTiles)
+                {
+                    allPossibleMoves.Add(new SQueuedMove(player, pawn, tile.pos));
+                }
+            }
+        }
 
-
-        return move;
+        if (allPossibleMoves.Count == 0)
+        {
+            throw new Exception("You have no valid moves, you just lost the game");
+        }
+        Random random = new Random();
+        int randomIndex = random.Next(0, allPossibleMoves.Count);
+        SQueuedMove randomMove = allPossibleMoves[randomIndex];
+        return randomMove;
     }
 
+    bool moverPriority = true;
+    
     static SGameState Resolve(SGameState gameState, SQueuedMove redMove, SQueuedMove blueMove)
     {
         SGameState nextGameState = new SGameState()
@@ -524,9 +541,29 @@ public class FakeClient : IGameClient
             boardDef = gameState.boardDef,
             pawns = (SPawn[])gameState.pawns.Clone(),
         };
-        
-
+        // check where red wants to go
+        SPawn? maybePawnOnPos = gameState.GetPawnFromPos(redMove.pos);
+        // if a pawn exists on this position
+        if (maybePawnOnPos.HasValue)
+        {
+            SPawn pawnOnPos = maybePawnOnPos.Value;
+            if (pawnOnPos.player == (int)Player.RED)
+            {
+                throw new Exception("NOT A VALID MOVE");
+            }
+            // pawn on pos is an enemy
+            if (pawnOnPos.player == (int)Player.BLUE)
+            {
+                // if pawn on pos is also moving
+                if (pawnOnPos.pawnId == blueMove.pawn.pawnId)
+                {
+                    // if enemy pawn is moving away
+                }
+            }
+        }
 
         return nextGameState;
     }
+    
+    
 }

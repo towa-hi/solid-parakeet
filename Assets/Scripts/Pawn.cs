@@ -1,6 +1,7 @@
 using System;
 using JetBrains.Annotations;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [System.Serializable]
 public class Pawn
@@ -12,7 +13,7 @@ public class Pawn
     public bool isSetup;
     public bool isAlive;
     public bool hasMoved;
-    public bool isVisibleToPlayer;
+    public bool isVisibleToOpponent;
 
     public Pawn()
     {
@@ -94,7 +95,7 @@ public struct SPawn
         isSetup = pawn.isSetup;
         isAlive = pawn.isAlive;
         hasMoved = pawn.hasMoved;
-        isVisibleToOpponent = pawn.isVisibleToPlayer;
+        isVisibleToOpponent = pawn.isVisibleToOpponent;
     }
 
     public SPawn Censor()
@@ -160,7 +161,7 @@ public struct SPawn
             isSetup = isSetup,
             isAlive = isAlive,
             hasMoved = hasMoved,
-            isVisibleToPlayer = isVisibleToOpponent,
+            isVisibleToOpponent = isVisibleToOpponent,
         };
         if (def.HasValue)
         {

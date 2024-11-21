@@ -72,14 +72,12 @@ public class BoardDef : ScriptableObject
 }
 
 [Serializable]
-public class SBoardDef
+public struct SBoardDef
 {
     public string boardName;
     public SVector2Int boardSize;
     public List<STile> tiles;
-
-    public SBoardDef() { }
-
+    
     public SBoardDef(BoardDef boardDef)
     {
         boardName = boardDef.boardName;
@@ -107,9 +105,10 @@ public class SBoardDef
         if (numberOfRows > 0)
         {
             // Get eligible positions within the specified back rows
+            SBoardDef def = this;
             List<SVector2Int> eligiblePositions = tiles
                 .Where(tile => tile.IsTileEligibleForPlayer(player)
-                               && IsTileInBackRows(player, tile.pos, numberOfRows)
+                               && def.IsTileInBackRows(player, tile.pos, numberOfRows)
                                && !usedPositions.Contains(tile.pos))
                 .Select(tile => tile.pos)
                 .ToList();

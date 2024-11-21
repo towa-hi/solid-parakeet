@@ -345,7 +345,7 @@ public struct SVector2Int : IEquatable<SVector2Int>
         y = inY;
     }
     
-    public Vector2Int ToUnity()
+    public readonly Vector2Int ToUnity()
     {
         return new Vector2Int(x, y);
     }
@@ -398,9 +398,9 @@ public class SSetupParameters
 {
     public List<SSetupPawnData> setupPawnDatas;
     public SBoardDef board;
-    public Player player;
+    public int player;
     
-    public SSetupParameters(Player inPlayer, SBoardDef inBoard)
+    public SSetupParameters(int inPlayer, SBoardDef inBoard)
     {
         setupPawnDatas = new();
         Dictionary<PawnDef, int> maxPawnsDict = Globals.GetUnorderedPawnDefDict();
@@ -578,7 +578,7 @@ public struct SGameState
         pawns = inPawns;
     }
 
-    STile[] GetMovableTiles(SPawn pawn)
+    public STile[] GetMovableTiles(SPawn pawn)
     {
         List<STile> movableTiles = new List<STile>();
         if (!pawn.def.HasValue)
