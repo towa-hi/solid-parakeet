@@ -21,13 +21,12 @@ public class Tile
 }
 
 [Serializable]
-public class STile
+public struct STile
 {
     public SVector2Int pos;
     public bool isPassable;
     public int setupPlayer;
     
-    public STile () { }
     public STile(Tile tile)
     {
         pos = new SVector2Int(tile.pos);

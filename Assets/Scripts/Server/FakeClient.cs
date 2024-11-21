@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using PimDeWitte.UnityMainThreadDispatcher;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class FakeClient : IGameClient
@@ -20,8 +21,10 @@ public class FakeClient : IGameClient
     public event Action<Response<SLobby>> OnReadyLobbyResponse;
     public event Action<Response<SSetupParameters>> OnDemoStartedResponse;
     public event Action<Response<bool>> OnSetupSubmittedResponse;
-    public event Action<Response<SInitialGameState>> OnSetupFinishedResponse;
-    
+    public event Action<Response<SGameState>> OnSetupFinishedResponse;
+    public event Action<Response<bool>> OnMoveResponse;
+    public event Action<Response<SGameState>> OnResolveResponse;
+
     // Internal state
     Guid clientId;
     bool isConnected;
@@ -32,7 +35,11 @@ public class FakeClient : IGameClient
     SLobby fakeServerLobby;
     SSetupParameters lobbySetupParameters;
     SBoardDef lobbyBoardDef;
-    List<SPawn> redPlayerSetupPawns;
+    SPawn[] blueSetupPawns;
+    SPawn[] redSetupPawns;
+    SQueuedMove redQueuedMove;
+    SQueuedMove blueQueuedMove;
+    SGameState masterGameState;
     
 #pragma warning restore // Re-enables the warning
     
@@ -108,12 +115,22 @@ public class FakeClient : IGameClient
     {
         SetupRequest setupRequest = new()
         {
+            player = (int)Player.RED,
             pawns = setupPawnList,
         };
         await SendFakeRequestToServer(MessageType.GAMESETUP, setupRequest);
     }
 
-    
+    public async Task SendMove(SQueuedMove move)
+    {
+        MoveRequest moveRequest = new()
+        {
+            move = move,
+        };
+        await SendFakeRequestToServer(MessageType.MOVE, moveRequest);
+    }
+
+
     async Task SendFakeRequestToServer(MessageType messageType, RequestBase requestData)
     {
         Debug.Log($"OFFLINE: Sending fake Request of type {messageType}");
@@ -215,8 +232,28 @@ public class FakeClient : IGameClient
                 };
                 break;
             case SetupRequest setupRequest:
-                redPlayerSetupPawns = setupRequest.pawns;
+                if (setupRequest.player == (int)Player.RED)
+                {
+                    SPawn[] redPawns = setupRequest.pawns.ToArray();
+                    for (int i = 0; i < redPawns.Length; i++)
+                    {
+                        SPawn notSetupPawn = redPawns[i];
+                        notSetupPawn.isSetup = false;
+                        redPawns[i] = notSetupPawn;
+                    }
+                    redSetupPawns = redPawns;
+                }
                 // we assume the fake server already has the other players setupRequest
+                response = new Response<bool>
+                {
+                    data = true,
+                };
+                break;
+            case MoveRequest moveRequest:
+                if (moveRequest.move.player == (int)Player.RED)
+                {
+                    redQueuedMove = moveRequest.move;
+                }
                 response = new Response<bool>
                 {
                     data = true,
@@ -269,14 +306,19 @@ public class FakeClient : IGameClient
                 HandleGameSetupResponse(gameSetupResponse);
                 break;
             case MessageType.SETUPFINISHED:
-                Response<SInitialGameState> setupFinishedResponse = (Response<SInitialGameState>)response;
+                Response<SGameState> setupFinishedResponse = (Response<SGameState>)response;
                 HandleSetupFinished(setupFinishedResponse);
+                break;
+            case MessageType.MOVE:
+                Response<bool> moveResponse = (Response<bool>)response;
+                HandleMoveResponse(moveResponse);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null);
         }
     }
-    
+
+
     // Helper methods to simulate server responses
     
     void HandleRegisterClientResponse(Response<string> response)
@@ -346,30 +388,26 @@ public class FakeClient : IGameClient
             Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
             OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
         });
-        SetNextResponseAfterDelay();
+        // fill blue setup pawns like as if blue already sent a valid request
+        blueSetupPawns = GenerateValidSetup(lobbyBoardDef, (int)Player.BLUE, lobbySetupParameters);
+        OnBothPlayersSetupSubmitted();
     }
 
-    
-    async void SetNextResponseAfterDelay()
+    static SPawn[] GenerateValidSetup(SBoardDef boardDef, int player, SSetupParameters setupParameters)
     {
-        await Task.Delay(1000);
-        List<SPawn> sPawns = new List<SPawn>(redPlayerSetupPawns);
-        Debug.Log($"sPawns count: {sPawns.Count}");
-        int opponentPlayer = (int)Player.BLUE;
-        // auto setup pawns
-        SBoardDef sBoardDef = lobbySetupParameters.board;
+        List<SPawn> sPawns = new();
         HashSet<SVector2Int> usedPositions = new();
         List<SVector2Int> allEligiblePositions = new();
-        foreach (STile sTile in sBoardDef.tiles)
+        foreach (STile sTile in boardDef.tiles)
         {
-            if (sTile.IsTileEligibleForPlayer(opponentPlayer))
+            if (sTile.IsTileEligibleForPlayer(player))
             {
                 allEligiblePositions.Add(sTile.pos);
             }
         }
-        foreach (SSetupPawnData setupPawnData in lobbySetupParameters.setupPawnDatas)
+        foreach (SSetupPawnData setupPawnData in setupParameters.setupPawnDatas)
         {
-            List<SVector2Int> eligiblePositions = sBoardDef.GetEligiblePositionsForPawn(opponentPlayer, setupPawnData.pawnDef, usedPositions);
+            List<SVector2Int> eligiblePositions = boardDef.GetEligiblePositionsForPawn(player, setupPawnData.pawnDef, usedPositions);
             if (eligiblePositions.Count < setupPawnData.maxPawns)
             {
                 eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
@@ -388,55 +426,107 @@ public class FakeClient : IGameClient
                 {
                     pawnId = Guid.NewGuid(),
                     def = setupPawnData.pawnDef,
-                    player = opponentPlayer,
+                    player = player,
                     pos = pos,
                     isSetup = false,
                     isAlive = true,
                     hasMoved = false,
-                    isVisibleToPlayer = true,
+                    isVisibleToOpponent = false,
                 };
                 sPawns.Add(newPawn);
             }
         }
+        return sPawns.ToArray();
+    }
 
-        List<SPawn> redPlayerPawnList = new List<SPawn>();
-        List<SPawn> bluePlayerPawnList = new List<SPawn>();
-        //now process all pawns
-        foreach (SPawn sPawn in sPawns)
-        {
-            sPawn.isAlive = true;
-            sPawn.isSetup = false;
-            SPawn redVersionPawn = new SPawn(sPawn);
-            if (sPawn.player != (int)Player.RED)
-            {
-                redVersionPawn.def = null;
-                redVersionPawn.isVisibleToPlayer = false;
-            }
-            redPlayerPawnList.Add(redVersionPawn);
-            SPawn blueVersionPawn = new SPawn(sPawn);
-            if (sPawn.player != (int)Player.BLUE)
-            {
-                blueVersionPawn.def = null;
-                blueVersionPawn.isVisibleToPlayer = false;
-            }
-            bluePlayerPawnList.Add(blueVersionPawn);
-        }
+
+    async void OnBothPlayersSetupSubmitted()
+    {
+        await Task.Delay(1000);
+        SPawn[] allPawns = redSetupPawns.Concat(blueSetupPawns).ToArray();
+        masterGameState = new SGameState((int)Player.NONE, lobbyBoardDef, allPawns);
+        SGameState redInitialGameState = Censor((int)Player.RED, masterGameState);
         // blue state is unused in fake client
-        SInitialGameState blueInitialGameState = new((int)Player.BLUE, bluePlayerPawnList, lobbyBoardDef);
-        SInitialGameState redInitialGameState = new ((int)Player.RED, redPlayerPawnList, lobbyBoardDef);
-        Response<SInitialGameState> initialGameStateResponseRed = new Response<SInitialGameState>
+        SGameState blueInitialGameState = Censor((int)Player.BLUE, masterGameState);
+        Response<SGameState> initialGameStateResponseRed = new Response<SGameState>
         {
             data = redInitialGameState,
         };
         ProcessFakeResponse(initialGameStateResponseRed, MessageType.SETUPFINISHED);
     }
+
+    static SGameState Censor(int player, SGameState serverGameState)
+    {
+        SGameState censoredGameState = serverGameState;
+        censoredGameState.player = player;
+        SPawn[] censoredPawns = serverGameState.pawns;
+        for (int i = 0; i < serverGameState.pawns.Length; i++)
+        {
+            SPawn serverPawn = serverGameState.pawns[i];
+            if (serverPawn.player != player)
+            {
+                censoredPawns[i] = serverPawn.Censor();
+            }
+            else
+            {
+                censoredPawns[i] = serverPawn;
+            }
+        }
+        censoredGameState.pawns = censoredPawns;
+        return censoredGameState;
+    }
     
-    
-    void HandleSetupFinished(Response<SInitialGameState> initialGameStateResponse)
+    void HandleSetupFinished(Response<SGameState> initialGameStateResponse)
     {
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
             OnSetupFinishedResponse?.Invoke(initialGameStateResponse);
         });
+    }
+    
+    void HandleMoveResponse(Response<bool> moveResponse)
+    {
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            OnMoveResponse?.Invoke(moveResponse);
+        });
+        OnBothPlayersMoveSubmitted();
+    }
+
+    async void OnBothPlayersMoveSubmitted()
+    {
+        blueQueuedMove = GenerateValidMoveForOpponent(masterGameState);
+        SGameState nextGameState = Resolve(masterGameState, redQueuedMove, blueQueuedMove);
+        masterGameState = nextGameState;
+        
+        
+        
+        await Task.Delay(1000);
+        
+    }
+
+    static SQueuedMove GenerateValidMoveForOpponent(SGameState gameState)
+    {
+        SQueuedMove move = new()
+        {
+            player = (int)Player.BLUE,
+        };
+
+
+        return move;
+    }
+
+    static SGameState Resolve(SGameState gameState, SQueuedMove redMove, SQueuedMove blueMove)
+    {
+        SGameState nextGameState = new SGameState()
+        {
+            player = (int)Player.NONE,
+            boardDef = gameState.boardDef,
+            pawns = (SPawn[])gameState.pawns.Clone(),
+        };
+        
+
+
+        return nextGameState;
     }
 }

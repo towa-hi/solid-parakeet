@@ -76,7 +76,7 @@ public class SBoardDef
 {
     public string boardName;
     public SVector2Int boardSize;
-    public STile[] tiles;
+    public List<STile> tiles;
 
     public SBoardDef() { }
 
@@ -84,9 +84,13 @@ public class SBoardDef
     {
         boardName = boardDef.boardName;
         boardSize = new SVector2Int(boardDef.boardSize);
-        tiles = new STile[boardDef.tiles.Length];
-        tiles = boardDef.tiles.Select(tile => new STile(tile)).ToArray();
+        tiles = new List<STile>();
+        foreach (Tile tile in boardDef.tiles)
+        {
+            tiles.Add(new STile(tile));
+        }
     }
+
     public BoardDef ToUnity()
     {
         BoardDef boardDef = ScriptableObject.CreateInstance<BoardDef>();

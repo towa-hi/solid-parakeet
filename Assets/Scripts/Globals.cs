@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using UnityEngine;
 
 public static class Globals
@@ -278,6 +279,7 @@ public enum MessageType : uint
     GAMESTART,
     GAMESETUP, // request holds piece deployment or move data, response is a gamestate object
     SETUPFINISHED,
+    MOVE,
 }
 
 public enum AppState
@@ -326,21 +328,50 @@ public class SLobby
 
 
 [Serializable]
-public class SVector2Int
+public struct SVector2Int : IEquatable<SVector2Int>
 {
     public int x;
     public int y;
-    
-    public SVector2Int() { }
     
     public SVector2Int(Vector2Int vector)
     {
         x = vector.x;
         y = vector.y;
     }
+
+    public SVector2Int(int inX, int inY)
+    {
+        x = inX;
+        y = inY;
+    }
+    
     public Vector2Int ToUnity()
     {
-        return new Vector2Int(this.x, this.y);
+        return new Vector2Int(x, y);
+    }
+    
+    // Implement IEquatable for performance
+    public bool Equals(SVector2Int other)
+    {
+        return x == other.x && y == other.y;
+    }
+
+    // Override GetHashCode
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(x, y);
+    }
+
+    // Define the == operator
+    public static bool operator ==(SVector2Int left, SVector2Int right)
+    {
+        return left.Equals(right);
+    }
+
+    // Define the != operator
+    public static bool operator !=(SVector2Int left, SVector2Int right)
+    {
+        return !(left == right);
     }
 }
 
@@ -387,20 +418,6 @@ public class SSetupParameters
     }
 }
 
-public class SInitialGameState
-{
-    public List<SPawn> pawns;
-    public SBoardDef board;
-    public int player;
-
-    public SInitialGameState(int inPlayer, List<SPawn> inPawns, SBoardDef inBoard)
-    {
-        pawns = inPawns;
-        player = inPlayer;
-        board = inBoard;
-    }
-}
-
 public class SSetupPawnData
 {
     public SPawnDef pawnDef;
@@ -420,7 +437,9 @@ public interface IGameClient
     event Action<Response<SLobby>> OnReadyLobbyResponse;
     event Action<Response<SSetupParameters>> OnDemoStartedResponse;
     event Action<Response<bool>> OnSetupSubmittedResponse;
-    event Action<Response<SInitialGameState>> OnSetupFinishedResponse;
+    event Action<Response<SGameState>> OnSetupFinishedResponse;
+    event Action<Response<bool>> OnMoveResponse;
+    event Action<Response<SGameState>> OnResolveResponse;
     
     
     // Methods
@@ -431,6 +450,7 @@ public interface IGameClient
     Task SendGameLobbyReadyRequest(bool ready);
     Task SendStartGameDemoRequest();
     Task SendSetupSubmissionRequest(List<SPawn> setupPawnList);
+    Task SendMove(SQueuedMove move);
 }
 
 
@@ -500,18 +520,218 @@ public class StartGameRequest : RequestBase
 
 public class SetupRequest : RequestBase
 {
+    public int player;
     public List<SPawn> pawns;
+}
+
+public class MoveRequest : RequestBase
+{
+    public SQueuedMove move;
 }
 
 [Serializable]
 public class QueuedMove
 {
+    public Player player;
     public Pawn pawn;
     public Vector2Int pos;
 
-    public QueuedMove(Pawn inPawn, Vector2Int inPos)
+    public QueuedMove(Player inPlayer, Pawn inPawn, Vector2Int inPos)
     {
+        player = inPlayer;
         pawn = inPawn;
         pos = inPos;
     }
 }
+
+public struct SQueuedMove
+{
+    public int player;
+    public SPawn pawn;
+    public SVector2Int pos;
+
+    public SQueuedMove(int inPlayer, SPawn inPawn, SVector2Int inPos)
+    {
+        player = inPlayer;
+        pawn = inPawn;
+        pos = inPos;
+    }
+    
+    public SQueuedMove(QueuedMove queuedMove)
+    {
+        player = (int)queuedMove.player;
+        pawn = new SPawn(queuedMove.pawn);
+        pos = new SVector2Int(queuedMove.pos);
+    }
+}
+
+public struct SGameState
+{
+    public int player;
+    public SBoardDef boardDef;
+    public SPawn[] pawns;
+
+    public SGameState(int inPlayer, SBoardDef inBoardDef, SPawn[] inPawns)
+    {
+        player = inPlayer;
+        boardDef = inBoardDef;
+        pawns = inPawns;
+    }
+
+    STile[] GetMovableTiles(SPawn pawn)
+    {
+        List<STile> movableTiles = new List<STile>();
+        if (!pawn.def.HasValue)
+        {
+            throw new Exception("GetMovableTiles requires a pawnDef");
+        }
+        // Check if the pawn is a Scout
+        if (pawn.def.Value.pawnName == "Scout")
+        {
+            // Scouts move any number of tiles in the cardinal directions
+            Vector2Int[] directions = new Vector2Int[]
+            {
+                new Vector2Int(1, 0),   // Right
+                new Vector2Int(-1, 0),  // Left
+                new Vector2Int(0, 1),   // Up
+                new Vector2Int(0, -1)   // Down
+            };
+
+            foreach (Vector2Int dir in directions)
+            {
+                Vector2Int currentPos = pawn.pos.ToUnity();
+                bool enemyEncountered = false;
+
+                while (true)
+                {
+                    currentPos += dir;
+
+                    // Check if the position is within the board bounds
+                    if (!IsPosValid(new SVector2Int(currentPos)))
+                        break;
+
+                    // Get the tile at the current position
+                    STile? tile = GetTileFromPos(new SVector2Int(currentPos));
+                    if (!tile.HasValue)
+                    {
+                        break;
+                    }
+                    // Check if the tile is occupied by another pawn
+                    SPawn? pawnOnPos = GetPawnFromPos(new SVector2Int(currentPos));
+                    if (pawnOnPos.HasValue)
+                    {
+                        if (pawnOnPos.Value.player == pawn.player)
+                        {
+                            // Cannot move through own pawns
+                            break;
+                        }
+                        else // Occupied by enemy pawn
+                        {
+                            movableTiles.Add(tile.Value);
+
+                            if (!enemyEncountered)
+                            {
+                                enemyEncountered = true;
+                                // Can't move further after encountering an enemy
+                                break;
+                            }
+                            else
+                            {
+                                // Already encountered an enemy; cannot move through more than one enemy
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Tile is unoccupied
+                        movableTiles.Add(tile.Value);
+                    }
+                }
+            }
+        }
+        else if (pawn.def.Value.pawnName == "Bomb" || pawn.def.Value.pawnName == "Flag")
+        {
+            // Bombs and Flags cannot move
+            // Return an empty list
+            return movableTiles.ToArray();
+        }
+        else
+        {
+            // Other pawns can move one square in cardinal directions only
+            Vector2Int[] directions = new Vector2Int[]
+            {
+                new Vector2Int(1, 0),   // Right
+                new Vector2Int(-1, 0),  // Left
+                new Vector2Int(0, 1),   // Up
+                new Vector2Int(0, -1)   // Down
+            };
+            foreach (Vector2Int dir in directions)
+            {
+                Vector2Int currentPos = pawn.pos.ToUnity() + dir;
+                // Check if the position is within the board bounds
+                if (!IsPosValid(new SVector2Int(currentPos)))
+                    continue;
+                // Get the tile at the current position
+                STile? tile = GetTileFromPos(new SVector2Int(currentPos));
+                if (!tile.HasValue)
+                {
+                    continue;
+                }
+                if (!tile.Value.isPassable)
+                {
+                    // Cannot move onto impassable tiles
+                    continue;
+                }
+                // Check if the tile is occupied by another pawn
+                SPawn? pawnAtPos = GetPawnFromPos(new SVector2Int(currentPos));
+
+                if (pawnAtPos.HasValue)
+                {
+                    if (pawnAtPos.Value.player == pawn.player)
+                    {
+                        // Cannot move onto a tile occupied by own pawn
+                        continue;
+                    }
+                    else
+                    {
+                        // Tile is occupied by an enemy pawn; can move onto it
+                        movableTiles.Add(tile.Value);
+                    }
+                }
+                else
+                {
+                    // Tile is unoccupied
+                    movableTiles.Add(tile.Value);
+                }
+            }
+        }
+        return movableTiles.ToArray();
+    }
+    
+    public bool IsPosValid(SVector2Int pos)
+    {
+        return boardDef.tiles.Any(tile => tile.pos == pos);
+
+    }
+
+    [CanBeNull]
+    public STile? GetTileFromPos(SVector2Int pos)
+    {
+        foreach (STile tile in boardDef.tiles.Where(tile => tile.pos == pos))
+        {
+            return tile;
+        }
+        return null;
+    }
+
+    public SPawn? GetPawnFromPos(SVector2Int pos)
+    {
+        foreach (SPawn pawn in pawns.Where(pawn => pawn.pos == pos))
+        {
+            return pawn;
+        }
+        return null;
+    }
+}
+

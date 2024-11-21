@@ -2,19 +2,22 @@ Shader "Custom/InvisibleOpaqueShader"
 {
     Properties
     {
-        // No properties are needed unless you have specific requirements.
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" "Queue"="Geometry" }
+        Tags { "RenderType" = "Opaque" "Queue" = "Geometry" }
         Pass
         {
-            // Disable color writes
-            ColorMask 0
+            // Enable blending that effectively discards color output
+            Blend Zero One
+
+            // Enable depth writing
+            ZWrite On
 
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+
             #include "UnityCG.cginc"
 
             struct appdata
@@ -36,11 +39,11 @@ Shader "Custom/InvisibleOpaqueShader"
 
             fixed4 frag(v2f i) : SV_Target
             {
-                // Return any color; it won't be written due to ColorMask 0
+                // Output any color; blending will prevent it from affecting the color buffer
                 return float4(0, 0, 0, 0);
             }
             ENDHLSL
         }
     }
-    FallBack "Diffuse"
+    FallBack Off
 }

@@ -225,15 +225,15 @@
                 }
 
                 #if defined(DEPTH)
-                edgeDepth = mask ? 0 : RobertsCross(depth_samples);
+                edgeDepth = RobertsCross(depth_samples);
                 #endif
 
                 #if defined(NORMALS)
-                edgeNormal = mask ? 0 : RobertsCross(normal_samples);
+                edgeNormal = RobertsCross(normal_samples);
                 #endif
 
                 #if defined(LUMINANCE)
-                edgeLuminance = mask ? 0 : RobertsCross(luminance_samples);
+                edgeLuminance = RobertsCross(luminance_samples);
                 #endif
 
                 #if defined(SECTIONS)
@@ -278,15 +278,15 @@
                 }
                 
                 #if defined(DEPTH)
-                edgeDepth = mask ? 0 : Sobel(depth_samples);
+                edgeDepth = Sobel(depth_samples);
                 #endif
 
                 #if defined(NORMALS)
-                edgeNormal = mask ? 0 : Sobel(normal_samples);
+                edgeNormal = Sobel(normal_samples);
                 #endif
 
                 #if defined(LUMINANCE)
-                edgeLuminance = mask ? 0 : Sobel(luminance_samples);
+                edgeLuminance = Sobel(luminance_samples);
                 #endif
 
                 #if defined(SECTIONS)

@@ -106,7 +106,6 @@ Shader "Hidden/Outlines/Edge Detection/Section"
                 float id = 0;
 
                 #if defined(OBJECT_ID) // Object id.
-                // return half4(0.5, 0.0f, 0.0f, 1.0f);
                 float3 position = GetAbsolutePositionWS(UNITY_MATRIX_M._m03_m13_m23);
                 id = frac(dot(position, position) * 0.3);
                 #endif

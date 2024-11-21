@@ -70,6 +70,7 @@ public class GameManager : MonoBehaviour
         client.OnDemoStartedResponse += OnDemoStartedResponse;
         client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
         client.OnSetupFinishedResponse += OnSetupFinishedResponse;
+        client.OnMoveResponse += OnMoveResponse;
         
         OnClientChanged?.Invoke(oldGameClient, client);
         _ = client.ConnectToServer();
@@ -130,11 +131,28 @@ public class GameManager : MonoBehaviour
     }
 
 
-    void OnSetupFinishedResponse(Response<SInitialGameState> response)
+    void OnSetupFinishedResponse(Response<SGameState> response)
     {
         boardManager.OnSetupFinishedResponse(response);
         guiManager.OnSetupFinishedResponse(response);
     }
+
+    void OnMoveResponse(Response<bool> response)
+    {
+        boardManager.OnMoveResponse(response);
+        guiManager.OnMoveResponse(response);
+    }
+    
+    public void OnMoveSubmitButton()
+    {
+        Debug.Log("GameManager OnMoveSubmitButton()");
+        if (boardManager.queuedMove != null)
+        {
+            SQueuedMove move = new SQueuedMove(boardManager.queuedMove);
+            client.SendMove(move);
+        }
+    }
+    
     
     public void QuitGame()
     {

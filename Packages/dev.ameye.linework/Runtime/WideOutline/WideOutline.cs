@@ -12,7 +12,7 @@ using UnityEngine.Rendering.Universal;
 namespace Linework.WideOutline
 {
     [ExcludeFromPreset]
-    //[DisallowMultipleRendererFeature("Wide Outline")]
+    [DisallowMultipleRendererFeature("Wide Outline")]
 #if UNITY_6000_0_OR_NEWER
     [SupportedOnRenderer(typeof(UniversalRendererData))]
 #endif

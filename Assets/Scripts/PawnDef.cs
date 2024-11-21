@@ -16,7 +16,7 @@ public class PawnDef : ScriptableObject
 }
 
 [Serializable]
-public class SPawnDef
+public struct SPawnDef
 {
     public string pawnName;
     public int power;

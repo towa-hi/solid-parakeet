@@ -47,11 +47,6 @@ public class PawnView : MonoBehaviour
         pawn = inPawn;
         if (pawn.def != null)
         {
-            
-        }
-        
-        if (pawn.def != null)
-        {
             gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {pawn.pawnId}";
             GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
             DisplaySymbol(Globals.pawnSprites[pawn.def.pawnName]);
@@ -59,6 +54,7 @@ public class PawnView : MonoBehaviour
         else
         {
             gameObject.name = $"{pawn.player} Pawn Unknown {pawn.pawnId}";
+            billboard.gameObject.SetActive(false);
         }
         switch (inPawn.player)
         {

@@ -58,36 +58,33 @@ public class Pawn
     }
 }
 
-public class SPawn
+public struct SPawn
 {
     public Guid pawnId;
-    [SerializeField] [CanBeNull] public SPawnDef def;
+    public SPawnDef? def;
     public int player;
     public SVector2Int pos;
     public bool isSetup;
     public bool isAlive;
     public bool hasMoved;
-    public bool isVisibleToPlayer;
+    public bool isVisibleToOpponent;
 
-    public SPawn()
+    public SPawn(SPawnDef? inDef, int inPlayer, SVector2Int inPos, bool inIsSetup, bool inIsAlive, bool inHasMoved, bool inIsVisibleToOpponent)
     {
-        
+        pawnId = Guid.NewGuid();
+        def = inDef;
+        player = inPlayer;
+        pos = inPos;
+        isSetup = inIsSetup;
+        isAlive = inIsAlive;
+        hasMoved = inHasMoved;
+        isVisibleToOpponent = inIsVisibleToOpponent;
     }
 
-    public SPawn(SPawn copy)
-    {
-        pawnId = copy.pawnId;
-        def = new SPawnDef(copy.def);
-        player = copy.player;
-        pos = copy.pos;
-        isSetup = copy.isSetup;
-        isAlive = copy.isAlive;
-        hasMoved = copy.hasMoved;
-        isVisibleToPlayer = copy.isVisibleToPlayer;
-    }
     public SPawn(Pawn pawn)
     {
         pawnId = pawn.pawnId;
+        def = null;
         if (pawn.def != null)
         {
             def = new SPawnDef(pawn.def);
@@ -97,7 +94,59 @@ public class SPawn
         isSetup = pawn.isSetup;
         isAlive = pawn.isAlive;
         hasMoved = pawn.hasMoved;
-        isVisibleToPlayer = pawn.isVisibleToPlayer;
+        isVisibleToOpponent = pawn.isVisibleToPlayer;
+    }
+
+    public SPawn Censor()
+    {
+        SPawn censoredPawn = new SPawn()
+        {
+            pawnId = pawnId,
+            def = null,
+            hasMoved = hasMoved,
+            isAlive = isAlive,
+            isSetup = isSetup,
+            isVisibleToOpponent = isVisibleToOpponent,
+            player = player,
+            pos = pos,
+        };
+        return censoredPawn;
+    }
+
+    public SPawn Kill()
+    {
+        Debug.Assert(isAlive);
+        Debug.Assert(!isSetup);
+        SPawn killedPawn = new SPawn()
+        {
+            pawnId = pawnId,
+            def = def,
+            hasMoved = hasMoved,
+            isAlive = false,
+            isSetup = isSetup,
+            isVisibleToOpponent = isVisibleToOpponent,
+            player = player,
+            pos = new SVector2Int(Globals.pugatory),
+        };
+        return killedPawn;
+    }
+
+    public SPawn Move(SVector2Int inPos)
+    {
+        Debug.Assert(isAlive);
+        Debug.Assert(!isSetup);
+        SPawn movedPawn = new SPawn()
+        {
+            pawnId = pawnId,
+            def = def,
+            hasMoved = true,
+            isAlive = isAlive,
+            isSetup = isSetup,
+            isVisibleToOpponent = isVisibleToOpponent,
+            player = player,
+            pos = inPos,
+        };
+        return movedPawn;
     }
 
     public Pawn ToUnity()
@@ -105,16 +154,17 @@ public class SPawn
         Pawn pawn = new Pawn()
         {
             pawnId = pawnId,
-            // do def later
+            player = (Player)player,
+            def = null,
             pos = pos.ToUnity(),
             isSetup = isSetup,
             isAlive = isAlive,
             hasMoved = hasMoved,
-            isVisibleToPlayer = isVisibleToPlayer,
+            isVisibleToPlayer = isVisibleToOpponent,
         };
-        if (def != null)
+        if (def.HasValue)
         {
-            pawn.def = def.ToUnity();
+            pawn.def = def.Value.ToUnity();
         }
         return pawn;
     }

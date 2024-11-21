@@ -286,8 +286,13 @@ public class GuiManager : MonoBehaviour
         gameOverlay.OnSetupSubmittedResponse(response);
     }
 
-    public void OnSetupFinishedResponse(Response<SInitialGameState> response)
+    public void OnSetupFinishedResponse(Response<SGameState> response)
     {
         gameOverlay.OnSetupFinishedResponse(response);
+    }
+
+    public void OnMoveResponse(Response<bool> response)
+    {
+        gameOverlay.OnMoveResponse(response);
     }
 }

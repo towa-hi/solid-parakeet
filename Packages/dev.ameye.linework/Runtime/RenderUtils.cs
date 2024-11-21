@@ -26,7 +26,9 @@ namespace Linework
         [InspectorName("Before Post Processing")]
         BeforeRenderingPostProcessing = RenderPassEvent.BeforeRenderingPostProcessing,
         [InspectorName("After Post Processing")]
-        AfterRenderingPostProcessing = RenderPassEvent.AfterRenderingPostProcessing
+        AfterRenderingPostProcessing = RenderPassEvent.AfterRenderingPostProcessing,
+        [InspectorName("Before Transparents")]
+        BeforeRenderingTransparents = RenderPassEvent.BeforeRenderingTransparents
     }
 
     public enum Occlusion
