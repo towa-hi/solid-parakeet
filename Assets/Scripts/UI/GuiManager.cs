@@ -108,7 +108,6 @@ public class GuiManager : MonoBehaviour
     {
         Debug.Log("GuiManager: OnDemoStarted");
         ShowMenu(gameOverlay);
-        gameOverlay.Initialize(new SetupParameters(response.data));
     }
     
     // start menu

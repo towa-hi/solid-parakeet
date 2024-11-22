@@ -7,7 +7,7 @@ using UnityEngine.Serialization;
 public class Pawn
 {
     public Guid pawnId;
-    [SerializeField] [CanBeNull] public PawnDef def;
+    public PawnDef def;
     public Player player;
     public Vector2Int pos;
     public bool isSetup;
@@ -58,11 +58,11 @@ public class Pawn
         }
     }
 }
-
+[Serializable]
 public struct SPawn
 {
     public Guid pawnId;
-    public SPawnDef? def;
+    public SPawnDef def;
     public int player;
     public SVector2Int pos;
     public bool isSetup;
@@ -70,7 +70,7 @@ public struct SPawn
     public bool hasMoved;
     public bool isVisibleToOpponent;
 
-    public SPawn(SPawnDef? inDef, int inPlayer, SVector2Int inPos, bool inIsSetup, bool inIsAlive, bool inHasMoved, bool inIsVisibleToOpponent)
+    public SPawn(SPawnDef inDef, int inPlayer, SVector2Int inPos, bool inIsSetup, bool inIsAlive, bool inHasMoved, bool inIsVisibleToOpponent)
     {
         pawnId = Guid.NewGuid();
         def = inDef;
@@ -85,11 +85,7 @@ public struct SPawn
     public SPawn(Pawn pawn)
     {
         pawnId = pawn.pawnId;
-        def = null;
-        if (pawn.def != null)
-        {
-            def = new SPawnDef(pawn.def);
-        }
+        def = new SPawnDef(pawn.def);
         player = (int)pawn.player;
         pos = new SVector2Int(pawn.pos);
         isSetup = pawn.isSetup;
@@ -103,7 +99,7 @@ public struct SPawn
         SPawn censoredPawn = new SPawn()
         {
             pawnId = pawnId,
-            def = null,
+            def = new SPawnDef("Unknown", 0),
             hasMoved = hasMoved,
             isAlive = isAlive,
             isSetup = isSetup,
@@ -156,17 +152,13 @@ public struct SPawn
         {
             pawnId = pawnId,
             player = (Player)player,
-            def = null,
+            def = def.ToUnity(),
             pos = pos.ToUnity(),
             isSetup = isSetup,
             isAlive = isAlive,
             hasMoved = hasMoved,
             isVisibleToOpponent = isVisibleToOpponent,
         };
-        if (def.HasValue)
-        {
-            pawn.def = def.Value.ToUnity();
-        }
         return pawn;
     }
 }

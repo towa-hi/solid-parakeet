@@ -20,12 +20,6 @@ public struct SPawnDef
 {
     public string pawnName;
     public int power;
-
-    public SPawnDef(SPawnDef copy)
-    {
-        pawnName = copy.pawnName;
-        power = copy.power;
-    }
     
     public SPawnDef(PawnDef pawnDef)
     {
@@ -33,6 +27,12 @@ public struct SPawnDef
         power = pawnDef.power;
     }
 
+    public SPawnDef(string inPawnName, int inPower)
+    {
+        pawnName = inPawnName;
+        power = inPower;
+    }
+    
     public PawnDef ToUnity()
     {
         return Globals.GetPawnDefFromName(pawnName);

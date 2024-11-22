@@ -12,6 +12,53 @@ public class GuiGame : MenuElement
     void Start()
     {
         moveControls.OnMoveSubmitButton += OnMoveSubmitButton;
+
+        GameManager.instance.boardManager.OnPhaseChanged += OnPhaseChanged;
+    }
+
+    void OnPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
+    {
+        switch (oldPhase)
+        {
+            case GamePhase.UNINITIALIZED:
+                break;
+            case GamePhase.SETUP:
+                pawnSetup.gameObject.SetActive(false);
+                break;
+            case GamePhase.WAITING:
+                waiting.gameObject.SetActive(false);
+                break;
+            case GamePhase.MOVE:
+                moveControls.gameObject.SetActive(false);
+                break;
+            case GamePhase.RESOLVE:
+                break;
+            case GamePhase.END:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(oldPhase), oldPhase, null);
+        }
+        switch (newPhase)
+        {
+            case GamePhase.UNINITIALIZED:
+                break;
+            case GamePhase.SETUP:
+                pawnSetup.gameObject.SetActive(true);
+                pawnSetup.Initialize(GameManager.instance.boardManager.setupParameters);
+                break;
+            case GamePhase.WAITING:
+                waiting.gameObject.SetActive(true);
+                break;
+            case GamePhase.MOVE:
+                moveControls.gameObject.SetActive(true);
+                break;
+            case GamePhase.RESOLVE:
+                break;
+            case GamePhase.END:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(newPhase), newPhase, null);
+        }
     }
 
     public void Initialize(SetupParameters setupParameters)

@@ -26,8 +26,8 @@ public class BoardManager : MonoBehaviour
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
     public Vector2Int hoveredPos;
-    public event Action<Pawn> OnPawnModified; // subscribed to by all pawnviews
-    public event Action<GamePhase> OnPhaseChanged;
+    public event Action<PawnChanges> OnPawnModified; // subscribed to by all pawnviews
+    public event Action<GamePhase, GamePhase> OnPhaseChanged;
     
     public PawnView currentHoveredPawnView;
     public TileView currentHoveredTileView;
@@ -35,7 +35,7 @@ public class BoardManager : MonoBehaviour
     bool setupIsSubmitted;
     
     // game stuff
-
+    public SGameState serverGameState;
     public PawnView selectedPawnView;
     public QueuedMove queuedMove;
     List<TileView> highlightedTileViews = new();
@@ -61,7 +61,6 @@ public class BoardManager : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException();
         }
-
         phase = inPhase;
         switch (phase)
         {
@@ -103,27 +102,19 @@ public class BoardManager : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException();
         }
-        OnPhaseChanged?.Invoke(phase);
+        OnPhaseChanged?.Invoke(oldPhase, phase);
     }
     
     public void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
-        setupParameters = new(response.data);
+        setupParameters = response.data.ToUnity();
         Debug.Log("setup parameters set");
-        player = (Player)response.data.player;
-        if (player == Player.RED)
-        {
-            opponentPlayer = Player.BLUE;
-        }
-        else
-        {
-            opponentPlayer = Player.RED;
-        }
+        player = (Player)setupParameters.player;
+        opponentPlayer = player == Player.RED ? Player.BLUE : Player.RED;
         Debug.Log("player set");
         Debug.Log("setupSelectedPawnDef set");
         LoadBoardData(setupParameters.board);
-        LoadPawns(player);
-        //LoadPawns(opponentPlayer);
+        LoadPawnViews(player, setupParameters.maxPawnsDict);
         Debug.Log("board set");
         Debug.Log("phase set");
         clickInputManager.OnPositionHovered += OnPositionHovered;
@@ -152,44 +143,44 @@ public class BoardManager : MonoBehaviour
         SetPhase(GamePhase.MOVE);
     }
 
-    void UpdateState(SGameState serverState)
+    void UpdateState(SGameState inServerGameState)
     {
-        foreach (SPawn sPawn in serverState.pawns)
+        serverGameState = inServerGameState;
+        foreach (SPawn sPawn in inServerGameState.pawns)
         {
             Pawn pawn = GetPawnById(sPawn.pawnId);
             if (pawn != null)
             {
-                bool posChanged;
+                PawnChanges pawnChanges = new()
+                {
+                    pawn = pawn,
+                };
                 if (pawn.pos != sPawn.pos.ToUnity())
                 {
-                    posChanged = true;
+                    pawnChanges.posChanged = true;
                     pawn.pos = sPawn.pos.ToUnity();
                 }
-                bool isSetupChanged;
                 if (pawn.isSetup != sPawn.isSetup)
                 {
-                    isSetupChanged = true;
+                    pawnChanges.isSetupChanged = true;
                     pawn.isSetup = sPawn.isSetup;
                 }
-                bool isAliveChanged;
                 if (pawn.isAlive != sPawn.isAlive)
                 {
-                    isAliveChanged = true;
+                    pawnChanges.isAliveChanged = true;
                     pawn.isAlive = sPawn.isAlive;
                 }
-                bool hasMovedChanged;
                 if (pawn.hasMoved != sPawn.hasMoved)
                 {
-                    hasMovedChanged = true;
+                    pawnChanges.hasMovedChanged = true;
                     pawn.hasMoved = sPawn.hasMoved;
                 }
-                bool isVisibleToOpponentChanged;
                 if (pawn.isVisibleToOpponent != sPawn.isVisibleToOpponent)
                 {
-                    isVisibleToOpponentChanged = true;
+                    pawnChanges.isVisibleToOpponentChanged = true;
                     pawn.isVisibleToOpponent = sPawn.isVisibleToOpponent;
                 }
-                OnPawnModified?.Invoke(pawn);
+                OnPawnModified?.Invoke(pawnChanges);
             }
             else
             {
@@ -263,6 +254,17 @@ public class BoardManager : MonoBehaviour
         }
         else
         {
+            SetPhase(GamePhase.MOVE);
+        }
+    }
+    
+    
+    public void OnResolveResponse(Response<SGameState> response)
+    {
+        if (response.success)
+        {
+            // apply diff here
+            
             SetPhase(GamePhase.MOVE);
         }
     }
@@ -362,10 +364,11 @@ public class BoardManager : MonoBehaviour
     bool TryQueueMove(PawnView pawnView, Vector2Int pos)
     {
         Debug.Log($"TryQueueMove at {pos}");
-        List<Tile> movableTilesList = GetMovableTiles(pawnView.pawn);
+        SPawn pawnOriginalState = GetPawnStateById(pawnView.pawn.pawnId);
+        STile[] movableTilesList = serverGameState.GetMovableTiles(pawnOriginalState);
         // check if valid move
         // queue a new PawnAction to go to that position
-        bool moveIsValid = movableTilesList.Any(tile => tile.pos == pos);
+        bool moveIsValid = movableTilesList.Any(tile => tile.pos.ToUnity() == pos);
         if (!moveIsValid)
         {
             return false;
@@ -391,151 +394,6 @@ public class BoardManager : MonoBehaviour
         queuedMove = null;
     }
     
-List<Tile> GetMovableTiles(Pawn pawn)
-{
-    List<Tile> movableTiles = new List<Tile>();
-    if (pawn.def == null)
-    {
-        throw new Exception("GetMovableTiles requires a pawnDef");
-    }
-    // Check if the pawn is a Scout
-    if (pawn.def.pawnName == "Scout")
-    {
-        // Scouts move any number of tiles in the cardinal directions
-        Vector2Int[] directions = new Vector2Int[]
-        {
-            new Vector2Int(1, 0),   // Right
-            new Vector2Int(-1, 0),  // Left
-            new Vector2Int(0, 1),   // Up
-            new Vector2Int(0, -1)   // Down
-        };
-
-        foreach (Vector2Int dir in directions)
-        {
-            Vector2Int currentPos = pawn.pos;
-            bool enemyEncountered = false;
-
-            while (true)
-            {
-                currentPos += dir;
-
-                // Check if the position is within the board bounds
-                if (!IsPosValid(currentPos))
-                    break;
-
-                // Get the tile at the current position
-                TileView tileView = GetTileView(currentPos);
-                if (tileView == null || !tileView.tile.isPassable)
-                    break; // Cannot move through impassable tiles
-
-                // Check if the tile is occupied by another pawn
-                PawnView pawnAtPos = GetPawnViewFromPos(currentPos);
-
-                if (pawnAtPos != null)
-                {
-                    if (pawnAtPos.pawn.player == pawn.player)
-                    {
-                        // Cannot move through own pawns
-                        break;
-                    }
-                    else // Occupied by enemy pawn
-                    {
-                        movableTiles.Add(tileView.tile);
-
-                        if (!enemyEncountered)
-                        {
-                            enemyEncountered = true;
-                            // Can't move further after encountering an enemy
-                            break;
-                        }
-                        else
-                        {
-                            // Already encountered an enemy; cannot move through more than one enemy
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    // Tile is unoccupied
-                    movableTiles.Add(tileView.tile);
-                }
-            }
-        }
-    }
-    else if (pawn.def.pawnName == "Bomb" || pawn.def.pawnName == "Flag")
-    {
-        // Bombs and Flags cannot move
-        // Return an empty list
-        return movableTiles;
-    }
-    else
-    {
-        // Other pawns can move one square in cardinal directions only
-        Vector2Int[] directions = new Vector2Int[]
-        {
-            new Vector2Int(1, 0),   // Right
-            new Vector2Int(-1, 0),  // Left
-            new Vector2Int(0, 1),   // Up
-            new Vector2Int(0, -1)   // Down
-        };
-
-        foreach (Vector2Int dir in directions)
-        {
-            Vector2Int currentPos = pawn.pos + dir;
-
-            // Check if the position is within the board bounds
-            if (!IsPosValid(currentPos))
-                continue;
-
-            // Get the tile at the current position
-            TileView tileView = GetTileView(currentPos);
-            if (tileView == null || !tileView.tile.isPassable)
-                continue; // Cannot move onto impassable tiles
-
-            // Check if the tile is occupied by another pawn
-            PawnView pawnAtPos = GetPawnViewFromPos(currentPos);
-
-            if (pawnAtPos != null)
-            {
-                if (pawnAtPos.pawn.player == pawn.player)
-                {
-                    // Cannot move onto a tile occupied by own pawn
-                    continue;
-                }
-                else
-                {
-                    // Tile is occupied by an enemy pawn; can move onto it
-                    movableTiles.Add(tileView.tile);
-                }
-            }
-            else
-            {
-                // Tile is unoccupied
-                movableTiles.Add(tileView.tile);
-            }
-        }
-    }
-
-    return movableTiles;
-}
-
-    
-    void LoadPawns(Player targetPlayer)
-    {
-        foreach ((PawnDef pawnDef, int max) in setupParameters.maxPawnsDict)
-        {
-            for (int i = 0; i < max; i++)
-            {
-                Pawn pawn = new(pawnDef, targetPlayer, true);
-                GameObject pawnObject = Instantiate(pawnPrefab, transform);
-                PawnView pawnView = pawnObject.GetComponent<PawnView>();
-                pawnViews.Add(pawnView);
-                pawnView.Initialize(pawn, null);
-            }
-        }
-    }
-
     Pawn GetPawnFromPurgatoryByPawnDef(Player targetPlayer, PawnDef pawnDef, Vector2Int pos)
     {
         if (!IsPosValid(pos))
@@ -556,7 +414,16 @@ List<Tile> GetMovableTiles(Pawn pawn)
                             if (!pawn.isAlive)
                             {
                                 pawn.SetAlive(true, pos);
-                                OnPawnModified?.Invoke(pawn);
+                                PawnChanges pawnChanges = new()
+                                {
+                                    pawn = pawn,
+                                    hasMovedChanged = false,
+                                    isAliveChanged = true,
+                                    isSetupChanged = false,
+                                    isVisibleToOpponentChanged = false,
+                                    posChanged = true,
+                                };
+                                OnPawnModified?.Invoke(pawnChanges);
                                 return pawn;
                             }
                         }
@@ -573,7 +440,16 @@ List<Tile> GetMovableTiles(Pawn pawn)
     void SendPawnToPurgatory(Pawn pawn)
     {
         pawn.SetAlive(false, null);
-        OnPawnModified?.Invoke(pawn);
+        PawnChanges pawnChanges = new()
+        {
+            pawn = pawn,
+            hasMovedChanged = false,
+            isAliveChanged = true,
+            isSetupChanged = false,
+            isVisibleToOpponentChanged = false,
+            posChanged = true,
+        };
+        OnPawnModified?.Invoke(pawnChanges);
     }
 
     void SelectPawnView(PawnView pawnView)
@@ -600,13 +476,14 @@ List<Tile> GetMovableTiles(Pawn pawn)
         {
             highlightedTileViews.Clear();
             pawnView.SetSelect(true);
-            List<Tile> tileList = GetMovableTiles(pawnView.pawn);
-            foreach (Tile tile in tileList)
+            SPawn selectedPawnState = GetPawnStateById(pawnView.pawn.pawnId);
+            STile[] tiles = serverGameState.GetMovableTiles(selectedPawnState);
+            foreach (STile tile in tiles)
             {
-                TileView tileView = GetTileView(tile.pos);
+                TileView tileView = GetTileView(tile.pos.ToUnity());
                 tileView.OnHighlight(true);
                 highlightedTileViews.Add(tileView);
-                PawnView pawnViewOnTile = GetPawnViewFromPos(tile.pos);
+                PawnView pawnViewOnTile = GetPawnViewFromPos(tile.pos.ToUnity());
                 if (pawnViewOnTile)
                 {
                     highlightedPawnViews.Add(pawnViewOnTile);
@@ -689,7 +566,21 @@ List<Tile> GetMovableTiles(Pawn pawn)
     Debug.Log("Setup is valid");
     return true;
 }
-
+    
+    void LoadPawnViews(Player targetPlayer, Dictionary<PawnDef, int> maxPawnsDict)
+    {
+        foreach ((PawnDef pawnDef, int max) in maxPawnsDict)
+        {
+            for (int i = 0; i < max; i++)
+            {
+                Pawn pawn = new(pawnDef, targetPlayer, true);
+                GameObject pawnObject = Instantiate(pawnPrefab, transform);
+                PawnView pawnView = pawnObject.GetComponent<PawnView>();
+                pawnViews.Add(pawnView);
+                pawnView.Initialize(pawn, null);
+            }
+        }
+    }
     
     void LoadBoardData(BoardDef boardDef)
     {
@@ -841,6 +732,11 @@ List<Tile> GetMovableTiles(Pawn pawn)
     Pawn GetPawnById(Guid id)
     {
         return pawnViews.Where(pawnView => pawnView.pawn.pawnId == id).Select(pawnView => pawnView.pawn).FirstOrDefault();
+    }
+
+    SPawn GetPawnStateById(Guid id)
+    {
+        return serverGameState.pawns.FirstOrDefault(pawn => pawn.pawnId == id);
     }
 
 }

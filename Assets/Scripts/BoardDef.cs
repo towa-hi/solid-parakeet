@@ -76,16 +76,16 @@ public struct SBoardDef
 {
     public string boardName;
     public SVector2Int boardSize;
-    public List<STile> tiles;
+    public STile[] tiles;
     
     public SBoardDef(BoardDef boardDef)
     {
         boardName = boardDef.boardName;
         boardSize = new SVector2Int(boardDef.boardSize);
-        tiles = new List<STile>();
-        foreach (Tile tile in boardDef.tiles)
+        tiles = new STile[boardDef.tiles.Length];
+        for (int i = 0; i < tiles.Length; i++)
         {
-            tiles.Add(new STile(tile));
+            tiles[i] = new STile(boardDef.tiles[i]);
         }
     }
 

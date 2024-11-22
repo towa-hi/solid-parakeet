@@ -55,9 +55,9 @@ public class GuiPawnSetupList : MonoBehaviour
         GameManager.instance.boardManager.OnSetupPawnEntrySelected(pawnDef);
     }
 
-    void OnPawnModified(Pawn pawn)
+    void OnPawnModified(PawnChanges pawnChanges)
     {
-        if (pawn.player == GameManager.instance.boardManager.player)
+        if (pawnChanges.pawn.player == GameManager.instance.boardManager.player)
         {
             UpdateList();
         }

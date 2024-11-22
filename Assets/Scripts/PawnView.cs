@@ -29,9 +29,9 @@ public class PawnView : MonoBehaviour
         GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
     }
 
-    void OnPawnModified(Pawn somePawn)
+    void OnPawnModified(PawnChanges pawnChanges)
     {
-        if (somePawn != pawn) return;
+        if (pawnChanges.pawn.pawnId != pawn.pawnId) return;
         if (pawn.isAlive)
         {
             transform.position = GameManager.instance.boardManager.GetTileView(pawn.pos).pawnOrigin.position;
@@ -49,7 +49,7 @@ public class PawnView : MonoBehaviour
         {
             gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {pawn.pawnId}";
             GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
-            DisplaySymbol(Globals.pawnSprites[pawn.def.pawnName]);
+            DisplaySymbol(pawn.def.icon);
         }
         else
         {
@@ -73,13 +73,21 @@ public class PawnView : MonoBehaviour
         {
             transform.position = tileView.pawnOrigin.position;
         }
-        OnPawnModified(pawn);
+
+        PawnChanges pawnChanges = new()
+        {
+            pawn = pawn,
+            hasMovedChanged = true,
+            isAliveChanged = true,
+            isSetupChanged = true,
+            isVisibleToOpponentChanged = true,
+            posChanged = true,
+        };
+        OnPawnModified(pawnChanges);
     }
 
-    protected void DisplaySymbol(string index)
+    protected void DisplaySymbol(Sprite sprite)
     {
-        
-        Sprite sprite = symbols.GetSprite(index);
         //Debug.Log(symbols.spriteCount);
         if (sprite == null)
         {

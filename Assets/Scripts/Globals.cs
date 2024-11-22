@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using UnityEngine;
+using Random = System.Random;
 
 public static class Globals
 {
@@ -280,6 +281,7 @@ public enum MessageType : uint
     GAMESETUP, // request holds piece deployment or move data, response is a gamestate object
     SETUPFINISHED,
     MOVE,
+    RESOLVE,
 }
 
 public enum AppState
@@ -381,40 +383,46 @@ public class SetupParameters
 {
     public Dictionary<PawnDef, int> maxPawnsDict;
     public BoardDef board;
+    public Player player;
     
-    public SetupParameters(SSetupParameters serialized)
-    {
-        board = serialized.board.ToUnity();
-        maxPawnsDict = new();
-        foreach (SSetupPawnData data in serialized.setupPawnDatas)
-        {
-            PawnDef pawnDef = Globals.GetPawnDefFromName(data.pawnDef.pawnName);
-            maxPawnsDict.Add(pawnDef, data.maxPawns);
-        }
-    }
 }
 
 public class SSetupParameters
 {
-    public List<SSetupPawnData> setupPawnDatas;
-    public SBoardDef board;
     public int player;
+    public SBoardDef board;
+    public SSetupPawnData[] maxPawnsDict;
     
-    public SSetupParameters(int inPlayer, SBoardDef inBoard)
+    public SSetupParameters(SetupParameters setupParameters)
     {
-        setupPawnDatas = new();
-        Dictionary<PawnDef, int> maxPawnsDict = Globals.GetUnorderedPawnDefDict();
-        foreach ((PawnDef pawnDef, int max) in maxPawnsDict)
+        player = (int)setupParameters.player;
+        board = new SBoardDef(setupParameters.board);
+        maxPawnsDict = new SSetupPawnData[setupParameters.maxPawnsDict.Count];
+        int index = 0;
+        foreach ((PawnDef pawnDef, int max) in setupParameters.maxPawnsDict)
         {
-            SSetupPawnData setupPawnData = new()
+            maxPawnsDict[index] = new SSetupPawnData
             {
                 pawnDef = new SPawnDef(pawnDef),
                 maxPawns = max,
             };
-            setupPawnDatas.Add(setupPawnData);
+            index++;
         }
-        player = inPlayer;
-        board = inBoard;
+    }
+
+    public SetupParameters ToUnity()
+    {
+        SetupParameters setupParameters = new()
+        {
+            player = (Player)player,
+            board = board.ToUnity(),
+            maxPawnsDict = new Dictionary<PawnDef, int>(),
+        };
+        foreach (SSetupPawnData setupPawnData in maxPawnsDict)
+        {
+            setupParameters.maxPawnsDict.Add(setupPawnData.pawnDef.ToUnity(), setupPawnData.maxPawns);
+        }
+        return setupParameters;
     }
 }
 
@@ -564,7 +572,7 @@ public struct SQueuedMove
         pos = new SVector2Int(queuedMove.pos);
     }
 }
-
+[Serializable]
 public struct SGameState
 {
     public int player;
@@ -577,137 +585,103 @@ public struct SGameState
         boardDef = inBoardDef;
         pawns = inPawns;
     }
-
-    public STile[] GetMovableTiles(SPawn pawn)
+public STile[] GetMovableTiles(SPawn pawn)
+{
+    Vector2Int[] directions = new Vector2Int[]
     {
-        List<STile> movableTiles = new List<STile>();
-        if (!pawn.def.HasValue)
+        new Vector2Int(1, 0),   // Right
+        new Vector2Int(-1, 0),  // Left
+        new Vector2Int(0, 1),   // Up
+        new Vector2Int(0, -1)   // Down
+    };
+
+    // Define the maximum possible number of movable tiles
+    int maxMovableTiles = boardDef.tiles.Length; // Adjust based on your board size
+    STile[] movableTiles = new STile[maxMovableTiles];
+    int tileCount = 0;
+
+    if (pawn.def.pawnName == "Unknown")
+    {
+        throw new Exception("GetMovableTiles requires a pawnDef");
+    }
+
+    // Determine pawn movement range
+    int pawnMovementRange = pawn.def.pawnName switch
+    {
+        "Scout" => 11,
+        "Bomb" or "Flag" => 0,
+        _ => 1,
+    };
+    foreach (Vector2Int dir in directions)
+    {
+        Vector2Int currentPos = pawn.pos.ToUnity();
+        bool enemyEncountered = false;
+
+        for (int i = 0; i < pawnMovementRange; i++)
         {
-            throw new Exception("GetMovableTiles requires a pawnDef");
-        }
-        // Check if the pawn is a Scout
-        if (pawn.def.Value.pawnName == "Scout")
-        {
-            // Scouts move any number of tiles in the cardinal directions
-            Vector2Int[] directions = new Vector2Int[]
+            currentPos += dir;
+            if (enemyEncountered)
             {
-                new Vector2Int(1, 0),   // Right
-                new Vector2Int(-1, 0),  // Left
-                new Vector2Int(0, 1),   // Up
-                new Vector2Int(0, -1)   // Down
-            };
-
-            foreach (Vector2Int dir in directions)
-            {
-                Vector2Int currentPos = pawn.pos.ToUnity();
-                bool enemyEncountered = false;
-
-                while (true)
-                {
-                    currentPos += dir;
-
-                    // Check if the position is within the board bounds
-                    if (!IsPosValid(new SVector2Int(currentPos)))
-                        break;
-
-                    // Get the tile at the current position
-                    STile? tile = GetTileFromPos(new SVector2Int(currentPos));
-                    if (!tile.HasValue)
-                    {
-                        break;
-                    }
-                    // Check if the tile is occupied by another pawn
-                    SPawn? pawnOnPos = GetPawnFromPos(new SVector2Int(currentPos));
-                    if (pawnOnPos.HasValue)
-                    {
-                        if (pawnOnPos.Value.player == pawn.player)
-                        {
-                            // Cannot move through own pawns
-                            break;
-                        }
-                        else // Occupied by enemy pawn
-                        {
-                            movableTiles.Add(tile.Value);
-
-                            if (!enemyEncountered)
-                            {
-                                enemyEncountered = true;
-                                // Can't move further after encountering an enemy
-                                break;
-                            }
-                            else
-                            {
-                                // Already encountered an enemy; cannot move through more than one enemy
-                                break;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Tile is unoccupied
-                        movableTiles.Add(tile.Value);
-                    }
-                }
+                break;
             }
-        }
-        else if (pawn.def.Value.pawnName == "Bomb" || pawn.def.Value.pawnName == "Flag")
-        {
-            // Bombs and Flags cannot move
-            // Return an empty list
-            return movableTiles.ToArray();
-        }
-        else
-        {
-            // Other pawns can move one square in cardinal directions only
-            Vector2Int[] directions = new Vector2Int[]
-            {
-                new Vector2Int(1, 0),   // Right
-                new Vector2Int(-1, 0),  // Left
-                new Vector2Int(0, 1),   // Up
-                new Vector2Int(0, -1)   // Down
-            };
-            foreach (Vector2Int dir in directions)
-            {
-                Vector2Int currentPos = pawn.pos.ToUnity() + dir;
-                // Check if the position is within the board bounds
-                if (!IsPosValid(new SVector2Int(currentPos)))
-                    continue;
-                // Get the tile at the current position
-                STile? tile = GetTileFromPos(new SVector2Int(currentPos));
-                if (!tile.HasValue)
-                {
-                    continue;
-                }
-                if (!tile.Value.isPassable)
-                {
-                    // Cannot move onto impassable tiles
-                    continue;
-                }
-                // Check if the tile is occupied by another pawn
-                SPawn? pawnAtPos = GetPawnFromPos(new SVector2Int(currentPos));
+            // Check if the position is within the board bounds
+            if (!IsPosValid(new SVector2Int(currentPos)))
+                break;
 
-                if (pawnAtPos.HasValue)
+            // Get the tile at the current position
+            STile? maybeTile = GetTileFromPos(new SVector2Int(currentPos));
+            if (!maybeTile.HasValue)
+                break;
+
+            STile tile = maybeTile.Value;
+
+            // Check if the tile is occupied by another pawn
+            SPawn? pawnOnPos = GetPawnFromPos(new SVector2Int(currentPos));
+            if (pawnOnPos.HasValue)
+            {
+                if (pawnOnPos.Value.player == pawn.player)
                 {
-                    if (pawnAtPos.Value.player == pawn.player)
-                    {
-                        // Cannot move onto a tile occupied by own pawn
-                        continue;
-                    }
-                    else
-                    {
-                        // Tile is occupied by an enemy pawn; can move onto it
-                        movableTiles.Add(tile.Value);
-                    }
+                    // Cannot move through own pawns
+                    break;
                 }
                 else
                 {
-                    // Tile is unoccupied
-                    movableTiles.Add(tile.Value);
+                    // Tile is occupied by an enemy pawn
+                    movableTiles[tileCount++] = tile;
+
+                    if (pawnMovementRange > 1)
+                    {
+                        if (!enemyEncountered)
+                        {
+                            enemyEncountered = true;
+                        }
+                        else
+                        {
+                            break; // Can't move past second enemy
+                        }
+                    }
+                    else
+                    {
+                        break; // Non-scouts cannot move further
+                    }
                 }
             }
+            else
+            {
+                // Tile is unoccupied
+                movableTiles[tileCount++] = tile;
+            }
         }
-        return movableTiles.ToArray();
     }
+    // Create a final array of the correct size
+    STile[] result = new STile[tileCount];
+    for (int i = 0; i < tileCount; i++)
+    {
+        result[i] = movableTiles[i];
+    }
+    return result;
+}
+
     
     public bool IsPosValid(SVector2Int pos)
     {
@@ -715,7 +689,61 @@ public struct SGameState
 
     }
 
-    [CanBeNull]
+    public SGameState Censor(int targetPlayer)
+    {
+        if (player != (int)Player.NONE)
+        {
+            throw new Exception("Censor can only be done on master game states!");
+        }
+
+        SGameState censoredGameState = new SGameState
+        {
+            player = targetPlayer,
+            boardDef = boardDef,
+        };
+        SPawn[] censoredPawns = new SPawn[pawns.Length];
+        for (int i = 0; i < pawns.Length; i++)
+        {
+            SPawn serverPawn = pawns[i];
+            SPawn censoredPawn;
+            if (serverPawn.player != targetPlayer && !serverPawn.isVisibleToOpponent)
+            {
+                censoredPawn = serverPawn.Censor();
+            }
+            else
+            {
+                censoredPawn = serverPawn;
+            }
+            censoredPawns[i] = censoredPawn;
+        }
+        censoredGameState.pawns = censoredPawns;
+        return censoredGameState;
+    }
+    
+    public SQueuedMove? GenerateValidMove(int targetPlayer)
+    {
+        List<SQueuedMove> allPossibleMoves = new List<SQueuedMove>();
+        foreach (SPawn pawn in pawns)
+        {
+            if (pawn.player == targetPlayer)
+            {
+                STile[] movableTiles = GetMovableTiles(pawn);
+                foreach (var tile in movableTiles)
+                {
+                    allPossibleMoves.Add(new SQueuedMove(targetPlayer, pawn, tile.pos));
+                }
+            }
+        }
+        if (allPossibleMoves.Count == 0)
+        {
+            return null;
+        }
+        Random random = new();
+        int randomIndex = random.Next(0, allPossibleMoves.Count);
+        SQueuedMove randomMove = allPossibleMoves[randomIndex];
+        return randomMove;
+    }
+    
     public STile? GetTileFromPos(SVector2Int pos)
     {
         foreach (STile tile in boardDef.tiles.Where(tile => tile.pos == pos))
@@ -735,3 +763,13 @@ public struct SGameState
     }
 }
 
+public struct PawnChanges
+{
+    public Pawn pawn;
+    public bool posChanged;
+    public bool isSetupChanged;
+    public bool isAliveChanged;
+    public bool hasMovedChanged;
+    public bool isVisibleToOpponentChanged;
+    
+}

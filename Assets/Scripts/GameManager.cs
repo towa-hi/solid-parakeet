@@ -71,11 +71,12 @@ public class GameManager : MonoBehaviour
         client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
         client.OnSetupFinishedResponse += OnSetupFinishedResponse;
         client.OnMoveResponse += OnMoveResponse;
+        client.OnResolveResponse += OnResolveResponse;
         
         OnClientChanged?.Invoke(oldGameClient, client);
         _ = client.ConnectToServer();
     }
-
+    
     void OnRegisterClientResponse(Response<string> response)
     {
         guiManager.OnRegisterClientResponse(response);
@@ -126,22 +127,27 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("GameManager: OnSetupSubmittedResponse");
         boardManager.OnSetupSubmittedResponse(response);
-        guiManager.OnSetupSubmittedResponse(response);
         // do nothing, just wait after this 
     }
 
 
     void OnSetupFinishedResponse(Response<SGameState> response)
     {
+        SGameState gameState = response.data;
+        
         boardManager.OnSetupFinishedResponse(response);
-        guiManager.OnSetupFinishedResponse(response);
     }
 
     void OnMoveResponse(Response<bool> response)
     {
         Debug.Log("GameManager OnMoveResponse()");
         boardManager.OnMoveResponse(response);
-        guiManager.OnMoveResponse(response);
+    }
+    
+    void OnResolveResponse(Response<SGameState> response)
+    {
+        Debug.Log("GameManager OnResolveResponse()");
+        boardManager.OnResolveResponse(response);
     }
     
     public void OnMoveSubmitButton()
