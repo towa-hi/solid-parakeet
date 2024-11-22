@@ -42,7 +42,8 @@ RenderSettings:
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
-  serializedVersion: 12
+  serializedVersion: 13
+  m_BakeOnSceneLoad: 0
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -506,6 +507,7 @@ MonoBehaviour:
       hasMoved: 0
       isVisibleToOpponent: 0
     pos: {x: 0, y: 0}
+  movingPawnsCount: 0
   setupSelectedPawnDef: {fileID: 0}
 --- !u!4 &1153439523
 Transform:

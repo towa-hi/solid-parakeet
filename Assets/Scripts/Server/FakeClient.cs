@@ -277,7 +277,7 @@ public class FakeClient : IGameClient
             default:
                 throw new ArgumentOutOfRangeException(nameof(requestData));
         }
-        await Task.Delay(55);
+        await Task.Delay(200);
         ProcessFakeResponse(response, messageType);
     }
     
@@ -434,7 +434,7 @@ public class FakeClient : IGameClient
             success = true,
             data = redInitialGameState,
         };
-        await Task.Delay(1000);
+        await Task.Delay(200);
         ProcessFakeResponse(initialGameStateResponseRed, MessageType.SETUPFINISHED);
     }
     
@@ -477,7 +477,7 @@ public class FakeClient : IGameClient
             success = true,
             data = redGameState,
         };
-        await Task.Delay(1000);
+        await Task.Delay(200);
         ProcessFakeResponse(redGameStateResponse, MessageType.RESOLVE);
 
     }

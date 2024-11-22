@@ -30,6 +30,7 @@ public class GameManager : MonoBehaviour
 
     void Awake()
     {
+        Debug.developerConsoleVisible = true;
         if (instance == null)
         {
             instance = this;
