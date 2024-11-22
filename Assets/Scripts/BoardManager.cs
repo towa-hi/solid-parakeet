@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor.Build;
 using UnityEngine;
 
 // BoardManager is responsible for managing the board state, including tiles and pawns.
@@ -22,7 +21,7 @@ public class BoardManager : MonoBehaviour
     public ClickInputManager clickInputManager;
     public Player player;
     public Player opponentPlayer;
-    public SetupParameters setupParameters;
+    public SSetupParameters serverSetupParameters;
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
     public Vector2Int hoveredPos;
@@ -38,9 +37,20 @@ public class BoardManager : MonoBehaviour
     public SGameState serverGameState;
     public PawnView selectedPawnView;
     public QueuedMove queuedMove;
-    List<TileView> highlightedTileViews = new();
-    List<PawnView> highlightedPawnViews = new();
+    HashSet<TileView> highlightedTileViews = new();
+    HashSet<PawnView> highlightedPawnViews = new();
+    public int movingPawnsCount = 0;
 
+    void Update()
+    {
+        if (phase == GamePhase.RESOLVE)
+        {
+            if (movingPawnsCount <= 0)
+            {
+                SetPhase(GamePhase.MOVE);
+            }
+        }
+    }
     void SetPhase(GamePhase inPhase)
     {
         GamePhase oldPhase = phase;
@@ -49,6 +59,13 @@ public class BoardManager : MonoBehaviour
             case GamePhase.UNINITIALIZED:
                 break;
             case GamePhase.SETUP:
+                foreach (var tileView in tileViews.Values)
+                {
+                    if (tileView.tile.isPassable)
+                    {
+                        tileView.SetToGreen();
+                    }
+                }
                 break;
             case GamePhase.MOVE:
                 break;
@@ -107,14 +124,14 @@ public class BoardManager : MonoBehaviour
     
     public void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
-        setupParameters = response.data.ToUnity();
+        serverSetupParameters = response.data;
+        //setupParameters = response.data.ToUnity();
         Debug.Log("setup parameters set");
-        player = (Player)setupParameters.player;
+        player = (Player)serverSetupParameters.player;
         opponentPlayer = player == Player.RED ? Player.BLUE : Player.RED;
         Debug.Log("player set");
         Debug.Log("setupSelectedPawnDef set");
-        LoadBoardData(setupParameters.board);
-        LoadPawnViews(player, setupParameters.maxPawnsDict);
+        LoadFromSetupParameters(serverSetupParameters);
         Debug.Log("board set");
         Debug.Log("phase set");
         clickInputManager.OnPositionHovered += OnPositionHovered;
@@ -143,9 +160,34 @@ public class BoardManager : MonoBehaviour
         SetPhase(GamePhase.MOVE);
     }
 
+    public void OnMoveResponse(Response<bool> response)
+    {
+        if (response.data)
+        {
+            SetPhase(GamePhase.WAITING);
+        }
+        else
+        {
+            SetPhase(GamePhase.MOVE);
+        }
+    }
+    
+    
+    public void OnResolveResponse(Response<SGameState> response)
+    {
+        if (response.success)
+        {
+            // apply diff here
+            UpdateState(response.data);
+            SetPhase(GamePhase.RESOLVE);
+        }
+    }
+    
+    
+    
     void UpdateState(SGameState inServerGameState)
     {
-        serverGameState = inServerGameState;
+        HashSet<PawnChanges> pawnChangesSet = new();
         foreach (SPawn sPawn in inServerGameState.pawns)
         {
             Pawn pawn = GetPawnById(sPawn.pawnId);
@@ -179,8 +221,15 @@ public class BoardManager : MonoBehaviour
                 {
                     pawnChanges.isVisibleToOpponentChanged = true;
                     pawn.isVisibleToOpponent = sPawn.isVisibleToOpponent;
+                    if (sPawn.isVisibleToOpponent)
+                    {
+                        pawn.def = sPawn.def.ToUnity();
+                    }
                 }
-                OnPawnModified?.Invoke(pawnChanges);
+                if (pawnChanges.IsChanged())
+                {
+                    pawnChangesSet.Add(pawnChanges);
+                }
             }
             else
             {
@@ -192,6 +241,13 @@ public class BoardManager : MonoBehaviour
                 pawnView.Initialize(newPawn, tileView);
             }
         }
+        serverGameState = inServerGameState;
+        foreach (var pawnChanges in pawnChangesSet)
+        {
+            Debug.Log(pawnChanges.ToString());
+            
+            OnPawnModified?.Invoke(pawnChanges);
+        }
     }
     
     void OnPositionHovered(Vector2Int oldPos, Vector2Int newPos)
@@ -199,7 +255,6 @@ public class BoardManager : MonoBehaviour
         // Store references to previous hovered pawn and tile
         PawnView previousHoveredPawnView = currentHoveredPawnView;
         TileView previousHoveredTileView = currentHoveredTileView;
-
         // Update current hovered pawn and tile based on new position
         if (IsPosValid(newPos))
         {
@@ -211,7 +266,6 @@ public class BoardManager : MonoBehaviour
             currentHoveredPawnView = null;
             currentHoveredTileView = null;
         }
-
         // Check if the hovered pawn has changed
         if (previousHoveredPawnView != currentHoveredPawnView)
         {
@@ -226,7 +280,6 @@ public class BoardManager : MonoBehaviour
                 currentHoveredPawnView.OnHovered(true);
             }
         }
-
         // Check if the hovered tile has changed
         if (previousHoveredTileView != currentHoveredTileView)
         {
@@ -241,33 +294,10 @@ public class BoardManager : MonoBehaviour
                 currentHoveredTileView.OnHovered(true);
             }
         }
-
         // Update the hovered position
         hoveredPos = newPos;
     }
 
-    public void OnMoveResponse(Response<bool> response)
-    {
-        if (response.data)
-        {
-            SetPhase(GamePhase.WAITING);
-        }
-        else
-        {
-            SetPhase(GamePhase.MOVE);
-        }
-    }
-    
-    
-    public void OnResolveResponse(Response<SGameState> response)
-    {
-        if (response.success)
-        {
-            // apply diff here
-            
-            SetPhase(GamePhase.MOVE);
-        }
-    }
     
     void OnClick(Vector2 screenPointerPosition, Vector2Int hoveredPosition)
     {
@@ -437,7 +467,7 @@ public class BoardManager : MonoBehaviour
         return null;
     }
 
-    void SendPawnToPurgatory(Pawn pawn)
+    void SendPawnToPurgatory(Pawn pawn, bool invoke = true)
     {
         pawn.SetAlive(false, null);
         PawnChanges pawnChanges = new()
@@ -449,7 +479,10 @@ public class BoardManager : MonoBehaviour
             isVisibleToOpponentChanged = false,
             posChanged = true,
         };
-        OnPawnModified?.Invoke(pawnChanges);
+        if (invoke)
+        {
+            OnPawnModified?.Invoke(pawnChanges);
+        }
     }
 
     void SelectPawnView(PawnView pawnView)
@@ -500,80 +533,49 @@ public class BoardManager : MonoBehaviour
         setupSelectedPawnDef = pawnDef;
     }
 
-    public bool IsSetupValid(Player targetPlayer)
-{
-    // Create a copy of the max pawns dict to track counts
-    Dictionary<PawnDef, int> pawnCounts = new Dictionary<PawnDef, int>(setupParameters.maxPawnsDict);
-
-    // Iterate over alive pawns on the board for the target player
-    foreach (PawnView pawnView in pawnViews)
+    public void SubmitSetup()
     {
-        Pawn pawn = pawnView.pawn;
-        if (pawn.isAlive && pawn.player == targetPlayer)
+        SPawn[] sPawns = new SPawn[pawnViews.Count];
+        for (int i = 0; i < sPawns.Length; i++)
         {
-            if (pawn.def == null)
-            {
-                return false;
-            }
-            // Check if pawnDef is in the max pawns dict
-            if (!pawnCounts.ContainsKey(pawn.def))
-            {
-                Debug.LogError($"PawnDef '{pawn.def.pawnName}' not found in max pawns dict");
-                return false;
-            }
+            SPawn sPawn = new(pawnViews[i].pawn);
+            sPawns[i] = sPawn;
+        }
 
-            // Decrement the count for this pawnDef
-            pawnCounts[pawn.def] -= 1;
-
-            // If count goes negative, there are too many pawns of this type
-            if (pawnCounts[pawn.def] < 0)
-            {
-                Debug.LogError($"Too many pawns of type '{pawn.def.pawnName}'");
-                return false;
-            }
-
-            // Check if the pawn is on a valid tile
-            if (!IsPosValid(pawn.pos))
-            {
-                Debug.LogError($"Pawn '{pawn.def.pawnName}' is on an invalid position {pawn.pos}");
-                return false;
-            }
-
-            TileView tileView = GetTileView(pawn.pos);
-            if (tileView == null)
-            {
-                Debug.LogError($"Tile at position {pawn.pos} not found for pawn '{pawn.def.pawnName}'");
-                return false;
-            }
-            if (!tileView.tile.IsTileEligibleForPlayer(targetPlayer))
-            {
-                Debug.LogError($"Tile at position {pawn.pos} is not eligible for player '{targetPlayer}'");
-                return false;
-            }
+        if (SSetupParameters.IsSetupValid((int)player, serverSetupParameters, sPawns))
+        {
+            _ = GameManager.instance.client.SendSetupSubmissionRequest(sPawns);
         }
     }
 
-    // Check if there are any remaining pawns that haven't been placed
-    foreach (var kvp in pawnCounts)
+    void LoadFromSetupParameters(SSetupParameters setupParameters)
     {
-        if (kvp.Value > 0)
+        List<PawnView> tempPawnViews = new(pawnViews);
+        foreach (PawnView pawnView in tempPawnViews)
         {
-            Debug.LogError($"Not all pawns of type '{kvp.Key.pawnName}' have been placed. {kvp.Value} remaining.");
-            return false;
+            pawnViews.Remove(pawnView);
+            Destroy(pawnView.gameObject);
         }
-    }
-
-    Debug.Log("Setup is valid");
-    return true;
-}
-    
-    void LoadPawnViews(Player targetPlayer, Dictionary<PawnDef, int> maxPawnsDict)
-    {
-        foreach ((PawnDef pawnDef, int max) in maxPawnsDict)
+        foreach (TileView tileView in tileViews.Values)
         {
-            for (int i = 0; i < max; i++)
+            Destroy(tileView.gameObject);
+        }
+
+        foreach (STile sTile in setupParameters.board.tiles)
+        {
+            Vector3Int gridPosition = new(sTile.pos.x, sTile.pos.y, 0);
+            Vector3 worldPosition = grid.CellToWorld(gridPosition);
+            GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
+            TileView tileView = tileObject.GetComponent<TileView>();
+            Tile tile = sTile.ToUnity();
+            tileView.Initialize(tile, this);
+            tileViews.Add(tile.pos, tileView);
+        }
+        foreach (SSetupPawnData setupPawnData in serverSetupParameters.maxPawnsDict)
+        {
+            for (int i = 0; i < setupPawnData.maxPawns; i++)
             {
-                Pawn pawn = new(pawnDef, targetPlayer, true);
+                Pawn pawn = new(setupPawnData.pawnDef.ToUnity(), (Player)setupParameters.player, true);
                 GameObject pawnObject = Instantiate(pawnPrefab, transform);
                 PawnView pawnView = pawnObject.GetComponent<PawnView>();
                 pawnViews.Add(pawnView);
@@ -582,118 +584,30 @@ public class BoardManager : MonoBehaviour
         }
     }
     
-    void LoadBoardData(BoardDef boardDef)
-    {
-        Debug.Log("BoardManager reading BoardDef from setupParameters");
-        ClearTiles();
-        for (int y = 0; y < boardDef.boardSize.y; y++)
-        {
-            for (int x = 0; x < boardDef.boardSize.x; x++)
-            {
-                // Get the position of the tile in the grid
-                Vector3Int gridPosition = new(x, y, 0);
-                Vector3 worldPosition = grid.CellToWorld(gridPosition);  // Convert grid position to world position
-                // Spawn a tile at the grid position
-                GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
-                TileView tileView = tileObject.GetComponent<TileView>();
-                Tile tile = boardDef.tiles[x + y * boardDef.boardSize.x];
-                tileView.Initialize(tile, this);
-                Vector2Int pos = new(x, y);
-                tileViews.Add(pos, tileView);
-            }
-        }
-    }
-
     public void AutoSetup(Player targetPlayer)
     {
-        if (targetPlayer == Player.NONE)
-        {
-            throw new Exception("Player can't be none");
-        }
-        // TODO: make this not call the same event 1600 times
         foreach (var pawnView in pawnViews)
         {
             if (pawnView.pawn.player == targetPlayer)
             {
-                SendPawnToPurgatory(pawnView.pawn);
+                SendPawnToPurgatory(pawnView.pawn, false);
             }
         }
-        BoardDef boardDef = setupParameters.board;
-        // Keep track of positions that have already been used
-        HashSet<Vector2Int> usedPositions = new();
-        // Get all eligible positions for the player
-        List<Vector2Int> allEligiblePositions = tileViews.Values
-            .Where(tileView => tileView.tile.IsTileEligibleForPlayer(targetPlayer))
-            .Select(tileView => tileView.tile.pos)
-            .ToList();
-        foreach ((PawnDef pawnDef, int pawnCount) in setupParameters.maxPawnsDict)
+        SPawn[] validSetup = SGameState.GenerateValidSetup((int)targetPlayer, serverSetupParameters);
+        foreach (SPawn sPawn in validSetup)
         {
-            List<Vector2Int> eligiblePositions = boardDef.GetEligiblePositionsForPawn(targetPlayer, pawnDef, usedPositions);
-            // Check if there are enough eligible positions
-            if (eligiblePositions.Count < pawnCount)
-            {
-                Debug.LogWarning($"Not enough eligible positions for pawn '{pawnDef.name}'. Ignoring placement rules for this pawn type.");
-                eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
-            }
-            // Place the pawns randomly on the eligible positions
-            for (int i = 0; i < pawnCount; i++)
-            {
-                if (eligiblePositions.Count == 0)
-                {
-                    Debug.LogWarning($"No more eligible positions available for pawn '{pawnDef.name}'.");
-                    break;
-                }
-                int index = UnityEngine.Random.Range(0, eligiblePositions.Count);
-                Vector2Int pos = eligiblePositions[index];
-                eligiblePositions.RemoveAt(index);
-                usedPositions.Add(pos);
-                GetPawnFromPurgatoryByPawnDef(targetPlayer, pawnDef, pos);
-            }
+            PawnDef pawnDef = sPawn.def.ToUnity();
+            GetPawnFromPurgatoryByPawnDef(targetPlayer, pawnDef, sPawn.pos.ToUnity());
         }
     }
     
-    void ClearTiles()
-    {
-        ClearPawns();
-        foreach (TileView tileView in tileViews.Values)
-        {
-            Destroy(tileView.gameObject);
-        }
-        tileViews.Clear();
-    }
-    
-    void ClearPawns()
-    {
-        List<PawnView> tempPawnViews = new(pawnViews);
-        foreach (PawnView pawnView in tempPawnViews)
-        {
-            DeletePawnView(pawnView);
-        }
-        pawnViews.Clear();
-    }
-    
-    void DeletePawnView(PawnView pawnView)
-    {
-        if (pawnView == null)
-        {
-            return;
-        }
-        pawnViews.Remove(pawnView);
-        Destroy(pawnView.gameObject);
-    }
-    
-    public PawnView GetPawnViewFromPos(Vector2Int pos)
+    PawnView GetPawnViewFromPos(Vector2Int pos)
     {
         if (!IsPosValid(pos))
         {
             throw new ArgumentOutOfRangeException($"Pos {pos} is invalid");
         }
         return pawnViews.FirstOrDefault(pawnView => pawnView.pawn.pos == pos);
-    }
-    
-    public PawnView GetPawnViewFromPawn(Pawn pawn)
-    {
-        return pawnViews.FirstOrDefault(pawnView => pawnView.pawn == pawn);
     }
 
     public TileView GetTileView(Vector2Int pos)
@@ -704,29 +618,10 @@ public class BoardManager : MonoBehaviour
         }
         return tileViews.TryGetValue(pos, out TileView tileView) ? tileView : null;
     }
-
-    int FindPawnCount(Player targetPlayer, PawnDef targetPawnDef)
-    {
-        return pawnViews.Where(pawnView => pawnView.pawn.def == targetPawnDef).Count(pawnView => pawnView.pawn.player == targetPlayer);
-    }
-
+    
     bool IsPosValid(Vector2Int pos)
     {
         return tileViews.Keys.Contains(pos);
-    }
-
-    public List<SPawn> GetSPawnListForSetup()
-    {
-        List<SPawn> sPawnList = new();
-        foreach (var pawnView in pawnViews)
-        {
-            SPawn sPawn = new(pawnView.pawn);
-            if (sPawn.isAlive && sPawn.player == (int)player)
-            {
-                sPawnList.Add(sPawn);
-            }
-        }
-        return sPawnList;
     }
 
     Pawn GetPawnById(Guid id)

@@ -1,4 +1,4 @@
-using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.U2D;
 
@@ -19,11 +19,11 @@ public class PawnView : MonoBehaviour
     
     public bool isSelected = false;
     public bool isHovered = false;
-    void OnDestroy()
-    {
-        
-    }
-
+    public bool isMoving = false;
+    
+    // Reference to the current movement coroutine
+    private Coroutine moveCoroutine;
+    
     void Start()
     {
         GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
@@ -32,14 +32,52 @@ public class PawnView : MonoBehaviour
     void OnPawnModified(PawnChanges pawnChanges)
     {
         if (pawnChanges.pawn.pawnId != pawn.pawnId) return;
+
+        // Get the target position
+        Vector3 targetPosition;
         if (pawn.isAlive)
         {
-            transform.position = GameManager.instance.boardManager.GetTileView(pawn.pos).pawnOrigin.position;
+            targetPosition = GameManager.instance.boardManager.GetTileView(pawn.pos).pawnOrigin.position;
         }
         else
         {
-            transform.position = GameManager.instance.boardManager.purgatory.position;
+            targetPosition = GameManager.instance.boardManager.purgatory.position;
         }
+        
+        // Stop any existing movement coroutine
+        if (moveCoroutine != null)
+        {
+            StopCoroutine(moveCoroutine);
+        }
+
+        // Start the movement coroutine to smoothly move to the target position
+        moveCoroutine = StartCoroutine(MoveToPosition(targetPosition, Globals.PAWNMOVEDURATION));
+
+        if (pawnChanges.isVisibleToOpponentChanged)
+        {
+            DisplaySymbol(pawn.def.icon);
+        }
+    }
+
+    IEnumerator MoveToPosition(Vector3 targetPosition, float duration)
+    {
+        isMoving = true;
+        GameManager.instance.boardManager.movingPawnsCount++;
+        Vector3 startPosition = transform.position;
+        float elapsedTime = 0f;
+
+        while (elapsedTime < duration)
+        {
+            // Lerp from startPosition to targetPosition over duration
+            transform.position = Vector3.Lerp(startPosition, targetPosition, elapsedTime / duration);
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        // Ensure the final position is set
+        transform.position = targetPosition;
+        isMoving = false;
+        GameManager.instance.boardManager.movingPawnsCount--;
     }
 
     public virtual void Initialize(Pawn inPawn, TileView tileView)
@@ -59,10 +97,10 @@ public class PawnView : MonoBehaviour
         switch (inPawn.player)
         {
             case Player.RED:
-                SetCubeColor(Color.red);
+                SetColor(Color.red);
                 break;
             case Player.BLUE:
-                SetCubeColor(Color.blue);
+                SetColor(Color.blue);
                 break;
         }
         if (tileView == null)
@@ -72,6 +110,13 @@ public class PawnView : MonoBehaviour
         else
         {
             transform.position = tileView.pawnOrigin.position;
+        }
+
+        // Initialize current position as the starting position
+        if (moveCoroutine != null)
+        {
+            StopCoroutine(moveCoroutine);
+            moveCoroutine = null;
         }
 
         PawnChanges pawnChanges = new()
@@ -86,22 +131,20 @@ public class PawnView : MonoBehaviour
         OnPawnModified(pawnChanges);
     }
 
-    protected void DisplaySymbol(Sprite sprite)
+    void DisplaySymbol(Sprite sprite)
     {
-        //Debug.Log(symbols.spriteCount);
         if (sprite == null)
         {
-            Debug.Log("wew");
+            Debug.Log("Sprite is null.");
         }
         symbolRenderer.sprite = sprite;
     }
 
-    protected void SetCubeColor(Color color)
+    void SetColor(Color color)
     {
-        Renderer cubeRenderer = cube.GetComponent<Renderer>();
-        cubeRenderer.material = new(cubeRenderer.material)
+        planeRenderer.material = new Material(planeRenderer.material)
         {
-            color = color
+            color = color,
         };
     }
     

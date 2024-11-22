@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,8 +35,13 @@ public struct SPawnDef
         power = inPower;
     }
     
-    public PawnDef ToUnity()
+    public readonly PawnDef ToUnity()
     {
-        return Globals.GetPawnDefFromName(pawnName);
+        string s = pawnName;
+        foreach (var kvp in GameManager.instance.orderedPawnDefList.Where(kvp => kvp.Key.pawnName == s))
+        {
+            return kvp.Key;
+        }
+        throw new KeyNotFoundException();
     }
 }

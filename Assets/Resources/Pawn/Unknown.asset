@@ -14,4 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pawnName: Unknown
   power: 0
-  icon: {fileID: 21300000, guid: ad9ef61c9d1052c44928a6871ac688ce, type: 3}
+  icon: {fileID: 21300000, guid: 61733c29273a6be4685202c25fc1f7f1, type: 3}

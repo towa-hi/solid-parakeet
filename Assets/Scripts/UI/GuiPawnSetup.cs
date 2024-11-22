@@ -15,7 +15,7 @@ public class GuiPawnSetup : MonoBehaviour
 
     }
     
-    public void Initialize(SetupParameters setupParameters)
+    public void Initialize(SSetupParameters setupParameters)
     {
         //Debug.Log("GuiPawnSetup Initialization");
         pawnSetupList.Initialize(setupParameters);
@@ -39,12 +39,6 @@ public class GuiPawnSetup : MonoBehaviour
 
     void OnSubmitButton()
     {
-        // TODO: submit pieces 
-        if (GameManager.instance.boardManager.IsSetupValid(GameManager.instance.boardManager.player))
-        {
-            Debug.Log("Submitting pieces");
-            GameManager.instance.client.SendSetupSubmissionRequest(GameManager.instance.boardManager.GetSPawnListForSetup());
-            //GameManager.instance.boardManager.StartDemoGame();
-        }
+        GameManager.instance.boardManager.SubmitSetup();
     }
 }

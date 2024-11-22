@@ -11,7 +11,7 @@ public class GuiPawnSetupList : MonoBehaviour
     public GuiPawnSetupListEntry selectedEntry;
     public bool initialized; 
     
-    public void Initialize(SetupParameters setupParameters)
+    public void Initialize(SSetupParameters setupParameters)
     {
         //Debug.Log("GuiPawnSetupList: Initialize");
         selectedEntry = null;
@@ -21,15 +21,15 @@ public class GuiPawnSetupList : MonoBehaviour
             Destroy(entry.gameObject);
         }
         entries = new HashSet<GuiPawnSetupListEntry>();
-        foreach ((PawnDef pawnDef, int maxPawns) in setupParameters.maxPawnsDict)
+        foreach (var setupPawnData in setupParameters.maxPawnsDict)
         {
             GameObject entryObject = Instantiate(entryPrefab, body);
             GuiPawnSetupListEntry entry = entryObject.GetComponent<GuiPawnSetupListEntry>();
-            entry.SetPawn(pawnDef, maxPawns);
-            entry.Initialize(pawnDef, maxPawns, OnEntryClicked);
+            PawnDef pawnDef = setupPawnData.pawnDef.ToUnity();
+            entry.SetPawn(pawnDef, setupPawnData.maxPawns);
+            entry.Initialize(pawnDef, setupPawnData.maxPawns, OnEntryClicked);
             entries.Add(entry);
         }
-
         GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
         initialized = true;
         UpdateList();

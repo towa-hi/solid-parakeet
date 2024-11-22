@@ -104,13 +104,12 @@ public class FakeClient : IGameClient
 
     public async Task SendStartGameDemoRequest()
     {
-        SetupParameters fakeSetupParameters = new()
+        SSetupParameters setupParameters = new()
         {
-            player = Player.RED,
-            board = GameManager.instance.tempBoardDef,
-            maxPawnsDict = Globals.GetUnorderedPawnDefDict(),
+            player = (int)Player.RED,
+            board = new SBoardDef(GameManager.instance.tempBoardDef),
+            maxPawnsDict = GameManager.instance.tempMaxPawnsArray,
         };
-        SSetupParameters setupParameters = new(fakeSetupParameters);
         StartGameRequest startGameRequest = new()
         {
             setupParameters = setupParameters,
@@ -118,7 +117,7 @@ public class FakeClient : IGameClient
         await SendFakeRequestToServer(MessageType.GAMESTART, startGameRequest);
     }
 
-    public async Task SendSetupSubmissionRequest(List<SPawn> setupPawnList)
+    public async Task SendSetupSubmissionRequest(SPawn[] setupPawnList)
     {
         SetupRequest setupRequest = new()
         {
@@ -246,7 +245,7 @@ public class FakeClient : IGameClient
             case SetupRequest setupRequest:
                 if (setupRequest.player == (int)Player.RED)
                 {
-                    SPawn[] redPawns = setupRequest.pawns.ToArray();
+                    SPawn[] redPawns = setupRequest.pawns;
                     for (int i = 0; i < redPawns.Length; i++)
                     {
                         SPawn notSetupPawn = redPawns[i];
@@ -407,54 +406,8 @@ public class FakeClient : IGameClient
             OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
         });
         // fill blue setup pawns like as if blue already sent a valid request
-        blueSetupPawns = GenerateValidSetup(lobbyBoardDef, (int)Player.BLUE, lobbySetupParameters);
+        blueSetupPawns = SGameState.GenerateValidSetup((int)Player.BLUE, lobbySetupParameters);
         OnBothPlayersSetupSubmitted();
-    }
-
-    static SPawn[] GenerateValidSetup(SBoardDef boardDef, int player, SSetupParameters setupParameters)
-    {
-        List<SPawn> sPawns = new();
-        HashSet<SVector2Int> usedPositions = new();
-        List<SVector2Int> allEligiblePositions = new();
-        foreach (STile sTile in boardDef.tiles)
-        {
-            if (sTile.IsTileEligibleForPlayer(player))
-            {
-                allEligiblePositions.Add(sTile.pos);
-            }
-        }
-        foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)
-        {
-            List<SVector2Int> eligiblePositions = boardDef.GetEligiblePositionsForPawn(player, setupPawnData.pawnDef, usedPositions);
-            if (eligiblePositions.Count < setupPawnData.maxPawns)
-            {
-                eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
-            }
-            for (int i = 0; i < setupPawnData.maxPawns; i++)
-            {
-                if (eligiblePositions.Count == 0)
-                {
-                    break;
-                }
-                int index = UnityEngine.Random.Range(0, eligiblePositions.Count);
-                SVector2Int pos = eligiblePositions[index];
-                eligiblePositions.RemoveAt(index);
-                usedPositions.Add(pos);
-                SPawn newPawn = new()
-                {
-                    pawnId = Guid.NewGuid(),
-                    def = setupPawnData.pawnDef,
-                    player = player,
-                    pos = pos,
-                    isSetup = false,
-                    isAlive = true,
-                    hasMoved = false,
-                    isVisibleToOpponent = false,
-                };
-                sPawns.Add(newPawn);
-            }
-        }
-        return sPawns.ToArray();
     }
 
 
@@ -472,16 +425,16 @@ public class FakeClient : IGameClient
             blueSetupPawnsIndex++;
         }
         masterGameState = new SGameState((int)Player.NONE, lobbyBoardDef, allPawns);
-        SGameState redInitialGameState = masterGameState.Censor((int)Player.RED);
+        SGameState redInitialGameState = SGameState.Censor(masterGameState, (int)Player.RED);
         // blue state is unused in fake client
-        SGameState blueInitialGameState = masterGameState.Censor((int)Player.BLUE);
+        SGameState blueInitialGameState = SGameState.Censor(masterGameState, (int)Player.BLUE);
         Response<SGameState> initialGameStateResponseRed = new()
         {
             requestId = Guid.Empty,
             success = true,
             data = redInitialGameState,
         };
-        //await Task.Delay(1000);
+        await Task.Delay(1000);
         ProcessFakeResponse(initialGameStateResponseRed, MessageType.SETUPFINISHED);
     }
     
@@ -514,9 +467,9 @@ public class FakeClient : IGameClient
             // TODO: tell the players that the game is over
             return;
         }
-        SGameState nextGameState = Resolve(masterGameState, redQueuedMove, blueQueuedMove);
+        SGameState nextGameState = SGameState.Resolve(masterGameState, redQueuedMove, blueQueuedMove);
         masterGameState = nextGameState;
-        SGameState redGameState = masterGameState.Censor((int)Player.RED);
+        SGameState redGameState = SGameState.Censor(masterGameState, (int)Player.RED);
         
         Response<SGameState> redGameStateResponse = new Response<SGameState>
         {
@@ -537,37 +490,6 @@ public class FakeClient : IGameClient
         });
     }
     
-    static SGameState Resolve(SGameState gameState, SQueuedMove redMove, SQueuedMove blueMove)
-    {
-        SGameState nextGameState = new SGameState()
-        {
-            player = (int)Player.NONE,
-            boardDef = gameState.boardDef,
-            pawns = (SPawn[])gameState.pawns.Clone(),
-        };
-        // check where red wants to go
-        SPawn? maybePawnOnPos = gameState.GetPawnFromPos(redMove.pos);
-        // if a pawn exists on this position
-        if (maybePawnOnPos.HasValue)
-        {
-            SPawn pawnOnPos = maybePawnOnPos.Value;
-            if (pawnOnPos.player == (int)Player.RED)
-            {
-                throw new Exception("NOT A VALID MOVE");
-            }
-            // pawn on pos is an enemy
-            if (pawnOnPos.player == (int)Player.BLUE)
-            {
-                // if pawn on pos is also moving
-                if (pawnOnPos.pawnId == blueMove.pawn.pawnId)
-                {
-                    // if enemy pawn is moving away
-                }
-            }
-        }
-
-        return nextGameState;
-    }
     
     
 }

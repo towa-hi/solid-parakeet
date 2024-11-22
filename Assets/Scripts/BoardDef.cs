@@ -98,7 +98,7 @@ public struct SBoardDef
         return boardDef;
     }
     
-    public List<SVector2Int> GetEligiblePositionsForPawn(int player, SPawnDef pawnDef, HashSet<SVector2Int> usedPositions)
+    public readonly List<SVector2Int> GetEligiblePositionsForPawn(int player, SPawnDef pawnDef, HashSet<SVector2Int> usedPositions)
     {
         // Determine the number of back rows based on pawn type
         int numberOfRows = Globals.GetNumberOfRowsForPawn(pawnDef);
@@ -126,7 +126,7 @@ public struct SBoardDef
         }
     }
     
-    bool IsTileInBackRows(int player, SVector2Int pos, int numberOfRows)
+    readonly bool IsTileInBackRows(int player, SVector2Int pos, int numberOfRows)
     {
         int backRowStartY;
         if (player == (int)Player.RED)
@@ -139,5 +139,22 @@ public struct SBoardDef
             backRowStartY = boardSize.y - numberOfRows;
             return pos.y >= backRowStartY && pos.y < boardSize.y;
         }
+    }
+
+    public readonly bool IsPosValid(SVector2Int pos)
+    {
+        return tiles.Any(tile => tile.pos == pos);
+    }
+
+    public STile GetTileFromPos(SVector2Int pos)
+    {
+        foreach (STile tile in tiles)
+        {
+            if (tile.pos == pos)
+            {
+                return tile;
+            }
+        }
+        throw new KeyNotFoundException($"tile at {pos} not found");
     }
 }

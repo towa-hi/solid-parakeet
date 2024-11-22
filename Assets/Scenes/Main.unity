@@ -485,6 +485,15 @@ MonoBehaviour:
   hoveredPos: {x: 0, y: 0}
   currentHoveredPawnView: {fileID: 0}
   currentHoveredTileView: {fileID: 0}
+  serverGameState:
+    player: 0
+    boardDef:
+      boardName: 
+      boardSize:
+        x: 0
+        y: 0
+      tiles: []
+    pawns: []
   selectedPawnView: {fileID: 0}
   queuedMove:
     player: 0
@@ -495,7 +504,7 @@ MonoBehaviour:
       isSetup: 0
       isAlive: 0
       hasMoved: 0
-      isVisibleToPlayer: 0
+      isVisibleToOpponent: 0
     pos: {x: 0, y: 0}
   setupSelectedPawnDef: {fileID: 0}
 --- !u!4 &1153439523

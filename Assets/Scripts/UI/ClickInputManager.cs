@@ -34,7 +34,7 @@ public class ClickInputManager : MonoBehaviour
     public void Initialize()
     {
         isInitialized = true;
-        hoveredPosition = Globals.pugatory;
+        hoveredPosition = Globals.PURGATORY;
         hoveredObject = null;
         hoveredPawnView = null;
         hoveredTileView = null;
@@ -45,7 +45,7 @@ public class ClickInputManager : MonoBehaviour
         hoveredPawnView = null;
         hoveredTileView = null;
         Vector2Int oldHoveredPosition = hoveredPosition;
-        hoveredPosition = Globals.pugatory;
+        hoveredPosition = Globals.PURGATORY;
         OnPositionHovered?.Invoke(oldHoveredPosition, hoveredPosition);
     }
     
@@ -106,7 +106,7 @@ public class ClickInputManager : MonoBehaviour
         }
         else
         {
-            currentHoveredPosition = Globals.pugatory;
+            currentHoveredPosition = Globals.PURGATORY;
         }
         // Check if the hovered position or object has changed
         if (currentHoveredPosition != hoveredPosition || currentHoveredObject != hoveredObject)

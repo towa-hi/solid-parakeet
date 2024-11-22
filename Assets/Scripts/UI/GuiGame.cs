@@ -12,8 +12,10 @@ public class GuiGame : MenuElement
     void Start()
     {
         moveControls.OnMoveSubmitButton += OnMoveSubmitButton;
-
         GameManager.instance.boardManager.OnPhaseChanged += OnPhaseChanged;
+        pawnSetup.gameObject.SetActive(false);
+        waiting.gameObject.SetActive(false);
+        moveControls.gameObject.SetActive(false);
     }
 
     void OnPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
@@ -44,7 +46,7 @@ public class GuiGame : MenuElement
                 break;
             case GamePhase.SETUP:
                 pawnSetup.gameObject.SetActive(true);
-                pawnSetup.Initialize(GameManager.instance.boardManager.setupParameters);
+                pawnSetup.Initialize(GameManager.instance.boardManager.serverSetupParameters);
                 break;
             case GamePhase.WAITING:
                 waiting.gameObject.SetActive(true);
@@ -61,7 +63,7 @@ public class GuiGame : MenuElement
         }
     }
 
-    public void Initialize(SetupParameters setupParameters)
+    public void Initialize(SSetupParameters setupParameters)
     {
         Debug.Log("GuiGame initialized");
         pawnSetup.gameObject.SetActive(true);

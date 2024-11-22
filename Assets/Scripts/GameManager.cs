@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
@@ -18,14 +19,14 @@ public class GameManager : MonoBehaviour
 
     public BoardManager boardManager;
     public GuiManager guiManager;
-    public Action<string> onNicknameChanged;
     public IGameClient client;
     public bool offlineMode;
     public Camera mainCamera;
     
     public BoardDef tempBoardDef;
+    public SSetupPawnData[] tempMaxPawnsArray;
+    public List<KeyValuePair<PawnDef, int>> orderedPawnDefList;
     
-    public event Action<IGameClient, IGameClient> OnClientChanged;
 
     void Awake()
     {
@@ -37,6 +38,8 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("MORE THAN ONE SINGLETON");
         }
+        tempMaxPawnsArray = Globals.GetMaxPawnsArray();
+        orderedPawnDefList = Globals.GetOrderedPawnList();
     }
 
     void Start()
@@ -73,7 +76,6 @@ public class GameManager : MonoBehaviour
         client.OnMoveResponse += OnMoveResponse;
         client.OnResolveResponse += OnResolveResponse;
         
-        OnClientChanged?.Invoke(oldGameClient, client);
         _ = client.ConnectToServer();
     }
     
@@ -129,8 +131,7 @@ public class GameManager : MonoBehaviour
         boardManager.OnSetupSubmittedResponse(response);
         // do nothing, just wait after this 
     }
-
-
+    
     void OnSetupFinishedResponse(Response<SGameState> response)
     {
         SGameState gameState = response.data;

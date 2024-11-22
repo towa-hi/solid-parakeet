@@ -19,30 +19,17 @@ public class Pawn
     {
         
     }
-    public Pawn(PawnDef inDef, Player inPlayer, Vector2Int inPos, bool inIsSetup)
-    {
-        if (inPlayer == Player.NONE)
-        {
-            throw new Exception("Pawn cannot have player == Player.NONE");
-        }
-
-        pawnId = Guid.NewGuid();
-        def = inDef;
-        player = inPlayer;
-        pos = inPos;
-        isSetup = inIsSetup;
-        isAlive = false;
-        hasMoved = false;
-    }
-
+    
     public Pawn(PawnDef inDef, Player inPlayer, bool inIsSetup)
     {
         // spawns pawn in purgatory
         pawnId = Guid.NewGuid();
-        player = inPlayer;
         def = inDef;
+        player = inPlayer;
+        pos = Globals.PURGATORY;
         isSetup = inIsSetup;
-        SetAlive(false, null);
+        isAlive = false;
+        isVisibleToOpponent = false;
     }
     
     public void SetAlive(bool inIsAlive, Vector2Int? inPos)
@@ -54,10 +41,11 @@ public class Pawn
         }
         else
         {
-            pos = Globals.pugatory;
+            pos = Globals.PURGATORY;
         }
     }
 }
+
 [Serializable]
 public struct SPawn
 {
@@ -94,23 +82,23 @@ public struct SPawn
         isVisibleToOpponent = pawn.isVisibleToOpponent;
     }
 
-    public SPawn Censor()
+    public readonly SPawn Censor()
     {
         SPawn censoredPawn = new SPawn()
         {
             pawnId = pawnId,
             def = new SPawnDef("Unknown", 0),
-            hasMoved = hasMoved,
-            isAlive = isAlive,
-            isSetup = isSetup,
-            isVisibleToOpponent = isVisibleToOpponent,
             player = player,
             pos = pos,
+            isSetup = isSetup,
+            isAlive = isAlive,
+            hasMoved = hasMoved,
+            isVisibleToOpponent = isVisibleToOpponent,
         };
         return censoredPawn;
     }
 
-    public SPawn Kill()
+    public readonly SPawn Kill()
     {
         Debug.Assert(isAlive);
         Debug.Assert(!isSetup);
@@ -118,17 +106,17 @@ public struct SPawn
         {
             pawnId = pawnId,
             def = def,
-            hasMoved = hasMoved,
-            isAlive = false,
-            isSetup = isSetup,
-            isVisibleToOpponent = isVisibleToOpponent,
             player = player,
-            pos = new SVector2Int(Globals.pugatory),
+            pos = new SVector2Int(Globals.PURGATORY),
+            isSetup = isSetup,
+            isAlive = false,
+            hasMoved = hasMoved,
+            isVisibleToOpponent = isVisibleToOpponent,
         };
         return killedPawn;
     }
 
-    public SPawn Move(SVector2Int inPos)
+    public readonly SPawn Move(SVector2Int inPos)
     {
         Debug.Assert(isAlive);
         Debug.Assert(!isSetup);
@@ -136,23 +124,23 @@ public struct SPawn
         {
             pawnId = pawnId,
             def = def,
-            hasMoved = true,
-            isAlive = isAlive,
-            isSetup = isSetup,
-            isVisibleToOpponent = isVisibleToOpponent,
             player = player,
             pos = inPos,
+            isSetup = isSetup,
+            isAlive = isAlive,
+            hasMoved = true,
+            isVisibleToOpponent = isVisibleToOpponent,
         };
         return movedPawn;
     }
 
-    public Pawn ToUnity()
+    public readonly Pawn ToUnity()
     {
         Pawn pawn = new Pawn()
         {
             pawnId = pawnId,
-            player = (Player)player,
             def = def.ToUnity(),
+            player = (Player)player,
             pos = pos.ToUnity(),
             isSetup = isSetup,
             isAlive = isAlive,
