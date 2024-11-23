@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Sockets;
+//using System.Net.Sockets;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using JetBrains.Annotations;
+//using System.Threading.Tasks;
+//using JetBrains.Annotations;
 using UnityEngine;
 using Random = System.Random;
 
@@ -15,117 +15,117 @@ public static class Globals
     public static float PAWNMOVEDURATION = 0.5f;
     // Static instance of GameInputActions to be shared among all Hoverable instances
     public static readonly InputSystem_Actions inputActions = new();
-
-    public static Dictionary<string, string> pawnSprites = new Dictionary<string, string>
-    {
-        { "Bomb", "bomb" },
-        { "Captain", "6"},
-        { "Colonel", "8"},
-        { "Flag", "flag"},
-        { "General", "9"},
-        { "Lieutenant", "5"},
-        { "Major", "7"},
-        { "Marshal", "10"},
-        { "Miner", "m"},
-        { "Scout", "s"},
-        { "Sergeant", "4"},
-        { "Spy", "dagger"},
-    };
-    
-    public static byte[] SerializeMessage(MessageType type, byte[] data)
-    {
-        using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
-        {
-            // Convert MessageType to bytes (4 bytes, little endian)
-            byte[] typeBytes = BitConverter.GetBytes((uint)type);
-            ms.Write(typeBytes, 0, typeBytes.Length);
-
-            // Convert data length to bytes (4 bytes, little endian)
-            byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
-            ms.Write(lengthBytes, 0, lengthBytes.Length);
-
-            // Write data bytes
-            ms.Write(data, 0, data.Length);
-
-            return ms.ToArray();
-        }
-    }
-    
-    public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
-    {
-        byte[] header = new byte[8];
-        int bytesRead = 0;
-        while (bytesRead < 8)
-        {
-            int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
-            if (read == 0)
-                throw new Exception("Disconnected");
-            bytesRead += read;
-        }
-
-        // Read message type
-        MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
-
-        // Read data length
-        uint length = BitConverter.ToUInt32(header, 4);
-
-        // Read data
-        byte[] data = new byte[length];
-        bytesRead = 0;
-        while (bytesRead < length)
-        {
-            int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
-            if (read == 0)
-                throw new Exception("Disconnected during data reception");
-            bytesRead += read;
-        }
-
-        return (type, data);
-    }
-    public static int[] ParsePassword(string password)
-    {
-        // Remove any non-digit and non-separator characters
-        string cleanedPassword = Regex.Replace(password, "[^0-9, ]", "");
-
-        // Split the string by commas or spaces
-        string[] parts = cleanedPassword.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length == 5)
-        {
-            int[] passwordInts = new int[5];
-            for (int i = 0; i < 5; i++)
-            {
-                if (!int.TryParse(parts[i], out passwordInts[i]))
-                {
-                    Debug.LogError($"Failed to parse part {i + 1}: '{parts[i]}'");
-                    return null; // Parsing failed
-                }
-            }
-            Debug.Log($"Parsed password with separators: [{string.Join(", ", passwordInts)}]");
-            return passwordInts;
-        }
-        else if (cleanedPassword.Length == 5)
-        {
-            int[] passwordInts = new int[5];
-            for (int i = 0; i < 5; i++)
-            {
-                char c = cleanedPassword[i];
-                if (!char.IsDigit(c))
-                {
-                    Debug.LogError($"Non-digit character found at position {i + 1}: '{c}'");
-                    return null; // Invalid character
-                }
-                passwordInts[i] = c - '0';
-            }
-            Debug.Log($"Parsed password without separators: [{string.Join(", ", passwordInts)}]");
-            return passwordInts;
-        }
-        else
-        {
-            Debug.LogError($"Invalid password format. Expected 5 integers separated by commas/spaces or a continuous 5-digit number. Received: '{password}'");
-            return null; // Invalid format
-        }
-    }
+    //
+    // public static Dictionary<string, string> pawnSprites = new Dictionary<string, string>
+    // {
+    //     { "Bomb", "bomb" },
+    //     { "Captain", "6"},
+    //     { "Colonel", "8"},
+    //     { "Flag", "flag"},
+    //     { "General", "9"},
+    //     { "Lieutenant", "5"},
+    //     { "Major", "7"},
+    //     { "Marshal", "10"},
+    //     { "Miner", "m"},
+    //     { "Scout", "s"},
+    //     { "Sergeant", "4"},
+    //     { "Spy", "dagger"},
+    // };
+    //
+    // public static byte[] SerializeMessage(MessageType type, byte[] data)
+    // {
+    //     using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
+    //     {
+    //         // Convert MessageType to bytes (4 bytes, little endian)
+    //         byte[] typeBytes = BitConverter.GetBytes((uint)type);
+    //         ms.Write(typeBytes, 0, typeBytes.Length);
+    //
+    //         // Convert data length to bytes (4 bytes, little endian)
+    //         byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
+    //         ms.Write(lengthBytes, 0, lengthBytes.Length);
+    //
+    //         // Write data bytes
+    //         ms.Write(data, 0, data.Length);
+    //
+    //         return ms.ToArray();
+    //     }
+    // }
+    //
+    // public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
+    // {
+    //     byte[] header = new byte[8];
+    //     int bytesRead = 0;
+    //     while (bytesRead < 8)
+    //     {
+    //         int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
+    //         if (read == 0)
+    //             throw new Exception("Disconnected");
+    //         bytesRead += read;
+    //     }
+    //
+    //     // Read message type
+    //     MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
+    //
+    //     // Read data length
+    //     uint length = BitConverter.ToUInt32(header, 4);
+    //
+    //     // Read data
+    //     byte[] data = new byte[length];
+    //     bytesRead = 0;
+    //     while (bytesRead < length)
+    //     {
+    //         int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
+    //         if (read == 0)
+    //             throw new Exception("Disconnected during data reception");
+    //         bytesRead += read;
+    //     }
+    //
+    //     return (type, data);
+    // }
+    // public static int[] ParsePassword(string password)
+    // {
+    //     // Remove any non-digit and non-separator characters
+    //     string cleanedPassword = Regex.Replace(password, "[^0-9, ]", "");
+    //
+    //     // Split the string by commas or spaces
+    //     string[] parts = cleanedPassword.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+    //
+    //     if (parts.Length == 5)
+    //     {
+    //         int[] passwordInts = new int[5];
+    //         for (int i = 0; i < 5; i++)
+    //         {
+    //             if (!int.TryParse(parts[i], out passwordInts[i]))
+    //             {
+    //                 Debug.LogError($"Failed to parse part {i + 1}: '{parts[i]}'");
+    //                 return null; // Parsing failed
+    //             }
+    //         }
+    //         Debug.Log($"Parsed password with separators: [{string.Join(", ", passwordInts)}]");
+    //         return passwordInts;
+    //     }
+    //     else if (cleanedPassword.Length == 5)
+    //     {
+    //         int[] passwordInts = new int[5];
+    //         for (int i = 0; i < 5; i++)
+    //         {
+    //             char c = cleanedPassword[i];
+    //             if (!char.IsDigit(c))
+    //             {
+    //                 Debug.LogError($"Non-digit character found at position {i + 1}: '{c}'");
+    //                 return null; // Invalid character
+    //             }
+    //             passwordInts[i] = c - '0';
+    //         }
+    //         Debug.Log($"Parsed password without separators: [{string.Join(", ", passwordInts)}]");
+    //         return passwordInts;
+    //     }
+    //     else
+    //     {
+    //         Debug.LogError($"Invalid password format. Expected 5 integers separated by commas/spaces or a continuous 5-digit number. Received: '{password}'");
+    //         return null; // Invalid format
+    //     }
+    // }
 
     public static bool IsNicknameValid(string nickname)
     {
@@ -483,14 +483,14 @@ public interface IGameClient
     
     
     // Methods
-    Task ConnectToServer();
-    Task SendRegisterNickname(string nicknameInput);
-    Task SendGameLobby();
-    Task SendGameLobbyLeaveRequest();
-    Task SendGameLobbyReadyRequest(bool ready);
-    Task SendStartGameDemoRequest();
-    Task SendSetupSubmissionRequest(SPawn[] setupPawns);
-    Task SendMove(SQueuedMove move);
+    void ConnectToServer();
+    void SendRegisterNickname(string nicknameInput);
+    void SendGameLobby();
+    void SendGameLobbyLeaveRequest();
+    void SendGameLobbyReadyRequest(bool ready);
+    void SendStartGameDemoRequest();
+    void SendSetupSubmissionRequest(SPawn[] setupPawns);
+    void SendMove(SQueuedMove move);
 }
 
 
@@ -983,122 +983,122 @@ public STile[] GetMovableTiles(SPawn pawn)
     }
 
     public static SGameState Resolve(SGameState gameState, SQueuedMove redMove, SQueuedMove blueMove)
-{
-    if (gameState.player != (int)Player.NONE)
     {
-        throw new ArgumentException("GameState.player must be NONE as resolve can only happen on an uncensored board!");
-    }
-
-    // Create a deep copy of the game state to avoid mutating the original
-    SGameState nextGameState = new SGameState()
-    {
-        player = (int)Player.NONE,
-        boardDef = gameState.boardDef,
-        pawns = (SPawn[])gameState.pawns.Clone(),
-    };
-
-    // Get the moving pawns
-    SPawn? maybeRedPawn = nextGameState.GetPawnFromId(redMove.pawn.pawnId);
-    SPawn? maybeBluePawn = nextGameState.GetPawnFromId(blueMove.pawn.pawnId);
-
-    if (!maybeRedPawn.HasValue || !maybeBluePawn.HasValue)
-    {
-        throw new Exception("One of the moving pawns does not exist in the game state.");
-    }
-
-    SPawn redPawn = maybeRedPawn.Value;
-    SPawn bluePawn = maybeBluePawn.Value;
-
-    // Generate movement paths
-    List<SVector2Int> redPath = GenerateMovementPath(gameState, redPawn, redMove.pos);
-    List<SVector2Int> bluePath = GenerateMovementPath(gameState, bluePawn, blueMove.pos);
-
-    // Determine maximum path length
-    int maxPathLength = Math.Max(redPath.Count, bluePath.Count);
-
-    // Initialize positions
-    SVector2Int redCurrentPos = redPawn.pos;
-    SVector2Int blueCurrentPos = bluePawn.pos;
-
-    // Keep track of eliminated pawns to avoid conflicts with already eliminated pawns
-    HashSet<Guid> eliminatedPawns = new HashSet<Guid>();
-
-    // Simulate movement step by step
-    for (int step = 0; step < maxPathLength; step++)
-    {
-        // Update positions if the pawn has more steps and is not eliminated
-        if (!eliminatedPawns.Contains(redPawn.pawnId) && step < redPath.Count)
+        if (gameState.player != (int)Player.NONE)
         {
-            redCurrentPos = redPath[step];
+            throw new ArgumentException("GameState.player must be NONE as resolve can only happen on an uncensored board!");
+        }
 
-            // Check for conflict with any enemy pawn at redCurrentPos
-            SPawn? enemyPawn = nextGameState.GetPawnFromPos(redCurrentPos);
-            if (enemyPawn.HasValue && enemyPawn.Value.player == (int)Player.BLUE && !eliminatedPawns.Contains(enemyPawn.Value.pawnId))
+        // Create a deep copy of the game state to avoid mutating the original
+        SGameState nextGameState = new SGameState()
+        {
+            player = (int)Player.NONE,
+            boardDef = gameState.boardDef,
+            pawns = (SPawn[])gameState.pawns.Clone(),
+        };
+
+        // Get the moving pawns
+        SPawn? maybeRedPawn = nextGameState.GetPawnFromId(redMove.pawn.pawnId);
+        SPawn? maybeBluePawn = nextGameState.GetPawnFromId(blueMove.pawn.pawnId);
+
+        if (!maybeRedPawn.HasValue || !maybeBluePawn.HasValue)
+        {
+            throw new Exception("One of the moving pawns does not exist in the game state.");
+        }
+
+        SPawn redPawn = maybeRedPawn.Value;
+        SPawn bluePawn = maybeBluePawn.Value;
+
+        // Generate movement paths
+        List<SVector2Int> redPath = GenerateMovementPath(gameState, redPawn, redMove.pos);
+        List<SVector2Int> bluePath = GenerateMovementPath(gameState, bluePawn, blueMove.pos);
+
+        // Determine maximum path length
+        int maxPathLength = Math.Max(redPath.Count, bluePath.Count);
+
+        // Initialize positions
+        SVector2Int redCurrentPos = redPawn.pos;
+        SVector2Int blueCurrentPos = bluePawn.pos;
+
+        // Keep track of eliminated pawns to avoid conflicts with already eliminated pawns
+        HashSet<Guid> eliminatedPawns = new HashSet<Guid>();
+
+        // Simulate movement step by step
+        for (int step = 0; step < maxPathLength; step++)
+        {
+            // Update positions if the pawn has more steps and is not eliminated
+            if (!eliminatedPawns.Contains(redPawn.pawnId) && step < redPath.Count)
             {
-                // Conflict occurs between redPawn and the enemy pawn
-                ResolveConflict(ref nextGameState, redPawn, enemyPawn.Value, redCurrentPos);
-                eliminatedPawns.Add(redPawn.pawnId);
-                eliminatedPawns.Add(enemyPawn.Value.pawnId);
-                continue; // Skip to next iteration
+                redCurrentPos = redPath[step];
+
+                // Check for conflict with any enemy pawn at redCurrentPos
+                SPawn? enemyPawn = nextGameState.GetPawnFromPos(redCurrentPos);
+                if (enemyPawn.HasValue && enemyPawn.Value.player == (int)Player.BLUE && !eliminatedPawns.Contains(enemyPawn.Value.pawnId))
+                {
+                    // Conflict occurs between redPawn and the enemy pawn
+                    ResolveConflict(ref nextGameState, redPawn, enemyPawn.Value, redCurrentPos);
+                    eliminatedPawns.Add(redPawn.pawnId);
+                    eliminatedPawns.Add(enemyPawn.Value.pawnId);
+                    continue; // Skip to next iteration
+                }
             }
-        }
 
-        if (!eliminatedPawns.Contains(bluePawn.pawnId) && step < bluePath.Count)
-        {
-            blueCurrentPos = bluePath[step];
-
-            // Check for conflict with any enemy pawn at blueCurrentPos
-            SPawn? enemyPawn = nextGameState.GetPawnFromPos(blueCurrentPos);
-            if (enemyPawn.HasValue && enemyPawn.Value.player == (int)Player.RED && !eliminatedPawns.Contains(enemyPawn.Value.pawnId))
+            if (!eliminatedPawns.Contains(bluePawn.pawnId) && step < bluePath.Count)
             {
-                // Conflict occurs between bluePawn and the enemy pawn
-                ResolveConflict(ref nextGameState, bluePawn, enemyPawn.Value, blueCurrentPos);
-                eliminatedPawns.Add(bluePawn.pawnId);
-                eliminatedPawns.Add(enemyPawn.Value.pawnId);
-                continue; // Skip to next iteration
+                blueCurrentPos = bluePath[step];
+
+                // Check for conflict with any enemy pawn at blueCurrentPos
+                SPawn? enemyPawn = nextGameState.GetPawnFromPos(blueCurrentPos);
+                if (enemyPawn.HasValue && enemyPawn.Value.player == (int)Player.RED && !eliminatedPawns.Contains(enemyPawn.Value.pawnId))
+                {
+                    // Conflict occurs between bluePawn and the enemy pawn
+                    ResolveConflict(ref nextGameState, bluePawn, enemyPawn.Value, blueCurrentPos);
+                    eliminatedPawns.Add(bluePawn.pawnId);
+                    eliminatedPawns.Add(enemyPawn.Value.pawnId);
+                    continue; // Skip to next iteration
+                }
             }
-        }
 
-        // Check for collision between moving pawns at this step
-        if (redCurrentPos == blueCurrentPos)
-        {
-            // Conflict occurs between redPawn and bluePawn
-            ResolveConflict(ref nextGameState, redPawn, bluePawn, redCurrentPos);
-            eliminatedPawns.Add(redPawn.pawnId);
-            eliminatedPawns.Add(bluePawn.pawnId);
-            break; // Conflict resolved, stop processing
-        }
-
-        // Check for path crossing
-        if (step > 0)
-        {
-            SVector2Int redPrevPos = (step - 1 < redPath.Count) ? redPath[step - 1] : redPawn.pos;
-            SVector2Int bluePrevPos = (step - 1 < bluePath.Count) ? bluePath[step - 1] : bluePawn.pos;
-
-            if (redCurrentPos == bluePrevPos && blueCurrentPos == redPrevPos)
+            // Check for collision between moving pawns at this step
+            if (redCurrentPos == blueCurrentPos)
             {
-                // Pawns cross paths; conflict occurs at crossing point
+                // Conflict occurs between redPawn and bluePawn
                 ResolveConflict(ref nextGameState, redPawn, bluePawn, redCurrentPos);
                 eliminatedPawns.Add(redPawn.pawnId);
                 eliminatedPawns.Add(bluePawn.pawnId);
                 break; // Conflict resolved, stop processing
             }
+
+            // Check for path crossing
+            if (step > 0)
+            {
+                SVector2Int redPrevPos = (step - 1 < redPath.Count) ? redPath[step - 1] : redPawn.pos;
+                SVector2Int bluePrevPos = (step - 1 < bluePath.Count) ? bluePath[step - 1] : bluePawn.pos;
+
+                if (redCurrentPos == bluePrevPos && blueCurrentPos == redPrevPos)
+                {
+                    // Pawns cross paths; conflict occurs at crossing point
+                    ResolveConflict(ref nextGameState, redPawn, bluePawn, redCurrentPos);
+                    eliminatedPawns.Add(redPawn.pawnId);
+                    eliminatedPawns.Add(bluePawn.pawnId);
+                    break; // Conflict resolved, stop processing
+                }
+            }
         }
-    }
 
-    // No conflicts detected; update positions
-    if (!eliminatedPawns.Contains(redPawn.pawnId))
-    {
-        UpdatePawnPosition(ref nextGameState, redPawn, redPath.Last());
-    }
+        // No conflicts detected; update positions
+        if (!eliminatedPawns.Contains(redPawn.pawnId))
+        {
+            UpdatePawnPosition(ref nextGameState, redPawn, redPath.Last());
+        }
 
-    if (!eliminatedPawns.Contains(bluePawn.pawnId))
-    {
-        UpdatePawnPosition(ref nextGameState, bluePawn, bluePath.Last());
-    }
+        if (!eliminatedPawns.Contains(bluePawn.pawnId))
+        {
+            UpdatePawnPosition(ref nextGameState, bluePawn, bluePath.Last());
+        }
 
-    return nextGameState;
-}
+        return nextGameState;
+    }
 
 
     
@@ -1188,7 +1188,7 @@ public struct PawnChanges
 
 
     }
-    public string ToString()
+    public override string ToString()
     {
         return $"{pawn.pawnId} {pawn.def.pawnName} posChanged: {posChanged} isSetupChanged: {isSetupChanged} isAliveChanged: {isAliveChanged} hasMovedChanged: {hasMovedChanged} isVisibleToOpponentChanged: {isVisibleToOpponentChanged}";
     }

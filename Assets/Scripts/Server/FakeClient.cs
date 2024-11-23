@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using PimDeWitte.UnityMainThreadDispatcher;
-using Unity.VisualScripting;
+//using System.Threading.Tasks;
+//using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
 using Random = System.Random;
 
@@ -54,55 +53,55 @@ public class FakeClient : IGameClient
         Debug.Log("FakeClient: Initialized with clientId " + clientId);
     }
 
-    public async Task ConnectToServer()
+    public void ConnectToServer()
     {
         RegisterClientRequest registerClientRequest = new();
         isConnected = true;
-        await SendFakeRequestToServer(MessageType.REGISTERCLIENT, registerClientRequest);
+        SendFakeRequestToServer(MessageType.REGISTERCLIENT, registerClientRequest);
     }
 
-    public async Task SendRegisterNickname(string nicknameInput)
+    public void SendRegisterNickname(string nicknameInput)
     {
         RegisterNicknameRequest registerNicknameRequest = new()
         {
             nickname = nicknameInput,
         };
-        await SendFakeRequestToServer(MessageType.REGISTERNICKNAME, registerNicknameRequest);
+        SendFakeRequestToServer(MessageType.REGISTERNICKNAME, registerNicknameRequest);
     }
 
-    public async Task SendGameLobby()
+    public void SendGameLobby()
     {
         GameLobbyRequest gameLobbyRequest = new()
         {
             gameMode = 0,
             sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef),
         };
-        await SendFakeRequestToServer(MessageType.GAMELOBBY, gameLobbyRequest);
+        SendFakeRequestToServer(MessageType.GAMELOBBY, gameLobbyRequest);
     }
 
-    public async Task SendGameLobbyLeaveRequest()
+    public void SendGameLobbyLeaveRequest()
     {
         LeaveGameLobbyRequest leaveGameLobbyRequest = new();
-        await SendFakeRequestToServer(MessageType.LEAVEGAMELOBBY, leaveGameLobbyRequest);
+        SendFakeRequestToServer(MessageType.LEAVEGAMELOBBY, leaveGameLobbyRequest);
     }
 
-    public async Task SendGameLobbyJoinRequest(string password)
+    public void SendGameLobbyJoinRequest(string password)
     {
         // NOTE: this should never be happening in offline mode
         JoinGameLobbyRequest joinGameLobbyRequest = new();
-        await SendFakeRequestToServer(MessageType.JOINGAMELOBBY, joinGameLobbyRequest);
+        SendFakeRequestToServer(MessageType.JOINGAMELOBBY, joinGameLobbyRequest);
     }
 
-    public async Task SendGameLobbyReadyRequest(bool ready)
+    public void SendGameLobbyReadyRequest(bool ready)
     {
         ReadyGameLobbyRequest readyGameLobbyRequest = new()
         {
             ready = true,
         };
-        await SendFakeRequestToServer(MessageType.READYLOBBY, readyGameLobbyRequest);
+        SendFakeRequestToServer(MessageType.READYLOBBY, readyGameLobbyRequest);
     }
 
-    public async Task SendStartGameDemoRequest()
+    public void SendStartGameDemoRequest()
     {
         SSetupParameters setupParameters = new()
         {
@@ -114,30 +113,30 @@ public class FakeClient : IGameClient
         {
             setupParameters = setupParameters,
         };
-        await SendFakeRequestToServer(MessageType.GAMESTART, startGameRequest);
+        SendFakeRequestToServer(MessageType.GAMESTART, startGameRequest);
     }
 
-    public async Task SendSetupSubmissionRequest(SPawn[] setupPawnList)
+    public void SendSetupSubmissionRequest(SPawn[] setupPawnList)
     {
         SetupRequest setupRequest = new()
         {
             player = (int)Player.RED,
             pawns = setupPawnList,
         };
-        await SendFakeRequestToServer(MessageType.GAMESETUP, setupRequest);
+        SendFakeRequestToServer(MessageType.GAMESETUP, setupRequest);
     }
 
-    public async Task SendMove(SQueuedMove move)
+    public void SendMove(SQueuedMove move)
     {
         MoveRequest moveRequest = new()
         {
             move = move,
         };
-        await SendFakeRequestToServer(MessageType.MOVE, moveRequest);
+        SendFakeRequestToServer(MessageType.MOVE, moveRequest);
     }
 
 
-    async Task SendFakeRequestToServer(MessageType messageType, RequestBase requestData)
+    void SendFakeRequestToServer(MessageType messageType, RequestBase requestData)
     {
         Debug.Log($"OFFLINE: Sending fake Request of type {messageType}");
         if (!isConnected)
@@ -277,7 +276,7 @@ public class FakeClient : IGameClient
             default:
                 throw new ArgumentOutOfRangeException(nameof(requestData));
         }
-        await Task.Delay(200);
+        //Task.Delay(200);
         ProcessFakeResponse(response, messageType);
     }
     
@@ -341,77 +340,93 @@ public class FakeClient : IGameClient
     
     void HandleRegisterClientResponse(Response<string> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            Debug.Log("Invoking OnRegisterClientResponse");
-            OnRegisterClientResponse?.Invoke(response);
-        });
-        
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     Debug.Log("Invoking OnRegisterClientResponse");
+        //     OnRegisterClientResponse?.Invoke(response);
+        // });
+        Debug.Log("Invoking OnRegisterClientResponse");
+        OnRegisterClientResponse?.Invoke(response);
     }
     
     void HandleRegisterNicknameResponse(Response<string> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            PlayerPrefs.SetString("nickname", response.data);
-            isNicknameRegistered = true;
-            Debug.Log("Invoking OnRegisterNicknameResponse");
-            OnRegisterNicknameResponse?.Invoke(response);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     PlayerPrefs.SetString("nickname", response.data);
+        //     isNicknameRegistered = true;
+        //     Debug.Log("Invoking OnRegisterNicknameResponse");
+        //     OnRegisterNicknameResponse?.Invoke(response);
+        // });
+        PlayerPrefs.SetString("nickname", response.data);
+        isNicknameRegistered = true;
+        Debug.Log("Invoking OnRegisterNicknameResponse");
+        OnRegisterNicknameResponse?.Invoke(response);
     }
     
     void HandleGameLobbyResponse(Response<SLobby> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            currentLobby = response.data;
-            Debug.Log("Invoking OnGameLobbyResponse");
-            OnGameLobbyResponse?.Invoke(response);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     currentLobby = response.data;
+        //     Debug.Log("Invoking OnGameLobbyResponse");
+        //     OnGameLobbyResponse?.Invoke(response);
+        // });
+        currentLobby = response.data;
+        Debug.Log("Invoking OnGameLobbyResponse");
+        OnGameLobbyResponse?.Invoke(response);
     }
     
     void HandleLeaveGameLobbyResponse(Response<string> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            Debug.Log("Invoking OnLeaveGameLobbyResponse");
-            OnLeaveGameLobbyResponse?.Invoke(response);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     Debug.Log("Invoking OnLeaveGameLobbyResponse");
+        //     OnLeaveGameLobbyResponse?.Invoke(response);
+        // });
+        Debug.Log("Invoking OnLeaveGameLobbyResponse");
+        OnLeaveGameLobbyResponse?.Invoke(response);
     }
 
     void HandleReadyLobbyResponse(Response<SLobby> response)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            Debug.Log("Invoking OnReadyLobbyResponse");
-            OnReadyLobbyResponse?.Invoke(response);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     Debug.Log("Invoking OnReadyLobbyResponse");
+        //     OnReadyLobbyResponse?.Invoke(response);
+        // });
+        Debug.Log("Invoking OnReadyLobbyResponse");
+        OnReadyLobbyResponse?.Invoke(response);
     }
     
     void HandleGameStartResponse(Response<SSetupParameters> gameStartResponse)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            Debug.Log($"Invoking OnDemoStarted to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
-            OnDemoStartedResponse?.Invoke(gameStartResponse);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     Debug.Log($"Invoking OnDemoStarted to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
+        //     OnDemoStartedResponse?.Invoke(gameStartResponse);
+        // });
+        Debug.Log($"Invoking OnDemoStarted to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
+        OnDemoStartedResponse?.Invoke(gameStartResponse);
     }
     
     
     void HandleGameSetupResponse(Response<bool> gameSetupResponse)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
-            OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
+        //     OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
+        // });
+        Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
+        OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
         // fill blue setup pawns like as if blue already sent a valid request
         blueSetupPawns = SGameState.GenerateValidSetup((int)Player.BLUE, lobbySetupParameters);
         OnBothPlayersSetupSubmitted();
     }
 
 
-    async void OnBothPlayersSetupSubmitted()
+    void OnBothPlayersSetupSubmitted()
     {
         SPawn[] allPawns = new SPawn[redSetupPawns.Length + blueSetupPawns.Length];
         for (int i = 0; i < redSetupPawns.Length; i++)
@@ -434,28 +449,30 @@ public class FakeClient : IGameClient
             success = true,
             data = redInitialGameState,
         };
-        await Task.Delay(200);
+        //Task.Delay(200);
         ProcessFakeResponse(initialGameStateResponseRed, MessageType.SETUPFINISHED);
     }
     
     void HandleSetupFinished(Response<SGameState> initialGameStateResponse)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            OnSetupFinishedResponse?.Invoke(initialGameStateResponse);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     OnSetupFinishedResponse?.Invoke(initialGameStateResponse);
+        // });
+        OnSetupFinishedResponse?.Invoke(initialGameStateResponse);
     }
     
     void HandleMoveResponse(Response<bool> moveResponse)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            OnMoveResponse?.Invoke(moveResponse);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     OnMoveResponse?.Invoke(moveResponse);
+        // });
+        OnMoveResponse?.Invoke(moveResponse);
         OnBothPlayersMoveSubmitted();
     }
 
-    async void OnBothPlayersMoveSubmitted()
+    void OnBothPlayersMoveSubmitted()
     {
         SQueuedMove? maybeBlueQueuedMove = masterGameState.GenerateValidMove((int)Player.BLUE);
         if (maybeBlueQueuedMove.HasValue)
@@ -477,17 +494,18 @@ public class FakeClient : IGameClient
             success = true,
             data = redGameState,
         };
-        await Task.Delay(200);
+        //Task.Delay(200);
         ProcessFakeResponse(redGameStateResponse, MessageType.RESOLVE);
 
     }
     
     void HandleResolveResponse(Response<SGameState> resolveResponse)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            OnResolveResponse?.Invoke(resolveResponse);
-        });
+        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // {
+        //     OnResolveResponse?.Invoke(resolveResponse);
+        // });
+        OnResolveResponse?.Invoke(resolveResponse);
     }
     
     

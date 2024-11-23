@@ -544,7 +544,7 @@ public class BoardManager : MonoBehaviour
 
         if (SSetupParameters.IsSetupValid((int)player, serverSetupParameters, sPawns))
         {
-            _ = GameManager.instance.client.SendSetupSubmissionRequest(sPawns);
+            GameManager.instance.client.SendSetupSubmissionRequest(sPawns);
         }
     }
 

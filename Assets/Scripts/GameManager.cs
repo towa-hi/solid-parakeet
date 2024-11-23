@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Sockets;
+//using System.Net.Sockets;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
+//using System.Threading.Tasks;
+//using Newtonsoft.Json;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
@@ -77,13 +77,13 @@ public class GameManager : MonoBehaviour
         client.OnMoveResponse += OnMoveResponse;
         client.OnResolveResponse += OnResolveResponse;
         
-        _ = client.ConnectToServer();
+        client.ConnectToServer();
     }
     
     void OnRegisterClientResponse(Response<string> response)
     {
         guiManager.OnRegisterClientResponse(response);
-        _ = client.SendRegisterNickname(Globals.GetNickname());
+        client.SendRegisterNickname(Globals.GetNickname());
     }
     
     void OnDisconnect(Response<string> response)

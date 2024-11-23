@@ -180,7 +180,7 @@ public class GuiManager : MonoBehaviour
     void OnLobbySetupStartButton()
     {
         Debug.Log("OnLobbySetupStartButton");
-        _ = GameManager.instance.client.SendGameLobby();
+        GameManager.instance.client.SendGameLobby();
         
     }
 
@@ -189,19 +189,19 @@ public class GuiManager : MonoBehaviour
     void OnLobbyCancelButton()
     {
         Debug.Log("OnLobbyCancelButton");
-        _ = GameManager.instance.client.SendGameLobbyLeaveRequest();
+        GameManager.instance.client.SendGameLobbyLeaveRequest();
     }
 
     void OnLobbyReadyButton(bool ready)
     {
         Debug.Log("OnLobbyReadyButton");
-        _ = GameManager.instance.client.SendGameLobbyReadyRequest(ready);
+        GameManager.instance.client.SendGameLobbyReadyRequest(ready);
     }
 
     void OnLobbyDemoButton()
     {
         Debug.Log("OnLobbyDemoButton");
-        _ = GameManager.instance.client.SendStartGameDemoRequest();
+        GameManager.instance.client.SendStartGameDemoRequest();
     }
     
     // nickname modal

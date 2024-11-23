@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json;
+//using Newtonsoft.Json;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "Board", menuName = "Scriptable Objects/Board")]
