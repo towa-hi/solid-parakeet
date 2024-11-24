@@ -58,18 +58,7 @@ public struct SPawn
     public bool hasMoved;
     public bool isVisibleToOpponent;
 
-    public SPawn(SPawnDef inDef, int inPlayer, SVector2Int inPos, bool inIsSetup, bool inIsAlive, bool inHasMoved, bool inIsVisibleToOpponent)
-    {
-        pawnId = Guid.NewGuid();
-        def = inDef;
-        player = inPlayer;
-        pos = inPos;
-        isSetup = inIsSetup;
-        isAlive = inIsAlive;
-        hasMoved = inHasMoved;
-        isVisibleToOpponent = inIsVisibleToOpponent;
-    }
-
+    
     public SPawn(Pawn pawn)
     {
         pawnId = pawn.pawnId;
@@ -84,7 +73,7 @@ public struct SPawn
 
     public readonly SPawn Censor()
     {
-        SPawn censoredPawn = new SPawn()
+        SPawn censoredPawn = new()
         {
             pawnId = pawnId,
             def = new SPawnDef("Unknown", 0),
@@ -97,46 +86,10 @@ public struct SPawn
         };
         return censoredPawn;
     }
-
-    public readonly SPawn Kill()
-    {
-        Debug.Assert(isAlive);
-        Debug.Assert(!isSetup);
-        SPawn killedPawn = new SPawn()
-        {
-            pawnId = pawnId,
-            def = def,
-            player = player,
-            pos = new SVector2Int(Globals.PURGATORY),
-            isSetup = isSetup,
-            isAlive = false,
-            hasMoved = hasMoved,
-            isVisibleToOpponent = isVisibleToOpponent,
-        };
-        return killedPawn;
-    }
-
-    public readonly SPawn Move(SVector2Int inPos)
-    {
-        Debug.Assert(isAlive);
-        Debug.Assert(!isSetup);
-        SPawn movedPawn = new SPawn()
-        {
-            pawnId = pawnId,
-            def = def,
-            player = player,
-            pos = inPos,
-            isSetup = isSetup,
-            isAlive = isAlive,
-            hasMoved = true,
-            isVisibleToOpponent = isVisibleToOpponent,
-        };
-        return movedPawn;
-    }
-
+    
     public readonly Pawn ToUnity()
     {
-        Pawn pawn = new Pawn()
+        Pawn pawn = new()
         {
             pawnId = pawnId,
             def = def.ToUnity(),

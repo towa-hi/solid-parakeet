@@ -1,17 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-//using System.Net.Sockets;
 using System.Text.RegularExpressions;
-//using System.Threading.Tasks;
-//using Newtonsoft.Json;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
-
-// NOTE: GameManager is a singleton and there can only be one per client. GameManager
-// is responsible for taking in input from BoardManager and other UI or views and
-// updating the singular gameState
 
 public class GameManager : MonoBehaviour
 {
@@ -155,12 +146,7 @@ public class GameManager : MonoBehaviour
     public void OnMoveSubmitButton()
     {
         Debug.Log("GameManager OnMoveSubmitButton()");
-        if (boardManager.queuedMove != null)
-        {
-            Debug.Log($"Sending move {boardManager.queuedMove.pawn.def.pawnName} {boardManager.queuedMove.pos}");
-            SQueuedMove move = new SQueuedMove(boardManager.queuedMove);
-            client.SendMove(move);
-        }
+        boardManager.SendQueuedMove();
     }
     
     

@@ -487,6 +487,7 @@ MonoBehaviour:
   currentHoveredPawnView: {fileID: 0}
   currentHoveredTileView: {fileID: 0}
   serverGameState:
+    winnerPlayer: 0
     player: 0
     boardDef:
       boardName: 
@@ -496,17 +497,6 @@ MonoBehaviour:
       tiles: []
     pawns: []
   selectedPawnView: {fileID: 0}
-  queuedMove:
-    player: 0
-    pawn:
-      def: {fileID: 0}
-      player: 0
-      pos: {x: 0, y: 0}
-      isSetup: 0
-      isAlive: 0
-      hasMoved: 0
-      isVisibleToOpponent: 0
-    pos: {x: 0, y: 0}
   movingPawnsCount: 0
   setupSelectedPawnDef: {fileID: 0}
 --- !u!4 &1153439523

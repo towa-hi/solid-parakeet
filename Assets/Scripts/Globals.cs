@@ -570,165 +570,212 @@ public class MoveRequest : RequestBase
 }
 
 [Serializable]
-public class QueuedMove
-{
-    public Player player;
-    public Pawn pawn;
-    public Vector2Int pos;
-
-    public QueuedMove(Player inPlayer, Pawn inPawn, Vector2Int inPos)
-    {
-        player = inPlayer;
-        pawn = inPawn;
-        pos = inPos;
-    }
-}
-
 public struct SQueuedMove
 {
     public int player;
-    public SPawn pawn;
+    public Guid pawnId;
+    public SVector2Int initialPos;
     public SVector2Int pos;
 
-    public SQueuedMove(int inPlayer, SPawn inPawn, SVector2Int inPos)
+    public SQueuedMove(in SPawn pawn, in SVector2Int inPos)
+    {
+        player = pawn.player;
+        pawnId = pawn.pawnId;
+        initialPos = pawn.pos;
+        pos = inPos;
+    }
+
+    public SQueuedMove(Pawn pawn, Vector2Int inPos)
+    {
+        player = (int)pawn.player;
+        pawnId = pawn.pawnId;
+        initialPos = new SVector2Int(pawn.pos);
+        pos = new SVector2Int(inPos);
+    }
+    
+    public SQueuedMove(int inPlayer, Guid inPawnId, SVector2Int inInitialPos, SVector2Int inPos)
     {
         player = inPlayer;
-        pawn = inPawn;
+        pawnId = inPawnId;
+        initialPos = inInitialPos;
         pos = inPos;
     }
     
-    public SQueuedMove(QueuedMove queuedMove)
-    {
-        player = (int)queuedMove.player;
-        pawn = new SPawn(queuedMove.pawn);
-        pos = new SVector2Int(queuedMove.pos);
-    }
 }
+
 [Serializable]
 public struct SGameState
 {
+    public int winnerPlayer;
     public int player;
     public SBoardDef boardDef;
     public SPawn[] pawns;
-
+    
     public SGameState(int inPlayer, SBoardDef inBoardDef, SPawn[] inPawns)
     {
+        winnerPlayer = (int)Player.NONE;
         player = inPlayer;
         boardDef = inBoardDef;
         pawns = inPawns;
     }
-public STile[] GetMovableTiles(SPawn pawn)
-{
-    Vector2Int[] directions = new Vector2Int[]
+    
+    public readonly STile[] GetMovableTiles(in SPawn pawn)
     {
-        new Vector2Int(1, 0),   // Right
-        new Vector2Int(-1, 0),  // Left
-        new Vector2Int(0, 1),   // Up
-        new Vector2Int(0, -1)   // Down
-    };
-
-    // Define the maximum possible number of movable tiles
-    int maxMovableTiles = boardDef.tiles.Length; // Adjust based on your board size
-    STile[] movableTiles = new STile[maxMovableTiles];
-    int tileCount = 0;
-
-    if (pawn.def.pawnName == "Unknown")
-    {
-        throw new Exception("GetMovableTiles requires a pawnDef");
-    }
-
-    // Determine pawn movement range
-    int pawnMovementRange = pawn.def.pawnName switch
-    {
-        "Scout" => 11,
-        "Bomb" or "Flag" => 0,
-        _ => 1,
-    };
-    foreach (Vector2Int dir in directions)
-    {
-        Vector2Int currentPos = pawn.pos.ToUnity();
-        bool enemyEncountered = false;
-
-        for (int i = 0; i < pawnMovementRange; i++)
+        Vector2Int[] directions = new Vector2Int[]
         {
-            currentPos += dir;
-            if (enemyEncountered)
+            new Vector2Int(1, 0),   // Right
+            new Vector2Int(-1, 0),  // Left
+            new Vector2Int(0, 1),   // Up
+            new Vector2Int(0, -1)   // Down
+        };
+        // Define the maximum possible number of movable tiles
+        int maxMovableTiles = boardDef.tiles.Length; // Adjust based on your board size
+        STile[] movableTiles = new STile[maxMovableTiles];
+        int tileCount = 0;
+
+        if (pawn.def.pawnName == "Unknown")
+        {
+            throw new Exception("GetMovableTiles requires a pawnDef");
+        }
+
+        // Determine pawn movement range
+        int pawnMovementRange = pawn.def.pawnName switch
+        {
+            "Scout" => 11,
+            "Bomb" or "Flag" => 0,
+            _ => 1,
+        };
+        foreach (Vector2Int dir in directions)
+        {
+            Vector2Int currentPos = pawn.pos.ToUnity();
+            bool enemyEncountered = false;
+
+            for (int i = 0; i < pawnMovementRange; i++)
             {
-                break;
-            }
-            // Check if the position is within the board bounds
-            if (!IsPosValid(new SVector2Int(currentPos)))
-            {
-                break;
-            }
-            // Get the tile at the current position
-            STile? maybeTile = GetTileFromPos(new SVector2Int(currentPos));
-            if (!maybeTile.HasValue)
-            {
-                break;
-            }
-            // check if tile is passable
-            STile tile = maybeTile.Value;
-            if (!tile.isPassable)
-            {
-                break;
-            }
-            // Check if the tile is occupied by another pawn
-            SPawn? pawnOnPos = GetPawnFromPos(new SVector2Int(currentPos));
-            if (pawnOnPos.HasValue)
-            {
-                if (pawnOnPos.Value.player == pawn.player)
+                currentPos += dir;
+                if (enemyEncountered)
                 {
-                    // Cannot move through own pawns
                     break;
                 }
-                else
+                // Check if the position is within the board bounds
+                if (!IsPosValid(new SVector2Int(currentPos)))
                 {
-                    // Tile is occupied by an enemy pawn
-                    movableTiles[tileCount++] = tile;
-
-                    if (pawnMovementRange > 1)
+                    break;
+                }
+                // Get the tile at the current position
+                STile tile = GetTileFromPos(new SVector2Int(currentPos));
+                // check if tile is passable
+                if (!tile.isPassable)
+                {
+                    break;
+                }
+                // Check if the tile is occupied by another pawn
+                SPawn? pawnOnPos = GetPawnFromPos(new SVector2Int(currentPos));
+                if (pawnOnPos.HasValue)
+                {
+                    if (pawnOnPos.Value.player == pawn.player)
                     {
-                        enemyEncountered = true;
+                        // Cannot move through own pawns
+                        break;
                     }
                     else
                     {
-                        break; // Non-scouts cannot move further
+                        // Tile is occupied by an enemy pawn
+                        movableTiles[tileCount++] = tile;
+
+                        if (pawnMovementRange > 1)
+                        {
+                            enemyEncountered = true;
+                        }
+                        else
+                        {
+                            break; // Non-scouts cannot move further
+                        }
                     }
                 }
-            }
-            else
-            {
-                // Tile is unoccupied
-                movableTiles[tileCount++] = tile;
+                else
+                {
+                    // Tile is unoccupied
+                    movableTiles[tileCount++] = tile;
+                }
             }
         }
+        // Create a final array of the correct size
+        STile[] result = new STile[tileCount];
+        for (int i = 0; i < tileCount; i++)
+        {
+            result[i] = movableTiles[i];
+        }
+        return result;
     }
-    // Create a final array of the correct size
-    STile[] result = new STile[tileCount];
-    for (int i = 0; i < tileCount; i++)
-    {
-        result[i] = movableTiles[i];
-    }
-    return result;
-}
 
+    public static bool IsMoveValid(in SGameState gameState, in SQueuedMove move)
+    {
+        if (gameState.boardDef.IsPosValid(move.pos))
+        {
+            STile destinationTile = gameState.GetTileFromPos(move.pos);
+            if (!destinationTile.isPassable)
+            {
+                // move is to impassable tile
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+        try
+        {
+            SPawn movingPawn = gameState.GetPawnFromId(move.pawnId);
+            if (move.player != movingPawn.player)
+            {
+                return false;
+            }
+            var maybePawn = gameState.GetPawnFromPos(move.pos);
+            if (maybePawn.HasValue)
+            {
+                SPawn obstructingPawn = maybePawn.Value;
+                if (obstructingPawn.player == move.player)
+                {
+                    return false;
+                }
+            }
+            bool isInMovableTiles = false;
+            foreach (STile tile in gameState.GetMovableTiles(movingPawn))
+            {
+                if (tile.pos == move.pos)
+                {
+                    isInMovableTiles = true;
+                }
+            }
+            if (!isInMovableTiles)
+            {
+                return false;
+            }
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return false;
+        }
+        return true;
+    }
     
-    public bool IsPosValid(SVector2Int pos)
+    public readonly bool IsPosValid(SVector2Int pos)
     {
         return boardDef.tiles.Any(tile => tile.pos == pos);
 
     }
 
-    public static SGameState Censor(SGameState masterGameState, int targetPlayer)
+    public static SGameState Censor(in SGameState masterGameState, int targetPlayer)
     {
+        bool cheatMode = false;
         if (masterGameState.player != (int)Player.NONE)
         {
             throw new Exception("Censor can only be done on master game states!");
         }
-
         SGameState censoredGameState = new SGameState
         {
+            winnerPlayer = masterGameState.winnerPlayer,
             player = targetPlayer,
             boardDef = masterGameState.boardDef,
         };
@@ -739,13 +786,21 @@ public STile[] GetMovableTiles(SPawn pawn)
             SPawn censoredPawn;
             if (serverPawn.player != targetPlayer)
             {
-                if (serverPawn.isVisibleToOpponent)
+                if (cheatMode)
                 {
                     censoredPawn = serverPawn;
+                    censoredPawn.isVisibleToOpponent = true;
                 }
                 else
                 {
-                    censoredPawn = serverPawn.Censor();
+                    if (serverPawn.isVisibleToOpponent)
+                    {
+                        censoredPawn = serverPawn;
+                    }
+                    else
+                    {
+                        censoredPawn = serverPawn.Censor();
+                    }
                 }
             }
             else
@@ -758,17 +813,18 @@ public STile[] GetMovableTiles(SPawn pawn)
         return censoredGameState;
     }
     
-    public SQueuedMove? GenerateValidMove(int targetPlayer)
+    public static SQueuedMove? GenerateValidMove(in SGameState gameState, int targetPlayer)
     {
+        // NOTE: gameState should be censored if it isn't already for fairness
         List<SQueuedMove> allPossibleMoves = new List<SQueuedMove>();
-        foreach (SPawn pawn in pawns)
+        foreach (SPawn pawn in gameState.pawns)
         {
             if (pawn.player == targetPlayer)
             {
-                STile[] movableTiles = GetMovableTiles(pawn);
+                STile[] movableTiles = gameState.GetMovableTiles(pawn);
                 foreach (var tile in movableTiles)
                 {
-                    allPossibleMoves.Add(new SQueuedMove(targetPlayer, pawn, tile.pos));
+                    allPossibleMoves.Add(new SQueuedMove(targetPlayer, pawn.pawnId, pawn.pos, tile.pos));
                 }
             }
         }
@@ -779,126 +835,188 @@ public STile[] GetMovableTiles(SPawn pawn)
         Random random = new();
         int randomIndex = random.Next(0, allPossibleMoves.Count);
         SQueuedMove randomMove = allPossibleMoves[randomIndex];
-        Debug.Log($"GenerateValidMove chose {randomMove.pawn.pawnId} {randomMove.pawn.def.pawnName} from {randomMove.pawn.pos} to {randomMove.pos}");
+        SPawn randomPawn = gameState.GetPawnFromId(randomMove.pawnId);
+        Debug.Log($"GenerateValidMove chose {randomMove.pawnId} {randomPawn.def.pawnName} from {randomPawn.pos} to {randomMove.pos}");
+        if (!IsMoveValid(gameState, randomMove))
+        {
+            return null;
+        }
         return randomMove;
     }
     
-    public STile? GetTileFromPos(SVector2Int pos)
+    public readonly STile GetTileFromPos(SVector2Int pos)
     {
         foreach (STile tile in boardDef.tiles.Where(tile => tile.pos == pos))
         {
             return tile;
         }
-        return null;
+        throw new ArgumentOutOfRangeException($"GetTileFromPos tile on pos {pos.ToString()} not found!");
     }
 
-    public SPawn? GetPawnFromPos(SVector2Int pos)
+    public readonly SPawn? GetPawnFromPos(in SVector2Int pos)
     {
-        foreach (SPawn pawn in pawns.Where(pawn => pawn.pos == pos))
+        SVector2Int i = pos;
+        foreach (SPawn pawn in pawns.Where(pawn => pawn.pos == i))
         {
             return pawn;
         }
         return null;
     }
 
-    public SPawn? GetPawnFromId(Guid pawnId)
+    public readonly SPawn GetPawnFromId(Guid pawnId)
     {
         foreach (SPawn pawn in pawns)
         {
             if (pawn.pawnId == pawnId)
+            {
                 return pawn;
+            }
         }
-        return null;
+        throw new ArgumentOutOfRangeException($"GetPawnFromId pawnId {pawnId} not found!");
     }
     
-    static void RemovePawn(ref SGameState gameState, SPawn pawn)
+    static void UpdatePawnIsAlive(ref SGameState gameState, in Guid pawnId, bool inIsAlive)
     {
         for (int i = 0; i < gameState.pawns.Length; i++)
         {
-            if (gameState.pawns[i].pawnId == pawn.pawnId)
+            if (gameState.pawns[i].pawnId == pawnId)
             {
-                SPawn updatedPawn = pawn.Kill();
+                SPawn oldPawn = gameState.pawns[i];
+                SVector2Int inPos = inIsAlive ? oldPawn.pos : new SVector2Int(Globals.PURGATORY);
+                SPawn updatedPawn = new()
+                {
+                    pawnId = oldPawn.pawnId,
+                    def = oldPawn.def,
+                    player = oldPawn.player,
+                    pos = inPos, // sets
+                    isSetup = oldPawn.isSetup,
+                    isAlive = inIsAlive, // sets
+                    hasMoved = oldPawn.hasMoved,
+                    isVisibleToOpponent = oldPawn.isVisibleToOpponent,
+                };
+                gameState.pawns[i] = updatedPawn;
+                break;
+            }
+        }
+    }
+
+    static void UpdateRevealPawn(ref SGameState gameState, in Guid pawnId, in bool inIsVisibleToOpponent)
+    {
+        for (int i = 0; i < gameState.pawns.Length; i++)
+        {
+            if (gameState.pawns[i].pawnId == pawnId)
+            {
+                SPawn oldPawn = gameState.pawns[i];
+                SPawn updatedPawn = new()
+                {
+                    pawnId = oldPawn.pawnId,
+                    def = oldPawn.def,
+                    player = oldPawn.player,
+                    pos = oldPawn.pos,
+                    isSetup = oldPawn.isSetup,
+                    isAlive = oldPawn.isAlive,
+                    hasMoved = oldPawn.hasMoved,
+                    isVisibleToOpponent = inIsVisibleToOpponent, // sets
+                };
                 gameState.pawns[i] = updatedPawn;
                 break;
             }
         }
     }
     
-    static void UpdatePawnPosition(ref SGameState gameState, SPawn pawn, SVector2Int newPos)
+    static void UpdatePawnPosition(ref SGameState gameState, in Guid pawnId, in SVector2Int inPos)
     {
         for (int i = 0; i < gameState.pawns.Length; i++)
         {
-            if (gameState.pawns[i].pawnId == pawn.pawnId)
+            if (gameState.pawns[i].pawnId == pawnId)
             {
-                SPawn updatedPawn = pawn.Move(newPos);
+                SPawn oldPawn = gameState.pawns[i];
+                SPawn updatedPawn = new()
+                {
+                    pawnId = oldPawn.pawnId,
+                    def = oldPawn.def,
+                    player = oldPawn.player,
+                    pos = inPos, // sets
+                    isSetup = oldPawn.isSetup,
+                    isAlive = oldPawn.isAlive,
+                    hasMoved = true, // sets true because moved
+                    isVisibleToOpponent = oldPawn.isVisibleToOpponent,
+                };
                 gameState.pawns[i] = updatedPawn;
                 break;
             }
         }
     }
-    static void ResolveConflict(ref SGameState gameState, SPawn redPawn, SPawn bluePawn, SVector2Int conflictPos)
+    
+    static ConflictReceipt ResolveConflict(in SGameState gameState, in Guid redPawnId, in Guid bluePawnId, in SVector2Int conflictPos)
     {
+        if (gameState.player != (int)Player.NONE)
+        {
+            throw new ArgumentException("ResolveConflict gameState must not be censored");
+        }
         // Set isVisibleToOpponent to true for both pawns
-        redPawn.isVisibleToOpponent = true;
-        bluePawn.isVisibleToOpponent = true;
-
-        // Update the pawns in the game state
-        UpdatePawn(ref gameState, redPawn);
-        UpdatePawn(ref gameState, bluePawn);
-
+        SPawn redPawn = gameState.GetPawnFromId(redPawnId);
+        SPawn bluePawn = gameState.GetPawnFromId(bluePawnId);
+        
         // Determine the outcome based on pawn strengths or game rules
         int redRank = redPawn.def.power;
         int blueRank = bluePawn.def.power;
-
+        bool redDies;
+        bool blueDies;
         // Handle special cases (e.g., Bombs, Miners, Marshal, Spy)
         if (redPawn.def.pawnName == "Bomb" && bluePawn.def.pawnName == "Miner")
         {
+            redDies = true;
+            blueDies = false;
             Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated {redPawn.def.pawnName}");
-            RemovePawn(ref gameState, redPawn);
-            UpdatePawnPosition(ref gameState, bluePawn, conflictPos);
         }
         else if (bluePawn.def.pawnName == "Bomb" && redPawn.def.pawnName == "Miner")
         {
+            redDies = false;
+            blueDies = true;
             Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} defeated blue {bluePawn.def.pawnName}");
-            RemovePawn(ref gameState, bluePawn);
-            UpdatePawnPosition(ref gameState, redPawn, conflictPos);
         }
         else if (redPawn.def.pawnName == "Marshal" && bluePawn.def.pawnName == "Spy")
         {
+            redDies = true;
+            blueDies = false;
             Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated red {redPawn.def.pawnName}");
-            RemovePawn(ref gameState, redPawn);
-            UpdatePawnPosition(ref gameState, bluePawn, conflictPos);
         }
         else if (bluePawn.def.pawnName == "Marshal" && redPawn.def.pawnName == "Spy")
         {
+            redDies = false;
+            blueDies = true;
             Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} defeated blue {bluePawn.def.pawnName}");
-            RemovePawn(ref gameState, bluePawn);
-            UpdatePawnPosition(ref gameState, redPawn, conflictPos);
         }
         else if (redRank > blueRank)
         {
+            redDies = false;
+            blueDies = true;
             Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} defeated blue {bluePawn.def.pawnName}");
-            // Red wins; remove blue pawn
-            RemovePawn(ref gameState, bluePawn);
-            UpdatePawnPosition(ref gameState, redPawn, conflictPos);
         }
         else if (blueRank > redRank)
         {
+            redDies = true;
+            blueDies = false;
             Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated red {redPawn.def.pawnName}");
-            // Blue wins; remove red pawn
-            RemovePawn(ref gameState, redPawn);
-            UpdatePawnPosition(ref gameState, bluePawn, conflictPos);
         }
         else
         {
+            redDies = true;
+            blueDies = true;
             Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} tied blue {bluePawn.def.pawnName}");
-            // Both pawns are eliminated
-            RemovePawn(ref gameState, redPawn);
-            RemovePawn(ref gameState, bluePawn);
         }
+        return new ConflictReceipt()
+        {
+            redPawnId = redPawnId,
+            bluePawnId = bluePawnId,
+            redDies = redDies,
+            blueDies = blueDies,
+            conflictPos = conflictPos,
+        };
     }
 
-    static void UpdatePawn(ref SGameState gameState, SPawn pawn)
+    static void UpdatePawn(ref SGameState gameState, ref SPawn pawn)
     {
         for (int i = 0; i < gameState.pawns.Length; i++)
         {
@@ -910,9 +1028,10 @@ public STile[] GetMovableTiles(SPawn pawn)
         }
     }
     
-    static List<SVector2Int> GenerateMovementPath(SGameState gameState, SPawn pawn, SVector2Int targetPos)
+    static List<SVector2Int> GenerateMovementPath(in SGameState gameState, in Guid pawnId, in SVector2Int targetPos)
     {
         List<SVector2Int> path = new List<SVector2Int>();
+        SPawn pawn = gameState.GetPawnFromId(pawnId);
         SVector2Int currentPos = pawn.pos;
 
         if (pawn.def.pawnName == "Scout")
@@ -942,8 +1061,11 @@ public STile[] GetMovableTiles(SPawn pawn)
             {
                 Vector2Int nextPosUnity = currentUnityPos + direction * i;
                 SVector2Int nextPos = new SVector2Int(nextPosUnity);
+                if (!gameState.boardDef.IsPosValid(nextPos))
+                {
+                    break;
+                }
                 path.Add(nextPos);
-
                 // Check if the path is blocked
                 SPawn? pawnOnPos = gameState.GetPawnFromPos(nextPos);
                 if (pawnOnPos.HasValue)
@@ -963,9 +1085,8 @@ public STile[] GetMovableTiles(SPawn pawn)
                     // If enemy pawn is at the target position, we can include it
                     // Conflict will be resolved during movement simulation
                 }
-
-                STile? tile = gameState.GetTileFromPos(nextPos);
-                if (!tile.HasValue || !tile.Value.isPassable)
+                STile tile = gameState.GetTileFromPos(nextPos);
+                if (tile.isPassable)
                 {
                     // Cannot move through impassable tiles
                     path.RemoveAt(path.Count - 1); // Remove the blocked position
@@ -982,127 +1103,225 @@ public STile[] GetMovableTiles(SPawn pawn)
         return path;
     }
 
-    public static SGameState Resolve(SGameState gameState, SQueuedMove redMove, SQueuedMove blueMove)
+    public static SGameState Resolve(in SGameState gameState, in SQueuedMove redMove, in SQueuedMove blueMove)
     {
         if (gameState.player != (int)Player.NONE)
         {
             throw new ArgumentException("GameState.player must be NONE as resolve can only happen on an uncensored board!");
         }
-
+        
         // Create a deep copy of the game state to avoid mutating the original
-        SGameState nextGameState = new SGameState()
+        SGameState nextGameState = new()
         {
             player = (int)Player.NONE,
             boardDef = gameState.boardDef,
             pawns = (SPawn[])gameState.pawns.Clone(),
         };
 
-        // Get the moving pawns
-        SPawn? maybeRedPawn = nextGameState.GetPawnFromId(redMove.pawn.pawnId);
-        SPawn? maybeBluePawn = nextGameState.GetPawnFromId(blueMove.pawn.pawnId);
+        Dictionary<Guid, SVector2Int> pawnNewPositions = new Dictionary<Guid, SVector2Int>();
+        HashSet<Guid> pawnsToKill = new HashSet<Guid>();
+        HashSet<Guid> pawnsToReveal = new HashSet<Guid>();
 
-        if (!maybeRedPawn.HasValue || !maybeBluePawn.HasValue)
+        pawnNewPositions[redMove.pawnId] = redMove.pos;
+        pawnNewPositions[blueMove.pawnId] = blueMove.pos;
+        bool deferRedMove = false;
+        bool deferBlueMove = false;
+        
+        // Case A: if red and blue move to the same pos
+        if (redMove.pos == blueMove.pos)
         {
-            throw new Exception("One of the moving pawns does not exist in the game state.");
-        }
-
-        SPawn redPawn = maybeRedPawn.Value;
-        SPawn bluePawn = maybeBluePawn.Value;
-
-        // Generate movement paths
-        List<SVector2Int> redPath = GenerateMovementPath(gameState, redPawn, redMove.pos);
-        List<SVector2Int> bluePath = GenerateMovementPath(gameState, bluePawn, blueMove.pos);
-
-        // Determine maximum path length
-        int maxPathLength = Math.Max(redPath.Count, bluePath.Count);
-
-        // Initialize positions
-        SVector2Int redCurrentPos = redPawn.pos;
-        SVector2Int blueCurrentPos = bluePawn.pos;
-
-        // Keep track of eliminated pawns to avoid conflicts with already eliminated pawns
-        HashSet<Guid> eliminatedPawns = new HashSet<Guid>();
-
-        // Simulate movement step by step
-        for (int step = 0; step < maxPathLength; step++)
-        {
-            // Update positions if the pawn has more steps and is not eliminated
-            if (!eliminatedPawns.Contains(redPawn.pawnId) && step < redPath.Count)
+            //Resolve once
+            ConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
+            pawnsToReveal.Add(redMove.pawnId);
+            pawnsToReveal.Add(blueMove.pawnId);
+            if (receipt.redDies)
             {
-                redCurrentPos = redPath[step];
-
-                // Check for conflict with any enemy pawn at redCurrentPos
-                SPawn? enemyPawn = nextGameState.GetPawnFromPos(redCurrentPos);
-                if (enemyPawn.HasValue && enemyPawn.Value.player == (int)Player.BLUE && !eliminatedPawns.Contains(enemyPawn.Value.pawnId))
+                pawnsToKill.Add(redMove.pawnId);
+            }
+            if (receipt.blueDies)
+            {
+                pawnsToKill.Add(blueMove.pawnId);
+            }
+        }
+        // Case B: if red and blue move into each others pos
+        else if (redMove.pos == blueMove.initialPos && blueMove.pos == redMove.initialPos)
+        {
+            //Resolve once (redMove.pos is not really accurate as the final position depends on who wins)
+            ConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
+            pawnsToReveal.Add(redMove.pawnId);
+            pawnsToReveal.Add(blueMove.pawnId);
+            if (receipt.redDies)
+            {
+                pawnsToKill.Add(redMove.pawnId);
+            }
+            if (receipt.blueDies)
+            {
+                pawnsToKill.Add(blueMove.pawnId);
+            }
+        }
+        // Case C: potentially two unrelated conflicts happening at once
+        else
+        {
+            // Case C1: if red moved to a location with a blue pawn 
+            SPawn? maybePawnObstructingRed = gameState.GetPawnFromPos(redMove.pos);
+            if (maybePawnObstructingRed.HasValue)
+            {
+                SPawn pawnObstructingRed = maybePawnObstructingRed.Value;
+                // if this pawn is also moving
+                if (pawnObstructingRed.pawnId == blueMove.pawnId)
                 {
-                    // Conflict occurs between redPawn and the enemy pawn
-                    ResolveConflict(ref nextGameState, redPawn, enemyPawn.Value, redCurrentPos);
-                    eliminatedPawns.Add(redPawn.pawnId);
-                    eliminatedPawns.Add(enemyPawn.Value.pawnId);
-                    continue; // Skip to next iteration
+                    // give blue a chance to do it's move first
+                    deferRedMove = true;
+                }
+                else
+                {
+                    ConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+                    pawnsToReveal.Add(redMove.pawnId);
+                    pawnsToReveal.Add(pawnObstructingRed.pawnId);
+                    if (receipt.redDies)
+                    {
+                        pawnsToKill.Add(redMove.pawnId);
+                    }
+                    if (receipt.blueDies)
+                    {
+                        pawnsToKill.Add(pawnObstructingRed.pawnId);
+                    }
                 }
             }
-
-            if (!eliminatedPawns.Contains(bluePawn.pawnId) && step < bluePath.Count)
+            // Case B2: if blue moved into a location with a red pawn 
+            SPawn? maybePawnObstructingBlue = gameState.GetPawnFromPos(blueMove.pos);
+            if (maybePawnObstructingBlue.HasValue)
             {
-                blueCurrentPos = bluePath[step];
-
-                // Check for conflict with any enemy pawn at blueCurrentPos
-                SPawn? enemyPawn = nextGameState.GetPawnFromPos(blueCurrentPos);
-                if (enemyPawn.HasValue && enemyPawn.Value.player == (int)Player.RED && !eliminatedPawns.Contains(enemyPawn.Value.pawnId))
+                SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
+                // if this pawn is also moving
+                if (pawnObstructingBlue.pawnId == redMove.pawnId)
                 {
-                    // Conflict occurs between bluePawn and the enemy pawn
-                    ResolveConflict(ref nextGameState, bluePawn, enemyPawn.Value, blueCurrentPos);
-                    eliminatedPawns.Add(bluePawn.pawnId);
-                    eliminatedPawns.Add(enemyPawn.Value.pawnId);
-                    continue; // Skip to next iteration
+                    // give blue a chance to do it's move first
+                    deferBlueMove = true;
                 }
-            }
-
-            // Check for collision between moving pawns at this step
-            if (redCurrentPos == blueCurrentPos)
-            {
-                // Conflict occurs between redPawn and bluePawn
-                ResolveConflict(ref nextGameState, redPawn, bluePawn, redCurrentPos);
-                eliminatedPawns.Add(redPawn.pawnId);
-                eliminatedPawns.Add(bluePawn.pawnId);
-                break; // Conflict resolved, stop processing
-            }
-
-            // Check for path crossing
-            if (step > 0)
-            {
-                SVector2Int redPrevPos = (step - 1 < redPath.Count) ? redPath[step - 1] : redPawn.pos;
-                SVector2Int bluePrevPos = (step - 1 < bluePath.Count) ? bluePath[step - 1] : bluePawn.pos;
-
-                if (redCurrentPos == bluePrevPos && blueCurrentPos == redPrevPos)
+                else
                 {
-                    // Pawns cross paths; conflict occurs at crossing point
-                    ResolveConflict(ref nextGameState, redPawn, bluePawn, redCurrentPos);
-                    eliminatedPawns.Add(redPawn.pawnId);
-                    eliminatedPawns.Add(bluePawn.pawnId);
-                    break; // Conflict resolved, stop processing
+                    // Resolve conflict
+                    ConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+                    pawnsToReveal.Add(blueMove.pawnId);
+                    pawnsToReveal.Add(pawnObstructingBlue.pawnId);
+                    if (receipt.blueDies)
+                    {
+                        pawnsToKill.Add(blueMove.pawnId);
+                    }
+                    if (receipt.redDies)
+                    {
+                        pawnsToKill.Add(pawnObstructingBlue.pawnId);
+                    }
                 }
             }
         }
-
-        // No conflicts detected; update positions
-        if (!eliminatedPawns.Contains(redPawn.pawnId))
+        if (deferRedMove)
         {
-            UpdatePawnPosition(ref nextGameState, redPawn, redPath.Last());
+            Debug.Log("we let blue move first because it's attacking a piece that isn't moving");
+            SPawn? maybePawnObstructingBlue = gameState.GetPawnFromPos(blueMove.pos);
+            if (maybePawnObstructingBlue.HasValue)
+            {
+                SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
+                // we know for sure pawnObstructingBlue isn't moving
+                ConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+                pawnsToReveal.Add(blueMove.pawnId);
+                pawnsToReveal.Add(pawnObstructingBlue.pawnId);
+                if (receipt.blueDies)
+                {
+                    pawnsToKill.Add(blueMove.pawnId);
+                }
+                if (receipt.redDies)
+                {
+                    pawnsToKill.Add(pawnObstructingBlue.pawnId);
+                }
+            }
         }
-
-        if (!eliminatedPawns.Contains(bluePawn.pawnId))
+        if (deferBlueMove)
         {
-            UpdatePawnPosition(ref nextGameState, bluePawn, bluePath.Last());
+            Debug.Log("we let RED move first because it's attacking a piece that isn't moving");
+            SPawn? maybePawnObstructingRed = gameState.GetPawnFromPos(redMove.pos);
+            if (maybePawnObstructingRed.HasValue)
+            {
+                SPawn pawnObstructingRed = maybePawnObstructingRed.Value;
+                if (pawnObstructingRed.player == redMove.player)
+                {
+                    // the move was invalid!
+                    throw new Exception("Red move was invalid because Red pawn is on position");
+                }
+                // we know for sure pawnObstructingBlue isn't moving
+                ConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+                if (receipt.redDies)
+                {
+                    pawnsToKill.Add(redMove.pawnId);
+                }
+                if (receipt.blueDies)
+                {
+                    pawnsToKill.Add(pawnObstructingRed.pawnId);
+                }
+            }
         }
-
+        foreach (Guid pawnId in pawnsToReveal)
+        {
+            UpdateRevealPawn(ref nextGameState, pawnId, true);
+        }
+        foreach (var kvp in pawnNewPositions)
+        {
+            // update the positions regardless of correctness for now
+            UpdatePawnPosition(ref nextGameState, kvp.Key, kvp.Value);
+        }
+        foreach (var pawnId in pawnsToKill)
+        {
+            // kill pawns that lost their conflict
+            UpdatePawnIsAlive(ref nextGameState, pawnId, false);
+        }
+        nextGameState.winnerPlayer = GetStateWinner(nextGameState);
+        if (!IsStateValid(nextGameState))
+        {
+            throw new Exception("Cannot return invalid state");
+        }
         return nextGameState;
     }
 
+    public static bool IsStateValid(in SGameState gameState)
+    {
+        bool pawnOverlapDetected = false;
+        HashSet<SPawn> overlappingPawns = new();
+        Dictionary<SVector2Int, SPawn> pawnPositions = new();
+        foreach (SPawn pawn in gameState.pawns)
+        {
+            if (pawn.isAlive)
+            {
+                if (pawnPositions.ContainsKey(pawn.pos))
+                {
+                    pawnOverlapDetected = true;
+                    overlappingPawns.Add(pawnPositions[pawn.pos]);
+                    overlappingPawns.Add(pawn);
+                }
+                else
+                {
+                    pawnPositions.Add(pawn.pos, pawn);
+                }
+            }
+            else
+            {
+                if (pawn.pos != new SVector2Int(Globals.PURGATORY))
+                {
+                    Debug.LogError($"Dead pawn {pawn.pawnId} not in PURGATORY");
+                    return false;
+                }
+            }
+        }
+        if (pawnOverlapDetected)
+        {
+            string error = overlappingPawns.Aggregate("", (current, pawn) => current + $"{pawn.pawnId} {pawn.def.pawnName} {pawn.pos.ToString()}");
+            Debug.LogError($"IsStateValid Pawn overlap detected: {error}");
+            return false;
+        }
+        return true;
+    }
 
-    
-    public static SPawn[] GenerateValidSetup(int player, SSetupParameters setupParameters)
+    public static SPawn[] GenerateValidSetup(int player, in SSetupParameters setupParameters)
     {
         if (player == (int)Player.NONE)
         {
@@ -1151,6 +1370,56 @@ public STile[] GetMovableTiles(SPawn pawn)
         }
         return sPawns.ToArray();
     }
+
+    public static int GetStateWinner(in SGameState gameState)
+    {
+        // Define constants for return values
+        const int NO_WINNER = 0;
+        const int RED_WIN = 1;
+        const int BLUE_WIN = 2;
+        const int TIE = 4;
+
+        SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.RED && p.def.pawnName.Equals("Flag", StringComparison.OrdinalIgnoreCase));
+        SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.BLUE && p.def.pawnName.Equals("Flag", StringComparison.OrdinalIgnoreCase));
+        bool redCanMove = false;
+        bool blueCanMove = false;
+        foreach (var pawn in gameState.pawns)
+        {
+            if (gameState.GetMovableTiles(pawn).Length == 0)
+            {
+                if (pawn.player == (int)Player.BLUE)
+                {
+                    blueCanMove = true;
+                }
+
+                if (pawn.player == (int)Player.RED)
+                {
+                    redCanMove = true;
+                }
+            }
+        }
+        // Determine win conditions
+        bool redWinCondition = redFlag.isAlive || !blueCanMove;
+        bool blueWinCondition = blueFlag.isAlive || !redCanMove;
+
+        // Determine the winner based on conditions
+        if (redWinCondition && blueWinCondition)
+        {
+            return TIE;
+        }
+        else if (redWinCondition)
+        {
+            return RED_WIN;
+        }
+        else if (blueWinCondition)
+        {
+            return BLUE_WIN;
+        }
+        else
+        {
+            return NO_WINNER;
+        }
+    }
 }
 
 public struct PawnChanges
@@ -1185,11 +1454,39 @@ public struct PawnChanges
             return true;
         }
         return false;
-
-
     }
+    
     public override string ToString()
     {
         return $"{pawn.pawnId} {pawn.def.pawnName} posChanged: {posChanged} isSetupChanged: {isSetupChanged} isAliveChanged: {isAliveChanged} hasMovedChanged: {hasMovedChanged} isVisibleToOpponentChanged: {isVisibleToOpponentChanged}";
     }
+}
+
+public struct SMoveResult
+{
+    public SQueuedMove originalMove;
+    public bool didConflictHappen;
+    public bool didConflictWin;
+    
+    public Guid otherPawn;
+}
+
+public struct ConflictReceipt
+{
+    public Guid redPawnId;
+    public Guid bluePawnId;
+    public bool redDies;
+    public bool blueDies;
+    public SVector2Int conflictPos;
+
+    public override string ToString()
+    {
+        return $"red id: {redPawnId} blue id: {bluePawnId} redDies: {redDies} blueDies: {blueDies} conflictPos: {conflictPos}";
+    }
+}
+
+public struct ResolveReceipt
+{
+    public ConflictReceipt[] conflicts;
+    
 }

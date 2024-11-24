@@ -474,7 +474,7 @@ public class FakeClient : IGameClient
 
     void OnBothPlayersMoveSubmitted()
     {
-        SQueuedMove? maybeBlueQueuedMove = masterGameState.GenerateValidMove((int)Player.BLUE);
+        SQueuedMove? maybeBlueQueuedMove = SGameState.GenerateValidMove(masterGameState, (int)Player.BLUE);
         if (maybeBlueQueuedMove.HasValue)
         {
             blueQueuedMove = maybeBlueQueuedMove.Value;
@@ -487,7 +487,7 @@ public class FakeClient : IGameClient
         SGameState nextGameState = SGameState.Resolve(masterGameState, redQueuedMove, blueQueuedMove);
         masterGameState = nextGameState;
         SGameState redGameState = SGameState.Censor(masterGameState, (int)Player.RED);
-        
+        SGameState blueGameState = SGameState.Censor(masterGameState, (int)Player.BLUE);
         Response<SGameState> redGameStateResponse = new Response<SGameState>
         {
             requestId = Guid.Empty,

@@ -36,7 +36,7 @@ public class BoardManager : MonoBehaviour
     // game stuff
     public SGameState serverGameState;
     public PawnView selectedPawnView;
-    public QueuedMove queuedMove;
+    public SQueuedMove? maybeQueuedMove;
     HashSet<TileView> highlightedTileViews = new();
     HashSet<PawnView> highlightedPawnViews = new();
     public int movingPawnsCount = 0;
@@ -97,22 +97,26 @@ public class BoardManager : MonoBehaviour
             case GamePhase.RESOLVE:
                 SelectPawnView(null);
                 clickInputManager.Reset();
-                if (queuedMove == null)
+                if (!maybeQueuedMove.HasValue)
                 {
                     throw new Exception("Queuedmove cant be null in resolve phase");
                 }
-                TileView queuedTileMove = GetTileView(queuedMove.pos);
-                queuedTileMove.OnArrow(false);
+                else
+                {
+                    TileView queuedTileMove = GetTileView(maybeQueuedMove.Value.pos.ToUnity());
+                    queuedTileMove.OnArrow(false);
                 
-                foreach (var tileView in highlightedTileViews)
-                {
-                    tileView.OnHighlight(false);
+                    foreach (var tileView in highlightedTileViews)
+                    {
+                        tileView.OnHighlight(false);
+                    }
+                    foreach (var pawnView in highlightedPawnViews)
+                    {
+                        pawnView.OnHighlight(false);
+                    }
+                    maybeQueuedMove = null;
                 }
-                foreach (var pawnView in highlightedPawnViews)
-                {
-                    pawnView.OnHighlight(false);
-                }
-                queuedMove = null;
+                
                 break;
             case GamePhase.END:
                 break;
@@ -160,6 +164,14 @@ public class BoardManager : MonoBehaviour
         SetPhase(GamePhase.MOVE);
     }
 
+    public void SendQueuedMove()
+    {
+        if (maybeQueuedMove.HasValue)
+        {
+            GameManager.instance.client.SendMove(maybeQueuedMove.Value);
+        }
+    }
+    
     public void OnMoveResponse(Response<bool> response)
     {
         if (response.data)
@@ -403,25 +415,25 @@ public class BoardManager : MonoBehaviour
         {
             return false;
         }
-        if (queuedMove != null)
+        if (maybeQueuedMove.HasValue)
         {
-            TileView oldTileView = GetTileView(queuedMove.pos);
+            TileView oldTileView = GetTileView(maybeQueuedMove.Value.pos.ToUnity());
             oldTileView.OnArrow(false);
         }
-        queuedMove = new QueuedMove(player, pawnView.pawn, pos);
-        TileView tileView = GetTileView(queuedMove.pos);
+        maybeQueuedMove = new SQueuedMove((int)player, pawnView.pawn.pawnId, new SVector2Int(pawnView.pawn.pos),new SVector2Int(pos));
+        TileView tileView = GetTileView(maybeQueuedMove.Value.pos.ToUnity());
         tileView.OnArrow(true);
         return true;
     }
 
     void ClearQueueMove()
     {
-        if (queuedMove != null)
+        if (maybeQueuedMove.HasValue)
         {
-            TileView tileView = GetTileView(queuedMove.pos);
+            TileView tileView = GetTileView(maybeQueuedMove.Value.pos.ToUnity());
             tileView.OnArrow(false);
         }
-        queuedMove = null;
+        maybeQueuedMove = null;
     }
     
     Pawn GetPawnFromPurgatoryByPawnDef(Player targetPlayer, PawnDef pawnDef, Vector2Int pos)
