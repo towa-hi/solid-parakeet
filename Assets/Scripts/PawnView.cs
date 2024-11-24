@@ -59,6 +59,17 @@ public class PawnView : MonoBehaviour
         }
     }
 
+    public void MoveView(Vector2Int pos)
+    {
+        Vector3 targetPosition = GameManager.instance.boardManager.GetTileView(pos).pawnOrigin.position;
+        if (moveCoroutine != null)
+        {
+            StopCoroutine(moveCoroutine);
+        }
+        // Start the movement coroutine to smoothly move to the target position
+        moveCoroutine = StartCoroutine(MoveToPosition(targetPosition, Globals.PAWNMOVEDURATION));
+    }
+
     IEnumerator MoveToPosition(Vector3 targetPosition, float duration)
     {
         isMoving = true;

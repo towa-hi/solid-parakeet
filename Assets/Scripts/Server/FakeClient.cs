@@ -23,7 +23,7 @@ public class FakeClient : IGameClient
     public event Action<Response<bool>> OnSetupSubmittedResponse;
     public event Action<Response<SGameState>> OnSetupFinishedResponse;
     public event Action<Response<bool>> OnMoveResponse;
-    public event Action<Response<SGameState>> OnResolveResponse;
+    public event Action<Response<SResolveReceipt>> OnResolveResponse;
 
     // Internal state
     Guid clientId;
@@ -328,7 +328,7 @@ public class FakeClient : IGameClient
                 HandleMoveResponse(moveResponse);
                 break;
             case MessageType.RESOLVE:
-                Response<SGameState> resolveResponse = (Response<SGameState>)response;
+                Response<SResolveReceipt> resolveResponse = (Response<SResolveReceipt>)response;
                 HandleResolveResponse(resolveResponse);
                 break;
             default:
@@ -484,22 +484,24 @@ public class FakeClient : IGameClient
             // TODO: tell the players that the game is over
             return;
         }
-        SGameState nextGameState = SGameState.Resolve(masterGameState, redQueuedMove, blueQueuedMove);
-        masterGameState = nextGameState;
-        SGameState redGameState = SGameState.Censor(masterGameState, (int)Player.RED);
-        SGameState blueGameState = SGameState.Censor(masterGameState, (int)Player.BLUE);
-        Response<SGameState> redGameStateResponse = new Response<SGameState>
+        SResolveReceipt receipt = SGameState.Resolve(masterGameState, redQueuedMove, blueQueuedMove);
+        masterGameState = receipt.gameState;
+
+        SResolveReceipt redReceipt = receipt;
+        redReceipt.player = (int)Player.RED;
+        redReceipt.gameState = SGameState.Censor(masterGameState, (int)Player.RED);
+        Response<SResolveReceipt> redGameStateResponse = new Response<SResolveReceipt>
         {
             requestId = Guid.Empty,
             success = true,
-            data = redGameState,
+            data = redReceipt,
         };
         //Task.Delay(200);
         ProcessFakeResponse(redGameStateResponse, MessageType.RESOLVE);
 
     }
     
-    void HandleResolveResponse(Response<SGameState> resolveResponse)
+    void HandleResolveResponse(Response<SResolveReceipt> resolveResponse)
     {
         // UnityMainThreadDispatcher.Instance().Enqueue(() =>
         // {

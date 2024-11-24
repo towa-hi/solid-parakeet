@@ -8,6 +8,7 @@ public class GuiGame : MenuElement
     public GuiPawnSetup pawnSetup;
     public GuiMoveWaiting waiting;
     public GuiMoveControls moveControls;
+    public GuiEndScreen endScreen;
     
     void Start()
     {
@@ -16,6 +17,7 @@ public class GuiGame : MenuElement
         pawnSetup.gameObject.SetActive(false);
         waiting.gameObject.SetActive(false);
         moveControls.gameObject.SetActive(false);
+        endScreen.gameObject.SetActive(false);
     }
 
     void OnPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
@@ -36,6 +38,7 @@ public class GuiGame : MenuElement
             case GamePhase.RESOLVE:
                 break;
             case GamePhase.END:
+                endScreen.gameObject.SetActive(false);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(oldPhase), oldPhase, null);
@@ -57,6 +60,8 @@ public class GuiGame : MenuElement
             case GamePhase.RESOLVE:
                 break;
             case GamePhase.END:
+                endScreen.gameObject.SetActive(true);
+                endScreen.Initialize(GameManager.instance.boardManager.serverGameState.winnerPlayer);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(newPhase), newPhase, null);

@@ -106,7 +106,7 @@ public class ResolveFunctionTests
         SQueuedMove blueMove = new SQueuedMove(blueScout, new SVector2Int(5, 1));
 
         // Act
-        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove).gameState;
 
         // Assert
         // Both scouts should be eliminated
@@ -144,7 +144,7 @@ public class ResolveFunctionTests
         SQueuedMove blueMove = new SQueuedMove(blueGeneral.player, blueGeneral.pawnId, blueGeneral.pos, new SVector2Int(2, 0)); // General to (2,0)
 
         // Act
-        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove).gameState;
 
         // Assert
         // Fetch updated pawns
@@ -196,7 +196,7 @@ public class ResolveFunctionTests
         SQueuedMove blueMove = new SQueuedMove(blueSpy.player, blueSpy.pawnId, blueSpy.pos, new SVector2Int(2, 2)); // Spy to (2,2)
 
         // Act
-        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove).gameState;
 
         // Assert
         // Fetch updated pawns
@@ -242,7 +242,7 @@ public class ResolveFunctionTests
         SQueuedMove blueMove = new SQueuedMove(blueScout.player, blueScout.pawnId, blueScout.pos, new SVector2Int(3, 3)); // Scout to (3,3)
 
         // Act
-        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove).gameState;
 
         // Assert
         // Fetch updated pawns
@@ -287,7 +287,7 @@ public class ResolveFunctionTests
         SQueuedMove blueMove = new SQueuedMove(blueScout.player, blueScout.pawnId, blueScout.pos, new SVector2Int(0, 0));
         
         // Act
-        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove).gameState;
         
         // Assert
         // Fetch updated pawns
@@ -336,7 +336,7 @@ public class ResolveFunctionTests
         SQueuedMove blueMove = new SQueuedMove(blueTakenScout, new SVector2Int(4, 2));
         
         // Act
-        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove).gameState;
         
         // Assert
         // Fetch updated pawns

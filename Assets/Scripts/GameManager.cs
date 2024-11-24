@@ -137,7 +137,7 @@ public class GameManager : MonoBehaviour
         boardManager.OnMoveResponse(response);
     }
     
-    void OnResolveResponse(Response<SGameState> response)
+    void OnResolveResponse(Response<SResolveReceipt> response)
     {
         Debug.Log("GameManager OnResolveResponse()");
         boardManager.OnResolveResponse(response);

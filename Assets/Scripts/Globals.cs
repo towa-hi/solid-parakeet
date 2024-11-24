@@ -479,7 +479,7 @@ public interface IGameClient
     event Action<Response<bool>> OnSetupSubmittedResponse;
     event Action<Response<SGameState>> OnSetupFinishedResponse;
     event Action<Response<bool>> OnMoveResponse;
-    event Action<Response<SGameState>> OnResolveResponse;
+    event Action<Response<SResolveReceipt>> OnResolveResponse;
     
     
     // Methods
@@ -569,6 +569,7 @@ public class MoveRequest : RequestBase
     public SQueuedMove move;
 }
 
+
 [Serializable]
 public struct SQueuedMove
 {
@@ -602,6 +603,7 @@ public struct SQueuedMove
     }
     
 }
+
 
 [Serializable]
 public struct SGameState
@@ -948,7 +950,7 @@ public struct SGameState
         }
     }
     
-    static ConflictReceipt ResolveConflict(in SGameState gameState, in Guid redPawnId, in Guid bluePawnId, in SVector2Int conflictPos)
+    static SConflictReceipt ResolveConflict(in SGameState gameState, in Guid redPawnId, in Guid bluePawnId, in SVector2Int conflictPos)
     {
         if (gameState.player != (int)Player.NONE)
         {
@@ -1006,7 +1008,7 @@ public struct SGameState
             blueDies = true;
             Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} tied blue {bluePawn.def.pawnName}");
         }
-        return new ConflictReceipt()
+        return new SConflictReceipt()
         {
             redPawnId = redPawnId,
             bluePawnId = bluePawnId,
@@ -1103,7 +1105,7 @@ public struct SGameState
         return path;
     }
 
-    public static SGameState Resolve(in SGameState gameState, in SQueuedMove redMove, in SQueuedMove blueMove)
+    public static SResolveReceipt Resolve(in SGameState gameState, in SQueuedMove redMove, in SQueuedMove blueMove)
     {
         if (gameState.player != (int)Player.NONE)
         {
@@ -1121,7 +1123,7 @@ public struct SGameState
         Dictionary<Guid, SVector2Int> pawnNewPositions = new Dictionary<Guid, SVector2Int>();
         HashSet<Guid> pawnsToKill = new HashSet<Guid>();
         HashSet<Guid> pawnsToReveal = new HashSet<Guid>();
-
+        HashSet<SConflictReceipt> conflicts = new HashSet<SConflictReceipt>();
         pawnNewPositions[redMove.pawnId] = redMove.pos;
         pawnNewPositions[blueMove.pawnId] = blueMove.pos;
         bool deferRedMove = false;
@@ -1131,7 +1133,7 @@ public struct SGameState
         if (redMove.pos == blueMove.pos)
         {
             //Resolve once
-            ConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
+            SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
             pawnsToReveal.Add(redMove.pawnId);
             pawnsToReveal.Add(blueMove.pawnId);
             if (receipt.redDies)
@@ -1147,7 +1149,8 @@ public struct SGameState
         else if (redMove.pos == blueMove.initialPos && blueMove.pos == redMove.initialPos)
         {
             //Resolve once (redMove.pos is not really accurate as the final position depends on who wins)
-            ConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
+            SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
+            conflicts.Add(receipt);
             pawnsToReveal.Add(redMove.pawnId);
             pawnsToReveal.Add(blueMove.pawnId);
             if (receipt.redDies)
@@ -1175,7 +1178,8 @@ public struct SGameState
                 }
                 else
                 {
-                    ConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+                    SConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+                    conflicts.Add(receipt);
                     pawnsToReveal.Add(redMove.pawnId);
                     pawnsToReveal.Add(pawnObstructingRed.pawnId);
                     if (receipt.redDies)
@@ -1202,7 +1206,8 @@ public struct SGameState
                 else
                 {
                     // Resolve conflict
-                    ConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+                    SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+                    conflicts.Add(receipt);
                     pawnsToReveal.Add(blueMove.pawnId);
                     pawnsToReveal.Add(pawnObstructingBlue.pawnId);
                     if (receipt.blueDies)
@@ -1224,7 +1229,8 @@ public struct SGameState
             {
                 SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
                 // we know for sure pawnObstructingBlue isn't moving
-                ConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+                SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+                conflicts.Add(receipt);
                 pawnsToReveal.Add(blueMove.pawnId);
                 pawnsToReveal.Add(pawnObstructingBlue.pawnId);
                 if (receipt.blueDies)
@@ -1250,7 +1256,8 @@ public struct SGameState
                     throw new Exception("Red move was invalid because Red pawn is on position");
                 }
                 // we know for sure pawnObstructingBlue isn't moving
-                ConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+                SConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+                conflicts.Add(receipt);
                 if (receipt.redDies)
                 {
                     pawnsToKill.Add(redMove.pawnId);
@@ -1280,7 +1287,17 @@ public struct SGameState
         {
             throw new Exception("Cannot return invalid state");
         }
-        return nextGameState;
+
+        SResolveReceipt finalReceipt = new SResolveReceipt()
+        {
+            player = (int)Player.NONE,
+            blueQueuedMove = blueMove,
+            redQueuedMove = redMove,
+            gameState = nextGameState,
+            receipts = conflicts.ToArray(),
+        };
+        
+        return finalReceipt;
     }
 
     public static bool IsStateValid(in SGameState gameState)
@@ -1388,17 +1405,14 @@ public struct SGameState
             if (pawn.isAlive)
             {
                 var movableTiles = gameState.GetMovableTiles(pawn);
-                Debug.Log($"{pawn.player}{pawn.def.pawnName} {movableTiles.Length}");
                 if (movableTiles.Length > 0)
                 {
                     if (pawn.player == (int)Player.BLUE)
                     {
-                        Debug.Log("blueCanMove is true");
                         blueCanMove = true;
                     }
                     if (pawn.player == (int)Player.RED)
                     {
-                        Debug.Log("redCanMove is true");
                         redCanMove = true;
                     }
                 }
@@ -1411,7 +1425,6 @@ public struct SGameState
         {
             Debug.Log("Blue cant move so win condition set");
         }
-
         if (!redCanMove)
         {
             Debug.Log("Red cant move so win condition set");
@@ -1485,7 +1498,7 @@ public struct SMoveResult
     public Guid otherPawn;
 }
 
-public struct ConflictReceipt
+public struct SConflictReceipt
 {
     public Guid redPawnId;
     public Guid bluePawnId;
@@ -1499,8 +1512,12 @@ public struct ConflictReceipt
     }
 }
 
-public struct ResolveReceipt
+
+public struct SResolveReceipt
 {
-    public ConflictReceipt[] conflicts;
-    
+    public int player;
+    public SQueuedMove redQueuedMove;
+    public SQueuedMove blueQueuedMove;
+    public SConflictReceipt[] receipts;
+    public SGameState gameState;
 }
