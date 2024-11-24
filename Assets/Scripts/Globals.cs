@@ -768,7 +768,7 @@ public struct SGameState
 
     public static SGameState Censor(in SGameState masterGameState, int targetPlayer)
     {
-        bool cheatMode = false;
+        bool cheatMode = true;
         if (masterGameState.player != (int)Player.NONE)
         {
             throw new Exception("Censor can only be done on master game states!");
@@ -1383,25 +1383,39 @@ public struct SGameState
         SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.BLUE && p.def.pawnName.Equals("Flag", StringComparison.OrdinalIgnoreCase));
         bool redCanMove = false;
         bool blueCanMove = false;
-        foreach (var pawn in gameState.pawns)
+        foreach (SPawn pawn in gameState.pawns)
         {
-            if (gameState.GetMovableTiles(pawn).Length == 0)
+            if (pawn.isAlive)
             {
-                if (pawn.player == (int)Player.BLUE)
+                var movableTiles = gameState.GetMovableTiles(pawn);
+                Debug.Log($"{pawn.player}{pawn.def.pawnName} {movableTiles.Length}");
+                if (movableTiles.Length > 0)
                 {
-                    blueCanMove = true;
-                }
-
-                if (pawn.player == (int)Player.RED)
-                {
-                    redCanMove = true;
+                    if (pawn.player == (int)Player.BLUE)
+                    {
+                        Debug.Log("blueCanMove is true");
+                        blueCanMove = true;
+                    }
+                    if (pawn.player == (int)Player.RED)
+                    {
+                        Debug.Log("redCanMove is true");
+                        redCanMove = true;
+                    }
                 }
             }
         }
         // Determine win conditions
-        bool redWinCondition = redFlag.isAlive || !blueCanMove;
-        bool blueWinCondition = blueFlag.isAlive || !redCanMove;
+        bool redWinCondition = !blueFlag.isAlive || !blueCanMove;
+        bool blueWinCondition = !redFlag.isAlive || !redCanMove;
+        if (!blueCanMove)
+        {
+            Debug.Log("Blue cant move so win condition set");
+        }
 
+        if (!redCanMove)
+        {
+            Debug.Log("Red cant move so win condition set");
+        }
         // Determine the winner based on conditions
         if (redWinCondition && blueWinCondition)
         {

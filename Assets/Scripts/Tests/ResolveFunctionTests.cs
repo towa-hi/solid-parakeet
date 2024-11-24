@@ -58,9 +58,9 @@ public class ResolveFunctionTests
     {
         List<STile> tiles = new List<STile>();
 
-        for (int x = 1; x <= width; x++)
+        for (int x = 0; x < width; x++)
         {
-            for (int y = 1; y <= height; y++)
+            for (int y = 0; y < height; y++)
             {
                 tiles.Add(new STile
                 {
@@ -83,12 +83,14 @@ public class ResolveFunctionTests
         int boardWidth = 10;
         int boardHeight = 10;
         SBoardDef boardDef = CreateBoard(boardWidth, boardHeight);
-
+        
+        SPawn redFlag = CreatePawn("Flag", (int)Player.RED, 0, 0);
+        SPawn blueFlag = CreatePawn("Flag", (int)Player.BLUE, 5, 5);
         // Create red scout at (5, 1)
         SPawn redScout = CreatePawn("Scout", (int)Player.RED, 5, 1);
 
         // Create blue scout at (5, 10)
-        SPawn blueScout = CreatePawn("Scout", (int)Player.BLUE, 5, 10);
+        SPawn blueScout = CreatePawn("Scout", (int)Player.BLUE, 5, 9);
 
         // Set up initial game state
         SGameState gameState = new SGameState
@@ -96,11 +98,11 @@ public class ResolveFunctionTests
             winnerPlayer = (int)Player.NONE,
             player = (int)Player.NONE,
             boardDef = boardDef,
-            pawns = new SPawn[] { redScout, blueScout }
+            pawns = new SPawn[] {redFlag, blueFlag, redScout, blueScout }
         };
 
         // Create moves
-        SQueuedMove redMove = new SQueuedMove(redScout, new SVector2Int(5, 10));
+        SQueuedMove redMove = new SQueuedMove(redScout, new SVector2Int(5, 9));
         SQueuedMove blueMove = new SQueuedMove(blueScout, new SVector2Int(5, 1));
 
         // Act
@@ -123,6 +125,8 @@ public class ResolveFunctionTests
         SBoardDef boardDef = CreateBoard(3, 1);
 
         // Create pawns
+        SPawn redFlag = CreatePawn("Flag", (int)Player.RED, 5, 4);
+        SPawn blueFlag = CreatePawn("Flag", (int)Player.BLUE, 5, 5);
         SPawn redMarshal = CreatePawn("Marshal", (int)Player.RED, 0, 0);  // (0,0)
         SPawn blueGeneral = CreatePawn("General", (int)Player.BLUE, 1, 0); // (1,0)
         SPawn redMajor = CreatePawn("Major", (int)Player.RED, 2, 0);     // (2,0)
@@ -132,7 +136,7 @@ public class ResolveFunctionTests
         {
             player = (int)Player.NONE,
             boardDef = boardDef,
-            pawns = new SPawn[] { redMarshal, blueGeneral, redMajor }
+            pawns = new SPawn[] {redFlag, blueFlag, redMarshal, blueGeneral, redMajor }
         };
 
         // Define moves
@@ -173,6 +177,8 @@ public class ResolveFunctionTests
         SBoardDef boardDef = CreateBoard(4, 4);
 
         // Create pawns
+        SPawn redFlag = CreatePawn("Flag", (int)Player.RED, 0, 0);
+        SPawn blueFlag = CreatePawn("Flag", (int)Player.BLUE, 5, 5);
         SPawn redSpy = CreatePawn("Spy", (int)Player.RED, 2, 2);        // (2,2) Power 1
         SPawn blueSpy = CreatePawn("Spy", (int)Player.BLUE, 3, 2);      // (3,2) Power 1
 
@@ -182,7 +188,7 @@ public class ResolveFunctionTests
             winnerPlayer = (int)Player.NONE,
             player = (int)Player.NONE,
             boardDef = boardDef,
-            pawns = new SPawn[] { redSpy, blueSpy }
+            pawns = new SPawn[] {redFlag, blueFlag, redSpy, blueSpy }
         };
 
         // Define moves
@@ -217,6 +223,8 @@ public class ResolveFunctionTests
         SBoardDef boardDef = CreateBoard(6, 6);
 
         // Create pawns
+        SPawn redFlag = CreatePawn("Flag", (int)Player.RED, 0, 0);
+        SPawn blueFlag = CreatePawn("Flag", (int)Player.BLUE, 5, 5);
         SPawn redColonel = CreatePawn("Colonel", (int)Player.RED, 3, 3);   // (3,3)
         SPawn blueScout = CreatePawn("Scout", (int)Player.BLUE, 4, 3);     // (4,3)
 
@@ -226,7 +234,7 @@ public class ResolveFunctionTests
             winnerPlayer = (int)Player.NONE,
             player = (int)Player.NONE,
             boardDef = boardDef,
-            pawns = new SPawn[] { redColonel, blueScout }
+            pawns = new SPawn[] {redFlag, blueFlag, redColonel, blueScout }
         };
 
         // Define moves
@@ -254,5 +262,95 @@ public class ResolveFunctionTests
         Assert.IsFalse(updatedBlueScout.Value.isAlive, "Blue Scout should be dead.");
     }
 
+    [Test]
+    public void Test_BlueWinsByFlagCapture()
+    {
+        // Arrange
+        // Create a 6x6 board to accommodate positions (3,3) and (4,3)
+        SBoardDef boardDef = CreateBoard(6, 6);
+
+        // Create pawns
+        SPawn redFlag = CreatePawn("Flag", (int)Player.RED, 0, 0);
+        SPawn blueFlag = CreatePawn("Flag", (int)Player.BLUE, 5, 5);
+        SPawn redColonel = CreatePawn("Colonel", (int)Player.RED, 3, 3);
+        SPawn blueScout = CreatePawn("Scout", (int)Player.BLUE, 1, 0);
+        SGameState gameState = new SGameState
+        {
+            winnerPlayer = (int)Player.NONE,
+            player = (int)Player.NONE,
+            boardDef = boardDef,
+            pawns = new SPawn[] {redFlag, blueFlag, redColonel, blueScout }
+        };
+        
+        // Define moves
+        SQueuedMove redMove = new SQueuedMove(redColonel.player, redColonel.pawnId, redColonel.pos, new SVector2Int(4, 3));
+        SQueuedMove blueMove = new SQueuedMove(blueScout.player, blueScout.pawnId, blueScout.pos, new SVector2Int(0, 0));
+        
+        // Act
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        
+        // Assert
+        // Fetch updated pawns
+        SPawn? updatedRedColonel = nextGameState.GetPawnFromId(redColonel.pawnId);
+        SPawn? updatedBlueScout = nextGameState.GetPawnFromId(blueScout.pawnId);
+        SPawn? updatedRedFlag = nextGameState.GetPawnFromId(redFlag.pawnId);
+        SPawn? updatedBlueFlag = nextGameState.GetPawnFromId(blueFlag.pawnId);
+
+        // Check Red alive
+        Assert.IsFalse(updatedRedFlag.Value.isAlive, "Red Flag should be dead.");
+
+        // Check winner
+        Assert.AreEqual((int)Player.BLUE, nextGameState.winnerPlayer, "Blue should win the game");
+        
+    }
+    
+    [Test]
+    public void Test_RedWinsByNoMoves()
+    {
+        // Arrange
+        SBoardDef boardDef = CreateBoard(10, 10);
+
+        // Create pawns
+        
+        SPawn redFlag = CreatePawn("Flag", (int)Player.RED, 0, 0);
+        SPawn blueFlag = CreatePawn("Flag", (int)Player.BLUE, 5, 5);
+        
+        
+        SPawn blueBomb1 = CreatePawn("Bomb", (int)Player.BLUE, 8, 9);
+        SPawn blueBomb2 = CreatePawn("Bomb", (int)Player.BLUE, 9, 8);
+        SPawn blueTrappedScout = CreatePawn("Scout", (int)Player.BLUE, 9, 9);
+        
+        
+        SPawn redColonel = CreatePawn("Colonel", (int)Player.RED, 4, 1);
+        SPawn blueTakenScout = CreatePawn("Scout", (int)Player.BLUE, 5, 2);
+        SGameState gameState = new SGameState
+        {
+            winnerPlayer = (int)Player.NONE,
+            player = (int)Player.NONE,
+            boardDef = boardDef,
+            pawns = new SPawn[] {redFlag, blueFlag, blueBomb1, blueBomb2, blueTrappedScout, redColonel, blueTakenScout}
+        };
+        
+        // Define moves
+        SQueuedMove redMove = new SQueuedMove(redColonel, new SVector2Int(4, 2));
+        SQueuedMove blueMove = new SQueuedMove(blueTakenScout, new SVector2Int(4, 2));
+        
+        // Act
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove);
+        
+        // Assert
+        // Fetch updated pawns
+        SPawn? updatedBlueTrappedScout = nextGameState.GetPawnFromId(blueTrappedScout.pawnId);
+        SPawn? updatedBlueTakenScout = nextGameState.GetPawnFromId(blueTakenScout.pawnId);
+        SPawn? updatedRedFlag = nextGameState.GetPawnFromId(redFlag.pawnId);
+        SPawn? updatedBlueFlag = nextGameState.GetPawnFromId(blueFlag.pawnId);
+
+        // Check scout dead alive
+        Assert.IsFalse(updatedBlueTakenScout.Value.isAlive, "Blue taken scout should be dead.");
+        Assert.IsTrue(updatedBlueTrappedScout.Value.isAlive, "Blue trapped scout should be alive");
+        // Check winner
+        Assert.AreEqual((int)Player.RED, nextGameState.winnerPlayer, "Red should win the game");
+        
+    }
 }
 
