@@ -43,41 +43,8 @@ public class BoardManager : MonoBehaviour
 
     
     // resolve stuff
-    public int movingPawnsCount = 0;
-    public bool areScoutsDoneMoving = false;
+    bool isBattleHappening;
 
-    bool moveScouts;
-    public Dictionary<PawnView, SQueuedMove> movingScouts;
-    public Dictionary<PawnView, SQueuedMove> movingPawns;
-    void Update()
-    {
-        if (phase == GamePhase.RESOLVE)
-        {
-            if (moveScouts)
-            {
-                foreach (var kvp in movingScouts)
-                {
-                    kvp.Key.MoveView(kvp.Value.pos.ToUnity());
-                }
-                moveScouts = false;
-            }
-            bool areScoutsMoving = movingScouts.Any(kvp => kvp.Key.isMoving);
-            if (!areScoutsMoving)
-            {
-                foreach (var kvp in movingPawns)
-                {
-                    kvp.Key.MoveView(kvp.Value.pos.ToUnity());
-                }
-            }
-            bool arePawnsMoving = movingPawns.Any(kvp => kvp.Key.isMoving);
-            if (!areScoutsMoving && !arePawnsMoving)
-            {
-                Debug.Log("all pawns stopped moving");
-            }
-
-            // TODO: invoke OnPawnModified
-        }
-    }
     void SetPhase(GamePhase inPhase)
     {
         GamePhase oldPhase = phase;
@@ -122,8 +89,6 @@ public class BoardManager : MonoBehaviour
                 ClearQueueMove();
                 break;
             case GamePhase.RESOLVE:
-                movingScouts = new Dictionary<PawnView, SQueuedMove>();
-                movingPawns = new Dictionary<PawnView, SQueuedMove>();
                 SelectPawnView(null);
                 clickInputManager.Reset();
                 if (!maybeQueuedMove.HasValue)
@@ -221,8 +186,8 @@ public class BoardManager : MonoBehaviour
         if (response.success)
         {
             // apply diff here
-            UpdateState(response.data);
             SetPhase(GamePhase.RESOLVE);
+            UpdateState(response.data);
         }
     }
 
@@ -260,47 +225,7 @@ public class BoardManager : MonoBehaviour
         foreach (SPawn sPawn in receipt.gameState.pawns)
         {
             Pawn pawn = GetPawnById(sPawn.pawnId);
-            if (pawn != null)
-            {
-                PawnChanges pawnChanges = new()
-                {
-                    pawn = pawn,
-                };
-                if (pawn.pos != sPawn.pos.ToUnity())
-                {
-                    pawnChanges.posChanged = true;
-                    pawn.pos = sPawn.pos.ToUnity();
-                }
-                if (pawn.isSetup != sPawn.isSetup)
-                {
-                    pawnChanges.isSetupChanged = true;
-                    pawn.isSetup = sPawn.isSetup;
-                }
-                if (pawn.isAlive != sPawn.isAlive)
-                {
-                    pawnChanges.isAliveChanged = true;
-                    pawn.isAlive = sPawn.isAlive;
-                }
-                if (pawn.hasMoved != sPawn.hasMoved)
-                {
-                    pawnChanges.hasMovedChanged = true;
-                    pawn.hasMoved = sPawn.hasMoved;
-                }
-                if (pawn.isVisibleToOpponent != sPawn.isVisibleToOpponent)
-                {
-                    pawnChanges.isVisibleToOpponentChanged = true;
-                    pawn.isVisibleToOpponent = sPawn.isVisibleToOpponent;
-                    if (sPawn.isVisibleToOpponent)
-                    {
-                        pawn.def = sPawn.def.ToUnity();
-                    }
-                }
-                if (pawnChanges.IsChanged())
-                {
-                    pawnChangesSet.Add(pawnChanges);
-                }
-            }
-            else
+            if (pawn == null)
             {
                 TileView tileView = GetTileView(sPawn.pos.ToUnity());
                 Pawn newPawn = sPawn.ToUnity();
@@ -311,15 +236,19 @@ public class BoardManager : MonoBehaviour
             }
         }
 
-        // foreach (var pawnChanges in pawnChangesSet)
-        // {
-        //     OnPawnModified?.Invoke(pawnChanges);
-        // }
         serverGameState = receipt.gameState;
         if (receipt.redQueuedMove.pawnId == Guid.Empty)
         {
             return;
         }
+
+        StartCoroutine(ApplyResolve(receipt));
+
+    }
+    IEnumerator ApplyResolve(SResolveReceipt receipt)
+    {
+        Dictionary<PawnView, SQueuedMove> movingScouts = new();
+        Dictionary<PawnView, SQueuedMove> movingPawns = new();
         PawnView redMovingPawn = GetPawnViewById(receipt.redQueuedMove.pawnId);
         PawnView blueMovingPawn = GetPawnViewById(receipt.blueQueuedMove.pawnId);
         if (redMovingPawn.pawn.def.pawnName == "Scout")
@@ -338,19 +267,148 @@ public class BoardManager : MonoBehaviour
         {
             movingPawns.Add(blueMovingPawn, receipt.blueQueuedMove);
         }
-        moveScouts = true;
+        // TODO: differentiate between conflicts caused by scouts and conflicts where the scout is the defender
+        HashSet<SConflictReceipt> scoutInvolvedConflicts = new();
+        HashSet<SConflictReceipt> otherConflicts = new();
+        foreach (var conflict in receipt.receipts)
+        {
+            var redPawn = receipt.gameState.GetPawnFromId(conflict.redPawnId);
+            var bluePawn = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
+            if (redPawn.def.pawnName == "Scout" || bluePawn.def.pawnName == "Scout")
+            {
+                scoutInvolvedConflicts.Add(conflict);
+            }
+            else if (redPawn.def.pawnName != "Scout" && bluePawn.def.pawnName != "Scout")
+            {
+                otherConflicts.Add(conflict);
+            }
+            else
+            {
+                Debug.LogError($"Weird edge case detected red {redPawn.def.pawnName} at {redPawn.pos} blue {bluePawn.def.pawnName} at {bluePawn.pos}");
+            }
+        }
+        Debug.Log("Start by moving scouts if they exist");
+        yield return StartCoroutine(MovePawnGroup(movingScouts));
+        foreach (var conflict in scoutInvolvedConflicts)
+        {
+            Debug.Log("Start pawn battle");
+            SPawn redPawnState = receipt.gameState.GetPawnFromId(conflict.redPawnId);
+            SPawn bluePawnState = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
+            PawnView redPawn = GetPawnViewById(conflict.redPawnId);
+            PawnView bluePawn = GetPawnViewById(conflict.bluePawnId);
+            redPawn.RevealPawn(redPawnState);
+            bluePawn.RevealPawn(bluePawnState);
+            yield return StartBattle(GetPawnViewById(conflict.redPawnId), GetPawnViewById(conflict.bluePawnId), conflict.redDies, conflict.blueDies);
+            if (conflict.redDies)
+            {
+                if (!redPawnState.isAlive)
+                {
+                    redPawn.SendToGraveyard();
+                }
+                else
+                {
+                    throw new Exception("killed a pawn that isAlive is true");
+                }
+            }
+            
+            if (conflict.blueDies)
+            {
+                if (!bluePawnState.isAlive)
+                {
+                    bluePawn.SendToGraveyard();
+                }
+                else
+                {
+                    throw new Exception("killed a pawn that isAlive is true");
+                }
+            }
+            Debug.Log("Pawn battle done");
+        }
+        Debug.Log("move pawns if they exist");
+        yield return StartCoroutine(MovePawnGroup(movingPawns));
+        foreach (var conflict in otherConflicts)
+        {
+            Debug.Log("Start battle");
+            SPawn redPawnState = receipt.gameState.GetPawnFromId(conflict.redPawnId);
+            SPawn bluePawnState = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
+            PawnView redPawn = GetPawnViewById(conflict.redPawnId);
+            PawnView bluePawn = GetPawnViewById(conflict.bluePawnId);
+            redPawn.RevealPawn(redPawnState);
+            bluePawn.RevealPawn(bluePawnState);
+            yield return StartBattle(GetPawnViewById(conflict.redPawnId), GetPawnViewById(conflict.bluePawnId), conflict.redDies, conflict.blueDies);
+            if (conflict.redDies)
+            {
+                if (!redPawnState.isAlive)
+                {
+                    redPawn.SendToGraveyard();
+                }
+                else
+                {
+                    throw new Exception("killed a pawn that isAlive is true");
+                }
+            }
+            
+            if (conflict.blueDies)
+            {
+                if (!bluePawnState.isAlive)
+                {
+                    bluePawn.SendToGraveyard();
+                }
+                else
+                {
+                    throw new Exception("killed a pawn that isAlive is true");
+                }
+            }
+            Debug.Log("Battle done");
+        }
+        foreach (var pawnView in pawnViews)
+        {
+            pawnView.UpdatePawn(receipt.gameState.GetPawnFromId(pawnView.pawn.pawnId));
+        }
+        
+        SetPhase(GamePhase.MOVE);
         
     }
 
-    
-    void BattleScene(SConflictReceipt conflict)
+    IEnumerator StartBattle(PawnView redPawn, PawnView bluePawn, bool redDies, bool blueDies)
     {
-        PawnView redPawnView = GetPawnViewById(conflict.redPawnId);
-        PawnView bluePawnView = GetPawnViewById(conflict.bluePawnId);
-            
-        Debug.Log($"sConflict between red {redPawnView.pawn.def.pawnName} and blue {bluePawnView.pawn.def.pawnName}");
-        
+        isBattleHappening = true;
+        GameManager.instance.guiManager.gameOverlay.resolveScreen.Initialize(redPawn, bluePawn, redDies, blueDies, OnBattleFinished);
+        yield return new WaitUntil(() => isBattleHappening == false);
     }
+
+    void OnBattleFinished()
+    {
+        isBattleHappening = false;
+        GameManager.instance.guiManager.gameOverlay.resolveScreen.Hide();
+    }
+    
+    
+    private IEnumerator MovePawnGroup(Dictionary<PawnView, SQueuedMove> group)
+    {
+        if (group.Count == 0)
+        {
+            Debug.Log("MovePawnGroup: nothing of this group exists");
+            yield return null;
+        }
+        foreach (var kvp in group)
+        {
+            if (kvp.Key.pawn.isAlive)
+            {
+                kvp.Key.MoveView(kvp.Value.pos.ToUnity());
+            }
+            else
+            {
+                Debug.Log($"MovePawnGroup: not moving {kvp.Key.pawn.def.name} because it's dead");
+            }
+        }
+
+        while (group.Any(kvp => kvp.Key.isMoving))
+        {
+            yield return null;
+        }
+    }
+    
     void OnPositionHovered(Vector2Int oldPos, Vector2Int newPos)
     {
         // Store references to previous hovered pawn and tile

@@ -43,22 +43,67 @@ public class PawnView : MonoBehaviour
         {
             targetPosition = GameManager.instance.boardManager.purgatory.position;
         }
-        
-        // Stop any existing movement coroutine
-        if (moveCoroutine != null)
+
+        if (pawnChanges.posChanged)
         {
-            StopCoroutine(moveCoroutine);
+            transform.position = targetPosition;
         }
-
-        // Start the movement coroutine to smoothly move to the target position
-        moveCoroutine = StartCoroutine(MoveToPosition(targetPosition, Globals.PAWNMOVEDURATION));
-
         if (pawnChanges.isVisibleToOpponentChanged)
         {
             DisplaySymbol(pawn.def.icon);
         }
     }
 
+    public void UpdatePawn(SPawn sPawn)
+    {
+        PawnChanges pawnChanges = new()
+        {
+            pawn = pawn,
+        };
+        if (pawn.pos != sPawn.pos.ToUnity())
+        {
+            pawnChanges.posChanged = true;
+            pawn.pos = sPawn.pos.ToUnity();
+        }
+        if (pawn.isSetup != sPawn.isSetup)
+        {
+            pawnChanges.isSetupChanged = true;
+            pawn.isSetup = sPawn.isSetup;
+        }
+        if (pawn.isAlive != sPawn.isAlive)
+        {
+            pawnChanges.isAliveChanged = true;
+            pawn.isAlive = sPawn.isAlive;
+        }
+        if (pawn.hasMoved != sPawn.hasMoved)
+        {
+            pawnChanges.hasMovedChanged = true;
+            pawn.hasMoved = sPawn.hasMoved;
+        }
+        if (pawn.isVisibleToOpponent != sPawn.isVisibleToOpponent)
+        {
+            pawnChanges.isVisibleToOpponentChanged = true;
+            pawn.isVisibleToOpponent = sPawn.isVisibleToOpponent;
+            if (sPawn.isVisibleToOpponent)
+            {
+                pawn.def = sPawn.def.ToUnity();
+            }
+        }
+        OnPawnModified(pawnChanges);
+    }
+
+    public void RevealPawn(SPawn sPawn)
+    {
+        pawn.def = sPawn.def.ToUnity();
+        DisplaySymbol(pawn.def.icon);
+    }
+
+    public void SendToGraveyard()
+    {
+        Vector3 targetPosition = GameManager.instance.boardManager.purgatory.position;
+        transform.position = targetPosition;
+    }
+    
     public void MoveView(Vector2Int pos)
     {
         Vector3 targetPosition = GameManager.instance.boardManager.GetTileView(pos).pawnOrigin.position;
@@ -73,7 +118,6 @@ public class PawnView : MonoBehaviour
     IEnumerator MoveToPosition(Vector3 targetPosition, float duration)
     {
         isMoving = true;
-        GameManager.instance.boardManager.movingPawnsCount++;
         Vector3 startPosition = transform.position;
         float elapsedTime = 0f;
 
@@ -88,7 +132,6 @@ public class PawnView : MonoBehaviour
         // Ensure the final position is set
         transform.position = targetPosition;
         isMoving = false;
-        GameManager.instance.boardManager.movingPawnsCount--;
     }
 
     public virtual void Initialize(Pawn inPawn, TileView tileView)
@@ -142,7 +185,7 @@ public class PawnView : MonoBehaviour
         OnPawnModified(pawnChanges);
     }
 
-    void DisplaySymbol(Sprite sprite)
+    public void DisplaySymbol(Sprite sprite)
     {
         if (sprite == null)
         {
@@ -151,7 +194,7 @@ public class PawnView : MonoBehaviour
         symbolRenderer.sprite = sprite;
     }
 
-    void SetColor(Color color)
+    public void SetColor(Color color)
     {
         planeRenderer.material = new Material(planeRenderer.material)
         {

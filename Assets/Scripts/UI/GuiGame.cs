@@ -8,6 +8,7 @@ public class GuiGame : MenuElement
     public GuiPawnSetup pawnSetup;
     public GuiMoveWaiting waiting;
     public GuiMoveControls moveControls;
+    public GuiResolveScreen resolveScreen;
     public GuiEndScreen endScreen;
     
     void Start()
@@ -17,7 +18,9 @@ public class GuiGame : MenuElement
         pawnSetup.gameObject.SetActive(false);
         waiting.gameObject.SetActive(false);
         moveControls.gameObject.SetActive(false);
+        resolveScreen.gameObject.SetActive(false);
         endScreen.gameObject.SetActive(false);
+        
     }
 
     void OnPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
@@ -102,5 +105,10 @@ public class GuiGame : MenuElement
     {
         moveControls.OnMoveResponse(response);
         // TODO: tell the user that the move is submitted and we're waiting for a response
+    }
+
+    public void StartBattle(PawnView redPawn, PawnView bluePawn, bool redDies, bool blueDies, Action onFinish)
+    {
+        resolveScreen.Initialize(redPawn, bluePawn, redDies, blueDies, onFinish);
     }
 }

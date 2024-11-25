@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 //using System.Net.Sockets;
 using System.Text.RegularExpressions;
+using NUnit.Framework;
 //using System.Threading.Tasks;
 //using JetBrains.Annotations;
 using UnityEngine;
@@ -755,7 +756,7 @@ public struct SGameState
                 return false;
             }
         }
-        catch (ArgumentOutOfRangeException ex)
+        catch (ArgumentOutOfRangeException)
         {
             return false;
         }
@@ -770,7 +771,7 @@ public struct SGameState
 
     public static SGameState Censor(in SGameState masterGameState, int targetPlayer)
     {
-        bool cheatMode = true;
+        bool cheatMode = false;
         if (masterGameState.player != (int)Player.NONE)
         {
             throw new Exception("Censor can only be done on master game states!");
@@ -1128,11 +1129,104 @@ public struct SGameState
         pawnNewPositions[blueMove.pawnId] = blueMove.pos;
         bool deferRedMove = false;
         bool deferBlueMove = false;
+        SPawn redMovePawn = gameState.GetPawnFromId(redMove.pawnId);
+        SPawn blueMovePawn = gameState.GetPawnFromId(blueMove.pawnId);
+        // move scouts first (simultaneously)
+        // TODO: TEST CODE WIP
+        // instead of receipt system we have a series of moves for the client to execute
+        // case 1: two scouts attack different pawns at the same time
+        // 0 MOVE RED SCOUT TO DESIRED POS
+        // 0 MOVE BLUE SCOUT TO DESIRED POS
+        // 1 CONFLICT
+        // 1 CONFLICT
+        // case 2: both scouts go to the same tile
+        // 0 MOVE RED SCOUT TO DESIRED POS
+        // 0 MOVE BLUE SCOUT TO DESIRED POS
+        // 1 CONFLICT
+        // case 3: red scout moves into blue scouts position but blue scout is moving somewhere else
+        // 0 MOVE RED SCOUT TO DESIRED POS
+        // 0 MOVE BLUE SCOUT TO DESIRED POS
+        // case 4: red scout moves into blue non-scout pawn that is attacking a different pawn
+        // 0 MOVE RED SCOUT TO DESIRED POS
+        // 1 CONFLICT
+        // if the scout won the conflict, the blue move is negated else blue pawn moves now
+        // 2 MOVE BLUE PAWN TO DESIRED POS
+        // 3 CONFLICT
+        // case 5: non scout pawn swaps with non scout pawn
+        // 0 CONFLICT
+        // 1 WINNER MOVES TO DESIRED POS
+        // case 6: scout swaps with scout
+        // 0 MOVE RED SCOUT TO DESIRED POS
+        // 0 MOVE BLUE SCOUT TO DESIRED POS
+        
+        bool deferRedScoutMove;
+        bool deferBlueScoutMove;
+        if (redMovePawn.def.pawnName == "Scout")
+        {
+            // if position is occupied
+            SPawn? maybePawnObstructingRedScout = gameState.GetPawnFromPos(redMove.pos);
+            if (maybePawnObstructingRedScout.HasValue)
+            {
+                SPawn pawnObstructingRedScout = maybePawnObstructingRedScout.Value;
+                if (pawnObstructingRedScout.pawnId == blueMove.pawnId && pawnObstructingRedScout.def.pawnName == "Scout")
+                {
+                    deferRedScoutMove = true;
+                }
+                else
+                {
+                    Debug.Assert(pawnObstructingRedScout.player != redMovePawn.player);
+                    Debug.Assert(pawnObstructingRedScout.isAlive);
+                    int order = 0;
+                    SConflictReceipt receipt = ResolveConflict(nextGameState, redMovePawn.pawnId, pawnObstructingRedScout.pawnId, redMove.pos);
+                    if (receipt.redDies)
+                    {
+                        UpdatePawnIsAlive(ref nextGameState, redMovePawn.pawnId, false);
+                    }
+                    if (receipt.blueDies)
+                    {
+                        UpdatePawnIsAlive(ref nextGameState, pawnObstructingRedScout.pawnId, false);
+                        UpdatePawnPosition(ref nextGameState, redMovePawn.pawnId, redMove.pos);
+                    }
+                }
+            }
+        }
+        if (blueMovePawn.def.pawnName == "Scout")
+        {
+            // if position is occupied
+            SPawn? maybePawnObstructingBlueScout = gameState.GetPawnFromPos(blueMove.pos);
+            if (maybePawnObstructingBlueScout.HasValue)
+            {
+                SPawn pawnObstructingBlueScout = maybePawnObstructingBlueScout.Value;
+                if (pawnObstructingBlueScout.pawnId == blueMove.pawnId && pawnObstructingBlueScout.def.pawnName == "Scout")
+                {
+                    deferBlueScoutMove = true;
+                }
+                else
+                {
+                    Debug.Assert(pawnObstructingBlueScout.player != blueMovePawn.player);
+                    Debug.Assert(pawnObstructingBlueScout.isAlive);
+                    int order = 0;
+                    SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlueScout.pawnId, blueMovePawn.pawnId, blueMove.pos);
+                    if (receipt.redDies)
+                    {
+                        UpdatePawnIsAlive(ref nextGameState, pawnObstructingBlueScout.pawnId, false);
+                        UpdatePawnPosition(ref nextGameState, blueMovePawn.pawnId, blueMove.pos);
+                    }
+                    if (receipt.blueDies)
+                    {
+                        UpdatePawnIsAlive(ref nextGameState, blueMovePawn.pawnId, false);
+                    }
+                }
+            }
+        }
+        // if defer red, blue moves like normal
+        
         
         // Case A: if red and blue move to the same pos
         if (redMove.pos == blueMove.pos)
         {
             //Resolve once
+            int order = 0;
             SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
             pawnsToReveal.Add(redMove.pawnId);
             pawnsToReveal.Add(blueMove.pawnId);
@@ -1148,7 +1242,7 @@ public struct SGameState
         // Case B: if red and blue move into each others pos
         else if (redMove.pos == blueMove.initialPos && blueMove.pos == redMove.initialPos)
         {
-            //Resolve once (redMove.pos is not really accurate as the final position depends on who wins)
+            int order = 0;
             SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
             conflicts.Add(receipt);
             pawnsToReveal.Add(redMove.pawnId);
@@ -1171,7 +1265,7 @@ public struct SGameState
             {
                 SPawn pawnObstructingRed = maybePawnObstructingRed.Value;
                 // if this pawn is also moving
-                if (pawnObstructingRed.pawnId == blueMove.pawnId)
+                if (pawnObstructingRed.pawnId == blueMove.pawnId && gameState.GetPawnFromId(redMove.pawnId).def.pawnName != "Scout")
                 {
                     // give blue a chance to do it's move first
                     deferRedMove = true;
@@ -1198,7 +1292,7 @@ public struct SGameState
             {
                 SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
                 // if this pawn is also moving
-                if (pawnObstructingBlue.pawnId == redMove.pawnId)
+                if (pawnObstructingBlue.pawnId == redMove.pawnId && gameState.GetPawnFromId(blueMove.pawnId).def.pawnName != "Scout")
                 {
                     // give blue a chance to do it's move first
                     deferBlueMove = true;

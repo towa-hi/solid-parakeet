@@ -352,5 +352,48 @@ public class ResolveFunctionTests
         Assert.AreEqual((int)Player.RED, nextGameState.winnerPlayer, "Red should win the game");
         
     }
+    
+    [Test]
+    public void Test_ScoutHitsMovingPiece()
+    {
+        // Arrange
+        SBoardDef boardDef = CreateBoard(10, 10);
+
+        // Create pawns
+        
+        SPawn redFlag = CreatePawn("Flag", (int)Player.RED, 0, 0);
+        SPawn blueFlag = CreatePawn("Flag", (int)Player.BLUE, 5, 5);
+        
+        
+        SPawn blueScout = CreatePawn("Scout", (int)Player.BLUE, 8, 9);
+        SPawn redColonel = CreatePawn("Colonel", (int)Player.RED, 8, 2);
+        SGameState gameState = new SGameState
+        {
+            winnerPlayer = (int)Player.NONE,
+            player = (int)Player.NONE,
+            boardDef = boardDef,
+            pawns = new SPawn[] {redFlag, blueFlag, blueScout, redColonel},
+        };
+        
+        // Define moves
+        SQueuedMove redMove = new SQueuedMove(redColonel, new SVector2Int(9, 2));
+        SQueuedMove blueMove = new SQueuedMove(blueScout, new SVector2Int(8, 2));
+        
+        // Act
+        SGameState nextGameState = SGameState.Resolve(gameState, redMove, blueMove).gameState;
+        
+        // Assert
+        // Fetch updated pawns
+        SPawn? updatedBlueScout = nextGameState.GetPawnFromId(blueScout.pawnId);
+        SPawn? updatedRedColonel = nextGameState.GetPawnFromId(redColonel.pawnId);
+
+        // Check scout dead alive
+        Assert.IsFalse(updatedBlueScout.Value.isAlive, "Blue scout should be dead.");
+        Assert.IsTrue(updatedRedColonel.Value.isAlive, "Red colonel scout should be alive");
+        // Check winner
+        Assert.AreEqual((int)Player.RED, nextGameState.winnerPlayer, "Red should win the game");
+        
+    }
+    // TODO: make a test for scout vs spy when spy moves
 }
 
