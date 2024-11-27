@@ -227,6 +227,11 @@ public static class Globals
         return maxPawnsArray;
     }
     
+    public static float EaseOutQuad(float t)
+    {
+        return t * (2 - t);
+    }
+    
     public static int GetNumberOfRowsForPawn(PawnDef pawnDef)
     {
         switch (pawnDef.name)

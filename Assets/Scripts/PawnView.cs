@@ -16,7 +16,7 @@ public class PawnView : MonoBehaviour
 
     public MeshRenderer billboardRenderer;
     public MeshRenderer planeRenderer;
-    
+    public Shatter shatterEffect;
     public bool isSelected = false;
     public bool isHovered = false;
     public bool isMoving = false;
@@ -27,6 +27,11 @@ public class PawnView : MonoBehaviour
     void Start()
     {
         GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
+    }
+
+    public void InitializeInArena()
+    {
+        billboard.gameObject.SetActive(true);
     }
 
     void OnPawnModified(PawnChanges pawnChanges)
@@ -89,7 +94,7 @@ public class PawnView : MonoBehaviour
                 pawn.def = sPawn.def.ToUnity();
             }
         }
-        OnPawnModified(pawnChanges);
+        //OnPawnModified(pawnChanges);
     }
 
     public void RevealPawn(SPawn sPawn)
@@ -115,7 +120,7 @@ public class PawnView : MonoBehaviour
         moveCoroutine = StartCoroutine(MoveToPosition(targetPosition, Globals.PAWNMOVEDURATION));
     }
 
-    IEnumerator MoveToPosition(Vector3 targetPosition, float duration)
+    public IEnumerator MoveToPosition(Vector3 targetPosition, float duration)
     {
         isMoving = true;
         Vector3 startPosition = transform.position;
@@ -133,7 +138,37 @@ public class PawnView : MonoBehaviour
         transform.position = targetPosition;
         isMoving = false;
     }
+    public IEnumerator ArcToPosition(Vector3 targetPosition, float duration, float arcHeight)
+    {
+        isMoving = true;
+        Vector3 startPosition = transform.position;
+        float elapsedTime = 0f;
 
+        while (elapsedTime < duration)
+        {
+            // Calculate the normalized time (0 to 1)
+            float t = elapsedTime / duration;
+            t = Globals.EaseOutQuad(t);
+            
+            // Interpolate position horizontally
+            Vector3 horizontalPosition = Vector3.Lerp(startPosition, targetPosition, t);
+
+            // Calculate vertical arc using a parabolic equation
+            float verticalOffset = arcHeight * (1 - Mathf.Pow(2 * t - 1, 2)); // Parabolic equation: a(1 - (2t - 1)^2)
+            horizontalPosition.y += verticalOffset;
+
+            // Apply the calculated position
+            transform.position = horizontalPosition;
+
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        // Ensure the final position is set
+        transform.position = targetPosition;
+        isMoving = false;
+    }
+    
     public virtual void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
