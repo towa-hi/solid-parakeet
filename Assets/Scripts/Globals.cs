@@ -951,16 +951,8 @@ public struct SGameState
         }
     }
     
-    static SConflictReceipt ResolveConflict(in SGameState gameState, in Guid redPawnId, in Guid bluePawnId, in SVector2Int conflictPos)
+    static SConflictReceipt ResolveConflict(in SPawn redPawn, in SPawn bluePawn)
     {
-        if (gameState.player != (int)Player.NONE)
-        {
-            throw new ArgumentException("ResolveConflict gameState must not be censored");
-        }
-        // Set isVisibleToOpponent to true for both pawns
-        SPawn redPawn = gameState.GetPawnFromId(redPawnId);
-        SPawn bluePawn = gameState.GetPawnFromId(bluePawnId);
-        
         // Determine the outcome based on pawn strengths or game rules
         int redRank = redPawn.def.power;
         int blueRank = bluePawn.def.power;
@@ -1011,11 +1003,10 @@ public struct SGameState
         }
         return new SConflictReceipt()
         {
-            redPawnId = redPawnId,
-            bluePawnId = bluePawnId,
+            redPawnId = redPawn.pawnId,
+            bluePawnId = bluePawn.pawnId,
             redDies = redDies,
             blueDies = blueDies,
-            conflictPos = conflictPos,
         };
     }
 
@@ -1120,277 +1111,727 @@ public struct SGameState
             boardDef = gameState.boardDef,
             pawns = (SPawn[])gameState.pawns.Clone(),
         };
-
-        Dictionary<Guid, SVector2Int> pawnNewPositions = new Dictionary<Guid, SVector2Int>();
-        HashSet<Guid> pawnsToKill = new HashSet<Guid>();
-        HashSet<Guid> pawnsToReveal = new HashSet<Guid>();
-        HashSet<SConflictReceipt> conflicts = new HashSet<SConflictReceipt>();
-        pawnNewPositions[redMove.pawnId] = redMove.pos;
-        pawnNewPositions[blueMove.pawnId] = blueMove.pos;
-        bool deferRedMove = false;
-        bool deferBlueMove = false;
+        // process movement
         SPawn redMovePawn = gameState.GetPawnFromId(redMove.pawnId);
         SPawn blueMovePawn = gameState.GetPawnFromId(blueMove.pawnId);
-        // move scouts first (simultaneously)
-        // TODO: TEST CODE WIP
-        // instead of receipt system we have a series of moves for the client to execute
-        // case 1: two scouts attack different pawns at the same time
-        // 0 MOVE RED SCOUT TO DESIRED POS
-        // 0 MOVE BLUE SCOUT TO DESIRED POS
-        // 1 CONFLICT
-        // 1 CONFLICT
-        // case 2: both scouts go to the same tile
-        // 0 MOVE RED SCOUT TO DESIRED POS
-        // 0 MOVE BLUE SCOUT TO DESIRED POS
-        // 1 CONFLICT
-        // case 3: red scout moves into blue scouts position but blue scout is moving somewhere else
-        // 0 MOVE RED SCOUT TO DESIRED POS
-        // 0 MOVE BLUE SCOUT TO DESIRED POS
-        // case 4: red scout moves into blue non-scout pawn that is attacking a different pawn
-        // 0 MOVE RED SCOUT TO DESIRED POS
-        // 1 CONFLICT
-        // if the scout won the conflict, the blue move is negated else blue pawn moves now
-        // 2 MOVE BLUE PAWN TO DESIRED POS
-        // 3 CONFLICT
-        // case 5: non scout pawn swaps with non scout pawn
-        // 0 CONFLICT
-        // 1 WINNER MOVES TO DESIRED POS
-        // case 6: scout swaps with scout
-        // 0 MOVE RED SCOUT TO DESIRED POS
-        // 0 MOVE BLUE SCOUT TO DESIRED POS
+
+        SPawn? maybePawnOnRedMovePos = gameState.GetPawnFromPos(redMove.pos);
+        SPawn? maybePawnOnBlueMovePos = gameState.GetPawnFromPos(blueMove.pos);
         
-        bool deferRedScoutMove;
-        bool deferBlueScoutMove;
-        if (redMovePawn.def.pawnName == "Scout")
+        bool redGotDodgedByBlue = false;
+        bool blueGotDodgedByRed = false;
+        if (maybePawnOnRedMovePos.HasValue && maybePawnOnRedMovePos.Value.pawnId == blueMovePawn.pawnId)
         {
-            // if position is occupied
-            SPawn? maybePawnObstructingRedScout = gameState.GetPawnFromPos(redMove.pos);
-            if (maybePawnObstructingRedScout.HasValue)
-            {
-                SPawn pawnObstructingRedScout = maybePawnObstructingRedScout.Value;
-                if (pawnObstructingRedScout.pawnId == blueMove.pawnId && pawnObstructingRedScout.def.pawnName == "Scout")
-                {
-                    deferRedScoutMove = true;
-                }
-                else
-                {
-                    Debug.Assert(pawnObstructingRedScout.player != redMovePawn.player);
-                    Debug.Assert(pawnObstructingRedScout.isAlive);
-                    int order = 0;
-                    SConflictReceipt receipt = ResolveConflict(nextGameState, redMovePawn.pawnId, pawnObstructingRedScout.pawnId, redMove.pos);
-                    if (receipt.redDies)
-                    {
-                        UpdatePawnIsAlive(ref nextGameState, redMovePawn.pawnId, false);
-                    }
-                    if (receipt.blueDies)
-                    {
-                        UpdatePawnIsAlive(ref nextGameState, pawnObstructingRedScout.pawnId, false);
-                        UpdatePawnPosition(ref nextGameState, redMovePawn.pawnId, redMove.pos);
-                    }
-                }
-            }
+            redGotDodgedByBlue = true;
         }
-        if (blueMovePawn.def.pawnName == "Scout")
+        if (maybePawnOnBlueMovePos.HasValue && maybePawnOnBlueMovePos.Value.pawnId == redMovePawn.pawnId)
         {
-            // if position is occupied
-            SPawn? maybePawnObstructingBlueScout = gameState.GetPawnFromPos(blueMove.pos);
-            if (maybePawnObstructingBlueScout.HasValue)
-            {
-                SPawn pawnObstructingBlueScout = maybePawnObstructingBlueScout.Value;
-                if (pawnObstructingBlueScout.pawnId == blueMove.pawnId && pawnObstructingBlueScout.def.pawnName == "Scout")
-                {
-                    deferBlueScoutMove = true;
-                }
-                else
-                {
-                    Debug.Assert(pawnObstructingBlueScout.player != blueMovePawn.player);
-                    Debug.Assert(pawnObstructingBlueScout.isAlive);
-                    int order = 0;
-                    SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlueScout.pawnId, blueMovePawn.pawnId, blueMove.pos);
-                    if (receipt.redDies)
-                    {
-                        UpdatePawnIsAlive(ref nextGameState, pawnObstructingBlueScout.pawnId, false);
-                        UpdatePawnPosition(ref nextGameState, blueMovePawn.pawnId, blueMove.pos);
-                    }
-                    if (receipt.blueDies)
-                    {
-                        UpdatePawnIsAlive(ref nextGameState, blueMovePawn.pawnId, false);
-                    }
-                }
-            }
-        }
-        // if defer red, blue moves like normal
-        
-        
-        // Case A: if red and blue move to the same pos
-        if (redMove.pos == blueMove.pos)
-        {
-            //Resolve once
-            int order = 0;
-            SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
-            pawnsToReveal.Add(redMove.pawnId);
-            pawnsToReveal.Add(blueMove.pawnId);
-            if (receipt.redDies)
-            {
-                pawnsToKill.Add(redMove.pawnId);
-            }
-            if (receipt.blueDies)
-            {
-                pawnsToKill.Add(blueMove.pawnId);
-            }
-        }
-        // Case B: if red and blue move into each others pos
-        else if (redMove.pos == blueMove.initialPos && blueMove.pos == redMove.initialPos)
-        {
-            int order = 0;
-            SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
-            conflicts.Add(receipt);
-            pawnsToReveal.Add(redMove.pawnId);
-            pawnsToReveal.Add(blueMove.pawnId);
-            if (receipt.redDies)
-            {
-                pawnsToKill.Add(redMove.pawnId);
-            }
-            if (receipt.blueDies)
-            {
-                pawnsToKill.Add(blueMove.pawnId);
-            }
-        }
-        // Case C: potentially two unrelated conflicts happening at once
-        else
-        {
-            // Case C1: if red moved to a location with a blue pawn 
-            SPawn? maybePawnObstructingRed = gameState.GetPawnFromPos(redMove.pos);
-            if (maybePawnObstructingRed.HasValue)
-            {
-                SPawn pawnObstructingRed = maybePawnObstructingRed.Value;
-                // if this pawn is also moving
-                if (pawnObstructingRed.pawnId == blueMove.pawnId && gameState.GetPawnFromId(redMove.pawnId).def.pawnName != "Scout")
-                {
-                    // give blue a chance to do it's move first
-                    deferRedMove = true;
-                }
-                else
-                {
-                    SConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
-                    conflicts.Add(receipt);
-                    pawnsToReveal.Add(redMove.pawnId);
-                    pawnsToReveal.Add(pawnObstructingRed.pawnId);
-                    if (receipt.redDies)
-                    {
-                        pawnsToKill.Add(redMove.pawnId);
-                    }
-                    if (receipt.blueDies)
-                    {
-                        pawnsToKill.Add(pawnObstructingRed.pawnId);
-                    }
-                }
-            }
-            // Case B2: if blue moved into a location with a red pawn 
-            SPawn? maybePawnObstructingBlue = gameState.GetPawnFromPos(blueMove.pos);
-            if (maybePawnObstructingBlue.HasValue)
-            {
-                SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
-                // if this pawn is also moving
-                if (pawnObstructingBlue.pawnId == redMove.pawnId && gameState.GetPawnFromId(blueMove.pawnId).def.pawnName != "Scout")
-                {
-                    // give blue a chance to do it's move first
-                    deferBlueMove = true;
-                }
-                else
-                {
-                    // Resolve conflict
-                    SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
-                    conflicts.Add(receipt);
-                    pawnsToReveal.Add(blueMove.pawnId);
-                    pawnsToReveal.Add(pawnObstructingBlue.pawnId);
-                    if (receipt.blueDies)
-                    {
-                        pawnsToKill.Add(blueMove.pawnId);
-                    }
-                    if (receipt.redDies)
-                    {
-                        pawnsToKill.Add(pawnObstructingBlue.pawnId);
-                    }
-                }
-            }
-        }
-        if (deferRedMove)
-        {
-            Debug.Log("we let blue move first because it's attacking a piece that isn't moving");
-            SPawn? maybePawnObstructingBlue = gameState.GetPawnFromPos(blueMove.pos);
-            if (maybePawnObstructingBlue.HasValue)
-            {
-                SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
-                // we know for sure pawnObstructingBlue isn't moving
-                SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
-                conflicts.Add(receipt);
-                pawnsToReveal.Add(blueMove.pawnId);
-                pawnsToReveal.Add(pawnObstructingBlue.pawnId);
-                if (receipt.blueDies)
-                {
-                    pawnsToKill.Add(blueMove.pawnId);
-                }
-                if (receipt.redDies)
-                {
-                    pawnsToKill.Add(pawnObstructingBlue.pawnId);
-                }
-            }
-        }
-        if (deferBlueMove)
-        {
-            Debug.Log("we let RED move first because it's attacking a piece that isn't moving");
-            SPawn? maybePawnObstructingRed = gameState.GetPawnFromPos(redMove.pos);
-            if (maybePawnObstructingRed.HasValue)
-            {
-                SPawn pawnObstructingRed = maybePawnObstructingRed.Value;
-                if (pawnObstructingRed.player == redMove.player)
-                {
-                    // the move was invalid!
-                    throw new Exception("Red move was invalid because Red pawn is on position");
-                }
-                // we know for sure pawnObstructingBlue isn't moving
-                SConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
-                conflicts.Add(receipt);
-                if (receipt.redDies)
-                {
-                    pawnsToKill.Add(redMove.pawnId);
-                }
-                if (receipt.blueDies)
-                {
-                    pawnsToKill.Add(pawnObstructingRed.pawnId);
-                }
-            }
-        }
-        foreach (Guid pawnId in pawnsToReveal)
-        {
-            UpdateRevealPawn(ref nextGameState, pawnId, true);
-        }
-        foreach (var kvp in pawnNewPositions)
-        {
-            // update the positions regardless of correctness for now
-            UpdatePawnPosition(ref nextGameState, kvp.Key, kvp.Value);
-        }
-        foreach (var pawnId in pawnsToKill)
-        {
-            // kill pawns that lost their conflict
-            UpdatePawnIsAlive(ref nextGameState, pawnId, false);
-        }
-        nextGameState.winnerPlayer = GetStateWinner(nextGameState);
-        if (!IsStateValid(nextGameState))
-        {
-            throw new Exception("Cannot return invalid state");
+            blueGotDodgedByRed = true;
         }
 
-        SResolveReceipt finalReceipt = new SResolveReceipt()
-        {
-            player = (int)Player.NONE,
-            blueQueuedMove = blueMove,
-            redQueuedMove = redMove,
-            gameState = nextGameState,
-            receipts = conflicts.ToArray(),
-        };
+        SEventState? redMoveBeforeConflict;
+        SEventState? blueMoveBeforeConflict;
+        // if redGotDodgedByBlue and BlueGotDodgedByRed we just run redConflict and then redConflictAfterDeaths
+        // and then redMoveAfterConflict or blueMoveAfterConflict depending on who survived
         
+        // if blueGotDodgedByRed, this sequence should be done first
+        SEventState? redConflict;
+        HashSet<SEventState> redConflictAfterDeaths = new();
+        SEventState? redMoveAfterConflict;
+        // if redGotDodgedByBlue, this sequence should be done first
+        SEventState? blueConflict;
+        HashSet<SEventState> blueConflictAfterDeaths = new();
+        SEventState? blueMoveAfterConflict;
+        
+        // if red and blue swapped places
+        if (redGotDodgedByBlue && blueGotDodgedByRed)
+        {
+            SEventState blueAndRedSwappedConflictEvent = new()
+            {
+                player = (int)Player.NONE,
+                eventType = (int)ResolveEvent.SWAPCONFLICT,
+                pawnId = redMovePawn.pawnId,
+                defenderPawnId = blueMovePawn.pawnId,
+                originalPos = redMovePawn.pos, // arbitrary
+                newPos = blueMovePawn.pos, // arbitrary
+            };
+            redConflict = blueAndRedSwappedConflictEvent; // arbitrary for swap
+            SConflictReceipt swapConflictResult = ResolveConflict(redMovePawn, blueMovePawn);
+            if (swapConflictResult.redDies)
+            {
+                SEventState redDies = new()
+                {
+                    player = redMovePawn.player,
+                    eventType = (int)ResolveEvent.DEATH,
+                    pawnId = redMovePawn.pawnId,
+                    defenderPawnId = Guid.Empty,
+                    originalPos = redMove.pos,
+                    newPos = new SVector2Int(Globals.PURGATORY),
+                };
+                redConflictAfterDeaths.Add(redDies); // arbitrary for swap
+                // if blue survived, move blue to reds position
+                if (!swapConflictResult.blueDies)
+                {
+                    SEventState blueMovesToRedPos = new()
+                    {
+                        player = blueMovePawn.player,
+                        eventType = (int)ResolveEvent.MOVE,
+                        pawnId = redMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = blueMovePawn.pos, // blueMovePawn origin
+                        newPos = blueMove.pos, // blueMovePawn destination
+                    };
+                    blueMoveAfterConflict = blueMovesToRedPos;
+                }
+            }
+            if (swapConflictResult.blueDies)
+            {
+                SEventState blueDies = new()
+                {
+                    player = blueMovePawn.player,
+                    eventType = (int)ResolveEvent.DEATH,
+                    pawnId = blueMovePawn.pawnId,
+                    defenderPawnId = Guid.Empty,
+                    originalPos = blueMove.pos,
+                    newPos = new SVector2Int(Globals.PURGATORY),
+                };
+                redConflictAfterDeaths.Add(blueDies); // arbitrary for swap
+                // if red survived, move red to desired position
+                if (!swapConflictResult.redDies)
+                {
+                    SEventState redMovesToBluePos = new()
+                    {
+                        player = redMovePawn.player,
+                        eventType = (int)ResolveEvent.MOVE,
+                        pawnId = redMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = redMovePawn.pos, // redMovePawn origin
+                        newPos = redMove.pos, // redMovePawn destination
+                    };
+                    redMoveAfterConflict = redMovesToBluePos;
+                }
+            }
+        }
+        // if blue got dodged, red gets to move first
+        else if (blueGotDodgedByRed)
+        {
+            if (maybePawnOnRedMovePos.HasValue)
+            {
+                SPawn blueDefender = maybePawnOnRedMovePos.Value;
+                SConflictReceipt redAttackStationaryConflict = ResolveConflict(redMovePawn, blueDefender);
+                if (redAttackStationaryConflict.redDies)
+                {
+                    SEventState redDies = new()
+                    {
+                        player = redMovePawn.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = redMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = redMovePawn.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    redConflictAfterDeaths.Add(redDies);
+                    // we don't queue up a move because the attacker (blue) died
+                }
+
+                if (redAttackStationaryConflict.blueDies)
+                {
+                    SEventState blueDies = new()
+                    {
+                        player = blueDefender.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = blueDefender.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = blueDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    redConflictAfterDeaths.Add(blueDies);
+                    if (!redAttackStationaryConflict.redDies)
+                    {
+                        SEventState redMovesToBluePos = new()
+                        {
+                            player = redMovePawn.player,
+                            eventType = (int)ResolveEvent.MOVE,
+                            pawnId = redMovePawn.pawnId,
+                            defenderPawnId = Guid.Empty,
+                            originalPos = redMovePawn.pos,
+                            newPos = redMove.pos,
+                        };
+                        redMoveAfterConflict = redMovesToBluePos;
+                    }
+                }
+            }
+        }
+        // if red got dodged, blue gets to move first
+        else if (redGotDodgedByBlue)
+        {
+            if (maybePawnOnBlueMovePos.HasValue)
+            {
+                SPawn redDefender = maybePawnOnBlueMovePos.Value;
+                SConflictReceipt blueAttackStationaryConflict = ResolveConflict(redDefender, blueMovePawn);
+                if (blueAttackStationaryConflict.redDies)
+                {
+                    SEventState redDies = new()
+                    {
+                        player = redDefender.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = redDefender.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = redDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    blueConflictAfterDeaths.Add(redDies);
+                    // if blue survived, move to attacker (blue) desired position
+                    if (!blueAttackStationaryConflict.blueDies)
+                    {
+                        SEventState blueMovesToRedPos = new()
+                        {
+                            player = blueMovePawn.player,
+                            eventType = (int)ResolveEvent.MOVE,
+                            pawnId = blueMovePawn.pawnId,
+                            defenderPawnId = Guid.Empty,
+                            originalPos = blueMovePawn.pos,
+                            newPos = blueMove.pos,
+                        };
+                        blueMoveAfterConflict = blueMovesToRedPos;
+                    }
+                }
+                if (blueAttackStationaryConflict.blueDies)
+                {
+                    SEventState blueDies = new()
+                    {
+                        player = blueMovePawn.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = blueMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = blueMovePawn.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    blueConflictAfterDeaths.Add(blueDies);
+                    // we don't queue up a move because the attacker (blue) died
+                }
+            }
+        }
+        // arbitrary order since two potential conflicts cant interfere with each other
+        else
+        {
+            // if red encounters a blue pawn
+            if (maybePawnOnRedMovePos.HasValue)
+            {
+                SPawn blueDefender = maybePawnOnRedMovePos.Value;
+                SConflictReceipt redAttackStationaryConflict = ResolveConflict(redMovePawn, blueDefender);
+                if (redAttackStationaryConflict.redDies)
+                {
+                    SEventState redDies = new()
+                    {
+                        player = redMovePawn.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = redMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = redMovePawn.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    redConflictAfterDeaths.Add(redDies);
+                    // we don't queue up a move because the attacker (blue) died
+                }
+                if (redAttackStationaryConflict.blueDies)
+                {
+                    SEventState blueDies = new()
+                    {
+                        player = blueDefender.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = blueDefender.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = blueDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    redConflictAfterDeaths.Add(blueDies);
+                    if (!redAttackStationaryConflict.redDies)
+                    {
+                        SEventState redMovesToBluePos = new()
+                        {
+                            player = redMovePawn.player,
+                            eventType = (int)ResolveEvent.MOVE,
+                            pawnId = redMovePawn.pawnId,
+                            defenderPawnId = Guid.Empty,
+                            originalPos = redMovePawn.pos,
+                            newPos = redMove.pos,
+                        };
+                        redMoveAfterConflict = redMovesToBluePos;
+                    }
+                }
+            }
+            else
+            {
+                SEventState redPeacefullyMoves = new()
+                {
+                    player = redMovePawn.player,
+                    eventType = (int)ResolveEvent.MOVE,
+                    pawnId = redMovePawn.pawnId,
+                    defenderPawnId = Guid.Empty,
+                    originalPos = redMovePawn.pos,
+                    newPos = redMove.pos,
+                };
+                redMoveAfterConflict = redPeacefullyMoves;
+            }
+            // if blue encounters a red pawn
+            if (maybePawnOnBlueMovePos.HasValue)
+            {
+                SPawn redDefender = maybePawnOnBlueMovePos.Value;
+                SConflictReceipt blueAttackStationaryConflict = ResolveConflict(redDefender, blueMovePawn);
+                if (blueAttackStationaryConflict.redDies)
+                {
+                    SEventState redDies = new()
+                    {
+                        player = redDefender.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = redDefender.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = redDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    blueConflictAfterDeaths.Add(redDies);
+                    // if blue survived, move to attacker (blue) desired position
+                    if (!blueAttackStationaryConflict.blueDies)
+                    {
+                        SEventState blueMovesToRedPos = new()
+                        {
+                            player = blueMovePawn.player,
+                            eventType = (int)ResolveEvent.MOVE,
+                            pawnId = blueMovePawn.pawnId,
+                            defenderPawnId = Guid.Empty,
+                            originalPos = blueMovePawn.pos,
+                            newPos = blueMove.pos,
+                        };
+                        blueMoveAfterConflict = blueMovesToRedPos;
+                    }
+                }
+                if (blueAttackStationaryConflict.blueDies)
+                {
+                    SEventState blueDies = new()
+                    {
+                        player = blueMovePawn.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = blueMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = blueMovePawn.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                    blueConflictAfterDeaths.Add(blueDies);
+                    // we don't queue up a move because the attacker (blue) died
+                }
+            }
+            else
+            {
+                SEventState bluePeacefullyMoves = new()
+                {
+                    player = blueMovePawn.player,
+                    eventType = (int)ResolveEvent.MOVE,
+                    pawnId = blueMovePawn.pawnId,
+                    defenderPawnId = Guid.Empty,
+                    originalPos = blueMovePawn.pos,
+                    newPos = blueMove.pos,
+                };
+                blueMoveAfterConflict = bluePeacefullyMoves;
+            }
+        }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+       
+        // we have to decide which attack should go first
+        if (maybePawnOnRedMovePos.HasValue)
+        {
+            SPawn blueDefender = maybePawnOnRedMovePos.Value;
+            if (blueDefender.pawnId == blueMovePawn.pawnId)
+            {
+                redGotDodgedByBlue = true;
+            }
+            else
+            {
+                // red is attacking a stationary blue pawn
+                // this conflict happens after the initial two moves
+                SEventState redAttackConflictEvent = new()
+                {
+                    player = redMovePawn.player,
+                    eventType = (int)ResolveEvent.CONFLICT,
+                    pawnId = redMovePawn.pawnId,
+                    defenderPawnId = blueDefender.pawnId,
+                    originalPos = redMovePawn.pos,
+                    newPos = blueDefender.pos,
+                };
+                // the aftermath of the conflict are executed at the same time immediately after the conflict
+                SConflictReceipt redAttackConflictResult = ResolveConflict(redMovePawn, blueDefender);
+                if (redAttackConflictResult.redDies)
+                {
+                    SEventState redDies = new()
+                    {
+                        player = redMovePawn.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = redMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = blueDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                }
+                if (redAttackConflictResult.blueDies)
+                {
+                    SEventState blueDies = new()
+                    {
+                        player = blueDefender.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = blueDefender.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = blueDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                }
+            }
+        }
+
+        if (maybePawnOnBlueMovePos.HasValue)
+        {
+            SPawn redDefender = maybePawnOnBlueMovePos.Value;
+            if (redDefender.pawnId == redMovePawn.pawnId)
+            {
+                blueGotDodgedByRed = true;
+            }
+            else
+            {
+                // blue is attacking a stationary red pawn
+                // this conflict happens after the initial two moves
+                SEventState blueAttackConflictEvent = new()
+                {
+                    player = blueMovePawn.player,
+                    eventType = (int)ResolveEvent.CONFLICT,
+                    pawnId = blueMovePawn.pawnId,
+                    defenderPawnId = redDefender.pawnId,
+                    originalPos = redDefender.pos,
+                    newPos = redDefender.pos,
+                };
+                // the aftermath of the conflict are executed at the same time immediately after the conflict
+                SConflictReceipt blueAttackConflictResult = ResolveConflict(redDefender, blueMovePawn);
+                if (blueAttackConflictResult.redDies)
+                {
+                    SEventState redDies = new()
+                    {
+                        player = redDefender.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = redDefender.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = redDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                }
+                if (blueAttackConflictResult.blueDies)
+                {
+                    SEventState blueDies = new()
+                    {
+                        player = blueMovePawn.player,
+                        eventType = (int)ResolveEvent.DEATH,
+                        pawnId = blueMovePawn.pawnId,
+                        defenderPawnId = Guid.Empty,
+                        originalPos = redDefender.pos,
+                        newPos = new SVector2Int(Globals.PURGATORY),
+                    };
+                }
+            }
+        }
+
+        if (redGotDodgedByBlue && blueGotDodgedByRed)
+        {
+            // they swapped places
+            // this conflict happens after the initial two moves
+            // there should only be one conflict this turn if this happens
+            SEventState blueAndRedSwappedConflictEvent = new()
+            {
+                player = (int)Player.NONE,
+                eventType = (int)ResolveEvent.SWAPCONFLICT,
+                pawnId = redMovePawn.pawnId,
+                defenderPawnId = blueMovePawn.pawnId,
+                originalPos = redMovePawn.pos,
+                newPos = blueMovePawn.pos,
+            };
+            SConflictReceipt swapConflictResult = ResolveConflict(redMovePawn, blueMovePawn);
+            if (swapConflictResult.redDies)
+            {
+                SEventState redDies = new()
+                {
+                    player = redMovePawn.player,
+                    eventType = (int)ResolveEvent.DEATH,
+                    pawnId = redMovePawn.pawnId,
+                    defenderPawnId = Guid.Empty,
+                    originalPos = redMove.pos, // redMovePawn should be on redMove.pos when this happens
+                    newPos = new SVector2Int(Globals.PURGATORY),
+                };
+            }
+            if (swapConflictResult.blueDies)
+            {
+                SEventState blueDies = new()
+                {
+                    player = blueMovePawn.player,
+                    eventType = (int)ResolveEvent.DEATH,
+                    pawnId = blueMovePawn.pawnId,
+                    defenderPawnId = Guid.Empty,
+                    originalPos = blueMove.pos, // blueMovePawn should be on blueMove.pos when this happens
+                    newPos = new SVector2Int(Globals.PURGATORY),
+                };
+            }
+        }
+        else if (redGotDodgedByBlue)
+        {
+            
+        }
+        else if (blueGotDodgedByRed)
+        {
+            
+        }
+        
+        
+        
+        //
+        //
+        //
+        // bool deferRedScoutMove;
+        // bool deferBlueScoutMove;
+        // if (redMovePawn.def.pawnName == "Scout")
+        // {
+        //     // if position is occupied
+        //     SPawn? maybePawnObstructingRedScout = gameState.GetPawnFromPos(redMove.pos);
+        //     if (maybePawnObstructingRedScout.HasValue)
+        //     {
+        //         SPawn pawnObstructingRedScout = maybePawnObstructingRedScout.Value;
+        //         if (pawnObstructingRedScout.pawnId == blueMove.pawnId && pawnObstructingRedScout.def.pawnName == "Scout")
+        //         {
+        //             deferRedScoutMove = true;
+        //         }
+        //         else
+        //         {
+        //             Debug.Assert(pawnObstructingRedScout.player != redMovePawn.player);
+        //             Debug.Assert(pawnObstructingRedScout.isAlive);
+        //             int order = 0;
+        //             SConflictReceipt receipt = ResolveConflict(nextGameState, redMovePawn.pawnId, pawnObstructingRedScout.pawnId, redMove.pos);
+        //             if (receipt.redDies)
+        //             {
+        //                 UpdatePawnIsAlive(ref nextGameState, redMovePawn.pawnId, false);
+        //             }
+        //             if (receipt.blueDies)
+        //             {
+        //                 UpdatePawnIsAlive(ref nextGameState, pawnObstructingRedScout.pawnId, false);
+        //                 UpdatePawnPosition(ref nextGameState, redMovePawn.pawnId, redMove.pos);
+        //             }
+        //         }
+        //     }
+        // }
+        // if (blueMovePawn.def.pawnName == "Scout")
+        // {
+        //     // if position is occupied
+        //     SPawn? maybePawnObstructingBlueScout = gameState.GetPawnFromPos(blueMove.pos);
+        //     if (maybePawnObstructingBlueScout.HasValue)
+        //     {
+        //         SPawn pawnObstructingBlueScout = maybePawnObstructingBlueScout.Value;
+        //         if (pawnObstructingBlueScout.pawnId == blueMove.pawnId && pawnObstructingBlueScout.def.pawnName == "Scout")
+        //         {
+        //             deferBlueScoutMove = true;
+        //         }
+        //         else
+        //         {
+        //             Debug.Assert(pawnObstructingBlueScout.player != blueMovePawn.player);
+        //             Debug.Assert(pawnObstructingBlueScout.isAlive);
+        //             int order = 0;
+        //             SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlueScout.pawnId, blueMovePawn.pawnId, blueMove.pos);
+        //             if (receipt.redDies)
+        //             {
+        //                 UpdatePawnIsAlive(ref nextGameState, pawnObstructingBlueScout.pawnId, false);
+        //                 UpdatePawnPosition(ref nextGameState, blueMovePawn.pawnId, blueMove.pos);
+        //             }
+        //             if (receipt.blueDies)
+        //             {
+        //                 UpdatePawnIsAlive(ref nextGameState, blueMovePawn.pawnId, false);
+        //             }
+        //         }
+        //     }
+        // }
+        // // if defer red, blue moves like normal
+        //
+        //
+        // // Case A: if red and blue move to the same pos
+        // if (redMove.pos == blueMove.pos)
+        // {
+        //     //Resolve once
+        //     int order = 0;
+        //     SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
+        //     pawnsToReveal.Add(redMove.pawnId);
+        //     pawnsToReveal.Add(blueMove.pawnId);
+        //     if (receipt.redDies)
+        //     {
+        //         pawnsToKill.Add(redMove.pawnId);
+        //     }
+        //     if (receipt.blueDies)
+        //     {
+        //         pawnsToKill.Add(blueMove.pawnId);
+        //     }
+        // }
+        // // Case B: if red and blue move into each others pos
+        // else if (redMove.pos == blueMove.initialPos && blueMove.pos == redMove.initialPos)
+        // {
+        //     int order = 0;
+        //     SConflictReceipt receipt = ResolveConflict(gameState, redMove.pawnId, blueMove.pawnId, redMove.pos);
+        //     conflicts.Add(receipt);
+        //     pawnsToReveal.Add(redMove.pawnId);
+        //     pawnsToReveal.Add(blueMove.pawnId);
+        //     if (receipt.redDies)
+        //     {
+        //         pawnsToKill.Add(redMove.pawnId);
+        //     }
+        //     if (receipt.blueDies)
+        //     {
+        //         pawnsToKill.Add(blueMove.pawnId);
+        //     }
+        // }
+        // // Case C: potentially two unrelated conflicts happening at once
+        // else
+        // {
+        //     // Case C1: if red moved to a location with a blue pawn 
+        //     SPawn? maybePawnObstructingRed = gameState.GetPawnFromPos(redMove.pos);
+        //     if (maybePawnObstructingRed.HasValue)
+        //     {
+        //         SPawn pawnObstructingRed = maybePawnObstructingRed.Value;
+        //         // if this pawn is also moving
+        //         if (pawnObstructingRed.pawnId == blueMove.pawnId && gameState.GetPawnFromId(redMove.pawnId).def.pawnName != "Scout")
+        //         {
+        //             // give blue a chance to do it's move first
+        //             deferRedMove = true;
+        //         }
+        //         else
+        //         {
+        //             SConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+        //             conflicts.Add(receipt);
+        //             pawnsToReveal.Add(redMove.pawnId);
+        //             pawnsToReveal.Add(pawnObstructingRed.pawnId);
+        //             if (receipt.redDies)
+        //             {
+        //                 pawnsToKill.Add(redMove.pawnId);
+        //             }
+        //             if (receipt.blueDies)
+        //             {
+        //                 pawnsToKill.Add(pawnObstructingRed.pawnId);
+        //             }
+        //         }
+        //     }
+        //     // Case B2: if blue moved into a location with a red pawn 
+        //     SPawn? maybePawnObstructingBlue = gameState.GetPawnFromPos(blueMove.pos);
+        //     if (maybePawnObstructingBlue.HasValue)
+        //     {
+        //         SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
+        //         // if this pawn is also moving
+        //         if (pawnObstructingBlue.pawnId == redMove.pawnId && gameState.GetPawnFromId(blueMove.pawnId).def.pawnName != "Scout")
+        //         {
+        //             // give blue a chance to do it's move first
+        //             deferBlueMove = true;
+        //         }
+        //         else
+        //         {
+        //             // Resolve conflict
+        //             SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+        //             conflicts.Add(receipt);
+        //             pawnsToReveal.Add(blueMove.pawnId);
+        //             pawnsToReveal.Add(pawnObstructingBlue.pawnId);
+        //             if (receipt.blueDies)
+        //             {
+        //                 pawnsToKill.Add(blueMove.pawnId);
+        //             }
+        //             if (receipt.redDies)
+        //             {
+        //                 pawnsToKill.Add(pawnObstructingBlue.pawnId);
+        //             }
+        //         }
+        //     }
+        // }
+        // if (deferRedMove)
+        // {
+        //     Debug.Log("we let blue move first because it's attacking a piece that isn't moving");
+        //     SPawn? maybePawnObstructingBlue = gameState.GetPawnFromPos(blueMove.pos);
+        //     if (maybePawnObstructingBlue.HasValue)
+        //     {
+        //         SPawn pawnObstructingBlue = maybePawnObstructingBlue.Value;
+        //         // we know for sure pawnObstructingBlue isn't moving
+        //         SConflictReceipt receipt = ResolveConflict(nextGameState, pawnObstructingBlue.pawnId, blueMove.pawnId, blueMove.pos);
+        //         conflicts.Add(receipt);
+        //         pawnsToReveal.Add(blueMove.pawnId);
+        //         pawnsToReveal.Add(pawnObstructingBlue.pawnId);
+        //         if (receipt.blueDies)
+        //         {
+        //             pawnsToKill.Add(blueMove.pawnId);
+        //         }
+        //         if (receipt.redDies)
+        //         {
+        //             pawnsToKill.Add(pawnObstructingBlue.pawnId);
+        //         }
+        //     }
+        // }
+        // if (deferBlueMove)
+        // {
+        //     Debug.Log("we let RED move first because it's attacking a piece that isn't moving");
+        //     SPawn? maybePawnObstructingRed = gameState.GetPawnFromPos(redMove.pos);
+        //     if (maybePawnObstructingRed.HasValue)
+        //     {
+        //         SPawn pawnObstructingRed = maybePawnObstructingRed.Value;
+        //         if (pawnObstructingRed.player == redMove.player)
+        //         {
+        //             // the move was invalid!
+        //             throw new Exception("Red move was invalid because Red pawn is on position");
+        //         }
+        //         // we know for sure pawnObstructingBlue isn't moving
+        //         SConflictReceipt receipt = ResolveConflict(nextGameState, redMove.pawnId, pawnObstructingRed.pawnId, redMove.pos);
+        //         conflicts.Add(receipt);
+        //         if (receipt.redDies)
+        //         {
+        //             pawnsToKill.Add(redMove.pawnId);
+        //         }
+        //         if (receipt.blueDies)
+        //         {
+        //             pawnsToKill.Add(pawnObstructingRed.pawnId);
+        //         }
+        //     }
+        // }
+        // foreach (Guid pawnId in pawnsToReveal)
+        // {
+        //     UpdateRevealPawn(ref nextGameState, pawnId, true);
+        // }
+        // foreach (var kvp in pawnNewPositions)
+        // {
+        //     // update the positions regardless of correctness for now
+        //     UpdatePawnPosition(ref nextGameState, kvp.Key, kvp.Value);
+        // }
+        // foreach (var pawnId in pawnsToKill)
+        // {
+        //     // kill pawns that lost their conflict
+        //     UpdatePawnIsAlive(ref nextGameState, pawnId, false);
+        // }
+        // nextGameState.winnerPlayer = GetStateWinner(nextGameState);
+        // if (!IsStateValid(nextGameState))
+        // {
+        //     throw new Exception("Cannot return invalid state");
+        // }
+        //
+        // SResolveReceipt finalReceipt = new SResolveReceipt()
+        // {
+        //     player = (int)Player.NONE,
+        //     blueQueuedMove = blueMove,
+        //     redQueuedMove = redMove,
+        //     gameState = nextGameState,
+        //     receipts = conflicts.ToArray(),
+        // };
+        //
         return finalReceipt;
     }
 
@@ -1598,7 +2039,6 @@ public struct SConflictReceipt
     public Guid bluePawnId;
     public bool redDies;
     public bool blueDies;
-    public SVector2Int conflictPos;
 
     public override string ToString()
     {
@@ -1614,4 +2054,23 @@ public struct SResolveReceipt
     public SQueuedMove blueQueuedMove;
     public SConflictReceipt[] receipts;
     public SGameState gameState;
+}
+
+public struct SEventState
+{
+    public int player;
+    public int eventType;
+    public Guid pawnId;
+    public Guid defenderPawnId;
+    public SVector2Int originalPos;
+    public SVector2Int newPos;
+    public SConflictReceipt conflict;
+}
+
+public enum ResolveEvent
+{
+    MOVE,
+    CONFLICT,
+    SWAPCONFLICT,
+    DEATH,
 }
