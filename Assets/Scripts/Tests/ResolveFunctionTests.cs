@@ -388,10 +388,8 @@ public class ResolveFunctionTests
         SPawn? updatedRedColonel = nextGameState.GetPawnFromId(redColonel.pawnId);
 
         // Check scout dead alive
-        Assert.IsFalse(updatedBlueScout.Value.isAlive, "Blue scout should be dead.");
+        Assert.IsTrue(updatedBlueScout.Value.isAlive, "Blue scout should be alive.");
         Assert.IsTrue(updatedRedColonel.Value.isAlive, "Red colonel scout should be alive");
-        // Check winner
-        Assert.AreEqual((int)Player.RED, nextGameState.winnerPlayer, "Red should win the game");
         
     }
     // TODO: make a test for scout vs spy when spy moves

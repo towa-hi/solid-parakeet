@@ -207,14 +207,12 @@ public class BoardManager : MonoBehaviour
             initialPos = new SVector2Int(0, 0),
             pos = new SVector2Int(0, 0),
         };
-        SConflictReceipt[] receipts = new SConflictReceipt[0];
+        SEventState[] events = new SEventState[0];
         SResolveReceipt fakeReceipt = new()
         {
             player = gameState.player,
-            redQueuedMove = fakeRedMove,
-            blueQueuedMove = fakeBlueMove,
             gameState = gameState,
-            receipts = receipts,
+            events = events,
         };
         UpdateState(fakeReceipt);
     }
@@ -237,137 +235,150 @@ public class BoardManager : MonoBehaviour
         }
 
         serverGameState = receipt.gameState;
-        if (receipt.redQueuedMove.pawnId == Guid.Empty)
-        {
-            return;
-        }
-
         StartCoroutine(ApplyResolve(receipt));
 
     }
     IEnumerator ApplyResolve(SResolveReceipt receipt)
     {
-        Dictionary<PawnView, SQueuedMove> movingScouts = new();
-        Dictionary<PawnView, SQueuedMove> movingPawns = new();
-        PawnView redMovingPawn = GetPawnViewById(receipt.redQueuedMove.pawnId);
-        PawnView blueMovingPawn = GetPawnViewById(receipt.blueQueuedMove.pawnId);
-        if (redMovingPawn.pawn.def.pawnName == "Scout")
+
+        foreach (var resolveEvent in receipt.events)
         {
-            movingScouts.Add(redMovingPawn, receipt.redQueuedMove);
-        }
-        else
-        {
-            movingPawns.Add(redMovingPawn, receipt.redQueuedMove);
-        }
-        if (blueMovingPawn.pawn.def.pawnName == "Scout")
-        {
-            movingScouts.Add(blueMovingPawn, receipt.blueQueuedMove);
-        }
-        else
-        {
-            movingPawns.Add(blueMovingPawn, receipt.blueQueuedMove);
-        }
-        // TODO: differentiate between conflicts caused by scouts and conflicts where the scout is the defender
-        HashSet<SConflictReceipt> scoutInvolvedConflicts = new();
-        HashSet<SConflictReceipt> otherConflicts = new();
-        foreach (var conflict in receipt.receipts)
-        {
-            var redPawn = receipt.gameState.GetPawnFromId(conflict.redPawnId);
-            var bluePawn = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
-            if (redPawn.def.pawnName == "Scout" || bluePawn.def.pawnName == "Scout")
+            if (resolveEvent.pawnId == Guid.Empty)
             {
-                scoutInvolvedConflicts.Add(conflict);
+                Debug.LogError("resolveEvent got a empty target id");
             }
-            else if (redPawn.def.pawnName != "Scout" && bluePawn.def.pawnName != "Scout")
+            Pawn resolveEventTargetPawn = GetPawnById(resolveEvent.pawnId);
+            if (resolveEvent.eventType == (int)ResolveEvent.DEATH)
             {
-                otherConflicts.Add(conflict);
-            }
-            else
-            {
-                Debug.LogError($"Weird edge case detected red {redPawn.def.pawnName} at {redPawn.pos} blue {bluePawn.def.pawnName} at {bluePawn.pos}");
-            }
-        }
-        Debug.Log("Start by moving scouts if they exist");
-        yield return StartCoroutine(MovePawnGroup(movingScouts));
-        foreach (var conflict in scoutInvolvedConflicts)
-        {
-            Debug.Log("Start pawn battle");
-            SPawn redPawnState = receipt.gameState.GetPawnFromId(conflict.redPawnId);
-            SPawn bluePawnState = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
-            PawnView redPawn = GetPawnViewById(conflict.redPawnId);
-            PawnView bluePawn = GetPawnViewById(conflict.bluePawnId);
-            redPawn.RevealPawn(redPawnState);
-            bluePawn.RevealPawn(bluePawnState);
-            yield return StartBattle(GetPawnViewById(conflict.redPawnId), GetPawnViewById(conflict.bluePawnId), conflict.redDies, conflict.blueDies);
-            if (conflict.redDies)
-            {
-                if (!redPawnState.isAlive)
+                if (!receipt.gameState.GetPawnFromId(resolveEvent.pawnId).isVisibleToOpponent)
                 {
-                    redPawn.SendToGraveyard();
-                }
-                else
-                {
-                    throw new Exception("killed a pawn that isAlive is true");
+                    Debug.LogError("must reveal pawn before death");
                 }
             }
-            
-            if (conflict.blueDies)
-            {
-                if (!bluePawnState.isAlive)
-                {
-                    bluePawn.SendToGraveyard();
-                }
-                else
-                {
-                    throw new Exception("killed a pawn that isAlive is true");
-                }
-            }
-            Debug.Log("Pawn battle done");
+            Debug.Log($"{(ResolveEvent)resolveEvent.eventType} {(Player)resolveEvent.player} {resolveEventTargetPawn.def.pawnName} {Globals.ShortGuid(resolveEvent.pawnId)} {resolveEvent.targetPos}");
         }
-        Debug.Log("move pawns if they exist");
-        yield return StartCoroutine(MovePawnGroup(movingPawns));
-        foreach (var conflict in otherConflicts)
-        {
-            Debug.Log("Start battle");
-            SPawn redPawnState = receipt.gameState.GetPawnFromId(conflict.redPawnId);
-            SPawn bluePawnState = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
-            PawnView redPawn = GetPawnViewById(conflict.redPawnId);
-            PawnView bluePawn = GetPawnViewById(conflict.bluePawnId);
-            redPawn.RevealPawn(redPawnState);
-            bluePawn.RevealPawn(bluePawnState);
-            yield return StartBattle(GetPawnViewById(conflict.redPawnId), GetPawnViewById(conflict.bluePawnId), conflict.redDies, conflict.blueDies);
-            if (conflict.redDies)
-            {
-                if (!redPawnState.isAlive)
-                {
-                    redPawn.SendToGraveyard();
-                }
-                else
-                {
-                    throw new Exception("killed a pawn that isAlive is true");
-                }
-            }
-            
-            if (conflict.blueDies)
-            {
-                if (!bluePawnState.isAlive)
-                {
-                    bluePawn.SendToGraveyard();
-                }
-                else
-                {
-                    throw new Exception("killed a pawn that isAlive is true");
-                }
-            }
-            Debug.Log("Battle done");
-        }
+        // Dictionary<PawnView, SQueuedMove> movingScouts = new();
+        // Dictionary<PawnView, SQueuedMove> movingPawns = new();
+        // PawnView redMovingPawn = GetPawnViewById(receipt.redQueuedMove.pawnId);
+        // PawnView blueMovingPawn = GetPawnViewById(receipt.blueQueuedMove.pawnId);
+        // if (redMovingPawn.pawn.def.pawnName == "Scout")
+        // {
+        //     movingScouts.Add(redMovingPawn, receipt.redQueuedMove);
+        // }
+        // else
+        // {
+        //     movingPawns.Add(redMovingPawn, receipt.redQueuedMove);
+        // }
+        // if (blueMovingPawn.pawn.def.pawnName == "Scout")
+        // {
+        //     movingScouts.Add(blueMovingPawn, receipt.blueQueuedMove);
+        // }
+        // else
+        // {
+        //     movingPawns.Add(blueMovingPawn, receipt.blueQueuedMove);
+        // }
+        // // TODO: differentiate between conflicts caused by scouts and conflicts where the scout is the defender
+        // HashSet<SConflictReceipt> scoutInvolvedConflicts = new();
+        // HashSet<SConflictReceipt> otherConflicts = new();
+        // foreach (var conflict in receipt.receipts)
+        // {
+        //     var redPawn = receipt.gameState.GetPawnFromId(conflict.redPawnId);
+        //     var bluePawn = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
+        //     if (redPawn.def.pawnName == "Scout" || bluePawn.def.pawnName == "Scout")
+        //     {
+        //         scoutInvolvedConflicts.Add(conflict);
+        //     }
+        //     else if (redPawn.def.pawnName != "Scout" && bluePawn.def.pawnName != "Scout")
+        //     {
+        //         otherConflicts.Add(conflict);
+        //     }
+        //     else
+        //     {
+        //         Debug.LogError($"Weird edge case detected red {redPawn.def.pawnName} at {redPawn.pos} blue {bluePawn.def.pawnName} at {bluePawn.pos}");
+        //     }
+        // }
+        // Debug.Log("Start by moving scouts if they exist");
+        // yield return StartCoroutine(MovePawnGroup(movingScouts));
+        // foreach (var conflict in scoutInvolvedConflicts)
+        // {
+        //     Debug.Log("Start pawn battle");
+        //     SPawn redPawnState = receipt.gameState.GetPawnFromId(conflict.redPawnId);
+        //     SPawn bluePawnState = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
+        //     PawnView redPawn = GetPawnViewById(conflict.redPawnId);
+        //     PawnView bluePawn = GetPawnViewById(conflict.bluePawnId);
+        //     redPawn.RevealPawn(redPawnState);
+        //     bluePawn.RevealPawn(bluePawnState);
+        //     yield return StartBattle(GetPawnViewById(conflict.redPawnId), GetPawnViewById(conflict.bluePawnId), conflict.redDies, conflict.blueDies);
+        //     if (conflict.redDies)
+        //     {
+        //         if (!redPawnState.isAlive)
+        //         {
+        //             redPawn.SendToGraveyard();
+        //         }
+        //         else
+        //         {
+        //             throw new Exception("killed a pawn that isAlive is true");
+        //         }
+        //     }
+        //     
+        //     if (conflict.blueDies)
+        //     {
+        //         if (!bluePawnState.isAlive)
+        //         {
+        //             bluePawn.SendToGraveyard();
+        //         }
+        //         else
+        //         {
+        //             throw new Exception("killed a pawn that isAlive is true");
+        //         }
+        //     }
+        //     Debug.Log("Pawn battle done");
+        // }
+        // Debug.Log("move pawns if they exist");
+        // yield return StartCoroutine(MovePawnGroup(movingPawns));
+        // foreach (var conflict in otherConflicts)
+        // {
+        //     Debug.Log("Start battle");
+        //     SPawn redPawnState = receipt.gameState.GetPawnFromId(conflict.redPawnId);
+        //     SPawn bluePawnState = receipt.gameState.GetPawnFromId(conflict.bluePawnId);
+        //     PawnView redPawn = GetPawnViewById(conflict.redPawnId);
+        //     PawnView bluePawn = GetPawnViewById(conflict.bluePawnId);
+        //     redPawn.RevealPawn(redPawnState);
+        //     bluePawn.RevealPawn(bluePawnState);
+        //     yield return StartBattle(GetPawnViewById(conflict.redPawnId), GetPawnViewById(conflict.bluePawnId), conflict.redDies, conflict.blueDies);
+        //     if (conflict.redDies)
+        //     {
+        //         if (!redPawnState.isAlive)
+        //         {
+        //             redPawn.SendToGraveyard();
+        //         }
+        //         else
+        //         {
+        //             throw new Exception("killed a pawn that isAlive is true");
+        //         }
+        //     }
+        //     
+        //     if (conflict.blueDies)
+        //     {
+        //         if (!bluePawnState.isAlive) 
+        //         {
+        //             bluePawn.SendToGraveyard();
+        //         }
+        //         else
+        //         {
+        //             throw new Exception("killed a pawn that isAlive is true");
+        //         }
+        //     }
+        //     Debug.Log("Battle done");
+        // }
         foreach (var pawnView in pawnViews)
         {
             pawnView.UpdatePawn(receipt.gameState.GetPawnFromId(pawnView.pawn.pawnId));
         }
-        
-        SetPhase(GamePhase.MOVE);
-        
+
+        serverGameState = receipt.gameState;
+        SetPhase(GamePhase.MOVE); 
+        yield return null;
     }
 
     IEnumerator StartBattle(PawnView redPawn, PawnView bluePawn, bool redDies, bool blueDies)
