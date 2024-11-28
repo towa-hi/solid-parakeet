@@ -486,6 +486,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 11d04ca9c3b343843b56bcf4b5f59756, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  battleScreen: {fileID: 8757129471776939109}
   arena: {fileID: 0}
 --- !u!1 &3105456451224748823
 GameObject:
