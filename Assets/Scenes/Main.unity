@@ -473,7 +473,6 @@ GameObject:
   - component: {fileID: 1153439526}
   - component: {fileID: 1153439525}
   - component: {fileID: 1153439521}
-  - component: {fileID: 1153439524}
   m_Layer: 0
   m_Name: BoardManager
   m_TagString: Untagged
@@ -510,7 +509,6 @@ MonoBehaviour:
   tilePrefab: {fileID: 295967387164842906, guid: 88c29a6a30cf7ee4aa8b9210c4b5cd9a, type: 3}
   pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
   grid: {fileID: 1153439521}
-  phase: 0
   clickInputManager: {fileID: 1153439526}
   player: 0
   opponentPlayer: 0
@@ -528,7 +526,6 @@ MonoBehaviour:
         y: 0
       tiles: []
     pawns: []
-  selectedPawnView: {fileID: 0}
 --- !u!4 &1153439523
 Transform:
   m_ObjectHideFlags: 0
@@ -545,19 +542,6 @@ Transform:
   - {fileID: 697788154}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1153439524
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1153439520}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cc2037fdf54f90c4bb0f85a56624d2c5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boardManager: {fileID: 0}
 --- !u!114 &1153439525
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1071,6 +1055,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cee3d14a2a399044d8935ed7213350a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  master: {fileID: 0}
   redPawnView: {fileID: 972660998}
   bluePawnView: {fileID: 245087974}
   redDies: 0
