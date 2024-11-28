@@ -110,8 +110,8 @@ public class ResolveFunctionTests
 
         // Assert
         // Both scouts should be eliminated
-        SPawn? updatedRedScout = nextGameState.GetPawnFromId(redScout.pawnId);
-        SPawn? updatedBlueScout = nextGameState.GetPawnFromId(blueScout.pawnId);
+        SPawn? updatedRedScout = nextGameState.GetPawnById(redScout.pawnId);
+        SPawn? updatedBlueScout = nextGameState.GetPawnById(blueScout.pawnId);
         Assert.IsTrue(SGameState.IsStateValid(nextGameState));
         Assert.IsTrue(updatedRedScout.HasValue && !updatedRedScout.Value.isAlive, "Red scout should be eliminated.");
         Assert.IsTrue(updatedBlueScout.HasValue && !updatedBlueScout.Value.isAlive, "Blue scout should be eliminated.");
@@ -148,9 +148,9 @@ public class ResolveFunctionTests
 
         // Assert
         // Fetch updated pawns
-        SPawn? updatedRedMarshal = nextGameState.GetPawnFromId(redMarshal.pawnId);
-        SPawn? updatedBlueGeneral = nextGameState.GetPawnFromId(blueGeneral.pawnId);
-        SPawn? updatedRedMajor = nextGameState.GetPawnFromId(redMajor.pawnId);
+        SPawn? updatedRedMarshal = nextGameState.GetPawnById(redMarshal.pawnId);
+        SPawn? updatedBlueGeneral = nextGameState.GetPawnById(blueGeneral.pawnId);
+        SPawn? updatedRedMajor = nextGameState.GetPawnById(redMajor.pawnId);
 
         // Assertions based on expected outcome
         Assert.IsNotNull(updatedRedMarshal, "Red Marshal should exist in the game state.");
@@ -200,8 +200,8 @@ public class ResolveFunctionTests
 
         // Assert
         // Fetch updated pawns
-        SPawn? updatedRedSpy = nextGameState.GetPawnFromId(redSpy.pawnId);
-        SPawn? updatedBlueSpy = nextGameState.GetPawnFromId(blueSpy.pawnId);
+        SPawn? updatedRedSpy = nextGameState.GetPawnById(redSpy.pawnId);
+        SPawn? updatedBlueSpy = nextGameState.GetPawnById(blueSpy.pawnId);
 
         // Ensure pawns exist
         Assert.IsNotNull(updatedRedSpy, "Red Spy should exist in the game state.");
@@ -246,8 +246,8 @@ public class ResolveFunctionTests
 
         // Assert
         // Fetch updated pawns
-        SPawn? updatedRedColonel = nextGameState.GetPawnFromId(redColonel.pawnId);
-        SPawn? updatedBlueScout = nextGameState.GetPawnFromId(blueScout.pawnId);
+        SPawn? updatedRedColonel = nextGameState.GetPawnById(redColonel.pawnId);
+        SPawn? updatedBlueScout = nextGameState.GetPawnById(blueScout.pawnId);
 
         // Ensure pawns exist
         Assert.IsNotNull(updatedRedColonel, "Red Colonel should exist in the game state.");
@@ -291,10 +291,10 @@ public class ResolveFunctionTests
         
         // Assert
         // Fetch updated pawns
-        SPawn? updatedRedColonel = nextGameState.GetPawnFromId(redColonel.pawnId);
-        SPawn? updatedBlueScout = nextGameState.GetPawnFromId(blueScout.pawnId);
-        SPawn? updatedRedFlag = nextGameState.GetPawnFromId(redFlag.pawnId);
-        SPawn? updatedBlueFlag = nextGameState.GetPawnFromId(blueFlag.pawnId);
+        SPawn? updatedRedColonel = nextGameState.GetPawnById(redColonel.pawnId);
+        SPawn? updatedBlueScout = nextGameState.GetPawnById(blueScout.pawnId);
+        SPawn? updatedRedFlag = nextGameState.GetPawnById(redFlag.pawnId);
+        SPawn? updatedBlueFlag = nextGameState.GetPawnById(blueFlag.pawnId);
 
         // Check Red alive
         Assert.IsFalse(updatedRedFlag.Value.isAlive, "Red Flag should be dead.");
@@ -340,10 +340,10 @@ public class ResolveFunctionTests
         
         // Assert
         // Fetch updated pawns
-        SPawn? updatedBlueTrappedScout = nextGameState.GetPawnFromId(blueTrappedScout.pawnId);
-        SPawn? updatedBlueTakenScout = nextGameState.GetPawnFromId(blueTakenScout.pawnId);
-        SPawn? updatedRedFlag = nextGameState.GetPawnFromId(redFlag.pawnId);
-        SPawn? updatedBlueFlag = nextGameState.GetPawnFromId(blueFlag.pawnId);
+        SPawn? updatedBlueTrappedScout = nextGameState.GetPawnById(blueTrappedScout.pawnId);
+        SPawn? updatedBlueTakenScout = nextGameState.GetPawnById(blueTakenScout.pawnId);
+        SPawn? updatedRedFlag = nextGameState.GetPawnById(redFlag.pawnId);
+        SPawn? updatedBlueFlag = nextGameState.GetPawnById(blueFlag.pawnId);
 
         // Check scout dead alive
         Assert.IsFalse(updatedBlueTakenScout.Value.isAlive, "Blue taken scout should be dead.");
@@ -384,8 +384,8 @@ public class ResolveFunctionTests
         
         // Assert
         // Fetch updated pawns
-        SPawn? updatedBlueScout = nextGameState.GetPawnFromId(blueScout.pawnId);
-        SPawn? updatedRedColonel = nextGameState.GetPawnFromId(redColonel.pawnId);
+        SPawn? updatedBlueScout = nextGameState.GetPawnById(blueScout.pawnId);
+        SPawn? updatedRedColonel = nextGameState.GetPawnById(redColonel.pawnId);
 
         // Check scout dead alive
         Assert.IsTrue(updatedBlueScout.Value.isAlive, "Blue scout should be alive.");

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,37 +9,60 @@ public class GuiPawnSetup : MonoBehaviour
 
     void Start()
     {
-        pawnSetupControls.OnUndoButton += OnUndoButton;
-        pawnSetupControls.OnStartButton += OnStartButton;
-        pawnSetupControls.OnAutoSetupButton += OnAutoSetupButton;
-        pawnSetupControls.OnSubmitButton += OnSubmitButton;
-
-    }
-    
-    public void Initialize(SSetupParameters setupParameters)
-    {
-        //Debug.Log("GuiPawnSetup Initialization");
-        pawnSetupList.Initialize(setupParameters);
-        pawnSetupControls.Initialize();
+        GameManager.instance.boardManager.OnPhaseChanged += OnPhaseChanged;
     }
 
-    void OnUndoButton()
+    void OnPhaseChanged(IPhase currentPhase)
     {
-        
+        switch (currentPhase)
+        {
+            case UninitializedPhase uninitializedPhase:
+                gameObject.SetActive(false);
+                break;
+            case SetupPhase setupPhase:
+                gameObject.SetActive(true);
+                pawnSetupList.Initialize(this, setupPhase.setupParameters);
+                pawnSetupControls.Initialize(this);
+                break;
+            case WaitingPhase waitingPhase:
+                gameObject.SetActive(false);
+                break;
+            case MovePhase movePhase:
+                gameObject.SetActive(false);
+                break;
+            case ResolvePhase resolvePhase:
+                gameObject.SetActive(false);
+                break;
+            case EndPhase endPhase:
+                gameObject.SetActive(false);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(currentPhase));
+
+        }
     }
 
-    void OnStartButton()
+    public void OnAutoSetupButton()
     {
-        
+        if (GameManager.instance.boardManager.currentPhase is SetupPhase setupPhase)
+        {
+            setupPhase.OnAutoSetup();
+        }
     }
 
-    void OnAutoSetupButton()
+    public void OnSetupPawnDefSelected(PawnDef pawnDef)
     {
-        GameManager.instance.boardManager.AutoSetup(GameManager.instance.boardManager.player);
+        if (GameManager.instance.boardManager.currentPhase is SetupPhase setupPhase)
+        {
+            setupPhase.OnPawnDefSelected(pawnDef);
+        }
     }
 
-    void OnSubmitButton()
+    public void OnSubmitButton()
     {
-        GameManager.instance.boardManager.SubmitSetup();
+        if (GameManager.instance.boardManager.currentPhase is SetupPhase setupPhase)
+        {
+            setupPhase.OnSubmitSetup();
+        }
     }
 }

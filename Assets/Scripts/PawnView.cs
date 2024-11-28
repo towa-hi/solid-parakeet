@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.U2D;
@@ -13,7 +14,7 @@ public class PawnView : MonoBehaviour
     public SpriteRenderer symbolRenderer;
     
     public Pawn pawn;
-
+    
     public MeshRenderer billboardRenderer;
     public MeshRenderer planeRenderer;
     public Shatter shatterEffect;
@@ -26,9 +27,9 @@ public class PawnView : MonoBehaviour
     
     void Start()
     {
-        GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
+        //GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
     }
-
+    
     public void InitializeInArena()
     {
         billboard.gameObject.SetActive(true);
@@ -42,7 +43,7 @@ public class PawnView : MonoBehaviour
         Vector3 targetPosition;
         if (pawn.isAlive)
         {
-            targetPosition = GameManager.instance.boardManager.GetTileView(pawn.pos).pawnOrigin.position;
+            targetPosition = GameManager.instance.boardManager.GetTileViewByPos(pawn.pos).pawnOrigin.position;
         }
         else
         {
@@ -59,6 +60,59 @@ public class PawnView : MonoBehaviour
         }
     }
 
+
+    public void SyncState(SPawn state)
+    {
+        PawnChanges pawnChanges = new()
+        {
+            pawn = pawn,
+        };
+        if (pawn.pos != state.pos.ToUnity())
+        {
+            pawnChanges.posChanged = true;
+            pawn.pos = state.pos.ToUnity();
+        }
+        if (pawn.isSetup != state.isSetup)
+        {
+            pawnChanges.isSetupChanged = true;
+            pawn.isSetup = state.isSetup;
+        }
+        if (pawn.isAlive != state.isAlive)
+        {
+            pawnChanges.isAliveChanged = true;
+            pawn.isAlive = state.isAlive;
+        }
+        if (pawn.hasMoved != state.hasMoved)
+        {
+            pawnChanges.hasMovedChanged = true;
+            pawn.hasMoved = state.hasMoved;
+        }
+        if (pawn.isVisibleToOpponent != state.isVisibleToOpponent)
+        {
+            pawnChanges.isVisibleToOpponentChanged = true;
+            pawn.isVisibleToOpponent = state.isVisibleToOpponent;
+            if (state.isVisibleToOpponent)
+            {
+                pawn.def = state.def.ToUnity();
+            }
+        }
+        
+    }
+
+    public void UpdateViewPosition()
+    {
+        Vector3 targetPosition;
+        if (pawn.isAlive)
+        {
+            targetPosition = GameManager.instance.boardManager.GetTileViewByPos(pawn.pos).pawnOrigin.position;
+        }
+        else
+        {
+            targetPosition = GameManager.instance.boardManager.purgatory.position;
+        }
+        transform.position = targetPosition;
+    }
+    
     public void UpdatePawn(SPawn sPawn)
     {
         PawnChanges pawnChanges = new()
@@ -111,7 +165,7 @@ public class PawnView : MonoBehaviour
     
     public void MoveView(Vector2Int pos)
     {
-        Vector3 targetPosition = GameManager.instance.boardManager.GetTileView(pos).pawnOrigin.position;
+        Vector3 targetPosition = GameManager.instance.boardManager.GetTileViewByPos(pos).pawnOrigin.position;
         if (moveCoroutine != null)
         {
             StopCoroutine(moveCoroutine);
@@ -172,17 +226,9 @@ public class PawnView : MonoBehaviour
     public virtual void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
-        if (pawn.def != null)
-        {
-            gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {pawn.pawnId}";
-            GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
-            DisplaySymbol(pawn.def.icon);
-        }
-        else
-        {
-            gameObject.name = $"{pawn.player} Pawn Unknown {pawn.pawnId}";
-            billboard.gameObject.SetActive(false);
-        }
+        gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
+        //GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
+        DisplaySymbol(pawn.def.icon);
         switch (inPawn.player)
         {
             case Player.RED:
@@ -208,16 +254,6 @@ public class PawnView : MonoBehaviour
             moveCoroutine = null;
         }
 
-        PawnChanges pawnChanges = new()
-        {
-            pawn = pawn,
-            hasMovedChanged = true,
-            isAliveChanged = true,
-            isSetupChanged = true,
-            isVisibleToOpponentChanged = true,
-            posChanged = true,
-        };
-        OnPawnModified(pawnChanges);
     }
 
     public void DisplaySymbol(Sprite sprite)
@@ -231,10 +267,10 @@ public class PawnView : MonoBehaviour
 
     public void SetColor(Color color)
     {
-        planeRenderer.material = new Material(planeRenderer.material)
-        {
-            color = color,
-        };
+        planeRenderer.material = new Material(planeRenderer.material);
+
+        // Set the Base Color property in the Shader Graph
+        planeRenderer.material.SetColor("_Base_Color", color);
     }
     
     uint currentRenderingLayerMask;

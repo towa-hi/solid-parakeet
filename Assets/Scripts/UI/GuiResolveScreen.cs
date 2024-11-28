@@ -5,10 +5,10 @@ public class GuiResolveScreen : MonoBehaviour
 {
     public Arena arena;
 
-    public void Initialize(PawnView redPawn, PawnView bluePawn, bool redDies, bool blueDies, Action onFinish)
+    public void Initialize(SPawn redPawn, SPawn bluePawn, bool redDies, bool blueDies, Action onFinish)
     {
         gameObject.SetActive(true);
-        arena.Initialize(redPawn.pawn, bluePawn.pawn, redDies, blueDies, onFinish);
+        arena.Initialize(redPawn, bluePawn, redDies, blueDies, onFinish);
     }
 
     public void Hide()

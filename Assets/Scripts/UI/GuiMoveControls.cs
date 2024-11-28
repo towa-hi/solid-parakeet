@@ -6,22 +6,47 @@ using UnityEngine.UI;
 public class GuiMoveControls : MonoBehaviour
 {
     public Button moveSubmitButton;
-    public event Action OnMoveSubmitButton;
+    
     void Start()
     {
-        moveSubmitButton.onClick.AddListener(HandleMoveSubmitButton);
+        GameManager.instance.boardManager.OnPhaseChanged += OnPhaseChanged;
+        moveSubmitButton.onClick.AddListener(OnSubmitButton);
     }
 
-    void HandleMoveSubmitButton()
+    void OnPhaseChanged(IPhase currentPhase)
     {
-        OnMoveSubmitButton?.Invoke();
-    }
-
-    public void OnMoveResponse(Response<bool> response)
-    {
-        if (response.data)
+        switch (currentPhase)
         {
-            moveSubmitButton.interactable = false;
+            case UninitializedPhase uninitializedPhase:
+                gameObject.SetActive(false);
+                break;
+            case SetupPhase setupPhase:
+                gameObject.SetActive(false);
+                break;
+            case WaitingPhase waitingPhase:
+                gameObject.SetActive(false);
+                break;
+            case MovePhase movePhase:
+                gameObject.SetActive(true);
+                moveSubmitButton.interactable = true;
+                break;
+            case ResolvePhase resolvePhase:
+                gameObject.SetActive(false);
+                break;
+            case EndPhase endPhase:
+                gameObject.SetActive(false);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(currentPhase));
+
+        }
+    }
+
+    public void OnSubmitButton()
+    {
+        if (GameManager.instance.boardManager.currentPhase is MovePhase movePhase)
+        {
+            movePhase.OnSubmitMove();
         }
     }
 }

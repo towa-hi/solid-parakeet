@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class GuiGame : MenuElement
 {
-    //public GamePhase gamePhase;
     public GuiPawnSetup pawnSetup;
     public GuiMoveWaiting waiting;
     public GuiMoveControls moveControls;
@@ -13,8 +12,6 @@ public class GuiGame : MenuElement
     
     void Start()
     {
-        moveControls.OnMoveSubmitButton += OnMoveSubmitButton;
-        GameManager.instance.boardManager.OnPhaseChanged += OnPhaseChanged;
         pawnSetup.gameObject.SetActive(false);
         waiting.gameObject.SetActive(false);
         moveControls.gameObject.SetActive(false);
@@ -52,7 +49,7 @@ public class GuiGame : MenuElement
                 break;
             case GamePhase.SETUP:
                 pawnSetup.gameObject.SetActive(true);
-                pawnSetup.Initialize(GameManager.instance.boardManager.serverSetupParameters);
+                //pawnSetup.Initialize(GameManager.instance.boardManager.serverSetupParameters);
                 break;
             case GamePhase.WAITING:
                 waiting.gameObject.SetActive(true);
@@ -75,7 +72,7 @@ public class GuiGame : MenuElement
     {
         Debug.Log("GuiGame initialized");
         pawnSetup.gameObject.SetActive(true);
-        pawnSetup.Initialize(setupParameters);
+        //pawnSetup.Initialize(setupParameters);
         waiting.gameObject.SetActive(false);
         moveControls.gameObject.SetActive(false);
     }
@@ -96,19 +93,6 @@ public class GuiGame : MenuElement
         moveControls.gameObject.SetActive(true);
     }
 
-    public void OnMoveSubmitButton()
-    {
-        GameManager.instance.OnMoveSubmitButton();
-    }
 
-    public void OnMoveResponse(Response<bool> response)
-    {
-        moveControls.OnMoveResponse(response);
-        // TODO: tell the user that the move is submitted and we're waiting for a response
-    }
-
-    public void StartBattle(PawnView redPawn, PawnView bluePawn, bool redDies, bool blueDies, Action onFinish)
-    {
-        resolveScreen.Initialize(redPawn, bluePawn, redDies, blueDies, onFinish);
-    }
+    
 }

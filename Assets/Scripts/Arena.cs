@@ -9,17 +9,17 @@ public class Arena : MonoBehaviour
     Action OnFinish;
     public bool redDies;
     public bool blueDies;
-    public void Initialize(Pawn redPawn, Pawn bluePawn, bool inRedDies, bool inBlueDies, Action inOnFinish)
+    public void Initialize(SPawn redPawn, SPawn bluePawn, bool inRedDies, bool inBlueDies, Action inOnFinish)
     {
         // TODO: figure out why the wrong pawn shatters when blue moves into stationary red 
         redDies = inRedDies;
         blueDies = inBlueDies;
-        redPawnView.pawn = redPawn;
+        redPawnView.pawn = redPawn.ToUnity();
         redPawnView.SetColor(Color.red);
-        redPawnView.DisplaySymbol(redPawn.def.icon);
-        bluePawnView.pawn = bluePawn;
+        redPawnView.DisplaySymbol(redPawnView.pawn.def.icon);
+        bluePawnView.pawn = bluePawn.ToUnity();
         bluePawnView.SetColor(Color.blue);
-        bluePawnView.DisplaySymbol(bluePawn.def.icon);
+        bluePawnView.DisplaySymbol(bluePawnView.pawn.def.icon);
         OnFinish = inOnFinish;
         StartCoroutine(Battle());
     }

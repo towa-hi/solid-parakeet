@@ -290,8 +290,4 @@ public class GuiManager : MonoBehaviour
         gameOverlay.OnSetupFinishedResponse(response);
     }
 
-    public void OnMoveResponse(Response<bool> response)
-    {
-        gameOverlay.OnMoveResponse(response);
-    }
 }

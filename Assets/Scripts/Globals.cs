@@ -301,15 +301,6 @@ public enum AppState
     MAIN,
     GAME,
 }
-public enum GamePhase
-{
-    UNINITIALIZED,
-    SETUP,
-    WAITING,
-    MOVE,
-    RESOLVE,
-    END
-}
 
 public enum Player
 {
@@ -406,7 +397,7 @@ public struct SSetupParameters
     public SSetupPawnData[] maxPawnsDict;
     
 
-    public static bool IsSetupValid(int targetPlayer, SSetupParameters setupParameters, SPawn[] pawns)
+    public static bool IsSetupValid(int targetPlayer, SSetupParameters setupParameters, SSetupPawn[] setupPawns)
     {
         // Convert the SSetupPawnData array to a dictionary for easier lookup
         Dictionary<SPawnDef, int> pawnCounts = new Dictionary<SPawnDef, int>();
@@ -415,41 +406,31 @@ public struct SSetupParameters
             pawnCounts[pawnData.pawnDef] = pawnData.maxPawns;
         }
         // Iterate over the provided pawns
-        foreach (SPawn pawn in pawns)
+        foreach (SSetupPawn setupPawn in setupPawns)
         {
-            if (!pawn.isAlive || pawn.player != targetPlayer)
-            {
-                continue;
-            }
             // Check if the pawnDef is in the max pawns dictionary
-            if (!pawnCounts.ContainsKey(pawn.def))
+            if (!pawnCounts.ContainsKey(setupPawn.def))
             {
-                Debug.LogError($"PawnDef '{pawn.def.pawnName}' not found in max pawns data.");
+                Debug.LogError($"PawnDef '{setupPawn.def.pawnName}' not found in max pawns data.");
                 return false;
             }
-            pawnCounts[pawn.def] -= 1;
+            pawnCounts[setupPawn.def] -= 1;
             // If count goes negative, there are too many pawns of this type
-            if (pawnCounts[pawn.def] < 0)
+            if (pawnCounts[setupPawn.def] < 0)
             {
-                Debug.LogError($"Too many pawns of type '{pawn.def.pawnName}'.");
+                Debug.LogError($"Too many pawns of type '{setupPawn.def.pawnName}'.");
                 return false;
             }
             // Check if the pawn is on a valid tile
-            if (!setupParameters.board.IsPosValid(pawn.pos))
+            if (!setupParameters.board.IsPosValid(setupPawn.pos))
             {
-                Debug.LogError($"Pawn '{pawn.def.pawnName}' is on an invalid position {pawn.pos}.");
-                return false;
-            }
-            STile tile = setupParameters.board.GetTileFromPos(pawn.pos);
-            if (!tile.IsTileEligibleForPlayer(targetPlayer))
-            {
-                Debug.LogError($"Tile at position {pawn.pos} is not eligible for player '{targetPlayer}'.");
+                Debug.LogError($"Pawn '{setupPawn.def.pawnName}' is on an invalid position {setupPawn.pos}.");
                 return false;
             }
         }
         if (!Globals.SETUPMUSTPLACEALLPAWNS)
         {
-            return pawns.Where(pawn => pawn.def.pawnName == "Flag").Any(pawn => pawn.isAlive && pawn.isSetup);
+            return setupPawns.Any(pawn => pawn.def.pawnName == "Flag");
         }
         else
         {
@@ -500,7 +481,7 @@ public interface IGameClient
     void SendGameLobbyLeaveRequest();
     void SendGameLobbyReadyRequest(bool ready);
     void SendStartGameDemoRequest();
-    void SendSetupSubmissionRequest(SPawn[] setupPawns);
+    void SendSetupSubmissionRequest(SSetupPawn[] setupPawnList);
     void SendMove(SQueuedMove move);
 }
 
@@ -572,7 +553,7 @@ public class StartGameRequest : RequestBase
 public class SetupRequest : RequestBase
 {
     public int player;
-    public SPawn[] pawns;
+    public SSetupPawn[] setupPawns;
 }
 
 public class MoveRequest : RequestBase
@@ -676,14 +657,14 @@ public struct SGameState
                     break;
                 }
                 // Get the tile at the current position
-                STile tile = GetTileFromPos(new SVector2Int(currentPos));
+                STile tile = GetTileByPos(new SVector2Int(currentPos));
                 // check if tile is passable
                 if (!tile.isPassable)
                 {
                     break;
                 }
                 // Check if the tile is occupied by another pawn
-                SPawn? pawnOnPos = GetPawnFromPos(new SVector2Int(currentPos));
+                SPawn? pawnOnPos = GetPawnByPos(new SVector2Int(currentPos));
                 if (pawnOnPos.HasValue)
                 {
                     if (pawnOnPos.Value.player == pawn.player)
@@ -726,7 +707,7 @@ public struct SGameState
     {
         if (gameState.boardDef.IsPosValid(move.pos))
         {
-            STile destinationTile = gameState.GetTileFromPos(move.pos);
+            STile destinationTile = gameState.GetTileByPos(move.pos);
             if (!destinationTile.isPassable)
             {
                 // move is to impassable tile
@@ -739,12 +720,12 @@ public struct SGameState
         }
         try
         {
-            SPawn movingPawn = gameState.GetPawnFromId(move.pawnId);
+            SPawn movingPawn = gameState.GetPawnById(move.pawnId);
             if (move.player != movingPawn.player)
             {
                 return false;
             }
-            var maybePawn = gameState.GetPawnFromPos(move.pos);
+            var maybePawn = gameState.GetPawnByPos(move.pos);
             if (maybePawn.HasValue)
             {
                 SPawn obstructingPawn = maybePawn.Value;
@@ -848,7 +829,7 @@ public struct SGameState
         Random random = new();
         int randomIndex = random.Next(0, allPossibleMoves.Count);
         SQueuedMove randomMove = allPossibleMoves[randomIndex];
-        SPawn randomPawn = gameState.GetPawnFromId(randomMove.pawnId);
+        SPawn randomPawn = gameState.GetPawnById(randomMove.pawnId);
         Debug.Log($"GenerateValidMove chose {randomMove.pawnId} {randomPawn.def.pawnName} from {randomPawn.pos} to {randomMove.pos}");
         if (!IsMoveValid(gameState, randomMove))
         {
@@ -857,16 +838,16 @@ public struct SGameState
         return randomMove;
     }
     
-    public readonly STile GetTileFromPos(SVector2Int pos)
+    public readonly STile GetTileByPos(SVector2Int pos)
     {
         foreach (STile tile in boardDef.tiles.Where(tile => tile.pos == pos))
         {
             return tile;
         }
-        throw new ArgumentOutOfRangeException($"GetTileFromPos tile on pos {pos.ToString()} not found!");
+        throw new ArgumentOutOfRangeException($"GetTileByPos tile on pos {pos.ToString()} not found!");
     }
 
-    public readonly SPawn? GetPawnFromPos(in SVector2Int pos)
+    public readonly SPawn? GetPawnByPos(in SVector2Int pos)
     {
         SVector2Int i = pos;
         foreach (SPawn pawn in pawns.Where(pawn => pawn.pos == i))
@@ -876,7 +857,7 @@ public struct SGameState
         return null;
     }
 
-    public readonly SPawn GetPawnFromId(Guid pawnId)
+    public readonly SPawn GetPawnById(Guid pawnId)
     {
         foreach (SPawn pawn in pawns)
         {
@@ -885,7 +866,7 @@ public struct SGameState
                 return pawn;
             }
         }
-        throw new ArgumentOutOfRangeException($"GetPawnFromId pawnId {pawnId} not found!");
+        throw new ArgumentOutOfRangeException($"GetPawnById pawnId {pawnId} not found!");
     }
     
     static void UpdatePawnIsAlive(ref SGameState gameState, in Guid pawnId, bool inIsAlive)
@@ -1035,7 +1016,7 @@ public struct SGameState
     static List<SVector2Int> GenerateMovementPath(in SGameState gameState, in Guid pawnId, in SVector2Int targetPos)
     {
         List<SVector2Int> path = new List<SVector2Int>();
-        SPawn pawn = gameState.GetPawnFromId(pawnId);
+        SPawn pawn = gameState.GetPawnById(pawnId);
         SVector2Int currentPos = pawn.pos;
 
         if (pawn.def.pawnName == "Scout")
@@ -1071,7 +1052,7 @@ public struct SGameState
                 }
                 path.Add(nextPos);
                 // Check if the path is blocked
-                SPawn? pawnOnPos = gameState.GetPawnFromPos(nextPos);
+                SPawn? pawnOnPos = gameState.GetPawnByPos(nextPos);
                 if (pawnOnPos.HasValue)
                 {
                     if (pawnOnPos.Value.player == pawn.player)
@@ -1089,7 +1070,7 @@ public struct SGameState
                     // If enemy pawn is at the target position, we can include it
                     // Conflict will be resolved during movement simulation
                 }
-                STile tile = gameState.GetTileFromPos(nextPos);
+                STile tile = gameState.GetTileByPos(nextPos);
                 if (tile.isPassable)
                 {
                     // Cannot move through impassable tiles
@@ -1111,16 +1092,16 @@ public struct SGameState
     {
         if (gameState.player != (int)Player.NONE)
         {
-            throw new ArgumentException("GameState.player must be NONE as resolve can only happen on an uncensored board!");
+            throw new ArgumentException("GameState.targetPlayer must be NONE as resolve can only happen on an uncensored board!");
         }
         
 
         // process movement
-        SPawn redMovePawn = gameState.GetPawnFromId(redMove.pawnId);
-        SPawn blueMovePawn = gameState.GetPawnFromId(blueMove.pawnId);
+        SPawn redMovePawn = gameState.GetPawnById(redMove.pawnId);
+        SPawn blueMovePawn = gameState.GetPawnById(blueMove.pawnId);
 
-        SPawn? maybePawnOnRedMovePos = gameState.GetPawnFromPos(redMove.pos);
-        SPawn? maybePawnOnBlueMovePos = gameState.GetPawnFromPos(blueMove.pos);
+        SPawn? maybePawnOnRedMovePos = gameState.GetPawnByPos(redMove.pos);
+        SPawn? maybePawnOnBlueMovePos = gameState.GetPawnByPos(blueMove.pos);
         
         bool redGotDodgedByBlue = false;
         bool blueGotDodgedByRed = false;
@@ -1628,7 +1609,11 @@ public struct SGameState
                 }
             }
         }
-        
+
+        if (!IsStateValid(nextGameState))
+        {
+            throw new Exception("Resolve nextGameState is not valid");
+        }
         SEventState[] trimmedReceipts = receipts.Reverse().SkipWhile(x => x.pawnId == Guid.Empty).Reverse().ToArray();
         nextGameState.winnerPlayer = GetStateWinner(nextGameState);
         SResolveReceipt finalReceipt = new()
@@ -1637,7 +1622,6 @@ public struct SGameState
             gameState = nextGameState,
             events = trimmedReceipts,
         };
-        
         return finalReceipt;
     }
 
@@ -1679,25 +1663,25 @@ public struct SGameState
         return true;
     }
 
-    public static SPawn[] GenerateValidSetup(int player, in SSetupParameters setupParameters)
+    public static SSetupPawn[] GenerateValidSetup(int targetPlayer, in SSetupParameters setupParameters)
     {
-        if (player == (int)Player.NONE)
+        if (targetPlayer == (int)Player.NONE)
         {
             throw new Exception("Player can't be none");
         }
-        List<SPawn> sPawns = new();
+        List<SSetupPawn> setupPawns = new();
         HashSet<SVector2Int> usedPositions = new();
         List<SVector2Int> allEligiblePositions = new();
         foreach (STile sTile in setupParameters.board.tiles)
         {
-            if (sTile.IsTileEligibleForPlayer(player))
+            if (sTile.IsTileEligibleForPlayer(targetPlayer))
             {
                 allEligiblePositions.Add(sTile.pos);
             }
         }
         foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)
         {
-            List<SVector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(player, setupPawnData.pawnDef, usedPositions);
+            List<SVector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef, usedPositions);
             if (eligiblePositions.Count < setupPawnData.maxPawns)
             {
                 eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
@@ -1712,21 +1696,16 @@ public struct SGameState
                 SVector2Int pos = eligiblePositions[index];
                 eligiblePositions.RemoveAt(index);
                 usedPositions.Add(pos);
-                SPawn newPawn = new()
+                SSetupPawn sSetupPawn = new()
                 {
-                    pawnId = Guid.NewGuid(),
+                    player = targetPlayer,
                     def = setupPawnData.pawnDef,
-                    player = player,
                     pos = pos,
-                    isSetup = false,
-                    isAlive = true,
-                    hasMoved = false,
-                    isVisibleToOpponent = false,
                 };
-                sPawns.Add(newPawn);
+                setupPawns.Add(sSetupPawn);
             }
         }
-        return sPawns.ToArray();
+        return setupPawns.ToArray();
     }
 
     public static int GetStateWinner(in SGameState gameState)
@@ -1925,6 +1904,28 @@ public struct SEventState
         }
         originalPos = inPawn.pos;
     }
+
+    public override string ToString()
+    {
+        string baseString = $"{(ResolveEvent)eventType} {(Player)player} {Globals.ShortGuid(pawnId)} ";
+        switch ((ResolveEvent)eventType)
+        {
+            case ResolveEvent.MOVE:
+                return baseString + $"{originalPos}  to {targetPos}";
+                break;
+            case ResolveEvent.CONFLICT:
+                return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
+                break;
+            case ResolveEvent.SWAPCONFLICT:
+                return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
+                break;
+            case ResolveEvent.DEATH:
+                return baseString;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
 }
 
 public enum ResolveEvent
@@ -1933,4 +1934,18 @@ public enum ResolveEvent
     CONFLICT,
     SWAPCONFLICT,
     DEATH,
+}
+
+public struct SSetupPawn
+{
+    public int player;
+    public SPawnDef def;
+    public SVector2Int pos;
+
+    public SSetupPawn(Pawn pawn)
+    {
+        player = (int)pawn.player;
+        def = new SPawnDef(pawn.def);
+        pos = new SVector2Int(pawn.pos);
+    }
 }

@@ -58,6 +58,17 @@ public struct SPawn
     public bool hasMoved;
     public bool isVisibleToOpponent;
 
+    public SPawn(SSetupPawn setupPawn)
+    {
+        pawnId = Guid.NewGuid();
+        def = setupPawn.def;
+        player = setupPawn.player;
+        pos = setupPawn.pos;
+        isSetup = false;
+        isAlive = true;
+        hasMoved = false;
+        isVisibleToOpponent = false;
+    }
     
     public SPawn(Pawn pawn)
     {
@@ -101,5 +112,11 @@ public struct SPawn
             isVisibleToOpponent = isVisibleToOpponent,
         };
         return pawn;
+    }
+
+    public override string ToString()
+    {
+        string newString = $"{(Player)player} {def.pawnName} {Globals.ShortGuid(pawnId)} isAlive: {isAlive}";
+        return newString;
     }
 }

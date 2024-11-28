@@ -6,6 +6,8 @@ using UnityEngine.UI;
 
 public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
 {
+    GuiPawnSetupList master;
+    
     public Image pawnIconImage;
     public TextMeshProUGUI pawnNameText;
     public TextMeshProUGUI remainingPawnsText;
@@ -20,11 +22,9 @@ public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
     [SerializeField] bool isSelected;
     public event Action<GuiPawnSetupListEntry> OnEntryClicked;
     
-    public void Initialize(PawnDef inPawnDef, int inMaxPawns, Action<GuiPawnSetupListEntry> action)
+    public void Initialize(GuiPawnSetupList inMaster, PawnDef inPawnDef, int inMaxPawns)
     {
-        
-        //Debug.Log("GuiPawnSetupListEntry Initialize");
-        OnEntryClicked += action;
+        master = inMaster;
         pawnDef = inPawnDef;
         maxPawns = inMaxPawns;
         remainingPawns = inMaxPawns;
@@ -63,7 +63,7 @@ public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        OnEntryClicked?.Invoke(this);
+        master.OnEntryClicked(this);
     }
 
     public void SelectEntry(bool inIsSelected)

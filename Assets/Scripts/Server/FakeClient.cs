@@ -35,8 +35,8 @@ public class FakeClient : IGameClient
     SLobby fakeServerLobby;
     SSetupParameters lobbySetupParameters;
     SBoardDef lobbyBoardDef;
-    SPawn[] blueSetupPawns;
-    SPawn[] redSetupPawns;
+    SSetupPawn[] blueSetupPawns;
+    SSetupPawn[] redSetupPawns;
     SQueuedMove redQueuedMove;
     SQueuedMove blueQueuedMove;
     SGameState masterGameState;
@@ -115,13 +115,13 @@ public class FakeClient : IGameClient
         };
         SendFakeRequestToServer(MessageType.GAMESTART, startGameRequest);
     }
-
-    public void SendSetupSubmissionRequest(SPawn[] setupPawnList)
+    
+    public void SendSetupSubmissionRequest(SSetupPawn[] setupPawnList)
     {
         SetupRequest setupRequest = new()
         {
             player = (int)Player.RED,
-            pawns = setupPawnList,
+            setupPawns = setupPawnList,
         };
         SendFakeRequestToServer(MessageType.GAMESETUP, setupRequest);
     }
@@ -244,14 +244,7 @@ public class FakeClient : IGameClient
             case SetupRequest setupRequest:
                 if (setupRequest.player == (int)Player.RED)
                 {
-                    SPawn[] redPawns = setupRequest.pawns;
-                    for (int i = 0; i < redPawns.Length; i++)
-                    {
-                        SPawn notSetupPawn = redPawns[i];
-                        notSetupPawn.isSetup = false;
-                        redPawns[i] = notSetupPawn;
-                    }
-                    redSetupPawns = redPawns;
+                    redSetupPawns = setupRequest.setupPawns;
                 }
                 // we assume the fake server already has the other players setupRequest
                 response = new Response<bool>
@@ -428,16 +421,21 @@ public class FakeClient : IGameClient
 
     void OnBothPlayersSetupSubmitted()
     {
-        SPawn[] allPawns = new SPawn[redSetupPawns.Length + blueSetupPawns.Length];
+        SSetupPawn[] combinedSetupPawns = new SSetupPawn[redSetupPawns.Length + blueSetupPawns.Length];
         for (int i = 0; i < redSetupPawns.Length; i++)
         {
-            allPawns[i] = redSetupPawns[i];
+            combinedSetupPawns[i] = redSetupPawns[i];
         }
         int blueSetupPawnsIndex = 0;
-        for (int i = redSetupPawns.Length; i < allPawns.Length; i++)
+        for (int i = redSetupPawns.Length; i < combinedSetupPawns.Length; i++)
         {
-            allPawns[i] = blueSetupPawns[blueSetupPawnsIndex];
+            combinedSetupPawns[i] = blueSetupPawns[blueSetupPawnsIndex];
             blueSetupPawnsIndex++;
+        }
+        SPawn[] allPawns = new SPawn[combinedSetupPawns.Length];
+        for (int i = 0; i < allPawns.Length; i++)
+        {
+            allPawns[i] = new SPawn(combinedSetupPawns[i]);
         }
         masterGameState = new SGameState((int)Player.NONE, lobbyBoardDef, allPawns);
         SGameState redInitialGameState = SGameState.Censor(masterGameState, (int)Player.RED);

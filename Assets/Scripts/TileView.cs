@@ -32,8 +32,11 @@ public class TileView : MonoBehaviour
 
     public void SetToGreen()
     {
-        Material tileMaterial = modelRenderer.material;
-        tileMaterial.color = Color.gray;
+        if (tile.isPassable)
+        {
+            Material tileMaterial = modelRenderer.material;
+            tileMaterial.color = Color.gray;
+        }
     }
     
     public void OnPositionClicked(Vector2Int pos)
