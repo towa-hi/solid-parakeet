@@ -20,7 +20,6 @@ public class GuiPawnSetupListEntry : MonoBehaviour, IPointerClickHandler
     Color selectedColor = Color.red;
     
     [SerializeField] bool isSelected;
-    public event Action<GuiPawnSetupListEntry> OnEntryClicked;
     
     public void Initialize(GuiPawnSetupList inMaster, PawnDef inPawnDef, int inMaxPawns)
     {

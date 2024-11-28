@@ -4,14 +4,15 @@ using UnityEngine;
 
 public class Arena : MonoBehaviour
 {
+    public GuiResolveScreen master;
     public PawnView redPawnView;
     public PawnView bluePawnView;
     Action OnFinish;
     public bool redDies;
     public bool blueDies;
-    public void Initialize(SPawn redPawn, SPawn bluePawn, bool inRedDies, bool inBlueDies, Action inOnFinish)
+    public void Initialize(GuiResolveScreen inMaster, SPawn redPawn, SPawn bluePawn, bool inRedDies, bool inBlueDies, Action inOnFinish)
     {
-        // TODO: figure out why the wrong pawn shatters when blue moves into stationary red 
+        master = inMaster;
         redDies = inRedDies;
         blueDies = inBlueDies;
         redPawnView.pawn = redPawn.ToUnity();
@@ -36,6 +37,7 @@ public class Arena : MonoBehaviour
             bluePawnView.shatterEffect.ShatterEffect(20f);
         }
         yield return new WaitForSeconds(2f);
+        master.HideBattleScreen();
         OnFinish?.Invoke();
     }
 }

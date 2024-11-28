@@ -23,10 +23,13 @@ namespace Linework.FastOutline
         {
             private FastOutlineSettings settings;
             private Material mask, outlineBase, clear;
-            
+            private readonly ProfilingSampler maskSampler, outlineSampler;
+
             public FastOutlinePass()
             {
                 profilingSampler = new ProfilingSampler(nameof(FastOutlinePass));
+                maskSampler = new ProfilingSampler(ShaderPassName.Mask);
+                outlineSampler = new ProfilingSampler(ShaderPassName.Outline);
             }
             
             public bool Setup(ref FastOutlineSettings fastOutlineSettings, ref Material maskMaterial, ref Material outlineMaterial, ref Material clearMaterial)
@@ -271,7 +274,7 @@ namespace Linework.FastOutline
                 // -> Render a mask to the stencil buffer.
                 var maskCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(maskCmd, new ProfilingSampler(ShaderPassName.Mask)))
+                using (new ProfilingScope(maskCmd, maskSampler))
                 {
                     context.ExecuteCommandBuffer(maskCmd);
                     maskCmd.Clear();
@@ -313,7 +316,7 @@ namespace Linework.FastOutline
                 // -> Render an outline.
                 var outlineCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(outlineCmd, new ProfilingSampler(ShaderPassName.Outline)))
+                using (new ProfilingScope(outlineCmd, outlineSampler))
                 {
                     CoreUtils.SetRenderTarget(outlineCmd, renderingData.cameraData.renderer.cameraColorTargetHandle, cameraDepthRTHandle); // if using cameraColorRTHandle this does not render in scene view when rendering after post processing with post processing enabled
                     context.ExecuteCommandBuffer(outlineCmd);

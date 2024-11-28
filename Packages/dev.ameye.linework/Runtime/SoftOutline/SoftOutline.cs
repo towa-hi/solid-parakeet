@@ -24,10 +24,15 @@ namespace Linework.SoftOutline
         {
             private SoftOutlineSettings settings;
             private Material mask, silhouetteBase, blur, composite, clear;
+            private readonly ProfilingSampler maskSampler, silhouetteSampler, blurSampler, outlineSampler;
             
             public SoftOutlinePass()
             {
                 profilingSampler = new ProfilingSampler(nameof(SoftOutlinePass));
+                maskSampler = new ProfilingSampler(ShaderPassName.Mask);
+                silhouetteSampler = new ProfilingSampler(ShaderPassName.Silhouette);
+                blurSampler = new ProfilingSampler(ShaderPassName.Blur);
+                outlineSampler = new ProfilingSampler(ShaderPassName.Outline);
             }
             
             public bool Setup(ref SoftOutlineSettings softOutlineSettings, ref Material maskMaterial, ref Material compositeMaterial, ref Material blurMaterial, ref Material silhouetteMaterial, ref Material clearMaterial)
@@ -457,7 +462,7 @@ namespace Linework.SoftOutline
                 // -> Render a mask to the stencil buffer.
                 var maskCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(maskCmd, new ProfilingSampler(ShaderPassName.Mask)))
+                using (new ProfilingScope(maskCmd, maskSampler))
                 {
                     context.ExecuteCommandBuffer(maskCmd);
                     maskCmd.Clear();
@@ -509,7 +514,7 @@ namespace Linework.SoftOutline
                 // -> Render a silhouette.
                 var silhouetteCmd = CommandBufferPool.Get();
                 
-                using (new ProfilingScope(silhouetteCmd, new ProfilingSampler(ShaderPassName.Silhouette)))
+                using (new ProfilingScope(silhouetteCmd, silhouetteSampler))
                 { 
                     CoreUtils.SetRenderTarget(silhouetteCmd, silhouetteRTHandle, renderingData.cameraData.renderer.cameraDepthTargetHandle);
                     
@@ -560,7 +565,7 @@ namespace Linework.SoftOutline
                 // -> Blur the silhouette.
                 var blurCmd = CommandBufferPool.Get();
                 
-                using (new ProfilingScope(blurCmd, new ProfilingSampler(ShaderPassName.Blur)))
+                using (new ProfilingScope(blurCmd, blurSampler))
                 {
                     context.ExecuteCommandBuffer(blurCmd);
                     blurCmd.Clear();
@@ -592,7 +597,7 @@ namespace Linework.SoftOutline
                 // -> Render an outline.
                 var outlineCmd = CommandBufferPool.Get();
                 
-                using (new ProfilingScope(outlineCmd, new ProfilingSampler(ShaderPassName.Outline)))
+                using (new ProfilingScope(outlineCmd, outlineSampler))
                 {
                     context.ExecuteCommandBuffer(outlineCmd);
                     outlineCmd.Clear();

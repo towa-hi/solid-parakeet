@@ -14,57 +14,35 @@ public class BoardManager : MonoBehaviour
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
     public Grid grid;
-    public GamePhase phase;
     public ClickInputManager clickInputManager;
-    // setup stuff
     
     public Player player;
     public Player opponentPlayer;
-    public SSetupParameters serverSetupParameters;
     public Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
-    public Vector2Int hoveredPos;
-    //public event Action<PawnChanges> OnPawnModified; // subscribed to by all pawnviews
-    //public event Action<GamePhase, GamePhase> OnPhaseChanged;
     
+    public Vector2Int hoveredPos;
     public PawnView currentHoveredPawnView;
     public TileView currentHoveredTileView;
-
-    bool setupIsSubmitted;
     
     // game stuff
     public SGameState serverGameState;
-    public PawnView selectedPawnView;
-    public SQueuedMove? maybeQueuedMove;
-    HashSet<TileView> highlightedTileViews = new();
-    HashSet<PawnView> highlightedPawnViews = new();
-    
     
     // resolve stuff
-    bool isBattleHappening;
+    bool isBattleHappening; // Move this into resolve phase later
 
-    Dictionary<GamePhase, IPhase> phases;
     public IPhase currentPhase;
 
     public event Action<IPhase> OnPhaseChanged;
     public event Action<PawnDef> OnSetupStateChanged;
     public void InvokeOnSetupStateChanged(PawnDef selectedPawnDef) {OnSetupStateChanged?.Invoke(selectedPawnDef);}
-    
-    
-    void Awake()
-    {
-        phases = new()
-        {
-            { GamePhase.UNINITIALIZED, new UninitializedPhase(this) },
-            { GamePhase.SETUP, null },
-            { GamePhase.MOVE, null },
-            { GamePhase.WAITING, null },
-            { GamePhase.RESOLVE, null },
-            { GamePhase.END, null },
-        };
-    }
 
-    void SetPhaseNew(IPhase newPhase)
+
+    void Start()
+    {
+        SetPhase(new UninitializedPhase(this));
+    }
+    void SetPhase(IPhase newPhase)
     {
         currentPhase?.ExitState();
         currentPhase = newPhase;
@@ -72,177 +50,37 @@ public class BoardManager : MonoBehaviour
         OnPhaseChanged?.Invoke(currentPhase);
     }
     
-    void SetPhase(GamePhase inPhase)
-    {
-        GamePhase oldPhase = phase;
-        switch (oldPhase)
-        {
-            case GamePhase.UNINITIALIZED:
-                break;
-            case GamePhase.SETUP:
-                foreach (var tileView in tileViews.Values)
-                {
-                    if (tileView.tile.isPassable)
-                    {
-                        tileView.SetToGreen();
-                    }
-                }
-                break;
-            case GamePhase.MOVE:
-                break;
-            case GamePhase.WAITING:
-                break;
-            case GamePhase.RESOLVE:
-                break;
-            case GamePhase.END:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        phase = inPhase;
-        switch (phase)
-        {
-            case GamePhase.UNINITIALIZED:
-                break;
-            case GamePhase.SETUP:
-                break;
-            case GamePhase.WAITING:
-                clickInputManager.Reset();
-                SelectPawnView(null);
-                break;
-            case GamePhase.MOVE:
-                clickInputManager.Reset();
-                SelectPawnView(null);
-                ClearQueueMove();
-                break;
-            case GamePhase.RESOLVE:
-                SelectPawnView(null);
-                clickInputManager.Reset();
-                if (!maybeQueuedMove.HasValue)
-                {
-                    throw new Exception("Queuedmove cant be null in resolve phase");
-                }
-                else
-                {
-                    TileView queuedTileMove = GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
-                    queuedTileMove.OnArrow(false);
-                
-                    foreach (var tileView in highlightedTileViews)
-                    {
-                        tileView.OnHighlight(false);
-                    }
-                    foreach (var pawnView in highlightedPawnViews)
-                    {
-                        pawnView.OnHighlight(false);
-                    }
-                    maybeQueuedMove = null;
-                }
-                
-                break;
-            case GamePhase.END:
-                SelectPawnView(null);
-                clickInputManager.Reset();
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        //OnPhaseChanged?.Invoke(oldPhase, phase);
-    }
-    
     #region Responses
     
     public void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
-        SetPhaseNew(new SetupPhase(this, response.data));
+        SetPhase(new SetupPhase(this, response.data));
         clickInputManager.OnPositionHovered += OnPositionHovered;
         clickInputManager.OnClick += OnClick;
         clickInputManager.Initialize();
-        SetPhase(GamePhase.SETUP);
     }
     
     public void OnSetupSubmittedResponse(Response<bool> response)
     {
-        if (response.data)
-        {
-            setupIsSubmitted = true;
-            SetPhaseNew(new WaitingPhase(this));
-        }
-        else
-        {
-            // TODO: handle this later
-        }
+        SetPhase(new WaitingPhase(this));
     }
 
     public void OnSetupFinishedResponse(Response<SGameState> response)
     {
-        
-        SGameState initialGameState = response.data;
-        SetPhaseNew(new MovePhase(this, initialGameState));
-        // foreach (SPawn sPawn in initialGameState.pawns)
-        // {
-        //     Pawn pawn = GetPawnById(sPawn.pawnId);
-        //     if (pawn == null)
-        //     {
-        //         TileView tileView = GetTileViewByPos(sPawn.pos.ToUnity());
-        //         Pawn newPawn = sPawn.ToUnity();
-        //         GameObject pawnObject = Instantiate(pawnPrefab, transform);
-        //         PawnView pawnView = pawnObject.GetComponent<PawnView>();
-        //         pawnViews.Add(pawnView);
-        //         pawnView.Initialize(newPawn, tileView);
-        //     }
-        // }
-        // foreach (PawnView pawnView in pawnViews)
-        // {
-        //     pawnView.SyncState(initialGameState.GetPawnById(pawnView.pawn.pawnId));
-        // }
-        // serverGameState = initialGameState;
-        // SetPhase(GamePhase.MOVE);
+        SetPhase(new MovePhase(this, response.data));
     }
     
     public void OnMoveResponse(Response<bool> response)
     {
-        if (response.data)
-        {
-            SetPhase(GamePhase.WAITING);
-        }
-        else
-        {
-            SetPhase(GamePhase.MOVE);
-        }
+        SetPhase(new WaitingPhase(this));
     }
     
     public void OnResolveResponse(Response<SResolveReceipt> response)
     {
-        SetPhaseNew(new ResolvePhase(this, response.data));
+        SetPhase(new ResolvePhase(this, response.data));
         StartCoroutine(ApplyResolve(response.data));
-        // if (response.success)
-        // {
-        //     
-        //     // apply diff here
-        //     
-        //     
-        //     SetPhase(GamePhase.RESOLVE);
-        //     SResolveReceipt receipt = response.data;
-        //     foreach (SPawn sPawn in receipt.gameState.pawns)
-        //     {
-        //         Pawn pawn = GetPawnById(sPawn.pawnId);
-        //         if (pawn == null)
-        //         {
-        //             TileView tileView = GetTileViewByPos(sPawn.pos.ToUnity());
-        //             Pawn newPawn = sPawn.ToUnity();
-        //             GameObject pawnObject = Instantiate(pawnPrefab, transform);
-        //             PawnView pawnView = pawnObject.GetComponent<PawnView>();
-        //             pawnViews.Add(pawnView);
-        //             pawnView.Initialize(newPawn, tileView);
-        //         }
-        //     }
-        //     serverGameState = receipt.gameState;
-        //     StartCoroutine(ApplyResolve(receipt));
-        // }
-
     }
-    // coroutines
-        
+    
     IEnumerator ApplyResolve(SResolveReceipt receipt)
     {
         foreach (SEventState resolveEvent in receipt.events)
@@ -253,76 +91,81 @@ public class BoardManager : MonoBehaviour
         {
             pawnView.SyncState(receipt.gameState.GetPawnById(pawnView.pawn.pawnId));
         }
-        SetPhaseNew(new MovePhase(this)); 
+
+        if (receipt.gameState.winnerPlayer != (int)Player.NONE)
+        {
+            SetPhase(new EndPhase(this, receipt.gameState.winnerPlayer));
+        }
+        SetPhase(new MovePhase(this)); 
         yield return null;
     }
     
     IEnumerator RunEvent(SEventState eventState, SResolveReceipt receipt)
     {
-    ResolveEvent eventType = (ResolveEvent)eventState.eventType;
-    string debugString = $"RunEvent: {eventState}";
-    Debug.Log($"RunEvent {eventState}");
-    PawnView pawnView = GetPawnViewById(eventState.pawnId);
-    SPawn pawnState = receipt.gameState.GetPawnById(eventState.pawnId);
-    switch (eventType)
-    {
-        case ResolveEvent.MOVE:
-            Vector3 target = GetTileViewByPos(eventState.targetPos.ToUnity()).pawnOrigin.position;
-            if (pawnView.transform.position != target)
-            {
-                yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PAWNMOVEDURATION, 0.5f));
-            }
-            break;
-        case ResolveEvent.CONFLICT:
-            PawnView defenderPawnView = GetPawnViewById(eventState.defenderPawnId);
-            SPawn defenderPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
-            pawnView.RevealPawn(pawnState);
-            defenderPawnView.RevealPawn(defenderPawnState);
-            Vector3 conflictTarget = GetTileViewByPos(eventState.targetPos.ToUnity()).pawnOrigin.position;
-            yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.5f));
-            SPawn redPawnState;
-            SPawn bluePawnState;
-            if (pawnState.player == (int)Player.RED)
-            {
-                redPawnState = pawnState;
-                bluePawnState = defenderPawnState;
-            }
-            else
-            {
-                redPawnState = defenderPawnState;
-                bluePawnState = pawnState;
-            }
-            debugString += $" {redPawnState} vs {bluePawnState}";
-            Debug.Log(debugString);
-            yield return StartBattle(redPawnState, bluePawnState);
-            break;
-        case ResolveEvent.SWAPCONFLICT:
-            PawnView defenderSwapPawnView = GetPawnViewById(eventState.defenderPawnId);
-            SPawn defenderSwapPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
-            pawnView.RevealPawn(pawnState);
-            defenderSwapPawnView.RevealPawn(defenderSwapPawnState);
-            SPawn redPawnStateSwap;
-            SPawn bluePawnStateSwap;
-            if (pawnState.player == (int)Player.RED)
-            {
-                redPawnStateSwap = pawnState;
-                bluePawnStateSwap = defenderSwapPawnState;
-            }
-            else
-            {
-                redPawnStateSwap = defenderSwapPawnState;
-                bluePawnStateSwap = pawnState;
-            }
-            yield return StartBattle(redPawnStateSwap, bluePawnStateSwap);
-            break;
-        case ResolveEvent.DEATH:
-            Vector3 purgatoryTarget = GameManager.instance.boardManager.purgatory.position;
-            yield return StartCoroutine(pawnView.ArcToPosition(purgatoryTarget, Globals.PAWNMOVEDURATION, 2f));
-            break;
-        default:
-            throw new ArgumentOutOfRangeException();
-    }
-    yield return null;
+        ResolveEvent eventType = (ResolveEvent)eventState.eventType;
+        string debugString = $"RunEvent: {eventState}";
+        Debug.Log($"RunEvent {eventState}");
+        PawnView pawnView = GetPawnViewById(eventState.pawnId);
+        SPawn pawnState = receipt.gameState.GetPawnById(eventState.pawnId);
+        switch (eventType)
+        {
+            case ResolveEvent.MOVE:
+                Vector3 target = GetTileViewByPos(eventState.targetPos.ToUnity()).pawnOrigin.position;
+                if (pawnView.transform.position != target)
+                {
+                    yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PAWNMOVEDURATION, 0.5f));
+                }
+                break;
+            case ResolveEvent.CONFLICT:
+                PawnView defenderPawnView = GetPawnViewById(eventState.defenderPawnId);
+                SPawn defenderPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
+                pawnView.RevealPawn(pawnState);
+                defenderPawnView.RevealPawn(defenderPawnState);
+                Vector3 conflictTarget = GetTileViewByPos(eventState.targetPos.ToUnity()).pawnOrigin.position;
+                yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.5f));
+                SPawn redPawnState;
+                SPawn bluePawnState;
+                if (pawnState.player == (int)Player.RED)
+                {
+                    redPawnState = pawnState;
+                    bluePawnState = defenderPawnState;
+                }
+                else
+                {
+                    redPawnState = defenderPawnState;
+                    bluePawnState = pawnState;
+                }
+                debugString += $" {redPawnState} vs {bluePawnState}";
+                Debug.Log(debugString);
+                yield return StartBattle(redPawnState, bluePawnState);
+                break;
+            case ResolveEvent.SWAPCONFLICT:
+                PawnView defenderSwapPawnView = GetPawnViewById(eventState.defenderPawnId);
+                SPawn defenderSwapPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
+                pawnView.RevealPawn(pawnState);
+                defenderSwapPawnView.RevealPawn(defenderSwapPawnState);
+                SPawn redPawnStateSwap;
+                SPawn bluePawnStateSwap;
+                if (pawnState.player == (int)Player.RED)
+                {
+                    redPawnStateSwap = pawnState;
+                    bluePawnStateSwap = defenderSwapPawnState;
+                }
+                else
+                {
+                    redPawnStateSwap = defenderSwapPawnState;
+                    bluePawnStateSwap = pawnState;
+                }
+                yield return StartBattle(redPawnStateSwap, bluePawnStateSwap);
+                break;
+            case ResolveEvent.DEATH:
+                Vector3 purgatoryTarget = GameManager.instance.boardManager.purgatory.position;
+                yield return StartCoroutine(pawnView.ArcToPosition(purgatoryTarget, Globals.PAWNMOVEDURATION, 2f));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+        yield return null;
     }
     
     IEnumerator StartBattle(SPawn redPawn, SPawn bluePawn)
@@ -335,8 +178,8 @@ public class BoardManager : MonoBehaviour
     void OnBattleFinished()
     {
         isBattleHappening = false;
-        GameManager.instance.guiManager.gameOverlay.resolveScreen.Hide();
     }
+    
     #endregion 
     #region Input
     
@@ -389,268 +232,13 @@ public class BoardManager : MonoBehaviour
         
         currentPhase.OnHover(oldPos, newPos);
     }
-
     
     void OnClick(Vector2 screenPointerPosition, Vector2Int hoveredPosition)
     {
         currentPhase.OnClick(hoveredPosition);
-        // switch (phase)
-        // {
-        //     case GamePhase.UNINITIALIZED:
-        //         // Do nothing
-        //         break;
-        //
-        //     case GamePhase.SETUP:
-        //         if (!IsPosValid(hoveredPosition))
-        //         {
-        //             // Invalid position; do nothing
-        //             break;
-        //         }
-        //
-        //         if (currentHoveredPawnView != null)
-        //         {
-        //             // Remove the pawn at the hovered position
-        //             SetupSendPawnToPurgatory(currentHoveredPawnView.pawn);
-        //         }
-        //         else if (setupSelectedPawnDef != null && GetPawnViewByPos(hoveredPosition) == null)
-        //         {
-        //             // Place a new pawn if a pawnDef is selected and no pawn is at this position
-        //             SetupGetPawnFromPurgatoryByPawnDef(player, setupSelectedPawnDef, hoveredPosition);
-        //         }
-        //         // If no pawnDef is selected or a pawn is already at this position, do nothing
-        //         break;
-        //     case GamePhase.WAITING:
-        //         // do nothing
-        //         break;
-        //     case GamePhase.MOVE:
-        //         if (!IsPosValid(hoveredPosition))
-        //         {
-        //             if (selectedPawnView != null)
-        //             {
-        //                 SelectPawnView(null);
-        //             }
-        //             break;
-        //         }
-        //
-        //         if (selectedPawnView != null)
-        //         {
-        //             if (currentHoveredPawnView != null && currentHoveredPawnView.pawn.player == player)
-        //             {
-        //                 if (currentHoveredPawnView == selectedPawnView)
-        //                 {
-        //                     SelectPawnView(null);
-        //                     Debug.Log("OnClick: deselected because clicked the selected pawn");
-        //                 }
-        //                 else
-        //                 {
-        //                     SelectPawnView(currentHoveredPawnView);
-        //                     Debug.Log("OnClick: selected a different pawn");
-        //                 }
-        //             }
-        //             else
-        //             {
-        //                 bool success = TryQueueMove(selectedPawnView, hoveredPosition);
-        //                 if (success)
-        //                 {
-        //                     Debug.Log("OnClick: tried to go to a tile");
-        //                     SelectPawnView(null);
-        //                 }
-        //                 else
-        //                 {
-        //                     SelectPawnView(null);
-        //                     Debug.Log("OnClick: deselected because couldn't go to tile");
-        //                 }
-        //             }
-        //         }
-        //         else
-        //         {
-        //             if (currentHoveredPawnView != null && currentHoveredPawnView.pawn.player == player)
-        //             {
-        //                 SelectPawnView(currentHoveredPawnView);
-        //                 Debug.Log("OnClick: selecting pawn");
-        //             }
-        //             else
-        //             {
-        //                 Debug.Log("OnClick: doing nothing, clicked an empty tile with nothing selected");
-        //             }
-        //         }
-        //         break;
-        //     case GamePhase.RESOLVE:
-        //         break;
-        //     case GamePhase.END:
-        //         break;
-        //     default:
-        //         throw new ArgumentOutOfRangeException();
-        // }
-    }
-    
-    
-    
-    void SelectPawnView(PawnView pawnView)
-    {
-        // foreach (TileView highlightedTileView in highlightedTileViews)
-        // {
-        //     highlightedTileView.OnHighlight(false);
-        // }
-        // foreach (PawnView highlightedPawnView in highlightedPawnViews)
-        // {
-        //     highlightedPawnView.OnHighlight(false);
-        // }
-        // if (selectedPawnView)
-        // {
-        //     selectedPawnView.SetSelect(false);
-        //     if (pawnView == null)
-        //     {
-        //         selectedPawnView.SetSelect(false);
-        //         selectedPawnView = null;
-        //     }
-        // }
-        // selectedPawnView = pawnView;
-        // if (selectedPawnView)
-        // {
-        //     highlightedTileViews.Clear();
-        //     pawnView.SetSelect(true);
-        //     SPawn selectedPawnState = GetPawnStateById(pawnView.pawn.pawnId);
-        //     STile[] tiles = serverGameState.GetMovableTiles(selectedPawnState);
-        //     foreach (STile tile in tiles)
-        //     {
-        //         TileView tileView = GetTileViewByPos(tile.pos.ToUnity());
-        //         tileView.OnHighlight(true);
-        //         highlightedTileViews.Add(tileView);
-        //         PawnView pawnViewOnTile = GetPawnViewByPos(tile.pos.ToUnity());
-        //         if (pawnViewOnTile)
-        //         {
-        //             highlightedPawnViews.Add(pawnViewOnTile);
-        //             pawnViewOnTile.OnHighlight(true);
-        //         }
-        //     }
-        // }
-    }
-    
-    bool TryQueueMove(PawnView pawnView, Vector2Int pos)
-    {
-        // Debug.Log($"TryQueueMove at {pos}");
-        // SPawn pawnOriginalState = GetPawnStateById(pawnView.pawn.pawnId);
-        // STile[] movableTilesList = serverGameState.GetMovableTiles(pawnOriginalState);
-        // // check if valid move
-        // // queue a new PawnAction to go to that position
-        // bool moveIsValid = movableTilesList.Any(tile => tile.pos.ToUnity() == pos);
-        // if (!moveIsValid)
-        // {
-        //     return false;
-        // }
-        // if (maybeQueuedMove.HasValue)
-        // {
-        //     TileView oldTileView = GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
-        //     oldTileView.OnArrow(false);
-        // }
-        // maybeQueuedMove = new SQueuedMove((int)player, pawnView.pawn.pawnId, new SVector2Int(pawnView.pawn.pos),new SVector2Int(pos));
-        // TileView tileView = GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
-        // tileView.OnArrow(true);
-        return true;
-    }
-    
-    void ClearQueueMove()
-    {
-        if (maybeQueuedMove.HasValue)
-        {
-            TileView tileView = GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
-            tileView.OnArrow(false);
-        }
-        maybeQueuedMove = null;
     }
     
     #endregion
-    #region Setup
-    
-    Pawn SetupGetPawnFromPurgatoryByPawnDef(Player targetPlayer, PawnDef pawnDef, Vector2Int pos)
-    {
-        if (!IsPosValid(pos))
-        {
-            throw new ArgumentOutOfRangeException($"Pos {pos} is invalid");
-        }
-        foreach (var pawnView in pawnViews)
-        {
-            Pawn pawn = pawnView.pawn;
-            if (pawn.player == targetPlayer)
-            {
-                if (pawn.def != null)
-                {
-                    if (pawn.def == pawnDef)
-                    {
-                        if (pawn.isSetup)
-                        {
-                            if (!pawn.isAlive)
-                            {
-                                pawn.SetAlive(true, pos);
-                                PawnChanges pawnChanges = new()
-                                {
-                                    pawn = pawn,
-                                    hasMovedChanged = false,
-                                    isAliveChanged = true,
-                                    isSetupChanged = false,
-                                    isVisibleToOpponentChanged = false,
-                                    posChanged = true,
-                                };
-                                return pawn;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Debug.Log($"can't find any pawns of pawnDef {pawnDef.name}");
-        return null;
-    }
-
-    void SetupSendPawnToPurgatory(Pawn pawn, bool invoke = true)
-    {
-        pawn.SetAlive(false, null);
-        PawnChanges pawnChanges = new()
-        {
-            pawn = pawn,
-            hasMovedChanged = false,
-            isAliveChanged = true,
-            isSetupChanged = false,
-            isVisibleToOpponentChanged = false,
-            posChanged = true,
-        };
-    }
-    
-    void AutoSetup(Player targetPlayer)
-    {
-        foreach (var pawnView in pawnViews)
-        {
-            if (pawnView.pawn.player == targetPlayer)
-            {
-                SetupSendPawnToPurgatory(pawnView.pawn, false);
-            }
-        }
-        SSetupPawn[] validSetup = SGameState.GenerateValidSetup((int)targetPlayer, serverSetupParameters);
-        foreach (SSetupPawn setupPawn in validSetup)
-        {
-            PawnDef pawnDef = setupPawn.def.ToUnity();
-            SetupGetPawnFromPurgatoryByPawnDef(targetPlayer, pawnDef, setupPawn.pos.ToUnity());
-        }
-    }
-
-    
-    public void OnSubmitSetup()
-    {
-        SSetupPawn[] setupPawns = new SSetupPawn[pawnViews.Count];
-        for (int i = 0; i < setupPawns.Length; i++)
-        {
-            setupPawns[i] = new SSetupPawn(pawnViews[i].pawn);
-        }
-
-        if (SSetupParameters.IsSetupValid((int)player, serverSetupParameters, setupPawns))
-        {
-            GameManager.instance.client.SendSetupSubmissionRequest(setupPawns);
-        }
-    }
-    
-    #endregion
-    
     
     public PawnView GetPawnViewByPos(Vector2Int pos)
     {
@@ -674,23 +262,10 @@ public class BoardManager : MonoBehaviour
     {
         return tileViews.Keys.Contains(pos);
     }
-
-    Pawn GetPawnById(Guid id)
-    {
-        return pawnViews.Where(pawnView => pawnView.pawn.pawnId == id).Select(pawnView => pawnView.pawn).FirstOrDefault();
-    }
-
+    
     public PawnView GetPawnViewById(Guid id)
     {
         return pawnViews.FirstOrDefault(pawnView => pawnView.pawn.pawnId == id);
-    }
-    
-    public void SendQueuedMove()
-    {
-        if (maybeQueuedMove.HasValue)
-        {
-            GameManager.instance.client.SendMove(maybeQueuedMove.Value);
-        }
     }
 
     public void ClearPawnViews()
@@ -735,15 +310,15 @@ public interface IPhase
 
 public class UninitializedPhase : IPhase
 {
-    BoardManager boardManager;
+    BoardManager bm;
     public UninitializedPhase(BoardManager inBoardManager)
     {
-        boardManager = inBoardManager;
+        bm = inBoardManager;
     }
     
     public void EnterState()
     {
-
+        
     }
 
     public void ExitState()
@@ -810,7 +385,6 @@ public class SetupPhase : IPhase
         bm.ClearTileViews();
         bm.player = (Player)setupParameters.player;
         bm.opponentPlayer = bm.player == Player.RED ? Player.BLUE : Player.RED;
-        bm.serverSetupParameters = setupParameters;
         bm.tileViews = tileViews;
         bm.pawnViews = pawnViews;
     }
@@ -829,7 +403,7 @@ public class SetupPhase : IPhase
     {
         if (!bm.tileViews.Keys.Contains(bm.hoveredPos))
         {
-            return;
+            // do nothing
         }
         else if (bm.currentHoveredPawnView != null)
         {
@@ -995,6 +569,7 @@ public class MovePhase : IPhase
 
     public void ExitState()
     {
+        Debug.Assert(moveSubmitted);
         SelectPawnView(null);
         if (!maybeQueuedMove.HasValue)
         {
@@ -1173,11 +748,13 @@ public class ResolvePhase : IPhase
 
 public class EndPhase : IPhase
 {
-    BoardManager boardManager;
+    BoardManager bm;
+    public int winner;
     
-    public EndPhase(BoardManager inBoardManager)
+    public EndPhase(BoardManager inBoardManager, int inWinner)
     {
-        boardManager = inBoardManager;
+        bm = inBoardManager;
+        winner = inWinner;
     }
     
     public void EnterState()

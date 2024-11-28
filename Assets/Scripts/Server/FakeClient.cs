@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-//using System.Threading.Tasks;
-//using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
-using Random = System.Random;
 
 public class FakeClient : IGameClient
 {
@@ -333,24 +330,12 @@ public class FakeClient : IGameClient
     
     void HandleRegisterClientResponse(Response<string> response)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     Debug.Log("Invoking OnRegisterClientResponse");
-        //     OnRegisterClientResponse?.Invoke(response);
-        // });
         Debug.Log("Invoking OnRegisterClientResponse");
         OnRegisterClientResponse?.Invoke(response);
     }
     
     void HandleRegisterNicknameResponse(Response<string> response)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     PlayerPrefs.SetString("nickname", response.data);
-        //     isNicknameRegistered = true;
-        //     Debug.Log("Invoking OnRegisterNicknameResponse");
-        //     OnRegisterNicknameResponse?.Invoke(response);
-        // });
         PlayerPrefs.SetString("nickname", response.data);
         isNicknameRegistered = true;
         Debug.Log("Invoking OnRegisterNicknameResponse");
@@ -359,12 +344,6 @@ public class FakeClient : IGameClient
     
     void HandleGameLobbyResponse(Response<SLobby> response)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     currentLobby = response.data;
-        //     Debug.Log("Invoking OnGameLobbyResponse");
-        //     OnGameLobbyResponse?.Invoke(response);
-        // });
         currentLobby = response.data;
         Debug.Log("Invoking OnGameLobbyResponse");
         OnGameLobbyResponse?.Invoke(response);
@@ -372,33 +351,18 @@ public class FakeClient : IGameClient
     
     void HandleLeaveGameLobbyResponse(Response<string> response)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     Debug.Log("Invoking OnLeaveGameLobbyResponse");
-        //     OnLeaveGameLobbyResponse?.Invoke(response);
-        // });
         Debug.Log("Invoking OnLeaveGameLobbyResponse");
         OnLeaveGameLobbyResponse?.Invoke(response);
     }
 
     void HandleReadyLobbyResponse(Response<SLobby> response)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     Debug.Log("Invoking OnReadyLobbyResponse");
-        //     OnReadyLobbyResponse?.Invoke(response);
-        // });
         Debug.Log("Invoking OnReadyLobbyResponse");
         OnReadyLobbyResponse?.Invoke(response);
     }
     
     void HandleGameStartResponse(Response<SSetupParameters> gameStartResponse)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     Debug.Log($"Invoking OnDemoStarted to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
-        //     OnDemoStartedResponse?.Invoke(gameStartResponse);
-        // });
         Debug.Log($"Invoking OnDemoStarted to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
         OnDemoStartedResponse?.Invoke(gameStartResponse);
     }
@@ -406,19 +370,13 @@ public class FakeClient : IGameClient
     
     void HandleGameSetupResponse(Response<bool> gameSetupResponse)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
-        //     OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
-        // });
         Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
         OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
         // fill blue setup pawns like as if blue already sent a valid request
         blueSetupPawns = SGameState.GenerateValidSetup((int)Player.BLUE, lobbySetupParameters);
         OnBothPlayersSetupSubmitted();
     }
-
-
+    
     void OnBothPlayersSetupSubmitted()
     {
         SSetupPawn[] combinedSetupPawns = new SSetupPawn[redSetupPawns.Length + blueSetupPawns.Length];
@@ -453,19 +411,11 @@ public class FakeClient : IGameClient
     
     void HandleSetupFinished(Response<SGameState> initialGameStateResponse)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     OnSetupFinishedResponse?.Invoke(initialGameStateResponse);
-        // });
         OnSetupFinishedResponse?.Invoke(initialGameStateResponse);
     }
     
     void HandleMoveResponse(Response<bool> moveResponse)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     OnMoveResponse?.Invoke(moveResponse);
-        // });
         OnMoveResponse?.Invoke(moveResponse);
         OnBothPlayersMoveSubmitted();
     }
@@ -501,13 +451,6 @@ public class FakeClient : IGameClient
     
     void HandleResolveResponse(Response<SResolveReceipt> resolveResponse)
     {
-        // UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        // {
-        //     OnResolveResponse?.Invoke(resolveResponse);
-        // });
         OnResolveResponse?.Invoke(resolveResponse);
     }
-    
-    
-    
 }

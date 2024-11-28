@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text.RegularExpressions;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -44,7 +42,6 @@ public class GameManager : MonoBehaviour
     public void SetOfflineMode(bool inOfflineMode)
     {
         offlineMode = inOfflineMode;
-        IGameClient oldGameClient = client;
         if (inOfflineMode)
         {
             client = new FakeClient();
@@ -109,46 +106,29 @@ public class GameManager : MonoBehaviour
 
     void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
-        Debug.Log("GameManager: OnDemoStartedResponse");
-        Debug.Log("GameManager: sent to boardmanager");
         boardManager.OnDemoStartedResponse(response);
-        Debug.Log("GameManager: sent to guimanager");
         guiManager.OnDemoStartedResponse(response);
-        Debug.Log("GameManager: sent to boardclickinputmanager");
     }
     
     void OnSetupSubmittedResponse(Response<bool> response)
     {
-        Debug.Log("GameManager: OnSetupSubmittedResponse");
         boardManager.OnSetupSubmittedResponse(response);
-        // do nothing, just wait after this 
     }
     
     void OnSetupFinishedResponse(Response<SGameState> response)
     {
-        SGameState gameState = response.data;
-        
         boardManager.OnSetupFinishedResponse(response);
     }
 
     void OnMoveResponse(Response<bool> response)
     {
-        Debug.Log("GameManager OnMoveResponse()");
         boardManager.OnMoveResponse(response);
     }
     
     void OnResolveResponse(Response<SResolveReceipt> response)
     {
-        Debug.Log("GameManager OnResolveResponse()");
         boardManager.OnResolveResponse(response);
     }
-    
-    public void OnMoveSubmitButton()
-    {
-        Debug.Log("GameManager OnMoveSubmitButton()");
-        boardManager.SendQueuedMove();
-    }
-    
     
     public void QuitGame()
     {

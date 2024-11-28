@@ -18,49 +18,13 @@ public class PawnView : MonoBehaviour
     public MeshRenderer billboardRenderer;
     public MeshRenderer planeRenderer;
     public Shatter shatterEffect;
-    public bool isSelected = false;
-    public bool isHovered = false;
-    public bool isMoving = false;
+    public bool isSelected;
+    public bool isHovered;
+    public bool isMoving;
     
     // Reference to the current movement coroutine
-    private Coroutine moveCoroutine;
+    Coroutine moveCoroutine;
     
-    void Start()
-    {
-        //GameManager.instance.boardManager.OnPawnModified += OnPawnModified;
-    }
-    
-    public void InitializeInArena()
-    {
-        billboard.gameObject.SetActive(true);
-    }
-
-    void OnPawnModified(PawnChanges pawnChanges)
-    {
-        if (pawnChanges.pawn.pawnId != pawn.pawnId) return;
-
-        // Get the target position
-        Vector3 targetPosition;
-        if (pawn.isAlive)
-        {
-            targetPosition = GameManager.instance.boardManager.GetTileViewByPos(pawn.pos).pawnOrigin.position;
-        }
-        else
-        {
-            targetPosition = GameManager.instance.boardManager.purgatory.position;
-        }
-
-        if (pawnChanges.posChanged)
-        {
-            transform.position = targetPosition;
-        }
-        if (pawnChanges.isVisibleToOpponentChanged)
-        {
-            DisplaySymbol(pawn.def.icon);
-        }
-    }
-
-
     public void SyncState(SPawn state)
     {
         PawnChanges pawnChanges = new()
@@ -113,67 +77,12 @@ public class PawnView : MonoBehaviour
         transform.position = targetPosition;
     }
     
-    public void UpdatePawn(SPawn sPawn)
-    {
-        PawnChanges pawnChanges = new()
-        {
-            pawn = pawn,
-        };
-        if (pawn.pos != sPawn.pos.ToUnity())
-        {
-            pawnChanges.posChanged = true;
-            pawn.pos = sPawn.pos.ToUnity();
-        }
-        if (pawn.isSetup != sPawn.isSetup)
-        {
-            pawnChanges.isSetupChanged = true;
-            pawn.isSetup = sPawn.isSetup;
-        }
-        if (pawn.isAlive != sPawn.isAlive)
-        {
-            pawnChanges.isAliveChanged = true;
-            pawn.isAlive = sPawn.isAlive;
-        }
-        if (pawn.hasMoved != sPawn.hasMoved)
-        {
-            pawnChanges.hasMovedChanged = true;
-            pawn.hasMoved = sPawn.hasMoved;
-        }
-        if (pawn.isVisibleToOpponent != sPawn.isVisibleToOpponent)
-        {
-            pawnChanges.isVisibleToOpponentChanged = true;
-            pawn.isVisibleToOpponent = sPawn.isVisibleToOpponent;
-            if (sPawn.isVisibleToOpponent)
-            {
-                pawn.def = sPawn.def.ToUnity();
-            }
-        }
-        //OnPawnModified(pawnChanges);
-    }
-
     public void RevealPawn(SPawn sPawn)
     {
         pawn.def = sPawn.def.ToUnity();
         DisplaySymbol(pawn.def.icon);
     }
-
-    public void SendToGraveyard()
-    {
-        Vector3 targetPosition = GameManager.instance.boardManager.purgatory.position;
-        transform.position = targetPosition;
-    }
     
-    public void MoveView(Vector2Int pos)
-    {
-        Vector3 targetPosition = GameManager.instance.boardManager.GetTileViewByPos(pos).pawnOrigin.position;
-        if (moveCoroutine != null)
-        {
-            StopCoroutine(moveCoroutine);
-        }
-        // Start the movement coroutine to smoothly move to the target position
-        moveCoroutine = StartCoroutine(MoveToPosition(targetPosition, Globals.PAWNMOVEDURATION));
-    }
-
     public IEnumerator MoveToPosition(Vector3 targetPosition, float duration)
     {
         isMoving = true;
@@ -223,7 +132,7 @@ public class PawnView : MonoBehaviour
         isMoving = false;
     }
     
-    public virtual void Initialize(Pawn inPawn, TileView tileView)
+    public void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
         gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
@@ -246,8 +155,6 @@ public class PawnView : MonoBehaviour
         {
             transform.position = tileView.pawnOrigin.position;
         }
-
-        // Initialize current position as the starting position
         if (moveCoroutine != null)
         {
             StopCoroutine(moveCoroutine);
@@ -268,8 +175,6 @@ public class PawnView : MonoBehaviour
     public void SetColor(Color color)
     {
         planeRenderer.material = new Material(planeRenderer.material);
-
-        // Set the Base Color property in the Shader Graph
         planeRenderer.material.SetColor("_Base_Color", color);
     }
     
@@ -290,7 +195,6 @@ public class PawnView : MonoBehaviour
                 outlineLayer = (1u << 8);
                 break;
         }
-
         if (enable)
         {
             currentRenderingLayerMask |= outlineLayer;
@@ -301,7 +205,6 @@ public class PawnView : MonoBehaviour
         }
         // Ensure that the base layer is always included
         currentRenderingLayerMask |= (1u << 0);
-
         // Apply the updated rendering layer mask to the renderer
         billboardRenderer.renderingLayerMask = currentRenderingLayerMask;
         planeRenderer.renderingLayerMask = currentRenderingLayerMask;

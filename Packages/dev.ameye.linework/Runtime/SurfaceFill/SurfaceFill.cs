@@ -25,10 +25,13 @@ namespace Linework.SurfaceFill
             private Material mask, fillBase, clear;
             private RenderStateBlock fillRenderStateBlock;
             private int lastActiveFillIndex;
-
+            private readonly ProfilingSampler maskSampler, fillSampler;
+            
             public SurfaceFillPass()
             {
                 profilingSampler = new ProfilingSampler(nameof(SurfaceFillPass));
+                maskSampler = new ProfilingSampler(ShaderPassName.Mask);
+                fillSampler = new ProfilingSampler(ShaderPassName.Fill);
             }
 
             public bool Setup(ref SurfaceFillSettings surfaceFillSettings, ref Material maskMaterial, ref Material fillMaterial, ref Material clearMaterial)
@@ -350,7 +353,7 @@ namespace Linework.SurfaceFill
                 // -> Render a mask to the stencil buffer.
                 var maskCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(maskCmd, new ProfilingSampler(ShaderPassName.Mask)))
+                using (new ProfilingScope(maskCmd, maskSampler))
                 {
                     context.ExecuteCommandBuffer(maskCmd);
                     maskCmd.Clear();
@@ -421,7 +424,7 @@ namespace Linework.SurfaceFill
                 // -> Render a fill.
                 var fillCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(maskCmd, new ProfilingSampler(ShaderPassName.Fill)))
+                using (new ProfilingScope(maskCmd, fillSampler))
                 {
                     var i = 0;
                     foreach (var fill in settings.Fills)

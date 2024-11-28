@@ -24,10 +24,16 @@ namespace Linework.WideOutline
         {
             private WideOutlineSettings settings;
             private Material mask, silhouetteBase, composite, clear;
+            private readonly ProfilingSampler maskSampler, silhouetteSampler, floodSampler, outlineSampler;
+
 
             public WideOutlinePass()
             {
                 profilingSampler = new ProfilingSampler(nameof(WideOutlinePass));
+                maskSampler = new ProfilingSampler(ShaderPassName.Mask);
+                silhouetteSampler = new ProfilingSampler(ShaderPassName.Silhouette);
+                floodSampler = new ProfilingSampler(ShaderPassName.Flood);
+                outlineSampler = new ProfilingSampler(ShaderPassName.Outline);
             }
 
             public bool Setup(ref WideOutlineSettings wideOutlineSettings, ref Material maskMaterial, ref Material silhouetteMaterial, ref Material compositeMaterial, ref Material clearMaterial, float renderScale)
@@ -439,7 +445,7 @@ namespace Linework.WideOutline
                 // -> Render a mask to the stencil buffer.
                 var maskCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(maskCmd, new ProfilingSampler(ShaderPassName.Mask)))
+                using (new ProfilingScope(maskCmd, maskSampler))
                 {
                  //   CoreUtils.SetRenderTarget(maskCmd, renderingData.cameraData.renderer.cameraDepthTargetHandle);
                     
@@ -492,7 +498,7 @@ namespace Linework.WideOutline
                 // -> Render a silhouette.
                 var silhouetteCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(silhouetteCmd, new ProfilingSampler(ShaderPassName.Silhouette)))
+                using (new ProfilingScope(silhouetteCmd, silhouetteSampler))
                 {
                     CoreUtils.SetRenderTarget(silhouetteCmd, silhouetteRTHandle, settings.customDepthBuffer ? silhouetteDepthRTHandle : renderingData.cameraData.renderer.cameraDepthTargetHandle);
                     
@@ -545,7 +551,7 @@ namespace Linework.WideOutline
                 // -> Flood the silhouette.
                 var floodCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(floodCmd, new ProfilingSampler(ShaderPassName.Flood)))
+                using (new ProfilingScope(floodCmd, floodSampler))
                 {
                     context.ExecuteCommandBuffer(floodCmd);
                     floodCmd.Clear();
@@ -573,7 +579,7 @@ namespace Linework.WideOutline
                 // -> Render an outline.
                 var outlineCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(outlineCmd, new ProfilingSampler(ShaderPassName.Outline)))
+                using (new ProfilingScope(outlineCmd, outlineSampler))
                 {
                     context.ExecuteCommandBuffer(outlineCmd);
                     outlineCmd.Clear();

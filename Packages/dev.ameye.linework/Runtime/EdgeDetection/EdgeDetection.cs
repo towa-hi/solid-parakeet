@@ -22,10 +22,13 @@ namespace Linework.EdgeDetection
         {
             private EdgeDetectionSettings settings;
             private Material outline, section;
-
+            private readonly ProfilingSampler sectionSampler, outlineSampler;
+            
             public EdgeDetectionPass()
             {
                 profilingSampler = new ProfilingSampler(nameof(EdgeDetectionPass));
+                sectionSampler = new ProfilingSampler(ShaderPassName.Section);
+                outlineSampler = new ProfilingSampler(ShaderPassName.Outline);
             }
 
             public bool Setup(ref EdgeDetectionSettings edgeDetectionSettings, ref Material sectionMaterial, ref Material outlineMaterial)
@@ -385,7 +388,7 @@ namespace Linework.EdgeDetection
                 {
                     var sectionCmd = CommandBufferPool.Get();
 
-                    using (new ProfilingScope(sectionCmd, new ProfilingSampler(ShaderPassName.Section)))
+                    using (new ProfilingScope(sectionCmd, sectionSampler))
                     {
                         context.ExecuteCommandBuffer(sectionCmd);
                         sectionCmd.Clear();
@@ -431,7 +434,7 @@ namespace Linework.EdgeDetection
                 // -> Add the outline to the scene.
                 var outlineCmd = CommandBufferPool.Get();
 
-                using (new ProfilingScope(outlineCmd, new ProfilingSampler(ShaderPassName.Outline)))
+                using (new ProfilingScope(outlineCmd, outlineSampler))
                 {
                     CoreUtils.SetRenderTarget(outlineCmd, renderingData.cameraData.renderer.cameraColorTargetHandle); // if using cameraColorRTHandle this does not render in scene view when rendering after post processing with post processing enabled
                     context.ExecuteCommandBuffer(outlineCmd);

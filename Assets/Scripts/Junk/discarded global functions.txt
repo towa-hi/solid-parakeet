@@ -1,0 +1,111 @@
+//
+    // public static Dictionary<string, string> pawnSprites = new Dictionary<string, string>
+    // {
+    //     { "Bomb", "bomb" },
+    //     { "Captain", "6"},
+    //     { "Colonel", "8"},
+    //     { "Flag", "flag"},
+    //     { "General", "9"},
+    //     { "Lieutenant", "5"},
+    //     { "Major", "7"},
+    //     { "Marshal", "10"},
+    //     { "Miner", "m"},
+    //     { "Scout", "s"},
+    //     { "Sergeant", "4"},
+    //     { "Spy", "dagger"},
+    // };
+    //
+    // public static byte[] SerializeMessage(MessageType type, byte[] data)
+    // {
+    //     using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
+    //     {
+    //         // Convert MessageType to bytes (4 bytes, little endian)
+    //         byte[] typeBytes = BitConverter.GetBytes((uint)type);
+    //         ms.Write(typeBytes, 0, typeBytes.Length);
+    //
+    //         // Convert data length to bytes (4 bytes, little endian)
+    //         byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
+    //         ms.Write(lengthBytes, 0, lengthBytes.Length);
+    //
+    //         // Write data bytes
+    //         ms.Write(data, 0, data.Length);
+    //
+    //         return ms.ToArray();
+    //     }
+    // }
+    //
+    // public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
+    // {
+    //     byte[] header = new byte[8];
+    //     int bytesRead = 0;
+    //     while (bytesRead < 8)
+    //     {
+    //         int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
+    //         if (read == 0)
+    //             throw new Exception("Disconnected");
+    //         bytesRead += read;
+    //     }
+    //
+    //     // Read message type
+    //     MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
+    //
+    //     // Read data length
+    //     uint length = BitConverter.ToUInt32(header, 4);
+    //
+    //     // Read data
+    //     byte[] data = new byte[length];
+    //     bytesRead = 0;
+    //     while (bytesRead < length)
+    //     {
+    //         int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
+    //         if (read == 0)
+    //             throw new Exception("Disconnected during data reception");
+    //         bytesRead += read;
+    //     }
+    //
+    //     return (type, data);
+    // }
+    // public static int[] ParsePassword(string password)
+    // {
+    //     // Remove any non-digit and non-separator characters
+    //     string cleanedPassword = Regex.Replace(password, "[^0-9, ]", "");
+    //
+    //     // Split the string by commas or spaces
+    //     string[] parts = cleanedPassword.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+    //
+    //     if (parts.Length == 5)
+    //     {
+    //         int[] passwordInts = new int[5];
+    //         for (int i = 0; i < 5; i++)
+    //         {
+    //             if (!int.TryParse(parts[i], out passwordInts[i]))
+    //             {
+    //                 Debug.LogError($"Failed to parse part {i + 1}: '{parts[i]}'");
+    //                 return null; // Parsing failed
+    //             }
+    //         }
+    //         Debug.Log($"Parsed password with separators: [{string.Join(", ", passwordInts)}]");
+    //         return passwordInts;
+    //     }
+    //     else if (cleanedPassword.Length == 5)
+    //     {
+    //         int[] passwordInts = new int[5];
+    //         for (int i = 0; i < 5; i++)
+    //         {
+    //             char c = cleanedPassword[i];
+    //             if (!char.IsDigit(c))
+    //             {
+    //                 Debug.LogError($"Non-digit character found at position {i + 1}: '{c}'");
+    //                 return null; // Invalid character
+    //             }
+    //             passwordInts[i] = c - '0';
+    //         }
+    //         Debug.Log($"Parsed password without separators: [{string.Join(", ", passwordInts)}]");
+    //         return passwordInts;
+    //     }
+    //     else
+    //     {
+    //         Debug.LogError($"Invalid password format. Expected 5 integers separated by commas/spaces or a continuous 5-digit number. Received: '{password}'");
+    //         return null; // Invalid format
+    //     }
+    // }

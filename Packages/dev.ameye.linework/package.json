@@ -1,6 +1,6 @@
 {
   "name": "dev.ameye.linework",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "displayName": "Linework",
   "description": "Linework is a practical toolkit for rendering outlines in Unity. Linework supports rendering multiple types of outlines and fills with lots of customization options. Linework has been designed to be performant and easy-to-use.",
   "unity": "2022.3",

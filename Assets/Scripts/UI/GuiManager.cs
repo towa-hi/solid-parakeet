@@ -280,14 +280,4 @@ public class GuiManager : MonoBehaviour
         currentModal = null;
     }
 
-    public void OnSetupSubmittedResponse(Response<bool> response)
-    {
-        gameOverlay.OnSetupSubmittedResponse(response);
-    }
-
-    public void OnSetupFinishedResponse(Response<SGameState> response)
-    {
-        gameOverlay.OnSetupFinishedResponse(response);
-    }
-
 }

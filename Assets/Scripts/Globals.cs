@@ -1,13 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-//using System.Net.Sockets;
 using System.Text.RegularExpressions;
-using NUnit.Framework;
-//using System.Threading.Tasks;
-//using JetBrains.Annotations;
 using UnityEngine;
-using Random = System.Random;
 
 public static class Globals
 {
@@ -16,117 +11,7 @@ public static class Globals
     public static float PAWNMOVEDURATION = 0.5f;
     // Static instance of GameInputActions to be shared among all Hoverable instances
     public static readonly InputSystem_Actions inputActions = new();
-    //
-    // public static Dictionary<string, string> pawnSprites = new Dictionary<string, string>
-    // {
-    //     { "Bomb", "bomb" },
-    //     { "Captain", "6"},
-    //     { "Colonel", "8"},
-    //     { "Flag", "flag"},
-    //     { "General", "9"},
-    //     { "Lieutenant", "5"},
-    //     { "Major", "7"},
-    //     { "Marshal", "10"},
-    //     { "Miner", "m"},
-    //     { "Scout", "s"},
-    //     { "Sergeant", "4"},
-    //     { "Spy", "dagger"},
-    // };
-    //
-    // public static byte[] SerializeMessage(MessageType type, byte[] data)
-    // {
-    //     using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
-    //     {
-    //         // Convert MessageType to bytes (4 bytes, little endian)
-    //         byte[] typeBytes = BitConverter.GetBytes((uint)type);
-    //         ms.Write(typeBytes, 0, typeBytes.Length);
-    //
-    //         // Convert data length to bytes (4 bytes, little endian)
-    //         byte[] lengthBytes = BitConverter.GetBytes((uint)data.Length);
-    //         ms.Write(lengthBytes, 0, lengthBytes.Length);
-    //
-    //         // Write data bytes
-    //         ms.Write(data, 0, data.Length);
-    //
-    //         return ms.ToArray();
-    //     }
-    // }
-    //
-    // public static async Task<(MessageType, byte[])> DeserializeMessageAsync(NetworkStream stream)
-    // {
-    //     byte[] header = new byte[8];
-    //     int bytesRead = 0;
-    //     while (bytesRead < 8)
-    //     {
-    //         int read = await stream.ReadAsync(header, bytesRead, 8 - bytesRead);
-    //         if (read == 0)
-    //             throw new Exception("Disconnected");
-    //         bytesRead += read;
-    //     }
-    //
-    //     // Read message type
-    //     MessageType type = (MessageType)BitConverter.ToUInt32(header, 0);
-    //
-    //     // Read data length
-    //     uint length = BitConverter.ToUInt32(header, 4);
-    //
-    //     // Read data
-    //     byte[] data = new byte[length];
-    //     bytesRead = 0;
-    //     while (bytesRead < length)
-    //     {
-    //         int read = await stream.ReadAsync(data, bytesRead, (int)(length - bytesRead));
-    //         if (read == 0)
-    //             throw new Exception("Disconnected during data reception");
-    //         bytesRead += read;
-    //     }
-    //
-    //     return (type, data);
-    // }
-    // public static int[] ParsePassword(string password)
-    // {
-    //     // Remove any non-digit and non-separator characters
-    //     string cleanedPassword = Regex.Replace(password, "[^0-9, ]", "");
-    //
-    //     // Split the string by commas or spaces
-    //     string[] parts = cleanedPassword.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-    //
-    //     if (parts.Length == 5)
-    //     {
-    //         int[] passwordInts = new int[5];
-    //         for (int i = 0; i < 5; i++)
-    //         {
-    //             if (!int.TryParse(parts[i], out passwordInts[i]))
-    //             {
-    //                 Debug.LogError($"Failed to parse part {i + 1}: '{parts[i]}'");
-    //                 return null; // Parsing failed
-    //             }
-    //         }
-    //         Debug.Log($"Parsed password with separators: [{string.Join(", ", passwordInts)}]");
-    //         return passwordInts;
-    //     }
-    //     else if (cleanedPassword.Length == 5)
-    //     {
-    //         int[] passwordInts = new int[5];
-    //         for (int i = 0; i < 5; i++)
-    //         {
-    //             char c = cleanedPassword[i];
-    //             if (!char.IsDigit(c))
-    //             {
-    //                 Debug.LogError($"Non-digit character found at position {i + 1}: '{c}'");
-    //                 return null; // Invalid character
-    //             }
-    //             passwordInts[i] = c - '0';
-    //         }
-    //         Debug.Log($"Parsed password without separators: [{string.Join(", ", passwordInts)}]");
-    //         return passwordInts;
-    //     }
-    //     else
-    //     {
-    //         Debug.LogError($"Invalid password format. Expected 5 integers separated by commas/spaces or a continuous 5-digit number. Received: '{password}'");
-    //         return null; // Invalid format
-    //     }
-    // }
+    
 
     public static bool IsNicknameValid(string nickname)
     {
@@ -294,12 +179,6 @@ public enum MessageType : uint
     SETUPFINISHED,
     MOVE,
     RESOLVE,
-}
-
-public enum AppState
-{
-    MAIN,
-    GAME,
 }
 
 public enum Player
@@ -826,7 +705,7 @@ public struct SGameState
         {
             return null;
         }
-        Random random = new();
+        System.Random random = new();
         int randomIndex = random.Next(0, allPossibleMoves.Count);
         SQueuedMove randomMove = allPossibleMoves[randomIndex];
         SPawn randomPawn = gameState.GetPawnById(randomMove.pawnId);
@@ -1809,15 +1688,6 @@ public struct PawnChanges
     }
 }
 
-public struct SMoveResult
-{
-    public SQueuedMove originalMove;
-    public bool didConflictHappen;
-    public bool didConflictWin;
-    
-    public Guid otherPawn;
-}
-
 public struct SConflictReceipt
 {
     public Guid redPawnId;
@@ -1830,7 +1700,6 @@ public struct SConflictReceipt
         return $"red id: {redPawnId} blue id: {bluePawnId} redDies: {redDies} blueDies: {blueDies}";
     }
 }
-
 
 public struct SResolveReceipt
 {
@@ -1879,32 +1748,6 @@ public struct SEventState
         return moveEvent;
     }
     
-    public SEventState(ResolveEvent inEventType, SPawn inPawn, SPawn inDefenderPawn, SVector2Int inTargetPos)
-    {
-
-        player = inPawn.player;
-        eventType = (int)inEventType;
-        pawnId = inPawn.pawnId;
-        defenderPawnId = inDefenderPawn.pawnId;
-        switch (inEventType)
-        {
-            case ResolveEvent.MOVE:
-                targetPos = inTargetPos;
-                break;
-            case ResolveEvent.DEATH:
-                targetPos = new SVector2Int(Globals.PURGATORY);
-                break;
-            case ResolveEvent.CONFLICT:
-            // change this later
-            case ResolveEvent.SWAPCONFLICT:
-                targetPos = inDefenderPawn.pos;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(inEventType), inEventType, null);
-        }
-        originalPos = inPawn.pos;
-    }
-
     public override string ToString()
     {
         string baseString = $"{(ResolveEvent)eventType} {(Player)player} {Globals.ShortGuid(pawnId)} ";
@@ -1912,16 +1755,12 @@ public struct SEventState
         {
             case ResolveEvent.MOVE:
                 return baseString + $"{originalPos}  to {targetPos}";
-                break;
             case ResolveEvent.CONFLICT:
                 return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
-                break;
             case ResolveEvent.SWAPCONFLICT:
                 return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
-                break;
             case ResolveEvent.DEATH:
                 return baseString;
-                break;
             default:
                 throw new ArgumentOutOfRangeException();
         }
