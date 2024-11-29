@@ -21,7 +21,11 @@ public class PawnView : MonoBehaviour
     public bool isSelected;
     public bool isHovered;
     public bool isMoving;
-    
+
+    public SpriteRenderer badgeSpriteRenderer;
+    public SpriteRenderer badgeBackgroundRenderer;
+
+    public Collider collider;
     // Reference to the current movement coroutine
     Coroutine moveCoroutine;
     
@@ -170,12 +174,14 @@ public class PawnView : MonoBehaviour
             Debug.Log("Sprite is null.");
         }
         symbolRenderer.sprite = sprite;
+        badgeSpriteRenderer.sprite = sprite;
     }
 
     public void SetColor(Color color)
     {
         planeRenderer.material = new Material(planeRenderer.material);
         planeRenderer.material.SetColor("_Base_Color", color);
+        badgeBackgroundRenderer.color = color;
     }
     
     uint currentRenderingLayerMask;
@@ -220,6 +226,7 @@ public class PawnView : MonoBehaviour
     {
         isSelected = inIsSelected;
         SetMeshOutline(isSelected, "SelectOutline");
+        collider.enabled = !inIsSelected;
     }
 
     public void OnHighlight(bool inIsHighlighted)

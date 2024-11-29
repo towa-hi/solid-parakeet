@@ -54,7 +54,7 @@ public class FakeClient : IGameClient
     {
         RegisterClientRequest registerClientRequest = new();
         isConnected = true;
-        SendFakeRequestToServer(MessageType.REGISTERCLIENT, registerClientRequest);
+        SendFakeRequestToServer(MessageGenre.REGISTERCLIENT, registerClientRequest);
     }
 
     public void SendRegisterNickname(string nicknameInput)
@@ -63,7 +63,7 @@ public class FakeClient : IGameClient
         {
             nickname = nicknameInput,
         };
-        SendFakeRequestToServer(MessageType.REGISTERNICKNAME, registerNicknameRequest);
+        SendFakeRequestToServer(MessageGenre.REGISTERNICKNAME, registerNicknameRequest);
     }
 
     public void SendGameLobby()
@@ -73,20 +73,20 @@ public class FakeClient : IGameClient
             gameMode = 0,
             sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef),
         };
-        SendFakeRequestToServer(MessageType.GAMELOBBY, gameLobbyRequest);
+        SendFakeRequestToServer(MessageGenre.GAMELOBBY, gameLobbyRequest);
     }
 
     public void SendGameLobbyLeaveRequest()
     {
         LeaveGameLobbyRequest leaveGameLobbyRequest = new();
-        SendFakeRequestToServer(MessageType.LEAVEGAMELOBBY, leaveGameLobbyRequest);
+        SendFakeRequestToServer(MessageGenre.LEAVEGAMELOBBY, leaveGameLobbyRequest);
     }
 
     public void SendGameLobbyJoinRequest(string password)
     {
         // NOTE: this should never be happening in offline mode
         JoinGameLobbyRequest joinGameLobbyRequest = new();
-        SendFakeRequestToServer(MessageType.JOINGAMELOBBY, joinGameLobbyRequest);
+        SendFakeRequestToServer(MessageGenre.JOINGAMELOBBY, joinGameLobbyRequest);
     }
 
     public void SendGameLobbyReadyRequest(bool ready)
@@ -95,7 +95,7 @@ public class FakeClient : IGameClient
         {
             ready = true,
         };
-        SendFakeRequestToServer(MessageType.READYLOBBY, readyGameLobbyRequest);
+        SendFakeRequestToServer(MessageGenre.READYLOBBY, readyGameLobbyRequest);
     }
 
     public void SendStartGameDemoRequest()
@@ -110,7 +110,7 @@ public class FakeClient : IGameClient
         {
             setupParameters = setupParameters,
         };
-        SendFakeRequestToServer(MessageType.GAMESTART, startGameRequest);
+        SendFakeRequestToServer(MessageGenre.GAMESTART, startGameRequest);
     }
     
     public void SendSetupSubmissionRequest(SSetupPawn[] setupPawnList)
@@ -120,7 +120,7 @@ public class FakeClient : IGameClient
             player = (int)Player.RED,
             setupPawns = setupPawnList,
         };
-        SendFakeRequestToServer(MessageType.GAMESETUP, setupRequest);
+        SendFakeRequestToServer(MessageGenre.GAMESETUP, setupRequest);
     }
 
     public void SendMove(SQueuedMove move)
@@ -129,13 +129,13 @@ public class FakeClient : IGameClient
         {
             move = move,
         };
-        SendFakeRequestToServer(MessageType.MOVE, moveRequest);
+        SendFakeRequestToServer(MessageGenre.MOVE, moveRequest);
     }
 
 
-    void SendFakeRequestToServer(MessageType messageType, RequestBase requestData)
+    void SendFakeRequestToServer(MessageGenre messageGenre, RequestBase requestData)
     {
-        Debug.Log($"OFFLINE: Sending fake Request of type {messageType}");
+        Debug.Log($"OFFLINE: Sending fake Request of type {messageGenre}");
         if (!isConnected)
         {
             return;
@@ -267,62 +267,62 @@ public class FakeClient : IGameClient
                 throw new ArgumentOutOfRangeException(nameof(requestData));
         }
         //Task.Delay(200);
-        ProcessFakeResponse(response, messageType);
+        ProcessFakeResponse(response, messageGenre);
     }
     
-    void ProcessFakeResponse(ResponseBase response, MessageType messageType)
+    void ProcessFakeResponse(ResponseBase response, MessageGenre messageGenre)
     {
-        Debug.Log($"OFFLINE: Processing fake response of type {messageType}");
-        switch (messageType)
+        Debug.Log($"OFFLINE: Processing fake response of type {messageGenre}");
+        switch (messageGenre)
         {
-            case MessageType.SERVERERROR:
+            case MessageGenre.SERVERERROR:
                 // TODO: not yet implemented
                 break;
-            case MessageType.REGISTERCLIENT:
+            case MessageGenre.REGISTERCLIENT:
                 Response<string> registerClientResponse = (Response<string>)response;
                 HandleRegisterClientResponse(registerClientResponse);
                 break;
-            case MessageType.REGISTERNICKNAME:
+            case MessageGenre.REGISTERNICKNAME:
                 Response<string> registerNicknameResponse = (Response<string>)response;
                 HandleRegisterNicknameResponse(registerNicknameResponse);
                 break;
-            case MessageType.GAMELOBBY:
+            case MessageGenre.GAMELOBBY:
                 Response<SLobby> startLobbyResponse = (Response<SLobby>)response;
                 HandleGameLobbyResponse(startLobbyResponse);
                 break;
-            case MessageType.LEAVEGAMELOBBY:
+            case MessageGenre.LEAVEGAMELOBBY:
                 Response<string> leaveGameLobbyResponse = (Response<string>)response;
                 HandleLeaveGameLobbyResponse(leaveGameLobbyResponse);
                 break;
-            case MessageType.JOINGAMELOBBY:
+            case MessageGenre.JOINGAMELOBBY:
                 // TODO: not yet implemented
                 break;
-            case MessageType.READYLOBBY:
+            case MessageGenre.READYLOBBY:
                 Response<SLobby> readyLobbyResponse = (Response<SLobby>)response;
                 HandleReadyLobbyResponse(readyLobbyResponse);
                 break;
-            case MessageType.GAMESTART:
+            case MessageGenre.GAMESTART:
                 Response<SSetupParameters> gameStartResponse = (Response<SSetupParameters>)response;
                 HandleGameStartResponse(gameStartResponse);
                 break;
-            case MessageType.GAMESETUP:
+            case MessageGenre.GAMESETUP:
                 Response<bool> gameSetupResponse = (Response<bool>)response;
                 HandleGameSetupResponse(gameSetupResponse);
                 break;
-            case MessageType.SETUPFINISHED:
+            case MessageGenre.SETUPFINISHED:
                 Response<SGameState> setupFinishedResponse = (Response<SGameState>)response;
                 HandleSetupFinished(setupFinishedResponse);
                 break;
-            case MessageType.MOVE:
+            case MessageGenre.MOVE:
                 Response<bool> moveResponse = (Response<bool>)response;
                 HandleMoveResponse(moveResponse);
                 break;
-            case MessageType.RESOLVE:
+            case MessageGenre.RESOLVE:
                 Response<SResolveReceipt> resolveResponse = (Response<SResolveReceipt>)response;
                 HandleResolveResponse(resolveResponse);
                 break;
             default:
-                throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null);
+                throw new ArgumentOutOfRangeException(nameof(messageGenre), messageGenre, null);
         }
     }
     
@@ -406,7 +406,7 @@ public class FakeClient : IGameClient
             data = redInitialGameState,
         };
         //Task.Delay(200);
-        ProcessFakeResponse(initialGameStateResponseRed, MessageType.SETUPFINISHED);
+        ProcessFakeResponse(initialGameStateResponseRed, MessageGenre.SETUPFINISHED);
     }
     
     void HandleSetupFinished(Response<SGameState> initialGameStateResponse)
@@ -445,7 +445,7 @@ public class FakeClient : IGameClient
             data = redReceipt,
         };
         //Task.Delay(200);
-        ProcessFakeResponse(redGameStateResponse, MessageType.RESOLVE);
+        ProcessFakeResponse(redGameStateResponse, MessageGenre.RESOLVE);
 
     }
     

@@ -165,7 +165,7 @@ public static class Globals
     }
 }
 
-public enum MessageType : uint
+public enum MessageGenre : uint
 {
     SERVERERROR, // only called when error is server fault, disconnects the client forcibly
     REGISTERCLIENT, // request: clientId only, response: none 

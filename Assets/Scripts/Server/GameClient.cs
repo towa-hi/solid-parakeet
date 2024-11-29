@@ -84,7 +84,7 @@
 //                 clientId = clientId,
 //                 nickname = nicknameInput,
 //             };
-//             await SendRequestToServer<string>(MessageType.REGISTERNICKNAME, registerNicknameRequest);
+//             await SendRequestToServer<string>(MessageGenre.REGISTERNICKNAME, registerNicknameRequest);
 //         }
 //         catch (Exception e)
 //         {
@@ -101,7 +101,7 @@
 //             {
 //                 clientId = clientId
 //             };
-//             await SendRequestToServer<string>(MessageType.REGISTERCLIENT, registerClientRequest);
+//             await SendRequestToServer<string>(MessageGenre.REGISTERCLIENT, registerClientRequest);
 //         }
 //         catch (Exception e)
 //         {
@@ -119,7 +119,7 @@
 //             gameMode = 0,
 //             sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef)
 //         };
-//         await SendRequestToServer<SLobby>(MessageType.GAMELOBBY, gameLobbyRequest);
+//         await SendRequestToServer<SLobby>(MessageGenre.GAMELOBBY, gameLobbyRequest);
 //
 //     }
 //
@@ -129,7 +129,7 @@
 //         {
 //             clientId = clientId,
 //         };
-//         await SendRequestToServer<string>(MessageType.LEAVEGAMELOBBY, gameLobbyLeaveRequest);
+//         await SendRequestToServer<string>(MessageGenre.LEAVEGAMELOBBY, gameLobbyLeaveRequest);
 //     }
 //
 //     public async Task SendGameLobbyJoinRequest()
@@ -144,7 +144,7 @@
 //         {
 //             ready = ready,
 //         };
-//         await SendRequestToServer<SLobby>(MessageType.READYLOBBY, readyGameLobbyRequest);
+//         await SendRequestToServer<SLobby>(MessageGenre.READYLOBBY, readyGameLobbyRequest);
 //     }
 //
 //     // DEMO CODE NOT REAL
@@ -157,7 +157,7 @@
 //     
 //     
 //     // END OF DEMO CODE NOT REAL
-//     async Task SendRequestToServer<TResponse>(MessageType messageType, RequestBase requestData)
+//     async Task SendRequestToServer<TResponse>(MessageGenre messageType, RequestBase requestData)
 //     {
 //         if (isConnected)
 //         {
@@ -187,7 +187,7 @@
 //         {
 //             try
 //             {
-//                 (MessageType messageType, byte[] data) = await Globals.DeserializeMessageAsync(stream);
+//                 (MessageGenre messageType, byte[] data) = await Globals.DeserializeMessageAsync(stream);
 //                 string jsonResponse = Encoding.UTF8.GetString(data);
 //
 //                 ResponseBase responseBase = JsonConvert.DeserializeObject<ResponseBase>(jsonResponse);
@@ -208,7 +208,7 @@
 //         }
 //     }
 //     
-//     void HandleResponse(ResponseBase responseBase, string jsonResponse, MessageType messageType)
+//     void HandleResponse(ResponseBase responseBase, string jsonResponse, MessageGenre messageType)
 //     {
 //         if (requestManager.TryGetResponseType(responseBase.requestId, out var responseType))
 //         {
@@ -230,27 +230,27 @@
 //         }
 //     }
 //     
-//     void ProcessResponse(ResponseBase response, MessageType messageType)
+//     void ProcessResponse(ResponseBase response, MessageGenre messageType)
 //     {
 //         Debug.Log($"ProcessResponse: {messageType}");
 //         switch (response)
 //         {
-//             case Response<string> stringResponse when messageType == MessageType.REGISTERCLIENT:
+//             case Response<string> stringResponse when messageType == MessageGenre.REGISTERCLIENT:
 //                 HandleRegisterClientResponse(stringResponse);
 //                 break;
-//             case Response<string> stringResponse when messageType == MessageType.REGISTERNICKNAME:
+//             case Response<string> stringResponse when messageType == MessageGenre.REGISTERNICKNAME:
 //                 HandleRegisterNicknameResponse(stringResponse);
 //                 break;
-//             case Response<SLobby> lobbyResponse when messageType == MessageType.GAMELOBBY:
+//             case Response<SLobby> lobbyResponse when messageType == MessageGenre.GAMELOBBY:
 //                 HandleGameLobbyResponse(lobbyResponse);
 //                 break;
-//             case Response<string> stringResponse when messageType == MessageType.LEAVEGAMELOBBY:
+//             case Response<string> stringResponse when messageType == MessageGenre.LEAVEGAMELOBBY:
 //                 HandleLeaveGameLobbyResponse(stringResponse);
 //                 break;
-//             case Response<string> stringResponse when messageType == MessageType.JOINGAMELOBBY:
+//             case Response<string> stringResponse when messageType == MessageGenre.JOINGAMELOBBY:
 //                 HandleJoinGameLobbyResponse(stringResponse);
 //                 break;
-//             case Response<SLobby> lobbyResponse when messageType == MessageType.READYLOBBY:
+//             case Response<SLobby> lobbyResponse when messageType == MessageGenre.READYLOBBY:
 //                 HandleReadyLobbyResponse(lobbyResponse);
 //                 break;
 //             default:

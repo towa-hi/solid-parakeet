@@ -10,6 +10,8 @@ public class Arena : MonoBehaviour
     Action OnFinish;
     public bool redDies;
     public bool blueDies;
+    public Camera arenaCamera;
+    
     public void Initialize(GuiResolveScreen inMaster, SPawn redPawn, SPawn bluePawn, bool inRedDies, bool inBlueDies, Action inOnFinish)
     {
         master = inMaster;
@@ -22,6 +24,7 @@ public class Arena : MonoBehaviour
         bluePawnView.SetColor(Color.blue);
         bluePawnView.DisplaySymbol(bluePawnView.pawn.def.icon);
         OnFinish = inOnFinish;
+        arenaCamera.gameObject.SetActive(true);
         StartCoroutine(Battle());
     }
 
@@ -37,6 +40,7 @@ public class Arena : MonoBehaviour
             bluePawnView.shatterEffect.ShatterEffect(20f);
         }
         yield return new WaitForSeconds(2f);
+        arenaCamera.gameObject.SetActive(false);
         master.HideBattleScreen();
         OnFinish?.Invoke();
     }

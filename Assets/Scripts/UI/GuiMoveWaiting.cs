@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 
@@ -7,15 +8,36 @@ public class GuiMoveWaiting : MonoBehaviour
     public TextMeshProUGUI header;
     public string waitingForServer = "Waiting for other player...";
     
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        //header.text = waitingForServer;
+        GameManager.instance.boardManager.OnPhaseChanged += OnPhaseChanged;
     }
 
-    // Update is called once per frame
-    void Update()
+    void OnPhaseChanged(IPhase currentPhase)
     {
-        
+        switch (currentPhase)
+        {
+            case UninitializedPhase uninitializedPhase:
+                gameObject.SetActive(false);
+                break;
+            case SetupPhase setupPhase:
+                gameObject.SetActive(false);
+                break;
+            case WaitingPhase waitingPhase:
+                gameObject.SetActive(true);
+                break;
+            case MovePhase movePhase:
+                gameObject.SetActive(false);
+                break;
+            case ResolvePhase resolvePhase:
+                gameObject.SetActive(false);
+                break;
+            case EndPhase endPhase:
+                gameObject.SetActive(false);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(currentPhase));
+
+        }
     }
 }

@@ -9,6 +9,8 @@ using UnityEngine;
 
 public class BoardManager : MonoBehaviour
 {
+    public bool fastMode;
+    
     public Transform purgatory;
     public BoardClickInputManager boardClickInputManager;
     public GameObject tilePrefab;
@@ -623,6 +625,10 @@ public class MovePhase : IPhase
                 if (success)
                 {
                     Debug.Log("OnClick: queued a move");
+                    if (bm.fastMode)
+                    {
+                        OnSubmitMove();
+                    }
                 }
                 else
                 {
