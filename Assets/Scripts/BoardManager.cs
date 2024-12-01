@@ -187,6 +187,33 @@ public class BoardManager : MonoBehaviour
     
     void OnPositionHovered(Vector2Int oldPos, Vector2Int newPos)
     {
+        // TODO: fix this shitty code
+        switch (currentPhase)
+        {
+            case EndPhase endPhase:
+                currentHoveredTileView?.OnHovered(false);
+                currentHoveredPawnView?.OnHovered(false);
+                return;
+            case MovePhase movePhase:
+                break;
+            case ResolvePhase resolvePhase:
+                currentHoveredTileView?.OnHovered(false);
+                currentHoveredPawnView?.OnHovered(false);
+                return;
+            case SetupPhase setupPhase:
+                break;
+            case UninitializedPhase uninitializedPhase:
+                currentHoveredTileView?.OnHovered(false);
+                currentHoveredPawnView?.OnHovered(false);
+                return;
+            case WaitingPhase waitingPhase:
+                currentHoveredTileView?.OnHovered(false);
+                currentHoveredPawnView?.OnHovered(false);
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(currentPhase));
+
+        }
         // Store references to previous hovered pawn and tile
         PawnView previousHoveredPawnView = currentHoveredPawnView;
         TileView previousHoveredTileView = currentHoveredTileView;
