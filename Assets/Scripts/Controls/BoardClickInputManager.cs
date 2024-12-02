@@ -115,7 +115,7 @@ public class BoardClickInputManager : MonoBehaviour
                 currentHoveredObject = currentHoveredTileView != null ? currentHoveredTileView.gameObject : null;
                 foundSomething = true;
 
-                Vector2Int newPosition = currentHoveredTileView.tile.pos;
+                Vector2Int newPosition = currentHoveredTileView.tile.pos.ToUnity();
                 if (currentHoveredPosition != newPosition || currentHoveredObject != previousHoveredObject)
                 {
                     currentHoveredPosition = newPosition;
@@ -165,7 +165,7 @@ public class BoardClickInputManager : MonoBehaviour
         }
         else if (currentHoveredTileView)
         {
-            Vector2Int pos = currentHoveredTileView.tile.pos;
+            Vector2Int pos = currentHoveredTileView.tile.pos.ToUnity();
             Debug.Log($"Clicked tile at {pos}");
             OnPositionClicked?.Invoke(pos);
             // Handle tile click

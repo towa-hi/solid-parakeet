@@ -102,7 +102,7 @@ public class ClickInputManager : MonoBehaviour
         }
         else if (currentHoveredTileView != null)
         {
-            currentHoveredPosition = currentHoveredTileView.tile.pos;
+            currentHoveredPosition = currentHoveredTileView.tile.pos.ToUnity();
         }
         else
         {

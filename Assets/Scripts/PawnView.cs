@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.U2D;
 
 public class PawnView : MonoBehaviour
@@ -25,7 +26,7 @@ public class PawnView : MonoBehaviour
     public SpriteRenderer badgeSpriteRenderer;
     public SpriteRenderer badgeBackgroundRenderer;
 
-    public Collider collider;
+    public Collider pointerCollider;
     // Reference to the current movement coroutine
     Coroutine moveCoroutine;
     
@@ -226,7 +227,7 @@ public class PawnView : MonoBehaviour
     {
         isSelected = inIsSelected;
         SetMeshOutline(isSelected, "SelectOutline");
-        collider.enabled = !inIsSelected;
+        pointerCollider.enabled = !inIsSelected;
     }
 
     public void OnHighlight(bool inIsHighlighted)

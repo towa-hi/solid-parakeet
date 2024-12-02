@@ -394,9 +394,8 @@ public class SetupPhase : IPhase
             Vector3 worldPosition = bm.grid.CellToWorld(new Vector3Int(sTile.pos.x, sTile.pos.y, 0));
             GameObject tileObject = UnityEngine.Object.Instantiate(bm.tilePrefab, worldPosition, Quaternion.identity, bm.transform);
             TileView tileView = tileObject.GetComponent<TileView>();
-            Tile tile = sTile.ToUnity();
-            tileView.Initialize(tile, bm);
-            tileViews.Add(tile.pos, tileView);
+            tileView.Initialize(sTile);
+            tileViews.Add(sTile.pos.ToUnity(), tileView);
         }
         foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)
         {
@@ -440,7 +439,7 @@ public class SetupPhase : IPhase
             SPawn newState = new(deadPawnView.pawn)
             {
                 isAlive = false,
-                pos = new SVector2Int(Globals.PURGATORY),
+                pos = (SVector2Int)Globals.PURGATORY,
             };
             deadPawnView.SyncState(newState);
             deadPawnView.UpdateViewPosition();
@@ -456,7 +455,7 @@ public class SetupPhase : IPhase
             SPawn newState = new(alivePawnView.pawn)
             {
                 isAlive = true,
-                pos = new SVector2Int(bm.hoveredPos),
+                pos = (SVector2Int)bm.hoveredPos,
             };
             alivePawnView.SyncState(newState);
             alivePawnView.UpdateViewPosition();
@@ -479,7 +478,7 @@ public class SetupPhase : IPhase
                 SPawn newState = new(pawnView.pawn)
                 {
                     isAlive = false,
-                    pos = new SVector2Int(Globals.PURGATORY),
+                    pos = (SVector2Int)Globals.PURGATORY,
                 };
                 pawnView.SyncState(newState);
             }
@@ -579,7 +578,7 @@ public class MovePhase : IPhase
             Debug.Assert(bm.pawnViews.Count == 0);
             foreach (TileView tileView in bm.tileViews.Values)
             {
-                tileView.SetToGreen();
+                tileView.SetToGray();
             }
             List<PawnView> pawnViews = new();
             foreach (SPawn pawnState in gameStateForHoldingOnly.pawns)
@@ -739,7 +738,7 @@ public class MovePhase : IPhase
             TileView oldTileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
             oldTileView.OnArrow(false);
         }
-        maybeQueuedMove = new SQueuedMove((int)bm.player, pawnView.pawn.pawnId, new SVector2Int(pawnView.pawn.pos),new SVector2Int(pos));
+        maybeQueuedMove = new SQueuedMove((int)bm.player, pawnView.pawn.pawnId,  (SVector2Int)pawnView.pawn.pos,(SVector2Int)pos);
         TileView tileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
         tileView.OnArrow(true);
         return true;

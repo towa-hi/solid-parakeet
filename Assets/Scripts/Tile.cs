@@ -4,6 +4,8 @@ using UnityEngine;
 [System.Serializable]
 public class Tile
 {
+    // NOTE: kinda a vestigial class but still needed because boardDefs are still
+    // scriptableObjects that need objects rather than structs
     public Vector2Int pos;
     public bool isPassable = true;
     public Player setupPlayer;
@@ -17,7 +19,6 @@ public class Tile
     {
         return isPassable && setupPlayer == player;
     }
-
 }
 
 [Serializable]
@@ -29,17 +30,18 @@ public struct STile
     
     public STile(Tile tile)
     {
-        pos = new SVector2Int(tile.pos);
+        pos = (SVector2Int)tile.pos;
         isPassable = tile.isPassable;
         setupPlayer = (int)tile.setupPlayer;
     }
+    
     public Tile ToUnity()
     {
         return new Tile
         {
-            pos = this.pos.ToUnity(),
-            isPassable = this.isPassable,
-            setupPlayer = (Player)this.setupPlayer
+            pos = pos.ToUnity(),
+            isPassable = isPassable,
+            setupPlayer = (Player)setupPlayer
         };
     }
     

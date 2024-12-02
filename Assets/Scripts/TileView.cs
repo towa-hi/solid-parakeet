@@ -3,129 +3,68 @@ using UnityEngine;
 
 public class TileView : MonoBehaviour
 {
-    public Tile tile;
-    public GameObject model;  // The model whose material color will be changed
-    public GameObject floor;
+    public STile tile;
     public Transform pawnOrigin;
-    public BoardManager boardManager;
+    public GameObject floorObject;
+    public GameObject modelObject;
     public GameObject arrow;
+
+    public Renderer tileTopRenderer;
+    public Renderer cubeRenderer;
+    public Renderer floorRenderer;
+
+    public Color baseColor; 
+    public Color redColor;
+    public Color blueColor;
     
-    Renderer modelRenderer;
-    Renderer floorRenderer;
+    [SerializeField] bool isShowing;
+    [SerializeField] bool isHovered;
+    [SerializeField] bool isHighlighted;
+    [SerializeField] bool isArrowed;
+    
+    uint currentRenderingLayerMask;
 
-    public bool isSelected = false;
-    public bool isHovered = false;
-
-    void Awake()
-    {
-        modelRenderer = model.GetComponentInChildren<Renderer>();
-        if (modelRenderer == null)
-        {
-            Debug.LogError("Model renderer is missing!");
-        }
-        floorRenderer = floor.GetComponent<Renderer>();
-        if (floorRenderer == null)
-        {
-            Debug.LogError("Floor renderer is missing!");
-        }
-    }
-
-    public void SetToGreen()
+    static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+    
+    public void SetToGray()
     {
         if (tile.isPassable)
         {
-            Material tileMaterial = modelRenderer.material;
-            tileMaterial.color = Color.gray;
+            tileTopRenderer.material.color = Color.gray;
         }
     }
     
-    public void OnPositionClicked(Vector2Int pos)
-    {
-        isSelected = tile.pos == pos;
-        SetMeshOutline(isSelected, "SelectOutline");
-        if (isSelected)
-        {
-            Debug.Log($"{gameObject.name}: OnPositionClicked");
-        }
-    }
-
-    public void OnPositionHovered(Vector2Int pos)
-    {
-        isHovered = tile.pos == pos;
-        SetMeshOutline(isHovered, "HoverOutline");
-        if (isHovered)
-        {
-            Debug.Log($"{gameObject.name}: OnPositionHovered");
-        }
-    }
-
-    public void Initialize(Tile inTile, BoardManager inBoardManager)
+    public void Initialize(STile inTile)
     {
         tile = inTile;
-        boardManager = inBoardManager;
-        // Change the name of this GameObject to the tile's position
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
-
-        GetComponent<DebugText>()?.SetText(tile.pos.ToString());
-        // Update the material color based on the tile setup
-        SetModelColorToTeam();
+        //GetComponent<DebugText>()?.SetText(tile.pos.ToString());
+        SetTopColorBySetupPlayer();
+        ShowTile(tile.isPassable);
     }
-
-    // Method to update the material color based on TileSetup
-    void SetModelColorToTeam()
+    
+    void SetTopColorBySetupPlayer()
     {
-        if (modelRenderer == null)
+        MaterialPropertyBlock block = new();
+        tileTopRenderer.GetPropertyBlock(block);
+        switch ((Player)tile.setupPlayer)
         {
-            Debug.LogError("Model renderer is missing!");
-            return;  // Exit if no renderer is found
-        }
-        // Use material to ensure we're working with an instance of the material
-        Material tileMaterial = modelRenderer.material;
-        if (!tile.isPassable)
-        {
-            tileMaterial.color = Color.black;
-            return;
-        }
-        Color originalColor = tileMaterial.color;
-        switch (tile.setupPlayer)
-        {
+            case Player.NONE:
+                block.SetColor(BaseColorID, baseColor);
+                break;
             case Player.RED:
-                tileMaterial.color = Color.red;
+                block.SetColor(BaseColorID, redColor);
                 break;
             case Player.BLUE:
-                tileMaterial.color = Color.blue;
+                block.SetColor(BaseColorID, blueColor);
                 break;
             default:
-                tileMaterial.color = originalColor;  // Default color
-                break;
+                throw new ArgumentOutOfRangeException();
         }
+        tileTopRenderer.SetPropertyBlock(block);
     }
 
-    void OnHoverEnter()
-    {
-        floorRenderer.enabled = true;
-    }
 
-    void OnHoverExit()
-    {
-        floorRenderer.enabled = false;
-    }
-
-    public bool IsTileInteractableDuringSetup()
-    {
-        if (tile.setupPlayer == Player.NONE)
-        {
-            return false;
-        }
-
-        if (boardManager.player == Player.NONE)
-        {
-            throw new Exception("boardManager.player cannot be NONE");
-        }
-        return tile.setupPlayer == boardManager.player;
-    }
-
-    uint currentRenderingLayerMask;
 
     void SetMeshOutline(bool enable, string outlineType)
     {
@@ -142,7 +81,6 @@ public class TileView : MonoBehaviour
                 outlineLayer = (1u << 8);
                 break;
         }
-
         if (enable)
         {
             currentRenderingLayerMask |= outlineLayer;
@@ -151,27 +89,33 @@ public class TileView : MonoBehaviour
         {
             currentRenderingLayerMask &= ~outlineLayer;
         }
-        // Ensure that the base layer is always included
         currentRenderingLayerMask |= (1u << 0);
-
-        // Apply the updated rendering layer mask to the renderer
         floorRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
-
-    public void OnHovered(bool isHovered)
+    
+    void ShowTile(bool inIsShowing)
     {
-        this.isHovered = isHovered;
+        isShowing = inIsShowing;
+        modelObject.SetActive(isShowing);
+        floorObject.SetActive(isShowing);
+    }
+    
+    public void OnHovered(bool inIsHovered)
+    {
+        isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
     }
 
     // Add the OnHighlight method
     public void OnHighlight(bool inIsHighlighted)
     {
-        SetMeshOutline(inIsHighlighted, "Fill");
+        isHighlighted = inIsHighlighted;
+        SetMeshOutline(isHighlighted, "Fill");
     }
 
-    public void OnArrow(bool isArrowed)
+    public void OnArrow(bool inIsArrowed)
     {
+        isArrowed = inIsArrowed;
         arrow.SetActive(isArrowed);
     }
 }

@@ -75,7 +75,7 @@ public struct SPawn
         pawnId = pawn.pawnId;
         def = new SPawnDef(pawn.def);
         player = (int)pawn.player;
-        pos = new SVector2Int(pawn.pos);
+        pos = (SVector2Int)pawn.pos;
         isSetup = pawn.isSetup;
         isAlive = pawn.isAlive;
         hasMoved = pawn.hasMoved;

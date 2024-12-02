@@ -214,20 +214,25 @@ public class SLobby
 [Serializable]
 public struct SVector2Int : IEquatable<SVector2Int>
 {
+    public int x;
+    public int y;
+    
     public override bool Equals(object obj)
     {
         return obj is SVector2Int other && Equals(other);
     }
 
-    public int x;
-    public int y;
-    
-    public SVector2Int(Vector2Int vector)
+    public static explicit operator Vector2Int(SVector2Int sVector2Int)
     {
-        x = vector.x;
-        y = vector.y;
+        Debug.LogWarning("Casting to Vector2Int should be done with ToUnity() mainly for logging purposes");
+        return new Vector2Int(sVector2Int.x, sVector2Int.y);
     }
 
+    public static explicit operator SVector2Int(Vector2Int vector2Int)
+    {
+        return new SVector2Int(vector2Int.x, vector2Int.y);
+    }
+    
     public SVector2Int(int inX, int inY)
     {
         x = inX;
@@ -461,8 +466,8 @@ public struct SQueuedMove
     {
         player = (int)pawn.player;
         pawnId = pawn.pawnId;
-        initialPos = new SVector2Int(pawn.pos);
-        pos = new SVector2Int(inPos);
+        initialPos = (SVector2Int)pawn.pos;
+        pos = (SVector2Int)inPos;
     }
     
     public SQueuedMove(int inPlayer, Guid inPawnId, SVector2Int inInitialPos, SVector2Int inPos)
@@ -531,19 +536,19 @@ public struct SGameState
                     break;
                 }
                 // Check if the position is within the board bounds
-                if (!IsPosValid(new SVector2Int(currentPos)))
+                if (!IsPosValid((SVector2Int)currentPos))
                 {
                     break;
                 }
                 // Get the tile at the current position
-                STile tile = GetTileByPos(new SVector2Int(currentPos));
+                STile tile = GetTileByPos((SVector2Int)currentPos);
                 // check if tile is passable
                 if (!tile.isPassable)
                 {
                     break;
                 }
                 // Check if the tile is occupied by another pawn
-                SPawn? pawnOnPos = GetPawnByPos(new SVector2Int(currentPos));
+                SPawn? pawnOnPos = GetPawnByPos((SVector2Int)currentPos);
                 if (pawnOnPos.HasValue)
                 {
                     if (pawnOnPos.Value.player == pawn.player)
@@ -755,7 +760,7 @@ public struct SGameState
             if (gameState.pawns[i].pawnId == pawnId)
             {
                 SPawn oldPawn = gameState.pawns[i];
-                SVector2Int inPos = inIsAlive ? oldPawn.pos : new SVector2Int(Globals.PURGATORY);
+                SVector2Int inPos = inIsAlive ? oldPawn.pos : (SVector2Int)Globals.PURGATORY;
                 SPawn updatedPawn = new()
                 {
                     pawnId = oldPawn.pawnId,
@@ -924,7 +929,7 @@ public struct SGameState
             for (int i = 1; i <= steps; i++)
             {
                 Vector2Int nextPosUnity = currentUnityPos + direction * i;
-                SVector2Int nextPos = new SVector2Int(nextPosUnity);
+                SVector2Int nextPos = (SVector2Int)nextPosUnity;
                 if (!gameState.boardDef.IsPosValid(nextPos))
                 {
                     break;
@@ -1526,7 +1531,7 @@ public struct SGameState
             }
             else
             {
-                if (pawn.pos != new SVector2Int(Globals.PURGATORY))
+                if (pawn.pos != (SVector2Int)Globals.PURGATORY)
                 {
                     Debug.LogError($"Dead pawn {pawn.pawnId} not in PURGATORY");
                     return false;
@@ -1726,10 +1731,11 @@ public struct SEventState
             pawnId = inPawn.pawnId,
             defenderPawnId = Guid.Empty,
             originalPos = inPawn.pos,
-            targetPos = new SVector2Int(Globals.PURGATORY),
+            targetPos = (SVector2Int)Globals.PURGATORY,
         };
         return deathEvent;
     }
+    
     public static SEventState CreateMoveEvent(SPawn inPawn, SVector2Int inTargetPos)
     {
         if (inPawn.pawnId == Guid.Empty)
@@ -1785,6 +1791,6 @@ public struct SSetupPawn
     {
         player = (int)pawn.player;
         def = new SPawnDef(pawn.def);
-        pos = new SVector2Int(pawn.pos);
+        pos = (SVector2Int)pawn.pos;
     }
 }
