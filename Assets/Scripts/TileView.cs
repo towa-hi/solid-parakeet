@@ -29,7 +29,7 @@ public class TileView : MonoBehaviour
     
     uint currentRenderingLayerMask;
 
-    static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+    static readonly int BaseColorID = Shader.PropertyToID("_BASE_COLOR");
     
 
     
@@ -38,6 +38,7 @@ public class TileView : MonoBehaviour
         boardManager.OnPhaseChanged += OnPhaseChanged;
         tile = inTile;
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
+        ShowTile(tile.isPassable);
     }
 
     public void FallingAnimation(float delay)

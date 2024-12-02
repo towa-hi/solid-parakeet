@@ -18,7 +18,7 @@ public class ClickInputManager : MonoBehaviour
 
     public event Action<Vector2Int, Vector2Int> OnPositionHovered;
     public event Action<Vector2, Vector2Int> OnClick;
-    
+
     [SerializeField] bool isUpdating;
     void Awake()
     {
@@ -69,13 +69,15 @@ public class ClickInputManager : MonoBehaviour
 
     public void Reset()
     {
+        hoveredPosition = Globals.PURGATORY;
+        hoveredObject = null;
         hoveredPawnView = null;
         hoveredTileView = null;
         Vector2Int oldHoveredPosition = hoveredPosition;
-        hoveredPosition = Globals.PURGATORY;
         OnPositionHovered?.Invoke(oldHoveredPosition, hoveredPosition);
     }
-    
+
+    public int resultsCount = 0;
     void Update()
     {
         if (!isUpdating) return;
@@ -97,6 +99,7 @@ public class ClickInputManager : MonoBehaviour
             int priorityB = layerPriorities.TryGetValue(layerB, out int layerPriority) ? layerPriority : int.MaxValue;
             return priorityA.CompareTo(priorityB);
         });
+        resultsCount = results.Count;
         bool hitUI = false;
         bool hitPawnView = false;
         bool hitTileView = false;
@@ -152,13 +155,7 @@ public class ClickInputManager : MonoBehaviour
 
         if (Globals.inputActions.Game.Click.triggered)
         {
-            HandleClick();
+            OnClick?.Invoke(screenPointerPosition, hoveredPosition);
         }
     }
-
-    void HandleClick()
-    {
-        OnClick?.Invoke(screenPointerPosition, hoveredPosition);
-    }
-
 }

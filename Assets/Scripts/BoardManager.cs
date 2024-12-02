@@ -12,7 +12,6 @@ public class BoardManager : MonoBehaviour
     public bool fastMode;
     
     public Transform purgatory;
-    public BoardClickInputManager boardClickInputManager;
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
     public Grid grid;

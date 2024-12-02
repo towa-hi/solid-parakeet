@@ -27,7 +27,7 @@ Material:
   m_ValidKeywords:
   - _COLORMODE_LINEAR
   - _FOAMMODE_TEXTURE
-  - _WAVEMODE_ROUND
+  - _WAVEMODE_GRID
   m_InvalidKeywords:
   - _CLOUDSENABLED
   - _OPAQUE_OFF
@@ -153,14 +153,14 @@ Material:
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
-    - _FadeDistance: 0.19
-    - _FoamAmount: 1
-    - _FoamDepth: 0.1
+    - _FadeDistance: 1
+    - _FoamAmount: 0.17
+    - _FoamDepth: 1.2
     - _FoamDirection: 0
     - _FoamMode: 2
-    - _FoamNoiseAmount: 0.341
-    - _FoamScale: 1
-    - _FoamSharpness: 0.5
+    - _FoamNoiseAmount: 0.224
+    - _FoamScale: 0.51
+    - _FoamSharpness: 0.682
     - _FoamSpeed: 0.26
     - _FoamStretchX: 1
     - _FoamStretchY: 1
@@ -189,7 +189,7 @@ Material:
     - _RefractionScale: 1
     - _RefractionSpeed: 0.1
     - _Shades: 7
-    - _ShadowStrength: 0.306
+    - _ShadowStrength: 0.4
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
@@ -199,12 +199,12 @@ Material:
     - _TintBrightness: 0.2
     - _TintStrength: 0.2
     - _VerticalDifference: 1
-    - _WaterClearness: 0.583
-    - _WaterDepth: 1.29
+    - _WaterClearness: 0
+    - _WaterDepth: 1.65
     - _WaveAmplitude: 0.25
     - _WaveDirection: 0
     - _WaveFrequency: 0.88
-    - _WaveMode: 1
+    - _WaveMode: 2
     - _WaveNoise: 0.25
     - _WaveSpeed: 0.5
     - _WindDensity: 0.2
@@ -222,14 +222,14 @@ Material:
     - _Cloud_Movement: {r: 1, g: 1, b: 0, a: 0}
     - _Cloud_Step: {r: 13, g: 17, b: 0, a: 0}
     - _Color: {r: 0, g: 0.08510637, b: 1, a: 1}
-    - _ColorDeep: {r: 0.3207547, g: 0, b: 0, a: 1}
-    - _ColorShallow: {r: 0, g: 0.44663244, b: 0.5019608, a: 1}
+    - _ColorDeep: {r: 0, g: 0.058700204, b: 0.0754717, a: 1}
+    - _ColorShallow: {r: 0.05660379, g: 0, b: 0, a: 0.019607844}
     - _CrestColor: {r: 1, g: 0, b: 0, a: 0.9}
     - _DiffuseColor: {r: 1, g: 1, b: 1, a: 0}
     - _DistortionDirection: {r: 0.25, g: 0, b: 0, a: 0}
     - _DistortionStrength: {r: 0.05, g: 0.05, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _FoamColor: {r: 0, g: 0, b: 0, a: 0.23921569}
+    - _FoamColor: {r: 1, g: 0, b: 0, a: 0.019607844}
     - _GreenHighlight: {r: 1, g: 1, b: 1, a: 0}
     - _GreenShadow: {r: 0, g: 0, b: 0, a: 0}
     - _NormalBias: {r: 1, g: 1, b: 1, a: 0}
