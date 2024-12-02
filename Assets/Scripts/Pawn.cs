@@ -52,7 +52,7 @@ public struct SPawn
     public Guid pawnId;
     public SPawnDef def;
     public int player;
-    public SVector2Int pos;
+    public Vector2Int pos;
     public bool isSetup;
     public bool isAlive;
     public bool hasMoved;
@@ -75,7 +75,7 @@ public struct SPawn
         pawnId = pawn.pawnId;
         def = new SPawnDef(pawn.def);
         player = (int)pawn.player;
-        pos = (SVector2Int)pawn.pos;
+        pos = pawn.pos;
         isSetup = pawn.isSetup;
         isAlive = pawn.isAlive;
         hasMoved = pawn.hasMoved;
@@ -105,7 +105,7 @@ public struct SPawn
             pawnId = pawnId,
             def = def.ToUnity(),
             player = (Player)player,
-            pos = pos.ToUnity(),
+            pos = pos,
             isSetup = isSetup,
             isAlive = isAlive,
             hasMoved = hasMoved,

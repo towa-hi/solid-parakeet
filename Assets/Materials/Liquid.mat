@@ -85,7 +85,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _NoiseMap:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 6ce4e45b2befc4afeb590a81cd4fb9bb, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
@@ -161,7 +161,7 @@ Material:
     - _FoamNoiseAmount: 0.341
     - _FoamScale: 1
     - _FoamSharpness: 0.5
-    - _FoamSpeed: 0.01
+    - _FoamSpeed: 0.26
     - _FoamStretchX: 1
     - _FoamStretchY: 1
     - _GlossMapScale: 0
@@ -229,7 +229,7 @@ Material:
     - _DistortionDirection: {r: 0.25, g: 0, b: 0, a: 0}
     - _DistortionStrength: {r: 0.05, g: 0.05, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _FoamColor: {r: 1, g: 1, b: 1, a: 0.08627451}
+    - _FoamColor: {r: 0, g: 0, b: 0, a: 0.23921569}
     - _GreenHighlight: {r: 1, g: 1, b: 1, a: 0}
     - _GreenShadow: {r: 0, g: 0, b: 0, a: 0}
     - _NormalBias: {r: 1, g: 1, b: 1, a: 0}

@@ -211,68 +211,68 @@ public class SLobby
 
 
 
-[Serializable]
-public struct SVector2Int : IEquatable<SVector2Int>
-{
-    public int x;
-    public int y;
-    
-    public override bool Equals(object obj)
-    {
-        return obj is SVector2Int other && Equals(other);
-    }
-
-    public static explicit operator Vector2Int(SVector2Int sVector2Int)
-    {
-        Debug.LogWarning("Casting to Vector2Int should be done with ToUnity() mainly for logging purposes");
-        return new Vector2Int(sVector2Int.x, sVector2Int.y);
-    }
-
-    public static explicit operator SVector2Int(Vector2Int vector2Int)
-    {
-        return new SVector2Int(vector2Int.x, vector2Int.y);
-    }
-    
-    public SVector2Int(int inX, int inY)
-    {
-        x = inX;
-        y = inY;
-    }
-    
-    public readonly Vector2Int ToUnity()
-    {
-        return new Vector2Int(x, y);
-    }
-    
-    // Implement IEquatable for performance
-    public bool Equals(SVector2Int other)
-    {
-        return x == other.x && y == other.y;
-    }
-
-    // Override GetHashCode
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(x, y);
-    }
-
-    // Define the == operator
-    public static bool operator ==(SVector2Int left, SVector2Int right)
-    {
-        return left.Equals(right);
-    }
-
-    // Define the != operator
-    public static bool operator !=(SVector2Int left, SVector2Int right)
-    {
-        return !(left == right);
-    }
-
-    public override string ToString()
-    {
-        return $"({x}, {y})";
-    }
-}
+// [Serializable]
+// public struct SVector2Int : IEquatable<SVector2Int>
+// {
+//     public int x;
+//     public int y;
+//     
+//     public override bool Equals(object obj)
+//     {
+//         return obj is SVector2Int other && Equals(other);
+//     }
+//
+//     public static explicit operator Vector2Int(SVector2Int sVector2Int)
+//     {
+//         Debug.LogWarning("Casting to Vector2Int should be done with ToUnity() mainly for logging purposes");
+//         return new Vector2Int(sVector2Int.x, sVector2Int.y);
+//     }
+//
+//     public static explicit operator SVector2Int(Vector2Int vector2Int)
+//     {
+//         return new SVector2Int(vector2Int.x, vector2Int.y);
+//     }
+//     
+//     public SVector2Int(int inX, int inY)
+//     {
+//         x = inX;
+//         y = inY;
+//     }
+//     
+//     public readonly Vector2Int ToUnity()
+//     {
+//         return new Vector2Int(x, y);
+//     }
+//     
+//     // Implement IEquatable for performance
+//     public bool Equals(SVector2Int other)
+//     {
+//         return x == other.x && y == other.y;
+//     }
+//
+//     // Override GetHashCode
+//     public override int GetHashCode()
+//     {
+//         return HashCode.Combine(x, y);
+//     }
+//
+//     // Define the == operator
+//     public static bool operator ==(SVector2Int left, SVector2Int right)
+//     {
+//         return left.Equals(right);
+//     }
+//
+//     // Define the != operator
+//     public static bool operator !=(SVector2Int left, SVector2Int right)
+//     {
+//         return !(left == right);
+//     }
+//
+//     public override string ToString()
+//     {
+//         return $"({x}, {y})";
+//     }
+// }
 
 public struct SSetupParameters
 {
@@ -451,10 +451,10 @@ public struct SQueuedMove
 {
     public int player;
     public Guid pawnId;
-    public SVector2Int initialPos;
-    public SVector2Int pos;
+    public Vector2Int initialPos;
+    public Vector2Int pos;
 
-    public SQueuedMove(in SPawn pawn, in SVector2Int inPos)
+    public SQueuedMove(in SPawn pawn, in Vector2Int inPos)
     {
         player = pawn.player;
         pawnId = pawn.pawnId;
@@ -466,11 +466,11 @@ public struct SQueuedMove
     {
         player = (int)pawn.player;
         pawnId = pawn.pawnId;
-        initialPos = (SVector2Int)pawn.pos;
-        pos = (SVector2Int)inPos;
+        initialPos = pawn.pos;
+        pos = inPos;
     }
     
-    public SQueuedMove(int inPlayer, Guid inPawnId, SVector2Int inInitialPos, SVector2Int inPos)
+    public SQueuedMove(int inPlayer, Guid inPawnId, Vector2Int inInitialPos, Vector2Int inPos)
     {
         player = inPlayer;
         pawnId = inPawnId;
@@ -525,7 +525,7 @@ public struct SGameState
         };
         foreach (Vector2Int dir in directions)
         {
-            Vector2Int currentPos = pawn.pos.ToUnity();
+            Vector2Int currentPos = pawn.pos;
             bool enemyEncountered = false;
 
             for (int i = 0; i < pawnMovementRange; i++)
@@ -536,19 +536,19 @@ public struct SGameState
                     break;
                 }
                 // Check if the position is within the board bounds
-                if (!IsPosValid((SVector2Int)currentPos))
+                if (!IsPosValid(currentPos))
                 {
                     break;
                 }
                 // Get the tile at the current position
-                STile tile = GetTileByPos((SVector2Int)currentPos);
+                STile tile = GetTileByPos(currentPos);
                 // check if tile is passable
                 if (!tile.isPassable)
                 {
                     break;
                 }
                 // Check if the tile is occupied by another pawn
-                SPawn? pawnOnPos = GetPawnByPos((SVector2Int)currentPos);
+                SPawn? pawnOnPos = GetPawnByPos(currentPos);
                 if (pawnOnPos.HasValue)
                 {
                     if (pawnOnPos.Value.player == pawn.player)
@@ -638,7 +638,7 @@ public struct SGameState
         return true;
     }
     
-    public readonly bool IsPosValid(SVector2Int pos)
+    public readonly bool IsPosValid(Vector2Int pos)
     {
         return boardDef.tiles.Any(tile => tile.pos == pos);
 
@@ -722,7 +722,7 @@ public struct SGameState
         return randomMove;
     }
     
-    public readonly STile GetTileByPos(SVector2Int pos)
+    public readonly STile GetTileByPos(Vector2Int pos)
     {
         foreach (STile tile in boardDef.tiles.Where(tile => tile.pos == pos))
         {
@@ -731,9 +731,9 @@ public struct SGameState
         throw new ArgumentOutOfRangeException($"GetTileByPos tile on pos {pos.ToString()} not found!");
     }
 
-    public readonly SPawn? GetPawnByPos(in SVector2Int pos)
+    public readonly SPawn? GetPawnByPos(in Vector2Int pos)
     {
-        SVector2Int i = pos;
+        Vector2Int i = pos;
         foreach (SPawn pawn in pawns.Where(pawn => pawn.pos == i))
         {
             return pawn;
@@ -760,7 +760,7 @@ public struct SGameState
             if (gameState.pawns[i].pawnId == pawnId)
             {
                 SPawn oldPawn = gameState.pawns[i];
-                SVector2Int inPos = inIsAlive ? oldPawn.pos : (SVector2Int)Globals.PURGATORY;
+                Vector2Int inPos = inIsAlive ? oldPawn.pos : Globals.PURGATORY;
                 SPawn updatedPawn = new()
                 {
                     pawnId = oldPawn.pawnId,
@@ -802,7 +802,7 @@ public struct SGameState
         }
     }
     
-    static void UpdatePawnPosition(ref SGameState gameState, in Guid pawnId, in SVector2Int inPos)
+    static void UpdatePawnPosition(ref SGameState gameState, in Guid pawnId, in Vector2Int inPos)
     {
         for (int i = 0; i < gameState.pawns.Length; i++)
         {
@@ -897,16 +897,16 @@ public struct SGameState
         }
     }
     
-    static List<SVector2Int> GenerateMovementPath(in SGameState gameState, in Guid pawnId, in SVector2Int targetPos)
+    static List<Vector2Int> GenerateMovementPath(in SGameState gameState, in Guid pawnId, in Vector2Int targetPos)
     {
-        List<SVector2Int> path = new List<SVector2Int>();
+        List<Vector2Int> path = new();
         SPawn pawn = gameState.GetPawnById(pawnId);
-        SVector2Int currentPos = pawn.pos;
+        Vector2Int currentPos = pawn.pos;
 
         if (pawn.def.pawnName == "Scout")
         {
-            Vector2Int currentUnityPos = currentPos.ToUnity();
-            Vector2Int targetUnityPos = targetPos.ToUnity();
+            Vector2Int currentUnityPos = currentPos;
+            Vector2Int targetUnityPos = targetPos;
 
             // Calculate the difference
             int deltaX = targetUnityPos.x - currentUnityPos.x;
@@ -929,7 +929,7 @@ public struct SGameState
             for (int i = 1; i <= steps; i++)
             {
                 Vector2Int nextPosUnity = currentUnityPos + direction * i;
-                SVector2Int nextPos = (SVector2Int)nextPosUnity;
+                Vector2Int nextPos = nextPosUnity;
                 if (!gameState.boardDef.IsPosValid(nextPos))
                 {
                     break;
@@ -1513,7 +1513,7 @@ public struct SGameState
     {
         bool pawnOverlapDetected = false;
         HashSet<SPawn> overlappingPawns = new();
-        Dictionary<SVector2Int, SPawn> pawnPositions = new();
+        Dictionary<Vector2Int, SPawn> pawnPositions = new();
         foreach (SPawn pawn in gameState.pawns)
         {
             if (pawn.isAlive)
@@ -1531,7 +1531,7 @@ public struct SGameState
             }
             else
             {
-                if (pawn.pos != (SVector2Int)Globals.PURGATORY)
+                if (pawn.pos != Globals.PURGATORY)
                 {
                     Debug.LogError($"Dead pawn {pawn.pawnId} not in PURGATORY");
                     return false;
@@ -1554,8 +1554,8 @@ public struct SGameState
             throw new Exception("Player can't be none");
         }
         List<SSetupPawn> setupPawns = new();
-        HashSet<SVector2Int> usedPositions = new();
-        List<SVector2Int> allEligiblePositions = new();
+        HashSet<Vector2Int> usedPositions = new();
+        List<Vector2Int> allEligiblePositions = new();
         foreach (STile sTile in setupParameters.board.tiles)
         {
             if (sTile.IsTileEligibleForPlayer(targetPlayer))
@@ -1565,7 +1565,7 @@ public struct SGameState
         }
         foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)
         {
-            List<SVector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef, usedPositions);
+            List<Vector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef, usedPositions);
             if (eligiblePositions.Count < setupPawnData.maxPawns)
             {
                 eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
@@ -1577,7 +1577,7 @@ public struct SGameState
                     break;
                 }
                 int index = UnityEngine.Random.Range(0, eligiblePositions.Count);
-                SVector2Int pos = eligiblePositions[index];
+                Vector2Int pos = eligiblePositions[index];
                 eligiblePositions.RemoveAt(index);
                 usedPositions.Add(pos);
                 SSetupPawn sSetupPawn = new()
@@ -1719,8 +1719,8 @@ public struct SEventState
     public int eventType;
     public Guid pawnId;
     public Guid defenderPawnId;
-    public SVector2Int originalPos;
-    public SVector2Int targetPos;
+    public Vector2Int originalPos;
+    public Vector2Int targetPos;
 
     public static SEventState CreateDeathEvent(SPawn inPawn)
     {
@@ -1731,12 +1731,12 @@ public struct SEventState
             pawnId = inPawn.pawnId,
             defenderPawnId = Guid.Empty,
             originalPos = inPawn.pos,
-            targetPos = (SVector2Int)Globals.PURGATORY,
+            targetPos = Globals.PURGATORY,
         };
         return deathEvent;
     }
     
-    public static SEventState CreateMoveEvent(SPawn inPawn, SVector2Int inTargetPos)
+    public static SEventState CreateMoveEvent(SPawn inPawn, Vector2Int inTargetPos)
     {
         if (inPawn.pawnId == Guid.Empty)
         {
@@ -1785,12 +1785,12 @@ public struct SSetupPawn
 {
     public int player;
     public SPawnDef def;
-    public SVector2Int pos;
+    public Vector2Int pos;
 
     public SSetupPawn(Pawn pawn)
     {
         player = (int)pawn.player;
         def = new SPawnDef(pawn.def);
-        pos = (SVector2Int)pawn.pos;
+        pos = pawn.pos;
     }
 }

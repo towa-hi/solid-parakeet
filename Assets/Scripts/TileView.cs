@@ -26,21 +26,39 @@ public class TileView : MonoBehaviour
 
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
     
-    public void SetToGray()
-    {
-        if (tile.isPassable)
-        {
-            tileTopRenderer.material.color = Color.gray;
-        }
-    }
+
     
-    public void Initialize(STile inTile)
+    public void Initialize(BoardManager boardManager, STile inTile)
     {
+        boardManager.OnPhaseChanged += OnPhaseChanged;
         tile = inTile;
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
         //GetComponent<DebugText>()?.SetText(tile.pos.ToString());
-        SetTopColorBySetupPlayer();
+        
         ShowTile(tile.isPassable);
+    }
+    
+    void OnPhaseChanged(IPhase phase)
+    {
+        switch (phase)
+        {
+            case UninitializedPhase uninitializedPhase:
+                break;
+            case SetupPhase setupPhase:
+                SetTopColorBySetupPlayer();
+                break;
+            case WaitingPhase waitingPhase:
+                break;
+            case MovePhase movePhase:
+                ResetTopColor();
+                break;
+            case ResolvePhase resolvePhase:
+                break;
+            case EndPhase endPhase:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(phase));
+        }
     }
     
     void SetTopColorBySetupPlayer()
@@ -64,7 +82,13 @@ public class TileView : MonoBehaviour
         tileTopRenderer.SetPropertyBlock(block);
     }
 
-
+    void ResetTopColor()
+    {
+        MaterialPropertyBlock block = new();
+        tileTopRenderer.GetPropertyBlock(block);
+        block.SetColor(BaseColorID, baseColor);
+        tileTopRenderer.SetPropertyBlock(block);
+    }
 
     void SetMeshOutline(bool enable, string outlineType)
     {

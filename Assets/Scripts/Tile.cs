@@ -24,13 +24,13 @@ public class Tile
 [Serializable]
 public struct STile
 {
-    public SVector2Int pos;
+    public Vector2Int pos;
     public bool isPassable;
     public int setupPlayer;
     
     public STile(Tile tile)
     {
-        pos = (SVector2Int)tile.pos;
+        pos = tile.pos;
         isPassable = tile.isPassable;
         setupPlayer = (int)tile.setupPlayer;
     }
@@ -39,7 +39,7 @@ public struct STile
     {
         return new Tile
         {
-            pos = pos.ToUnity(),
+            pos = pos,
             isPassable = isPassable,
             setupPlayer = (Player)setupPlayer
         };

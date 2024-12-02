@@ -36,10 +36,10 @@ public class PawnView : MonoBehaviour
         {
             pawn = pawn,
         };
-        if (pawn.pos != state.pos.ToUnity())
+        if (pawn.pos != state.pos)
         {
             pawnChanges.posChanged = true;
-            pawn.pos = state.pos.ToUnity();
+            pawn.pos = state.pos;
         }
         if (pawn.isSetup != state.isSetup)
         {

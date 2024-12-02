@@ -42,8 +42,10 @@ public class BoardManager : MonoBehaviour
 
     void Start()
     {
+        clickInputManager.Initialize(this);
         SetPhase(new UninitializedPhase(this));
     }
+    
     void SetPhase(IPhase newPhase)
     {
         currentPhase?.ExitState();
@@ -59,7 +61,6 @@ public class BoardManager : MonoBehaviour
         SetPhase(new SetupPhase(this, response.data));
         clickInputManager.OnPositionHovered += OnPositionHovered;
         clickInputManager.OnClick += OnClick;
-        clickInputManager.Initialize();
     }
     
     public void OnSetupSubmittedResponse(Response<bool> response)
@@ -112,7 +113,7 @@ public class BoardManager : MonoBehaviour
         switch (eventType)
         {
             case ResolveEvent.MOVE:
-                Vector3 target = GetTileViewByPos(eventState.targetPos.ToUnity()).pawnOrigin.position;
+                Vector3 target = GetTileViewByPos(eventState.targetPos).pawnOrigin.position;
                 if (pawnView.transform.position != target)
                 {
                     yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PAWNMOVEDURATION, 0.5f));
@@ -123,7 +124,7 @@ public class BoardManager : MonoBehaviour
                 SPawn defenderPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
                 pawnView.RevealPawn(pawnState);
                 defenderPawnView.RevealPawn(defenderPawnState);
-                Vector3 conflictTarget = GetTileViewByPos(eventState.targetPos.ToUnity()).pawnOrigin.position;
+                Vector3 conflictTarget = GetTileViewByPos(eventState.targetPos).pawnOrigin.position;
                 yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.5f));
                 SPawn redPawnState;
                 SPawn bluePawnState;
@@ -184,36 +185,23 @@ public class BoardManager : MonoBehaviour
     
     #endregion 
     #region Input
+
+    public void ClearOutlineEffects()
+    {
+        if (currentHoveredPawnView)
+        {
+            currentHoveredPawnView.OnHovered(false);
+            currentHoveredPawnView = null;
+        }
+        if (currentHoveredTileView)
+        {
+            currentHoveredTileView.OnHovered(false);
+            currentHoveredTileView = null;
+        }
+    }
     
     void OnPositionHovered(Vector2Int oldPos, Vector2Int newPos)
     {
-        // TODO: fix this shitty code
-        switch (currentPhase)
-        {
-            case EndPhase endPhase:
-                currentHoveredTileView?.OnHovered(false);
-                currentHoveredPawnView?.OnHovered(false);
-                return;
-            case MovePhase movePhase:
-                break;
-            case ResolvePhase resolvePhase:
-                currentHoveredTileView?.OnHovered(false);
-                currentHoveredPawnView?.OnHovered(false);
-                return;
-            case SetupPhase setupPhase:
-                break;
-            case UninitializedPhase uninitializedPhase:
-                currentHoveredTileView?.OnHovered(false);
-                currentHoveredPawnView?.OnHovered(false);
-                return;
-            case WaitingPhase waitingPhase:
-                currentHoveredTileView?.OnHovered(false);
-                currentHoveredPawnView?.OnHovered(false);
-                return;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(currentPhase));
-
-        }
         // Store references to previous hovered pawn and tile
         PawnView previousHoveredPawnView = currentHoveredPawnView;
         TileView previousHoveredTileView = currentHoveredTileView;
@@ -258,7 +246,6 @@ public class BoardManager : MonoBehaviour
         }
         // Update the hovered position
         hoveredPos = newPos;
-        
         currentPhase.OnHover(oldPos, newPos);
     }
     
@@ -394,8 +381,8 @@ public class SetupPhase : IPhase
             Vector3 worldPosition = bm.grid.CellToWorld(new Vector3Int(sTile.pos.x, sTile.pos.y, 0));
             GameObject tileObject = UnityEngine.Object.Instantiate(bm.tilePrefab, worldPosition, Quaternion.identity, bm.transform);
             TileView tileView = tileObject.GetComponent<TileView>();
-            tileView.Initialize(sTile);
-            tileViews.Add(sTile.pos.ToUnity(), tileView);
+            tileView.Initialize(bm, sTile);
+            tileViews.Add(sTile.pos, tileView);
         }
         foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)
         {
@@ -419,6 +406,7 @@ public class SetupPhase : IPhase
     
     public void ExitState()
     {
+        bm.ClearOutlineEffects();
         bm.ClearPawnViews();
     }
 
@@ -439,7 +427,7 @@ public class SetupPhase : IPhase
             SPawn newState = new(deadPawnView.pawn)
             {
                 isAlive = false,
-                pos = (SVector2Int)Globals.PURGATORY,
+                pos = Globals.PURGATORY,
             };
             deadPawnView.SyncState(newState);
             deadPawnView.UpdateViewPosition();
@@ -455,7 +443,7 @@ public class SetupPhase : IPhase
             SPawn newState = new(alivePawnView.pawn)
             {
                 isAlive = true,
-                pos = (SVector2Int)bm.hoveredPos,
+                pos = bm.hoveredPos,
             };
             alivePawnView.SyncState(newState);
             alivePawnView.UpdateViewPosition();
@@ -478,7 +466,7 @@ public class SetupPhase : IPhase
                 SPawn newState = new(pawnView.pawn)
                 {
                     isAlive = false,
-                    pos = (SVector2Int)Globals.PURGATORY,
+                    pos = Globals.PURGATORY,
                 };
                 pawnView.SyncState(newState);
             }
@@ -576,14 +564,10 @@ public class MovePhase : IPhase
         if (isInitialMove)
         {
             Debug.Assert(bm.pawnViews.Count == 0);
-            foreach (TileView tileView in bm.tileViews.Values)
-            {
-                tileView.SetToGray();
-            }
             List<PawnView> pawnViews = new();
             foreach (SPawn pawnState in gameStateForHoldingOnly.pawns)
             {
-                TileView tileView = bm.GetTileViewByPos(pawnState.pos.ToUnity());
+                TileView tileView = bm.GetTileViewByPos(pawnState.pos);
                 Pawn newPawn = pawnState.ToUnity();
                 GameObject pawnObject = UnityEngine.Object.Instantiate(bm.pawnPrefab, bm.transform);
                 PawnView pawnView = pawnObject.GetComponent<PawnView>();
@@ -598,12 +582,13 @@ public class MovePhase : IPhase
     public void ExitState()
     {
         Debug.Assert(moveSubmitted);
+        bm.ClearOutlineEffects();
         SelectPawnView(null);
         if (!maybeQueuedMove.HasValue)
         {
             throw new Exception("maybeQueuedMove cant be null when exiting resolve phase");
         }
-        TileView queuedTileMove = bm.GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
+        TileView queuedTileMove = bm.GetTileViewByPos(maybeQueuedMove.Value.pos);
         queuedTileMove.OnArrow(false);
         foreach (TileView tileView in highlightedTileViews)
         {
@@ -708,10 +693,10 @@ public class MovePhase : IPhase
             STile[] tiles = bm.serverGameState.GetMovableTiles(selectedPawnState);
             foreach (STile tile in tiles)
             {
-                TileView tileView = bm.GetTileViewByPos(tile.pos.ToUnity());
+                TileView tileView = bm.GetTileViewByPos(tile.pos);
                 tileView.OnHighlight(true);
                 highlightedTileViews.Add(tileView);
-                PawnView pawnViewOnTile = bm.GetPawnViewByPos(tile.pos.ToUnity());
+                PawnView pawnViewOnTile = bm.GetPawnViewByPos(tile.pos);
                 if (pawnViewOnTile)
                 {
                     highlightedPawnViews.Add(pawnViewOnTile);
@@ -728,18 +713,18 @@ public class MovePhase : IPhase
         STile[] movableTilesList = bm.serverGameState.GetMovableTiles(pawnOriginalState);
         // check if valid move
         // queue a new PawnAction to go to that position
-        bool moveIsValid = movableTilesList.Any(tile => tile.pos.ToUnity() == pos);
+        bool moveIsValid = movableTilesList.Any(tile => tile.pos == pos);
         if (!moveIsValid)
         {
             return false;
         }
         if (maybeQueuedMove.HasValue)
         {
-            TileView oldTileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
+            TileView oldTileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos);
             oldTileView.OnArrow(false);
         }
-        maybeQueuedMove = new SQueuedMove((int)bm.player, pawnView.pawn.pawnId,  (SVector2Int)pawnView.pawn.pos,(SVector2Int)pos);
-        TileView tileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos.ToUnity());
+        maybeQueuedMove = new SQueuedMove((int)bm.player, pawnView.pawn.pawnId,  pawnView.pawn.pos,pos);
+        TileView tileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos);
         tileView.OnArrow(true);
         return true;
     }

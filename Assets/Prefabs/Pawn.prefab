@@ -655,7 +655,7 @@ MonoBehaviour:
   isMoving: 0
   badgeSpriteRenderer: {fileID: 3254266947710671316}
   badgeBackgroundRenderer: {fileID: 1672190667434113301}
-  collider: {fileID: 7584155311965036182}
+  pointerCollider: {fileID: 7584155311965036182}
 --- !u!114 &1615617418607774367
 MonoBehaviour:
   m_ObjectHideFlags: 0

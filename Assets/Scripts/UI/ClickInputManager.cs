@@ -8,7 +8,6 @@ public class ClickInputManager : MonoBehaviour
 {
     public Vector2Int hoveredPosition; // grid position that the pointer is hovered over after hit check
     public Vector2 screenPointerPosition; // raw position on screen
-    public bool isInitialized;
 
     public GameObject hoveredObject; // first object closest to the camera that the pointer is over
     bool isUI; // is pointer over UI element 
@@ -20,6 +19,7 @@ public class ClickInputManager : MonoBehaviour
     public event Action<Vector2Int, Vector2Int> OnPositionHovered;
     public event Action<Vector2, Vector2Int> OnClick;
     
+    [SerializeField] bool isUpdating;
     void Awake()
     {
         layerPriorities = new()
@@ -31,13 +31,40 @@ public class ClickInputManager : MonoBehaviour
         };
     }
 
-    public void Initialize()
+    public void Initialize(BoardManager boardManager)
     {
-        isInitialized = true;
+        boardManager.OnPhaseChanged += OnPhaseChanged;
         hoveredPosition = Globals.PURGATORY;
         hoveredObject = null;
         hoveredPawnView = null;
         hoveredTileView = null;
+    }
+
+    void OnPhaseChanged(IPhase phase)
+    {
+        switch (phase)
+        {
+            case UninitializedPhase uninitializedPhase:
+                isUpdating = false;
+                break;
+            case SetupPhase setupPhase:
+                isUpdating = true;
+                break;
+            case WaitingPhase waitingPhase:
+                isUpdating = false;
+                break;
+            case MovePhase movePhase:
+                isUpdating = true;
+                break;
+            case ResolvePhase resolvePhase:
+                isUpdating = false;
+                break;
+            case EndPhase endPhase:
+                isUpdating = false;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(phase));
+        }
     }
 
     public void Reset()
@@ -51,7 +78,7 @@ public class ClickInputManager : MonoBehaviour
     
     void Update()
     {
-        if (!isInitialized) return;
+        if (!isUpdating) return;
         // get screen pointer position
         screenPointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
         PointerEventData eventData = new(EventSystem.current)
@@ -102,7 +129,7 @@ public class ClickInputManager : MonoBehaviour
         }
         else if (currentHoveredTileView != null)
         {
-            currentHoveredPosition = currentHoveredTileView.tile.pos.ToUnity();
+            currentHoveredPosition = currentHoveredTileView.tile.pos;
         }
         else
         {

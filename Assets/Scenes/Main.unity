@@ -1095,9 +1095,7 @@ MonoBehaviour:
     player: 0
     boardDef:
       boardName: 
-      boardSize:
-        x: 0
-        y: 0
+      boardSize: {x: 0, y: 0}
       tiles: []
     pawns: []
 --- !u!4 &1153439523
@@ -1152,10 +1150,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hoveredPosition: {x: 0, y: 0}
   screenPointerPosition: {x: 0, y: 0}
-  isInitialized: 0
   hoveredObject: {fileID: 0}
   hoveredPawnView: {fileID: 0}
   hoveredTileView: {fileID: 0}
+  isUpdating: 0
 --- !u!1 &1159686703
 GameObject:
   m_ObjectHideFlags: 0
