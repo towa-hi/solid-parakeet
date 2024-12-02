@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using PrimeTween;
 
 public class TileView : MonoBehaviour
 {
@@ -8,7 +9,8 @@ public class TileView : MonoBehaviour
     public GameObject floorObject;
     public GameObject modelObject;
     public GameObject arrow;
-
+    public Transform fallOrigin;
+    
     public Renderer tileTopRenderer;
     public Renderer cubeRenderer;
     public Renderer floorRenderer;
@@ -22,6 +24,9 @@ public class TileView : MonoBehaviour
     [SerializeField] bool isHighlighted;
     [SerializeField] bool isArrowed;
     
+    [SerializeField] TweenSettings<Vector3> fallSettings;
+    
+    
     uint currentRenderingLayerMask;
 
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
@@ -33,9 +38,16 @@ public class TileView : MonoBehaviour
         boardManager.OnPhaseChanged += OnPhaseChanged;
         tile = inTile;
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
-        //GetComponent<DebugText>()?.SetText(tile.pos.ToString());
-        
-        ShowTile(tile.isPassable);
+    }
+
+    public void FallingAnimation(float delay)
+    {
+        Debug.Log($"starting FallingAnimation on {tile.pos}");
+        Sequence.Create()
+            .ChainCallback(() => ShowTile(false))
+            .ChainDelay(delay)
+            .ChainCallback(() => ShowTile(tile.isPassable))
+            .Chain(Tween.LocalPosition(modelObject.transform, fallSettings));
     }
     
     void OnPhaseChanged(IPhase phase)

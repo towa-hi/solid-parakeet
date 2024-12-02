@@ -26,6 +26,10 @@ public class BoardManager : MonoBehaviour
     public Vector2Int hoveredPos;
     public PawnView currentHoveredPawnView;
     public TileView currentHoveredTileView;
+
+    public Transform waveStartPositionOne;
+    public Transform waveStartPositionTwo;
+    public float waveSpeed;
     
     // game stuff
     public SGameState serverGameState;
@@ -402,6 +406,13 @@ public class SetupPhase : IPhase
         bm.opponentPlayer = bm.player == Player.RED ? Player.BLUE : Player.RED;
         bm.tileViews = tileViews;
         bm.pawnViews = pawnViews;
+
+        List<Vector3> waveOrigins = new List<Vector3>()
+        {
+            bm.waveStartPositionOne.position,
+            bm.waveStartPositionTwo.position,
+        };
+        TileIntroAnimation(waveOrigins, bm.waveSpeed);
     }
     
     public void ExitState()
@@ -516,6 +527,35 @@ public class SetupPhase : IPhase
         }
         Debug.Log($"can't find any pawns of pawnDef {pawnDef.name}");
         return null;
+    }
+
+    void TileIntroAnimation(List<Vector3> startingPositions, float waveSpeed)
+    {
+        float minOfMinDistances = Mathf.Infinity;
+        Dictionary<Vector2Int, float> minDistances = new();
+        foreach (TileView tileView in bm.tileViews.Values)
+        {
+            
+            float minDistance = Mathf.Infinity;
+            foreach (Vector3 startingPosition in startingPositions)
+            {
+                float distance = Vector3.Distance(tileView.pawnOrigin.position, startingPosition);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                }
+                if (minDistance < minOfMinDistances)
+                {
+                    minOfMinDistances = minDistance;
+                }
+            }
+            minDistances[tileView.tile.pos] = minDistance;
+        }
+        foreach ((Vector2Int pos, float minDistance) in minDistances)
+        {
+            float delay = (minDistance - minOfMinDistances) / waveSpeed;
+            bm.tileViews[pos].FallingAnimation(delay);
+        }
     }
 }
 

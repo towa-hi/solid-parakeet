@@ -140,7 +140,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3053530017138402307}
-  - {fileID: 1911910746504358605}
   - {fileID: 2505367880817683050}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -164,6 +163,7 @@ MonoBehaviour:
   floorObject: {fileID: 3459765316155163400}
   modelObject: {fileID: 2499942000709535878}
   arrow: {fileID: 4462840402860458603}
+  fallOrigin: {fileID: 0}
   tileTopRenderer: {fileID: 3036712548443931823}
   cubeRenderer: {fileID: 5127505392292278924}
   floorRenderer: {fileID: 1984609900548371214}
@@ -174,6 +174,70 @@ MonoBehaviour:
   isHovered: 0
   isHighlighted: 0
   isArrowed: 0
+  fallSettings:
+    startFromCurrent: 0
+    startValue: {x: 0, y: 4, z: 0}
+    endValue: {x: 0, y: 0, z: 0}
+    settings:
+      duration: 2
+      ease: 24
+      customEase:
+        serializedVersion: 2
+        m_Curve:
+        - serializedVersion: 3
+          time: 0.00081104436
+          value: 0.0047175568
+          inSlope: 6.5287356
+          outSlope: 6.5287356
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0
+          outWeight: 0.33333334
+        - serializedVersion: 3
+          time: 0.15561783
+          value: 1.0154102
+          inSlope: -0.26633358
+          outSlope: -0.26633358
+          tangentMode: 0
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0.62469316
+        - serializedVersion: 3
+          time: 0.19995469
+          value: 0.95109296
+          inSlope: -0.06834835
+          outSlope: -0.06834835
+          tangentMode: 0
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0.7866332
+        - serializedVersion: 3
+          time: 0.64048123
+          value: 1.0190706
+          inSlope: 0.05063258
+          outSlope: 0.05063258
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0.33333334
+        - serializedVersion: 3
+          time: 1
+          value: 1
+          inSlope: -0.053044867
+          outSlope: -0.053044867
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      cycles: 1
+      cycleMode: 0
+      startDelay: 0
+      endDelay: 0
+      useUnscaledTime: 0
+      useFixedUpdate: 0
 --- !u!114 &4418170331486867016
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -580,6 +644,7 @@ Transform:
   - {fileID: 4449567772477540490}
   - {fileID: 4226145798057778697}
   - {fileID: 6063954160065894135}
+  - {fileID: 1911910746504358605}
   m_Father: {fileID: 9153918511512494626}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2779234445898639282
@@ -764,7 +829,7 @@ Transform:
   m_LocalScale: {x: 0.1, y: 1, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 9153918511512494626}
+  m_Father: {fileID: 3053530017138402307}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &2016143989431756082
 MeshFilter:
