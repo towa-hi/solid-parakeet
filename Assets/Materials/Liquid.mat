@@ -199,8 +199,8 @@ Material:
     - _TintBrightness: 0.2
     - _TintStrength: 0.2
     - _VerticalDifference: 1
-    - _WaterClearness: 0
-    - _WaterDepth: 1.65
+    - _WaterClearness: 0.293
+    - _WaterDepth: 5.28
     - _WaveAmplitude: 0.25
     - _WaveDirection: 0
     - _WaveFrequency: 0.88
@@ -222,8 +222,8 @@ Material:
     - _Cloud_Movement: {r: 1, g: 1, b: 0, a: 0}
     - _Cloud_Step: {r: 13, g: 17, b: 0, a: 0}
     - _Color: {r: 0, g: 0.08510637, b: 1, a: 1}
-    - _ColorDeep: {r: 0, g: 0.058700204, b: 0.0754717, a: 1}
-    - _ColorShallow: {r: 0.05660379, g: 0, b: 0, a: 0.019607844}
+    - _ColorDeep: {r: 0, g: 0.49155915, b: 0.6226415, a: 1}
+    - _ColorShallow: {r: 0.2735849, g: 0.2735849, b: 0.2735849, a: 0.019607844}
     - _CrestColor: {r: 1, g: 0, b: 0, a: 0.9}
     - _DiffuseColor: {r: 1, g: 1, b: 1, a: 0}
     - _DistortionDirection: {r: 0.25, g: 0, b: 0, a: 0}

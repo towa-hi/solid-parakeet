@@ -29,7 +29,7 @@ public class TileView : MonoBehaviour
     
     uint currentRenderingLayerMask;
 
-    static readonly int BaseColorID = Shader.PropertyToID("_BASE_COLOR");
+    static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
     
 
     

@@ -180,22 +180,22 @@ MonoBehaviour:
     endValue: {x: 0, y: 0, z: 0}
     settings:
       duration: 4
-      ease: 24
+      ease: -1
       customEase:
         serializedVersion: 2
         m_Curve:
         - serializedVersion: 3
           time: 0.00081104436
           value: 0.0047175568
-          inSlope: 6.5287356
-          outSlope: 6.5287356
+          inSlope: 2.935919
+          outSlope: 2.935919
           tangentMode: 34
           weightedMode: 0
           inWeight: 0
           outWeight: 0.33333334
         - serializedVersion: 3
-          time: 0.15561783
-          value: 1.0154102
+          time: 0.15439713
+          value: 0.45563388
           inSlope: -0.26633358
           outSlope: -0.26633358
           tangentMode: 0
@@ -203,8 +203,8 @@ MonoBehaviour:
           inWeight: 0.33333334
           outWeight: 0.62469316
         - serializedVersion: 3
-          time: 0.19995469
-          value: 0.95109296
+          time: 0.19427842
+          value: 0.73171735
           inSlope: -0.06834835
           outSlope: -0.06834835
           tangentMode: 0
@@ -212,10 +212,28 @@ MonoBehaviour:
           inWeight: 0.33333334
           outWeight: 0.7866332
         - serializedVersion: 3
+          time: 0.28294492
+          value: 0.7188011
+          inSlope: 0.75478214
+          outSlope: 0.75478214
+          tangentMode: 0
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0.33333334
+        - serializedVersion: 3
+          time: 0.30074337
+          value: 1.0221567
+          inSlope: 0.985029
+          outSlope: 0.985029
+          tangentMode: 0
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0.33333334
+        - serializedVersion: 3
           time: 0.64048123
           value: 1.0190706
-          inSlope: 0.05063258
-          outSlope: 0.05063258
+          inSlope: -0.031064304
+          outSlope: -0.031064304
           tangentMode: 34
           weightedMode: 0
           inWeight: 0.33333334
@@ -754,7 +772,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: ec50bef070bdd8044ac09f50d60e7a62, type: 2}
+  - {fileID: 2100000, guid: 651a5c7d064611848b263444e85e2ca7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
