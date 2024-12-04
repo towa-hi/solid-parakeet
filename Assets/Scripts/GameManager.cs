@@ -8,9 +8,9 @@ public class GameManager : MonoBehaviour
 
     public BoardManager boardManager;
     public GuiManager guiManager;
+    public CameraManager cameraManager;
     public IGameClient client;
     public bool offlineMode;
-    public Camera mainCamera;
     
     public BoardDef tempBoardDef;
     public SSetupPawnData[] tempMaxPawnsArray;
@@ -35,6 +35,7 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         guiManager.Initialize();
+        cameraManager.Initialize();
         Debug.Log("Enable input action");
         Globals.inputActions.Game.Enable();
     }

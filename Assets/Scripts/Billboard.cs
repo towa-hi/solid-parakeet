@@ -6,7 +6,7 @@ public class Billboard : MonoBehaviour
 
     void Update()
     {
-        cameraDir = GameManager.instance.mainCamera.transform.forward;
+        cameraDir = GameManager.instance.cameraManager.mainCamera.transform.forward;
         transform.rotation = Quaternion.LookRotation(cameraDir);
     }
 }

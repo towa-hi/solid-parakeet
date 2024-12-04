@@ -15,6 +15,8 @@ public class PawnView : MonoBehaviour
     public SpriteRenderer symbolRenderer;
     
     public Pawn pawn;
+
+    bool displayFloorSymbol;
     
     public MeshRenderer billboardRenderer;
     public MeshRenderer planeRenderer;
@@ -22,13 +24,17 @@ public class PawnView : MonoBehaviour
     public bool isSelected;
     public bool isHovered;
     public bool isMoving;
-
+    
     public SpriteRenderer badgeSpriteRenderer;
     public SpriteRenderer badgeBackgroundRenderer;
-
+    public Color redColor;
+    public Color blueColor;
+    
     public Collider pointerCollider;
     // Reference to the current movement coroutine
     Coroutine moveCoroutine;
+    
+    static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
     
     public void SyncState(SPawn state)
     {
@@ -146,10 +152,10 @@ public class PawnView : MonoBehaviour
         switch (inPawn.player)
         {
             case Player.RED:
-                SetColor(Color.red);
+                SetColor(redColor);
                 break;
             case Player.BLUE:
-                SetColor(Color.blue);
+                SetColor(blueColor);
                 break;
         }
         if (tileView == null)
@@ -174,15 +180,27 @@ public class PawnView : MonoBehaviour
         {
             Debug.Log("Sprite is null.");
         }
+        symbolRenderer.gameObject.SetActive(displayFloorSymbol);
         symbolRenderer.sprite = sprite;
         badgeSpriteRenderer.sprite = sprite;
     }
 
     public void SetColor(Color color)
     {
+        MaterialPropertyBlock block = new();
+        planeRenderer.GetPropertyBlock(block);
         planeRenderer.material = new Material(planeRenderer.material);
-        planeRenderer.material.SetColor("_Base_Color", color);
-        badgeBackgroundRenderer.color = color;
+        planeRenderer.material.SetColor(BaseColorID, color);
+        if (pawn.player == Player.RED)
+        {
+            badgeBackgroundRenderer.color = Color.red;
+        }
+        else
+        {
+            badgeBackgroundRenderer.color = Color.blue;
+        }
+        
+        planeRenderer.SetPropertyBlock(block);
     }
     
     uint currentRenderingLayerMask;

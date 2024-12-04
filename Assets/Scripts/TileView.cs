@@ -43,7 +43,7 @@ public class TileView : MonoBehaviour
 
     public void FallingAnimation(float delay)
     {
-        Debug.Log($"starting FallingAnimation on {tile.pos}");
+        //Debug.Log($"starting FallingAnimation on {tile.pos}");
         Sequence.Create()
             .ChainCallback(() => ShowTile(false))
             .ChainDelay(delay)

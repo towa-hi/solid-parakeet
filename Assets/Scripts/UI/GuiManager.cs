@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class GuiManager : MonoBehaviour
@@ -15,6 +16,8 @@ public class GuiManager : MonoBehaviour
 
     [SerializeField] GuiElement currentMenu;
     [SerializeField] ModalElement currentModal;
+
+    public event Action<MenuElement> OnShowMenu;
     
     public void Initialize()
     {
@@ -259,6 +262,7 @@ public class GuiManager : MonoBehaviour
             menu.ShowElement(true);
             Debug.Log($"{currentMenu} is shown");
         }
+        OnShowMenu?.Invoke(menu);
     }
     
     void ShowModal(ModalElement modal)

@@ -18,10 +18,10 @@ public class Arena : MonoBehaviour
         redDies = inRedDies;
         blueDies = inBlueDies;
         redPawnView.pawn = redPawn.ToUnity();
-        redPawnView.SetColor(Color.red);
+        redPawnView.SetColor(redPawnView.redColor);
         redPawnView.DisplaySymbol(redPawnView.pawn.def.icon);
         bluePawnView.pawn = bluePawn.ToUnity();
-        bluePawnView.SetColor(Color.blue);
+        bluePawnView.SetColor(bluePawnView.blueColor);
         bluePawnView.DisplaySymbol(bluePawnView.pawn.def.icon);
         OnFinish = inOnFinish;
         arenaCamera.gameObject.SetActive(true);
