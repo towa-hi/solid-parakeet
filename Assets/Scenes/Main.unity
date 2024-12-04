@@ -2946,7 +2946,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e16abf40bcd45a346bb20305fadf8c7c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fastMode: 1
   purgatory: {fileID: 697788154}
   tilePrefab: {fileID: 295967387164842906, guid: 88c29a6a30cf7ee4aa8b9210c4b5cd9a, type: 3}
   pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
@@ -3722,6 +3721,9 @@ MonoBehaviour:
   cameraManager: {fileID: 1527594348}
   offlineMode: 0
   tempBoardDef: {fileID: 11400000, guid: c6fcd58d95dea99429c81d521f5a5325, type: 2}
+  enableCameraRotation: 0
+  enableFastMode: 0
+  enableCheat: 0
 --- !u!114 &1527594348
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3799,6 +3801,8 @@ MonoBehaviour:
       endDelay: 0
       useUnscaledTime: 0
       useFixedUpdate: 0
+  rotateOnMouse: 0
+  rotateMaxAngle: 2
 --- !u!1 &1556756674
 GameObject:
   m_ObjectHideFlags: 0

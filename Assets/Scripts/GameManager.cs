@@ -16,7 +16,10 @@ public class GameManager : MonoBehaviour
     public SSetupPawnData[] tempMaxPawnsArray;
     public List<KeyValuePair<PawnDef, int>> orderedPawnDefList;
     
-
+    // settings
+    public bool enableCameraRotation;
+    public bool enableFastMode;
+    public bool enableCheat;
     void Awake()
     {
         Debug.developerConsoleVisible = true;

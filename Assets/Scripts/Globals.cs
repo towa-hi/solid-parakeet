@@ -646,7 +646,6 @@ public struct SGameState
 
     public static SGameState Censor(in SGameState masterGameState, int targetPlayer)
     {
-        bool cheatMode = false;
         if (masterGameState.player != (int)Player.NONE)
         {
             throw new Exception("Censor can only be done on master game states!");
@@ -664,7 +663,7 @@ public struct SGameState
             SPawn censoredPawn;
             if (serverPawn.player != targetPlayer)
             {
-                if (cheatMode)
+                if (GameManager.instance.enableCheat)
                 {
                     censoredPawn = serverPawn;
                     censoredPawn.isVisibleToOpponent = true;
