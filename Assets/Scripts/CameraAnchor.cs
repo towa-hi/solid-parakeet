@@ -1,17 +1,19 @@
 using System;
 using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
-
+#endif
 
 public class CameraAnchor : MonoBehaviour
 {
     public Transform xGimbal;
     public float fov = 60;
+
     public Vector3 GetPosition()
     {
         return transform.position;
     }
-    
+
     public Vector3 GetEuler()
     {
         return xGimbal.transform.eulerAngles;
@@ -21,7 +23,8 @@ public class CameraAnchor : MonoBehaviour
     {
         return xGimbal.rotation;
     }
-    
+
+#if UNITY_EDITOR
     void OnDrawGizmos()
     {
         if (Selection.activeTransform == transform || Selection.activeTransform == xGimbal)
@@ -38,10 +41,11 @@ public class CameraAnchor : MonoBehaviour
             Debug.LogWarning("No Main Camera found in the scene.");
             return;
         }
+
         float aspect = mainCamera.aspect;
         float nearClip = mainCamera.nearClipPlane;
         float farClip = mainCamera.farClipPlane;
-        
+
         // Calculate the frustum corners
         Matrix4x4 localToWorld = xGimbal.transform.localToWorldMatrix;
 
@@ -89,4 +93,5 @@ public class CameraAnchor : MonoBehaviour
         Gizmos.DrawLine(corners[2], corners[6]);
         Gizmos.DrawLine(corners[3], corners[7]);
     }
+#endif
 }
