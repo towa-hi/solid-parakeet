@@ -39,6 +39,8 @@ public class TileView : MonoBehaviour
         tile = inTile;
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
         ShowTile(tile.isPassable);
+        arrow.GetComponent<SpriteToMesh>().Activate(arrow.GetComponent<SpriteToMesh>().sprite);
+        arrow.SetActive(isArrowed);
     }
 
     public void FallingAnimation(float delay)

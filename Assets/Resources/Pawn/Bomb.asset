@@ -15,3 +15,4 @@ MonoBehaviour:
   pawnName: Bomb
   power: 999
   icon: {fileID: 21300000, guid: 563a053c6707f494d83c6c5a077f9a8c, type: 3}
+  baseSprite: {fileID: 21300000, guid: 0ef48bf44ce934d4ab4b3942edbfa3fa, type: 3}

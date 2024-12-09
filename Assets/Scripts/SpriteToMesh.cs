@@ -8,14 +8,14 @@ public class SpriteToMesh : MonoBehaviour
     [Tooltip("The sprite to convert into a mesh.")]
     public Sprite sprite;
 
-    void Start()
+    public void Activate(Sprite inSprite)
     {
-        if (sprite == null)
+        if (inSprite == null)
         {
             Debug.LogError("SpriteToMesh: No sprite assigned. Please assign a sprite in the Inspector.");
             return;
         }
-
+        sprite = inSprite;
         // Get the MeshFilter component
         MeshFilter meshFilter = GetComponent<MeshFilter>();
 

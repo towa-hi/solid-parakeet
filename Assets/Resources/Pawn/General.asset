@@ -15,3 +15,4 @@ MonoBehaviour:
   pawnName: General
   power: 9
   icon: {fileID: 21300000, guid: 28d06776f41c4134ab32ad6e0b368eb9, type: 3}
+  baseSprite: {fileID: 21300000, guid: fc4bd2b6e0a6eba4c94b0f26d5e56c1f, type: 3}

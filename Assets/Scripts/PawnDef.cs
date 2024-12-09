@@ -12,6 +12,7 @@ public class PawnDef : ScriptableObject
     public int power;
 
     public Sprite icon;
+    public Sprite baseSprite;
     // graphics
     // sounds
 }

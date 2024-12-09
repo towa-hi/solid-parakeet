@@ -71,7 +71,6 @@ public class PawnView : MonoBehaviour
                 pawn.def = state.def.ToUnity();
             }
         }
-        
     }
 
     public void UpdateViewPosition()
@@ -147,6 +146,7 @@ public class PawnView : MonoBehaviour
     {
         pawn = inPawn;
         gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
+        billboard.GetComponent<SpriteToMesh>().Activate(pawn.def.baseSprite);
         //GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
         DisplaySymbol(pawn.def.icon);
         switch (inPawn.player)

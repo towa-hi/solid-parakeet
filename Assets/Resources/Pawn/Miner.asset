@@ -15,3 +15,4 @@ MonoBehaviour:
   pawnName: Miner
   power: 3
   icon: {fileID: 21300000, guid: 0e00857d6975d5a4393a1334c9caaecf, type: 3}
+  baseSprite: {fileID: 21300000, guid: 0e88c0a54907a054f91da5952387f862, type: 3}
