@@ -59,7 +59,7 @@ Material:
     - _NoiseScale: 1
     - _QueueControl: 0
     - _QueueOffset: 0
-    - _TimeScale: 0.01
+    - _TimeScale: 0.015
     - _TwirlStrength: 30
     m_Colors:
     - _BaseColor: {r: 0, g: 0.15514848, b: 1, a: 0}

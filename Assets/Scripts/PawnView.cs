@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
+using PrimeTween;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.U2D;
 
 public class PawnView : MonoBehaviour
@@ -93,24 +93,6 @@ public class PawnView : MonoBehaviour
         DisplaySymbol(pawn.def.icon);
     }
     
-    public IEnumerator MoveToPosition(Vector3 targetPosition, float duration)
-    {
-        isMoving = true;
-        Vector3 startPosition = transform.position;
-        float elapsedTime = 0f;
-
-        while (elapsedTime < duration)
-        {
-            // Lerp from startPosition to targetPosition over duration
-            transform.position = Vector3.Lerp(startPosition, targetPosition, elapsedTime / duration);
-            elapsedTime += Time.deltaTime;
-            yield return null;
-        }
-
-        // Ensure the final position is set
-        transform.position = targetPosition;
-        isMoving = false;
-    }
     public IEnumerator ArcToPosition(Vector3 targetPosition, float duration, float arcHeight)
     {
         isMoving = true;
@@ -139,6 +121,10 @@ public class PawnView : MonoBehaviour
 
         // Ensure the final position is set
         transform.position = targetPosition;
+        if (targetPosition != GameManager.instance.boardManager.purgatory.position)
+        {
+            GameManager.instance.boardManager.BounceBoard();
+        }
         isMoving = false;
     }
     
@@ -234,11 +220,24 @@ public class PawnView : MonoBehaviour
         billboardRenderer.renderingLayerMask = currentRenderingLayerMask;
         planeRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
-
+    
+    Tween currentTween;
     public void OnHovered(bool inIsHovered)
     {
+        if (!pawn.isAlive) return;
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
+        if (pawn.player == GameManager.instance.boardManager.player)
+        {
+            currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, 0.2f, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
+        }
+        else
+        {
+            if (model.transform.localPosition != Vector3.zero)
+            {
+                currentTween = Tween.LocalPosition(model.transform, Vector3.zero, 0.3f, Ease.OutCubic);
+            }
+        }
     }
 
     public void SetSelect(bool inIsSelected)

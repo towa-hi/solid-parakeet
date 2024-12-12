@@ -138,11 +138,26 @@ public class TileView : MonoBehaviour
         modelObject.SetActive(isShowing);
         floorObject.SetActive(isShowing);
     }
+
+    Tween currentTween;
     
     public void OnHovered(bool inIsHovered)
     {
+        if (!tile.isPassable) return;
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
+        PawnView pawnView = GameManager.instance.boardManager.GetPawnViewByPos(tile.pos);
+        if (pawnView && pawnView.pawn.player == GameManager.instance.boardManager.player)
+        {
+            currentTween = Tween.LocalPosition(modelObject.transform, inIsHovered ? new Vector3(0, 0.2f, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
+        }
+        else
+        {
+            if (modelObject.transform.localPosition != Vector3.zero)
+            {
+                currentTween = Tween.LocalPosition(modelObject.transform, Vector3.zero, 0.3f, Ease.OutCubic);
+            }
+        }
     }
 
     // Add the OnHighlight method

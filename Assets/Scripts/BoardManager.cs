@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using PrimeTween;
 using UnityEngine;
 
 // BoardManager is responsible for managing the board state, including tiles and pawns.
@@ -256,6 +257,17 @@ public class BoardManager : MonoBehaviour
     }
     
     #endregion
+
+    Sequence bounceSequence;
+    Vector3 basePosition = new Vector3(-4.5f, 0, -4.5f);
+    public TweenSettings<float> bounceDownSettings;
+    public TweenSettings<float> bounceUpSettings;
+    public void BounceBoard()
+    {
+        bounceSequence = Sequence.Create()
+            .Chain(Tween.PositionY(transform, bounceDownSettings))
+            .Chain(Tween.PositionY(transform, bounceUpSettings));
+    }
     
     public PawnView GetPawnViewByPos(Vector2Int pos)
     {
