@@ -165,7 +165,9 @@ public class BoardManager : MonoBehaviour
                 break;
             case ResolveEvent.DEATH:
                 Vector3 purgatoryTarget = GameManager.instance.boardManager.purgatory.position;
-                yield return StartCoroutine(pawnView.ArcToPosition(purgatoryTarget, Globals.PAWNMOVEDURATION, 2f));
+                pawnView.billboard.GetComponent<Shatter>().ShatterEffect();
+                pawnView.transform.position = purgatoryTarget;
+                //yield return StartCoroutine(pawnView.ArcToPosition(purgatoryTarget, Globals.PAWNMOVEDURATION, 2f));
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -685,7 +687,7 @@ public class MovePhase : IPhase
                 if (success)
                 {
                     Debug.Log("OnClick: queued a move");
-                    if (GameManager.instance.enableFastMode)
+                    if (PlayerPrefs.GetInt("FASTMODE") == 0)
                     {
                         OnSubmitMove();
                     }

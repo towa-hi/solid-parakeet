@@ -28,12 +28,8 @@ public class GuiNicknameModal : ModalElement
         {
             Reset();
         }
-    }
-
-    public override void EnableElement(bool enable)
-    {
-        cancelButton.interactable = enable;
-        confirmButton.interactable = enable;
+        cancelButton.interactable = show;
+        confirmButton.interactable = show;
     }
     
     public string GetNickname()

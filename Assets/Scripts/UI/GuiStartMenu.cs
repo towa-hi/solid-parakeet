@@ -16,19 +16,22 @@ public class GuiStartMenu : MenuElement
         offlineButton.onClick.AddListener(HandleOfflineButton);
     }
 
-    public override void EnableElement(bool enable)
+    public override void ShowElement(bool enable)
     {
+        base.ShowElement(enable);
         connectButton.interactable = enable;
         offlineButton.interactable = enable;
     }
     
     void HandleConnectButton()
     {
+        GameManager.instance.audioManager.PlayButtonClick();
         OnConnectButton?.Invoke();
     }
 
     void HandleOfflineButton()
     {
+        GameManager.instance.audioManager.PlayButtonClick();
         OnOfflineButton?.Invoke();
     }
 }

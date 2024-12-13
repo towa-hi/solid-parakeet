@@ -20,8 +20,8 @@ public class CameraManager : MonoBehaviour
     public bool rotateOnMouse;
     public float rotateMaxAngle;
     Quaternion originalOrientation;
-    float basePitch; // X-axis rotation
-    float baseYaw;   // Y-axis rotation
+    public float basePitch; // X-axis rotation
+    public float baseYaw;   // Y-axis rotation
     
     public void Initialize()
     {
@@ -29,7 +29,9 @@ public class CameraManager : MonoBehaviour
         mainCamera.transform.position = startAnchor.GetPosition();
         mainCamera.transform.rotation = startAnchor.GetQuaternion();
         mainCamera.fieldOfView = startAnchor.fov;
-
+        originalOrientation = mainCamera.transform.rotation;
+        Vector3 euler = originalOrientation.eulerAngles;
+        SetRotateOnMouse(PlayerPrefs.GetInt("ROTATECAMERA") == 1);
     }
 
     MenuElement currentElement;
@@ -102,7 +104,7 @@ public class CameraManager : MonoBehaviour
     Tween currentTween;
     void Update()
     {
-        if (rotateOnMouse && GameManager.instance.enableCameraRotation)
+        if (rotateOnMouse && PlayerPrefs.GetInt("ROTATECAMERA") == 1)
         {
             screenPointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
             if (!IsPointerWithinScreen(screenPointerPosition))

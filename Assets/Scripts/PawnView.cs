@@ -24,7 +24,8 @@ public class PawnView : MonoBehaviour
     public bool isSelected;
     public bool isHovered;
     public bool isMoving;
-    
+
+    public GameObject badge;
     public SpriteRenderer badgeSpriteRenderer;
     public SpriteRenderer badgeBackgroundRenderer;
     public Color redColor;
@@ -35,6 +36,38 @@ public class PawnView : MonoBehaviour
     Coroutine moveCoroutine;
     
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+    
+    public void Initialize(Pawn inPawn, TileView tileView)
+    {
+        pawn = inPawn;
+        gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
+        billboard.GetComponent<SpriteToMesh>().Activate(pawn.def.baseSprite);
+        //GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
+        DisplaySymbol(pawn.def.icon);
+        switch (inPawn.player)
+        {
+            case Player.RED:
+                SetColor(redColor);
+                break;
+            case Player.BLUE:
+                SetColor(blueColor);
+                break;
+        }
+        if (tileView == null)
+        {
+            transform.position = GameManager.instance.boardManager.purgatory.position;
+        }
+        else
+        {
+            transform.position = tileView.pawnOrigin.position;
+        }
+        if (moveCoroutine != null)
+        {
+            StopCoroutine(moveCoroutine);
+            moveCoroutine = null;
+        }
+        badge.SetActive(PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
+    }
     
     public void SyncState(SPawn state)
     {
@@ -128,38 +161,6 @@ public class PawnView : MonoBehaviour
         isMoving = false;
     }
     
-    public void Initialize(Pawn inPawn, TileView tileView)
-    {
-        pawn = inPawn;
-        gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
-        billboard.GetComponent<SpriteToMesh>().Activate(pawn.def.baseSprite);
-        //GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
-        DisplaySymbol(pawn.def.icon);
-        switch (inPawn.player)
-        {
-            case Player.RED:
-                SetColor(redColor);
-                break;
-            case Player.BLUE:
-                SetColor(blueColor);
-                break;
-        }
-        if (tileView == null)
-        {
-            transform.position = GameManager.instance.boardManager.purgatory.position;
-        }
-        else
-        {
-            transform.position = tileView.pawnOrigin.position;
-        }
-        if (moveCoroutine != null)
-        {
-            StopCoroutine(moveCoroutine);
-            moveCoroutine = null;
-        }
-
-    }
-
     public void DisplaySymbol(Sprite sprite)
     {
         if (sprite == null)
@@ -179,11 +180,11 @@ public class PawnView : MonoBehaviour
         planeRenderer.material.SetColor(BaseColorID, color);
         if (pawn.player == Player.RED)
         {
-            badgeBackgroundRenderer.color = Color.red;
+            badgeBackgroundRenderer.color = redColor;
         }
         else
         {
-            badgeBackgroundRenderer.color = Color.blue;
+            badgeBackgroundRenderer.color = blueColor;
         }
         
         planeRenderer.SetPropertyBlock(block);

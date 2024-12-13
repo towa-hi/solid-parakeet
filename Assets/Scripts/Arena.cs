@@ -30,16 +30,16 @@ public class Arena : MonoBehaviour
 
     IEnumerator Battle()
     {
-        if (redDies)
-        {
-            redPawnView.shatterEffect.ShatterEffect(20f);
-        }
-
-        if (blueDies)
-        {
-            bluePawnView.shatterEffect.ShatterEffect(20f);
-        }
-        yield return new WaitForSeconds(2f);
+        // if (redDies)
+        // {
+        //     redPawnView.shatterEffect.ShatterEffect(20f);
+        // }
+        //
+        // if (blueDies)
+        // {
+        //     bluePawnView.shatterEffect.ShatterEffect(20f);
+        // }
+        yield return new WaitForSeconds(1f);
         arenaCamera.gameObject.SetActive(false);
         master.HideBattleScreen();
         OnFinish?.Invoke();

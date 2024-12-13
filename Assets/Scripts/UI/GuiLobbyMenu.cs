@@ -28,8 +28,9 @@ public class GuiLobbyMenu : MenuElement
         demoButton.onClick.AddListener(HandleDemoButton);
     }
 
-    public override void EnableElement(bool enable)
+    public override void ShowElement(bool enable)
     {
+        base.ShowElement(enable);
         cancelButton.interactable = enable;
         readyButton.interactable = enable;
         demoButton.interactable = enable;

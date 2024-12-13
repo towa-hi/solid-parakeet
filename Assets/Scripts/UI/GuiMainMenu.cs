@@ -28,8 +28,9 @@ public class GuiMainMenu : MenuElement
         RefreshNicknameText();
     }
 
-    public override void EnableElement(bool enable)
+    public override void ShowElement(bool enable)
     {
+        base.ShowElement(enable);
         changeNicknameButton.interactable = enable;
         newLobbyButton.interactable = enable;
         joinLobbyButton.interactable = enable;

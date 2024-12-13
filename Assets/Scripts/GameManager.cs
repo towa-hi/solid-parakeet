@@ -9,20 +9,20 @@ public class GameManager : MonoBehaviour
     public BoardManager boardManager;
     public GuiManager guiManager;
     public CameraManager cameraManager;
+    public AudioManager audioManager;
+    public PoolManager poolManager;
+    public SettingsManager settingsManager;
     public IGameClient client;
     public bool offlineMode;
-    
+
     public BoardDef tempBoardDef;
     public SSetupPawnData[] tempMaxPawnsArray;
     public List<KeyValuePair<PawnDef, int>> orderedPawnDefList;
     
-    // settings
-    public bool enableCameraRotation;
-    public bool enableFastMode;
-    public bool enableCheat;
     void Awake()
     {
         Debug.developerConsoleVisible = true;
+        SetDefaultPlayerPrefs();
         if (instance == null)
         {
             instance = this;
@@ -35,6 +35,26 @@ public class GameManager : MonoBehaviour
         orderedPawnDefList = Globals.GetOrderedPawnList();
     }
 
+    void SetDefaultPlayerPrefs()
+    {
+        if (!PlayerPrefs.HasKey("CHEATMODE"))
+        {
+            settingsManager.SetCheatMode(false);
+        }
+        if (!PlayerPrefs.HasKey("FASTMODE"))
+        {
+            settingsManager.SetFastMode(false);
+        }
+        if (!PlayerPrefs.HasKey("DISPLAYBADGE"))
+        {
+            settingsManager.SetDisplayBadge(true);
+        }
+        if (!PlayerPrefs.HasKey("ROTATECAMERA"))
+        {
+            settingsManager.SetRotateCamera(false);
+        }
+    }
+    
     void Start()
     {
         guiManager.Initialize();

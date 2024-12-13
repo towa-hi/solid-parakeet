@@ -531,6 +531,7 @@ MonoBehaviour:
   fadeOutDuration: 2
   shatterSound: {fileID: 8300000, guid: e3b6a6cfc27bc9f4d9a68f2effa14244, type: 3}
   audioSource: {fileID: 4319651562892073190}
+  SubMeshMaterial: {fileID: 2100000, guid: 4d6588d574c89464cb5dfda416c3bc4a, type: 2}
 --- !u!82 &4319651562892073190
 AudioSource:
   m_ObjectHideFlags: 0
@@ -694,6 +695,7 @@ MonoBehaviour:
   isSelected: 0
   isHovered: 0
   isMoving: 0
+  badge: {fileID: 3065859645231224941}
   badgeSpriteRenderer: {fileID: 3254266947710671316}
   badgeBackgroundRenderer: {fileID: 1672190667434113301}
   redColor: {r: 0.34117648, g: 0, b: 0, a: 1}

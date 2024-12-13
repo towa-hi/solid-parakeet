@@ -663,7 +663,7 @@ public struct SGameState
             SPawn censoredPawn;
             if (serverPawn.player != targetPlayer)
             {
-                if (GameManager.instance.enableCheat)
+                if (PlayerPrefs.GetInt("CHEATMODE") == 1)
                 {
                     censoredPawn = serverPawn;
                     censoredPawn.isVisibleToOpponent = true;

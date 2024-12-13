@@ -7,6 +7,11 @@ public class GuiSettingsMenu : MenuElement
     public Button cancelChangesButton;
     public Button saveSettingsButton;
 
+    public Toggle cheatModeToggle;
+    public Toggle fastModeToggle;
+    public Toggle displayBadgeToggle;
+    public Toggle rotateCameraToggle;
+    
     public event Action OnCancelChangesButton;
     public event Action OnSaveSettingsButton;
     
@@ -18,10 +23,19 @@ public class GuiSettingsMenu : MenuElement
         saveSettingsButton.onClick.AddListener(HandleSaveSettingsButton);
     }
 
-    public override void EnableElement(bool enable)
+    public override void ShowElement(bool show)
     {
-        cancelChangesButton.interactable = enable;
-        saveSettingsButton.interactable = enable;
+        base.ShowElement(show);
+        cancelChangesButton.interactable = show;
+        saveSettingsButton.interactable = show;
+        bool cheatMode = PlayerPrefs.GetInt("CHEATMODE") == 1;
+        bool fastMode = PlayerPrefs.GetInt("FASTMODE") == 1;
+        bool displayBadge = PlayerPrefs.GetInt("DISPLAYBADGE") == 1;
+        bool rotateCamera = PlayerPrefs.GetInt("ROTATECAMERA") == 1;
+        cheatModeToggle.isOn = cheatMode;
+        fastModeToggle.isOn = fastMode;
+        displayBadgeToggle.isOn = displayBadge;
+        rotateCameraToggle.isOn = rotateCamera;
     }
     
     void HandleCancelChangesButton()
@@ -31,6 +45,11 @@ public class GuiSettingsMenu : MenuElement
 
     void HandleSaveSettingsButton()
     {
+        SettingsManager settingsManager = GameManager.instance.settingsManager;
+        settingsManager.SetCheatMode(cheatModeToggle.isOn);
+        settingsManager.SetFastMode(fastModeToggle.isOn);
+        settingsManager.SetDisplayBadge(displayBadgeToggle.isOn);
+        settingsManager.SetRotateCamera(rotateCameraToggle.isOn);
         OnSaveSettingsButton?.Invoke();
     }
 }
