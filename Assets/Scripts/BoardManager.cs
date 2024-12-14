@@ -264,11 +264,13 @@ public class BoardManager : MonoBehaviour
     Vector3 basePosition = new Vector3(-4.5f, 0, -4.5f);
     public TweenSettings<float> bounceDownSettings;
     public TweenSettings<float> bounceUpSettings;
+    public ShakeSettings punchSettings;
     public void BounceBoard()
     {
         bounceSequence = Sequence.Create()
-            .Chain(Tween.PositionY(transform, bounceDownSettings))
-            .Chain(Tween.PositionY(transform, bounceUpSettings));
+            .Chain(Tween.PunchLocalPosition(transform, punchSettings));
+            // .Chain(Tween.PositionY(transform, bounceDownSettings))
+            // .Chain(Tween.PositionY(transform, bounceUpSettings));
     }
     
     public PawnView GetPawnViewByPos(Vector2Int pos)
@@ -687,7 +689,7 @@ public class MovePhase : IPhase
                 if (success)
                 {
                     Debug.Log("OnClick: queued a move");
-                    if (PlayerPrefs.GetInt("FASTMODE") == 0)
+                    if (PlayerPrefs.GetInt("FASTMODE") == 1)
                     {
                         OnSubmitMove();
                     }

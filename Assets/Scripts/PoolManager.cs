@@ -6,7 +6,7 @@ public class PoolManager : MonoBehaviour
 {
     public Transform poolParent;
     public GameObject subMeshPrefab;
-    public int initialPoolSize = 200;
+    public int initialPoolSize = 100;
 
     Queue<GameObject> pool = new Queue<GameObject>();
 

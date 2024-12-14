@@ -149,7 +149,7 @@ public class TileView : MonoBehaviour
         PawnView pawnView = GameManager.instance.boardManager.GetPawnViewByPos(tile.pos);
         if (pawnView && pawnView.pawn.player == GameManager.instance.boardManager.player)
         {
-            currentTween = Tween.LocalPosition(modelObject.transform, inIsHovered ? new Vector3(0, 0.2f, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
+            currentTween = Tween.LocalPosition(modelObject.transform, inIsHovered ? new Vector3(0, Globals.HOVEREDHEIGHT, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
         }
         else
         {

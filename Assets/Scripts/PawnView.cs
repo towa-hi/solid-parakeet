@@ -230,13 +230,13 @@ public class PawnView : MonoBehaviour
         SetMeshOutline(isHovered, "HoverOutline");
         if (pawn.player == GameManager.instance.boardManager.player)
         {
-            currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, 0.2f, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
+            currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, Globals.HOVEREDHEIGHT, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
         }
         else
         {
             if (model.transform.localPosition != Vector3.zero)
             {
-                currentTween = Tween.LocalPosition(model.transform, Vector3.zero, 0.3f, Ease.OutCubic);
+                currentTween = Tween.LocalPosition(model.transform, Vector3.zero, 0.1f, Ease.OutCubic);
             }
         }
     }

@@ -6,8 +6,8 @@ public class Shatter : MonoBehaviour
 {
     float explosionForce = 20f;
     float explosionRadius = 10f;
-    int gridX = 10;
-    int gridY = 10;
+    int gridX = 5;
+    int gridY = 5;
     public float fadeOutDuration = 2f;
     public AudioClip shatterSound;
     public AudioSource audioSource;
