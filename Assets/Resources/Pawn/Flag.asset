@@ -15,4 +15,6 @@ MonoBehaviour:
   pawnName: Flag
   power: 0
   icon: {fileID: 21300000, guid: c770c813792773647827426d5ef899d5, type: 3}
-  baseSprite: {fileID: 21300000, guid: dafa0aa1dc455f04483a20d1537b3508, type: 3}
+  baseSprite: {fileID: 21300000, guid: 325d9b8249889fc41a2a671ed2051a74, type: 3}
+  redSprite: {fileID: 21300000, guid: 325d9b8249889fc41a2a671ed2051a74, type: 3}
+  blueSprite: {fileID: 21300000, guid: 8ef6ec8a98c17ee4489d8b25ea9780bd, type: 3}

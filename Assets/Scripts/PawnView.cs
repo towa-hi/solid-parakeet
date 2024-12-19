@@ -41,7 +41,17 @@ public class PawnView : MonoBehaviour
     {
         pawn = inPawn;
         gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
-        billboard.GetComponent<SpriteToMesh>().Activate(pawn.def.baseSprite);
+        Sprite displaySprite;
+        if (pawn.player == Player.RED)
+        {
+            displaySprite = pawn.def.redSprite;
+        }
+        else
+        {
+            displaySprite = pawn.def.blueSprite;
+        }
+        
+        billboard.GetComponent<SpriteToMesh>().Activate(displaySprite);
         //GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
         DisplaySymbol(pawn.def.icon);
         switch (inPawn.player)

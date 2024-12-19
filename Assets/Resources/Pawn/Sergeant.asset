@@ -15,4 +15,6 @@ MonoBehaviour:
   pawnName: Sergeant
   power: 4
   icon: {fileID: 21300000, guid: ab7c8ffb96ce6fd429269a9c4f7d6fc6, type: 3}
-  baseSprite: {fileID: 21300000, guid: 6be51f7db35ae7c4b81d97e731c2bd33, type: 3}
+  baseSprite: {fileID: 21300000, guid: d318c737696554241a10bed7eb86fde9, type: 3}
+  redSprite: {fileID: 21300000, guid: d318c737696554241a10bed7eb86fde9, type: 3}
+  blueSprite: {fileID: 21300000, guid: fd14d0cb1f29f494d8e0aac468c3b5b7, type: 3}

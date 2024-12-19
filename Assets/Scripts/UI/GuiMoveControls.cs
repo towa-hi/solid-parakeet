@@ -27,8 +27,11 @@ public class GuiMoveControls : MonoBehaviour
                 gameObject.SetActive(false);
                 break;
             case MovePhase movePhase:
-                gameObject.SetActive(true);
-                moveSubmitButton.interactable = true;
+                if (PlayerPrefs.GetInt("FASTMODE") == 0)
+                {
+                    gameObject.SetActive(true);
+                    moveSubmitButton.interactable = true;
+                }
                 break;
             case ResolvePhase resolvePhase:
                 gameObject.SetActive(false);
