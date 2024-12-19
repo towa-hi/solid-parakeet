@@ -148,7 +148,6 @@ public class BoardManager : MonoBehaviour
         //block.SetFloat(breatheTimeID, targetBreatheTime);
         //block.SetFloat(breathePowerID, targetBreathePower);
         
-        Debug.Log($"Timescale set to {targetTimeScale}");
     }
     
     #region Responses
