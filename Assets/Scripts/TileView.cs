@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using PrimeTween;
+using UnityEngine.U2D;
 
 public class TileView : MonoBehaviour
 {
@@ -10,7 +11,6 @@ public class TileView : MonoBehaviour
     public GameObject modelObject;
     public GameObject arrow;
     public Transform fallOrigin;
-    
     public Renderer tileTopRenderer;
     public Renderer cubeRenderer;
     public Renderer floorRenderer;
@@ -30,7 +30,7 @@ public class TileView : MonoBehaviour
     uint currentRenderingLayerMask;
 
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
-    
+    static readonly int MainTexID = Shader.PropertyToID("_BaseMap");
 
     
     public void Initialize(BoardManager boardManager, STile inTile)
@@ -41,16 +41,30 @@ public class TileView : MonoBehaviour
         ShowTile(tile.isPassable);
         arrow.GetComponent<SpriteToMesh>().Activate(arrow.GetComponent<SpriteToMesh>().sprite);
         arrow.SetActive(isArrowed);
+        SetRandomTileTexture();
     }
 
+    void SetRandomTileTexture()
+    {
+        Sprite randomSprite = GameManager.instance.allTileSprites[UnityEngine.Random.Range(0, GameManager.instance.allTileSprites.Count)];
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        tileTopRenderer.GetPropertyBlock(block);
+        block.SetTexture(MainTexID, randomSprite.texture);
+        tileTopRenderer.SetPropertyBlock(block);
+    }
+    
     public void FallingAnimation(float delay)
     {
-        //Debug.Log($"starting FallingAnimation on {tile.pos}");
-        Sequence.Create()
-            .ChainCallback(() => ShowTile(false))
-            .ChainDelay(delay)
-            .ChainCallback(() => ShowTile(tile.isPassable))
-            .Chain(Tween.LocalPosition(modelObject.transform, fallSettings));
+        if (tile.isPassable)
+        {
+            //Debug.Log($"starting FallingAnimation on {tile.pos}");
+            Sequence.Create()
+                .ChainCallback(() => ShowTile(false))
+                .ChainDelay(delay)
+                .ChainCallback(() => ShowTile(tile.isPassable))
+                .Chain(Tween.LocalPosition(modelObject.transform, fallSettings));
+        }
+
     }
     
     void OnPhaseChanged(IPhase phase)

@@ -65,6 +65,7 @@ public class CameraManager : MonoBehaviour
     }
 
     Sequence currentSequence;
+    CameraAnchor currentTarget;
     
     void MoveCameraTo(CameraAnchor target, bool inRotateOnMouse)
     {
@@ -73,6 +74,7 @@ public class CameraManager : MonoBehaviour
             Debug.Log("MoveCameraTo: already here");
             return;
         }
+        currentTarget = target;
         SetRotateOnMouse(false);
         moveSettings.startValue = mainCamera.transform.position;
         moveSettings.endValue = target.GetPosition();
@@ -85,7 +87,8 @@ public class CameraManager : MonoBehaviour
             .Group(Tween.Position(mainCamera.transform, moveSettings))
             .Group(Tween.Rotation(mainCamera.transform, rotationSettings))
             .Group(Tween.CameraFieldOfView(mainCamera, fovSettings))
-            .ChainCallback(() => SetRotateOnMouse(inRotateOnMouse));
+            .ChainCallback(() => SetRotateOnMouse(inRotateOnMouse))
+            .ChainCallback(() => OnTransitionFinished());
     }
 
     void SetRotateOnMouse(bool inRotateOnMouse)
@@ -97,6 +100,15 @@ public class CameraManager : MonoBehaviour
             Vector3 euler = originalOrientation.eulerAngles;
             basePitch = euler.x;
             baseYaw = euler.y;
+        }
+    }
+
+    void OnTransitionFinished()
+    {
+        GameManager.instance.guiManager.OnTransitionFinished();
+        if (currentTarget != null && currentTarget == boardAnchor)
+        {
+            GameManager.instance.boardManager.OnGameStartTransitionFinished();
         }
     }
 

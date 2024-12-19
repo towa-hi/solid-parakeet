@@ -102,6 +102,5 @@ public class SubMesh : MonoBehaviour
         }
         GameManager.instance.poolManager.ReturnSubMeshObject(gameObject);
         meshRenderer.material.color = originalColor;
-        Debug.Log("Decay complete");
     }
 }

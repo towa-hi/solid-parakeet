@@ -8,7 +8,7 @@ public static class Globals
 {
     public static Vector2Int PURGATORY = new(-666, -666);
     public static bool SETUPMUSTPLACEALLPAWNS = false;
-    public static float PAWNMOVEDURATION = 0.5f;
+    public static float PAWNMOVEDURATION = 1f;
     public static float HOVEREDHEIGHT = 0.1f;
     // Static instance of GameInputActions to be shared among all Hoverable instances
     public static readonly InputSystem_Actions inputActions = new();

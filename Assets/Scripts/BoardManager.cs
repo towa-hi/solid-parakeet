@@ -36,12 +36,23 @@ public class BoardManager : MonoBehaviour
     bool isBattleHappening; // Move this into resolve phase later
 
     public IPhase currentPhase;
+    public Renderer floorRenderer;
 
     public event Action<IPhase> OnPhaseChanged;
     public event Action<PawnDef> OnSetupStateChanged;
     public void InvokeOnSetupStateChanged(PawnDef selectedPawnDef) {OnSetupStateChanged?.Invoke(selectedPawnDef);}
+    
+    static readonly int timeScaleID = Shader.PropertyToID("_TimeScale");
+    static readonly int breatheFloorID = Shader.PropertyToID("_BreatheFloor");
+    static readonly int breatheTimeID = Shader.PropertyToID("_BreatheTime");
+    static readonly int breathePowerID = Shader.PropertyToID("_BreathePower");
+    static readonly int twistednessID = Shader.PropertyToID("_Twistedness");
 
-
+    public float vortexTransitionDuration = 0.25f;
+    public Light directionalLight;
+    public Light spotLight;
+    public SpotLight spotLightHandler;
+    
     void Start()
     {
         clickInputManager.Initialize(this);
@@ -55,12 +66,102 @@ public class BoardManager : MonoBehaviour
         currentPhase.EnterState();
         OnPhaseChanged?.Invoke(currentPhase);
     }
+
+    bool isVortexOn;
+    Coroutine currentVortexLerp;
+    public void StartVortex()
+    {
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        floorRenderer.GetPropertyBlock(block);
+        float currentTimeScale = block.GetFloat(timeScaleID);
+        Debug.Log($"StartVortex started timescale at {currentTimeScale}");
+        isVortexOn = true;
+        if (currentVortexLerp != null)
+        {
+            StopCoroutine(currentVortexLerp);
+        }
+        currentVortexLerp = StartCoroutine(LerpVortex(true));
+    }
+
+    public void EndVortex()
+    {
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        floorRenderer.GetPropertyBlock(block);
+        float currentTimeScale = block.GetFloat(timeScaleID);
+        Debug.Log($"EndVortex started timescale at {currentTimeScale}");
+        isVortexOn = false;
+        Debug.Log("EndVortex");
+        if (currentVortexLerp != null)
+        {
+            StopCoroutine(currentVortexLerp);
+        }
+        currentVortexLerp = StartCoroutine(LerpVortex(false));
+    }
+    
+    float EaseInOutQuad(float t) {
+        return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+    }
+    
+    IEnumerator LerpVortex(bool isOn)
+    {
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        floorRenderer.GetPropertyBlock(block);
+        float initTwistedness = block.GetFloat(twistednessID);
+        float initTimeScale = block.GetFloat(timeScaleID);
+        float initBreatheFloor = block.GetFloat(breatheFloorID);
+        float initBreatheTime = block.GetFloat(breatheTimeID);
+        float initDirectionalLightIntensity = directionalLight.intensity;
+        float initSpotLightIntensity = spotLight.intensity;
+        //float initBreathePower = block.GetFloat(breathePowerID);
+        float targetTwistedness = isOn ? 0f : 1f;
+        float targetTimeScale = isOn? -1f : -0.1f;
+        float targetDirectionalLightIntensity = isOn ? 1f : 2.5f;
+        float targetSpotLightIntensity = isOn ? 40f : 0f;
+       // float targetBreatheFloor = isOn? 4f : 1.88f;
+        //float targetBreatheTime = isOn ? 5.3f : 2f;
+        //float targetBreathePower = isOn ? 200f : 0.12f;
+        
+        float elapsedTime = 0f;
+        while (elapsedTime < vortexTransitionDuration)
+        {
+            float t = elapsedTime / vortexTransitionDuration;
+            float easedT = EaseInOutQuad(t);
+            elapsedTime += Time.deltaTime;
+            float currentTwistedness = Mathf.Lerp(initTwistedness, targetTwistedness, easedT);
+            float currentTimeScale = Mathf.Lerp(initTimeScale, targetTimeScale, easedT);
+            float currentDirectionalLightIntensity = Mathf.Lerp(initDirectionalLightIntensity, targetDirectionalLightIntensity, easedT);
+            float currentSpotLightIntensity = Mathf.Lerp(initSpotLightIntensity, targetSpotLightIntensity, easedT);
+            //float currentBreatheFloor = Mathf.Lerp(initBreatheFloor, targetBreatheFloor, delta);
+            //float currentBreatheTime = Mathf.Lerp(initBreatheTime, targetBreatheTime, delta);
+            //float currentBreathePower = Mathf.Lerp(initBreathePower, targetBreathePower, delta);
+            block.SetFloat(timeScaleID, currentTimeScale);
+            block.SetFloat(twistednessID, currentTwistedness);
+            directionalLight.intensity = currentDirectionalLightIntensity;
+            spotLight.intensity = currentSpotLightIntensity;
+            //currentBlock.SetFloat(breatheFloorID, currentBreatheFloor);
+            //currentBlock.SetFloat(breatheTimeID, currentBreatheTime);
+            //block.SetFloat(breathePowerID, currentBreathePower);
+            floorRenderer.SetPropertyBlock(block);
+            yield return null;
+        }
+        //block.SetFloat(breatheFloorID, targetBreatheFloor);
+        //block.SetFloat(breatheTimeID, targetBreatheTime);
+        //block.SetFloat(breathePowerID, targetBreathePower);
+        
+        Debug.Log($"Timescale set to {targetTimeScale}");
+    }
     
     #region Responses
-    
+
+    public void OnGameStartTransitionFinished()
+    {
+        SetPhase(new SetupPhase(this, cachedResponse.data));
+    }
+
+    Response<SSetupParameters> cachedResponse;
     public void OnDemoStartedResponse(Response<SSetupParameters> response)
     {
-        SetPhase(new SetupPhase(this, response.data));
+        cachedResponse = response;
         clickInputManager.OnPositionHovered += OnPositionHovered;
         clickInputManager.OnClick += OnClick;
     }
@@ -116,18 +217,20 @@ public class BoardManager : MonoBehaviour
         {
             case ResolveEvent.MOVE:
                 Vector3 target = GetTileViewByPos(eventState.targetPos).pawnOrigin.position;
+                spotLightHandler.LookAt(pawnView.transform);
                 if (pawnView.transform.position != target)
                 {
-                    yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PAWNMOVEDURATION, 0.5f));
+                    yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PAWNMOVEDURATION, 0.25f));
                 }
                 break;
             case ResolveEvent.CONFLICT:
                 PawnView defenderPawnView = GetPawnViewById(eventState.defenderPawnId);
+                spotLightHandler.LookAt(defenderPawnView.transform);
                 SPawn defenderPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
                 pawnView.RevealPawn(pawnState);
                 defenderPawnView.RevealPawn(defenderPawnState);
                 Vector3 conflictTarget = GetTileViewByPos(eventState.targetPos).pawnOrigin.position;
-                yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.5f));
+                yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.25f));
                 SPawn redPawnState;
                 SPawn bluePawnState;
                 if (pawnState.player == (int)Player.RED)
@@ -146,6 +249,7 @@ public class BoardManager : MonoBehaviour
                 break;
             case ResolveEvent.SWAPCONFLICT:
                 PawnView defenderSwapPawnView = GetPawnViewById(eventState.defenderPawnId);
+                spotLightHandler.LookAt(defenderSwapPawnView.transform);
                 SPawn defenderSwapPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
                 pawnView.RevealPawn(pawnState);
                 defenderSwapPawnView.RevealPawn(defenderSwapPawnState);
@@ -165,6 +269,7 @@ public class BoardManager : MonoBehaviour
                 break;
             case ResolveEvent.DEATH:
                 Vector3 purgatoryTarget = GameManager.instance.boardManager.purgatory.position;
+                spotLightHandler.LookAt(null);
                 pawnView.billboard.GetComponent<Shatter>().ShatterEffect();
                 pawnView.transform.position = purgatoryTarget;
                 //yield return StartCoroutine(pawnView.ArcToPosition(purgatoryTarget, Globals.PAWNMOVEDURATION, 2f));
@@ -630,6 +735,10 @@ public class MovePhase : IPhase
             bm.pawnViews = pawnViews;
             bm.serverGameState = gameStateForHoldingOnly;
         }
+        else
+        {
+            bm.EndVortex();
+        }
     }
 
     public void ExitState()
@@ -658,8 +767,11 @@ public class MovePhase : IPhase
         
     }
 
+    float clickCount = 0;
     public void OnClick(Vector2Int hoveredPosition)
     {
+        Debug.Log($"OnClick {clickCount}");
+        clickCount += 1;
         if (!bm.IsPosValid(hoveredPosition))
         {
             if (selectedPawnView != null)
@@ -797,7 +909,7 @@ public class ResolvePhase : IPhase
     public void EnterState()
     {
         bm.serverGameState = receipt.gameState;
-        
+        bm.StartVortex();
     }
 
     public void ExitState()

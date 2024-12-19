@@ -18,7 +18,8 @@ public class GuiManager : MonoBehaviour
     [SerializeField] ModalElement currentModal;
 
     public event Action<MenuElement> OnShowMenu;
-    
+
+    public bool isTransitioning;
     public void Initialize()
     {
         InitializeUIEvents();
@@ -125,6 +126,7 @@ public class GuiManager : MonoBehaviour
     {
         Debug.Log("OnOfflineButton");
         GameManager.instance.SetOfflineMode(true);
+        GameManager.instance.Lightning();
     }
     
     // main menu
@@ -249,6 +251,20 @@ public class GuiManager : MonoBehaviour
         }
     }
 
+    MenuElement nextMenu;
+
+    public void OnTransitionFinished()
+    {
+        if (nextMenu != null)
+        {
+            currentMenu = nextMenu;
+            currentMenu.ShowElement(true);
+            Debug.Log($"{currentMenu} is shown");
+        }
+        nextMenu = null;
+        isTransitioning = false;
+    }
+    
     public void ShowMenu(MenuElement menu)
     {
         if (currentMenu != null)
@@ -256,12 +272,14 @@ public class GuiManager : MonoBehaviour
             currentMenu.ShowElement(false);
             Debug.Log($"{currentMenu} is hidden");
         }
-        currentMenu = menu;
-        if (currentMenu != null)
+        else
         {
-            menu.ShowElement(true);
-            Debug.Log($"{currentMenu} is shown");
+            currentMenu = menu;
+            currentMenu.ShowElement(true);
+            Debug.Log($"Started with {currentMenu}");
         }
+        nextMenu = menu;
+        isTransitioning = true;
         OnShowMenu?.Invoke(menu);
     }
     
