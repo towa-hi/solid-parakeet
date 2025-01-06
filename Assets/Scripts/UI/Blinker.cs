@@ -12,6 +12,10 @@ public class Blinker : MonoBehaviour
 
     void Update()
     {
+        if (!isOn)
+        {
+            return;
+        }
         if (gameObject.activeInHierarchy && text != null)
         {
             if (gameObject.activeInHierarchy && text != null)

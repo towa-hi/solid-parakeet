@@ -41,17 +41,7 @@ public class PawnView : MonoBehaviour
     {
         pawn = inPawn;
         gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
-        Sprite displaySprite;
-        if (pawn.player == Player.RED)
-        {
-            displaySprite = pawn.def.redSprite;
-        }
-        else
-        {
-            displaySprite = pawn.def.blueSprite;
-        }
-        
-        billboard.GetComponent<SpriteToMesh>().Activate(displaySprite);
+        UpdateSprite();
         //GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
         DisplaySymbol(pawn.def.icon);
         switch (inPawn.player)
@@ -132,8 +122,25 @@ public class PawnView : MonoBehaviour
     
     public void RevealPawn(SPawn sPawn)
     {
+        Debug.Log($"REVEALPAWN {gameObject.name}");
         pawn.def = sPawn.def.ToUnity();
         DisplaySymbol(pawn.def.icon);
+        UpdateSprite();
+    }
+
+    void UpdateSprite()
+    {
+        Sprite displaySprite;
+        if (pawn.player == Player.RED)
+        {
+            displaySprite = pawn.def.redSprite;
+        }
+        else
+        {
+            displaySprite = pawn.def.blueSprite;
+        }
+        
+        billboard.GetComponent<SpriteToMesh>().Activate(displaySprite);
     }
     
     public IEnumerator ArcToPosition(Vector3 targetPosition, float duration, float arcHeight)

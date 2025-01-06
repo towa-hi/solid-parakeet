@@ -69,25 +69,23 @@ public static class Globals
     
     public static List<KeyValuePair<PawnDef, int>> GetOrderedPawnList()
     {
-        // Return the pawn entries in the specific order
-        // You can adjust the order here as needed
-        List<KeyValuePair<PawnDef, int>> orderedPawns = new List<KeyValuePair<PawnDef, int>>();
+        List<KeyValuePair<PawnDef, int>> orderedPawns = new List<KeyValuePair<PawnDef, int>>
+        {
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/00-throne"), 1),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/01-assassin"), 1),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/02-scout"), 8),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/03-seer"), 5),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/04-grunt"), 4),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/05-knight"), 4),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/06-wraith"), 4),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/07-reaver"), 3),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/08-herald"), 2),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/09-champion"), 1),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/10-warlord"), 1),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/11-trap"), 6),
+            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/99-unknown"), 0),
+        };
 
-        // Assuming you have variables for each PawnDef as in SetupParameters
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/00-throne"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/01-assassin"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/02-scout"), 8));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/03-seer"), 5));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/04-grunt"), 4));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/05-knight"), 4));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/06-wraith"), 4));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/07-reaver"), 3));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/08-herald"), 2));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/09-champion"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/10-warlord"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/11-trap"), 6));
-        // we add unknown because this list is used by the frontend
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/99-unknown"), 0));
         return orderedPawns;
     }
     
@@ -96,41 +94,20 @@ public static class Globals
         return t * (2 - t);
     }
     
-    public static int GetNumberOfRowsForPawn(PawnDef pawnDef)
-    {
-        switch (pawnDef.name)
-        {
-            case "Flag":
-                // Rule 1: Flag goes in the back row
-                return 1;
-            case "Spy":
-                // Rule 2: Spy goes somewhere in the two furthest back rows
-                return 2;
-            case "Bomb":
-            case "Marshal":
-            case "General":
-                // Rule 3 & 4: Bombs, Marshal, General in three furthest back rows
-                return 3;
-            default:
-                // Other pawns have no specific back row requirement
-                return 0;
-        }
-    }
-    
     public static int GetNumberOfRowsForPawn(SPawnDef pawnDef)
     {
         switch (pawnDef.pawnName)
         {
-            case "Flag":
-                // Rule 1: Flag goes in the back row
+            case "Throne":
+                // Rule 1: Throne goes in the back row
                 return 1;
-            case "Spy":
-                // Rule 2: Spy goes somewhere in the two furthest back rows
+            case "Assassin":
+                // Rule 2: Assassin goes somewhere in the two furthest back rows
                 return 2;
-            case "Bomb":
-            case "Marshal":
-            case "General":
-                // Rule 3 & 4: Bombs, Marshal, General in three furthest back rows
+            case "Trap":
+            case "Champion":
+            case "Warlord":
+                // Rule 3 Trap, Champion, Warlord in three furthest back rows
                 return 3;
             default:
                 // Other pawns have no specific back row requirement
@@ -226,24 +203,17 @@ public struct SSetupParameters
                 return false;
             }
         }
-        if (false) // condition for if setup must place all pawns
+        // Check if there are any remaining pawns that haven't been placed
+        foreach (var kvp in pawnCounts)
         {
-            return setupPawns.Any(pawn => pawn.def.pawnName == "Flag");
-        }
-        else
-        {
-            // Check if there are any remaining pawns that haven't been placed
-            foreach (var kvp in pawnCounts)
+            if (kvp.Value > 0)
             {
-                if (kvp.Value > 0)
-                {
-                    Debug.LogError($"Not all pawns of type '{kvp.Key.pawnName}' have been placed. {kvp.Value} remaining.");
-                    return false;
-                }
+                Debug.LogError($"Not all pawns of type '{kvp.Key.pawnName}' have been placed. {kvp.Value} remaining.");
+                return false;
             }
-            Debug.Log("Setup is valid.");
-            return true;
         }
+        Debug.Log("Setup is valid.");
+        return true;
     }
     
 }
@@ -434,7 +404,7 @@ public struct SGameState
         int pawnMovementRange = pawn.def.pawnName switch
         {
             "Scout" => 11,
-            "Bomb" or "Flag" => 0,
+            "Trap" or "Throne" => 0,
             _ => 1,
         };
         foreach (Vector2Int dir in directions)
@@ -747,25 +717,25 @@ public struct SGameState
         bool redDies;
         bool blueDies;
         // Handle special cases (e.g., Bombs, Miners, Marshal, Spy)
-        if (redPawn.def.pawnName == "Bomb" && bluePawn.def.pawnName == "Miner")
+        if (redPawn.def.pawnName == "Trap" && bluePawn.def.pawnName == "Seer")
         {
             redDies = true;
             blueDies = false;
             Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated {redPawn.def.pawnName}");
         }
-        else if (bluePawn.def.pawnName == "Bomb" && redPawn.def.pawnName == "Miner")
+        else if (bluePawn.def.pawnName == "Trap" && redPawn.def.pawnName == "Seer")
         {
             redDies = false;
             blueDies = true;
             Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} defeated blue {bluePawn.def.pawnName}");
         }
-        else if (redPawn.def.pawnName == "Marshal" && bluePawn.def.pawnName == "Spy")
+        else if (redPawn.def.pawnName == "Warlord" && bluePawn.def.pawnName == "Assassin")
         {
             redDies = true;
             blueDies = false;
             Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated red {redPawn.def.pawnName}");
         }
-        else if (bluePawn.def.pawnName == "Marshal" && redPawn.def.pawnName == "Spy")
+        else if (bluePawn.def.pawnName == "Warlord" && redPawn.def.pawnName == "Assassin")
         {
             redDies = false;
             blueDies = true;
@@ -1476,13 +1446,27 @@ public struct SGameState
                 allEligiblePositions.Add(sTile.pos);
             }
         }
-        foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)
+        List<SSetupPawnData> sortedMaxPawnDict = new List<SSetupPawnData>(setupParameters.maxPawnsDict);
+        sortedMaxPawnDict.Sort((a, b) =>
+        {
+            int rowsA = Globals.GetNumberOfRowsForPawn(a.pawnDef);
+            int rowsB = Globals.GetNumberOfRowsForPawn(b.pawnDef);
+            // Ensure rows with 0 go to the end
+            if (rowsA == 0 && rowsB != 0) return 1;
+            if (rowsB == 0 && rowsA != 0) return -1;
+            // Otherwise, sort normally by rows
+            return rowsA.CompareTo(rowsB);
+        });
+        foreach (SSetupPawnData setupPawnData in sortedMaxPawnDict)
         {
             List<Vector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef, usedPositions);
+            
             if (eligiblePositions.Count < setupPawnData.maxPawns)
             {
+                Debug.Log($"GenerateValidSetup used fallback positions for {setupPawnData.pawnDef.pawnName}");
                 eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
             }
+            Debug.Log("EligiblePositions:" + eligiblePositions.Count);
             for (int i = 0; i < setupPawnData.maxPawns; i++)
             {
                 if (eligiblePositions.Count == 0)

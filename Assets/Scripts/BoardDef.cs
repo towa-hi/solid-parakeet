@@ -40,10 +40,12 @@ public struct SBoardDef
     
     public readonly List<Vector2Int> GetEligiblePositionsForPawn(int player, SPawnDef pawnDef, HashSet<Vector2Int> usedPositions)
     {
+        Debug.Log($"EligiblePos for {pawnDef.pawnName}");
         // Determine the number of back rows based on pawn type
         int numberOfRows = Globals.GetNumberOfRowsForPawn(pawnDef);
         if (numberOfRows > 0)
         {
+            Debug.Log($" number of rows not zero: {numberOfRows}");
             // Get eligible positions within the specified back rows
             SBoardDef def = this;
             List<Vector2Int> eligiblePositions = tiles
@@ -52,6 +54,10 @@ public struct SBoardDef
                                && !usedPositions.Contains(tile.pos))
                 .Select(tile => tile.pos)
                 .ToList();
+            foreach (var thing in eligiblePositions)
+            {
+                Debug.Log(thing);
+            }
             return eligiblePositions;
         }
         else
