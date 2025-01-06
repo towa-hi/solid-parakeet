@@ -7,7 +7,6 @@ using UnityEngine;
 public static class Globals
 {
     public static Vector2Int PURGATORY = new(-666, -666);
-    public static bool SETUPMUSTPLACEALLPAWNS = false;
     public static float PAWNMOVEDURATION = 1f;
     public static float HOVEREDHEIGHT = 0.1f;
     // Static instance of GameInputActions to be shared among all Hoverable instances
@@ -75,42 +74,21 @@ public static class Globals
         List<KeyValuePair<PawnDef, int>> orderedPawns = new List<KeyValuePair<PawnDef, int>>();
 
         // Assuming you have variables for each PawnDef as in SetupParameters
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Flag"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Spy"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Bomb"), 6));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Marshal"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/General"), 1));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Colonel"), 2));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Major"), 3));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Captain"), 4));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Lieutenant"), 4));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Sergeant"), 4));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Miner"), 5));
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Scout"), 8));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/00-throne"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/01-assassin"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/02-scout"), 8));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/03-seer"), 5));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/04-grunt"), 4));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/05-knight"), 4));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/06-wraith"), 4));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/07-reaver"), 3));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/08-herald"), 2));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/09-champion"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/10-warlord"), 1));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/11-trap"), 6));
         // we add unknown because this list is used by the frontend
-        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/Unknown"), 0));
+        orderedPawns.Add(new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/99-unknown"), 0));
         return orderedPawns;
-    }
-    
-    public static SSetupPawnData[] GetMaxPawnsArray()
-    {
-        SSetupPawnData[] maxPawnsArray = new SSetupPawnData[]
-        {
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Flag")), maxPawns = 1 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Spy")), maxPawns = 1 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Bomb")), maxPawns = 6 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Marshal")), maxPawns = 1 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/General")), maxPawns = 1 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Colonel")), maxPawns = 2 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Major")), maxPawns = 3 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Captain")), maxPawns = 4 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Lieutenant")), maxPawns = 4 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Sergeant")), maxPawns = 4 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Miner")), maxPawns = 5 },
-            new SSetupPawnData { pawnDef = new SPawnDef(Resources.Load<PawnDef>("Pawn/Scout")), maxPawns = 8 },
-            // unknown is not in here
-        };
-        return maxPawnsArray;
     }
     
     public static float EaseOutQuad(float t)
@@ -210,71 +188,6 @@ public class SLobby
     }
 }
 
-
-
-// [Serializable]
-// public struct SVector2Int : IEquatable<SVector2Int>
-// {
-//     public int x;
-//     public int y;
-//     
-//     public override bool Equals(object obj)
-//     {
-//         return obj is SVector2Int other && Equals(other);
-//     }
-//
-//     public static explicit operator Vector2Int(SVector2Int sVector2Int)
-//     {
-//         Debug.LogWarning("Casting to Vector2Int should be done with ToUnity() mainly for logging purposes");
-//         return new Vector2Int(sVector2Int.x, sVector2Int.y);
-//     }
-//
-//     public static explicit operator SVector2Int(Vector2Int vector2Int)
-//     {
-//         return new SVector2Int(vector2Int.x, vector2Int.y);
-//     }
-//     
-//     public SVector2Int(int inX, int inY)
-//     {
-//         x = inX;
-//         y = inY;
-//     }
-//     
-//     public readonly Vector2Int ToUnity()
-//     {
-//         return new Vector2Int(x, y);
-//     }
-//     
-//     // Implement IEquatable for performance
-//     public bool Equals(SVector2Int other)
-//     {
-//         return x == other.x && y == other.y;
-//     }
-//
-//     // Override GetHashCode
-//     public override int GetHashCode()
-//     {
-//         return HashCode.Combine(x, y);
-//     }
-//
-//     // Define the == operator
-//     public static bool operator ==(SVector2Int left, SVector2Int right)
-//     {
-//         return left.Equals(right);
-//     }
-//
-//     // Define the != operator
-//     public static bool operator !=(SVector2Int left, SVector2Int right)
-//     {
-//         return !(left == right);
-//     }
-//
-//     public override string ToString()
-//     {
-//         return $"({x}, {y})";
-//     }
-// }
-
 public struct SSetupParameters
 {
     public int player;
@@ -313,7 +226,7 @@ public struct SSetupParameters
                 return false;
             }
         }
-        if (!Globals.SETUPMUSTPLACEALLPAWNS)
+        if (false) // condition for if setup must place all pawns
         {
             return setupPawns.Any(pawn => pawn.def.pawnName == "Flag");
         }

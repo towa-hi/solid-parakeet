@@ -10,11 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: Captain
+  m_Name: 03-seer
   m_EditorClassIdentifier: 
-  pawnName: Captain
-  power: 6
-  icon: {fileID: 21300000, guid: 5965ab7d63dee114a8180b647fe84865, type: 3}
-  baseSprite: {fileID: 21300000, guid: 6c5316af14315af499310ba187db3559, type: 3}
-  redSprite: {fileID: 21300000, guid: 6c5316af14315af499310ba187db3559, type: 3}
-  blueSprite: {fileID: 21300000, guid: b36d24e3b46ba124cb5315f2d11b0894, type: 3}
+  pawnName: Seer
+  power: 3
+  icon: {fileID: 21300000, guid: 0e00857d6975d5a4393a1334c9caaecf, type: 3}
+  redSprite: {fileID: 21300000, guid: 4941ee43404e1c3438d45db05a0198c5, type: 3}
+  blueSprite: {fileID: 21300000, guid: a35dcc028318dbc4f83a4637852ac291, type: 3}

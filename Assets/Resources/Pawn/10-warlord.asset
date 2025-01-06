@@ -10,11 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: General
+  m_Name: 10-warlord
   m_EditorClassIdentifier: 
-  pawnName: General
-  power: 9
-  icon: {fileID: 21300000, guid: 28d06776f41c4134ab32ad6e0b368eb9, type: 3}
-  baseSprite: {fileID: 21300000, guid: ff41e26a6c0d351409e5778dce28e24b, type: 3}
-  redSprite: {fileID: 21300000, guid: ff41e26a6c0d351409e5778dce28e24b, type: 3}
-  blueSprite: {fileID: 21300000, guid: af4e6a6243233f14387e4e8f4ad61739, type: 3}
+  pawnName: Warlord
+  power: 10
+  icon: {fileID: 21300000, guid: dece5bfbcef863346a355b419014c670, type: 3}
+  redSprite: {fileID: 21300000, guid: a6f6a7debd702d94587e0fa31deed6e6, type: 3}
+  blueSprite: {fileID: 21300000, guid: bdda37b810e91a34083ba7ae51d7d7d8, type: 3}

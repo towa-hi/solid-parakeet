@@ -10,12 +10,10 @@ public class PawnDef : ScriptableObject
 {
     public string pawnName;
     public int power;
-
+    
     // graphics
     
     public Sprite icon;
-    public Sprite baseSprite;
-
     public Sprite redSprite;
     public Sprite blueSprite;
     // sounds

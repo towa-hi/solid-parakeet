@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: Spy
+  m_Name: 02-scout
   m_EditorClassIdentifier: 
-  pawnName: Spy
-  power: 1
-  icon: {fileID: 21300000, guid: 4a7d096a33a36d340b6b7cfd1d6a10a7, type: 3}
-  baseSprite: {fileID: 21300000, guid: dcaef929b890fe94195cda03c708acbe, type: 3}
-  redSprite: {fileID: 21300000, guid: dcaef929b890fe94195cda03c708acbe, type: 3}
-  blueSprite: {fileID: 21300000, guid: f5483565cb90bde41a32fa499c7467f6, type: 3}
+  pawnName: Scout
+  power: 2
+  icon: {fileID: 21300000, guid: ad9ef61c9d1052c44928a6871ac688ce, type: 3}
+  baseSprite: {fileID: 21300000, guid: 6180093d71ffd0f4d82695c4b841eb6d, type: 3}
+  redSprite: {fileID: 21300000, guid: 6180093d71ffd0f4d82695c4b841eb6d, type: 3}
+  blueSprite: {fileID: 21300000, guid: e8d79c4ba9f927b4a8d8efa5996da4ce, type: 3}

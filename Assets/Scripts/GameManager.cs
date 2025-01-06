@@ -21,7 +21,6 @@ public class GameManager : MonoBehaviour
     public bool offlineMode;
 
     public BoardDef tempBoardDef;
-    public SSetupPawnData[] tempMaxPawnsArray;
     public List<KeyValuePair<PawnDef, int>> orderedPawnDefList;
     public List<Sprite> allTileSprites;
     
@@ -37,7 +36,6 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("MORE THAN ONE SINGLETON");
         }
-        tempMaxPawnsArray = Globals.GetMaxPawnsArray();
         orderedPawnDefList = Globals.GetOrderedPawnList();
     }
 

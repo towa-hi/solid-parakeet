@@ -10,11 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: Sergeant
+  m_Name: 09-champion
   m_EditorClassIdentifier: 
-  pawnName: Sergeant
-  power: 4
-  icon: {fileID: 21300000, guid: ab7c8ffb96ce6fd429269a9c4f7d6fc6, type: 3}
-  baseSprite: {fileID: 21300000, guid: d318c737696554241a10bed7eb86fde9, type: 3}
-  redSprite: {fileID: 21300000, guid: d318c737696554241a10bed7eb86fde9, type: 3}
-  blueSprite: {fileID: 21300000, guid: fd14d0cb1f29f494d8e0aac468c3b5b7, type: 3}
+  pawnName: Champion
+  power: 9
+  icon: {fileID: 21300000, guid: 28d06776f41c4134ab32ad6e0b368eb9, type: 3}
+  redSprite: {fileID: 21300000, guid: cc927c4b138357a42a215dca16cc6172, type: 3}
+  blueSprite: {fileID: 21300000, guid: a9ff71a97e3cf1941b86ec2b962ce832, type: 3}

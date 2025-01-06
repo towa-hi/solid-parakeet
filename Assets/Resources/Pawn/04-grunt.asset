@@ -10,11 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: Bomb
+  m_Name: 04-grunt
   m_EditorClassIdentifier: 
-  pawnName: Bomb
-  power: 999
-  icon: {fileID: 21300000, guid: 563a053c6707f494d83c6c5a077f9a8c, type: 3}
-  baseSprite: {fileID: 21300000, guid: 0ea318c90fa364f499f7fb423eeb780e, type: 3}
-  redSprite: {fileID: 21300000, guid: 0ea318c90fa364f499f7fb423eeb780e, type: 3}
-  blueSprite: {fileID: 21300000, guid: 3c9f014b58acc104d9bb1eb694a4b0d3, type: 3}
+  pawnName: Grunt
+  power: 4
+  icon: {fileID: 21300000, guid: ab7c8ffb96ce6fd429269a9c4f7d6fc6, type: 3}
+  redSprite: {fileID: 21300000, guid: f5d1511e15da2b94383b3f8312139db7, type: 3}
+  blueSprite: {fileID: 21300000, guid: fd14d0cb1f29f494d8e0aac468c3b5b7, type: 3}

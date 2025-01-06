@@ -100,11 +100,24 @@ public class FakeClient : IGameClient
 
     public void SendStartGameDemoRequest()
     {
+        List<KeyValuePair<PawnDef, int>> orderedPawnList = new List<KeyValuePair<PawnDef, int>>(GameManager.instance.orderedPawnDefList);
+        orderedPawnList.RemoveAll(kvp => kvp.Key.pawnName == "Unknown");
+        SSetupPawnData[] arr = new SSetupPawnData[orderedPawnList.Count];
+        for (int i = 0; i < arr.Length; i++)
+        {
+            KeyValuePair<PawnDef, int> kvp = orderedPawnList[i];
+            SSetupPawnData setupPawnData = new SSetupPawnData()
+            {
+                pawnDef = new SPawnDef(kvp.Key),
+                maxPawns = kvp.Value,
+            };
+            arr[i] = setupPawnData;
+        }
         SSetupParameters setupParameters = new()
         {
             player = (int)Player.RED,
             board = new SBoardDef(GameManager.instance.tempBoardDef),
-            maxPawnsDict = GameManager.instance.tempMaxPawnsArray,
+            maxPawnsDict = arr,
         };
         StartGameRequest startGameRequest = new()
         {

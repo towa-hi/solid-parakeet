@@ -10,11 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: Marshal
+  m_Name: 08-herald
   m_EditorClassIdentifier: 
-  pawnName: Marshal
-  power: 10
-  icon: {fileID: 21300000, guid: dece5bfbcef863346a355b419014c670, type: 3}
-  baseSprite: {fileID: 21300000, guid: a6f6a7debd702d94587e0fa31deed6e6, type: 3}
-  redSprite: {fileID: 21300000, guid: a6f6a7debd702d94587e0fa31deed6e6, type: 3}
-  blueSprite: {fileID: 21300000, guid: ce3a6be897020fe4fb15ea8c248e1b59, type: 3}
+  pawnName: Herald
+  power: 8
+  icon: {fileID: 21300000, guid: a02be88a9ffde82438495e7813ef7bfe, type: 3}
+  redSprite: {fileID: 21300000, guid: ff41e26a6c0d351409e5778dce28e24b, type: 3}
+  blueSprite: {fileID: 21300000, guid: af4e6a6243233f14387e4e8f4ad61739, type: 3}

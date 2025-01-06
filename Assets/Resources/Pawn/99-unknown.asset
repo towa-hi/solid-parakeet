@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: Miner
+  m_Name: 99-unknown
   m_EditorClassIdentifier: 
-  pawnName: Miner
-  power: 3
-  icon: {fileID: 21300000, guid: 0e00857d6975d5a4393a1334c9caaecf, type: 3}
-  baseSprite: {fileID: 21300000, guid: f5d1511e15da2b94383b3f8312139db7, type: 3}
-  redSprite: {fileID: 21300000, guid: f5d1511e15da2b94383b3f8312139db7, type: 3}
-  blueSprite: {fileID: 21300000, guid: a35dcc028318dbc4f83a4637852ac291, type: 3}
+  pawnName: Unknown
+  power: 0
+  icon: {fileID: 21300000, guid: 61733c29273a6be4685202c25fc1f7f1, type: 3}
+  baseSprite: {fileID: 21300000, guid: b30da73a8ba1a45488f5edd75f16f9de, type: 3}
+  redSprite: {fileID: 21300000, guid: b30da73a8ba1a45488f5edd75f16f9de, type: 3}
+  blueSprite: {fileID: 21300000, guid: b30da73a8ba1a45488f5edd75f16f9de, type: 3}
