@@ -101,14 +101,14 @@ public class FakeClient : IGameClient
     public void SendStartGameDemoRequest()
     {
         List<PawnDef> orderedPawnList = new List<PawnDef>(GameManager.instance.orderedPawnDefList);
-        orderedPawnList.RemoveAll(pawnDef => pawnDef.id == 99); //remove unknown
+        orderedPawnList.RemoveAll(pawnDef => pawnDef.Rank == Rank.UNKNOWN); //remove unknown
         SSetupPawnData[] arr = new SSetupPawnData[orderedPawnList.Count];
         for (int i = 0; i < arr.Length; i++)
         {
-            SSetupPawnData setupPawnData = new SSetupPawnData()
+            SSetupPawnData setupPawnData = new()
             {
                 pawnDef = new SPawnDef(orderedPawnList[i]),
-                maxPawns = Rules.GetMaxPawns(orderedPawnList[i].id),
+                maxPawns = Rules.GetMaxPawns((Rank)orderedPawnList[i].id),
             };
             arr[i] = setupPawnData;
         }

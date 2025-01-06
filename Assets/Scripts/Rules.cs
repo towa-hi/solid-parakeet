@@ -3,45 +3,66 @@ using System;
 public static class Rules
 {
 
-    public static int GetPawnBackRows(int pawnId)
+    public static int GetPawnBackRows(Rank pawnRank)
     {
-        return pawnId switch
+        return pawnRank switch
         {
-            0 => 1,      // Throne goes in the back row
-            1 => 2,      // Assassin goes somewhere in the two furthest back rows
-            2 => 0,
-            3 => 0,
-            4 => 0,
-            5 => 0,
-            6 => 0,
-            7 => 0,
-            8 => 0,
-            9 => 3,     // Champion in three furthest back rows
-            10 => 3,    // Warlord in three furthest back rows
-            11 => 3,    // Trap in three furthest back rows
-            99 => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(pawnId)),
+            Rank.THRONE => 1,
+            Rank.ASSASSIN => 2,
+            Rank.SCOUT => 0,
+            Rank.SEER => 0,
+            Rank.GRUNT => 0,
+            Rank.KNIGHT => 0,
+            Rank.WRAITH => 0,
+            Rank.REAVER => 0,
+            Rank.HERALD => 0,
+            Rank.CHAMPION => 3,
+            Rank.WARLORD => 3,
+            Rank.TRAP => 3,
+            Rank.UNKNOWN => 0,
+            _ => throw new ArgumentOutOfRangeException(nameof(pawnRank)),
         };
     }
 
-    public static int GetMaxPawns(int pawnId)
+    public static int GetMaxPawns(Rank pawnRank)
     {
-        return pawnId switch
+        return pawnRank switch
         {
-            0 => 1,
-            1 => 1,
-            2 => 8,
-            3 => 5,
-            4 => 4,
-            5 => 4,
-            6 => 4,
-            7 => 3,
-            8 => 2,
-            9 => 1,
-            10 => 1,
-            11 => 6,
-            99 => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(pawnId)),
+            Rank.THRONE => 1,
+            Rank.ASSASSIN => 1,
+            Rank.SCOUT => 8,
+            Rank.SEER => 5,
+            Rank.GRUNT => 4,
+            Rank.KNIGHT => 4,
+            Rank.WRAITH => 4,
+            Rank.REAVER => 3,
+            Rank.HERALD => 2,
+            Rank.CHAMPION => 1,
+            Rank.WARLORD => 1,
+            Rank.TRAP => 6,
+            Rank.UNKNOWN => 0,
+            _ => throw new ArgumentOutOfRangeException(nameof(pawnRank)),
+        };
+    }
+    
+    public static int GetPawnMovementRange(Rank pawnRank)
+    {
+        return pawnRank switch
+        {
+            Rank.THRONE => 0,
+            Rank.ASSASSIN => 1,
+            Rank.SCOUT => 11,
+            Rank.SEER => 1,
+            Rank.GRUNT => 1,
+            Rank.KNIGHT => 1,
+            Rank.WRAITH => 1,
+            Rank.REAVER => 1,
+            Rank.HERALD => 1,
+            Rank.CHAMPION => 3,
+            Rank.WARLORD => 3,
+            Rank.TRAP => 0,
+            Rank.UNKNOWN => 1,
+            _ => throw new ArgumentOutOfRangeException(nameof(pawnRank)),
         };
     }
     
@@ -53,22 +74,22 @@ public static class Rules
         bool redDies;
         bool blueDies;
         // Handle special cases (e.g., Trap, Seer, Warlord, Assassin)
-        if (redPawn.def.pawnName == "Trap" && bluePawn.def.pawnName == "Seer")
+        if (redPawn.def.Rank == Rank.TRAP && bluePawn.def.Rank == Rank.SEER)
         {
             redDies = true;
             blueDies = false;
         }
-        else if (bluePawn.def.pawnName == "Trap" && redPawn.def.pawnName == "Seer")
+        else if (bluePawn.def.Rank == Rank.TRAP && redPawn.def.Rank == Rank.SEER)
         {
             redDies = false;
             blueDies = true;
         }
-        else if (redPawn.def.pawnName == "Warlord" && bluePawn.def.pawnName == "Assassin")
+        else if (redPawn.def.Rank == Rank.WARLORD && bluePawn.def.Rank == Rank.ASSASSIN)
         {
             redDies = true;
             blueDies = false;
         }
-        else if (bluePawn.def.pawnName == "Warlord" && redPawn.def.pawnName == "Assassin")
+        else if (bluePawn.def.Rank == Rank.WARLORD && redPawn.def.Rank == Rank.ASSASSIN)
         {
             redDies = false;
             blueDies = true;
@@ -98,4 +119,28 @@ public static class Rules
     }
 
     
+}
+
+public enum Player
+{
+    NONE,
+    RED,
+    BLUE,
+}
+
+public enum Rank
+{
+    THRONE = 0,
+    ASSASSIN = 1,
+    SCOUT = 2,
+    SEER = 3,
+    GRUNT = 4,
+    KNIGHT = 5,
+    WRAITH = 6,
+    REAVER = 7,
+    HERALD = 8,
+    CHAMPION = 9,
+    WARLORD = 10,
+    TRAP = 11,
+    UNKNOWN = 99,
 }

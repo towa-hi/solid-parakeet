@@ -38,11 +38,10 @@ public struct SBoardDef
         return boardDef;
     }
     
-    public readonly List<Vector2Int> GetEligiblePositionsForPawn(int player, SPawnDef pawnDef, HashSet<Vector2Int> usedPositions)
+    public readonly List<Vector2Int> GetEligiblePositionsForPawn(int player, Rank rank, HashSet<Vector2Int> usedPositions)
     {
-        Debug.Log($"EligiblePos for {pawnDef.pawnName}");
         // Determine the number of back rows based on pawn type
-        int numberOfRows = Rules.GetPawnBackRows(pawnDef.id);
+        int numberOfRows = Rules.GetPawnBackRows(rank);
         if (numberOfRows > 0)
         {
             // Get eligible positions within the specified back rows

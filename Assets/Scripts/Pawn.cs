@@ -80,7 +80,6 @@ public struct SPawn
                 id = 99,
                 pawnName = "Unknown",
                 power = 0,
-                defaultMaxPawns = 0,
             },
             player = player,
             pos = pos,

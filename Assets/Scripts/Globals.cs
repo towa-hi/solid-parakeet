@@ -115,12 +115,6 @@ public enum MessageGenre : uint
     RESOLVE,
 }
 
-public enum Player
-{
-    NONE,
-    RED,
-    BLUE
-}
 
 
 [Serializable]
@@ -339,9 +333,7 @@ public struct SQueuedMove
         initialPos = inInitialPos;
         pos = inPos;
     }
-    
 }
-
 
 [Serializable]
 public struct SGameState
@@ -361,6 +353,10 @@ public struct SGameState
     
     public readonly STile[] GetMovableTiles(in SPawn pawn)
     {
+        if (pawn.def.Rank == Rank.UNKNOWN)
+        {
+            throw new Exception("GetMovableTiles requires a pawnDef that is not unknown");
+        }
         Vector2Int[] directions = new Vector2Int[]
         {
             new Vector2Int(1, 0),   // Right
@@ -372,19 +368,7 @@ public struct SGameState
         int maxMovableTiles = boardDef.tiles.Length; // Adjust based on your board size
         STile[] movableTiles = new STile[maxMovableTiles];
         int tileCount = 0;
-
-        if (pawn.def.pawnName == "Unknown")
-        {
-            throw new Exception("GetMovableTiles requires a pawnDef");
-        }
-
-        // Determine pawn movement range
-        int pawnMovementRange = pawn.def.pawnName switch
-        {
-            "Scout" => 11,
-            "Trap" or "Throne" => 0,
-            _ => 1,
-        };
+        int pawnMovementRange = Rules.GetPawnMovementRange(pawn.def.Rank);
         foreach (Vector2Int dir in directions)
         {
             Vector2Int currentPos = pawn.pos;
@@ -705,7 +689,7 @@ public struct SGameState
         SPawn pawn = gameState.GetPawnById(pawnId);
         Vector2Int currentPos = pawn.pos;
 
-        if (pawn.def.pawnName == "Scout")
+        if (pawn.def.Rank == Rank.SCOUT)
         {
             Vector2Int currentUnityPos = currentPos;
             Vector2Int targetUnityPos = targetPos;
@@ -1368,8 +1352,8 @@ public struct SGameState
         List<SSetupPawnData> sortedMaxPawnDict = new List<SSetupPawnData>(setupParameters.maxPawnsDict);
         sortedMaxPawnDict.Sort((a, b) =>
         {
-            int rowsA = Rules.GetPawnBackRows(a.pawnDef.id);
-            int rowsB = Rules.GetPawnBackRows(b.pawnDef.id);
+            int rowsA = Rules.GetPawnBackRows(a.pawnDef.Rank);
+            int rowsB = Rules.GetPawnBackRows(b.pawnDef.Rank);
             // Ensure rows with 0 go to the end
             if (rowsA == 0 && rowsB != 0) return 1;
             if (rowsB == 0 && rowsA != 0) return -1;
@@ -1378,7 +1362,7 @@ public struct SGameState
         });
         foreach (SSetupPawnData setupPawnData in sortedMaxPawnDict)
         {
-            List<Vector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef, usedPositions);
+            List<Vector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef.Rank, usedPositions);
             if (eligiblePositions.Count < setupPawnData.maxPawns)
             {
                 Debug.Log($"GenerateValidSetup used fallback positions for {setupPawnData.pawnDef.pawnName}");
@@ -1415,8 +1399,8 @@ public struct SGameState
         const int BLUE_WIN = 2;
         const int TIE = 4;
 
-        SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.RED && p.def.pawnName.Equals("Flag", StringComparison.OrdinalIgnoreCase));
-        SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.BLUE && p.def.pawnName.Equals("Flag", StringComparison.OrdinalIgnoreCase));
+        SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.RED && p.def.Rank == Rank.THRONE);
+        SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.BLUE && p.def.Rank == Rank.THRONE);
         bool redCanMove = false;
         bool blueCanMove = false;
         foreach (SPawn pawn in gameState.pawns)
