@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
   m_Name: 08-herald
   m_EditorClassIdentifier: 
+  id: 8
   pawnName: Herald
   power: 8
+  defaultMaxPawns: 0
   icon: {fileID: 21300000, guid: a02be88a9ffde82438495e7813ef7bfe, type: 3}
   redSprite: {fileID: 21300000, guid: ff41e26a6c0d351409e5778dce28e24b, type: 3}
   blueSprite: {fileID: 21300000, guid: af4e6a6243233f14387e4e8f4ad61739, type: 3}

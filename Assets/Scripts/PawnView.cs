@@ -42,7 +42,6 @@ public class PawnView : MonoBehaviour
         pawn = inPawn;
         gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
         UpdateSprite();
-        //GetComponent<DebugText>()?.SetText(pawn.def.pawnName);
         DisplaySymbol(pawn.def.icon);
         switch (inPawn.player)
         {
@@ -124,6 +123,7 @@ public class PawnView : MonoBehaviour
     {
         Debug.Log($"REVEALPAWN {gameObject.name}");
         pawn.def = sPawn.def.ToUnity();
+        gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
         DisplaySymbol(pawn.def.icon);
         UpdateSprite();
     }

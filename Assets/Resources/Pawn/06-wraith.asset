@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
   m_Name: 06-wraith
   m_EditorClassIdentifier: 
+  id: 6
   pawnName: Wraith
   power: 6
+  defaultMaxPawns: 0
   icon: {fileID: 21300000, guid: 5965ab7d63dee114a8180b647fe84865, type: 3}
   redSprite: {fileID: 21300000, guid: 6c5316af14315af499310ba187db3559, type: 3}
   blueSprite: {fileID: 21300000, guid: ce3a6be897020fe4fb15ea8c248e1b59, type: 3}

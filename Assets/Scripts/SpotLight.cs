@@ -5,22 +5,11 @@ public class SpotLight : MonoBehaviour
 {
 
     public Transform target;
-
     public Transform restTarget;
-    
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
-    }
 
     public void LookAt(Transform inTarget)
     {
         target = inTarget != null ? inTarget : restTarget;
-        if (target)
-        {
-            Debug.Log($"looking at target {target.gameObject}");
-        }
     }
 
     void Update()

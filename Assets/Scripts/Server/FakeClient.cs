@@ -100,16 +100,15 @@ public class FakeClient : IGameClient
 
     public void SendStartGameDemoRequest()
     {
-        List<KeyValuePair<PawnDef, int>> orderedPawnList = new List<KeyValuePair<PawnDef, int>>(GameManager.instance.orderedPawnDefList);
-        orderedPawnList.RemoveAll(kvp => kvp.Key.pawnName == "Unknown");
+        List<PawnDef> orderedPawnList = new List<PawnDef>(GameManager.instance.orderedPawnDefList);
+        orderedPawnList.RemoveAll(pawnDef => pawnDef.id == 99); //remove unknown
         SSetupPawnData[] arr = new SSetupPawnData[orderedPawnList.Count];
         for (int i = 0; i < arr.Length; i++)
         {
-            KeyValuePair<PawnDef, int> kvp = orderedPawnList[i];
             SSetupPawnData setupPawnData = new SSetupPawnData()
             {
-                pawnDef = new SPawnDef(kvp.Key),
-                maxPawns = kvp.Value,
+                pawnDef = new SPawnDef(orderedPawnList[i]),
+                maxPawns = Rules.GetMaxPawns(orderedPawnList[i].id),
             };
             arr[i] = setupPawnData;
         }

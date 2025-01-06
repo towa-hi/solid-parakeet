@@ -21,7 +21,7 @@ public class GameManager : MonoBehaviour
     public bool offlineMode;
 
     public BoardDef tempBoardDef;
-    public List<KeyValuePair<PawnDef, int>> orderedPawnDefList;
+    public List<PawnDef> orderedPawnDefList;
     public List<Sprite> allTileSprites;
     
     void Awake()

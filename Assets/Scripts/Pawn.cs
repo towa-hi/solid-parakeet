@@ -32,18 +32,6 @@ public class Pawn
         isVisibleToOpponent = false;
     }
     
-    public void SetAlive(bool inIsAlive, Vector2Int? inPos)
-    {
-        isAlive = inIsAlive;
-        if (inPos != null)
-        {
-            pos = (Vector2Int)inPos;
-        }
-        else
-        {
-            pos = Globals.PURGATORY;
-        }
-    }
 }
 
 [Serializable]
@@ -69,7 +57,7 @@ public struct SPawn
         hasMoved = false;
         isVisibleToOpponent = false;
     }
-    
+
     public SPawn(Pawn pawn)
     {
         pawnId = pawn.pawnId;
@@ -87,7 +75,13 @@ public struct SPawn
         SPawn censoredPawn = new()
         {
             pawnId = pawnId,
-            def = new SPawnDef("Unknown", 0),
+            def = new SPawnDef()
+            {
+                id = 99,
+                pawnName = "Unknown",
+                power = 0,
+                defaultMaxPawns = 0,
+            },
             player = player,
             pos = pos,
             isSetup = isSetup,

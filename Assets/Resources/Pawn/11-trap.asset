@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
   m_Name: 11-trap
   m_EditorClassIdentifier: 
+  id: 11
   pawnName: Trap
   power: 99
+  defaultMaxPawns: 0
   icon: {fileID: 21300000, guid: 563a053c6707f494d83c6c5a077f9a8c, type: 3}
   redSprite: {fileID: 21300000, guid: 0ea318c90fa364f499f7fb423eeb780e, type: 3}
   blueSprite: {fileID: 21300000, guid: 3c9f014b58acc104d9bb1eb694a4b0d3, type: 3}

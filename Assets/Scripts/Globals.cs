@@ -67,52 +67,30 @@ public static class Globals
         return PlayerPrefs.GetString("nickname");
     }
     
-    public static List<KeyValuePair<PawnDef, int>> GetOrderedPawnList()
+    public static List<PawnDef> GetOrderedPawnList()
     {
-        List<KeyValuePair<PawnDef, int>> orderedPawns = new List<KeyValuePair<PawnDef, int>>
+        List<PawnDef> orderedPawns = new List<PawnDef>
         {
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/00-throne"), 1),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/01-assassin"), 1),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/02-scout"), 8),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/03-seer"), 5),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/04-grunt"), 4),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/05-knight"), 4),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/06-wraith"), 4),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/07-reaver"), 3),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/08-herald"), 2),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/09-champion"), 1),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/10-warlord"), 1),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/11-trap"), 6),
-            new KeyValuePair<PawnDef, int>(Resources.Load<PawnDef>("Pawn/99-unknown"), 0),
+            Resources.Load<PawnDef>("Pawn/00-throne"),
+            Resources.Load<PawnDef>("Pawn/01-assassin"),
+            Resources.Load<PawnDef>("Pawn/02-scout"),
+            Resources.Load<PawnDef>("Pawn/03-seer"),
+            Resources.Load<PawnDef>("Pawn/04-grunt"),
+            Resources.Load<PawnDef>("Pawn/05-knight"),
+            Resources.Load<PawnDef>("Pawn/06-wraith"),
+            Resources.Load<PawnDef>("Pawn/07-reaver"),
+            Resources.Load<PawnDef>("Pawn/08-herald"),
+            Resources.Load<PawnDef>("Pawn/09-champion"),
+            Resources.Load<PawnDef>("Pawn/10-warlord"),
+            Resources.Load<PawnDef>("Pawn/11-trap"),
+            Resources.Load<PawnDef>("Pawn/99-unknown"),
         };
-
         return orderedPawns;
     }
     
     public static float EaseOutQuad(float t)
     {
         return t * (2 - t);
-    }
-    
-    public static int GetNumberOfRowsForPawn(SPawnDef pawnDef)
-    {
-        switch (pawnDef.pawnName)
-        {
-            case "Throne":
-                // Rule 1: Throne goes in the back row
-                return 1;
-            case "Assassin":
-                // Rule 2: Assassin goes somewhere in the two furthest back rows
-                return 2;
-            case "Trap":
-            case "Champion":
-            case "Warlord":
-                // Rule 3 Trap, Champion, Warlord in three furthest back rows
-                return 3;
-            default:
-                // Other pawns have no specific back row requirement
-                return 0;
-        }
     }
     
     public static string ShortGuid(Guid guid)
@@ -709,65 +687,6 @@ public struct SGameState
         }
     }
     
-    static SConflictReceipt ResolveConflict(in SPawn redPawn, in SPawn bluePawn)
-    {
-        // Determine the outcome based on pawn strengths or game rules
-        int redRank = redPawn.def.power;
-        int blueRank = bluePawn.def.power;
-        bool redDies;
-        bool blueDies;
-        // Handle special cases (e.g., Bombs, Miners, Marshal, Spy)
-        if (redPawn.def.pawnName == "Trap" && bluePawn.def.pawnName == "Seer")
-        {
-            redDies = true;
-            blueDies = false;
-            Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated {redPawn.def.pawnName}");
-        }
-        else if (bluePawn.def.pawnName == "Trap" && redPawn.def.pawnName == "Seer")
-        {
-            redDies = false;
-            blueDies = true;
-            Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} defeated blue {bluePawn.def.pawnName}");
-        }
-        else if (redPawn.def.pawnName == "Warlord" && bluePawn.def.pawnName == "Assassin")
-        {
-            redDies = true;
-            blueDies = false;
-            Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated red {redPawn.def.pawnName}");
-        }
-        else if (bluePawn.def.pawnName == "Warlord" && redPawn.def.pawnName == "Assassin")
-        {
-            redDies = false;
-            blueDies = true;
-            Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} defeated blue {bluePawn.def.pawnName}");
-        }
-        else if (redRank > blueRank)
-        {
-            redDies = false;
-            blueDies = true;
-            Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} defeated blue {bluePawn.def.pawnName}");
-        }
-        else if (blueRank > redRank)
-        {
-            redDies = true;
-            blueDies = false;
-            Debug.Log($"ResolveConflict: blue {bluePawn.def.pawnName} defeated red {redPawn.def.pawnName}");
-        }
-        else
-        {
-            redDies = true;
-            blueDies = true;
-            Debug.Log($"ResolveConflict: red {redPawn.def.pawnName} tied blue {bluePawn.def.pawnName}");
-        }
-        return new SConflictReceipt()
-        {
-            redPawnId = redPawn.pawnId,
-            bluePawnId = bluePawn.pawnId,
-            redDies = redDies,
-            blueDies = blueDies,
-        };
-    }
-
     static void UpdatePawn(ref SGameState gameState, ref SPawn pawn)
     {
         for (int i = 0; i < gameState.pawns.Length; i++)
@@ -897,7 +816,7 @@ public struct SGameState
         // if red and blue swapped places
         if (redGotDodgedByBlue && blueGotDodgedByRed)
         {
-            SConflictReceipt swapConflictResult = ResolveConflict(redMovePawn, blueMovePawn);
+            SConflictReceipt swapConflictResult = Rules.ResolveConflict(redMovePawn, blueMovePawn);
             SEventState blueAndRedSwappedConflictEvent = new()
             {
                 player = (int)Player.NONE,
@@ -939,7 +858,7 @@ public struct SGameState
             if (maybePawnOnRedMovePos.HasValue)
             {
                 SPawn blueDefender = maybePawnOnRedMovePos.Value;
-                SConflictReceipt redAttackStationaryConflict = ResolveConflict(redMovePawn, blueDefender);
+                SConflictReceipt redAttackStationaryConflict = Rules.ResolveConflict(redMovePawn, blueDefender);
                 SEventState redStartedConflict = new()
                 {
                     player = redMovePawn.player,
@@ -983,7 +902,7 @@ public struct SGameState
             if (maybePawnOnBlueMovePos.HasValue)
             {
                 SPawn redDefender = maybePawnOnBlueMovePos.Value;
-                SConflictReceipt blueAttackStationaryConflict = ResolveConflict(redDefender, blueMovePawn);
+                SConflictReceipt blueAttackStationaryConflict = Rules.ResolveConflict(redDefender, blueMovePawn);
                 SEventState blueStartedConflict = new()
                 {
                     player = blueMovePawn.player,
@@ -1026,7 +945,7 @@ public struct SGameState
         {
             if (redMove.pos == blueMove.pos)
             {
-                SConflictReceipt collisionConflictResult = ResolveConflict(redMovePawn, blueMovePawn);
+                SConflictReceipt collisionConflictResult = Rules.ResolveConflict(redMovePawn, blueMovePawn);
                 SEventState collisionConflict = new()
                 {
                     player = redMovePawn.player,
@@ -1066,7 +985,7 @@ public struct SGameState
                 if (maybePawnOnRedMovePos.HasValue)
                 {
                     SPawn blueDefender = maybePawnOnRedMovePos.Value;
-                    SConflictReceipt redAttackStationaryConflict = ResolveConflict(redMovePawn, blueDefender);
+                    SConflictReceipt redAttackStationaryConflict = Rules.ResolveConflict(redMovePawn, blueDefender);
                     SEventState redStartedConflict = new()
                     {
                         player = redMovePawn.player,
@@ -1103,7 +1022,7 @@ public struct SGameState
                 if (maybePawnOnBlueMovePos.HasValue)
                 {
                     SPawn redDefender = maybePawnOnBlueMovePos.Value;
-                    SConflictReceipt blueAttackStationaryConflict = ResolveConflict(redDefender, blueMovePawn);
+                    SConflictReceipt blueAttackStationaryConflict = Rules.ResolveConflict(redDefender, blueMovePawn);
                     SEventState blueStartedConflict = new()
                     {
                         player = blueMovePawn.player,
@@ -1449,8 +1368,8 @@ public struct SGameState
         List<SSetupPawnData> sortedMaxPawnDict = new List<SSetupPawnData>(setupParameters.maxPawnsDict);
         sortedMaxPawnDict.Sort((a, b) =>
         {
-            int rowsA = Globals.GetNumberOfRowsForPawn(a.pawnDef);
-            int rowsB = Globals.GetNumberOfRowsForPawn(b.pawnDef);
+            int rowsA = Rules.GetPawnBackRows(a.pawnDef.id);
+            int rowsB = Rules.GetPawnBackRows(b.pawnDef.id);
             // Ensure rows with 0 go to the end
             if (rowsA == 0 && rowsB != 0) return 1;
             if (rowsB == 0 && rowsA != 0) return -1;
@@ -1460,7 +1379,6 @@ public struct SGameState
         foreach (SSetupPawnData setupPawnData in sortedMaxPawnDict)
         {
             List<Vector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef, usedPositions);
-            
             if (eligiblePositions.Count < setupPawnData.maxPawns)
             {
                 Debug.Log($"GenerateValidSetup used fallback positions for {setupPawnData.pawnDef.pawnName}");

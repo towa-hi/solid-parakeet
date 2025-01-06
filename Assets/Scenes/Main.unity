@@ -6493,6 +6493,7 @@ MonoBehaviour:
   settingsManager: {fileID: 1527594350}
   offlineMode: 0
   tempBoardDef: {fileID: 11400000, guid: c6fcd58d95dea99429c81d521f5a5325, type: 2}
+  orderedPawnDefList: []
   allTileSprites:
   - {fileID: 21300000, guid: 840a290a62bc6304995ab6cbbdcf0692, type: 3}
   - {fileID: 21300000, guid: fab36626e6c1a3c4ea836d50b9b706c0, type: 3}
