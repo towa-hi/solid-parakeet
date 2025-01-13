@@ -9,6 +9,7 @@ public class BoardDef : ScriptableObject
     public string boardName;
     public Vector2Int boardSize;
     public Tile[] tiles;
+    public bool isHex;
 }
 
 [Serializable]
@@ -17,6 +18,7 @@ public struct SBoardDef
     public string boardName;
     public Vector2Int boardSize;
     public STile[] tiles;
+    public bool isHex;
     
     public SBoardDef(BoardDef boardDef)
     {
@@ -27,6 +29,7 @@ public struct SBoardDef
         {
             tiles[i] = new STile(boardDef.tiles[i]);
         }
+        isHex = boardDef.isHex;
     }
 
     public BoardDef ToUnity()
@@ -35,6 +38,7 @@ public struct SBoardDef
         boardDef.boardName = boardName;
         boardDef.boardSize = boardSize;
         boardDef.tiles = tiles.Select(sTile => sTile.ToUnity()).ToArray();
+        boardDef.isHex = isHex;
         return boardDef;
     }
     

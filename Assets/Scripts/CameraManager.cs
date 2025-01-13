@@ -13,6 +13,8 @@ public class CameraManager : MonoBehaviour
     public CameraAnchor settingsAnchor;
     public CameraAnchor galleryAnchor;
     public Camera mainCamera;
+    public float baseTransitionDuration = 1.5f;
+    
     [SerializeField] TweenSettings<Vector3> moveSettings;
     [SerializeField] TweenSettings<Vector3> rotationSettings;
     [SerializeField] TweenSettings<float> fovSettings;
@@ -34,6 +36,19 @@ public class CameraManager : MonoBehaviour
         SetRotateOnMouse(PlayerPrefs.GetInt("ROTATECAMERA") == 1);
     }
 
+    float GetTransitionDuration()
+    {
+        int fastMode = PlayerPrefs.GetInt("FASTMODE");
+        if (fastMode == 1)
+        {
+            return baseTransitionDuration * 0.25f;
+        }
+        else
+        {
+            return baseTransitionDuration;
+        }
+    }
+    
     MenuElement currentElement;
     void OnShowMenu(MenuElement menu)
     {
@@ -76,10 +91,13 @@ public class CameraManager : MonoBehaviour
         }
         currentTarget = target;
         SetRotateOnMouse(false);
+        moveSettings.settings.duration = GetTransitionDuration();
         moveSettings.startValue = mainCamera.transform.position;
         moveSettings.endValue = target.GetPosition();
+        rotationSettings.settings.duration = GetTransitionDuration();
         rotationSettings.startValue = mainCamera.transform.rotation.eulerAngles;
         rotationSettings.endValue = target.GetEuler();
+        fovSettings.settings.duration = GetTransitionDuration();
         fovSettings.startValue = mainCamera.fieldOfView;
         fovSettings.endValue = target.fov;
         Debug.Log($"MoveCameraTo: {target.gameObject.name}");

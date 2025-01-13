@@ -10,7 +10,7 @@ public class ClickInputManager : MonoBehaviour
     public Vector2 screenPointerPosition; // raw position on screen
 
     public GameObject hoveredObject; // first object closest to the camera that the pointer is over
-    bool isUI; // is pointer over UI element 
+    public bool isOverUI; // is pointer over UI element 
     public PawnView hoveredPawnView; // closest pawnView pointer is over
     public TileView hoveredTileView; // closest tileView pointer is over
 
@@ -148,7 +148,7 @@ public class ClickInputManager : MonoBehaviour
             hoveredPosition = currentHoveredPosition;
             hoveredObject = currentHoveredObject;
         }
-
+        isOverUI = hitUI;
         // Update hovered pawn and tile views
         hoveredPawnView = currentHoveredPawnView;
         hoveredTileView = currentHoveredTileView;

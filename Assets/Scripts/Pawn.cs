@@ -53,7 +53,7 @@ public struct SPawn
         player = setupPawn.player;
         pos = setupPawn.pos;
         isSetup = false;
-        isAlive = true;
+        isAlive = setupPawn.deployed;
         hasMoved = false;
         isVisibleToOpponent = false;
     }

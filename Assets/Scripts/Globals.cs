@@ -97,6 +97,71 @@ public static class Globals
     {
         return guid.ToString().Substring(0, 4);
     }
+
+    public static Vector2Int[] GetDirections(Vector2Int pos, bool isHex)
+    {
+        if (isHex)
+        {
+            Vector2Int[] neighbors = new Vector2Int[6];
+            bool oddCol = pos.x % 2 == 1; // Adjust for origin offset
+            
+            if (oddCol)
+            {
+                neighbors[0] = new Vector2Int(0, 1);  // top
+                neighbors[1] = new Vector2Int(-1, 0);  // top right
+                neighbors[2] = new Vector2Int(-1, -1);  // bot right
+                neighbors[3] = new Vector2Int(0, -1); // bot
+                neighbors[4] = new Vector2Int(1, -1); // bot left
+                neighbors[5] = new Vector2Int(1, 0);  // top left
+            }
+            else
+            {
+                neighbors[0] = new Vector2Int(0, 1);  // top
+                neighbors[1] = new Vector2Int(-1, 1);  // top right
+                neighbors[2] = new Vector2Int(-1, -0); // bot right
+                neighbors[3] = new Vector2Int(0, -1); // bot
+                neighbors[4] = new Vector2Int(1, 0);// bot left
+                neighbors[5] = new Vector2Int(1, 1); // top left
+            }
+            
+            return neighbors;
+        }
+        else
+        {
+            return new Vector2Int[]
+            {
+                Vector2Int.up,
+                Vector2Int.right,
+                Vector2Int.down,
+                Vector2Int.left
+            };
+        }
+    }
+    
+    public static Vector2Int[] GetNeighbors(Vector2Int pos, bool isHex)
+    {
+        Vector2Int[] directions = Globals.GetDirections(pos, isHex);
+        if (isHex)
+        {
+            Vector2Int[] neighbors = new Vector2Int[6];
+            for (int i = 0; i < neighbors.Length; i++)
+            {
+                neighbors[i] = pos + directions[i];
+            }
+            return neighbors;
+        }
+        else
+        {
+            Vector2Int[] neighbors = new Vector2Int[4];
+            for (int i = 0; i < neighbors.Length; i++)
+            {
+                neighbors[i] = pos + directions[i];
+            }
+            return neighbors;
+        }
+    }
+    
+    
 }
 
 public enum MessageGenre : uint
@@ -142,52 +207,8 @@ public struct SSetupParameters
     public int player;
     public SBoardDef board;
     public SSetupPawnData[] maxPawnsDict;
-    
+    public bool mustPlaceAllPawns;
 
-    public static bool IsSetupValid(int targetPlayer, SSetupParameters setupParameters, SSetupPawn[] setupPawns)
-    {
-        // Convert the SSetupPawnData array to a dictionary for easier lookup
-        Dictionary<SPawnDef, int> pawnCounts = new Dictionary<SPawnDef, int>();
-        foreach (var pawnData in setupParameters.maxPawnsDict)
-        {
-            pawnCounts[pawnData.pawnDef] = pawnData.maxPawns;
-        }
-        // Iterate over the provided pawns
-        foreach (SSetupPawn setupPawn in setupPawns)
-        {
-            // Check if the pawnDef is in the max pawns dictionary
-            if (!pawnCounts.ContainsKey(setupPawn.def))
-            {
-                Debug.LogError($"PawnDef '{setupPawn.def.pawnName}' not found in max pawns data.");
-                return false;
-            }
-            pawnCounts[setupPawn.def] -= 1;
-            // If count goes negative, there are too many pawns of this type
-            if (pawnCounts[setupPawn.def] < 0)
-            {
-                Debug.LogError($"Too many pawns of type '{setupPawn.def.pawnName}'.");
-                return false;
-            }
-            // Check if the pawn is on a valid tile
-            if (!setupParameters.board.IsPosValid(setupPawn.pos))
-            {
-                Debug.LogError($"Pawn '{setupPawn.def.pawnName}' is on an invalid position {setupPawn.pos}.");
-                return false;
-            }
-        }
-        // Check if there are any remaining pawns that haven't been placed
-        foreach (var kvp in pawnCounts)
-        {
-            if (kvp.Value > 0)
-            {
-                Debug.LogError($"Not all pawns of type '{kvp.Key.pawnName}' have been placed. {kvp.Value} remaining.");
-                return false;
-            }
-        }
-        Debug.Log("Setup is valid.");
-        return true;
-    }
-    
 }
 
 public class SSetupPawnData
@@ -353,68 +374,57 @@ public struct SGameState
     
     public readonly STile[] GetMovableTiles(in SPawn pawn)
     {
-        if (pawn.def.Rank == Rank.UNKNOWN)
+        if (pawn.def.movementRange == 0)
         {
-            throw new Exception("GetMovableTiles requires a pawnDef that is not unknown");
+            return Array.Empty<STile>();
         }
-        Vector2Int[] directions = new Vector2Int[]
+        if (!pawn.isAlive)
         {
-            new Vector2Int(1, 0),   // Right
-            new Vector2Int(-1, 0),  // Left
-            new Vector2Int(0, 1),   // Up
-            new Vector2Int(0, -1)   // Down
-        };
+            return Array.Empty<STile>();
+        }
+        Vector2Int[] initialDirections = Globals.GetDirections(pawn.pos, boardDef.isHex);
         // Define the maximum possible number of movable tiles
         int maxMovableTiles = boardDef.tiles.Length; // Adjust based on your board size
         STile[] movableTiles = new STile[maxMovableTiles];
         int tileCount = 0;
-        int pawnMovementRange = Rules.GetPawnMovementRange(pawn.def.Rank);
-        foreach (Vector2Int dir in directions)
+        for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
         {
             Vector2Int currentPos = pawn.pos;
+            int walkedTiles = 0;
             bool enemyEncountered = false;
-
-            for (int i = 0; i < pawnMovementRange; i++)
+            bool obstacleEncountered = false;
+            while (walkedTiles < pawn.def.movementRange)
             {
-                currentPos += dir;
-                if (enemyEncountered)
-                {
-                    break;
-                }
-                // Check if the position is within the board bounds
+                // directions change depending on odd or even col in hexagons so we have to get it again
+                Vector2Int[] currentDirections = Globals.GetDirections(currentPos, boardDef.isHex);
+                // peek one tile in this direction ahead
+                currentPos += currentDirections[dirIndex];
                 if (!IsPosValid(currentPos))
                 {
+                    obstacleEncountered = true;
                     break;
                 }
-                // Get the tile at the current position
                 STile tile = GetTileByPos(currentPos);
-                // check if tile is passable
                 if (!tile.isPassable)
                 {
+                    obstacleEncountered = true;
                     break;
                 }
-                // Check if the tile is occupied by another pawn
                 SPawn? pawnOnPos = GetPawnByPos(currentPos);
                 if (pawnOnPos.HasValue)
                 {
                     if (pawnOnPos.Value.player == pawn.player)
                     {
                         // Cannot move through own pawns
+                        obstacleEncountered = true;
                         break;
                     }
                     else
                     {
                         // Tile is occupied by an enemy pawn
                         movableTiles[tileCount++] = tile;
-
-                        if (pawnMovementRange > 1)
-                        {
-                            enemyEncountered = true;
-                        }
-                        else
-                        {
-                            break; // Non-scouts cannot move further
-                        }
+                        enemyEncountered = true;
+                        break;
                     }
                 }
                 else
@@ -422,6 +432,7 @@ public struct SGameState
                     // Tile is unoccupied
                     movableTiles[tileCount++] = tile;
                 }
+                walkedTiles++;
             }
         }
         // Create a final array of the correct size
@@ -1299,15 +1310,16 @@ public struct SGameState
     {
         bool pawnOverlapDetected = false;
         HashSet<SPawn> overlappingPawns = new();
+        HashSet<SPawn> deadPawnsOnBoard = new();
         Dictionary<Vector2Int, SPawn> pawnPositions = new();
         foreach (SPawn pawn in gameState.pawns)
         {
             if (pawn.isAlive)
             {
-                if (pawnPositions.ContainsKey(pawn.pos))
+                if (pawnPositions.TryGetValue(pawn.pos, out SPawn position))
                 {
                     pawnOverlapDetected = true;
-                    overlappingPawns.Add(pawnPositions[pawn.pos]);
+                    overlappingPawns.Add(position);
                     overlappingPawns.Add(pawn);
                 }
                 else
@@ -1319,8 +1331,7 @@ public struct SGameState
             {
                 if (pawn.pos != Globals.PURGATORY)
                 {
-                    Debug.LogError($"Dead pawn {pawn.pawnId} not in PURGATORY");
-                    return false;
+                    deadPawnsOnBoard.Add(pawn);
                 }
             }
         }
@@ -1328,6 +1339,13 @@ public struct SGameState
         {
             string error = overlappingPawns.Aggregate("", (current, pawn) => current + $"{pawn.pawnId} {pawn.def.pawnName} {pawn.pos.ToString()}");
             Debug.LogError($"IsStateValid Pawn overlap detected: {error}");
+            return false;
+        }
+
+        if (deadPawnsOnBoard.Count < 0)
+        {
+            string error = deadPawnsOnBoard.Aggregate("", (current, pawn) => current + $"{pawn.pawnId} {pawn.def.pawnName} {pawn.pos.ToString()}");
+            Debug.LogError($"IsStateValid Dead pawn on board detected: {error}");
             return false;
         }
         return true;
@@ -1368,7 +1386,6 @@ public struct SGameState
                 Debug.Log($"GenerateValidSetup used fallback positions for {setupPawnData.pawnDef.pawnName}");
                 eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
             }
-            Debug.Log("EligiblePositions:" + eligiblePositions.Count);
             for (int i = 0; i < setupPawnData.maxPawns; i++)
             {
                 if (eligiblePositions.Count == 0)
@@ -1384,6 +1401,7 @@ public struct SGameState
                     player = targetPlayer,
                     def = setupPawnData.pawnDef,
                     pos = pos,
+                    deployed = true,
                 };
                 setupPawns.Add(sSetupPawn);
             }
@@ -1578,6 +1596,7 @@ public enum ResolveEvent
     CONFLICT,
     SWAPCONFLICT,
     DEATH,
+    ENDGAME,
 }
 
 public struct SSetupPawn
@@ -1585,11 +1604,13 @@ public struct SSetupPawn
     public int player;
     public SPawnDef def;
     public Vector2Int pos;
-
+    public bool deployed;
+    
     public SSetupPawn(Pawn pawn)
     {
         player = (int)pawn.player;
         def = new SPawnDef(pawn.def);
         pos = pawn.pos;
+        deployed = pawn.isAlive;
     }
 }

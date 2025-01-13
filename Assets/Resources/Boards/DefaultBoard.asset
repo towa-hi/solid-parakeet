@@ -315,3 +315,4 @@ MonoBehaviour:
   - pos: {x: 9, y: 9}
     isPassable: 1
     setupPlayer: 2
+  isHex: 1

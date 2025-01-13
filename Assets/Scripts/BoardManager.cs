@@ -13,7 +13,7 @@ public class BoardManager : MonoBehaviour
     public Transform purgatory;
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
-    public Grid grid;
+    public BoardGrid grid;
     public ClickInputManager clickInputManager;
     
     public Player player;
@@ -244,7 +244,10 @@ public class BoardManager : MonoBehaviour
                 }
                 debugString += $" {redPawnState} vs {bluePawnState}";
                 Debug.Log(debugString);
-                yield return StartBattle(redPawnState, bluePawnState);
+                if (PlayerPrefs.GetInt("FASTMODE") == 0)
+                {
+                    yield return StartBattle(redPawnState, bluePawnState);
+                }
                 break;
             case ResolveEvent.SWAPCONFLICT:
                 PawnView defenderSwapPawnView = GetPawnViewById(eventState.defenderPawnId);
@@ -264,7 +267,10 @@ public class BoardManager : MonoBehaviour
                     redPawnStateSwap = defenderSwapPawnState;
                     bluePawnStateSwap = pawnState;
                 }
-                yield return StartBattle(redPawnStateSwap, bluePawnStateSwap);
+                if (PlayerPrefs.GetInt("FASTMODE") == 0)
+                {
+                    yield return StartBattle(redPawnStateSwap, bluePawnStateSwap);
+                }
                 break;
             case ResolveEvent.DEATH:
                 Vector3 purgatoryTarget = GameManager.instance.boardManager.purgatory.position;
@@ -388,10 +394,6 @@ public class BoardManager : MonoBehaviour
 
     public TileView GetTileViewByPos(Vector2Int pos)
     {
-        if (!IsPosValid(pos))
-        {
-            throw new ArgumentOutOfRangeException($"Pos {pos} is invalid");
-        }
         return tileViews.TryGetValue(pos, out TileView tileView) ? tileView : null;
     }
     
@@ -491,6 +493,7 @@ public class SetupPhase : IPhase
         Debug.Assert(setupParameters.player != (int)Player.NONE);
         Debug.Assert(bm.purgatory != null);
         List<PawnView> pawnViews = new();
+        bm.grid.SetBoard(setupParameters.board);
         foreach (TileView tileView in bm.tileViews.Values)
         {
             UnityEngine.Object.Destroy(tileView);
@@ -499,7 +502,8 @@ public class SetupPhase : IPhase
         Dictionary<Vector2Int, TileView> tileViews = new();
         foreach (STile sTile in setupParameters.board.tiles)
         {
-            Vector3 worldPosition = bm.grid.CellToWorld(new Vector3Int(sTile.pos.x, sTile.pos.y, 0));
+            Vector3 worldPosition = bm.grid.CellToWorld(sTile.pos);
+            Debug.Log(sTile.pos);
             GameObject tileObject = UnityEngine.Object.Instantiate(bm.tilePrefab, worldPosition, Quaternion.identity, bm.transform);
             TileView tileView = tileObject.GetComponent<TileView>();
             tileView.Initialize(bm, sTile);
@@ -545,7 +549,15 @@ public class SetupPhase : IPhase
 
     public void OnClick(Vector2Int hoveredPosition)
     {
-        if (!bm.tileViews.Keys.Contains(bm.hoveredPos))
+        if (bm.clickInputManager.isOverUI)
+        {
+            // do nothing
+        }
+        else if (!bm.tileViews.Keys.Contains(bm.hoveredPos))
+        {
+            // do nothing
+        }
+        else if (!setupParameters.board.GetTileFromPos(hoveredPosition).IsTileEligibleForPlayer((int)bm.player))
         {
             // do nothing
         }
@@ -622,7 +634,7 @@ public class SetupPhase : IPhase
             setupPawns[i] = new SSetupPawn(bm.pawnViews[i].pawn);
         }
 
-        if (SSetupParameters.IsSetupValid((int)bm.player, setupParameters, setupPawns))
+        if (Rules.IsSetupValid((int)bm.player, setupParameters, setupPawns))
         {
             GameManager.instance.client.SendSetupSubmissionRequest(setupPawns);
         }
@@ -724,10 +736,11 @@ public class MovePhase : IPhase
             List<PawnView> pawnViews = new();
             foreach (SPawn pawnState in gameStateForHoldingOnly.pawns)
             {
-                TileView tileView = bm.GetTileViewByPos(pawnState.pos);
+                
                 Pawn newPawn = pawnState.ToUnity();
                 GameObject pawnObject = UnityEngine.Object.Instantiate(bm.pawnPrefab, bm.transform);
                 PawnView pawnView = pawnObject.GetComponent<PawnView>();
+                TileView tileView = bm.GetTileViewByPos(pawnState.pos);
                 pawnView.Initialize(newPawn, tileView);
                 pawnViews.Add(pawnView);
             }
@@ -766,12 +779,13 @@ public class MovePhase : IPhase
         
     }
 
-    float clickCount = 0;
     public void OnClick(Vector2Int hoveredPosition)
     {
-        Debug.Log($"OnClick {clickCount}");
-        clickCount += 1;
-        if (!bm.IsPosValid(hoveredPosition))
+        if (bm.clickInputManager.isOverUI)
+        {
+            // do nothing
+        }
+        else if (!bm.IsPosValid(hoveredPosition))
         {
             if (selectedPawnView != null)
             {

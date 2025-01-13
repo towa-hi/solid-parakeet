@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 7
   pawnName: Reaver
   power: 7
-  defaultMaxPawns: 0
+  movementRange: 1
   icon: {fileID: 21300000, guid: 2901cebbed7631c4d9a3bf0fdabfadfa, type: 3}
   redSprite: {fileID: 21300000, guid: baa29b60df9281e4e88be932a26f43a2, type: 3}
   blueSprite: {fileID: 21300000, guid: d60fcc9fdc5174743ab3cc8e26ce6e94, type: 3}

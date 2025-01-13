@@ -1,4 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using UnityEngine.UIElements;
 
 public static class Rules
 {
@@ -41,27 +45,6 @@ public static class Rules
             Rank.WARLORD => 1,
             Rank.TRAP => 6,
             Rank.UNKNOWN => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(pawnRank)),
-        };
-    }
-    
-    public static int GetPawnMovementRange(Rank pawnRank)
-    {
-        return pawnRank switch
-        {
-            Rank.THRONE => 0,
-            Rank.ASSASSIN => 1,
-            Rank.SCOUT => 11,
-            Rank.SEER => 1,
-            Rank.GRUNT => 1,
-            Rank.KNIGHT => 1,
-            Rank.WRAITH => 1,
-            Rank.REAVER => 1,
-            Rank.HERALD => 1,
-            Rank.CHAMPION => 3,
-            Rank.WARLORD => 3,
-            Rank.TRAP => 0,
-            Rank.UNKNOWN => 1,
             _ => throw new ArgumentOutOfRangeException(nameof(pawnRank)),
         };
     }
@@ -117,8 +100,60 @@ public static class Rules
             blueDies = blueDies,
         };
     }
-
     
+    public static bool IsSetupValid(int targetPlayer, SSetupParameters setupParameters, SSetupPawn[] setupPawns)
+    {
+        bool isValid = true;
+        List<string> errorMessages = new();
+        if (setupPawns.Length == 0)
+        {
+            errorMessages.Add("IsSetupValid(): setupParameters setupPawns is empty.");
+            isValid = false;
+        }
+        if (setupParameters.mustPlaceAllPawns && setupPawns.Any(pawn => !pawn.deployed))
+        {
+            errorMessages.Add("IsSetupValid(): setupParameters mustPlaceAllPawns but a pawn was not deployed.");
+            isValid = false;
+        }
+        foreach (SSetupPawn pawn in setupPawns.Where(p => p.deployed))
+        {
+            if (!setupParameters.board.IsPosValid(pawn.pos))
+            {
+                errorMessages.Add($"IsSetupValid(): Pawn '{pawn.def.pawnName}' is on an invalid position {pawn.pos}.");
+                isValid = false;
+            }
+        }
+        if (!setupPawns.Any(pawn => pawn.deployed && pawn.def.Rank == Rank.THRONE))
+        {
+            errorMessages.Add("IsSetupValid(): Throne is not deployed.");
+            isValid = false;
+        }
+        bool hasMovablePawns = false;
+        foreach (SSetupPawn pawn in setupPawns.Where(p => p.deployed && p.def.movementRange > 0))
+        {
+            IEnumerable<(Vector2Int pos, bool isValid)> neighbors = Globals.GetNeighbors(pawn.pos, setupParameters.board.isHex)
+                .Select(pos => (pos, isValid: setupParameters.board.IsPosValid(pos) &&
+                                        setupParameters.board.GetTileFromPos(pos).isPassable && setupPawns.All(other => other.pos != pos)));
+            if (neighbors.Any(neighbor => neighbor.isValid))
+            {
+                hasMovablePawns = true;
+            }
+        }
+        if (!hasMovablePawns)
+        {
+            errorMessages.Add("IsSetupValid(): No pawns with valid moves found.");
+            isValid = false;
+        }
+        if (!isValid)
+        {
+            foreach (var error in errorMessages)
+            {
+                Debug.LogError(error);
+            }
+        }
+        Debug.Log(isValid ? "IsSetupValid(): Setup is valid." : "IsSetupValid(): Setup is invalid.");
+        return isValid;
+    }
 }
 
 public enum Player

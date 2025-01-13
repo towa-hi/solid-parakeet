@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 4
   pawnName: Grunt
   power: 4
-  defaultMaxPawns: 0
+  movementRange: 1
   icon: {fileID: 21300000, guid: ab7c8ffb96ce6fd429269a9c4f7d6fc6, type: 3}
   redSprite: {fileID: 21300000, guid: f5d1511e15da2b94383b3f8312139db7, type: 3}
   blueSprite: {fileID: 21300000, guid: fd14d0cb1f29f494d8e0aac468c3b5b7, type: 3}

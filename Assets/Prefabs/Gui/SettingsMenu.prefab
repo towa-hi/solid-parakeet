@@ -3198,7 +3198,7 @@ MonoBehaviour:
   cancelChangesButton: {fileID: 6102763333740712385}
   saveSettingsButton: {fileID: 3822900236456356978}
   cheatModeToggle: {fileID: 2159218937642331653}
-  fastModeToggle: {fileID: 2426001672645654878}
+  fastModeToggle: {fileID: 4745458959445967679}
   displayBadgeToggle: {fileID: 5097843545957298505}
   rotateCameraToggle: {fileID: 2426001672645654878}
 --- !u!1 &7461206720983087230

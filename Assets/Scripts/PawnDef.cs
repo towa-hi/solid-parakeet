@@ -11,6 +11,7 @@ public class PawnDef : ScriptableObject
     public int id;
     public string pawnName;
     public int power;
+    public int movementRange;
     public Rank Rank => (Rank)id;
     
     // graphics
@@ -32,6 +33,8 @@ public struct SPawnDef
     public int id;
     public string pawnName;
     public int power;
+    public int movementRange;
+    
     public readonly Rank Rank => (Rank)id;
     
     public SPawnDef(PawnDef pawnDef)
@@ -39,6 +42,7 @@ public struct SPawnDef
         id = pawnDef.id;
         pawnName = pawnDef.pawnName;
         power = pawnDef.power;
+        movementRange = pawnDef.movementRange;
     }
 
     
