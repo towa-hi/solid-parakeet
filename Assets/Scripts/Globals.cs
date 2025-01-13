@@ -1581,13 +1581,13 @@ public struct SEventState
         switch ((ResolveEvent)eventType)
         {
             case ResolveEvent.MOVE:
-                return baseString + $"{originalPos}  to {targetPos}";
+                return baseString + $"moved {originalPos} to {targetPos}";
             case ResolveEvent.CONFLICT:
                 return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
             case ResolveEvent.SWAPCONFLICT:
                 return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
             case ResolveEvent.DEATH:
-                return baseString;
+                return baseString + $"died";
             default:
                 throw new ArgumentOutOfRangeException();
         }
