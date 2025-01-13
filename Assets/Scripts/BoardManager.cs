@@ -196,12 +196,14 @@ public class BoardManager : MonoBehaviour
         {
             pawnView.SyncState(receipt.gameState.GetPawnById(pawnView.pawn.pawnId));
         }
-
-        if (receipt.gameState.winnerPlayer != (int)Player.NONE)
+        if (receipt.gameState.winnerPlayer != 0)
         {
             SetPhase(new EndPhase(this, receipt.gameState.winnerPlayer));
         }
-        SetPhase(new MovePhase(this)); 
+        else
+        {
+            SetPhase(new MovePhase(this)); 
+        }
         yield return null;
     }
     
@@ -503,7 +505,6 @@ public class SetupPhase : IPhase
         foreach (STile sTile in setupParameters.board.tiles)
         {
             Vector3 worldPosition = bm.grid.CellToWorld(sTile.pos);
-            Debug.Log(sTile.pos);
             GameObject tileObject = UnityEngine.Object.Instantiate(bm.tilePrefab, worldPosition, Quaternion.identity, bm.transform);
             TileView tileView = tileObject.GetComponent<TileView>();
             tileView.Initialize(bm, sTile);

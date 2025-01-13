@@ -1297,6 +1297,10 @@ public struct SGameState
         }
         SEventState[] trimmedReceipts = receipts.Reverse().SkipWhile(x => x.pawnId == Guid.Empty).Reverse().ToArray();
         nextGameState.winnerPlayer = GetStateWinner(nextGameState);
+        if (nextGameState.winnerPlayer != 0)
+        {
+            Debug.LogWarning("GAME HAS ENDED WINNER IS " + nextGameState.winnerPlayer);
+        }
         SResolveReceipt finalReceipt = new()
         {
             player = (int)Player.NONE,
@@ -1596,7 +1600,6 @@ public enum ResolveEvent
     CONFLICT,
     SWAPCONFLICT,
     DEATH,
-    ENDGAME,
 }
 
 public struct SSetupPawn
