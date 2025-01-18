@@ -13,7 +13,7 @@ public class ClickInputManager : MonoBehaviour
     public bool isOverUI; // is pointer over UI element 
     public PawnView hoveredPawnView; // closest pawnView pointer is over
     public TileView hoveredTileView; // closest tileView pointer is over
-
+    public BoardMakerTile hoveredBoardMakerTile;
     Dictionary<int, int> layerPriorities;
 
     public event Action<Vector2Int, Vector2Int> OnPositionHovered;
@@ -27,7 +27,8 @@ public class ClickInputManager : MonoBehaviour
             { LayerMask.NameToLayer("UI"), 0 }, // UI
             { LayerMask.NameToLayer("PawnView"), 1 }, // Highest priority
             { LayerMask.NameToLayer("TileView"), 2 }, // Lower priority
-            { LayerMask.NameToLayer("Default"), 3 }, // Default priority for other layers
+            { LayerMask.NameToLayer("BoardMakerTile"), 3},
+            { LayerMask.NameToLayer("Default"), 4 }, // Default priority for other layers
         };
     }
 
@@ -103,9 +104,11 @@ public class ClickInputManager : MonoBehaviour
         bool hitUI = false;
         bool hitPawnView = false;
         bool hitTileView = false;
+        bool hitBoardMakerTile = false;
         GameObject currentHoveredObject = results.Count == 0 ? null : results[0].gameObject;
         PawnView currentHoveredPawnView = null;
         TileView currentHoveredTileView = null;
+        BoardMakerTile currentHoveredBoardMakerTile = null;
         foreach (RaycastResult result in results)
         {
             GameObject hitObject = result.gameObject;
@@ -124,6 +127,11 @@ public class ClickInputManager : MonoBehaviour
                 hitTileView = true;
                 currentHoveredTileView = hitObject.GetComponentInParent<TileView>();
             }
+            if (!hitBoardMakerTile && hitLayer == LayerMask.NameToLayer("BoardMakerTile"))
+            {
+                hitBoardMakerTile = true;
+                currentHoveredBoardMakerTile = hitObject.GetComponentInParent<BoardMakerTile>();
+            }
         }
         Vector2Int currentHoveredPosition;
         if (currentHoveredPawnView != null)
@@ -133,6 +141,10 @@ public class ClickInputManager : MonoBehaviour
         else if (currentHoveredTileView != null)
         {
             currentHoveredPosition = currentHoveredTileView.tile.pos;
+        }
+        else if (currentHoveredBoardMakerTile != null)
+        {
+            currentHoveredPosition = currentHoveredBoardMakerTile.pos;
         }
         else
         {
@@ -147,11 +159,13 @@ public class ClickInputManager : MonoBehaviour
             // Update the hovered position and object
             hoveredPosition = currentHoveredPosition;
             hoveredObject = currentHoveredObject;
+            hoveredBoardMakerTile = currentHoveredBoardMakerTile;
         }
         isOverUI = hitUI;
         // Update hovered pawn and tile views
         hoveredPawnView = currentHoveredPawnView;
         hoveredTileView = currentHoveredTileView;
+        hoveredBoardMakerTile = currentHoveredBoardMakerTile;
 
         if (Globals.inputActions.Game.Click.triggered)
         {

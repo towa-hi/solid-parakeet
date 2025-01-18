@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using PrimeTween;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -39,6 +40,18 @@ public class GameManager : MonoBehaviour
         orderedPawnDefList = Globals.GetOrderedPawnList();
     }
 
+    public Dictionary<Rank, PawnDef> GetPawnDefFromRank()
+    {
+        // NOTE: this is a nasty hack that wont work on the server side. we need to keep a lookup table for this later instead of loading from unity
+        Dictionary<Rank, PawnDef> rankDictionary = new Dictionary<Rank, PawnDef>();
+        foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+        {
+            PawnDef pawnDef = orderedPawnDefList.FirstOrDefault(def => def.rank == rank);
+            rankDictionary.Add(rank, pawnDef);
+        }
+        return rankDictionary;
+    }
+    
     Coroutine lightningCoroutine;
     public void Lightning()
     {

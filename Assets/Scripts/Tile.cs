@@ -9,10 +9,13 @@ public class Tile
     public Vector2Int pos;
     public bool isPassable = true;
     public Player setupPlayer;
-
-    public void Initialize(Vector2Int inPos)
+    public int autoSetupZone;
+    
+    public void EditorInitialize(Vector2Int inPos, bool inIsPassable, Player inSetupPlayer)
     {
         pos = inPos;
+        isPassable = inIsPassable;
+        setupPlayer = inSetupPlayer;
     }
 
     public bool IsTileEligibleForPlayer(Player player)
@@ -27,12 +30,14 @@ public struct STile
     public Vector2Int pos;
     public bool isPassable;
     public int setupPlayer;
+    public int autoSetupZone;
     
     public STile(Tile tile)
     {
         pos = tile.pos;
         isPassable = tile.isPassable;
         setupPlayer = (int)tile.setupPlayer;
+        autoSetupZone = tile.autoSetupZone;
     }
     
     public Tile ToUnity()
@@ -41,7 +46,8 @@ public struct STile
         {
             pos = pos,
             isPassable = isPassable,
-            setupPlayer = (Player)setupPlayer
+            setupPlayer = (Player)setupPlayer,
+            autoSetupZone = autoSetupZone,
         };
     }
     

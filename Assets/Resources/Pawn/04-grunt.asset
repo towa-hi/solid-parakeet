@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 04-grunt
   m_EditorClassIdentifier: 
   id: 4
+  rank: 4
   pawnName: Grunt
   power: 4
   movementRange: 1

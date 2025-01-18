@@ -14,9 +14,9 @@ public class BoardGrid : MonoBehaviour
     // Constants for hex grid calculations
     public float HEX_INNER_RADIUS_MULTIPLIER = 0.866025404f; // √3/2
 
-    public void SetBoard(SBoardDef boardDef)
+    public void SetBoard(SBoardDef inBoardDef)
     {
-        this.boardDef = boardDef;
+        boardDef = inBoardDef;
         isInitialized = true;
     }
 

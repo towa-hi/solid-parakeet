@@ -20,13 +20,14 @@ public class GuiPawnSetupList : MonoBehaviour
             Destroy(entry.gameObject);
         }
         entries = new HashSet<GuiPawnSetupListEntry>();
-        foreach (var setupPawnData in setupParameters.maxPawnsDict)
+        foreach (SMaxPawnsPerRank maxPawns in setupParameters.maxPawns)
         {
+            // TODO: make this care about rank instead of pawnDef so we can support multiple pawnDef
             GameObject entryObject = Instantiate(entryPrefab, body);
             GuiPawnSetupListEntry entry = entryObject.GetComponent<GuiPawnSetupListEntry>();
-            PawnDef pawnDef = setupPawnData.pawnDef.ToUnity();
-            entry.SetPawn(pawnDef, setupPawnData.maxPawns);
-            entry.Initialize(this, pawnDef, setupPawnData.maxPawns);
+            PawnDef pawnDef = GameManager.instance.orderedPawnDefList.FirstOrDefault(def => def.rank == maxPawns.rank);
+            entry.SetPawn(pawnDef, maxPawns.max);
+            entry.Initialize(this, pawnDef, maxPawns.max);
             entries.Add(entry);
         }
         UpdateState(null);

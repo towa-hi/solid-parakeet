@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 08-herald
   m_EditorClassIdentifier: 
   id: 8
+  rank: 8
   pawnName: Herald
   power: 8
   movementRange: 1

@@ -9,10 +9,10 @@ using UnityEngine;
 public class PawnDef : ScriptableObject
 {
     public int id;
+    public Rank rank;
     public string pawnName;
     public int power;
     public int movementRange;
-    public Rank Rank => (Rank)id;
     
     // graphics
     
@@ -31,6 +31,7 @@ public class PawnDef : ScriptableObject
 public struct SPawnDef
 {
     public int id;
+    public int rank;
     public string pawnName;
     public int power;
     public int movementRange;
@@ -40,6 +41,7 @@ public struct SPawnDef
     public SPawnDef(PawnDef pawnDef)
     {
         id = pawnDef.id;
+        rank = (int)pawnDef.rank;
         pawnName = pawnDef.pawnName;
         power = pawnDef.power;
         movementRange = pawnDef.movementRange;

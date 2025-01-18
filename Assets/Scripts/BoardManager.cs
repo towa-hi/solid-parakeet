@@ -510,11 +510,13 @@ public class SetupPhase : IPhase
             tileView.Initialize(bm, sTile, setupParameters.board.isHex);
             tileViews.Add(sTile.pos, tileView);
         }
-        foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)
+
+        foreach (SMaxPawnsPerRank maxPawns in setupParameters.maxPawns)
         {
-            for (int i = 0; i < setupPawnData.maxPawns; i++)
+            for (int i = 0; i < maxPawns.max; i++)
             {
-                Pawn pawn = new(setupPawnData.pawnDef.ToUnity(), (Player)setupParameters.player, true);
+                PawnDef pawnDef = GameManager.instance.orderedPawnDefList.FirstOrDefault(def => def.rank == maxPawns.rank);
+                Pawn pawn = new(pawnDef, (Player)setupParameters.player, true);
                 GameObject pawnObject = UnityEngine.Object.Instantiate(bm.pawnPrefab, bm.purgatory.position, Quaternion.identity, bm.transform);
                 PawnView pawnView = pawnObject.GetComponent<PawnView>();
                 pawnView.Initialize(pawn, null);

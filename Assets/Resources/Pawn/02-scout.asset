@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 02-scout
   m_EditorClassIdentifier: 
   id: 2
+  rank: 2
   pawnName: Scout
   power: 2
   movementRange: 11

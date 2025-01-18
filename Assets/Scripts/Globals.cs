@@ -160,8 +160,6 @@ public static class Globals
             return neighbors;
         }
     }
-    
-    
 }
 
 public enum MessageGenre : uint
@@ -206,15 +204,9 @@ public struct SSetupParameters
 {
     public int player;
     public SBoardDef board;
-    public SSetupPawnData[] maxPawnsDict;
+    public SMaxPawnsPerRank[] maxPawns;
     public bool mustPlaceAllPawns;
 
-}
-
-public class SSetupPawnData
-{
-    public SPawnDef pawnDef;
-    public int maxPawns;
 }
 
 public interface IGameClient
@@ -1357,54 +1349,44 @@ public struct SGameState
 
     public static SSetupPawn[] GenerateValidSetup(int targetPlayer, in SSetupParameters setupParameters)
     {
+        
+        Dictionary<Rank, PawnDef> tempRankDictionary = GameManager.instance.GetPawnDefFromRank(); // NOTE: VERY BAD CODE WILL NOT WORK ON SERVER SIDE!!!!!!!
         if (targetPlayer == (int)Player.NONE)
         {
             throw new Exception("Player can't be none");
         }
         List<SSetupPawn> setupPawns = new();
-        HashSet<Vector2Int> usedPositions = new();
-        List<Vector2Int> allEligiblePositions = new();
-        foreach (STile sTile in setupParameters.board.tiles)
+        HashSet<STile> usedTiles = new();
+        
+        List<SMaxPawnsPerRank> sortedMaxPawns = new List<SMaxPawnsPerRank>(setupParameters.maxPawns);
+        sortedMaxPawns.Sort((a, b) =>
         {
-            if (sTile.IsTileEligibleForPlayer(targetPlayer))
+            if (a.rank == Rank.THRONE && b.rank != Rank.THRONE)
             {
-                allEligiblePositions.Add(sTile.pos);
+                return -1; // a comes first
             }
-        }
-        List<SSetupPawnData> sortedMaxPawnDict = new List<SSetupPawnData>(setupParameters.maxPawnsDict);
-        sortedMaxPawnDict.Sort((a, b) =>
-        {
-            int rowsA = Rules.GetPawnBackRows(a.pawnDef.Rank);
-            int rowsB = Rules.GetPawnBackRows(b.pawnDef.Rank);
-            // Ensure rows with 0 go to the end
-            if (rowsA == 0 && rowsB != 0) return 1;
-            if (rowsB == 0 && rowsA != 0) return -1;
-            // Otherwise, sort normally by rows
-            return rowsA.CompareTo(rowsB);
+            return Rules.GetSetupZone(b.rank).CompareTo(Rules.GetSetupZone(a.rank));
         });
-        foreach (SSetupPawnData setupPawnData in sortedMaxPawnDict)
+        foreach (SMaxPawnsPerRank maxPawnsPerRank in sortedMaxPawns)
         {
-            List<Vector2Int> eligiblePositions = setupParameters.board.GetEligiblePositionsForPawn(targetPlayer, setupPawnData.pawnDef.Rank, usedPositions);
-            if (eligiblePositions.Count < setupPawnData.maxPawns)
+            for (int i = 0; i < maxPawnsPerRank.max; i++)
             {
-                Debug.Log($"GenerateValidSetup used fallback positions for {setupPawnData.pawnDef.pawnName}");
-                eligiblePositions = allEligiblePositions.Except(usedPositions).ToList();
-            }
-            for (int i = 0; i < setupPawnData.maxPawns; i++)
-            {
-                if (eligiblePositions.Count == 0)
+                List<STile> eligibleTiles = setupParameters.board.GetEligibleTilesForPawnSetup(targetPlayer, maxPawnsPerRank.rank, usedTiles);
+                if (eligibleTiles.Count == 0)
                 {
-                    break;
+                    Debug.LogError("NO ELIGIBLE TILES STOPPING SETUP HERE");
+                    return setupPawns.ToArray();
                 }
-                int index = UnityEngine.Random.Range(0, eligiblePositions.Count);
-                Vector2Int pos = eligiblePositions[index];
-                eligiblePositions.RemoveAt(index);
-                usedPositions.Add(pos);
+                int index = UnityEngine.Random.Range(0, eligibleTiles.Count);
+                STile randomTile = eligibleTiles[index];
+                usedTiles.Add(randomTile);
+                // NOTE: bad
+                SPawnDef sPawnDef = new SPawnDef(tempRankDictionary[maxPawnsPerRank.rank]);
                 SSetupPawn sSetupPawn = new()
                 {
                     player = targetPlayer,
-                    def = setupPawnData.pawnDef,
-                    pos = pos,
+                    def = sPawnDef,
+                    pos = randomTile.pos,
                     deployed = true,
                 };
                 setupPawns.Add(sSetupPawn);

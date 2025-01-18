@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 10-warlord
   m_EditorClassIdentifier: 
   id: 10
+  rank: 10
   pawnName: Warlord
   power: 10
   movementRange: 1

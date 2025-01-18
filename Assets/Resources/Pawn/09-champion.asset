@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 09-champion
   m_EditorClassIdentifier: 
   id: 9
+  rank: 9
   pawnName: Champion
   power: 9
   movementRange: 1

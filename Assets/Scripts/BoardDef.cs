@@ -10,6 +10,45 @@ public class BoardDef : ScriptableObject
     public Vector2Int boardSize;
     public Tile[] tiles;
     public bool isHex;
+    public SMaxPawnsPerRank[] maxPawns;
+
+    public void EditorInitialize()
+    {
+        boardSize = new Vector2Int(10, 10);
+        tiles = new Tile[boardSize.x * boardSize.y];
+        int index = 0;
+        for (int y = 0; y < boardSize.y; y++)
+        {
+            for (int x = 0; x < boardSize.x; x++)
+            {
+                Vector2Int currentPos = new Vector2Int(x, y);
+                Tile tile = new Tile();
+                tiles[index] = tile;
+                tile.EditorInitialize(currentPos, true, Player.NONE);
+                index++;
+            }
+        }
+    }
+
+    public void EditorInitializeMaxPawns()
+    {
+        maxPawns = new[]
+        {
+            new SMaxPawnsPerRank(Rank.THRONE, 1),
+            new SMaxPawnsPerRank(Rank.ASSASSIN, 1),
+            new SMaxPawnsPerRank(Rank.SCOUT, 8),
+            new SMaxPawnsPerRank(Rank.SEER, 5),
+            new SMaxPawnsPerRank(Rank.GRUNT, 4),
+            new SMaxPawnsPerRank(Rank.KNIGHT, 4),
+            new SMaxPawnsPerRank(Rank.WRAITH, 4),
+            new SMaxPawnsPerRank(Rank.REAVER, 3),
+            new SMaxPawnsPerRank(Rank.HERALD, 2),
+            new SMaxPawnsPerRank(Rank.CHAMPION, 1),
+            new SMaxPawnsPerRank(Rank.WARLORD, 1),
+            new SMaxPawnsPerRank(Rank.TRAP, 6),
+            new SMaxPawnsPerRank(Rank.UNKNOWN, 0),
+        };
+    }
 }
 
 [Serializable]
@@ -41,50 +80,36 @@ public struct SBoardDef
         boardDef.isHex = isHex;
         return boardDef;
     }
-    
-    public readonly List<Vector2Int> GetEligiblePositionsForPawn(int player, Rank rank, HashSet<Vector2Int> usedPositions)
-    {
-        // Determine the number of back rows based on pawn type
-        int numberOfRows = Rules.GetPawnBackRows(rank);
-        if (numberOfRows > 0)
-        {
-            // Get eligible positions within the specified back rows
-            SBoardDef def = this;
-            List<Vector2Int> eligiblePositions = tiles
-                .Where(tile => tile.IsTileEligibleForPlayer(player)
-                               && def.IsTileInBackRows(player, tile.pos, numberOfRows)
-                               && !usedPositions.Contains(tile.pos))
-                .Select(tile => tile.pos)
-                .ToList();
-            return eligiblePositions;
-        }
-        else
-        {
-            // For other pawns, use all eligible positions for the player
-            List<Vector2Int> eligiblePositions = tiles
-                .Where(tile => tile.IsTileEligibleForPlayer(player)
-                               && !usedPositions.Contains(tile.pos))
-                .Select(tile => tile.pos)
-                .ToList();
-            return eligiblePositions;
-        }
-    }
-    
-    readonly bool IsTileInBackRows(int player, Vector2Int pos, int numberOfRows)
-    {
-        int backRowStartY;
-        if (player == (int)Player.RED)
-        {
-            backRowStartY = 0;
-            return pos.y >= backRowStartY && pos.y < numberOfRows;
-        }
-        else
-        {
-            backRowStartY = boardSize.y - numberOfRows;
-            return pos.y >= backRowStartY && pos.y < boardSize.y;
-        }
-    }
 
+    public readonly List<STile> GetEligibleTilesForPawnSetup(int player, Rank rank, HashSet<STile> usedTiles)
+    {
+        int setupZone = Rules.GetSetupZone(rank);
+        List<STile> eligibleTiles = new();
+        List<STile> preferredTiles = new();
+        foreach (STile tile in tiles)
+        {
+            if (!tile.IsTileEligibleForPlayer(player))
+            {
+                continue;
+            }
+            if (usedTiles.Contains(tile))
+            {
+                continue;
+            }
+            eligibleTiles.Add(tile);
+            if (setupZone <= tile.autoSetupZone)
+            {
+                preferredTiles.Add(tile);
+            }
+        }
+        if (preferredTiles.Count != 0)
+        {
+            return preferredTiles;
+        }
+        Debug.LogWarning($"GetEligibleTilesForPawnSetup  {rank} had to fallback to allTiles {setupZone}");
+        return eligibleTiles;
+    }
+    
     public readonly bool IsPosValid(Vector2Int pos)
     {
         return tiles.Any(tile => tile.pos == pos);
@@ -100,5 +125,18 @@ public struct SBoardDef
             }
         }
         throw new KeyNotFoundException($"tile at {pos} not found");
+    }
+}
+
+[Serializable]
+public struct SMaxPawnsPerRank
+{
+    public Rank rank;
+    public int max;
+
+    public SMaxPawnsPerRank(Rank inRank, int inMax)
+    {
+        rank = inRank;
+        max = inMax;
     }
 }

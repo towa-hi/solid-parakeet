@@ -7,11 +7,11 @@ using UnityEngine.UIElements;
 public static class Rules
 {
 
-    public static int GetPawnBackRows(Rank pawnRank)
+    public static int GetSetupZone(Rank rank)
     {
-        return pawnRank switch
+        return rank switch
         {
-            Rank.THRONE => 1,
+            Rank.THRONE => 3,
             Rank.ASSASSIN => 2,
             Rank.SCOUT => 0,
             Rank.SEER => 0,
@@ -20,32 +20,11 @@ public static class Rules
             Rank.WRAITH => 0,
             Rank.REAVER => 0,
             Rank.HERALD => 0,
-            Rank.CHAMPION => 3,
-            Rank.WARLORD => 3,
-            Rank.TRAP => 3,
+            Rank.CHAMPION => 2,
+            Rank.WARLORD => 2,
+            Rank.TRAP => 1,
             Rank.UNKNOWN => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(pawnRank)),
-        };
-    }
-
-    public static int GetMaxPawns(Rank pawnRank)
-    {
-        return pawnRank switch
-        {
-            Rank.THRONE => 1,
-            Rank.ASSASSIN => 1,
-            Rank.SCOUT => 8,
-            Rank.SEER => 5,
-            Rank.GRUNT => 4,
-            Rank.KNIGHT => 4,
-            Rank.WRAITH => 4,
-            Rank.REAVER => 3,
-            Rank.HERALD => 2,
-            Rank.CHAMPION => 1,
-            Rank.WARLORD => 1,
-            Rank.TRAP => 6,
-            Rank.UNKNOWN => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(pawnRank)),
+            _ => throw new ArgumentOutOfRangeException(nameof(rank)),
         };
     }
     

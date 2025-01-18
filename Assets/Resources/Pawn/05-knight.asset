@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 05-knight
   m_EditorClassIdentifier: 
   id: 5
+  rank: 5
   pawnName: Knight
   power: 5
   movementRange: 1

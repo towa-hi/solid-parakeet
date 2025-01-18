@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 07-reaver
   m_EditorClassIdentifier: 
   id: 7
+  rank: 7
   pawnName: Reaver
   power: 7
   movementRange: 1

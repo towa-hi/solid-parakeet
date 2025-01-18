@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 06-wraith
   m_EditorClassIdentifier: 
   id: 6
+  rank: 6
   pawnName: Wraith
   power: 6
   movementRange: 1

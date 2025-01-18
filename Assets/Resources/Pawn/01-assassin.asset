@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 01-assassin
   m_EditorClassIdentifier: 
   id: 1
+  rank: 1
   pawnName: Assassin
   power: 1
   movementRange: 1

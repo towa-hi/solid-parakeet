@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: 99-unknown
   m_EditorClassIdentifier: 
   id: 99
+  rank: 99
   pawnName: Unknown
   power: 0
-  defaultMaxPawns: 0
+  movementRange: 0
   icon: {fileID: 21300000, guid: 61733c29273a6be4685202c25fc1f7f1, type: 3}
   redSprite: {fileID: 21300000, guid: 36cc9ec4127265a45b7dc058b6f616c9, type: 3}
   blueSprite: {fileID: 21300000, guid: c427b1ca95f64004c958409066e96e39, type: 3}

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: 03-seer
   m_EditorClassIdentifier: 
   id: 3
+  rank: 3
   pawnName: Seer
   power: 3
   movementRange: 1
