@@ -507,7 +507,7 @@ public class SetupPhase : IPhase
             Vector3 worldPosition = bm.grid.CellToWorld(sTile.pos);
             GameObject tileObject = UnityEngine.Object.Instantiate(bm.tilePrefab, worldPosition, Quaternion.identity, bm.transform);
             TileView tileView = tileObject.GetComponent<TileView>();
-            tileView.Initialize(bm, sTile);
+            tileView.Initialize(bm, sTile, setupParameters.board.isHex);
             tileViews.Add(sTile.pos, tileView);
         }
         foreach (SSetupPawnData setupPawnData in setupParameters.maxPawnsDict)

@@ -5228,6 +5228,7 @@ MonoBehaviour:
   hoveredPosition: {x: -666, y: -666}
   screenPointerPosition: {x: 0, y: 0}
   hoveredObject: {fileID: 0}
+  isOverUI: 0
   hoveredPawnView: {fileID: 0}
   hoveredTileView: {fileID: 0}
   isUpdating: 0
@@ -6561,6 +6562,7 @@ MonoBehaviour:
   settingsAnchor: {fileID: 2076253026}
   galleryAnchor: {fileID: 1615383875}
   mainCamera: {fileID: 1942059859}
+  baseTransitionDuration: 1.5
   moveSettings:
     startFromCurrent: 0
     startValue: {x: 0, y: 0, z: 0}

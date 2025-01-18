@@ -37,6 +37,7 @@ public class BoardMakerManager : MonoBehaviour
             Vector3 worldPosition = grid.CellToWorld(tile.pos);
             GameObject tileObject = Instantiate(boardMakerTilePrefab, worldPosition, Quaternion.identity, boardObject.transform);
             
+            
         }
     }
 }

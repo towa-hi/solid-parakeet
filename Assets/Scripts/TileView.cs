@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using PrimeTween;
+using UnityEngine.Serialization;
 using UnityEngine.U2D;
 
 public class TileView : MonoBehaviour
@@ -11,13 +12,22 @@ public class TileView : MonoBehaviour
     public GameObject modelObject;
     public GameObject arrow;
     public Transform fallOrigin;
-    public Renderer tileTopRenderer;
-    public Renderer cubeRenderer;
-    public Renderer floorRenderer;
+    
+    public GameObject squareTile;
+    public Renderer squareTileTopRenderer;
+    public Renderer squareTileSurfaceRenderer;
+    
+    public GameObject hexTile;
+    public Renderer hexTileTopRenderer;
+    public Renderer hexTileSurfaceRenderer;
+    
+    Renderer tileTopRenderer;
+    Renderer tileSurfaceRenderer;
 
     public Color baseColor; 
     public Color redColor;
     public Color blueColor;
+    [SerializeField] bool isHex;
     
     [SerializeField] bool isShowing;
     [SerializeField] bool isHovered;
@@ -33,8 +43,23 @@ public class TileView : MonoBehaviour
     static readonly int MainTexID = Shader.PropertyToID("_BaseMap");
 
     
-    public void Initialize(BoardManager boardManager, STile inTile)
+    public void Initialize(BoardManager boardManager, STile inTile, bool inIsHex)
     {
+        isHex = inIsHex;
+        if (isHex)
+        {
+            tileTopRenderer = hexTileTopRenderer;
+            tileSurfaceRenderer = hexTileSurfaceRenderer;
+            squareTile.SetActive(false);
+            squareTileSurfaceRenderer.gameObject.SetActive(false);
+        }
+        else
+        {
+            tileTopRenderer = squareTileTopRenderer;
+            tileSurfaceRenderer = squareTileSurfaceRenderer;
+            hexTile.SetActive(false);
+            hexTileSurfaceRenderer.gameObject.SetActive(false);
+        }
         boardManager.OnPhaseChanged += OnPhaseChanged;
         tile = inTile;
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
@@ -143,7 +168,7 @@ public class TileView : MonoBehaviour
             currentRenderingLayerMask &= ~outlineLayer;
         }
         currentRenderingLayerMask |= (1u << 0);
-        floorRenderer.renderingLayerMask = currentRenderingLayerMask;
+        tileSurfaceRenderer.renderingLayerMask = currentRenderingLayerMask;
     }
     
     void ShowTile(bool inIsShowing)
