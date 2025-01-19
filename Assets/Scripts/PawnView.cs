@@ -40,7 +40,7 @@ public class PawnView : MonoBehaviour
     public void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
-        gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
+        gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Shared.ShortGuid(pawn.pawnId)}";
         UpdateSprite();
         DisplaySymbol(pawn.def.icon);
         switch (inPawn.team)
@@ -123,7 +123,7 @@ public class PawnView : MonoBehaviour
     {
         Debug.Log($"REVEALPAWN {gameObject.name}");
         pawn.def = sPawn.def.ToUnity();
-        gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
+        gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Shared.ShortGuid(pawn.pawnId)}";
         DisplaySymbol(pawn.def.icon);
         UpdateSprite();
     }
@@ -153,7 +153,7 @@ public class PawnView : MonoBehaviour
         {
             // Calculate the normalized time (0 to 1)
             float t = elapsedTime / duration;
-            t = Globals.EaseOutQuad(t);
+            t = Shared.EaseOutQuad(t);
             
             // Interpolate position horizontally
             Vector3 horizontalPosition = Vector3.Lerp(startPosition, targetPosition, t);
@@ -247,7 +247,7 @@ public class PawnView : MonoBehaviour
         SetMeshOutline(isHovered, "HoverOutline");
         if (pawn.team == GameManager.instance.boardManager.team)
         {
-            currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, Globals.HOVEREDHEIGHT, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
+            currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, Globals.HoveredHeight, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
         }
         else
         {

@@ -371,10 +371,10 @@ public class FakeClient : IGameClient
         OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
         // fill blue setup pawns like as if blue already sent a valid request
         guestSetupPawns = SGameState.GenerateValidSetup(currentLobby.lobbyParameters.guestTeam, currentLobby.lobbyParameters);
-        OnBothPlayersSetupSubmitted();
+        OnBothClientsSetupSubmitted();
     }
     
-    void OnBothPlayersSetupSubmitted()
+    void OnBothClientsSetupSubmitted()
     {
         SSetupPawn[] combinedSetupPawns = new SSetupPawn[hostSetupPawns.Length + guestSetupPawns.Length];
         for (int i = 0; i < hostSetupPawns.Length; i++)
@@ -421,10 +421,10 @@ public class FakeClient : IGameClient
     void HandleMoveResponse(Response<bool> moveResponse)
     {
         OnMoveResponse?.Invoke(moveResponse);
-        OnBothPlayersMoveSubmitted();
+        OnBothClientsMoveSubmitted();
     }
 
-    void OnBothPlayersMoveSubmitted()
+    void OnBothClientsMoveSubmitted()
     {
         // NOTE: most of this is fake for AI
         

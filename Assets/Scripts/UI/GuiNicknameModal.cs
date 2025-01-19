@@ -55,7 +55,7 @@ public class GuiNicknameModal : ModalElement
 
     void OnNicknameInputChanged(string input)
     {
-        confirmButton.interactable = Globals.IsNicknameValid(input);
+        confirmButton.interactable = Shared.IsNicknameValid(input);
     }
 }
 

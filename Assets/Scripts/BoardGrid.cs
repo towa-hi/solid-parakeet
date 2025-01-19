@@ -50,7 +50,7 @@ public class BoardGrid : MonoBehaviour
             }
         }
         DrawMarkerCircle(CellToWorld(markerPos), Color.red);
-        Vector2Int[] neighbors = Globals.GetNeighbors(markerPos, boardDef.isHex);
+        Vector2Int[] neighbors = Shared.GetNeighbors(markerPos, boardDef.isHex);
         DrawMarkerCircle(CellToWorld(neighbors[0]), Color.red);
         DrawMarkerCircle(CellToWorld(neighbors[1]), Color.magenta);
         DrawMarkerCircle(CellToWorld(neighbors[2]), Color.yellow);

@@ -136,7 +136,7 @@ public class CameraManager : MonoBehaviour
     {
         if (rotateOnMouse && PlayerPrefs.GetInt("ROTATECAMERA") == 1)
         {
-            screenPointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
+            screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
             if (!IsPointerWithinScreen(screenPointerPosition))
             {
                 return;

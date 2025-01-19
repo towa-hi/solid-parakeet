@@ -6,7 +6,6 @@ using UnityEngine.UIElements;
 
 public static class Rules
 {
-
     public static int GetSetupZone(Rank rank)
     {
         return rank switch
@@ -121,7 +120,7 @@ public static class Rules
         bool hasMovablePawns = false;
         foreach (SSetupPawn pawn in setupPawns.Where(p => p.deployed && p.def.movementRange > 0))
         {
-            IEnumerable<(Vector2Int pos, bool isValid)> neighbors = Globals.GetNeighbors(pawn.pos, lobbyParameters.board.isHex)
+            IEnumerable<(Vector2Int pos, bool isValid)> neighbors = Shared.GetNeighbors(pawn.pos, lobbyParameters.board.isHex)
                 .Select(pos => (pos, isValid: lobbyParameters.board.IsPosValid(pos) &&
                                         lobbyParameters.board.GetTileFromPos(pos).isPassable && setupPawns.All(other => other.pos != pos)));
             if (neighbors.Any(neighbor => neighbor.isValid))

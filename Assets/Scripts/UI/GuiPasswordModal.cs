@@ -52,6 +52,6 @@ public class GuiPasswordModal : ModalElement
 
     void OnPasswordInputChanged(string input)
     {
-        confirmButton.interactable = Globals.IsPasswordValid(input);
+        confirmButton.interactable = Shared.IsPasswordValid(input);
     }
 }

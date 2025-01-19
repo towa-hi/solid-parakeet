@@ -35,7 +35,7 @@ public class ClickInputManager : MonoBehaviour
     public void Initialize(BoardManager boardManager)
     {
         boardManager.OnPhaseChanged += OnPhaseChanged;
-        hoveredPosition = Globals.PURGATORY;
+        hoveredPosition = Globals.Purgatory;
         hoveredObject = null;
         hoveredPawnView = null;
         hoveredTileView = null;
@@ -70,7 +70,7 @@ public class ClickInputManager : MonoBehaviour
 
     public void Reset()
     {
-        hoveredPosition = Globals.PURGATORY;
+        hoveredPosition = Globals.Purgatory;
         hoveredObject = null;
         hoveredPawnView = null;
         hoveredTileView = null;
@@ -83,7 +83,7 @@ public class ClickInputManager : MonoBehaviour
     {
         if (!isUpdating) return;
         // get screen pointer position
-        screenPointerPosition = Globals.inputActions.Game.PointerPosition.ReadValue<Vector2>();
+        screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
         PointerEventData eventData = new(EventSystem.current)
         {
             position = screenPointerPosition
@@ -148,7 +148,7 @@ public class ClickInputManager : MonoBehaviour
         }
         else
         {
-            currentHoveredPosition = Globals.PURGATORY;
+            currentHoveredPosition = Globals.Purgatory;
         }
         // Check if the hovered position or object has changed
         if (currentHoveredPosition != hoveredPosition || currentHoveredObject != hoveredObject)
@@ -167,7 +167,7 @@ public class ClickInputManager : MonoBehaviour
         hoveredTileView = currentHoveredTileView;
         hoveredBoardMakerTile = currentHoveredBoardMakerTile;
 
-        if (Globals.inputActions.Game.Click.triggered)
+        if (Globals.InputActions.Game.Click.triggered)
         {
             OnClick?.Invoke(screenPointerPosition, hoveredPosition);
         }

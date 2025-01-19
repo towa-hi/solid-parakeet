@@ -221,7 +221,7 @@ public class BoardManager : MonoBehaviour
                 spotLightHandler.LookAt(pawnView.transform);
                 if (pawnView.transform.position != target)
                 {
-                    yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PAWNMOVEDURATION, 0.25f));
+                    yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PawnMoveDuration, 0.25f));
                 }
                 break;
             case ResolveEvent.CONFLICT:
@@ -231,7 +231,7 @@ public class BoardManager : MonoBehaviour
                 pawnView.RevealPawn(pawnState);
                 defenderPawnView.RevealPawn(defenderPawnState);
                 Vector3 conflictTarget = GetTileViewByPos(eventState.targetPos).pawnOrigin.position;
-                yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.25f));
+                yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PawnMoveDuration, 0.25f));
                 SPawn redPawnState;
                 SPawn bluePawnState;
                 if (pawnState.team == (int)Team.RED)
@@ -569,7 +569,7 @@ public class SetupPhase : IPhase
             SPawn newState = new(deadPawnView.pawn)
             {
                 isAlive = false,
-                pos = Globals.PURGATORY,
+                pos = Globals.Purgatory,
             };
             deadPawnView.SyncState(newState);
             deadPawnView.UpdateViewPosition();
@@ -608,7 +608,7 @@ public class SetupPhase : IPhase
                 SPawn newState = new(pawnView.pawn)
                 {
                     isAlive = false,
-                    pos = Globals.PURGATORY,
+                    pos = Globals.Purgatory,
                 };
                 pawnView.SyncState(newState);
             }

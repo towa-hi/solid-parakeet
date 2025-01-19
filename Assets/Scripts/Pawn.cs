@@ -26,7 +26,7 @@ public class Pawn
         pawnId = Guid.NewGuid();
         def = inDef;
         team = inTeam;
-        pos = Globals.PURGATORY;
+        pos = Globals.Purgatory;
         isSetup = inIsSetup;
         isAlive = false;
         isVisibleToOpponent = false;
@@ -109,7 +109,7 @@ public struct SPawn
 
     public override string ToString()
     {
-        string newString = $"{(Team)team} {def.pawnName} {Globals.ShortGuid(pawnId)} isAlive: {isAlive}";
+        string newString = $"{(Team)team} {def.pawnName} {Shared.ShortGuid(pawnId)} isAlive: {isAlive}";
         return newString;
     }
 }

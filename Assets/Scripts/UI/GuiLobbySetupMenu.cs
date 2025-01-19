@@ -63,7 +63,7 @@ public class GuiLobbySetupMenu : MenuElement
         LobbyParameters lobbyParameters = new LobbyParameters
         {
             hostTeam = hostTeam,
-            guestTeam = Globals.OppTeam(hostTeam),
+            guestTeam = Shared.OppTeam(hostTeam),
             board = selectedBoardDef,
             maxPawns = selectedBoardDef.maxPawns,
             mustFillAllTiles = mustFillAllTiles,

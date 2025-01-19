@@ -26,7 +26,7 @@ public class BoardMakerManager : MonoBehaviour
     {
         currentTool = BoardMakerTool.NONE;
         tiles = new List<BoardMakerTile>();
-        Globals.inputActions.Game.Enable();
+        Globals.InputActions.Game.Enable();
         clickInputManager.OnClick += OnClick;
     }
 
@@ -62,7 +62,7 @@ public class BoardMakerManager : MonoBehaviour
             return;
         }
 
-        if (pos != Globals.PURGATORY)
+        if (pos != Globals.Purgatory)
         {
             BoardMakerTile tile = GetTile(pos);
             switch (currentTool)

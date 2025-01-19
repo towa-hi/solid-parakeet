@@ -7,27 +7,10 @@ using UnityEngine.Serialization;
 
 public static class Globals
 {
-    public static Vector2Int PURGATORY = new(-666, -666);
-    public static float PAWNMOVEDURATION = 1f;
-    public static float HOVEREDHEIGHT = 0.1f;
-    // Static instance of GameInputActions to be shared among all Hoverable instances
-    public static readonly InputSystem_Actions inputActions = new();
-    
-
-    public static bool IsNicknameValid(string nickname)
-    {
-        // Check length constraints
-        if (string.IsNullOrEmpty(nickname) || nickname.Length >= 16)
-            return false;
-
-        // Check for alphanumeric characters and spaces only
-        return Regex.IsMatch(nickname, @"^[a-zA-Z0-9 ]+$");
-    }
-
-    public static bool IsPasswordValid(string password)
-    {
-        return true;
-    }
+    public static readonly Vector2Int Purgatory = new(-666, -666);
+    public const float PawnMoveDuration = 1f;
+    public const float HoveredHeight = 0.1f;
+    public static readonly InputSystem_Actions InputActions = new();
     
     public static Guid LoadOrGenerateClientId()
     {
@@ -66,110 +49,6 @@ public static class Globals
             PlayerPrefs.SetString("nickname", "defaultnick");
         }
         return PlayerPrefs.GetString("nickname");
-    }
-    
-    public static List<PawnDef> GetOrderedPawnList()
-    {
-        List<PawnDef> orderedPawns = new List<PawnDef>
-        {
-            Resources.Load<PawnDef>("Pawn/00-throne"),
-            Resources.Load<PawnDef>("Pawn/01-assassin"),
-            Resources.Load<PawnDef>("Pawn/02-scout"),
-            Resources.Load<PawnDef>("Pawn/03-seer"),
-            Resources.Load<PawnDef>("Pawn/04-grunt"),
-            Resources.Load<PawnDef>("Pawn/05-knight"),
-            Resources.Load<PawnDef>("Pawn/06-wraith"),
-            Resources.Load<PawnDef>("Pawn/07-reaver"),
-            Resources.Load<PawnDef>("Pawn/08-herald"),
-            Resources.Load<PawnDef>("Pawn/09-champion"),
-            Resources.Load<PawnDef>("Pawn/10-warlord"),
-            Resources.Load<PawnDef>("Pawn/11-trap"),
-            Resources.Load<PawnDef>("Pawn/99-unknown"),
-        };
-        return orderedPawns;
-    }
-    
-    public static float EaseOutQuad(float t)
-    {
-        return t * (2 - t);
-    }
-    
-    public static string ShortGuid(Guid guid)
-    {
-        return guid.ToString().Substring(0, 4);
-    }
-
-    public static Vector2Int[] GetDirections(Vector2Int pos, bool isHex)
-    {
-        if (isHex)
-        {
-            Vector2Int[] neighbors = new Vector2Int[6];
-            bool oddCol = pos.x % 2 == 1; // Adjust for origin offset
-            
-            if (oddCol)
-            {
-                neighbors[0] = new Vector2Int(0, 1);  // top
-                neighbors[1] = new Vector2Int(-1, 0);  // top right
-                neighbors[2] = new Vector2Int(-1, -1);  // bot right
-                neighbors[3] = new Vector2Int(0, -1); // bot
-                neighbors[4] = new Vector2Int(1, -1); // bot left
-                neighbors[5] = new Vector2Int(1, 0);  // top left
-            }
-            else
-            {
-                neighbors[0] = new Vector2Int(0, 1);  // top
-                neighbors[1] = new Vector2Int(-1, 1);  // top right
-                neighbors[2] = new Vector2Int(-1, -0); // bot right
-                neighbors[3] = new Vector2Int(0, -1); // bot
-                neighbors[4] = new Vector2Int(1, 0);// bot left
-                neighbors[5] = new Vector2Int(1, 1); // top left
-            }
-            
-            return neighbors;
-        }
-        else
-        {
-            return new Vector2Int[]
-            {
-                Vector2Int.up,
-                Vector2Int.right,
-                Vector2Int.down,
-                Vector2Int.left
-            };
-        }
-    }
-    
-    public static Vector2Int[] GetNeighbors(Vector2Int pos, bool isHex)
-    {
-        Vector2Int[] directions = Globals.GetDirections(pos, isHex);
-        if (isHex)
-        {
-            Vector2Int[] neighbors = new Vector2Int[6];
-            for (int i = 0; i < neighbors.Length; i++)
-            {
-                neighbors[i] = pos + directions[i];
-            }
-            return neighbors;
-        }
-        else
-        {
-            Vector2Int[] neighbors = new Vector2Int[4];
-            for (int i = 0; i < neighbors.Length; i++)
-            {
-                neighbors[i] = pos + directions[i];
-            }
-            return neighbors;
-        }
-    }
-
-    public static int OppTeam(int team)
-    {
-        return team switch
-        {
-            1 => 2,
-            2 => 1,
-            _ => team
-        };
     }
 }
 
@@ -402,7 +281,7 @@ public struct SGameState
         {
             return Array.Empty<STile>();
         }
-        Vector2Int[] initialDirections = Globals.GetDirections(pawn.pos, boardDef.isHex);
+        Vector2Int[] initialDirections = Shared.GetDirections(pawn.pos, boardDef.isHex);
         // Define the maximum possible number of movable tiles
         int maxMovableTiles = boardDef.tiles.Length; // Adjust based on your board size
         STile[] movableTiles = new STile[maxMovableTiles];
@@ -414,7 +293,7 @@ public struct SGameState
             while (walkedTiles < pawn.def.movementRange)
             {
                 // directions change depending on odd or even col in hexagons so we have to get it again
-                Vector2Int[] currentDirections = Globals.GetDirections(currentPos, boardDef.isHex);
+                Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
                 // peek one tile in this direction ahead
                 currentPos += currentDirections[dirIndex];
                 if (!IsPosValid(currentPos))
@@ -521,7 +400,7 @@ public struct SGameState
         {
             throw new Exception("Censor can only be done on master game states!");
         }
-        SGameState censoredGameState = new SGameState
+        SGameState censoredGameState = new()
         {
             winnerTeam = masterGameState.winnerTeam,
             team = team,
@@ -564,17 +443,12 @@ public struct SGameState
     public static SQueuedMove GenerateValidMove(in SGameState gameState, int team)
     {
         // NOTE: gameState should be censored if it isn't already for fairness
-        List<SQueuedMove> allPossibleMoves = new List<SQueuedMove>();
+        List<SQueuedMove> allPossibleMoves = new();
         foreach (SPawn pawn in gameState.pawns)
         {
-            if (pawn.team == team)
-            {
-                STile[] movableTiles = gameState.GetMovableTiles(pawn);
-                foreach (var tile in movableTiles)
-                {
-                    allPossibleMoves.Add(new SQueuedMove(team, pawn.pawnId, pawn.pos, tile.pos));
-                }
-            }
+            if (pawn.team != team) continue;
+            STile[] movableTiles = gameState.GetMovableTiles(pawn);
+            allPossibleMoves.AddRange(movableTiles.Select(tile => new SQueuedMove(team, pawn.pawnId, pawn.pos, tile.pos)));
         }
         if (allPossibleMoves.Count == 0)
         {
@@ -622,90 +496,64 @@ public struct SGameState
         }
         throw new ArgumentOutOfRangeException($"GetPawnById pawnId {pawnId} not found!");
     }
+
+    public readonly (int, SPawn) GetPawnIndexById(Guid pawnId)
+    {
+        int index = Array.FindIndex(pawns, pawn => pawn.pawnId == pawnId);
+        SPawn pawn = pawns[index];
+        return (index, pawn);
+    }
     
     static void UpdatePawnIsAlive(ref SGameState gameState, in Guid pawnId, bool inIsAlive)
     {
-        for (int i = 0; i < gameState.pawns.Length; i++)
+        (int index, SPawn oldPawn) = gameState.GetPawnIndexById(pawnId);
+        Vector2Int inPos = inIsAlive ? oldPawn.pos : Globals.Purgatory;
+        SPawn updatedPawn = new()
         {
-            if (gameState.pawns[i].pawnId == pawnId)
-            {
-                SPawn oldPawn = gameState.pawns[i];
-                Vector2Int inPos = inIsAlive ? oldPawn.pos : Globals.PURGATORY;
-                SPawn updatedPawn = new()
-                {
-                    pawnId = oldPawn.pawnId,
-                    def = oldPawn.def,
-                    team = oldPawn.team,
-                    pos = inPos, // sets
-                    isSetup = oldPawn.isSetup,
-                    isAlive = inIsAlive, // sets
-                    hasMoved = oldPawn.hasMoved,
-                    isVisibleToOpponent = oldPawn.isVisibleToOpponent,
-                };
-                gameState.pawns[i] = updatedPawn;
-                break;
-            }
-        }
+            pawnId = oldPawn.pawnId,
+            def = oldPawn.def,
+            team = oldPawn.team,
+            pos = inPos, // sets
+            isSetup = oldPawn.isSetup,
+            isAlive = inIsAlive, // sets
+            hasMoved = oldPawn.hasMoved,
+            isVisibleToOpponent = oldPawn.isVisibleToOpponent,
+        };
+        gameState.pawns[index] = updatedPawn;
     }
 
     static void UpdateRevealPawn(ref SGameState gameState, in Guid pawnId, in bool inIsVisibleToOpponent)
     {
-        for (int i = 0; i < gameState.pawns.Length; i++)
+        (int index, SPawn oldPawn) = gameState.GetPawnIndexById(pawnId);
+        SPawn updatedPawn = new()
         {
-            if (gameState.pawns[i].pawnId == pawnId)
-            {
-                SPawn oldPawn = gameState.pawns[i];
-                SPawn updatedPawn = new()
-                {
-                    pawnId = oldPawn.pawnId,
-                    def = oldPawn.def,
-                    team = oldPawn.team,
-                    pos = oldPawn.pos,
-                    isSetup = oldPawn.isSetup,
-                    isAlive = oldPawn.isAlive,
-                    hasMoved = oldPawn.hasMoved,
-                    isVisibleToOpponent = inIsVisibleToOpponent, // sets
-                };
-                gameState.pawns[i] = updatedPawn;
-                break;
-            }
-        }
+            pawnId = oldPawn.pawnId,
+            def = oldPawn.def,
+            team = oldPawn.team,
+            pos = oldPawn.pos,
+            isSetup = oldPawn.isSetup,
+            isAlive = oldPawn.isAlive,
+            hasMoved = oldPawn.hasMoved,
+            isVisibleToOpponent = inIsVisibleToOpponent, // sets
+        };
+        gameState.pawns[index] = updatedPawn;
     }
     
     static void UpdatePawnPosition(ref SGameState gameState, in Guid pawnId, in Vector2Int inPos)
     {
-        for (int i = 0; i < gameState.pawns.Length; i++)
+        (int index, SPawn oldPawn) = gameState.GetPawnIndexById(pawnId);
+        SPawn updatedPawn = new()
         {
-            if (gameState.pawns[i].pawnId == pawnId)
-            {
-                SPawn oldPawn = gameState.pawns[i];
-                SPawn updatedPawn = new()
-                {
-                    pawnId = oldPawn.pawnId,
-                    def = oldPawn.def,
-                    team = oldPawn.team,
-                    pos = inPos, // sets
-                    isSetup = oldPawn.isSetup,
-                    isAlive = oldPawn.isAlive,
-                    hasMoved = true, // sets true because moved
-                    isVisibleToOpponent = oldPawn.isVisibleToOpponent,
-                };
-                gameState.pawns[i] = updatedPawn;
-                break;
-            }
-        }
-    }
-    
-    static void UpdatePawn(ref SGameState gameState, ref SPawn pawn)
-    {
-        for (int i = 0; i < gameState.pawns.Length; i++)
-        {
-            if (gameState.pawns[i].pawnId == pawn.pawnId)
-            {
-                gameState.pawns[i] = pawn;
-                break;
-            }
-        }
+            pawnId = oldPawn.pawnId,
+            def = oldPawn.def,
+            team = oldPawn.team,
+            pos = inPos, // sets
+            isSetup = oldPawn.isSetup,
+            isAlive = oldPawn.isAlive,
+            hasMoved = true, // sets true because moved
+            isVisibleToOpponent = oldPawn.isVisibleToOpponent,
+        };
+        gameState.pawns[index] = updatedPawn;
     }
     
     static List<Vector2Int> GenerateMovementPath(in SGameState gameState, in Guid pawnId, in Vector2Int targetPos)
@@ -1346,7 +1194,7 @@ public struct SGameState
             }
             else
             {
-                if (pawn.pos != Globals.PURGATORY)
+                if (pawn.pos != Globals.Purgatory)
                 {
                     deadPawnsOnBoard.Add(pawn);
                 }
@@ -1554,7 +1402,7 @@ public struct SEventState
             pawnId = inPawn.pawnId,
             defenderPawnId = Guid.Empty,
             originalPos = inPawn.pos,
-            targetPos = Globals.PURGATORY,
+            targetPos = Globals.Purgatory,
         };
         return deathEvent;
     }
@@ -1579,15 +1427,15 @@ public struct SEventState
     
     public override string ToString()
     {
-        string baseString = $"{(ResolveEvent)eventType} {(Team)team} {Globals.ShortGuid(pawnId)} ";
+        string baseString = $"{(ResolveEvent)eventType} {(Team)team} {Shared.ShortGuid(pawnId)} ";
         switch ((ResolveEvent)eventType)
         {
             case ResolveEvent.MOVE:
                 return baseString + $"moved {originalPos} to {targetPos}";
             case ResolveEvent.CONFLICT:
-                return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
+                return baseString + $"vs {Shared.ShortGuid(defenderPawnId)}";
             case ResolveEvent.SWAPCONFLICT:
-                return baseString + $"vs {Globals.ShortGuid(defenderPawnId)}";
+                return baseString + $"vs {Shared.ShortGuid(defenderPawnId)}";
             case ResolveEvent.DEATH:
                 return baseString + $"died";
             default:

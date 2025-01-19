@@ -11,7 +11,6 @@ public class GuiLobbyMenu : MenuElement
     public TextMeshProUGUI readyButtonText;
     public TextMeshProUGUI passwordText;
     public TextMeshProUGUI boardNameText;
-    [SerializeField] bool isHost;
     [SerializeField] bool readyButtonState;
     
     // chat is handled in it's own component
@@ -40,8 +39,7 @@ public class GuiLobbyMenu : MenuElement
     {
         passwordText.text = $"Password: {lobby.password}";
         boardNameText.text = lobby.lobbyParameters.board.boardName;
-        isHost = lobby.IsHost(Globals.LoadOrGenerateClientId());
-        SetReadyButtonState(isHost ? lobby.hostReady : lobby.guestReady);
+        SetReadyButtonState(false);
 
     }
 

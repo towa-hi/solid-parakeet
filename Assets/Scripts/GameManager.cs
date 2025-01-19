@@ -35,7 +35,22 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("MORE THAN ONE SINGLETON");
         }
-        orderedPawnDefList = Globals.GetOrderedPawnList();
+        orderedPawnDefList = new List<PawnDef>
+        {
+            Resources.Load<PawnDef>("Pawn/00-throne"),
+            Resources.Load<PawnDef>("Pawn/01-assassin"),
+            Resources.Load<PawnDef>("Pawn/02-scout"),
+            Resources.Load<PawnDef>("Pawn/03-seer"),
+            Resources.Load<PawnDef>("Pawn/04-grunt"),
+            Resources.Load<PawnDef>("Pawn/05-knight"),
+            Resources.Load<PawnDef>("Pawn/06-wraith"),
+            Resources.Load<PawnDef>("Pawn/07-reaver"),
+            Resources.Load<PawnDef>("Pawn/08-herald"),
+            Resources.Load<PawnDef>("Pawn/09-champion"),
+            Resources.Load<PawnDef>("Pawn/10-warlord"),
+            Resources.Load<PawnDef>("Pawn/11-trap"),
+            Resources.Load<PawnDef>("Pawn/99-unknown"),
+        };
     }
 
     public Dictionary<Rank, PawnDef> GetPawnDefFromRank()
@@ -132,7 +147,7 @@ public class GameManager : MonoBehaviour
         guiManager.Initialize();
         cameraManager.Initialize();
         Debug.Log("Enable input action");
-        Globals.inputActions.Game.Enable();
+        Globals.InputActions.Game.Enable();
     }
     
     public void SetOfflineMode(bool inOfflineMode)

@@ -5115,8 +5115,7 @@ MonoBehaviour:
   pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
   grid: {fileID: 1153439526}
   clickInputManager: {fileID: 1153439525}
-  player: 0
-  opponentPlayer: 0
+  team: 0
   pawnViews: []
   hoveredPos: {x: 0, y: 0}
   currentHoveredPawnView: {fileID: 0}
@@ -5125,8 +5124,8 @@ MonoBehaviour:
   waveStartPositionTwo: {fileID: 263682748}
   waveSpeed: 2
   serverGameState:
-    winnerPlayer: 0
-    player: 0
+    winnerTeam: 0
+    team: 0
     boardDef:
       boardName: 
       boardSize: {x: 0, y: 0}
@@ -6526,22 +6525,6 @@ MonoBehaviour:
   settingsManager: {fileID: 1527594350}
   offlineMode: 0
   orderedPawnDefList: []
-  allTileSprites:
-  - {fileID: 21300000, guid: 840a290a62bc6304995ab6cbbdcf0692, type: 3}
-  - {fileID: 21300000, guid: fab36626e6c1a3c4ea836d50b9b706c0, type: 3}
-  - {fileID: 21300000, guid: 6dcb4d84d6eaf574eb75d7a4d667ef2e, type: 3}
-  - {fileID: 21300000, guid: 43b755002a4bc434da57207bef20c3d4, type: 3}
-  - {fileID: 21300000, guid: d99d05ffb939f344fb9c901f5b6d796f, type: 3}
-  - {fileID: 21300000, guid: 4a01ff8ff437dae4fae8d3a879e20435, type: 3}
-  - {fileID: 21300000, guid: 247d1d37eb3e862409aabe663f4b7dd4, type: 3}
-  - {fileID: 21300000, guid: 665542a5b266ca44eabbed11cc8a6e44, type: 3}
-  - {fileID: 21300000, guid: 7663bcdc6019c084380b4f614ad657af, type: 3}
-  - {fileID: 21300000, guid: 5d9580d9573fb5941ac4ac6fbcb805a9, type: 3}
-  - {fileID: 21300000, guid: 1f3667bbf4c9bbf4b91a84dd7cfbb360, type: 3}
-  - {fileID: 21300000, guid: 9dc47e9344004944d960c11e203c3549, type: 3}
-  - {fileID: 21300000, guid: 4045b053d3f8d7b469968b817d469f48, type: 3}
-  - {fileID: 21300000, guid: 0efbc7474c9cef94d82aca899c9f04bf, type: 3}
-  - {fileID: 21300000, guid: b6e0a298dd80af84882e31580389a189, type: 3}
 --- !u!114 &1527594348
 MonoBehaviour:
   m_ObjectHideFlags: 0
