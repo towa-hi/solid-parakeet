@@ -73,10 +73,10 @@ public class BoardMakerManager : MonoBehaviour
                     tile.SetIsPassable(!tile.isPassable);
                     break;
                 case BoardMakerTool.REDTEAM:
-                    tile.SetSetupPlayer(tile.setupTeam == Team.RED ? Team.NONE : Team.RED);
+                    tile.SetSetupTeam(tile.setupTeam == Team.RED ? Team.NONE : Team.RED);
                     break;
                 case BoardMakerTool.BLUETEAM:
-                    tile.SetSetupPlayer(tile.setupTeam == Team.BLUE ? Team.NONE : Team.BLUE);
+                    tile.SetSetupTeam(tile.setupTeam == Team.BLUE ? Team.NONE : Team.BLUE);
                     break;
                 case BoardMakerTool.SETUPZONE:
                     tile.SetSetupZone(currentSetupZone);

@@ -50,7 +50,7 @@ public class BoardMakerTile : MonoBehaviour
         UpdateView();
     }
 
-    public void SetSetupPlayer(Team inSetupTeam)
+    public void SetSetupTeam(Team inSetupTeam)
     {
         setupTeam = inSetupTeam;
         UpdateView();
@@ -87,7 +87,7 @@ public class BoardMakerTile : MonoBehaviour
     public void LoadState(Tile tile)
     {
         SetIsPassable(tile.isPassable);
-        SetSetupPlayer(tile.setupTeam);
+        SetSetupTeam(tile.setupTeam);
         SetSetupZone(tile.autoSetupZone);
     }
 

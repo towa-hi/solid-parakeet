@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class GuiLobbySetupMenu : MenuElement
@@ -10,19 +11,23 @@ public class GuiLobbySetupMenu : MenuElement
     public Button cancelButton;
     public Button startButton;
     public TMP_Dropdown boardDropdown;
+    public Toggle mustFillAllTilesToggle;
+    public Button teamButton;
     public event Action OnCancelButton;
     public event Action<LobbyParameters> OnStartButton;
 
     public BoardDef[] boardDefs;
     public BoardDef selectedBoardDef;
     
-    public int hostPlayer;
+    public int hostTeam;
     public bool mustFillAllTiles;
     void Start()
     {
         cancelButton.onClick.AddListener(HandleCancelButton);
         startButton.onClick.AddListener(HandleStartButton);
         boardDropdown.onValueChanged.AddListener(HandleBoardDropdown);
+        mustFillAllTilesToggle.onValueChanged.AddListener(HandleMustFillAllTilesToggle);
+        teamButton.onClick.AddListener(HandleTeamButton);
     }
 
     public override void ShowElement(bool enable)
@@ -31,13 +36,23 @@ public class GuiLobbySetupMenu : MenuElement
         cancelButton.interactable = enable;
         startButton.interactable = enable;
         
-        hostPlayer = 1;
+        hostTeam = 1;
         mustFillAllTiles = true;
-        
+        UpdateTeamButton();
         PopulateBoardDropdown();
     }
 
-
+    void UpdateTeamButton()
+    {
+        if (hostTeam == 1)
+        {
+            teamButton.image.color = Color.red;
+        }
+        else
+        {
+            teamButton.image.color = Color.blue;
+        }
+    }
     void HandleCancelButton()
     {
         OnCancelButton?.Invoke();
@@ -47,7 +62,8 @@ public class GuiLobbySetupMenu : MenuElement
     {
         LobbyParameters lobbyParameters = new LobbyParameters
         {
-            hostPlayer = hostPlayer,
+            hostTeam = hostTeam,
+            guestTeam = Globals.OppTeam(hostTeam),
             board = selectedBoardDef,
             maxPawns = selectedBoardDef.maxPawns,
             mustFillAllTiles = mustFillAllTiles,
@@ -77,5 +93,21 @@ public class GuiLobbySetupMenu : MenuElement
     void HandleBoardDropdown(int index)
     {
         selectedBoardDef = boardDefs[index];
+    }
+
+    void HandleTeamButton()
+    {
+        hostTeam = hostTeam switch
+        {
+            1 => 2,
+            2 => 1,
+            _ => hostTeam
+        };
+        UpdateTeamButton();
+    }
+
+    void HandleMustFillAllTilesToggle(bool isOn)
+    {
+        mustFillAllTiles = isOn;
     }
 }

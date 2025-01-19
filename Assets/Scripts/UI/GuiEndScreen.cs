@@ -42,21 +42,21 @@ public class GuiEndScreen : MonoBehaviour
     }
 
 
-    public void Initialize(int winnerPlayer)
+    public void Initialize(int winnerTeam)
     {
-        if (winnerPlayer == 0)
+        if (winnerTeam == 0)
         {
             Debug.Log("The game isn't over yet!");
         }
-        else if (winnerPlayer == 1)
+        else if (winnerTeam == 1)
         {
             Debug.Log("Red player won!");
         }
-        else if (winnerPlayer == 2)
+        else if (winnerTeam == 2)
         {
             Debug.Log("Blue player won!");
         }
-        else if (winnerPlayer == 3)
+        else if (winnerTeam == 3)
         {
             Debug.Log("Both players lost!");
         }

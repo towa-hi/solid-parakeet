@@ -196,9 +196,9 @@ public class BoardManager : MonoBehaviour
         {
             pawnView.SyncState(receipt.gameState.GetPawnById(pawnView.pawn.pawnId));
         }
-        if (receipt.gameState.winnerPlayer != 0)
+        if (receipt.gameState.winnerTeam != 0)
         {
-            SetPhase(new EndPhase(this, receipt.gameState.winnerPlayer));
+            SetPhase(new EndPhase(this, receipt.gameState.winnerTeam));
         }
         else
         {
@@ -234,7 +234,7 @@ public class BoardManager : MonoBehaviour
                 yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.25f));
                 SPawn redPawnState;
                 SPawn bluePawnState;
-                if (pawnState.player == (int)Team.RED)
+                if (pawnState.team == (int)Team.RED)
                 {
                     redPawnState = pawnState;
                     bluePawnState = defenderPawnState;
@@ -259,7 +259,7 @@ public class BoardManager : MonoBehaviour
                 defenderSwapPawnView.RevealPawn(defenderSwapPawnState);
                 SPawn redPawnStateSwap;
                 SPawn bluePawnStateSwap;
-                if (pawnState.player == (int)Team.RED)
+                if (pawnState.team == (int)Team.RED)
                 {
                     redPawnStateSwap = pawnState;
                     bluePawnStateSwap = defenderSwapPawnState;
@@ -492,7 +492,7 @@ public class SetupPhase : IPhase
     
     public void EnterState()
     {
-        Debug.Assert(lobbyParameters.hostPlayer != (int)Team.NONE);
+        Debug.Assert(lobbyParameters.hostTeam != (int)Team.NONE);
         Debug.Assert(bm.purgatory != null);
         List<PawnView> pawnViews = new();
         bm.grid.SetBoard(lobbyParameters.board);
@@ -516,7 +516,7 @@ public class SetupPhase : IPhase
             for (int i = 0; i < maxPawns.max; i++)
             {
                 PawnDef pawnDef = GameManager.instance.orderedPawnDefList.FirstOrDefault(def => def.rank == maxPawns.rank);
-                Pawn pawn = new(pawnDef, (Team)lobbyParameters.hostPlayer, true);
+                Pawn pawn = new(pawnDef, (Team)lobbyParameters.hostTeam, true);
                 GameObject pawnObject = UnityEngine.Object.Instantiate(bm.pawnPrefab, bm.purgatory.position, Quaternion.identity, bm.transform);
                 PawnView pawnView = pawnObject.GetComponent<PawnView>();
                 pawnView.Initialize(pawn, null);
@@ -526,7 +526,7 @@ public class SetupPhase : IPhase
         
         bm.ClearPawnViews();
         bm.ClearTileViews();
-        bm.team = (Team)lobbyParameters.hostPlayer;
+        bm.team = (Team)lobbyParameters.hostTeam;
         bm.tileViews = tileViews;
         bm.pawnViews = pawnViews;
 
@@ -603,7 +603,7 @@ public class SetupPhase : IPhase
     {
         foreach (var pawnView in bm.pawnViews)
         {
-            if (pawnView.pawn.team == (Team)lobbyParameters.hostPlayer)
+            if (pawnView.pawn.team == (Team)lobbyParameters.hostTeam)
             {
                 SPawn newState = new(pawnView.pawn)
                 {
@@ -613,10 +613,10 @@ public class SetupPhase : IPhase
                 pawnView.SyncState(newState);
             }
         }
-        SSetupPawn[] validSetup = SGameState.GenerateValidSetup(lobbyParameters.hostPlayer, lobbyParameters);
+        SSetupPawn[] validSetup = SGameState.GenerateValidSetup(lobbyParameters.hostTeam, lobbyParameters);
         foreach (SSetupPawn setupPawn in validSetup)
         {
-            PawnView pawnView = GetPawnViewFromPurgatoryByPawnDef((Team)lobbyParameters.hostPlayer, setupPawn.def.ToUnity());
+            PawnView pawnView = GetPawnViewFromPurgatoryByPawnDef((Team)lobbyParameters.hostTeam, setupPawn.def.ToUnity());
             SPawn newState = new(pawnView.pawn)
             {
                 isAlive = true,

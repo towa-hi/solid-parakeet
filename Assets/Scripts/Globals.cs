@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public static class Globals
 {
@@ -160,6 +161,16 @@ public static class Globals
             return neighbors;
         }
     }
+
+    public static int OppTeam(int team)
+    {
+        return team switch
+        {
+            1 => 2,
+            2 => 1,
+            _ => team
+        };
+    }
 }
 
 public enum MessageGenre : uint
@@ -201,21 +212,24 @@ public class SLobby
 
 public class LobbyParameters
 {
-    public int hostPlayer;
+    public int hostTeam;
+    public int guestTeam;
     public BoardDef board;
     public SMaxPawnsPerRank[] maxPawns;
     public bool mustFillAllTiles;
 }
 public struct SLobbyParameters
 {
-    public int hostPlayer;
+    public int hostTeam;
+    public int guestTeam;
     public SBoardDef board;
     public SMaxPawnsPerRank[] maxPawns;
     public bool mustFillAllTiles;
 
     public SLobbyParameters(LobbyParameters lobbyParameters)
     {
-        hostPlayer = lobbyParameters.hostPlayer;
+        hostTeam = lobbyParameters.hostTeam;
+        guestTeam = lobbyParameters.guestTeam;
         board = new SBoardDef(lobbyParameters.board);
         maxPawns = lobbyParameters.maxPawns;
         mustFillAllTiles = lobbyParameters.mustFillAllTiles;
@@ -279,6 +293,7 @@ public class RequestBase
 {
     public Guid requestId;
     public Guid clientId;
+    
 }
 
 public class RegisterClientRequest : RequestBase
@@ -318,7 +333,7 @@ public class StartGameRequest : RequestBase
 
 public class SetupRequest : RequestBase
 {
-    public int player;
+    // TODO: refactor this to be more coherent and not just an array
     public SSetupPawn[] setupPawns;
 }
 
@@ -331,14 +346,14 @@ public class MoveRequest : RequestBase
 [Serializable]
 public struct SQueuedMove
 {
-    public int player;
+    public int team;
     public Guid pawnId;
     public Vector2Int initialPos;
     public Vector2Int pos;
 
     public SQueuedMove(in SPawn pawn, in Vector2Int inPos)
     {
-        player = pawn.player;
+        team = pawn.team;
         pawnId = pawn.pawnId;
         initialPos = pawn.pos;
         pos = inPos;
@@ -346,15 +361,15 @@ public struct SQueuedMove
 
     public SQueuedMove(Pawn pawn, Vector2Int inPos)
     {
-        player = (int)pawn.team;
+        team = (int)pawn.team;
         pawnId = pawn.pawnId;
         initialPos = pawn.pos;
         pos = inPos;
     }
     
-    public SQueuedMove(int inPlayer, Guid inPawnId, Vector2Int inInitialPos, Vector2Int inPos)
+    public SQueuedMove(int inTeam, Guid inPawnId, Vector2Int inInitialPos, Vector2Int inPos)
     {
-        player = inPlayer;
+        team = inTeam;
         pawnId = inPawnId;
         initialPos = inInitialPos;
         pos = inPos;
@@ -364,15 +379,15 @@ public struct SQueuedMove
 [Serializable]
 public struct SGameState
 {
-    public int winnerPlayer;
-    public int player;
+    public int winnerTeam;
+    public int team;
     public SBoardDef boardDef;
     public SPawn[] pawns;
     
-    public SGameState(int inPlayer, SBoardDef inBoardDef, SPawn[] inPawns)
+    public SGameState(int inTeam, SBoardDef inBoardDef, SPawn[] inPawns)
     {
-        winnerPlayer = (int)Team.NONE;
-        player = inPlayer;
+        winnerTeam = (int)Team.NONE;
+        team = inTeam;
         boardDef = inBoardDef;
         pawns = inPawns;
     }
@@ -414,7 +429,7 @@ public struct SGameState
                 SPawn? pawnOnPos = GetPawnByPos(currentPos);
                 if (pawnOnPos.HasValue)
                 {
-                    if (pawnOnPos.Value.player == pawn.player)
+                    if (pawnOnPos.Value.team == pawn.team)
                     {
                         // Cannot move through own pawns
                         break;
@@ -461,7 +476,7 @@ public struct SGameState
         try
         {
             SPawn movingPawn = gameState.GetPawnById(move.pawnId);
-            if (move.player != movingPawn.player)
+            if (move.team != movingPawn.team)
             {
                 return false;
             }
@@ -469,7 +484,7 @@ public struct SGameState
             if (maybePawn.HasValue)
             {
                 SPawn obstructingPawn = maybePawn.Value;
-                if (obstructingPawn.player == move.player)
+                if (obstructingPawn.team == move.team)
                 {
                     return false;
                 }
@@ -500,16 +515,16 @@ public struct SGameState
 
     }
 
-    public static SGameState Censor(in SGameState masterGameState, int targetPlayer)
+    public static SGameState Censor(in SGameState masterGameState, int team)
     {
-        if (masterGameState.player != (int)Team.NONE)
+        if (masterGameState.team != (int)Team.NONE)
         {
             throw new Exception("Censor can only be done on master game states!");
         }
         SGameState censoredGameState = new SGameState
         {
-            winnerPlayer = masterGameState.winnerPlayer,
-            player = targetPlayer,
+            winnerTeam = masterGameState.winnerTeam,
+            team = team,
             boardDef = masterGameState.boardDef,
         };
         SPawn[] censoredPawns = new SPawn[masterGameState.pawns.Length];
@@ -517,7 +532,7 @@ public struct SGameState
         {
             SPawn serverPawn = masterGameState.pawns[i];
             SPawn censoredPawn;
-            if (serverPawn.player != targetPlayer)
+            if (serverPawn.team != team)
             {
                 if (PlayerPrefs.GetInt("CHEATMODE") == 1)
                 {
@@ -546,33 +561,33 @@ public struct SGameState
         return censoredGameState;
     }
     
-    public static SQueuedMove? GenerateValidMove(in SGameState gameState, int targetPlayer)
+    public static SQueuedMove GenerateValidMove(in SGameState gameState, int team)
     {
         // NOTE: gameState should be censored if it isn't already for fairness
         List<SQueuedMove> allPossibleMoves = new List<SQueuedMove>();
         foreach (SPawn pawn in gameState.pawns)
         {
-            if (pawn.player == targetPlayer)
+            if (pawn.team == team)
             {
                 STile[] movableTiles = gameState.GetMovableTiles(pawn);
                 foreach (var tile in movableTiles)
                 {
-                    allPossibleMoves.Add(new SQueuedMove(targetPlayer, pawn.pawnId, pawn.pos, tile.pos));
+                    allPossibleMoves.Add(new SQueuedMove(team, pawn.pawnId, pawn.pos, tile.pos));
                 }
             }
         }
         if (allPossibleMoves.Count == 0)
         {
-            return null;
+            throw new Exception("GenerateValidMove() no valid moves");
         }
         System.Random random = new();
         int randomIndex = random.Next(0, allPossibleMoves.Count);
         SQueuedMove randomMove = allPossibleMoves[randomIndex];
         SPawn randomPawn = gameState.GetPawnById(randomMove.pawnId);
-        Debug.Log($"GenerateValidMove chose {randomMove.pawnId} {randomPawn.def.pawnName} from {randomPawn.pos} to {randomMove.pos}");
+        Debug.Log($"GenerateValidMove() chose {randomMove.pawnId} {randomPawn.def.pawnName} from {randomPawn.pos} to {randomMove.pos}");
         if (!IsMoveValid(gameState, randomMove))
         {
-            return null;
+            throw new Exception("GenerateValidMove() chose invalid move");
         }
         return randomMove;
     }
@@ -620,7 +635,7 @@ public struct SGameState
                 {
                     pawnId = oldPawn.pawnId,
                     def = oldPawn.def,
-                    player = oldPawn.player,
+                    team = oldPawn.team,
                     pos = inPos, // sets
                     isSetup = oldPawn.isSetup,
                     isAlive = inIsAlive, // sets
@@ -644,7 +659,7 @@ public struct SGameState
                 {
                     pawnId = oldPawn.pawnId,
                     def = oldPawn.def,
-                    player = oldPawn.player,
+                    team = oldPawn.team,
                     pos = oldPawn.pos,
                     isSetup = oldPawn.isSetup,
                     isAlive = oldPawn.isAlive,
@@ -668,7 +683,7 @@ public struct SGameState
                 {
                     pawnId = oldPawn.pawnId,
                     def = oldPawn.def,
-                    player = oldPawn.player,
+                    team = oldPawn.team,
                     pos = inPos, // sets
                     isSetup = oldPawn.isSetup,
                     isAlive = oldPawn.isAlive,
@@ -735,7 +750,7 @@ public struct SGameState
                 SPawn? pawnOnPos = gameState.GetPawnByPos(nextPos);
                 if (pawnOnPos.HasValue)
                 {
-                    if (pawnOnPos.Value.player == pawn.player)
+                    if (pawnOnPos.Value.team == pawn.team)
                     {
                         // Cannot move through own pawns
                         path.RemoveAt(path.Count - 1); // Remove the blocked position
@@ -770,7 +785,7 @@ public struct SGameState
 
     public static SResolveReceipt Resolve(in SGameState gameState, in SQueuedMove redMove, in SQueuedMove blueMove)
     {
-        if (gameState.player != (int)Team.NONE)
+        if (gameState.team != (int)Team.NONE)
         {
             throw new ArgumentException("GameState.targetPlayer must be NONE as resolve can only happen on an uncensored board!");
         }
@@ -813,7 +828,7 @@ public struct SGameState
             SConflictReceipt swapConflictResult = Rules.ResolveConflict(redMovePawn, blueMovePawn);
             SEventState blueAndRedSwappedConflictEvent = new()
             {
-                player = (int)Team.NONE,
+                team = (int)Team.NONE,
                 eventType = (int)ResolveEvent.SWAPCONFLICT,
                 pawnId = redMovePawn.pawnId,
                 defenderPawnId = blueMovePawn.pawnId,
@@ -855,7 +870,7 @@ public struct SGameState
                 SConflictReceipt redAttackStationaryConflict = Rules.ResolveConflict(redMovePawn, blueDefender);
                 SEventState redStartedConflict = new()
                 {
-                    player = redMovePawn.player,
+                    team = redMovePawn.team,
                     eventType = (int)ResolveEvent.CONFLICT,
                     pawnId = redMovePawn.pawnId,
                     defenderPawnId = blueDefender.pawnId,
@@ -899,7 +914,7 @@ public struct SGameState
                 SConflictReceipt blueAttackStationaryConflict = Rules.ResolveConflict(redDefender, blueMovePawn);
                 SEventState blueStartedConflict = new()
                 {
-                    player = blueMovePawn.player,
+                    team = blueMovePawn.team,
                     eventType = (int)ResolveEvent.CONFLICT,
                     pawnId = blueMovePawn.pawnId,
                     defenderPawnId = redDefender.pawnId,
@@ -942,7 +957,7 @@ public struct SGameState
                 SConflictReceipt collisionConflictResult = Rules.ResolveConflict(redMovePawn, blueMovePawn);
                 SEventState collisionConflict = new()
                 {
-                    player = redMovePawn.player,
+                    team = redMovePawn.team,
                     eventType = (int)ResolveEvent.CONFLICT,
                     pawnId = redMovePawn.pawnId,
                     defenderPawnId = blueMovePawn.pawnId,
@@ -982,7 +997,7 @@ public struct SGameState
                     SConflictReceipt redAttackStationaryConflict = Rules.ResolveConflict(redMovePawn, blueDefender);
                     SEventState redStartedConflict = new()
                     {
-                        player = redMovePawn.player,
+                        team = redMovePawn.team,
                         eventType = (int)ResolveEvent.CONFLICT,
                         pawnId = redMovePawn.pawnId,
                         defenderPawnId = blueDefender.pawnId,
@@ -1019,7 +1034,7 @@ public struct SGameState
                     SConflictReceipt blueAttackStationaryConflict = Rules.ResolveConflict(redDefender, blueMovePawn);
                     SEventState blueStartedConflict = new()
                     {
-                        player = blueMovePawn.player,
+                        team = blueMovePawn.team,
                         eventType = (int)ResolveEvent.CONFLICT,
                         pawnId = blueMovePawn.pawnId,
                         defenderPawnId = redDefender.pawnId,
@@ -1056,7 +1071,7 @@ public struct SGameState
         SEventState[] receipts = new SEventState[6];
         SGameState nextGameState = new()
         {
-            player = (int)Team.NONE,
+            team = (int)Team.NONE,
             boardDef = gameState.boardDef,
             pawns = (SPawn[])gameState.pawns.Clone(),
         };
@@ -1295,14 +1310,13 @@ public struct SGameState
             throw new Exception("Resolve nextGameState is not valid");
         }
         SEventState[] trimmedReceipts = receipts.Reverse().SkipWhile(x => x.pawnId == Guid.Empty).Reverse().ToArray();
-        nextGameState.winnerPlayer = GetStateWinner(nextGameState);
-        if (nextGameState.winnerPlayer != 0)
+        nextGameState.winnerTeam = GetStateWinner(nextGameState);
+        if (nextGameState.winnerTeam != 0)
         {
-            Debug.LogWarning("GAME HAS ENDED WINNER IS " + nextGameState.winnerPlayer);
+            Debug.LogWarning("GAME HAS ENDED WINNER IS " + nextGameState.winnerTeam);
         }
         SResolveReceipt finalReceipt = new()
         {
-            player = (int)Team.NONE,
             gameState = nextGameState,
             events = trimmedReceipts,
         };
@@ -1354,13 +1368,13 @@ public struct SGameState
         return true;
     }
 
-    public static SSetupPawn[] GenerateValidSetup(int targetPlayer, in SLobbyParameters lobbyParameters)
+    public static SSetupPawn[] GenerateValidSetup(int team, in SLobbyParameters lobbyParameters)
     {
         
         Dictionary<Rank, PawnDef> tempRankDictionary = GameManager.instance.GetPawnDefFromRank(); // NOTE: VERY BAD CODE WILL NOT WORK ON SERVER SIDE!!!!!!!
-        if (targetPlayer == (int)Team.NONE)
+        if (team == (int)Team.NONE)
         {
-            throw new Exception("Player can't be none");
+            throw new Exception("Team can't be none");
         }
         List<SSetupPawn> setupPawns = new();
         HashSet<STile> usedTiles = new();
@@ -1378,7 +1392,7 @@ public struct SGameState
         {
             for (int i = 0; i < maxPawnsPerRank.max; i++)
             {
-                List<STile> eligibleTiles = lobbyParameters.board.GetEligibleTilesForPawnSetup(targetPlayer, maxPawnsPerRank.rank, usedTiles);
+                List<STile> eligibleTiles = lobbyParameters.board.GetEmptySetupTiles(team, maxPawnsPerRank.rank, usedTiles);
                 if (eligibleTiles.Count == 0)
                 {
                     Debug.LogError("NO ELIGIBLE TILES STOPPING SETUP HERE");
@@ -1388,10 +1402,10 @@ public struct SGameState
                 STile randomTile = eligibleTiles[index];
                 usedTiles.Add(randomTile);
                 // NOTE: bad
-                SPawnDef sPawnDef = new SPawnDef(tempRankDictionary[maxPawnsPerRank.rank]);
+                SPawnDef sPawnDef = new(tempRankDictionary[maxPawnsPerRank.rank]);
                 SSetupPawn sSetupPawn = new()
                 {
-                    player = targetPlayer,
+                    team = team,
                     def = sPawnDef,
                     pos = randomTile.pos,
                     deployed = true,
@@ -1410,8 +1424,8 @@ public struct SGameState
         const int BLUE_WIN = 2;
         const int TIE = 4;
 
-        SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Team.RED && p.def.Rank == Rank.THRONE);
-        SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Team.BLUE && p.def.Rank == Rank.THRONE);
+        SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.team == (int)Team.RED && p.def.Rank == Rank.THRONE);
+        SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.team == (int)Team.BLUE && p.def.Rank == Rank.THRONE);
         bool redCanMove = false;
         bool blueCanMove = false;
         foreach (SPawn pawn in gameState.pawns)
@@ -1421,11 +1435,11 @@ public struct SGameState
                 var movableTiles = gameState.GetMovableTiles(pawn);
                 if (movableTiles.Length > 0)
                 {
-                    if (pawn.player == (int)Team.BLUE)
+                    if (pawn.team == (int)Team.BLUE)
                     {
                         blueCanMove = true;
                     }
-                    if (pawn.player == (int)Team.RED)
+                    if (pawn.team == (int)Team.RED)
                     {
                         redCanMove = true;
                     }
@@ -1518,14 +1532,13 @@ public struct SConflictReceipt
 
 public struct SResolveReceipt
 {
-    public int player;
     public SGameState gameState;
     public SEventState[] events;
 }
 
 public struct SEventState
 {
-    public int player;
+    public int team;
     public int eventType;
     public Guid pawnId;
     public Guid defenderPawnId;
@@ -1536,7 +1549,7 @@ public struct SEventState
     {
         SEventState deathEvent = new()
         {
-            player = inPawn.player,
+            team = inPawn.team,
             eventType = (int)ResolveEvent.DEATH,
             pawnId = inPawn.pawnId,
             defenderPawnId = Guid.Empty,
@@ -1554,7 +1567,7 @@ public struct SEventState
         }
         SEventState moveEvent = new()
         {
-            player = inPawn.player,
+            team = inPawn.team,
             eventType = (int)ResolveEvent.MOVE,
             pawnId = inPawn.pawnId,
             defenderPawnId = Guid.Empty,
@@ -1566,7 +1579,7 @@ public struct SEventState
     
     public override string ToString()
     {
-        string baseString = $"{(ResolveEvent)eventType} {(Team)player} {Globals.ShortGuid(pawnId)} ";
+        string baseString = $"{(ResolveEvent)eventType} {(Team)team} {Globals.ShortGuid(pawnId)} ";
         switch ((ResolveEvent)eventType)
         {
             case ResolveEvent.MOVE:
@@ -1593,14 +1606,14 @@ public enum ResolveEvent
 
 public struct SSetupPawn
 {
-    public int player;
+    public int team;
     public SPawnDef def;
     public Vector2Int pos;
     public bool deployed;
     
     public SSetupPawn(Pawn pawn)
     {
-        player = (int)pawn.team;
+        team = (int)pawn.team;
         def = new SPawnDef(pawn.def);
         pos = pawn.pos;
         deployed = pawn.isAlive;

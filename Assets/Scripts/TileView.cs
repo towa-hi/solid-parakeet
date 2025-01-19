@@ -89,7 +89,7 @@ public class TileView : MonoBehaviour
             case UninitializedPhase uninitializedPhase:
                 break;
             case SetupPhase setupPhase:
-                SetTopColorBySetupPlayer();
+                SetTopColorBySetupTeam();
                 break;
             case WaitingPhase waitingPhase:
                 break;
@@ -105,7 +105,7 @@ public class TileView : MonoBehaviour
         }
     }
     
-    void SetTopColorBySetupPlayer()
+    void SetTopColorBySetupTeam()
     {
         MaterialPropertyBlock block = new();
         tileTopRenderer.GetPropertyBlock(block);

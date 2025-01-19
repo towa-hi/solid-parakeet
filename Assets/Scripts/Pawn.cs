@@ -39,7 +39,7 @@ public struct SPawn
 {
     public Guid pawnId;
     public SPawnDef def;
-    public int player;
+    public int team;
     public Vector2Int pos;
     public bool isSetup;
     public bool isAlive;
@@ -50,7 +50,7 @@ public struct SPawn
     {
         pawnId = Guid.NewGuid();
         def = setupPawn.def;
-        player = setupPawn.player;
+        team = setupPawn.team;
         pos = setupPawn.pos;
         isSetup = false;
         isAlive = setupPawn.deployed;
@@ -62,7 +62,7 @@ public struct SPawn
     {
         pawnId = pawn.pawnId;
         def = new SPawnDef(pawn.def);
-        player = (int)pawn.team;
+        team = (int)pawn.team;
         pos = pawn.pos;
         isSetup = pawn.isSetup;
         isAlive = pawn.isAlive;
@@ -81,7 +81,7 @@ public struct SPawn
                 pawnName = "Unknown",
                 power = 0,
             },
-            player = player,
+            team = team,
             pos = pos,
             isSetup = isSetup,
             isAlive = isAlive,
@@ -97,7 +97,7 @@ public struct SPawn
         {
             pawnId = pawnId,
             def = def.ToUnity(),
-            team = (Team)player,
+            team = (Team)team,
             pos = pos,
             isSetup = isSetup,
             isAlive = isAlive,
@@ -109,7 +109,7 @@ public struct SPawn
 
     public override string ToString()
     {
-        string newString = $"{(Team)player} {def.pawnName} {Globals.ShortGuid(pawnId)} isAlive: {isAlive}";
+        string newString = $"{(Team)team} {def.pawnName} {Globals.ShortGuid(pawnId)} isAlive: {isAlive}";
         return newString;
     }
 }

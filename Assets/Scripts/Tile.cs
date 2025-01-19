@@ -12,13 +12,6 @@ public class Tile
     public Team setupTeam;
     public int autoSetupZone;
     
-    public void EditorInitialize(Vector2Int inPos, bool inIsPassable, Team inSetupTeam)
-    {
-        pos = inPos;
-        isPassable = inIsPassable;
-        setupTeam = inSetupTeam;
-    }
-
     public bool IsTileEligibleForPlayer(Team team)
     {
         return isPassable && setupTeam == team;
