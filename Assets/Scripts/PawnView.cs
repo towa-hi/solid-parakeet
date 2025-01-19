@@ -68,7 +68,7 @@ public class PawnView : MonoBehaviour
         badge.SetActive(PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
     }
     
-    public void SyncState(SPawn state)
+    public PawnChanges SyncState(SPawn state)
     {
         PawnChanges pawnChanges = new()
         {
@@ -103,6 +103,7 @@ public class PawnView : MonoBehaviour
                 pawn.def = state.def.ToUnity();
             }
         }
+        return pawnChanges;
     }
 
     public void UpdateViewPosition()

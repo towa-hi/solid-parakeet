@@ -559,7 +559,7 @@ public class SetupPhase : IPhase
         {
             // do nothing
         }
-        else if (!lobbyParameters.board.GetTileFromPos(hoveredPosition).IsTileSetupAllowed((int)bm.team))
+        else if (!lobbyParameters.board.GetTileByPos(hoveredPosition).IsTileSetupAllowed((int)bm.team))
         {
             // do nothing
         }

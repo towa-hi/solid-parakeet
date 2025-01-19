@@ -273,18 +273,16 @@ public struct SGameState
     
     public readonly STile[] GetMovableTiles(in SPawn pawn)
     {
-        if (pawn.def.movementRange == 0)
-        {
-            return Array.Empty<STile>();
-        }
         if (!pawn.isAlive)
         {
             return Array.Empty<STile>();
         }
+        if (pawn.def.movementRange == 0)
+        {
+            return Array.Empty<STile>();
+        }
         Vector2Int[] initialDirections = Shared.GetDirections(pawn.pos, boardDef.isHex);
-        // Define the maximum possible number of movable tiles
-        int maxMovableTiles = boardDef.tiles.Length; // Adjust based on your board size
-        STile[] movableTiles = new STile[maxMovableTiles];
+        STile[] movableTiles = new STile[boardDef.tiles.Length]; // allocate big ass array
         int tileCount = 0;
         for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
         {
@@ -296,11 +294,11 @@ public struct SGameState
                 Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
                 // peek one tile in this direction ahead
                 currentPos += currentDirections[dirIndex];
-                if (!IsPosValid(currentPos))
+                if (!boardDef.IsPosValid(currentPos))
                 {
                     break;
                 }
-                STile tile = GetTileByPos(currentPos);
+                STile tile = boardDef.GetTileByPos(currentPos);
                 if (!tile.isPassable)
                 {
                     break;
@@ -313,18 +311,12 @@ public struct SGameState
                         // Cannot move through own pawns
                         break;
                     }
-                    else
-                    {
-                        // Tile is occupied by an enemy pawn
-                        movableTiles[tileCount++] = tile;
-                        break;
-                    }
-                }
-                else
-                {
-                    // Tile is unoccupied
+                    // Tile is occupied by an enemy pawn
                     movableTiles[tileCount++] = tile;
+                    break;
                 }
+                // Tile is unoccupied
+                movableTiles[tileCount++] = tile;
                 walkedTiles++;
             }
         }
@@ -341,10 +333,9 @@ public struct SGameState
     {
         if (gameState.boardDef.IsPosValid(move.pos))
         {
-            STile destinationTile = gameState.GetTileByPos(move.pos);
+            STile destinationTile = gameState.boardDef.GetTileByPos(move.pos);
             if (!destinationTile.isPassable)
             {
-                // move is to impassable tile
                 return false;
             }
         }
@@ -359,7 +350,7 @@ public struct SGameState
             {
                 return false;
             }
-            var maybePawn = gameState.GetPawnByPos(move.pos);
+            SPawn? maybePawn = gameState.GetPawnByPos(move.pos);
             if (maybePawn.HasValue)
             {
                 SPawn obstructingPawn = maybePawn.Value;
@@ -388,24 +379,12 @@ public struct SGameState
         return true;
     }
     
-    public readonly bool IsPosValid(Vector2Int pos)
-    {
-        return boardDef.tiles.Any(tile => tile.pos == pos);
-
-    }
-
     public static SGameState Censor(in SGameState masterGameState, int team)
     {
         if (masterGameState.team != (int)Team.NONE)
         {
             throw new Exception("Censor can only be done on master game states!");
         }
-        SGameState censoredGameState = new()
-        {
-            winnerTeam = masterGameState.winnerTeam,
-            team = team,
-            boardDef = masterGameState.boardDef,
-        };
         SPawn[] censoredPawns = new SPawn[masterGameState.pawns.Length];
         for (int i = 0; i < masterGameState.pawns.Length; i++)
         {
@@ -420,14 +399,7 @@ public struct SGameState
                 }
                 else
                 {
-                    if (serverPawn.isVisibleToOpponent)
-                    {
-                        censoredPawn = serverPawn;
-                    }
-                    else
-                    {
-                        censoredPawn = serverPawn.Censor();
-                    }
+                    censoredPawn = serverPawn.isVisibleToOpponent ? serverPawn : serverPawn.Censor();
                 }
             }
             else
@@ -436,7 +408,13 @@ public struct SGameState
             }
             censoredPawns[i] = censoredPawn;
         }
-        censoredGameState.pawns = censoredPawns;
+        SGameState censoredGameState = new()
+        {
+            winnerTeam = masterGameState.winnerTeam,
+            team = team,
+            boardDef = masterGameState.boardDef,
+            pawns = censoredPawns,
+        };
         return censoredGameState;
     }
     
@@ -466,40 +444,33 @@ public struct SGameState
         return randomMove;
     }
     
-    public readonly STile GetTileByPos(Vector2Int pos)
+    public readonly SPawn? GetPawnByPos(Vector2Int pos)
     {
-        foreach (STile tile in boardDef.tiles.Where(tile => tile.pos == pos))
+        SPawn maybePawn = Array.Find(pawns, pawn => pawn.pos == pos);
+        if (maybePawn.pawnId == Guid.Empty)
         {
-            return tile;
+            return null;
         }
-        throw new ArgumentOutOfRangeException($"GetTileByPos tile on pos {pos.ToString()} not found!");
-    }
-
-    public readonly SPawn? GetPawnByPos(in Vector2Int pos)
-    {
-        Vector2Int i = pos;
-        foreach (SPawn pawn in pawns.Where(pawn => pawn.pos == i))
-        {
-            return pawn;
-        }
-        return null;
+        return maybePawn;
     }
 
     public readonly SPawn GetPawnById(Guid pawnId)
     {
-        foreach (SPawn pawn in pawns)
+        SPawn maybePawn = Array.Find(pawns, pawn => pawn.pawnId == pawnId);
+        if (maybePawn.pawnId == Guid.Empty)
         {
-            if (pawn.pawnId == pawnId)
-            {
-                return pawn;
-            }
+            throw new ArgumentOutOfRangeException($"GetPawnById() could not find {pawnId}");
         }
-        throw new ArgumentOutOfRangeException($"GetPawnById pawnId {pawnId} not found!");
+        return maybePawn;
     }
 
-    public readonly (int, SPawn) GetPawnIndexById(Guid pawnId)
+    public (int, SPawn) GetPawnIndexById(Guid pawnId)
     {
         int index = Array.FindIndex(pawns, pawn => pawn.pawnId == pawnId);
+        if (index == -1)
+        {
+            throw new ArgumentOutOfRangeException($"GetPawnIndexById() could not find {pawnId}");
+        }
         SPawn pawn = pawns[index];
         return (index, pawn);
     }
@@ -556,89 +527,12 @@ public struct SGameState
         gameState.pawns[index] = updatedPawn;
     }
     
-    static List<Vector2Int> GenerateMovementPath(in SGameState gameState, in Guid pawnId, in Vector2Int targetPos)
-    {
-        List<Vector2Int> path = new();
-        SPawn pawn = gameState.GetPawnById(pawnId);
-        Vector2Int currentPos = pawn.pos;
-
-        if (pawn.def.Rank == Rank.SCOUT)
-        {
-            Vector2Int currentUnityPos = currentPos;
-            Vector2Int targetUnityPos = targetPos;
-
-            // Calculate the difference
-            int deltaX = targetUnityPos.x - currentUnityPos.x;
-            int deltaY = targetUnityPos.y - currentUnityPos.y;
-
-            // Ensure movement is in a straight line (either horizontal or vertical)
-            if (deltaX != 0 && deltaY != 0)
-            {
-                throw new Exception("Invalid move: Scout must move in a straight line (horizontal or vertical).");
-            }
-
-            // Determine the direction
-            int stepX = deltaX != 0 ? Math.Sign(deltaX) : 0;
-            int stepY = deltaY != 0 ? Math.Sign(deltaY) : 0;
-            Vector2Int direction = new Vector2Int(stepX, stepY);
-
-            // Calculate the number of steps
-            int steps = Math.Abs(deltaX != 0 ? deltaX : deltaY);
-
-            for (int i = 1; i <= steps; i++)
-            {
-                Vector2Int nextPosUnity = currentUnityPos + direction * i;
-                Vector2Int nextPos = nextPosUnity;
-                if (!gameState.boardDef.IsPosValid(nextPos))
-                {
-                    break;
-                }
-                path.Add(nextPos);
-                // Check if the path is blocked
-                SPawn? pawnOnPos = gameState.GetPawnByPos(nextPos);
-                if (pawnOnPos.HasValue)
-                {
-                    if (pawnOnPos.Value.team == pawn.team)
-                    {
-                        // Cannot move through own pawns
-                        path.RemoveAt(path.Count - 1); // Remove the blocked position
-                        break;
-                    }
-                    else if (nextPos != targetPos)
-                    {
-                        // Enemy pawn is blocking the path before the target position
-                        path.RemoveAt(path.Count - 1); // Remove the blocked position
-                        break;
-                    }
-                    // If enemy pawn is at the target position, we can include it
-                    // Conflict will be resolved during movement simulation
-                }
-                STile tile = gameState.GetTileByPos(nextPos);
-                if (tile.isPassable)
-                {
-                    // Cannot move through impassable tiles
-                    path.RemoveAt(path.Count - 1); // Remove the blocked position
-                    break;
-                }
-            }
-        }
-        else
-        {
-            // Non-scouts move only one tile
-            path.Add(targetPos);
-        }
-
-        return path;
-    }
-
     public static SResolveReceipt Resolve(in SGameState gameState, in SQueuedMove redMove, in SQueuedMove blueMove)
     {
         if (gameState.team != (int)Team.NONE)
         {
             throw new ArgumentException("GameState.targetPlayer must be NONE as resolve can only happen on an uncensored board!");
         }
-        
-
         // process movement
         SPawn redMovePawn = gameState.GetPawnById(redMove.pawnId);
         SPawn blueMovePawn = gameState.GetPawnById(blueMove.pawnId);
@@ -1152,7 +1046,6 @@ public struct SGameState
                 }
             }
         }
-
         if (!IsStateValid(nextGameState))
         {
             throw new Exception("Resolve nextGameState is not valid");
@@ -1206,7 +1099,6 @@ public struct SGameState
             Debug.LogError($"IsStateValid Pawn overlap detected: {error}");
             return false;
         }
-
         if (deadPawnsOnBoard.Count < 0)
         {
             string error = deadPawnsOnBoard.Aggregate("", (current, pawn) => current + $"{pawn.pawnId} {pawn.def.pawnName} {pawn.pos.ToString()}");
@@ -1267,10 +1159,10 @@ public struct SGameState
     public static int GetStateWinner(in SGameState gameState)
     {
         // Define constants for return values
-        const int NO_WINNER = 0;
-        const int RED_WIN = 1;
-        const int BLUE_WIN = 2;
-        const int TIE = 4;
+        const int noWinner = 0;
+        const int redWin = 1;
+        const int blueWin = 2;
+        const int tie = 4;
 
         SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.team == (int)Team.RED && p.def.Rank == Rank.THRONE);
         SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.team == (int)Team.BLUE && p.def.Rank == Rank.THRONE);
@@ -1278,20 +1170,16 @@ public struct SGameState
         bool blueCanMove = false;
         foreach (SPawn pawn in gameState.pawns)
         {
-            if (pawn.isAlive)
+            STile[] movableTiles = gameState.GetMovableTiles(pawn);
+            if (movableTiles.Length <= 0) continue;
+            switch (pawn.team)
             {
-                var movableTiles = gameState.GetMovableTiles(pawn);
-                if (movableTiles.Length > 0)
-                {
-                    if (pawn.team == (int)Team.BLUE)
-                    {
-                        blueCanMove = true;
-                    }
-                    if (pawn.team == (int)Team.RED)
-                    {
-                        redCanMove = true;
-                    }
-                }
+                case (int)Team.BLUE:
+                    blueCanMove = true;
+                    break;
+                case (int)Team.RED:
+                    redCanMove = true;
+                    break;
             }
         }
         // Determine win conditions
@@ -1308,19 +1196,19 @@ public struct SGameState
         // Determine the winner based on conditions
         if (redWinCondition && blueWinCondition)
         {
-            return TIE;
+            return tie;
         }
         else if (redWinCondition)
         {
-            return RED_WIN;
+            return redWin;
         }
         else if (blueWinCondition)
         {
-            return BLUE_WIN;
+            return blueWin;
         }
         else
         {
-            return NO_WINNER;
+            return noWinner;
         }
     }
 }

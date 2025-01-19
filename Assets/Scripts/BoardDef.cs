@@ -78,16 +78,9 @@ public struct SBoardDef
         return tiles.Any(tile => tile.pos == pos);
     }
 
-    public STile GetTileFromPos(Vector2Int pos)
+    public readonly STile GetTileByPos(Vector2Int pos)
     {
-        foreach (STile tile in tiles)
-        {
-            if (tile.pos == pos)
-            {
-                return tile;
-            }
-        }
-        throw new KeyNotFoundException($"tile at {pos} not found");
+        return Array.Find(tiles, tile => tile.pos == pos);
     }
 }
 

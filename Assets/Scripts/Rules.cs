@@ -122,7 +122,7 @@ public static class Rules
         {
             IEnumerable<(Vector2Int pos, bool isValid)> neighbors = Shared.GetNeighbors(pawn.pos, lobbyParameters.board.isHex)
                 .Select(pos => (pos, isValid: lobbyParameters.board.IsPosValid(pos) &&
-                                        lobbyParameters.board.GetTileFromPos(pos).isPassable && setupPawns.All(other => other.pos != pos)));
+                                        lobbyParameters.board.GetTileByPos(pos).isPassable && setupPawns.All(other => other.pos != pos)));
             if (neighbors.Any(neighbor => neighbor.isValid))
             {
                 hasMovablePawns = true;
