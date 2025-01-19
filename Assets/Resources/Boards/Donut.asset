@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e10cd5b24cda104a99432c82ca653c7, type: 3}
   m_Name: Donut
   m_EditorClassIdentifier: 
-  boardName: Donut
+  boardName: Donut Hexagons
   boardSize: {x: 10, y: 10}
   tiles:
   - pos: {x: 0, y: 0}
@@ -416,3 +416,30 @@ MonoBehaviour:
     setupPlayer: 0
     autoSetupZone: 0
   isHex: 1
+  maxPawns:
+  - rank: 0
+    max: 1
+  - rank: 1
+    max: 1
+  - rank: 2
+    max: 4
+  - rank: 3
+    max: 3
+  - rank: 4
+    max: 3
+  - rank: 5
+    max: 3
+  - rank: 6
+    max: 2
+  - rank: 7
+    max: 2
+  - rank: 8
+    max: 2
+  - rank: 9
+    max: 1
+  - rank: 10
+    max: 1
+  - rank: 11
+    max: 3
+  - rank: 99
+    max: 0

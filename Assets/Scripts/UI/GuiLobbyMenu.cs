@@ -39,7 +39,7 @@ public class GuiLobbyMenu : MenuElement
     public void SetLobby(SLobby lobby)
     {
         passwordText.text = $"Password: {lobby.password}";
-        boardNameText.text = lobby.sBoardDef.boardName;
+        boardNameText.text = lobby.lobbyParameters.board.boardName;
         isHost = lobby.IsHost(Globals.LoadOrGenerateClientId());
         SetReadyButtonState(isHost ? lobby.hostReady : lobby.guestReady);
 

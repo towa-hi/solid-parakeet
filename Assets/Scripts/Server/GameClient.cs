@@ -35,7 +35,7 @@
 //     public event Action<Response<string>> OnJoinGameLobbyResponse;
 //     public event Action<Response<SLobby>> OnReadyLobbyResponse;
 //
-//     public event Action<Response<SSetupParameters>> OnDemoStarted;
+//     public event Action<Response<SLobbyParameters>> OnDemoStarted;
 //     
 //     public event Action OnLobbyResponse;
 //     RequestManager requestManager;

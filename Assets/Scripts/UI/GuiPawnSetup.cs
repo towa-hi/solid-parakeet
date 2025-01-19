@@ -21,7 +21,7 @@ public class GuiPawnSetup : MonoBehaviour
                 break;
             case SetupPhase setupPhase:
                 gameObject.SetActive(true);
-                pawnSetupList.Initialize(this, setupPhase.setupParameters);
+                pawnSetupList.Initialize(this, setupPhase.lobbyParameters);
                 pawnSetupControls.Initialize(this);
                 break;
             case WaitingPhase waitingPhase:

@@ -108,7 +108,7 @@ public class GuiManager : MonoBehaviour
         lobbyMenu.SetLobby(response.data);
     }
 
-    public void OnDemoStartedResponse(Response<SSetupParameters> response)
+    public void OnDemoStartedResponse(Response<SLobbyParameters> response)
     {
         Debug.Log("GuiManager: OnDemoStarted");
         ShowMenu(gameOverlay);
@@ -182,10 +182,10 @@ public class GuiManager : MonoBehaviour
         ShowMenu(mainMenu);
     }
 
-    void OnLobbySetupStartButton()
+    void OnLobbySetupStartButton(LobbyParameters lobbyParameters)
     {
         Debug.Log("OnLobbySetupStartButton");
-        GameManager.instance.client.SendGameLobby();
+        GameManager.instance.client.SendGameLobby(new SLobbyParameters(lobbyParameters));
         
     }
 

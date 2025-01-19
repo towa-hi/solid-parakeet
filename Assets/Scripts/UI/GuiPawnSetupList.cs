@@ -10,7 +10,7 @@ public class GuiPawnSetupList : MonoBehaviour
     public GameObject entryPrefab;
     HashSet<GuiPawnSetupListEntry> entries;
     
-    public void Initialize(GuiPawnSetup inMaster, SSetupParameters setupParameters)
+    public void Initialize(GuiPawnSetup inMaster, SLobbyParameters lobbyParameters)
     {
         master = inMaster;
         GameManager.instance.boardManager.OnSetupStateChanged += UpdateState;
@@ -20,7 +20,7 @@ public class GuiPawnSetupList : MonoBehaviour
             Destroy(entry.gameObject);
         }
         entries = new HashSet<GuiPawnSetupListEntry>();
-        foreach (SMaxPawnsPerRank maxPawns in setupParameters.maxPawns)
+        foreach (SMaxPawnsPerRank maxPawns in lobbyParameters.maxPawns)
         {
             // TODO: make this care about rank instead of pawnDef so we can support multiple pawnDef
             GameObject entryObject = Instantiate(entryPrefab, body);

@@ -157,8 +157,8 @@ public class BoardManager : MonoBehaviour
         SetPhase(new SetupPhase(this, cachedResponse.data));
     }
 
-    Response<SSetupParameters> cachedResponse;
-    public void OnDemoStartedResponse(Response<SSetupParameters> response)
+    Response<SLobbyParameters> cachedResponse;
+    public void OnDemoStartedResponse(Response<SLobbyParameters> response)
     {
         cachedResponse = response;
         clickInputManager.OnPositionHovered += OnPositionHovered;
@@ -481,42 +481,42 @@ public class UninitializedPhase : IPhase
 public class SetupPhase : IPhase
 {
     BoardManager bm;
-    public SSetupParameters setupParameters;
+    public SLobbyParameters lobbyParameters;
     public PawnDef selectedPawnDef;
     
-    public SetupPhase(BoardManager inBoardManager, SSetupParameters inSetupParameters)
+    public SetupPhase(BoardManager inBoardManager, SLobbyParameters inLobbyParameters)
     {
         bm = inBoardManager;
-        setupParameters = inSetupParameters;
+        lobbyParameters = inLobbyParameters;
     }
     
     public void EnterState()
     {
-        Debug.Assert(setupParameters.player != (int)Player.NONE);
+        Debug.Assert(lobbyParameters.hostPlayer != (int)Player.NONE);
         Debug.Assert(bm.purgatory != null);
         List<PawnView> pawnViews = new();
-        bm.grid.SetBoard(setupParameters.board);
+        bm.grid.SetBoard(lobbyParameters.board);
         foreach (TileView tileView in bm.tileViews.Values)
         {
             UnityEngine.Object.Destroy(tileView);
         }
         
         Dictionary<Vector2Int, TileView> tileViews = new();
-        foreach (STile sTile in setupParameters.board.tiles)
+        foreach (STile sTile in lobbyParameters.board.tiles)
         {
             Vector3 worldPosition = bm.grid.CellToWorld(sTile.pos);
             GameObject tileObject = UnityEngine.Object.Instantiate(bm.tilePrefab, worldPosition, Quaternion.identity, bm.transform);
             TileView tileView = tileObject.GetComponent<TileView>();
-            tileView.Initialize(bm, sTile, setupParameters.board.isHex);
+            tileView.Initialize(bm, sTile, lobbyParameters.board.isHex);
             tileViews.Add(sTile.pos, tileView);
         }
 
-        foreach (SMaxPawnsPerRank maxPawns in setupParameters.maxPawns)
+        foreach (SMaxPawnsPerRank maxPawns in lobbyParameters.maxPawns)
         {
             for (int i = 0; i < maxPawns.max; i++)
             {
                 PawnDef pawnDef = GameManager.instance.orderedPawnDefList.FirstOrDefault(def => def.rank == maxPawns.rank);
-                Pawn pawn = new(pawnDef, (Player)setupParameters.player, true);
+                Pawn pawn = new(pawnDef, (Player)lobbyParameters.hostPlayer, true);
                 GameObject pawnObject = UnityEngine.Object.Instantiate(bm.pawnPrefab, bm.purgatory.position, Quaternion.identity, bm.transform);
                 PawnView pawnView = pawnObject.GetComponent<PawnView>();
                 pawnView.Initialize(pawn, null);
@@ -526,7 +526,7 @@ public class SetupPhase : IPhase
         
         bm.ClearPawnViews();
         bm.ClearTileViews();
-        bm.player = (Player)setupParameters.player;
+        bm.player = (Player)lobbyParameters.hostPlayer;
         bm.opponentPlayer = bm.player == Player.RED ? Player.BLUE : Player.RED;
         bm.tileViews = tileViews;
         bm.pawnViews = pawnViews;
@@ -560,7 +560,7 @@ public class SetupPhase : IPhase
         {
             // do nothing
         }
-        else if (!setupParameters.board.GetTileFromPos(hoveredPosition).IsTileEligibleForPlayer((int)bm.player))
+        else if (!lobbyParameters.board.GetTileFromPos(hoveredPosition).IsTileEligibleForPlayer((int)bm.player))
         {
             // do nothing
         }
@@ -604,7 +604,7 @@ public class SetupPhase : IPhase
     {
         foreach (var pawnView in bm.pawnViews)
         {
-            if (pawnView.pawn.player == (Player)setupParameters.player)
+            if (pawnView.pawn.player == (Player)lobbyParameters.hostPlayer)
             {
                 SPawn newState = new(pawnView.pawn)
                 {
@@ -614,10 +614,10 @@ public class SetupPhase : IPhase
                 pawnView.SyncState(newState);
             }
         }
-        SSetupPawn[] validSetup = SGameState.GenerateValidSetup(setupParameters.player, setupParameters);
+        SSetupPawn[] validSetup = SGameState.GenerateValidSetup(lobbyParameters.hostPlayer, lobbyParameters);
         foreach (SSetupPawn setupPawn in validSetup)
         {
-            PawnView pawnView = GetPawnViewFromPurgatoryByPawnDef((Player)setupParameters.player, setupPawn.def.ToUnity());
+            PawnView pawnView = GetPawnViewFromPurgatoryByPawnDef((Player)lobbyParameters.hostPlayer, setupPawn.def.ToUnity());
             SPawn newState = new(pawnView.pawn)
             {
                 isAlive = true,
@@ -637,7 +637,7 @@ public class SetupPhase : IPhase
             setupPawns[i] = new SSetupPawn(bm.pawnViews[i].pawn);
         }
 
-        if (Rules.IsSetupValid((int)bm.player, setupParameters, setupPawns))
+        if (Rules.IsSetupValid((int)bm.player, lobbyParameters, setupPawns))
         {
             GameManager.instance.client.SendSetupSubmissionRequest(setupPawns);
         }

@@ -16,7 +16,7 @@ public class FakeClient : IGameClient
     public event Action<Response<string>> OnLeaveGameLobbyResponse;
     public event Action<Response<string>> OnJoinGameLobbyResponse;
     public event Action<Response<SLobby>> OnReadyLobbyResponse;
-    public event Action<Response<SSetupParameters>> OnDemoStartedResponse;
+    public event Action<Response<SLobbyParameters>> OnDemoStartedResponse;
     public event Action<Response<bool>> OnSetupSubmittedResponse;
     public event Action<Response<SGameState>> OnSetupFinishedResponse;
     public event Action<Response<bool>> OnMoveResponse;
@@ -30,8 +30,6 @@ public class FakeClient : IGameClient
 
     // simulated state of server lobby
     SLobby fakeServerLobby;
-    SSetupParameters lobbySetupParameters;
-    SBoardDef lobbyBoardDef;
     SSetupPawn[] blueSetupPawns;
     SSetupPawn[] redSetupPawns;
     SQueuedMove redQueuedMove;
@@ -66,12 +64,12 @@ public class FakeClient : IGameClient
         SendFakeRequestToServer(MessageGenre.REGISTERNICKNAME, registerNicknameRequest);
     }
 
-    public void SendGameLobby()
+    public void SendGameLobby(SLobbyParameters lobbyParameters)
     {
         GameLobbyRequest gameLobbyRequest = new()
         {
             gameMode = 0,
-            sBoardDef = new SBoardDef(GameManager.instance.tempBoardDef),
+            lobbyParameters = lobbyParameters,
         };
         SendFakeRequestToServer(MessageGenre.GAMELOBBY, gameLobbyRequest);
     }
@@ -100,20 +98,7 @@ public class FakeClient : IGameClient
 
     public void SendStartGameDemoRequest()
     {
-        List<PawnDef> orderedPawnList = new List<PawnDef>(GameManager.instance.orderedPawnDefList);
-        orderedPawnList.RemoveAll(pawnDef => pawnDef.rank == Rank.UNKNOWN); //remove unknown
-        BoardDef boardDef = GameManager.instance.tempBoardDef;
-        SMaxPawnsPerRank[] maxPawnsPerRanks = boardDef.maxPawns;
-        SSetupParameters setupParameters = new()
-        {
-            player = (int)Player.RED,
-            board = new SBoardDef(boardDef),
-            maxPawns = maxPawnsPerRanks,
-        };
-        StartGameRequest startGameRequest = new()
-        {
-            setupParameters = setupParameters,
-        };
+        StartGameRequest startGameRequest = new();
         SendFakeRequestToServer(MessageGenre.GAMESTART, startGameRequest);
     }
     
@@ -168,14 +153,12 @@ public class FakeClient : IGameClient
                 };
                 break;
             case GameLobbyRequest gameLobbyRequest:
-                lobbyBoardDef = gameLobbyRequest.sBoardDef;
                 fakeServerLobby = new SLobby
                 {
                     lobbyId = Guid.NewGuid(),
                     hostId = clientId,
                     guestId = Guid.Empty,
-                    sBoardDef = gameLobbyRequest.sBoardDef,
-                    gameMode = 0,
+                    lobbyParameters = gameLobbyRequest.lobbyParameters,
                     isGameStarted = false,
                     password = "offline",
                     hostReady = false,
@@ -234,12 +217,11 @@ public class FakeClient : IGameClient
                 break;
             case StartGameRequest startGameRequest:
                 fakeServerLobby.isGameStarted = true;
-                lobbySetupParameters = startGameRequest.setupParameters;
-                response = new Response<SSetupParameters>
+                response = new Response<SLobbyParameters>
                 {
                     requestId = requestData.requestId,
                     success = true,
-                    data = startGameRequest.setupParameters,
+                    data = currentLobby.lobbyParameters,
                 };
                 break;
             case SetupRequest setupRequest:
@@ -306,7 +288,7 @@ public class FakeClient : IGameClient
                 HandleReadyLobbyResponse(readyLobbyResponse);
                 break;
             case MessageGenre.GAMESTART:
-                Response<SSetupParameters> gameStartResponse = (Response<SSetupParameters>)response;
+                Response<SLobbyParameters> gameStartResponse = (Response<SLobbyParameters>)response;
                 HandleGameStartResponse(gameStartResponse);
                 break;
             case MessageGenre.GAMESETUP:
@@ -365,7 +347,7 @@ public class FakeClient : IGameClient
         OnReadyLobbyResponse?.Invoke(response);
     }
     
-    void HandleGameStartResponse(Response<SSetupParameters> gameStartResponse)
+    void HandleGameStartResponse(Response<SLobbyParameters> gameStartResponse)
     {
         Debug.Log($"Invoking OnDemoStarted to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
         OnDemoStartedResponse?.Invoke(gameStartResponse);
@@ -377,7 +359,7 @@ public class FakeClient : IGameClient
         Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
         OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
         // fill blue setup pawns like as if blue already sent a valid request
-        blueSetupPawns = SGameState.GenerateValidSetup((int)Player.BLUE, lobbySetupParameters);
+        blueSetupPawns = SGameState.GenerateValidSetup((int)Player.BLUE, currentLobby.lobbyParameters);
         OnBothPlayersSetupSubmitted();
     }
     
@@ -399,7 +381,7 @@ public class FakeClient : IGameClient
         {
             allPawns[i] = new SPawn(combinedSetupPawns[i]);
         }
-        masterGameState = new SGameState((int)Player.NONE, lobbyBoardDef, allPawns);
+        masterGameState = new SGameState((int)Player.NONE, currentLobby.lobbyParameters.board, allPawns);
         SGameState redInitialGameState = SGameState.Censor(masterGameState, (int)Player.RED);
         // blue state is unused in fake client
         SGameState blueInitialGameState = SGameState.Censor(masterGameState, (int)Player.BLUE);

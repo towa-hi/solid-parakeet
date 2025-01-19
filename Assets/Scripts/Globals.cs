@@ -186,8 +186,7 @@ public class SLobby
     public Guid lobbyId;
     public Guid hostId;
     public Guid guestId;
-    public SBoardDef sBoardDef;
-    public int gameMode;
+    public SLobbyParameters lobbyParameters;
     public bool isGameStarted;
     public string password;
     public bool hostReady;
@@ -200,13 +199,27 @@ public class SLobby
     }
 }
 
-public struct SSetupParameters
+public class LobbyParameters
 {
-    public int player;
+    public int hostPlayer;
+    public BoardDef board;
+    public SMaxPawnsPerRank[] maxPawns;
+    public bool mustFillAllTiles;
+}
+public struct SLobbyParameters
+{
+    public int hostPlayer;
     public SBoardDef board;
     public SMaxPawnsPerRank[] maxPawns;
-    public bool mustPlaceAllPawns;
+    public bool mustFillAllTiles;
 
+    public SLobbyParameters(LobbyParameters lobbyParameters)
+    {
+        hostPlayer = lobbyParameters.hostPlayer;
+        board = new SBoardDef(lobbyParameters.board);
+        maxPawns = lobbyParameters.maxPawns;
+        mustFillAllTiles = lobbyParameters.mustFillAllTiles;
+    }
 }
 
 public interface IGameClient
@@ -220,7 +233,7 @@ public interface IGameClient
     event Action<Response<string>> OnLeaveGameLobbyResponse;
     event Action<Response<string>> OnJoinGameLobbyResponse;
     event Action<Response<SLobby>> OnReadyLobbyResponse;
-    event Action<Response<SSetupParameters>> OnDemoStartedResponse;
+    event Action<Response<SLobbyParameters>> OnDemoStartedResponse;
     event Action<Response<bool>> OnSetupSubmittedResponse;
     event Action<Response<SGameState>> OnSetupFinishedResponse;
     event Action<Response<bool>> OnMoveResponse;
@@ -230,7 +243,7 @@ public interface IGameClient
     // Methods
     void ConnectToServer();
     void SendRegisterNickname(string nicknameInput);
-    void SendGameLobby();
+    void SendGameLobby(SLobbyParameters lobbyParameters);
     void SendGameLobbyLeaveRequest();
     void SendGameLobbyReadyRequest(bool ready);
     void SendStartGameDemoRequest();
@@ -280,7 +293,7 @@ public class RegisterNicknameRequest : RequestBase
 public class GameLobbyRequest : RequestBase
 {
     public int gameMode { get; set; }
-    public SBoardDef sBoardDef { get; set; }
+    public SLobbyParameters lobbyParameters { get; set; }
 }
 
 public class LeaveGameLobbyRequest : RequestBase
@@ -300,7 +313,7 @@ public class ReadyGameLobbyRequest : RequestBase
 
 public class StartGameRequest : RequestBase
 {
-    public SSetupParameters setupParameters;
+    
 }
 
 public class SetupRequest : RequestBase
@@ -1347,7 +1360,7 @@ public struct SGameState
         return true;
     }
 
-    public static SSetupPawn[] GenerateValidSetup(int targetPlayer, in SSetupParameters setupParameters)
+    public static SSetupPawn[] GenerateValidSetup(int targetPlayer, in SLobbyParameters lobbyParameters)
     {
         
         Dictionary<Rank, PawnDef> tempRankDictionary = GameManager.instance.GetPawnDefFromRank(); // NOTE: VERY BAD CODE WILL NOT WORK ON SERVER SIDE!!!!!!!
@@ -1358,7 +1371,7 @@ public struct SGameState
         List<SSetupPawn> setupPawns = new();
         HashSet<STile> usedTiles = new();
         
-        List<SMaxPawnsPerRank> sortedMaxPawns = new List<SMaxPawnsPerRank>(setupParameters.maxPawns);
+        List<SMaxPawnsPerRank> sortedMaxPawns = new List<SMaxPawnsPerRank>(lobbyParameters.maxPawns);
         sortedMaxPawns.Sort((a, b) =>
         {
             if (a.rank == Rank.THRONE && b.rank != Rank.THRONE)
@@ -1371,7 +1384,7 @@ public struct SGameState
         {
             for (int i = 0; i < maxPawnsPerRank.max; i++)
             {
-                List<STile> eligibleTiles = setupParameters.board.GetEligibleTilesForPawnSetup(targetPlayer, maxPawnsPerRank.rank, usedTiles);
+                List<STile> eligibleTiles = lobbyParameters.board.GetEligibleTilesForPawnSetup(targetPlayer, maxPawnsPerRank.rank, usedTiles);
                 if (eligibleTiles.Count == 0)
                 {
                     Debug.LogError("NO ELIGIBLE TILES STOPPING SETUP HERE");

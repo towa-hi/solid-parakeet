@@ -21,7 +21,6 @@ public class GameManager : MonoBehaviour
     public IGameClient client;
     public bool offlineMode;
 
-    public BoardDef tempBoardDef;
     public List<PawnDef> orderedPawnDefList;
     public List<Sprite> allTileSprites;
     
@@ -202,7 +201,7 @@ public class GameManager : MonoBehaviour
         guiManager.OnReadyLobbyResponse(response);
     }
 
-    void OnDemoStartedResponse(Response<SSetupParameters> response)
+    void OnDemoStartedResponse(Response<SLobbyParameters> response)
     {
         boardManager.OnDemoStartedResponse(response);
         guiManager.OnDemoStartedResponse(response);
