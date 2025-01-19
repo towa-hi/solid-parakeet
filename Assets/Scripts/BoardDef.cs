@@ -24,7 +24,7 @@ public class BoardDef : ScriptableObject
                 Vector2Int currentPos = new Vector2Int(x, y);
                 Tile tile = new Tile();
                 tiles[index] = tile;
-                tile.EditorInitialize(currentPos, true, Player.NONE);
+                tile.EditorInitialize(currentPos, true, Team.NONE);
                 index++;
             }
         }
@@ -88,7 +88,7 @@ public struct SBoardDef
         List<STile> preferredTiles = new();
         foreach (STile tile in tiles)
         {
-            if (!tile.IsTileEligibleForPlayer(player))
+            if (!tile.IsTileSetupAllowed(player))
             {
                 continue;
             }

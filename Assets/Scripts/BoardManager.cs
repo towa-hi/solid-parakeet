@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using PrimeTween;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 // BoardManager is responsible for managing the board state, including tiles and pawns.
 // It handles the setup of the board and pawns for a given player.
@@ -16,8 +17,7 @@ public class BoardManager : MonoBehaviour
     public BoardGrid grid;
     public ClickInputManager clickInputManager;
     
-    public Player player;
-    public Player opponentPlayer;
+    public Team team;
     public Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
     
@@ -234,7 +234,7 @@ public class BoardManager : MonoBehaviour
                 yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PAWNMOVEDURATION, 0.25f));
                 SPawn redPawnState;
                 SPawn bluePawnState;
-                if (pawnState.player == (int)Player.RED)
+                if (pawnState.player == (int)Team.RED)
                 {
                     redPawnState = pawnState;
                     bluePawnState = defenderPawnState;
@@ -259,7 +259,7 @@ public class BoardManager : MonoBehaviour
                 defenderSwapPawnView.RevealPawn(defenderSwapPawnState);
                 SPawn redPawnStateSwap;
                 SPawn bluePawnStateSwap;
-                if (pawnState.player == (int)Player.RED)
+                if (pawnState.player == (int)Team.RED)
                 {
                     redPawnStateSwap = pawnState;
                     bluePawnStateSwap = defenderSwapPawnState;
@@ -492,7 +492,7 @@ public class SetupPhase : IPhase
     
     public void EnterState()
     {
-        Debug.Assert(lobbyParameters.hostPlayer != (int)Player.NONE);
+        Debug.Assert(lobbyParameters.hostPlayer != (int)Team.NONE);
         Debug.Assert(bm.purgatory != null);
         List<PawnView> pawnViews = new();
         bm.grid.SetBoard(lobbyParameters.board);
@@ -516,7 +516,7 @@ public class SetupPhase : IPhase
             for (int i = 0; i < maxPawns.max; i++)
             {
                 PawnDef pawnDef = GameManager.instance.orderedPawnDefList.FirstOrDefault(def => def.rank == maxPawns.rank);
-                Pawn pawn = new(pawnDef, (Player)lobbyParameters.hostPlayer, true);
+                Pawn pawn = new(pawnDef, (Team)lobbyParameters.hostPlayer, true);
                 GameObject pawnObject = UnityEngine.Object.Instantiate(bm.pawnPrefab, bm.purgatory.position, Quaternion.identity, bm.transform);
                 PawnView pawnView = pawnObject.GetComponent<PawnView>();
                 pawnView.Initialize(pawn, null);
@@ -526,8 +526,7 @@ public class SetupPhase : IPhase
         
         bm.ClearPawnViews();
         bm.ClearTileViews();
-        bm.player = (Player)lobbyParameters.hostPlayer;
-        bm.opponentPlayer = bm.player == Player.RED ? Player.BLUE : Player.RED;
+        bm.team = (Team)lobbyParameters.hostPlayer;
         bm.tileViews = tileViews;
         bm.pawnViews = pawnViews;
 
@@ -560,7 +559,7 @@ public class SetupPhase : IPhase
         {
             // do nothing
         }
-        else if (!lobbyParameters.board.GetTileFromPos(hoveredPosition).IsTileEligibleForPlayer((int)bm.player))
+        else if (!lobbyParameters.board.GetTileFromPos(hoveredPosition).IsTileSetupAllowed((int)bm.team))
         {
             // do nothing
         }
@@ -578,7 +577,7 @@ public class SetupPhase : IPhase
         }
         else if (selectedPawnDef)
         {
-            PawnView alivePawnView = GetPawnViewFromPurgatoryByPawnDef(bm.player, selectedPawnDef);
+            PawnView alivePawnView = GetPawnViewFromPurgatoryByPawnDef(bm.team, selectedPawnDef);
             if (!alivePawnView)
             {
                 return;
@@ -604,7 +603,7 @@ public class SetupPhase : IPhase
     {
         foreach (var pawnView in bm.pawnViews)
         {
-            if (pawnView.pawn.player == (Player)lobbyParameters.hostPlayer)
+            if (pawnView.pawn.team == (Team)lobbyParameters.hostPlayer)
             {
                 SPawn newState = new(pawnView.pawn)
                 {
@@ -617,7 +616,7 @@ public class SetupPhase : IPhase
         SSetupPawn[] validSetup = SGameState.GenerateValidSetup(lobbyParameters.hostPlayer, lobbyParameters);
         foreach (SSetupPawn setupPawn in validSetup)
         {
-            PawnView pawnView = GetPawnViewFromPurgatoryByPawnDef((Player)lobbyParameters.hostPlayer, setupPawn.def.ToUnity());
+            PawnView pawnView = GetPawnViewFromPurgatoryByPawnDef((Team)lobbyParameters.hostPlayer, setupPawn.def.ToUnity());
             SPawn newState = new(pawnView.pawn)
             {
                 isAlive = true,
@@ -637,18 +636,18 @@ public class SetupPhase : IPhase
             setupPawns[i] = new SSetupPawn(bm.pawnViews[i].pawn);
         }
 
-        if (Rules.IsSetupValid((int)bm.player, lobbyParameters, setupPawns))
+        if (Rules.IsSetupValid((int)bm.team, lobbyParameters, setupPawns))
         {
             GameManager.instance.client.SendSetupSubmissionRequest(setupPawns);
         }
     }
     
-    PawnView GetPawnViewFromPurgatoryByPawnDef(Player targetPlayer, PawnDef pawnDef)
+    PawnView GetPawnViewFromPurgatoryByPawnDef(Team targetTeam, PawnDef pawnDef)
     {
         foreach (PawnView pawnView in 
                  from pawnView in bm.pawnViews 
                  let pawn = pawnView.pawn 
-                 where pawn.player == targetPlayer 
+                 where pawn.team == targetTeam 
                  where pawn.def != null 
                  where pawn.def == pawnDef 
                  where pawn.isSetup 
@@ -797,7 +796,7 @@ public class MovePhase : IPhase
         }
         else if (selectedPawnView != null)
         {
-            if (bm.currentHoveredPawnView != null && bm.currentHoveredPawnView.pawn.player == bm.player)
+            if (bm.currentHoveredPawnView != null && bm.currentHoveredPawnView.pawn.team == bm.team)
             {
                 if (bm.currentHoveredPawnView == selectedPawnView)
                 {
@@ -830,7 +829,7 @@ public class MovePhase : IPhase
         }
         else
         {
-            if (bm.currentHoveredPawnView != null && bm.currentHoveredPawnView.pawn.player == bm.player)
+            if (bm.currentHoveredPawnView != null && bm.currentHoveredPawnView.pawn.team == bm.team)
             {
                 SelectPawnView(bm.currentHoveredPawnView);
                 Debug.Log("OnClick: selecting pawn");
@@ -904,7 +903,7 @@ public class MovePhase : IPhase
             TileView oldTileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos);
             oldTileView.OnArrow(false);
         }
-        maybeQueuedMove = new SQueuedMove((int)bm.player, pawnView.pawn.pawnId,  pawnView.pawn.pos,pos);
+        maybeQueuedMove = new SQueuedMove((int)bm.team, pawnView.pawn.pawnId,  pawnView.pawn.pos,pos);
         TileView tileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos);
         tileView.OnArrow(true);
         return true;

@@ -93,7 +93,7 @@ public static class Rules
         {
             foreach (STile tile in lobbyParameters.board.tiles)
             {
-                if (tile.setupPlayer != targetPlayer)
+                if (tile.setupTeam != targetPlayer)
                 {
                     continue;
                 }
@@ -146,7 +146,7 @@ public static class Rules
     }
 }
 
-public enum Player
+public enum Team
 {
     NONE,
     RED,

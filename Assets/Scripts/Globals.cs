@@ -346,7 +346,7 @@ public struct SQueuedMove
 
     public SQueuedMove(Pawn pawn, Vector2Int inPos)
     {
-        player = (int)pawn.player;
+        player = (int)pawn.team;
         pawnId = pawn.pawnId;
         initialPos = pawn.pos;
         pos = inPos;
@@ -371,7 +371,7 @@ public struct SGameState
     
     public SGameState(int inPlayer, SBoardDef inBoardDef, SPawn[] inPawns)
     {
-        winnerPlayer = (int)Player.NONE;
+        winnerPlayer = (int)Team.NONE;
         player = inPlayer;
         boardDef = inBoardDef;
         pawns = inPawns;
@@ -396,8 +396,6 @@ public struct SGameState
         {
             Vector2Int currentPos = pawn.pos;
             int walkedTiles = 0;
-            bool enemyEncountered = false;
-            bool obstacleEncountered = false;
             while (walkedTiles < pawn.def.movementRange)
             {
                 // directions change depending on odd or even col in hexagons so we have to get it again
@@ -406,13 +404,11 @@ public struct SGameState
                 currentPos += currentDirections[dirIndex];
                 if (!IsPosValid(currentPos))
                 {
-                    obstacleEncountered = true;
                     break;
                 }
                 STile tile = GetTileByPos(currentPos);
                 if (!tile.isPassable)
                 {
-                    obstacleEncountered = true;
                     break;
                 }
                 SPawn? pawnOnPos = GetPawnByPos(currentPos);
@@ -421,14 +417,12 @@ public struct SGameState
                     if (pawnOnPos.Value.player == pawn.player)
                     {
                         // Cannot move through own pawns
-                        obstacleEncountered = true;
                         break;
                     }
                     else
                     {
                         // Tile is occupied by an enemy pawn
                         movableTiles[tileCount++] = tile;
-                        enemyEncountered = true;
                         break;
                     }
                 }
@@ -508,7 +502,7 @@ public struct SGameState
 
     public static SGameState Censor(in SGameState masterGameState, int targetPlayer)
     {
-        if (masterGameState.player != (int)Player.NONE)
+        if (masterGameState.player != (int)Team.NONE)
         {
             throw new Exception("Censor can only be done on master game states!");
         }
@@ -776,7 +770,7 @@ public struct SGameState
 
     public static SResolveReceipt Resolve(in SGameState gameState, in SQueuedMove redMove, in SQueuedMove blueMove)
     {
-        if (gameState.player != (int)Player.NONE)
+        if (gameState.player != (int)Team.NONE)
         {
             throw new ArgumentException("GameState.targetPlayer must be NONE as resolve can only happen on an uncensored board!");
         }
@@ -819,7 +813,7 @@ public struct SGameState
             SConflictReceipt swapConflictResult = Rules.ResolveConflict(redMovePawn, blueMovePawn);
             SEventState blueAndRedSwappedConflictEvent = new()
             {
-                player = (int)Player.NONE,
+                player = (int)Team.NONE,
                 eventType = (int)ResolveEvent.SWAPCONFLICT,
                 pawnId = redMovePawn.pawnId,
                 defenderPawnId = blueMovePawn.pawnId,
@@ -1062,7 +1056,7 @@ public struct SGameState
         SEventState[] receipts = new SEventState[6];
         SGameState nextGameState = new()
         {
-            player = (int)Player.NONE,
+            player = (int)Team.NONE,
             boardDef = gameState.boardDef,
             pawns = (SPawn[])gameState.pawns.Clone(),
         };
@@ -1308,7 +1302,7 @@ public struct SGameState
         }
         SResolveReceipt finalReceipt = new()
         {
-            player = (int)Player.NONE,
+            player = (int)Team.NONE,
             gameState = nextGameState,
             events = trimmedReceipts,
         };
@@ -1364,7 +1358,7 @@ public struct SGameState
     {
         
         Dictionary<Rank, PawnDef> tempRankDictionary = GameManager.instance.GetPawnDefFromRank(); // NOTE: VERY BAD CODE WILL NOT WORK ON SERVER SIDE!!!!!!!
-        if (targetPlayer == (int)Player.NONE)
+        if (targetPlayer == (int)Team.NONE)
         {
             throw new Exception("Player can't be none");
         }
@@ -1416,8 +1410,8 @@ public struct SGameState
         const int BLUE_WIN = 2;
         const int TIE = 4;
 
-        SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.RED && p.def.Rank == Rank.THRONE);
-        SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Player.BLUE && p.def.Rank == Rank.THRONE);
+        SPawn redFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Team.RED && p.def.Rank == Rank.THRONE);
+        SPawn blueFlag = gameState.pawns.FirstOrDefault(p => p.player == (int)Team.BLUE && p.def.Rank == Rank.THRONE);
         bool redCanMove = false;
         bool blueCanMove = false;
         foreach (SPawn pawn in gameState.pawns)
@@ -1427,11 +1421,11 @@ public struct SGameState
                 var movableTiles = gameState.GetMovableTiles(pawn);
                 if (movableTiles.Length > 0)
                 {
-                    if (pawn.player == (int)Player.BLUE)
+                    if (pawn.player == (int)Team.BLUE)
                     {
                         blueCanMove = true;
                     }
-                    if (pawn.player == (int)Player.RED)
+                    if (pawn.player == (int)Team.RED)
                     {
                         redCanMove = true;
                     }
@@ -1572,7 +1566,7 @@ public struct SEventState
     
     public override string ToString()
     {
-        string baseString = $"{(ResolveEvent)eventType} {(Player)player} {Globals.ShortGuid(pawnId)} ";
+        string baseString = $"{(ResolveEvent)eventType} {(Team)player} {Globals.ShortGuid(pawnId)} ";
         switch ((ResolveEvent)eventType)
         {
             case ResolveEvent.MOVE:
@@ -1606,7 +1600,7 @@ public struct SSetupPawn
     
     public SSetupPawn(Pawn pawn)
     {
-        player = (int)pawn.player;
+        player = (int)pawn.team;
         def = new SPawnDef(pawn.def);
         pos = pawn.pos;
         deployed = pawn.isAlive;

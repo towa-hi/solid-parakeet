@@ -22,7 +22,6 @@ public class GameManager : MonoBehaviour
     public bool offlineMode;
 
     public List<PawnDef> orderedPawnDefList;
-    public List<Sprite> allTileSprites;
     
     void Awake()
     {

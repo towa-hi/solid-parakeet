@@ -42,11 +42,11 @@ public class BoardMakerManager : MonoBehaviour
         int blue = 0;
         foreach (var tile in tiles)
         {
-            if (tile.setupPlayer == Player.RED)
+            if (tile.setupTeam == Team.RED)
             {
                 red++;
             }
-            else if (tile.setupPlayer == Player.BLUE)
+            else if (tile.setupTeam == Team.BLUE)
             {
                 blue++;
             }
@@ -73,10 +73,10 @@ public class BoardMakerManager : MonoBehaviour
                     tile.SetIsPassable(!tile.isPassable);
                     break;
                 case BoardMakerTool.REDTEAM:
-                    tile.SetSetupPlayer(tile.setupPlayer == Player.RED ? Player.NONE : Player.RED);
+                    tile.SetSetupPlayer(tile.setupTeam == Team.RED ? Team.NONE : Team.RED);
                     break;
                 case BoardMakerTool.BLUETEAM:
-                    tile.SetSetupPlayer(tile.setupPlayer == Player.BLUE ? Player.NONE : Player.BLUE);
+                    tile.SetSetupPlayer(tile.setupTeam == Team.BLUE ? Team.NONE : Team.BLUE);
                     break;
                 case BoardMakerTool.SETUPZONE:
                     tile.SetSetupZone(currentSetupZone);
@@ -99,7 +99,7 @@ public class BoardMakerManager : MonoBehaviour
             Tile tile = new Tile();
             tile.pos = boardMakerTile.pos;
             tile.isPassable = boardMakerTile.isPassable;
-            tile.setupPlayer = boardMakerTile.setupPlayer;
+            tile.setupTeam = boardMakerTile.setupTeam;
             tile.autoSetupZone = boardMakerTile.autoSetupZone;
             boardDefCopy.tiles[index] = tile;
             index++;

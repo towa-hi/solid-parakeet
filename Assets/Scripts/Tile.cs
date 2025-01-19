@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [System.Serializable]
 public class Tile
@@ -8,19 +9,19 @@ public class Tile
     // scriptableObjects that need objects rather than structs
     public Vector2Int pos;
     public bool isPassable = true;
-    public Player setupPlayer;
+    public Team setupTeam;
     public int autoSetupZone;
     
-    public void EditorInitialize(Vector2Int inPos, bool inIsPassable, Player inSetupPlayer)
+    public void EditorInitialize(Vector2Int inPos, bool inIsPassable, Team inSetupTeam)
     {
         pos = inPos;
         isPassable = inIsPassable;
-        setupPlayer = inSetupPlayer;
+        setupTeam = inSetupTeam;
     }
 
-    public bool IsTileEligibleForPlayer(Player player)
+    public bool IsTileEligibleForPlayer(Team team)
     {
-        return isPassable && setupPlayer == player;
+        return isPassable && setupTeam == team;
     }
 }
 
@@ -29,14 +30,14 @@ public struct STile
 {
     public Vector2Int pos;
     public bool isPassable;
-    public int setupPlayer;
+    public int setupTeam;
     public int autoSetupZone;
     
     public STile(Tile tile)
     {
         pos = tile.pos;
         isPassable = tile.isPassable;
-        setupPlayer = (int)tile.setupPlayer;
+        setupTeam = (int)tile.setupTeam;
         autoSetupZone = tile.autoSetupZone;
     }
     
@@ -46,13 +47,13 @@ public struct STile
         {
             pos = pos,
             isPassable = isPassable,
-            setupPlayer = (Player)setupPlayer,
+            setupTeam = (Team)setupTeam,
             autoSetupZone = autoSetupZone,
         };
     }
     
-    public bool IsTileEligibleForPlayer(int player)
+    public bool IsTileSetupAllowed(int team)
     {
-        return isPassable && setupPlayer == player;
+        return isPassable && setupTeam == team;
     }
 }

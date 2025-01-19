@@ -106,7 +106,7 @@ public class FakeClient : IGameClient
     {
         SetupRequest setupRequest = new()
         {
-            player = (int)Player.RED,
+            player = (int)Team.RED,
             setupPawns = setupPawnList,
         };
         SendFakeRequestToServer(MessageGenre.GAMESETUP, setupRequest);
@@ -225,7 +225,7 @@ public class FakeClient : IGameClient
                 };
                 break;
             case SetupRequest setupRequest:
-                if (setupRequest.player == (int)Player.RED)
+                if (setupRequest.player == (int)Team.RED)
                 {
                     redSetupPawns = setupRequest.setupPawns;
                 }
@@ -238,7 +238,7 @@ public class FakeClient : IGameClient
                 };
                 break;
             case MoveRequest moveRequest:
-                if (moveRequest.move.player == (int)Player.RED)
+                if (moveRequest.move.player == (int)Team.RED)
                 {
                     redQueuedMove = moveRequest.move;
                 }
@@ -359,7 +359,7 @@ public class FakeClient : IGameClient
         Debug.Log($"Invoking HandleGameSetupResponse to {OnDemoStartedResponse?.GetInvocationList().Length} listeners");
         OnSetupSubmittedResponse?.Invoke(gameSetupResponse);
         // fill blue setup pawns like as if blue already sent a valid request
-        blueSetupPawns = SGameState.GenerateValidSetup((int)Player.BLUE, currentLobby.lobbyParameters);
+        blueSetupPawns = SGameState.GenerateValidSetup((int)Team.BLUE, currentLobby.lobbyParameters);
         OnBothPlayersSetupSubmitted();
     }
     
@@ -381,10 +381,10 @@ public class FakeClient : IGameClient
         {
             allPawns[i] = new SPawn(combinedSetupPawns[i]);
         }
-        masterGameState = new SGameState((int)Player.NONE, currentLobby.lobbyParameters.board, allPawns);
-        SGameState redInitialGameState = SGameState.Censor(masterGameState, (int)Player.RED);
+        masterGameState = new SGameState((int)Team.NONE, currentLobby.lobbyParameters.board, allPawns);
+        SGameState redInitialGameState = SGameState.Censor(masterGameState, (int)Team.RED);
         // blue state is unused in fake client
-        SGameState blueInitialGameState = SGameState.Censor(masterGameState, (int)Player.BLUE);
+        SGameState blueInitialGameState = SGameState.Censor(masterGameState, (int)Team.BLUE);
         Response<SGameState> initialGameStateResponseRed = new()
         {
             requestId = Guid.Empty,
@@ -408,7 +408,7 @@ public class FakeClient : IGameClient
 
     void OnBothPlayersMoveSubmitted()
     {
-        SQueuedMove? maybeBlueQueuedMove = SGameState.GenerateValidMove(masterGameState, (int)Player.BLUE);
+        SQueuedMove? maybeBlueQueuedMove = SGameState.GenerateValidMove(masterGameState, (int)Team.BLUE);
         if (maybeBlueQueuedMove.HasValue)
         {
             blueQueuedMove = maybeBlueQueuedMove.Value;
@@ -422,8 +422,8 @@ public class FakeClient : IGameClient
         masterGameState = receipt.gameState;
 
         SResolveReceipt redReceipt = receipt;
-        redReceipt.player = (int)Player.RED;
-        redReceipt.gameState = SGameState.Censor(masterGameState, (int)Player.RED);
+        redReceipt.player = (int)Team.RED;
+        redReceipt.gameState = SGameState.Censor(masterGameState, (int)Team.RED);
         Response<SResolveReceipt> redGameStateResponse = new Response<SResolveReceipt>
         {
             requestId = Guid.Empty,

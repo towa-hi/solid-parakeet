@@ -66,16 +66,6 @@ public class TileView : MonoBehaviour
         ShowTile(tile.isPassable);
         arrow.GetComponent<SpriteToMesh>().Activate(arrow.GetComponent<SpriteToMesh>().sprite);
         arrow.SetActive(isArrowed);
-        SetRandomTileTexture();
-    }
-
-    void SetRandomTileTexture()
-    {
-        Sprite randomSprite = GameManager.instance.allTileSprites[UnityEngine.Random.Range(0, GameManager.instance.allTileSprites.Count)];
-        MaterialPropertyBlock block = new MaterialPropertyBlock();
-        tileTopRenderer.GetPropertyBlock(block);
-        block.SetTexture(MainTexID, randomSprite.texture);
-        tileTopRenderer.SetPropertyBlock(block);
     }
     
     public void FallingAnimation(float delay)
@@ -119,15 +109,15 @@ public class TileView : MonoBehaviour
     {
         MaterialPropertyBlock block = new();
         tileTopRenderer.GetPropertyBlock(block);
-        switch ((Player)tile.setupPlayer)
+        switch ((Team)tile.setupTeam)
         {
-            case Player.NONE:
+            case Team.NONE:
                 block.SetColor(BaseColorID, baseColor);
                 break;
-            case Player.RED:
+            case Team.RED:
                 block.SetColor(BaseColorID, redColor);
                 break;
-            case Player.BLUE:
+            case Team.BLUE:
                 block.SetColor(BaseColorID, blueColor);
                 break;
             default:
@@ -186,7 +176,7 @@ public class TileView : MonoBehaviour
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
         PawnView pawnView = GameManager.instance.boardManager.GetPawnViewByPos(tile.pos);
-        if (pawnView && pawnView.pawn.player == GameManager.instance.boardManager.player)
+        if (pawnView && pawnView.pawn.team == GameManager.instance.boardManager.team)
         {
             currentTween = Tween.LocalPosition(modelObject.transform, inIsHovered ? new Vector3(0, Globals.HOVEREDHEIGHT, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
         }

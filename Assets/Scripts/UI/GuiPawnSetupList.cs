@@ -42,7 +42,7 @@ public class GuiPawnSetupList : MonoBehaviour
     
     void UpdateState(PawnDef selectedPawnDef)
     {
-        Player currentPlayer = GameManager.instance.boardManager.player;
+        Team currentTeam = GameManager.instance.boardManager.team;
         // Get all PawnViews from the BoardManager
         List<PawnView> pawnViews = GameManager.instance.boardManager.pawnViews;
         foreach (GuiPawnSetupListEntry entry in entries)
@@ -51,7 +51,7 @@ public class GuiPawnSetupList : MonoBehaviour
             // Count the number of alive pawns of this PawnDef for the current player
             int numAlivePawns = pawnViews.Count(pawnView =>
                 pawnView.pawn.def == entry.pawnDef &&
-                pawnView.pawn.player == currentPlayer &&
+                pawnView.pawn.team == currentTeam &&
                 pawnView.pawn.isAlive);
             int remainingPawns = entry.maxPawns - numAlivePawns;
             entry.SetCount(remainingPawns);

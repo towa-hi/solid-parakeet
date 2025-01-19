@@ -16,7 +16,7 @@ public class BoardMakerTile : MonoBehaviour
     public SpriteRenderer symbolRenderer;
     
     public bool isPassable;
-    public Player setupPlayer;
+    public Team setupTeam;
     public int autoSetupZone;
     
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
@@ -46,27 +46,18 @@ public class BoardMakerTile : MonoBehaviour
     public void SetIsPassable(bool inIsPassable)
     {
         isPassable = inIsPassable;
-        setupPlayer = Player.NONE;
-        autoSetupZone = 0;
+        setupTeam = Team.NONE;
         UpdateView();
     }
 
-    public void SetSetupPlayer(Player inSetupPlayer)
+    public void SetSetupPlayer(Team inSetupTeam)
     {
-        if (setupPlayer == Player.NONE)
-        {
-            autoSetupZone = 0;
-        }
-        setupPlayer = inSetupPlayer;
+        setupTeam = inSetupTeam;
         UpdateView();
     }
 
     public void SetSetupZone(int inSetupZone)
     {
-        if (setupPlayer == Player.NONE)
-        {
-            return;
-        }
         autoSetupZone = inSetupZone;
         UpdateView();
     }
@@ -76,11 +67,11 @@ public class BoardMakerTile : MonoBehaviour
         Color color = Color.white;
         if (isPassable)
         {
-            if (setupPlayer == Player.RED)
+            if (setupTeam == Team.RED)
             {
                 color = Color.red;
             }
-            else if (setupPlayer == Player.BLUE)
+            else if (setupTeam == Team.BLUE)
             {
                 color = Color.blue;
             }
@@ -96,7 +87,7 @@ public class BoardMakerTile : MonoBehaviour
     public void LoadState(Tile tile)
     {
         SetIsPassable(tile.isPassable);
-        SetSetupPlayer(tile.setupPlayer);
+        SetSetupPlayer(tile.setupTeam);
         SetSetupZone(tile.autoSetupZone);
     }
 
@@ -131,7 +122,6 @@ public class BoardMakerTile : MonoBehaviour
                 break;
             default:
                 throw new Exception("invalid zone set");
-                break;
         }
     }
 }

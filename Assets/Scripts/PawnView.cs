@@ -40,15 +40,15 @@ public class PawnView : MonoBehaviour
     public void Initialize(Pawn inPawn, TileView tileView)
     {
         pawn = inPawn;
-        gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
+        gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
         UpdateSprite();
         DisplaySymbol(pawn.def.icon);
-        switch (inPawn.player)
+        switch (inPawn.team)
         {
-            case Player.RED:
+            case Team.RED:
                 SetColor(redColor);
                 break;
-            case Player.BLUE:
+            case Team.BLUE:
                 SetColor(blueColor);
                 break;
         }
@@ -123,7 +123,7 @@ public class PawnView : MonoBehaviour
     {
         Debug.Log($"REVEALPAWN {gameObject.name}");
         pawn.def = sPawn.def.ToUnity();
-        gameObject.name = $"{pawn.player} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
+        gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Globals.ShortGuid(pawn.pawnId)}";
         DisplaySymbol(pawn.def.icon);
         UpdateSprite();
     }
@@ -131,7 +131,7 @@ public class PawnView : MonoBehaviour
     void UpdateSprite()
     {
         Sprite displaySprite;
-        if (pawn.player == Player.RED)
+        if (pawn.team == Team.RED)
         {
             displaySprite = pawn.def.redSprite;
         }
@@ -195,7 +195,7 @@ public class PawnView : MonoBehaviour
         planeRenderer.GetPropertyBlock(block);
         planeRenderer.material = new Material(planeRenderer.material);
         planeRenderer.material.SetColor(BaseColorID, color);
-        if (pawn.player == Player.RED)
+        if (pawn.team == Team.RED)
         {
             badgeBackgroundRenderer.color = redColor;
         }
@@ -245,7 +245,7 @@ public class PawnView : MonoBehaviour
         if (!pawn.isAlive) return;
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
-        if (pawn.player == GameManager.instance.boardManager.player)
+        if (pawn.team == GameManager.instance.boardManager.team)
         {
             currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, Globals.HOVEREDHEIGHT, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
         }

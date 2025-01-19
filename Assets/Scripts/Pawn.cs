@@ -8,7 +8,7 @@ public class Pawn
 {
     public Guid pawnId;
     public PawnDef def;
-    public Player player;
+    public Team team;
     public Vector2Int pos;
     public bool isSetup;
     public bool isAlive;
@@ -20,12 +20,12 @@ public class Pawn
         
     }
     
-    public Pawn(PawnDef inDef, Player inPlayer, bool inIsSetup)
+    public Pawn(PawnDef inDef, Team inTeam, bool inIsSetup)
     {
         // spawns pawn in purgatory
         pawnId = Guid.NewGuid();
         def = inDef;
-        player = inPlayer;
+        team = inTeam;
         pos = Globals.PURGATORY;
         isSetup = inIsSetup;
         isAlive = false;
@@ -62,7 +62,7 @@ public struct SPawn
     {
         pawnId = pawn.pawnId;
         def = new SPawnDef(pawn.def);
-        player = (int)pawn.player;
+        player = (int)pawn.team;
         pos = pawn.pos;
         isSetup = pawn.isSetup;
         isAlive = pawn.isAlive;
@@ -97,7 +97,7 @@ public struct SPawn
         {
             pawnId = pawnId,
             def = def.ToUnity(),
-            player = (Player)player,
+            team = (Team)player,
             pos = pos,
             isSetup = isSetup,
             isAlive = isAlive,
@@ -109,7 +109,7 @@ public struct SPawn
 
     public override string ToString()
     {
-        string newString = $"{(Player)player} {def.pawnName} {Globals.ShortGuid(pawnId)} isAlive: {isAlive}";
+        string newString = $"{(Team)player} {def.pawnName} {Globals.ShortGuid(pawnId)} isAlive: {isAlive}";
         return newString;
     }
 }

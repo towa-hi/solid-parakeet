@@ -19,9 +19,9 @@ public class BoardDefInspector : Editor
 
         int maxPawnSum = boardDef.maxPawns.Sum(maxPawns => maxPawns.max);
         EditorGUILayout.LabelField($"maxPawnSum: {maxPawnSum}");
-        int redSetupTiles = boardDef.tiles.Count(tile => tile.setupPlayer == Player.RED);
+        int redSetupTiles = boardDef.tiles.Count(tile => tile.setupTeam == Team.RED);
         EditorGUILayout.LabelField($"redSetupTiles: {redSetupTiles}");
-        int blueSetupTiles = boardDef.tiles.Count(tile => tile.setupPlayer == Player.BLUE);
+        int blueSetupTiles = boardDef.tiles.Count(tile => tile.setupTeam == Team.BLUE);
         EditorGUILayout.LabelField($"blueSetupTiles: {blueSetupTiles}");
         
         if (GUILayout.Button("Init Max Pawns"))
