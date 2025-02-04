@@ -18,6 +18,7 @@ public class GameManager : MonoBehaviour
     public AudioManager audioManager;
     public PoolManager poolManager;
     public SettingsManager settingsManager;
+    public StellarManager stellarManager;
     public IGameClient client;
     public bool offlineMode;
 
@@ -156,27 +157,27 @@ public class GameManager : MonoBehaviour
         if (inOfflineMode)
         {
             client = new FakeClient();
+            client.OnRegisterClientResponse += OnRegisterClientResponse;
+            client.OnDisconnect += OnDisconnect;
+            client.OnErrorResponse += OnErrorResponse;
+            client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
+            client.OnGameLobbyResponse += OnGameLobbyResponse;
+            client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
+            client.OnReadyLobbyResponse += OnReadyLobbyResponse;
+            client.OnDemoStartedResponse += OnDemoStartedResponse;
+            client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
+            client.OnSetupFinishedResponse += OnSetupFinishedResponse;
+            client.OnMoveResponse += OnMoveResponse;
+            client.OnResolveResponse += OnResolveResponse;
             Debug.Log("GameManager: Initialized FakeClient for offline mode.");
+            client.ConnectToServer();
         }
         else
         {
+            stellarManager.ConnectToNetwork();
             //client = new GameClient();
             Debug.Log("GameManager: Initialized GameClient for online mode.");
         }
-        client.OnRegisterClientResponse += OnRegisterClientResponse;
-        client.OnDisconnect += OnDisconnect;
-        client.OnErrorResponse += OnErrorResponse;
-        client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
-        client.OnGameLobbyResponse += OnGameLobbyResponse;
-        client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
-        client.OnReadyLobbyResponse += OnReadyLobbyResponse;
-        client.OnDemoStartedResponse += OnDemoStartedResponse;
-        client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
-        client.OnSetupFinishedResponse += OnSetupFinishedResponse;
-        client.OnMoveResponse += OnMoveResponse;
-        client.OnResolveResponse += OnResolveResponse;
-        
-        client.ConnectToServer();
     }
     
     void OnRegisterClientResponse(Response<string> response)

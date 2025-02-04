@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using Object = UnityEngine.Object;
 
 public class BoardMakerManager : MonoBehaviour
@@ -91,6 +93,7 @@ public class BoardMakerManager : MonoBehaviour
 
     public void SaveBoardButton()
     {
+#if UNITY_EDITOR
         int index = 0;
         BoardDef boardDefCopy = Object.Instantiate(currentlyLoadedBoardDef);
         boardDefCopy.tiles = new Tile[100];
@@ -113,6 +116,7 @@ public class BoardMakerManager : MonoBehaviour
 
         Debug.Log($"BoardDef asset saved at {assetPath}");
         LoadBoard(boardDefCopy);
+#endif
     }
     
     public void LoadBoardButton()
@@ -130,19 +134,19 @@ public class BoardMakerManager : MonoBehaviour
     public BoardDef CreateBoardDef(string path)
     {
         BoardDef boardDef = ScriptableObject.CreateInstance<BoardDef>();
-        #if UNITY_EDITOR
-            // Save the ScriptableObject as an asset in the specified path
-            AssetDatabase.CreateAsset(boardDef, path);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log($"Created BoardDef at {path}");
-        #endif
-
+#if UNITY_EDITOR
+        // Save the ScriptableObject as an asset in the specified path
+        AssetDatabase.CreateAsset(boardDef, path);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"Created BoardDef at {path}");
+#endif
         return boardDef;
     }
 
     public void LoadBoard(BoardDef board)
     {
+#if UNITY_EDITOR
         for (int i = 0; i < tiles.Count; i++)
         {
             Destroy(tiles[i].gameObject);
@@ -179,6 +183,7 @@ public class BoardMakerManager : MonoBehaviour
             }
         }
         SetCounter();
+#endif
     }
 
     public BoardMakerTile GetTile(Vector2Int pos)

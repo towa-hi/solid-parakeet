@@ -285,7 +285,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 042305d657a09d340aaa16780ea2dce5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  loadThisBoard: {fileID: 11400000, guid: a28b47cacffa5794eb33970ab36ac52c, type: 2}
+  loadThisBoard: {fileID: 0}
   currentTool: 0
   clickInputManager: {fileID: 13871833}
   grid: {fileID: 1952084273}
@@ -681,7 +681,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1400720133}
-  - {fileID: 1460557555}
   m_Father: {fileID: 691044707}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -1249,8 +1248,10 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 538723163}
   - {fileID: 1848465905}
   - {fileID: 250046034}
+  - {fileID: 1460557555}
   - {fileID: 26911929}
   - {fileID: 749802487}
   - {fileID: 1972348441}
@@ -1258,7 +1259,6 @@ RectTransform:
   - {fileID: 400432466}
   - {fileID: 1177355101}
   - {fileID: 1341020669}
-  - {fileID: 538723163}
   m_Father: {fileID: 1164702046}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -2733,11 +2733,11 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 250046034}
+  m_Father: {fileID: 691044707}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -30.7}
+  m_AnchoredPosition: {x: 0, y: 51.3}
   m_SizeDelta: {x: 200, y: 24}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1467088218
