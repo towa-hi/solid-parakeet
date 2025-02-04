@@ -67,7 +67,6 @@ public class BoardManager : MonoBehaviour
         OnPhaseChanged?.Invoke(currentPhase);
     }
 
-    bool isVortexOn;
     Coroutine currentVortexLerp;
     public void StartVortex()
     {
@@ -75,7 +74,6 @@ public class BoardManager : MonoBehaviour
         floorRenderer.GetPropertyBlock(block);
         float currentTimeScale = block.GetFloat(timeScaleID);
         Debug.Log($"StartVortex started timescale at {currentTimeScale}");
-        isVortexOn = true;
         if (currentVortexLerp != null)
         {
             StopCoroutine(currentVortexLerp);
@@ -89,7 +87,6 @@ public class BoardManager : MonoBehaviour
         floorRenderer.GetPropertyBlock(block);
         float currentTimeScale = block.GetFloat(timeScaleID);
         Debug.Log($"EndVortex started timescale at {currentTimeScale}");
-        isVortexOn = false;
         Debug.Log("EndVortex");
         if (currentVortexLerp != null)
         {

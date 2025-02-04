@@ -151,7 +151,7 @@ public class GameManager : MonoBehaviour
         Globals.InputActions.Game.Enable();
     }
     
-    public void SetOfflineMode(bool inOfflineMode)
+    public async void SetOfflineMode(bool inOfflineMode)
     {
         offlineMode = inOfflineMode;
         if (inOfflineMode)
@@ -174,7 +174,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            stellarManager.ConnectToNetwork();
+            await stellarManager.ConnectToNetwork();
             //client = new GameClient();
             Debug.Log("GameManager: Initialized GameClient for online mode.");
         }
