@@ -4,10 +4,7 @@ using UnityEngine;
 public class StellarManager : MonoBehaviour
 {
     [DllImport("__Internal")] 
-    static extern void JSCheckFreighter();
-
-    [DllImport("__Internal")]
-    static extern void JSSetFreighterAllowed();
+    static extern void JSCheckFreighter(string contractAddressPtr, string contractFunctionPtr, string dataPtr, int transactionTimeoutSec, int pingFrequencyMS);
     
     
     TaskCompletionSource<int> freighterCheckTaskSource;
@@ -18,7 +15,13 @@ public class StellarManager : MonoBehaviour
         Debug.Log("StellarManager.ConnectToNetwork()");
 #if UNITY_WEBGL
         freighterCheckTaskSource = new TaskCompletionSource<int>();
-        JSCheckFreighter();
+        JSCheckFreighter(
+            "CDSEFFTMRY3F4Y2C5J3KV7G7VEHGWJIWWWYE4BG2VAY34FII3KHNQ4GT",
+            "hello",
+            "data",
+            120,
+            2000);
+        
         int result = await freighterCheckTaskSource.Task;
         Debug.Log($"StellarManager.ConnectToNetwork() finished with result {result}");
         
@@ -35,23 +38,5 @@ public class StellarManager : MonoBehaviour
             freighterCheckTaskSource.TrySetResult(result);
         }
         Debug.Log($"StellarManager.OnFreighterCheckComplete() {result}");
-    }
-
-    public async Task<bool> SetFreighterAllowed()
-    {
-        Debug.Log("StellarManager.SetFreighterAllowed()");
-        setFreighterAllowedTaskSource = new();
-        JSSetFreighterAllowed();
-        bool result = await setFreighterAllowedTaskSource.Task;
-        Debug.Log($"StellarManager.SetFreighterAllowed() finished with result {result}");
-        return result;
-    }
-
-    public void OnSetFreighterAllowedComplete(int result)
-    {
-        if (result == -1)
-        {
-            Debug.Log("StellarManager.OnSetFreighterAllowedComplete() rejected");
-        }
     }
 }
