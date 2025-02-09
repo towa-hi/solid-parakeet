@@ -22,8 +22,6 @@ public class StellarManager : MonoBehaviour
         int result = await freighterCheckTaskSource.Task;
         Debug.Log($"StellarManager.ConnectToNetwork() finished with result {result}");
         
-        await SetFreighterAllowed();
-        
         return result;
 #else
         return -3;
