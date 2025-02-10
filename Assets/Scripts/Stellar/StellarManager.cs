@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -6,36 +7,38 @@ public class StellarManager : MonoBehaviour
     [DllImport("__Internal")] 
     static extern void JSCheckFreighter(string contractAddressPtr, string contractFunctionPtr, string dataPtr, int transactionTimeoutSec, int pingFrequencyMS);
     
-    
-    TaskCompletionSource<int> freighterCheckTaskSource;
-    TaskCompletionSource<bool> setFreighterAllowedTaskSource;
+    public event Action<bool> OnWaiting;
+    TaskCompletionSource<int> connectToNetworkTaskSource;
     
     public async Task<int> ConnectToNetwork()
     {
+        if (connectToNetworkTaskSource != null && !connectToNetworkTaskSource.Task.IsCompleted)
+        {
+            Debug.LogError("StellarManager.ConnectToNetwork is already in progress, returning existing task");
+            return await connectToNetworkTaskSource.Task;
+        }
         Debug.Log("StellarManager.ConnectToNetwork()");
 #if UNITY_WEBGL
-        freighterCheckTaskSource = new TaskCompletionSource<int>();
+        connectToNetworkTaskSource = new TaskCompletionSource<int>();
         JSCheckFreighter(
             "CDSEFFTMRY3F4Y2C5J3KV7G7VEHGWJIWWWYE4BG2VAY34FII3KHNQ4GT",
             "hello",
             "data",
             120,
             2000);
-        
-        int result = await freighterCheckTaskSource.Task;
+        int result = await connectToNetworkTaskSource.Task;
         Debug.Log($"StellarManager.ConnectToNetwork() finished with result {result}");
-        
         return result;
 #else
-        return -3;
+        return -999;
 #endif
     }
     
-    public void OnFreighterCheckComplete(int result)
+    public void ConnectToNetworkComplete(int result)
     {
-        if (freighterCheckTaskSource != null)
+        if (connectToNetworkTaskSource != null)
         {
-            freighterCheckTaskSource.TrySetResult(result);
+            connectToNetworkTaskSource.TrySetResult(result);
         }
         Debug.Log($"StellarManager.OnFreighterCheckComplete() {result}");
     }

@@ -24,7 +24,7 @@ mergeInto(LibraryManager.library, {
             // check if web template html has freighter
             if (!window.freighterApi) {
                 logAndAlert("Freighter API not detected.");
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -1);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -1);
                 return;
             }
             console.log("Freighter API detected.", window.freighterApi);
@@ -36,7 +36,7 @@ mergeInto(LibraryManager.library, {
             const isConnected = (isConnectedRes && isConnectedRes.isConnected) || false;
             if (!isConnected) {
                 logAndAlert("isConnected error: ", isConnected);
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -2);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -2);
                 return;
             }
 
@@ -44,12 +44,12 @@ mergeInto(LibraryManager.library, {
             const getNetworkRes = await FreighterApi.getNetwork();
             if (getNetworkRes.error) {
                 logAndAlert("getNetworkRes error: ", getNetworkRes.error);
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -3)
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -3)
                 return;
             }
             if (getNetworkRes.networkPassphrase !== currentNetwork) {
                 logAndAlert("getNetworkRes network is not currentNetwork");
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -4);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -4);
                 return;
             }
 
@@ -57,7 +57,7 @@ mergeInto(LibraryManager.library, {
             const requestAccessRes = await FreighterApi.requestAccess();
             if (requestAccessRes.error) {
                 logAndAlert("requestAccessRes error: ", requestAccessRes.error);
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -5);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -5);
                 return;
             }
             const address = requestAccessRes.address;
@@ -83,7 +83,7 @@ mergeInto(LibraryManager.library, {
             if (prepareTransactionRes.error) {
                 logAndAlert("prepareTransactionRes error: ", prepareTransactionRes.error);
                 // NOTE: errors from prepareTransactionRes are somewhat relevant
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -6);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -6);
                 return;
             }
             console.log("prepareTransactionRes: ", prepareTransactionRes);
@@ -94,7 +94,7 @@ mergeInto(LibraryManager.library, {
             const signTransactionRes = await FreighterApi.signTransaction(transactionXdrString, {networkPassphrase: currentNetwork});
             if (signTransactionRes.error) {
                 logAndAlert("signTransactionRes error: ", signTransactionRes.error);
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -7);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -7);
                 return;
             }
             console.log("signTransactionRes: ", signTransactionRes);
@@ -108,7 +108,7 @@ mergeInto(LibraryManager.library, {
             console.log("sendTransactionRes: ", sendTransactionRes);
             if (sendTransactionRes.error) {
                 logAndAlert("sendTransactionRes error: ", sendTransactionRes.error);
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -8);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -8);
                 return;
             }
             const transactionHash = sendTransactionRes.hash;
@@ -126,20 +126,20 @@ mergeInto(LibraryManager.library, {
             }
             if (getTransactionRes.status !== "SUCCESS") {
                 logAndAlert("getTransactionRes not SUCCESS and exhausted all tries");
-                SendMessage("StellarManager", "OnFreighterCheckComplete", -9);
+                SendMessage("StellarManager", "ConnectToNetworkComplete", -9);
                 return;
             }
 
             // TODO: convert to json and pass back to Unity
             const returnValueXdrString = getTransactionRes.returnValue.toXDR('base64');
             logAndAlert("getTransactionRes SUCCESS. returnValueXdr as string: ", returnValueXdrString);
-            SendMessage("StellarManager", "OnFreighterCheckComplete", 1);
+            SendMessage("StellarManager", "ConnectToNetworkComplete", 1);
             
         }
         catch (e)
         {
             logAndAlert("unspecified error: ", e);
-            SendMessage("StellarManager", "OnFreighterCheckComplete", -666);
+            SendMessage("StellarManager", "ConnectToNetworkComplete", -666);
         }
     }
 });
