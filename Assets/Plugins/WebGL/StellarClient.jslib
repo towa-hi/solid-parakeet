@@ -1,5 +1,3 @@
-
-
 mergeInto(LibraryManager.library, {
     JSCheckFreighter: async function(contractAddressPtr, contractFunctionPtr, dataPtr, transactionTimeoutSec, pingFrequencyMS) 
     {
@@ -12,7 +10,7 @@ mergeInto(LibraryManager.library, {
         try {
             // actual constants
             const StellarSdk = window.StellarSdk;
-            const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract} = StellarSdk;
+            const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address} = StellarSdk;
             const server = new rpc.Server("https://soroban-testnet.stellar.org");
             const currentNetwork = Networks.TESTNET;
             const fee = StellarSdk.BASE_FEE;
@@ -60,18 +58,24 @@ mergeInto(LibraryManager.library, {
                 SendMessage("StellarManager", "ConnectToNetworkComplete", -5);
                 return;
             }
+            console.log("requestAccessRes: ", requestAccessRes);
             const address = requestAccessRes.address;
+            console.log("address: ", address);
             const account = await server.getAccount(address);
             console.log("account: ", account);
 
             // convert data to xdr
+            const addressScVal = new Address(address).toScVal();
             const inputScVal = nativeToScVal(data, {type: "string"});
             console.log("inputScVal: ", inputScVal);
 
-            // make contract object and call the contractFunction with inputScVal
+            // make contract object and call the contractFunction with address and inputScVal
             const contract = new Contract(contractAddress);
             console.log("contract: ", contract);
-            const contractCallOperation = contract.call(contractFunction, inputScVal);
+            const contractCallOperation = contract.call(
+                contractFunction,
+                addressScVal,
+                inputScVal);
             console.log("contractCallOperation: ", contractCallOperation);
 
             // build the transaction and then sim it with prepareTransaction

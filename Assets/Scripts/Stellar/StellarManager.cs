@@ -9,6 +9,8 @@ public class StellarManager : MonoBehaviour
     
     public event Action<bool> OnWaiting;
     TaskCompletionSource<int> connectToNetworkTaskSource;
+
+    public string contract = "CCSNEMSRSVXPDSGIR2KX6KGLKHDSSNSRDUH34S4AMYOG47YVRD5YIIKT";
     
     public async Task<int> ConnectToNetwork()
     {
@@ -21,9 +23,9 @@ public class StellarManager : MonoBehaviour
 #if UNITY_WEBGL
         connectToNetworkTaskSource = new TaskCompletionSource<int>();
         JSCheckFreighter(
-            "CDSEFFTMRY3F4Y2C5J3KV7G7VEHGWJIWWWYE4BG2VAY34FII3KHNQ4GT",
-            "hello",
-            "data",
+            contract,
+            "register",
+            "newusername",
             120,
             2000);
         int result = await connectToNetworkTaskSource.Task;
