@@ -747,6 +747,11 @@ public class MovePhase : IPhase
                     return;
                 }
             }
+            else
+            {
+                ClearSelection();
+                return;
+            }
         }
         // if is selectable
         if (IsPawnViewSelectable(currentHoveredPawnView))

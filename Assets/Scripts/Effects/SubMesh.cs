@@ -86,17 +86,23 @@ public class SubMesh : MonoBehaviour
 
     IEnumerator Decay()
     {
-        Color originalColor = meshRenderer.material.GetColor("_Base_Color");
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        meshRenderer.GetPropertyBlock(block);
+        block.SetColor("_Base_Color", meshRenderer.material.GetColor("_Base_Color"));
+        Color originalColor = block.GetColor("_Base_Color");
+        meshRenderer.SetPropertyBlock(block);
+        Debug.Log(originalColor);
         float startAlpha = originalColor.a;
+        Debug.Log(startAlpha);
         float currentTime = 0f;
         while (currentTime < lifespan)
         {
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            meshRenderer.GetPropertyBlock(block);
-            float alpha = Mathf.Lerp(startAlpha, 0f, currentTime / lifespan);
-            Color newColor = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
-            block.SetColor("_Base_Color", newColor);
-            meshRenderer.SetPropertyBlock(block);
+            // TODO: figure out why this makes submeshes invisible
+            // float alpha = Mathf.Lerp(startAlpha, 0f, currentTime / lifespan);
+            // Color newColor = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
+            // block.SetColor("_Base_Color", newColor);
+            // meshRenderer.SetPropertyBlock(block);
+            // Debug.Log($"setting color to: {newColor}");
             currentTime += Time.deltaTime;
             yield return null;
         }

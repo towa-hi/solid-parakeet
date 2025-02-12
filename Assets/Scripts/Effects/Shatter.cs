@@ -48,7 +48,7 @@ public class Shatter : MonoBehaviour
         float pieceHeight = bounds.size.y / gridY;
         
         Material instancedMaterial = new Material(SubMeshMaterial);
-        instancedMaterial.SetTexture("_Base_Texture", originalMaterial.GetTexture("_BaseMap"));
+        instancedMaterial.SetTexture("_Base_Texture", originalMaterial.GetTexture("_Base_Texture"));
         for (int x = 0; x < gridX; x++)
         {
             for (int y = 0; y < gridY; y++)

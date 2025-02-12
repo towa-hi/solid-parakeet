@@ -154,4 +154,4 @@ MonoBehaviour:
   meshCollider: {fileID: 3687375141248482554}
   meshRenderer: {fileID: 4644993842224442181}
   meshFilter: {fileID: 2687603029442484198}
-  lifespan: 2
+  lifespan: 12

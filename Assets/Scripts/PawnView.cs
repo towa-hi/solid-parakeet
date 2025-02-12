@@ -12,8 +12,6 @@ public class PawnView : MonoBehaviour
     public GameObject plane;
     public GameObject billboard;
     
-    public bool isSetup;
-    
     public SpriteAtlas symbols;
     public SpriteRenderer symbolRenderer;
     public ParentConstraint parentConstraint;
@@ -53,8 +51,8 @@ public class PawnView : MonoBehaviour
         };
         parentConstraint.AddSource(parentSource);
         pawn = inPawn;
-        string objectName = $"{pawn.team} SetupPawn {pawn.def.pawnName}";
-        if (!isSetup)
+        string objectName = $"{pawn.team} Pawn {pawn.def.pawnName}";
+        if (!pawn.isSetup)
         {
             objectName += $"{Shared.ShortGuid(pawn.pawnId)}";
         }
@@ -79,6 +77,11 @@ public class PawnView : MonoBehaviour
             LockMovementToTransform(tileView.pawnOrigin);
         }
         badge.SetActive(PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
+        if (pawn.isSetup)
+        {
+            Material mat = billboard.GetComponent<MeshRenderer>().material;
+            
+        }
     }
 
     
