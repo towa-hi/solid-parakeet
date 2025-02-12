@@ -65,7 +65,7 @@ public class Vortex : MonoBehaviour
         while (elapsedTime < vortexTransitionDuration)
         {
             float t = elapsedTime / vortexTransitionDuration;
-            float easedT = EaseInOutQuad(t);
+            float easedT = Shared.EaseInOutQuad(t);
             elapsedTime += Time.deltaTime;
             float currentTwistedness = Mathf.Lerp(initTwistedness, targetTwistedness, easedT);
             float currentTimeScale = Mathf.Lerp(initTimeScale, targetTimeScale, easedT);
@@ -90,7 +90,5 @@ public class Vortex : MonoBehaviour
         
     }
     
-    float EaseInOutQuad(float t) {
-        return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
-    }
+    
 }

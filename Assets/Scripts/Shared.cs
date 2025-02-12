@@ -1,5 +1,6 @@
 using System;
 using System.Text.RegularExpressions;
+using UnityEngine;
 
 public static class Shared
 {
@@ -23,7 +24,9 @@ public static class Shared
     {
         return t * (2 - t);
     }
-
+    public static float EaseInOutQuad(float t) {
+        return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+    }
     public static string ShortGuid(Guid guid)
     {
         return guid.ToString().Substring(0, 4);

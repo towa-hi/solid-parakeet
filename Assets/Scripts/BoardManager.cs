@@ -62,6 +62,7 @@ public class BoardManager : MonoBehaviour
         currentPhase?.ExitState();
         currentPhase = newPhase;
         currentPhase.EnterState();
+        clickInputManager.ForceInvokeOnPositionHovered();
         OnPhaseChanged?.Invoke(currentPhase);
     }
     
@@ -289,7 +290,7 @@ public class BoardManager : MonoBehaviour
     
     void OnClick(Vector2 screenPointerPosition, Vector2Int hoveredPosition)
     {
-        currentPhase.OnClick(hoveredPosition);
+        currentPhase.OnClick(hoveredPosition, currentHoveredTileView, currentHoveredPawnView);
     }
 
     #endregion
@@ -374,7 +375,10 @@ public interface IPhase
         PawnView currentHoveredPawnView, 
         PawnView previousHoveredPawnView);
 
-    public void OnClick(Vector2Int hoveredPosition);
+    public void OnClick(
+        Vector2Int hoveredPosition, 
+        TileView currentHoveredTileView, 
+        PawnView currentHoveredPawnView);
 
 }
 
@@ -396,7 +400,7 @@ public class UninitializedPhase : IPhase
     public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
         PawnView currentHoveredPawnView, PawnView previousHoveredPawnView) {}
 
-    public void OnClick(Vector2Int hoveredPosition) {}
+    public void OnClick(Vector2Int hoveredPosition, TileView currentHoveredTileView, PawnView currentHoveredPawnView) {}
 }
 
 public class SetupPhase : IPhase
@@ -473,7 +477,7 @@ public class SetupPhase : IPhase
         
     }
 
-    public void OnClick(Vector2Int hoveredPosition)
+    public void OnClick(Vector2Int hoveredPosition, TileView currentHoveredTileView, PawnView currentHoveredPawnView)
     {
         if (bm.clickInputManager.isOverUI)
         {
@@ -630,7 +634,7 @@ public class WaitingPhase : IPhase
     public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
         PawnView currentHoveredPawnView, PawnView previousHoveredPawnView) {}
 
-    public void OnClick(Vector2Int hoveredPosition) {}
+    public void OnClick(Vector2Int hoveredPosition, TileView currentHoveredTileView, PawnView currentHoveredPawnView) {}
 }
 
 public class MovePhase : IPhase
@@ -686,7 +690,7 @@ public class MovePhase : IPhase
     public void ExitState()
     {
         Debug.Assert(moveSubmitted);
-        bm.ClearOutlineEffects();
+        //bm.ClearOutlineEffects();
         ClearSelection();
         if (!maybeQueuedMove.HasValue)
         {
@@ -709,36 +713,47 @@ public class MovePhase : IPhase
     public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
         PawnView currentHoveredPawnView, PawnView previousHoveredPawnView)
     {
-        if (previousHoveredTileView && previousHoveredTileView != selectedTileView)
+        if (previousHoveredTileView && previousHoveredTileView != selectedTileView && IsPawnViewSelectable(previousHoveredPawnView))
         {
-            Debug.LogWarning($"Elevate caused by hover exit to {previousHoveredTileView.tile.pos}");
+            //Debug.LogWarning($"Elevate caused by hover exit to {previousHoveredTileView.tile.pos}");
             ElevatePos(oldPos, 0);
         }
         if (currentHoveredTileView && currentHoveredTileView != selectedTileView && IsPawnViewSelectable(currentHoveredPawnView))
         {
-            Debug.LogWarning($"Elevate caused by hover to {currentHoveredTileView.tile.pos}");
+            //Debug.LogWarning($"Elevate caused by hover to {currentHoveredTileView.tile.pos}");
             ElevatePos(newPos, Globals.HoveredHeight);
         }
     }
 
-    public void OnClick(Vector2Int hoveredPosition)
+    public void OnClick(Vector2Int hoveredPosition, TileView currentHoveredTileView, PawnView currentHoveredPawnView)
     {
-        // input handling
-        if (bm.clickInputManager.isOverUI)
-        {
-            // do nothing
-        }
         // selection logic
-        ClearSelection();
         if (!bm.IsPosValid(hoveredPosition))
         {
+            ClearSelection();
             return;
         }
-        // if is selectable
-        if (IsPawnViewSelectable(bm.currentHoveredPawnView))
+        if (selectedPawnView)
         {
-            SelectPawnViewAndTileView(bm.currentHoveredPawnView, bm.currentHoveredTileView);
-            Debug.LogWarning($"Elevate caused by new selection to {selectedTileView.tile.pos}");
+            // if move is valid
+            if (highlightedTileViews.Contains(currentHoveredTileView))
+            {
+                // NOTE: queue move and THEN clear selection
+                QueueMove(selectedPawnView, hoveredPosition);
+                ClearSelection();
+                if (PlayerPrefs.GetInt("FASTMODE") == 1)
+                {
+                    OnSubmitMove();
+                    return;
+                }
+            }
+        }
+        // if is selectable
+        if (IsPawnViewSelectable(currentHoveredPawnView))
+        {
+            ClearSelection();
+            SelectPawnViewAndTileView(currentHoveredPawnView, currentHoveredTileView);
+            //Debug.LogWarning($"Elevate caused by new selection to {selectedTileView.tile.pos}");
             ElevatePos(hoveredPosition, Globals.SelectedHoveredHeight);
             maybeQueuedMove = null;
         }
@@ -789,10 +804,6 @@ public class MovePhase : IPhase
         PawnView pawnView = bm.GetPawnViewByPos(pos);
         TileView tileView = bm.GetTileViewByPos(pos);
         tileView.Elevate(height);
-        if (pawnView)
-        {
-            pawnView.Elevate(height);
-        }
     }
     
     bool IsPawnViewSelectable(PawnView pawnView)
@@ -841,18 +852,11 @@ public class MovePhase : IPhase
         Debug.Assert(selectedTileView);
     }
     
-    bool TryQueueMove(PawnView pawnView, Vector2Int pos)
+    void QueueMove(PawnView pawnView, Vector2Int pos)
     {
         Debug.Log($"TryQueueMove at {pos}");
-        SPawn pawnOriginalState = bm.serverGameState.GetPawnById(pawnView.pawn.pawnId);
-        STile[] movableTilesList = bm.serverGameState.GetMovableTiles(pawnOriginalState);
         // check if valid move
         // queue a new PawnAction to go to that position
-        bool moveIsValid = movableTilesList.Any(tile => tile.pos == pos);
-        if (!moveIsValid)
-        {
-            return false;
-        }
         if (maybeQueuedMove.HasValue)
         {
             TileView oldTileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos);
@@ -861,7 +865,6 @@ public class MovePhase : IPhase
         maybeQueuedMove = new SQueuedMove((int)bm.team, pawnView.pawn.pawnId,  pawnView.pawn.pos,pos);
         TileView tileView = bm.GetTileViewByPos(maybeQueuedMove.Value.pos);
         tileView.OnArrow(true);
-        return true;
     }
     
 }
@@ -895,7 +898,7 @@ public class ResolvePhase : IPhase
         
     }
 
-    public void OnClick(Vector2Int hoveredPosition)
+    public void OnClick(Vector2Int hoveredPosition, TileView currentHoveredTileView, PawnView currentHoveredPawnView)
     {
 
     }
@@ -930,7 +933,7 @@ public class EndPhase : IPhase
         
     }
 
-    public void OnClick(Vector2Int hoveredPosition)
+    public void OnClick(Vector2Int hoveredPosition, TileView currentHoveredTileView, PawnView currentHoveredPawnView)
     {
 
     }

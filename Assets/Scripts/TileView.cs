@@ -200,10 +200,10 @@ public class TileView : MonoBehaviour
     public void Elevate(float height)
     {
         Vector3 destination = new Vector3(0, height, 0);
+        currentTween.Stop();
         if (modelObject.transform.position != destination)
         {
             //Debug.Log($"Elevate {tile.pos} {destination}");
-            currentTween.Stop();
             currentTween = Tween.LocalPosition(modelObject.transform, destination, 0.3f, Ease.OutCubic);
         }
         else

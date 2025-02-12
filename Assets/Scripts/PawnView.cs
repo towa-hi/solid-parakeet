@@ -25,6 +25,7 @@ public class PawnView : MonoBehaviour
     public Shatter shatterEffect;
     public bool isSelected;
     public bool isHovered;
+    public bool isHighlighted;
     bool isMoving;
     
     public Transform anchor;
@@ -213,6 +214,7 @@ public class PawnView : MonoBehaviour
         }
         isMoving = false;
         SetParentConstraint(target);
+        SetParentConstraintActive(true);
     }
     
     public void DisplaySymbol(Sprite sprite)
@@ -279,20 +281,9 @@ public class PawnView : MonoBehaviour
     Tween currentTween;
     public void OnHovered(bool inIsHovered)
     {
-        if (!pawn.isAlive) return;
+        // NOTE: removed this idk why it matters if (!pawn.isAlive) return;
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
-        // if (pawn.team == GameManager.instance.boardManager.team)
-        // {
-        //     currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, Globals.HoveredHeight, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
-        // }
-        // else
-        // {
-        //     if (model.transform.localPosition != Vector3.zero)
-        //     {
-        //         currentTween = Tween.LocalPosition(model.transform, Vector3.zero, 0.1f, Ease.OutCubic);
-        //     }
-        // }
     }
 
     public void OnSelect(bool inIsSelected)
@@ -304,11 +295,7 @@ public class PawnView : MonoBehaviour
 
     public void OnHighlight(bool inIsHighlighted)
     {
+        isHighlighted = inIsHighlighted;
         SetMeshOutline(inIsHighlighted, "Fill");
-    }
-
-    public void Elevate(float height)
-    {
-        
     }
 }

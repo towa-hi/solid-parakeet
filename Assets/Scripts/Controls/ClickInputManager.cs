@@ -151,7 +151,8 @@ public class ClickInputManager : MonoBehaviour
             currentHoveredPosition = Globals.Purgatory;
         }
         // Check if the hovered position or object has changed
-        if (currentHoveredPosition != hoveredPosition || currentHoveredObject != hoveredObject)
+        // NOTE: this used to be if (currentHoveredPosition != hoveredPosition || currentHoveredObject != hoveredObject)
+        if (currentHoveredPosition != hoveredPosition)
         {
             // Invoke the event with old and new positions
             OnPositionHovered?.Invoke(hoveredPosition, currentHoveredPosition);
@@ -167,9 +168,19 @@ public class ClickInputManager : MonoBehaviour
         hoveredTileView = currentHoveredTileView;
         hoveredBoardMakerTile = currentHoveredBoardMakerTile;
 
-        if (Globals.InputActions.Game.Click.triggered)
+        if (!isOverUI && Globals.InputActions.Game.Click.triggered)
         {
             OnClick?.Invoke(screenPointerPosition, hoveredPosition);
         }
+    }
+
+    public void ForceInvokeOnPositionHovered()
+    {
+        OnPositionHovered?.Invoke(hoveredPosition, hoveredPosition);
+    }
+
+    public void ForceInvokeOnClick()
+    {
+        OnClick?.Invoke(screenPointerPosition, hoveredPosition);
     }
 }

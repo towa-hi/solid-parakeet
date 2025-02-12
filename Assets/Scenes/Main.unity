@@ -5161,6 +5161,7 @@ MonoBehaviour:
   pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
   grid: {fileID: 1153439526}
   clickInputManager: {fileID: 1153439525}
+  vortex: {fileID: 1153439527}
   team: 0
   pawnViews: []
   hoveredPos: {x: 0, y: 0}
@@ -5180,12 +5181,7 @@ MonoBehaviour:
       tiles: []
       isHex: 0
     pawns: []
-  floorRenderer: {fileID: 699814195}
-  vortexTransitionDuration: 0.25
-  directionalLight: {fileID: 361270546}
-  spotLight: {fileID: 2143423649}
   spotLightHandler: {fileID: 2143423650}
-  selectedPosition: {x: 0, y: 0}
   bounceDownSettings:
     startFromCurrent: 0
     startValue: 0
@@ -5323,6 +5319,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 15e3d1e63a25c08498d902cc727ac13a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  vortexRenderer: {fileID: 699814195}
+  vortexTransitionDuration: 0.25
+  directionalLight: {fileID: 361270546}
+  spotLight: {fileID: 2143423649}
+  spotLightHandler: {fileID: 0}
 --- !u!1 &1159686703
 GameObject:
   m_ObjectHideFlags: 0
@@ -10755,6 +10756,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4dba807065c4d744a82138251dd4c82c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  spotLight: {fileID: 2143423649}
   target: {fileID: 0}
   restTarget: {fileID: 361270547}
 --- !u!224 &1740542592085539414 stripped
