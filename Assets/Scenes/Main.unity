@@ -6747,7 +6747,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   poolParent: {fileID: 1537931234}
   subMeshPrefab: {fileID: 580899194556125231, guid: 79b9bdc7a59bb364586a7e7aa4adb21f, type: 3}
-  initialPoolSize: 0
+  initialPoolSize: 200
 --- !u!1 &1538117122
 GameObject:
   m_ObjectHideFlags: 0

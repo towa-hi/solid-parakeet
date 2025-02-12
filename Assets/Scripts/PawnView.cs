@@ -12,6 +12,8 @@ public class PawnView : MonoBehaviour
     public GameObject plane;
     public GameObject billboard;
     
+    public bool isSetup;
+    
     public SpriteAtlas symbols;
     public SpriteRenderer symbolRenderer;
     public ParentConstraint parentConstraint;
@@ -23,14 +25,11 @@ public class PawnView : MonoBehaviour
     public MeshRenderer billboardRenderer;
     public MeshRenderer planeRenderer;
     public Shatter shatterEffect;
-    public bool isSelected;
-    public bool isHovered;
-    public bool isHighlighted;
+    bool isSelected;
+    bool isHovered;
+    bool isHighlighted;
     bool isMoving;
     
-    public Transform anchor;
-    public bool isAnchored;
-
     public GameObject badge;
     public SpriteRenderer badgeSpriteRenderer;
     public SpriteRenderer badgeBackgroundRenderer;
@@ -41,8 +40,10 @@ public class PawnView : MonoBehaviour
     // Reference to the current movement coroutine
     Coroutine moveCoroutine;
     
+    ConstraintSource parentSource;
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
+    
     public void Initialize(Pawn inPawn, TileView tileView)
     {
         parentSource = new ConstraintSource
@@ -52,7 +53,12 @@ public class PawnView : MonoBehaviour
         };
         parentConstraint.AddSource(parentSource);
         pawn = inPawn;
-        gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Shared.ShortGuid(pawn.pawnId)}";
+        string objectName = $"{pawn.team} SetupPawn {pawn.def.pawnName}";
+        if (!isSetup)
+        {
+            objectName += $"{Shared.ShortGuid(pawn.pawnId)}";
+        }
+        gameObject.name = objectName;
         UpdateSprite();
         DisplaySymbol(pawn.def.icon);
         switch (inPawn.team)
@@ -66,27 +72,24 @@ public class PawnView : MonoBehaviour
         }
         if (tileView == null)
         {
-            SetParentConstraint(GameManager.instance.boardManager.purgatory);
-            SetParentConstraintActive(true);
-            //transform.position = GameManager.instance.boardManager.purgatory.position;
+            LockMovementToTransform(GameManager.instance.boardManager.purgatory);
         }
         else
         {
-            SetParentConstraint(tileView.pawnOrigin);
-            SetParentConstraintActive(true);
-            //transform.position = tileView.pawnOrigin.position;
-        }
-        if (moveCoroutine != null)
-        {
-            StopCoroutine(moveCoroutine);
-            moveCoroutine = null;
+            LockMovementToTransform(tileView.pawnOrigin);
         }
         badge.SetActive(PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
     }
 
-    ConstraintSource parentSource;
     
-    public void SetParentConstraint(Transform parent)
+    
+    public void LockMovementToTransform(Transform anchor)
+    {
+        SetParentConstraint(anchor);
+        SetParentConstraintActive(true);
+    }
+    
+    void SetParentConstraint(Transform parent)
     {
         parentSource = new ConstraintSource
         {
@@ -96,8 +99,12 @@ public class PawnView : MonoBehaviour
         parentConstraint.SetSource(0, parentSource);
     }
 
-    public void SetParentConstraintActive(bool inActive)
+    void SetParentConstraintActive(bool inActive)
     {
+        if (isMoving)
+        {
+            throw new Exception("SetParentConstraintActive cannot be set when isMoving is happening");
+        }
         parentConstraint.constraintActive = inActive;
     }
     
@@ -137,22 +144,6 @@ public class PawnView : MonoBehaviour
             }
         }
         return pawnChanges;
-    }
-
-    public void UpdateViewPosition()
-    {
-        SetParentConstraintActive(false);
-        if (pawn.isAlive)
-        {
-            TileView tileView = GameManager.instance.boardManager.GetTileViewByPos(pawn.pos);
-            SetParentConstraint(tileView.pawnOrigin);
-            SetParentConstraintActive(true);
-        }
-        else
-        {
-            SetParentConstraint(GameManager.instance.boardManager.purgatory);
-            SetParentConstraintActive(true);
-        }
     }
     
     public void RevealPawn(SPawn sPawn)
@@ -207,14 +198,8 @@ public class PawnView : MonoBehaviour
         }
 
         // Ensure the final position is set
-        transform.position = target.position;
-        if (target.position != GameManager.instance.boardManager.purgatory.position)
-        {
-            GameManager.instance.boardManager.BounceBoard();
-        }
         isMoving = false;
-        SetParentConstraint(target);
-        SetParentConstraintActive(true);
+        LockMovementToTransform(target);
     }
     
     public void DisplaySymbol(Sprite sprite)
@@ -281,7 +266,7 @@ public class PawnView : MonoBehaviour
     Tween currentTween;
     public void OnHovered(bool inIsHovered)
     {
-        // NOTE: removed this idk why it matters if (!pawn.isAlive) return;
+        if (!pawn.isAlive) return;
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
     }

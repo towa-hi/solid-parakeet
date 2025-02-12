@@ -76,7 +76,7 @@ MonoBehaviour:
     startValue: {x: 0, y: -4, z: 0}
     endValue: {x: 0, y: 0, z: 0}
     settings:
-      duration: 4
+      duration: 2
       ease: -1
       customEase:
         serializedVersion: 2
@@ -127,23 +127,14 @@ MonoBehaviour:
           inWeight: 0.33333334
           outWeight: 0.33333334
         - serializedVersion: 3
-          time: 0.64048123
-          value: 1.0190706
-          inSlope: -0.031064304
-          outSlope: -0.031064304
+          time: 0.5
+          value: 1
+          inSlope: -0.11119688
+          outSlope: -0.11119688
           tangentMode: 34
           weightedMode: 0
           inWeight: 0.33333334
           outWeight: 0.33333334
-        - serializedVersion: 3
-          time: 1
-          value: 1
-          inSlope: -0.053044867
-          outSlope: -0.053044867
-          tangentMode: 34
-          weightedMode: 0
-          inWeight: 0.33333334
-          outWeight: 0
         m_PreInfinity: 2
         m_PostInfinity: 2
         m_RotationOrder: 4

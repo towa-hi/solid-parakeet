@@ -6,7 +6,7 @@ public class PoolManager : MonoBehaviour
 {
     public Transform poolParent;
     public GameObject subMeshPrefab;
-    public int initialPoolSize = 100;
+    public int initialPoolSize;
 
     Queue<GameObject> pool = new Queue<GameObject>();
 
@@ -39,6 +39,7 @@ public class PoolManager : MonoBehaviour
 
     public void ReturnSubMeshObject(GameObject obj)
     {
+        obj.transform.localPosition = Vector3.zero;
         obj.SetActive(false);
         pool.Enqueue(obj);
     }

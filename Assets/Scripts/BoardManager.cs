@@ -134,10 +134,11 @@ public class BoardManager : MonoBehaviour
         {
             case ResolveEvent.MOVE:
                 TileView targetTileView = GetTileViewByPos(eventState.targetPos);
-                spotLightHandler.LookAt(pawnView.transform);
+                spotLightHandler.LookAt(targetTileView.pawnOrigin);
                 if (pawnView.transform.position != targetTileView.pawnOrigin.position)
                 {
                     yield return StartCoroutine(pawnView.ArcToPosition(targetTileView.pawnOrigin, Globals.PawnMoveDuration, 0.25f));
+                    BounceBoard();
                 }
                 break;
             case ResolveEvent.CONFLICT:
@@ -191,12 +192,10 @@ public class BoardManager : MonoBehaviour
                 }
                 break;
             case ResolveEvent.DEATH:
-                Vector3 purgatoryTarget = GameManager.instance.boardManager.purgatory.position;
                 spotLightHandler.LookAt(null);
-                pawnView.billboard.GetComponent<Shatter>().ShatterEffect();
+                pawnView.shatterEffect.ShatterEffect();
                 // TODO: see if this is needful
-                //pawnView.transform.position = purgatoryTarget;
-                //yield return StartCoroutine(pawnView.ArcToPosition(purgatoryTarget, Globals.PAWNMOVEDURATION, 2f));
+                pawnView.LockMovementToTransform(purgatory);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -300,6 +299,7 @@ public class BoardManager : MonoBehaviour
     public TweenSettings<float> bounceDownSettings;
     public TweenSettings<float> bounceUpSettings;
     public ShakeSettings punchSettings;
+    
     public void BounceBoard()
     {
         bounceSequence = Sequence.Create()
@@ -500,7 +500,7 @@ public class SetupPhase : IPhase
                 pos = Globals.Purgatory,
             };
             deadPawnView.SyncState(newState);
-            deadPawnView.UpdateViewPosition();
+            deadPawnView.LockMovementToTransform(bm.purgatory);
             bm.InvokeOnSetupStateChanged(selectedPawnDef);
         }
         else if (selectedPawnDef)
@@ -516,7 +516,7 @@ public class SetupPhase : IPhase
                 pos = bm.hoveredPos,
             };
             alivePawnView.SyncState(newState);
-            alivePawnView.UpdateViewPosition();
+            alivePawnView.LockMovementToTransform(currentHoveredTileView.pawnOrigin);
             bm.InvokeOnSetupStateChanged(selectedPawnDef);
         }
     }
@@ -551,7 +551,7 @@ public class SetupPhase : IPhase
                 pos = setupPawn.pos,
             };
             pawnView.SyncState(newState);
-            pawnView.UpdateViewPosition();
+            pawnView.LockMovementToTransform(bm.GetTileViewByPos(pawnView.pawn.pos).pawnOrigin);
         }
         bm.InvokeOnSetupStateChanged(selectedPawnDef);
     }

@@ -8,6 +8,8 @@ public class SpriteToMesh : MonoBehaviour
     [Tooltip("The sprite to convert into a mesh.")]
     public Sprite sprite;
 
+    static readonly int BaseTexture = Shader.PropertyToID("_Base_Texture");
+
     public void Activate(Sprite inSprite)
     {
         if (inSprite == null)
@@ -42,6 +44,8 @@ public class SpriteToMesh : MonoBehaviour
 
         // Assign the sprite's texture to the material
         meshRenderer.material.mainTexture = sprite.texture;
+
+        meshRenderer.material.SetTexture(BaseTexture, sprite.texture);
     }
 
     Mesh SpriteToMeshConverter(Sprite sprite)
