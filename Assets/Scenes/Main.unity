@@ -3357,6 +3357,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b1a354568423554aa91ad1aae367434, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  contract: CCSNEMSRSVXPDSGIR2KX6KGLKHDSSNSRDUH34S4AMYOG47YVRD5YIIKT
 --- !u!4 &667410737
 Transform:
   m_ObjectHideFlags: 0
@@ -5123,6 +5124,7 @@ GameObject:
   - component: {fileID: 1153439525}
   - component: {fileID: 1153439521}
   - component: {fileID: 1153439526}
+  - component: {fileID: 1153439527}
   m_Layer: 0
   m_Name: BoardManager
   m_TagString: Untagged
@@ -5162,7 +5164,9 @@ MonoBehaviour:
   team: 0
   pawnViews: []
   hoveredPos: {x: 0, y: 0}
+  previousHoveredPawnView: {fileID: 0}
   currentHoveredPawnView: {fileID: 0}
+  previousHoveredTileView: {fileID: 0}
   currentHoveredTileView: {fileID: 0}
   waveStartPositionOne: {fileID: 770341824}
   waveStartPositionTwo: {fileID: 263682748}
@@ -5181,6 +5185,7 @@ MonoBehaviour:
   directionalLight: {fileID: 361270546}
   spotLight: {fileID: 2143423649}
   spotLightHandler: {fileID: 2143423650}
+  selectedPosition: {x: 0, y: 0}
   bounceDownSettings:
     startFromCurrent: 0
     startValue: 0
@@ -5306,6 +5311,18 @@ MonoBehaviour:
   texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
   hexSizeFactor: 0.62
   circleRadius: 0.1
+--- !u!114 &1153439527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1153439520}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15e3d1e63a25c08498d902cc727ac13a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1159686703
 GameObject:
   m_ObjectHideFlags: 0

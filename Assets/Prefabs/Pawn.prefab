@@ -640,6 +640,7 @@ GameObject:
   - component: {fileID: 3632561711495789865}
   - component: {fileID: 6549313451087201031}
   - component: {fileID: 1615617418607774367}
+  - component: {fileID: 6507306912076707833}
   m_Layer: 0
   m_Name: Pawn
   m_TagString: Untagged
@@ -681,9 +682,10 @@ MonoBehaviour:
   billboard: {fileID: 4628738676444552350}
   symbols: {fileID: 100100200, guid: a4d07ee77b641814fa3aebc56e74202a, type: 3}
   symbolRenderer: {fileID: 1314133001686816306}
+  parentConstraint: {fileID: 6507306912076707833}
   pawn:
     def: {fileID: 0}
-    player: 0
+    team: 0
     pos: {x: 0, y: 0}
     isSetup: 0
     isAlive: 0
@@ -694,7 +696,8 @@ MonoBehaviour:
   shatterEffect: {fileID: 878737075750784716}
   isSelected: 0
   isHovered: 0
-  isMoving: 0
+  anchor: {fileID: 0}
+  isAnchored: 0
   badge: {fileID: 3065859645231224941}
   badgeSpriteRenderer: {fileID: 3254266947710671316}
   badgeBackgroundRenderer: {fileID: 1672190667434113301}
@@ -720,6 +723,29 @@ MonoBehaviour:
   dotSizePx: 10
   color: {r: 1, g: 1, b: 1, a: 1}
   texture: {fileID: 10912, guid: 0000000000000000f000000000000000, type: 0}
+--- !u!1773428102 &6507306912076707833
+ParentConstraint:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5772243482056531592}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Weight: 1
+  m_TranslationAtRest: {x: 0, y: 0, z: 0}
+  m_RotationAtRest: {x: 0, y: 0, z: 0}
+  m_TranslationOffsets: []
+  m_RotationOffsets: []
+  m_AffectTranslationX: 1
+  m_AffectTranslationY: 1
+  m_AffectTranslationZ: 1
+  m_AffectRotationX: 1
+  m_AffectRotationY: 1
+  m_AffectRotationZ: 1
+  m_Active: 0
+  m_IsLocked: 0
+  m_Sources: []
 --- !u!1 &7474250417178598634
 GameObject:
   m_ObjectHideFlags: 0

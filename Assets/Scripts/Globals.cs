@@ -9,7 +9,8 @@ public static class Globals
 {
     public static readonly Vector2Int Purgatory = new(-666, -666);
     public const float PawnMoveDuration = 1f;
-    public const float HoveredHeight = 0.1f;
+    public const float HoveredHeight = 0.05f;
+    public const float SelectedHoveredHeight = 0.1f;
     public static readonly InputSystem_Actions InputActions = new();
     
     public static Guid LoadOrGenerateClientId()

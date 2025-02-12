@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using PrimeTween;
 using UnityEngine;
+using UnityEngine.Animations;
 using UnityEngine.U2D;
 
 public class PawnView : MonoBehaviour
@@ -13,6 +14,7 @@ public class PawnView : MonoBehaviour
     
     public SpriteAtlas symbols;
     public SpriteRenderer symbolRenderer;
+    public ParentConstraint parentConstraint;
     
     public Pawn pawn;
 
@@ -23,7 +25,10 @@ public class PawnView : MonoBehaviour
     public Shatter shatterEffect;
     public bool isSelected;
     public bool isHovered;
-    public bool isMoving;
+    bool isMoving;
+    
+    public Transform anchor;
+    public bool isAnchored;
 
     public GameObject badge;
     public SpriteRenderer badgeSpriteRenderer;
@@ -36,9 +41,15 @@ public class PawnView : MonoBehaviour
     Coroutine moveCoroutine;
     
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
-    
+
     public void Initialize(Pawn inPawn, TileView tileView)
     {
+        parentSource = new ConstraintSource
+        {
+            sourceTransform = GameManager.instance.boardManager.purgatory,
+            weight = 1,
+        };
+        parentConstraint.AddSource(parentSource);
         pawn = inPawn;
         gameObject.name = $"{pawn.team} Pawn {pawn.def.pawnName} {Shared.ShortGuid(pawn.pawnId)}";
         UpdateSprite();
@@ -54,11 +65,15 @@ public class PawnView : MonoBehaviour
         }
         if (tileView == null)
         {
-            transform.position = GameManager.instance.boardManager.purgatory.position;
+            SetParentConstraint(GameManager.instance.boardManager.purgatory);
+            SetParentConstraintActive(true);
+            //transform.position = GameManager.instance.boardManager.purgatory.position;
         }
         else
         {
-            transform.position = tileView.pawnOrigin.position;
+            SetParentConstraint(tileView.pawnOrigin);
+            SetParentConstraintActive(true);
+            //transform.position = tileView.pawnOrigin.position;
         }
         if (moveCoroutine != null)
         {
@@ -66,6 +81,23 @@ public class PawnView : MonoBehaviour
             moveCoroutine = null;
         }
         badge.SetActive(PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
+    }
+
+    ConstraintSource parentSource;
+    
+    public void SetParentConstraint(Transform parent)
+    {
+        parentSource = new ConstraintSource
+        {
+            sourceTransform = parent,
+            weight = 1,
+        };
+        parentConstraint.SetSource(0, parentSource);
+    }
+
+    public void SetParentConstraintActive(bool inActive)
+    {
+        parentConstraint.constraintActive = inActive;
     }
     
     public PawnChanges SyncState(SPawn state)
@@ -108,16 +140,18 @@ public class PawnView : MonoBehaviour
 
     public void UpdateViewPosition()
     {
-        Vector3 targetPosition;
+        SetParentConstraintActive(false);
         if (pawn.isAlive)
         {
-            targetPosition = GameManager.instance.boardManager.GetTileViewByPos(pawn.pos).pawnOrigin.position;
+            TileView tileView = GameManager.instance.boardManager.GetTileViewByPos(pawn.pos);
+            SetParentConstraint(tileView.pawnOrigin);
+            SetParentConstraintActive(true);
         }
         else
         {
-            targetPosition = GameManager.instance.boardManager.purgatory.position;
+            SetParentConstraint(GameManager.instance.boardManager.purgatory);
+            SetParentConstraintActive(true);
         }
-        transform.position = targetPosition;
     }
     
     public void RevealPawn(SPawn sPawn)
@@ -144,8 +178,9 @@ public class PawnView : MonoBehaviour
         billboard.GetComponent<SpriteToMesh>().Activate(displaySprite);
     }
     
-    public IEnumerator ArcToPosition(Vector3 targetPosition, float duration, float arcHeight)
+    public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
     {
+        SetParentConstraintActive(false);
         isMoving = true;
         Vector3 startPosition = transform.position;
         float elapsedTime = 0f;
@@ -157,7 +192,7 @@ public class PawnView : MonoBehaviour
             t = Shared.EaseOutQuad(t);
             
             // Interpolate position horizontally
-            Vector3 horizontalPosition = Vector3.Lerp(startPosition, targetPosition, t);
+            Vector3 horizontalPosition = Vector3.Lerp(startPosition, target.position, t);
 
             // Calculate vertical arc using a parabolic equation
             float verticalOffset = arcHeight * (1 - Mathf.Pow(2 * t - 1, 2)); // Parabolic equation: a(1 - (2t - 1)^2)
@@ -171,12 +206,13 @@ public class PawnView : MonoBehaviour
         }
 
         // Ensure the final position is set
-        transform.position = targetPosition;
-        if (targetPosition != GameManager.instance.boardManager.purgatory.position)
+        transform.position = target.position;
+        if (target.position != GameManager.instance.boardManager.purgatory.position)
         {
             GameManager.instance.boardManager.BounceBoard();
         }
         isMoving = false;
+        SetParentConstraint(target);
     }
     
     public void DisplaySymbol(Sprite sprite)
@@ -246,20 +282,20 @@ public class PawnView : MonoBehaviour
         if (!pawn.isAlive) return;
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
-        if (pawn.team == GameManager.instance.boardManager.team)
-        {
-            currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, Globals.HoveredHeight, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
-        }
-        else
-        {
-            if (model.transform.localPosition != Vector3.zero)
-            {
-                currentTween = Tween.LocalPosition(model.transform, Vector3.zero, 0.1f, Ease.OutCubic);
-            }
-        }
+        // if (pawn.team == GameManager.instance.boardManager.team)
+        // {
+        //     currentTween = Tween.LocalPosition(model.transform, inIsHovered ? new Vector3(0, Globals.HoveredHeight, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
+        // }
+        // else
+        // {
+        //     if (model.transform.localPosition != Vector3.zero)
+        //     {
+        //         currentTween = Tween.LocalPosition(model.transform, Vector3.zero, 0.1f, Ease.OutCubic);
+        //     }
+        // }
     }
 
-    public void SetSelect(bool inIsSelected)
+    public void OnSelect(bool inIsSelected)
     {
         isSelected = inIsSelected;
         SetMeshOutline(isSelected, "SelectOutline");
@@ -269,5 +305,10 @@ public class PawnView : MonoBehaviour
     public void OnHighlight(bool inIsHighlighted)
     {
         SetMeshOutline(inIsHighlighted, "Fill");
+    }
+
+    public void Elevate(float height)
+    {
+        
     }
 }

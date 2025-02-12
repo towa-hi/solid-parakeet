@@ -32,7 +32,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3053530017138402307}
-  - {fileID: 2505367880817683050}
   - {fileID: 5065171040404782200}
   - {fileID: 6705869125262566197}
   m_Father: {fileID: 0}
@@ -52,7 +51,8 @@ MonoBehaviour:
   tile:
     pos: {x: 0, y: 0}
     isPassable: 1
-    setupPlayer: 0
+    setupTeam: 0
+    autoSetupZone: 0
   pawnOrigin: {fileID: 2505367880817683050}
   floorObject: {fileID: 3459765316155163400}
   modelObject: {fileID: 2499942000709535878}
@@ -72,6 +72,7 @@ MonoBehaviour:
   isHovered: 0
   isHighlighted: 0
   isArrowed: 0
+  isSelected: 0
   fallSettings:
     startFromCurrent: 0
     startValue: {x: 0, y: -4, z: 0}
@@ -197,12 +198,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 702898978730955167}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0.1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 9153918511512494626}
+  m_Father: {fileID: 3053530017138402307}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2499942000709535878
 GameObject:
@@ -233,6 +234,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 2505367880817683050}
   - {fileID: 5697769257799177934}
   - {fileID: 841721976686111960}
   - {fileID: 6063954160065894135}

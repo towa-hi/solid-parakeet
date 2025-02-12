@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class SpotLight : MonoBehaviour
 {
-
+    public Light spotLight;
     public Transform target;
     public Transform restTarget;
 

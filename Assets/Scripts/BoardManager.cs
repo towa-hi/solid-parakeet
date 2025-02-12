@@ -16,13 +16,16 @@ public class BoardManager : MonoBehaviour
     public GameObject pawnPrefab;
     public BoardGrid grid;
     public ClickInputManager clickInputManager;
+    public Vortex vortex;
     
     public Team team;
     public Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
     
     public Vector2Int hoveredPos;
+    public PawnView previousHoveredPawnView;
     public PawnView currentHoveredPawnView;
+    public TileView previousHoveredTileView;
     public TileView currentHoveredTileView;
 
     public Transform waveStartPositionOne;
@@ -33,30 +36,25 @@ public class BoardManager : MonoBehaviour
     public SGameState serverGameState;
     
     // resolve stuff
-    bool isBattleHappening; // Move this into resolve phase later
+    bool isBattleHappening; // TODO: Move this into resolve phase later
 
     public IPhase currentPhase;
-    public Renderer floorRenderer;
 
     public event Action<IPhase> OnPhaseChanged;
     public event Action<PawnDef> OnSetupStateChanged;
-    public void InvokeOnSetupStateChanged(PawnDef selectedPawnDef) {OnSetupStateChanged?.Invoke(selectedPawnDef);}
     
-    static readonly int timeScaleID = Shader.PropertyToID("_TimeScale");
-    static readonly int breatheFloorID = Shader.PropertyToID("_BreatheFloor");
-    static readonly int breatheTimeID = Shader.PropertyToID("_BreatheTime");
-    static readonly int breathePowerID = Shader.PropertyToID("_BreathePower");
-    static readonly int twistednessID = Shader.PropertyToID("_Twistedness");
-
-    public float vortexTransitionDuration = 0.25f;
-    public Light directionalLight;
-    public Light spotLight;
+    public void InvokeOnSetupStateChanged(PawnDef selectedPawnDef) {OnSetupStateChanged?.Invoke(selectedPawnDef);}
     public SpotLight spotLightHandler;
     
     void Start()
     {
         clickInputManager.Initialize(this);
         SetPhase(new UninitializedPhase(this));
+    }
+
+    void Update()
+    {
+        currentPhase?.Update();
     }
     
     void SetPhase(IPhase newPhase)
@@ -65,86 +63,6 @@ public class BoardManager : MonoBehaviour
         currentPhase = newPhase;
         currentPhase.EnterState();
         OnPhaseChanged?.Invoke(currentPhase);
-    }
-
-    Coroutine currentVortexLerp;
-    public void StartVortex()
-    {
-        MaterialPropertyBlock block = new MaterialPropertyBlock();
-        floorRenderer.GetPropertyBlock(block);
-        float currentTimeScale = block.GetFloat(timeScaleID);
-        Debug.Log($"StartVortex started timescale at {currentTimeScale}");
-        if (currentVortexLerp != null)
-        {
-            StopCoroutine(currentVortexLerp);
-        }
-        currentVortexLerp = StartCoroutine(LerpVortex(true));
-    }
-
-    public void EndVortex()
-    {
-        MaterialPropertyBlock block = new MaterialPropertyBlock();
-        floorRenderer.GetPropertyBlock(block);
-        float currentTimeScale = block.GetFloat(timeScaleID);
-        Debug.Log($"EndVortex started timescale at {currentTimeScale}");
-        Debug.Log("EndVortex");
-        if (currentVortexLerp != null)
-        {
-            StopCoroutine(currentVortexLerp);
-        }
-        currentVortexLerp = StartCoroutine(LerpVortex(false));
-    }
-    
-    float EaseInOutQuad(float t) {
-        return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
-    }
-    
-    IEnumerator LerpVortex(bool isOn)
-    {
-        MaterialPropertyBlock block = new MaterialPropertyBlock();
-        floorRenderer.GetPropertyBlock(block);
-        float initTwistedness = block.GetFloat(twistednessID);
-        float initTimeScale = block.GetFloat(timeScaleID);
-        float initBreatheFloor = block.GetFloat(breatheFloorID);
-        float initBreatheTime = block.GetFloat(breatheTimeID);
-        float initDirectionalLightIntensity = directionalLight.intensity;
-        float initSpotLightIntensity = spotLight.intensity;
-        //float initBreathePower = block.GetFloat(breathePowerID);
-        float targetTwistedness = isOn ? 0f : 1f;
-        float targetTimeScale = isOn? -1f : -0.1f;
-        float targetDirectionalLightIntensity = isOn ? 1f : 2.5f;
-        float targetSpotLightIntensity = isOn ? 40f : 0f;
-       // float targetBreatheFloor = isOn? 4f : 1.88f;
-        //float targetBreatheTime = isOn ? 5.3f : 2f;
-        //float targetBreathePower = isOn ? 200f : 0.12f;
-        
-        float elapsedTime = 0f;
-        while (elapsedTime < vortexTransitionDuration)
-        {
-            float t = elapsedTime / vortexTransitionDuration;
-            float easedT = EaseInOutQuad(t);
-            elapsedTime += Time.deltaTime;
-            float currentTwistedness = Mathf.Lerp(initTwistedness, targetTwistedness, easedT);
-            float currentTimeScale = Mathf.Lerp(initTimeScale, targetTimeScale, easedT);
-            float currentDirectionalLightIntensity = Mathf.Lerp(initDirectionalLightIntensity, targetDirectionalLightIntensity, easedT);
-            float currentSpotLightIntensity = Mathf.Lerp(initSpotLightIntensity, targetSpotLightIntensity, easedT);
-            //float currentBreatheFloor = Mathf.Lerp(initBreatheFloor, targetBreatheFloor, delta);
-            //float currentBreatheTime = Mathf.Lerp(initBreatheTime, targetBreatheTime, delta);
-            //float currentBreathePower = Mathf.Lerp(initBreathePower, targetBreathePower, delta);
-            block.SetFloat(timeScaleID, currentTimeScale);
-            block.SetFloat(twistednessID, currentTwistedness);
-            directionalLight.intensity = currentDirectionalLightIntensity;
-            spotLight.intensity = currentSpotLightIntensity;
-            //currentBlock.SetFloat(breatheFloorID, currentBreatheFloor);
-            //currentBlock.SetFloat(breatheTimeID, currentBreatheTime);
-            //block.SetFloat(breathePowerID, currentBreathePower);
-            floorRenderer.SetPropertyBlock(block);
-            yield return null;
-        }
-        //block.SetFloat(breatheFloorID, targetBreatheFloor);
-        //block.SetFloat(breatheTimeID, targetBreatheTime);
-        //block.SetFloat(breathePowerID, targetBreathePower);
-        
     }
     
     #region Responses
@@ -214,11 +132,11 @@ public class BoardManager : MonoBehaviour
         switch (eventType)
         {
             case ResolveEvent.MOVE:
-                Vector3 target = GetTileViewByPos(eventState.targetPos).pawnOrigin.position;
+                TileView targetTileView = GetTileViewByPos(eventState.targetPos);
                 spotLightHandler.LookAt(pawnView.transform);
-                if (pawnView.transform.position != target)
+                if (pawnView.transform.position != targetTileView.pawnOrigin.position)
                 {
-                    yield return StartCoroutine(pawnView.ArcToPosition(target, Globals.PawnMoveDuration, 0.25f));
+                    yield return StartCoroutine(pawnView.ArcToPosition(targetTileView.pawnOrigin, Globals.PawnMoveDuration, 0.25f));
                 }
                 break;
             case ResolveEvent.CONFLICT:
@@ -227,8 +145,8 @@ public class BoardManager : MonoBehaviour
                 SPawn defenderPawnState = receipt.gameState.GetPawnById(eventState.defenderPawnId);
                 pawnView.RevealPawn(pawnState);
                 defenderPawnView.RevealPawn(defenderPawnState);
-                Vector3 conflictTarget = GetTileViewByPos(eventState.targetPos).pawnOrigin.position;
-                yield return StartCoroutine(pawnView.ArcToPosition(conflictTarget, Globals.PawnMoveDuration, 0.25f));
+                TileView conflictTileView = GetTileViewByPos(eventState.targetPos);
+                yield return StartCoroutine(pawnView.ArcToPosition(conflictTileView.pawnOrigin, Globals.PawnMoveDuration, 0.25f));
                 SPawn redPawnState;
                 SPawn bluePawnState;
                 if (pawnState.team == (int)Team.RED)
@@ -275,7 +193,8 @@ public class BoardManager : MonoBehaviour
                 Vector3 purgatoryTarget = GameManager.instance.boardManager.purgatory.position;
                 spotLightHandler.LookAt(null);
                 pawnView.billboard.GetComponent<Shatter>().ShatterEffect();
-                pawnView.transform.position = purgatoryTarget;
+                // TODO: see if this is needful
+                //pawnView.transform.position = purgatoryTarget;
                 //yield return StartCoroutine(pawnView.ArcToPosition(purgatoryTarget, Globals.PAWNMOVEDURATION, 2f));
                 break;
             default:
@@ -316,8 +235,8 @@ public class BoardManager : MonoBehaviour
     void OnPositionHovered(Vector2Int oldPos, Vector2Int newPos)
     {
         // Store references to previous hovered pawn and tile
-        PawnView previousHoveredPawnView = currentHoveredPawnView;
-        TileView previousHoveredTileView = currentHoveredTileView;
+        previousHoveredPawnView = currentHoveredPawnView;
+        previousHoveredTileView = currentHoveredTileView;
         // Update current hovered pawn and tile based on new position
         if (IsPosValid(newPos))
         {
@@ -359,14 +278,20 @@ public class BoardManager : MonoBehaviour
         }
         // Update the hovered position
         hoveredPos = newPos;
-        currentPhase.OnHover(oldPos, newPos);
+        currentPhase.OnHover(
+            newPos, 
+            oldPos, 
+            currentHoveredTileView, 
+            previousHoveredTileView, 
+            currentHoveredPawnView, 
+            previousHoveredPawnView);
     }
     
     void OnClick(Vector2 screenPointerPosition, Vector2Int hoveredPosition)
     {
         currentPhase.OnClick(hoveredPosition);
     }
-    
+
     #endregion
 
     Sequence bounceSequence;
@@ -440,10 +365,17 @@ public interface IPhase
 {
     public void EnterState();
     public void ExitState();
-
-    public void OnHover(Vector2Int oldPos, Vector2Int newPos);
+    public void Update();
+    public void OnHover(
+        Vector2Int newPos, 
+        Vector2Int oldPos, 
+        TileView currentHoveredTileView, 
+        TileView previousHoveredTileView, 
+        PawnView currentHoveredPawnView, 
+        PawnView previousHoveredPawnView);
 
     public void OnClick(Vector2Int hoveredPosition);
+
 }
 
 public class UninitializedPhase : IPhase
@@ -454,25 +386,17 @@ public class UninitializedPhase : IPhase
         bm = inBoardManager;
     }
     
-    public void EnterState()
-    {
-        
-    }
+    public void EnterState() {}
 
-    public void ExitState()
-    {
+    public void ExitState() {}
 
-    }
+    public void Update() {}
+    
 
-    public void OnHover(Vector2Int oldPos, Vector2Int newPos)
-    {
+    public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
+        PawnView currentHoveredPawnView, PawnView previousHoveredPawnView) {}
 
-    }
-
-    public void OnClick(Vector2Int hoveredPosition)
-    {
-
-    }
+    public void OnClick(Vector2Int hoveredPosition) {}
 }
 
 public class SetupPhase : IPhase
@@ -541,7 +465,10 @@ public class SetupPhase : IPhase
         bm.ClearPawnViews();
     }
 
-    public void OnHover(Vector2Int oldPos, Vector2Int newPos)
+    public void Update() {}
+    
+    public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
+        PawnView currentHoveredPawnView, PawnView previousHoveredPawnView)
     {
         
     }
@@ -699,7 +626,9 @@ public class WaitingPhase : IPhase
 
     public void ExitState() {}
 
-    public void OnHover(Vector2Int oldPos, Vector2Int newPos) {}
+    public void Update() {}
+    public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
+        PawnView currentHoveredPawnView, PawnView previousHoveredPawnView) {}
 
     public void OnClick(Vector2Int hoveredPosition) {}
 }
@@ -708,8 +637,10 @@ public class MovePhase : IPhase
 {
     BoardManager bm;
     SGameState gameStateForHoldingOnly;
-    public PawnView selectedPawnView;
-    public SQueuedMove? maybeQueuedMove;
+    
+    PawnView selectedPawnView;
+    TileView selectedTileView;
+    SQueuedMove? maybeQueuedMove;
     HashSet<TileView> highlightedTileViews = new();
     HashSet<PawnView> highlightedPawnViews = new();
     bool moveSubmitted = false;
@@ -726,7 +657,7 @@ public class MovePhase : IPhase
         bm = inBoardManager;
         isInitialMove = false;
     }
-    
+
     public void EnterState()
     {
         if (isInitialMove)
@@ -748,7 +679,7 @@ public class MovePhase : IPhase
         }
         else
         {
-            bm.EndVortex();
+            bm.vortex.EndVortex();
         }
     }
 
@@ -756,7 +687,7 @@ public class MovePhase : IPhase
     {
         Debug.Assert(moveSubmitted);
         bm.ClearOutlineEffects();
-        SelectPawnView(null);
+        ClearSelection();
         if (!maybeQueuedMove.HasValue)
         {
             throw new Exception("maybeQueuedMove cant be null when exiting resolve phase");
@@ -773,68 +704,43 @@ public class MovePhase : IPhase
         }
     }
 
-    public void OnHover(Vector2Int oldPos, Vector2Int newPos)
+    public void Update() {}
+
+    public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
+        PawnView currentHoveredPawnView, PawnView previousHoveredPawnView)
     {
-        
+        if (previousHoveredTileView && previousHoveredTileView != selectedTileView)
+        {
+            Debug.LogWarning($"Elevate caused by hover exit to {previousHoveredTileView.tile.pos}");
+            ElevatePos(oldPos, 0);
+        }
+        if (currentHoveredTileView && currentHoveredTileView != selectedTileView && IsPawnViewSelectable(currentHoveredPawnView))
+        {
+            Debug.LogWarning($"Elevate caused by hover to {currentHoveredTileView.tile.pos}");
+            ElevatePos(newPos, Globals.HoveredHeight);
+        }
     }
 
     public void OnClick(Vector2Int hoveredPosition)
     {
+        // input handling
         if (bm.clickInputManager.isOverUI)
         {
             // do nothing
         }
-        else if (!bm.IsPosValid(hoveredPosition))
+        // selection logic
+        ClearSelection();
+        if (!bm.IsPosValid(hoveredPosition))
         {
-            if (selectedPawnView != null)
-            {
-                SelectPawnView(null);
-            }
+            return;
         }
-        else if (selectedPawnView != null)
+        // if is selectable
+        if (IsPawnViewSelectable(bm.currentHoveredPawnView))
         {
-            if (bm.currentHoveredPawnView != null && bm.currentHoveredPawnView.pawn.team == bm.team)
-            {
-                if (bm.currentHoveredPawnView == selectedPawnView)
-                {
-                    SelectPawnView(null);
-                    Debug.Log("OnClick: deselected because clicked the selected pawn");
-                }
-                else
-                {
-                    SelectPawnView(bm.currentHoveredPawnView);
-                    Debug.Log("OnClick: selected a different pawn");
-                }
-            }
-            else
-            {
-                bool success = TryQueueMove(selectedPawnView, hoveredPosition);
-                SelectPawnView(null);
-                if (success)
-                {
-                    Debug.Log("OnClick: queued a move");
-                    if (PlayerPrefs.GetInt("FASTMODE") == 1)
-                    {
-                        OnSubmitMove();
-                    }
-                }
-                else
-                {
-                    Debug.Log("OnClick: failed to queue a move");
-                }
-            }
-        }
-        else
-        {
-            if (bm.currentHoveredPawnView != null && bm.currentHoveredPawnView.pawn.team == bm.team)
-            {
-                SelectPawnView(bm.currentHoveredPawnView);
-                Debug.Log("OnClick: selecting pawn");
-            }
-            else
-            {
-                Debug.Log("OnClick: doing nothing, clicked an empty tile with nothing selected");
-            }
+            SelectPawnViewAndTileView(bm.currentHoveredPawnView, bm.currentHoveredTileView);
+            Debug.LogWarning($"Elevate caused by new selection to {selectedTileView.tile.pos}");
+            ElevatePos(hoveredPosition, Globals.SelectedHoveredHeight);
+            maybeQueuedMove = null;
         }
     }
 
@@ -847,40 +753,92 @@ public class MovePhase : IPhase
         }
     }
     
-    void SelectPawnView(PawnView pawnView)
+    void ClearSelection()
     {
+        if (selectedPawnView)
+        {
+            selectedPawnView.OnSelect(false);
+        }
+        if (selectedTileView)
+        {
+            selectedTileView.OnSelect(false);
+            Debug.LogWarning($"Elevate caused by clear selection to {selectedTileView.tile.pos}");
+            selectedTileView.Elevate(0);
+        }
+        selectedPawnView = null;
+        selectedTileView = null;
+        // clear highlights
         foreach (TileView highlightedTileView in highlightedTileViews)
         {
             highlightedTileView.OnHighlight(false);
         }
+        highlightedTileViews.Clear();
         foreach (PawnView highlightedPawnView in highlightedPawnViews)
         {
             highlightedPawnView.OnHighlight(false);
         }
-        if (selectedPawnView)
+        highlightedPawnViews.Clear();
+    }
+
+    void ElevatePos(Vector2Int pos, float height)
+    {
+        if (!bm.IsPosValid(pos))
         {
-            selectedPawnView.SetSelect(false);
+            return;
         }
+        PawnView pawnView = bm.GetPawnViewByPos(pos);
+        TileView tileView = bm.GetTileViewByPos(pos);
+        tileView.Elevate(height);
+        if (pawnView)
+        {
+            pawnView.Elevate(height);
+        }
+    }
+    
+    bool IsPawnViewSelectable(PawnView pawnView)
+    {
+        if (!pawnView)
+        {
+            return false;
+        }
+        if (pawnView.pawn.team != bm.team)
+        {
+            return false;
+        }
+        return true;
+    }
+    
+    void SelectPawnViewAndTileView(PawnView pawnView, TileView tileView)
+    {
+        Debug.Log($"SelectPawnViewAndTileView {pawnView}");
+        Debug.Assert(pawnView.pawn.pos == tileView.tile.pos);
         selectedPawnView = pawnView;
+        selectedTileView = tileView;
         if (selectedPawnView)
         {
-            highlightedTileViews.Clear();
-            pawnView.SetSelect(true);
-            SPawn selectedPawnState = bm.serverGameState.GetPawnById(pawnView.pawn.pawnId);
+            selectedPawnView.OnSelect(true);
+            // reapply highlights
+            SPawn selectedPawnState = bm.serverGameState.GetPawnById(selectedPawnView.pawn.pawnId);
             STile[] tiles = bm.serverGameState.GetMovableTiles(selectedPawnState);
-            foreach (STile tile in tiles)
+            foreach (STile movableTile in tiles)
             {
-                TileView tileView = bm.GetTileViewByPos(tile.pos);
-                tileView.OnHighlight(true);
-                highlightedTileViews.Add(tileView);
-                PawnView pawnViewOnTile = bm.GetPawnViewByPos(tile.pos);
-                if (pawnViewOnTile)
+                TileView movableTileView = bm.GetTileViewByPos(movableTile.pos);
+                movableTileView.OnHighlight(true);
+                highlightedTileViews.Add(movableTileView);
+                PawnView pawnViewOnMovableTile = bm.GetPawnViewByPos(movableTile.pos);
+                if (pawnViewOnMovableTile)
                 {
-                    highlightedPawnViews.Add(pawnViewOnTile);
-                    pawnViewOnTile.OnHighlight(true);
+                    highlightedPawnViews.Add(pawnViewOnMovableTile);
+                    pawnViewOnMovableTile.OnHighlight(true);
                 }
             }
         }
+        if (selectedTileView)
+        {
+            selectedTileView.OnSelect(true);
+        }
+        Debug.Assert(selectedPawnView);
+        Debug.Assert(selectedTileView);
     }
     
     bool TryQueueMove(PawnView pawnView, Vector2Int pos)
@@ -921,7 +879,7 @@ public class ResolvePhase : IPhase
     public void EnterState()
     {
         bm.serverGameState = receipt.gameState;
-        bm.StartVortex();
+        bm.vortex.StartVortex();
     }
 
     public void ExitState()
@@ -929,7 +887,10 @@ public class ResolvePhase : IPhase
 
     }
 
-    public void OnHover(Vector2Int oldPos, Vector2Int newPos)
+    public void Update() {}
+    
+    public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
+        PawnView currentHoveredPawnView, PawnView previousHoveredPawnView)
     {
         
     }
@@ -961,7 +922,10 @@ public class EndPhase : IPhase
 
     }
 
-    public void OnHover(Vector2Int oldPos, Vector2Int newPos)
+    public void Update() {}
+
+    public void OnHover(Vector2Int newPos, Vector2Int oldPos, TileView currentHoveredTileView, TileView previousHoveredTileView,
+        PawnView currentHoveredPawnView, PawnView previousHoveredPawnView)
     {
         
     }

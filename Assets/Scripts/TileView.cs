@@ -33,10 +33,12 @@ public class TileView : MonoBehaviour
     [SerializeField] bool isHovered;
     [SerializeField] bool isHighlighted;
     [SerializeField] bool isArrowed;
+    [SerializeField] bool isSelected;
     
     [SerializeField] TweenSettings<Vector3> fallSettings;
-    
-    
+
+    Vector3 hoveredModelPosition = new Vector3(0, Globals.HoveredHeight, 0);
+    Vector3 selectedModelPosition = new Vector3(0, Globals.SelectedHoveredHeight, 0);
     uint currentRenderingLayerMask;
 
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
@@ -175,20 +177,13 @@ public class TileView : MonoBehaviour
         if (!tile.isPassable) return;
         isHovered = inIsHovered;
         SetMeshOutline(isHovered, "HoverOutline");
-        PawnView pawnView = GameManager.instance.boardManager.GetPawnViewByPos(tile.pos);
-        if (pawnView && pawnView.pawn.team == GameManager.instance.boardManager.team)
-        {
-            currentTween = Tween.LocalPosition(modelObject.transform, inIsHovered ? new Vector3(0, Globals.HoveredHeight, 0) : Vector3.zero, 0.3f, Ease.OutCubic);
-        }
-        else
-        {
-            if (modelObject.transform.localPosition != Vector3.zero)
-            {
-                currentTween = Tween.LocalPosition(modelObject.transform, Vector3.zero, 0.3f, Ease.OutCubic);
-            }
-        }
     }
-
+    
+    public void OnSelect(bool inIsSelected)
+    {
+        isSelected = inIsSelected;
+    }
+    
     // Add the OnHighlight method
     public void OnHighlight(bool inIsHighlighted)
     {
@@ -200,5 +195,20 @@ public class TileView : MonoBehaviour
     {
         isArrowed = inIsArrowed;
         arrow.SetActive(isArrowed);
+    }
+
+    public void Elevate(float height)
+    {
+        Vector3 destination = new Vector3(0, height, 0);
+        if (modelObject.transform.position != destination)
+        {
+            //Debug.Log($"Elevate {tile.pos} {destination}");
+            currentTween.Stop();
+            currentTween = Tween.LocalPosition(modelObject.transform, destination, 0.3f, Ease.OutCubic);
+        }
+        else
+        {
+            //Debug.Log($"Elevate didn't change at {tile.pos}");
+        }
     }
 }
