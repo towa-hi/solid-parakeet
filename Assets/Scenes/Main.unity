@@ -3357,7 +3357,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b1a354568423554aa91ad1aae367434, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  contract: CCSNEMSRSVXPDSGIR2KX6KGLKHDSSNSRDUH34S4AMYOG47YVRD5YIIKT
+  contract: 
 --- !u!4 &667410737
 Transform:
   m_ObjectHideFlags: 0

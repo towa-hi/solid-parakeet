@@ -174,7 +174,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            await stellarManager.ConnectToNetwork();
+            await stellarManager.CheckWallet();
             //client = new GameClient();
             Debug.Log("GameManager: Initialized GameClient for online mode.");
         }
