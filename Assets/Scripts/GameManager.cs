@@ -131,7 +131,7 @@ public class GameManager : MonoBehaviour
         }
         if (!PlayerPrefs.HasKey("FASTMODE"))
         {
-            settingsManager.SetFastMode(false);
+            settingsManager.SetFastMode(true);
         }
         if (!PlayerPrefs.HasKey("DISPLAYBADGE"))
         {
@@ -174,7 +174,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            await stellarManager.CheckWallet();
+            await stellarManager.OnConnectWallet();
             //client = new GameClient();
             Debug.Log("GameManager: Initialized GameClient for online mode.");
         }

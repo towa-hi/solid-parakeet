@@ -6,6 +6,7 @@ using UnityEngine;
 public class CameraManager : MonoBehaviour
 {
     public CameraAnchor startAnchor;
+    public CameraAnchor networkAnchor;
     public CameraAnchor boardAnchor;
     public CameraAnchor gateAnchor;
     public CameraAnchor lobbySetupAnchor;
@@ -52,30 +53,7 @@ public class CameraManager : MonoBehaviour
     MenuElement currentElement;
     void OnShowMenu(MenuElement menu)
     {
-        switch (menu)
-        {
-            case GuiStartMenu guiStartMenu:
-                MoveCameraTo(startAnchor, false);
-                break;
-            case GuiMainMenu guiMainMenu:
-                MoveCameraTo(gateAnchor, false);
-                break;
-            case GuiSettingsMenu guiSettingsMenu:
-                MoveCameraTo(settingsAnchor, false);
-                break;
-            case GuiLobbySetupMenu guiLobbySetupMenu:
-                MoveCameraTo(lobbySetupAnchor, false);
-                break;
-            case GuiLobbyMenu guiLobbyMenu:
-                MoveCameraTo(lobbyAnchor, false);
-                break;
-            case GuiGame guiGame:
-                MoveCameraTo(boardAnchor, true);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(menu));
-        }
-
+        MoveCameraTo(menu.cameraAnchor, menu.cameraRotationEnabled);
         currentElement = menu;
     }
 
@@ -87,6 +65,8 @@ public class CameraManager : MonoBehaviour
         if (target.GetPosition() == mainCamera.transform.position)
         {
             Debug.Log("MoveCameraTo: already here");
+            SetRotateOnMouse(inRotateOnMouse);
+            OnTransitionFinished();
             return;
         }
         currentTarget = target;

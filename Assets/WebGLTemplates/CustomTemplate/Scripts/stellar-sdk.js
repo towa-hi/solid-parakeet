@@ -5601,7 +5601,7 @@ var types = XDR.config(function (xdr) {
     switchName: "type",
     switches: [["revokeSponsorshipLedgerEntry", "ledgerKey"], ["revokeSponsorshipSigner", "signer"]],
     arms: {
-      ledgerKey: xdr.lookup("LedgerKey"),
+      ledgerkeyledgerKey: xdr.lookup("LedgerKey"),
       signer: xdr.lookup("RevokeSponsorshipOpSigner")
     }
   });

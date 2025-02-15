@@ -4,6 +4,7 @@ using UnityEngine;
 public class GuiManager : MonoBehaviour
 {
     public GuiStartMenu startMenu;
+    public GuiNetworkMenu networkMenu;
     public GuiMainMenu mainMenu;
     public GuiSettingsMenu settingsMenu;
     public GuiLobbySetupMenu lobbySetupMenu;
@@ -33,6 +34,10 @@ public class GuiManager : MonoBehaviour
         // Start menu events
         startMenu.OnConnectButton += OnConnectButton;
         startMenu.OnOfflineButton += OnOfflineButton;
+        // Network menu events
+        networkMenu.OnConnectWalletButton += OnConnectWalletButton;
+        networkMenu.OnTestButton += OnTestButton;
+        networkMenu.OnBackButton += OnNetworkBackButton;
         // Main menu events
         mainMenu.OnChangeNicknameButton += OnChangeNicknameButton;
         mainMenu.OnNewLobbyButton += OnNewLobbyButton;
@@ -119,7 +124,7 @@ public class GuiManager : MonoBehaviour
     void OnConnectButton()
     {
         Debug.Log("OnConnectButton");
-        GameManager.instance.SetOfflineMode(false);
+        ShowMenu(networkMenu);
     }
     
     void OnOfflineButton()
@@ -127,6 +132,26 @@ public class GuiManager : MonoBehaviour
         Debug.Log("OnOfflineButton");
         GameManager.instance.SetOfflineMode(true);
         GameManager.instance.Lightning();
+    }
+    
+    // network menu
+
+    void OnConnectWalletButton()
+    {
+        Debug.Log("OnConnectWalletButton");
+        GameManager.instance.stellarManager.OnConnectWallet();
+    }
+
+    void OnTestButton()
+    {
+        Debug.Log("OnTestButton");
+        GameManager.instance.stellarManager.TestFunction();
+    }
+
+    void OnNetworkBackButton()
+    {
+        Debug.Log("OnNetworkBackButton");
+        ShowMenu(startMenu);
     }
     
     // main menu

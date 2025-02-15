@@ -1,32 +1,84 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 public class StellarManager : MonoBehaviour
 {
-    [DllImport("__Internal")]
-    static extern void SendUnityMessage();
-    
     [DllImport("__Internal")]
     static extern void JSCheckWallet();
 
     [DllImport("__Internal")]
     static extern void JSGetAddress();
+
+    [DllImport("__Internal")]
+    static extern void JSGetUser(string addressPtr, string contractAddressPtr);
     
-    [DllImport("__Internal")] 
-    static extern void JSInvokeContractFunction(string addressPtr, string contractAddressPtr, string contractFunctionPtr, string dataPtr, int transactionTimeoutSec, int pingFrequencyMS);
+    [DllImport("__Internal")]
+    static extern void JSInvokeContractFunction(string addressPtr, string contractAddressPtr, string contractFunctionPtr, string dataPtr);
     
     string contract = "CCK2WEL5BBKDIMEIGMBEIS4CQLEI3D6CI5EFH52J4DOKNKR5AUR5UTYZ";
-    //public string address = "";
     
     TaskCompletionSource<StellarResponseData> checkWalletTaskSource;
     TaskCompletionSource<StellarResponseData> getAddressTaskSource;
+    TaskCompletionSource<StellarResponseData> getUserTaskSource;
     TaskCompletionSource<StellarResponseData> invokeContractFunctionTaskSource;
     
-    public async Task<StellarResponseData> CheckWallet()
+    // state
+    public bool registered = false;
+    public string currentAddress = "";
+    public event Action<bool> OnWalletConnected; 
+
+    public async Task<bool> OnConnectWallet()
     {
 #if UNITY_WEBGL
+        string name = "wewlad";
+        StellarResponseData checkWalletResult = await CheckWallet();
+        if (checkWalletResult.code != 1)
+        {
+            OnWalletConnected?.Invoke(false);
+            return false;
+        };
+        StellarResponseData getAddressResult = await GetAddress();
+        if (getAddressResult.code != 1)
+        {
+            OnWalletConnected?.Invoke(false);
+            return false;
+        };
+        currentAddress = getAddressResult.data;
+        StellarResponseData invokeRegisterResult = await InvokeContractFunction(getAddressResult.data, contract, "register", name);
+        if (invokeRegisterResult.code != 1)
+        {
+            OnWalletConnected?.Invoke(false);
+            return false;
+        };
+        registered = true;
+        Debug.Log("OnConnectWallet completed");
+        OnWalletConnected?.Invoke(true);
+        return true;
+#else
+        throw new Exception("not WebGL")
+#endif
+    }
+
+    public async Task<bool> TestFunction()
+    {
+#if UNITY_WEBGL
+        if (!registered) return false;
+        getUserTaskSource = new TaskCompletionSource<StellarResponseData>();
+        JSGetUser(currentAddress, contract);
+        StellarResponseData getUserRes = await getUserTaskSource.Task;
+        Debug.Log(getUserRes.code);
+        return true;
+#else
+        throw new Exception("not WebGL")
+#endif
+    }
+    
+    async Task<StellarResponseData> CheckWallet()
+    {
         if (checkWalletTaskSource != null && !checkWalletTaskSource.Task.IsCompleted)
         {
             throw new Exception("CheckWallet() is already in progress");
@@ -35,21 +87,11 @@ public class StellarManager : MonoBehaviour
         JSCheckWallet();
         StellarResponseData checkWalletRes = await checkWalletTaskSource.Task;
         checkWalletTaskSource = null;
-        if (checkWalletRes.code != 1) throw new Exception("FUCK");
-        StellarResponseData getAddressRes = await GetAddress();
-        if (getAddressRes.code != 1) throw new Exception("WEWLAD");
-        string address = getAddressRes.data;
-        StellarResponseData invokeContractFunctionRes = await InvokeContractFunction(address, contract, "register", "newname");
-        Debug.Log(invokeContractFunctionRes.data);
         return checkWalletRes;
-#else
-        throw new Exception("not WebGL")
-#endif
     }
     
-    public async Task<StellarResponseData> GetAddress()
+    async Task<StellarResponseData> GetAddress()
     {
-#if UNITY_WEBGL
         if (getAddressTaskSource != null && !getAddressTaskSource.Task.IsCompleted)
         {
             throw new Exception("GetAddress() is already in progress");
@@ -57,53 +99,51 @@ public class StellarManager : MonoBehaviour
         getAddressTaskSource = new TaskCompletionSource<StellarResponseData>();
         JSGetAddress();
         StellarResponseData response = await getAddressTaskSource.Task;
+        // TODO: fix the freighter returning empty address when not logged in bug by running twice if detected
         getAddressTaskSource = null;
         return response;
-#else
-        throw new Exception("not WebGL")
-#endif
     }
     
     async Task<StellarResponseData> InvokeContractFunction(string address, string contractAddress, string function, string data)
     {
-#if UNITY_WEBGL
         if (invokeContractFunctionTaskSource != null && !invokeContractFunctionTaskSource.Task.IsCompleted)
         {
             throw new Exception("InvokeContractFunction() is already in progress");
         }
         invokeContractFunctionTaskSource = new TaskCompletionSource<StellarResponseData>();
         Debug.Log($"contract address: {contractAddress}");
-        JSInvokeContractFunction(address, contractAddress, function, data, 100, 2000);
+        JSInvokeContractFunction(address, contractAddress, function, data);
         StellarResponseData response = await invokeContractFunctionTaskSource.Task;
         return response;
-#else
-        throw new Exception("not WebGL")
-#endif
     }
-
+    
+    // NOTE: called from JS only
     public void StellarResponse(string json)
     {
         try
         {
             StellarResponseData response = JsonUtility.FromJson<StellarResponseData>(json);
-            switch (response.function)
+            if (response.code == -666)
             {
-                case "_JSCheckWallet":
-                    checkWalletTaskSource.SetResult(response);
-                    break;
-                case "_JSGetAddress":
-                    getAddressTaskSource.SetResult(response);
-                    break;
-                case "_JSInvokeContractFunction":
-                    invokeContractFunctionTaskSource.SetResult(response);
-                    break;
-                default:
-                    throw new Exception($"function not found {response.function}");
+                throw new Exception($"StellarResponse() got unspecified error: {response}");
             }
+            TaskCompletionSource<StellarResponseData> task = response.function switch
+            {
+                "_JSCheckWallet" => checkWalletTaskSource,
+                "_JSGetAddress" => getAddressTaskSource,
+                "_JSGetUser" => getUserTaskSource,
+                "_JSInvokeContractFunction" => invokeContractFunctionTaskSource,
+                _ => throw new Exception($"StellarResponse() function not found {response}")
+            };
+            if (task == null)
+            {
+                throw new Exception($"StellarResponse() task was null: {response}");
+            }
+            task.SetResult(response);
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Debug.Log($"StellarResponse() unspecified error {e}");
             throw;
         }
     }
