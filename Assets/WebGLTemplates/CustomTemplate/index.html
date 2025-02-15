@@ -8,7 +8,12 @@
     <link rel="stylesheet" href="TemplateData/style.css">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/3.0.0/index.min.js"></script>
 	<script src="Scripts/stellar-sdk.js"></script>
-	<script src="https://unpkg.com/@stellar/stellar-xdr-json-web@0.0.2/dist/index.js"></script>
+	<script type="module">
+		import init, { decode, encode, guess, types, schema } from './Scripts/stellar_xdr_json.js';
+		init().then(() => {
+			window.xdr = { decode, encode, guess, types, schema };
+		});
+	</script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">

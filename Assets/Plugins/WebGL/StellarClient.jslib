@@ -2,6 +2,7 @@ mergeInto(LibraryManager.library, {
     JSCheckWallet: async function()
     {
         const FreighterApi = window.freighterApi;
+        console.log(window.xdr.types());
         // check if web template html has freighter
         if (!FreighterApi) {
             Module.SendUnityMessage(-1, `JSCheckWallet() failed because Freighter API not detected.`);
@@ -51,9 +52,9 @@ mergeInto(LibraryManager.library, {
 
     JSGetUser: async function(addressPtr, contractAddressPtr)
     {
-        const {Api, rpc, xdr, StrKey, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address} = StellarSdk;
+        const {rpc, xdr, StrKey, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address} = StellarSdk;
         const server = new rpc.Server("https://soroban-testnet.stellar.org");
-        const stellarXDR = window.stellarXDR;
+        const xdrJson = window.xdr;
         
         const currentNetwork = Networks.TESTNET;
         // params
@@ -80,9 +81,26 @@ mergeInto(LibraryManager.library, {
         );
         console.log(`ledgerKey.toXDR: ${ledgerKey.toXDR('base64')}`);
         const getLedgerEntriesRes = await server.getLedgerEntries(ledgerKey);
-        console.log("getLedgerEntriesRes", getLedgerEntriesRes)
-        
-        
+        const entry = getLedgerEntriesRes.entries[0];
+        console.log("entry", entry);
+        const valString = entry.val.toXDR('base64');
+        console.log("valString", valString);
+        const entryDataJson = xdrJson.decode("LedgerEntryData", valString);
+        console.log("entryDataJson", entryDataJson);
+        // TODO: finish this to return all entries
+        // let entries = getLedgerEntriesRes.entries.map(entry => {
+        //     return {
+        //         key: xdrJson.decode("LedgerKey", entry.key),
+        //         value: xdrJson.decode("LedgerEntryData", entry.value),
+        //         lastModifiedLedgerSeq: entry.lastModifiedLedgerSeq,
+        //         liveUntilLedgerSeq: entry.liveUntilLedgerSeq,
+        //     };
+        // });
+        // const jsonEntries = JSON.stringify({
+        //     entries,
+        //     latestLedger: getLedgerEntriesRes.latestLedger,
+        // });
+        // console.log("getLedgerEntriesRes", jsonEntries);
         Module.SendUnityMessage(1, "done");
     },
 
