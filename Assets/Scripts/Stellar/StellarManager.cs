@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -47,35 +49,6 @@ public class StellarManager : MonoBehaviour
     };
     
     #region Public
-
-    public ContractDataEntry lastEntry;
-    public void JsonTest()
-    {
-        string val = @"{""entries"":[{""contract_data"":{""ext"":""v0"",""contract"":""CCK2WEL5BBKDIMEIGMBEIS4CQLEI3D6CI5EFH52J4DOKNKR5AUR5UTYZ"",""key"":{""vec"":[{""symbol"":""User""},{""address"":""GAAFFCDB2UOOS7YHGL3M3YGTMKTQA35II64JKSGPEBXVZ5BRABDY65HH""}]},""durability"":""persistent"",""val"":{""map"":[{""key"":{""symbol"":""current_lobby""},""val"":""void""},{""key"":{""symbol"":""games_played""},""val"":{""u32"":0}},{""key"":{""symbol"":""name""},""val"":{""string"":""wewlad""}},{""key"":{""symbol"":""user_id""},""val"":{""address"":""GAAFFCDB2UOOS7YHGL3M3YGTMKTQA35II64JKSGPEBXVZ5BRABDY65HH""}}]}}}]}";
-        Debug.Log(val);
-        JObject json = JObject.Parse(val);
-        // GetLedgerEntriesResult rpcResponse = JsonConvert.DeserializeObject<GetLedgerEntriesResult>(val, jsonSettings);
-        //
-        // JObject responseJson = JObject.Parse(val);
-        // foreach (Entries entry in rpcResponse.Entries)
-        // {
-        //     LedgerEntry.dataUnion.ContractData data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-        //     ContractDataEntry contractDataEntry = data.contractData;
-        //     lastEntry = contractDataEntry;
-        //     SCVal.ScvMap entryMap = contractDataEntry.val as SCVal.ScvMap;
-        //     SCMapEntry[] entries = entryMap.map;
-        //     foreach (SCMapEntry index in entries)
-        //     {
-        //         SCVal.ScvSymbol key = index.key as SCVal.ScvSymbol;
-        //         string attribute = key.sym;
-        //         SCVal value = index.val;
-        //         SCValType type = index.val.Discriminator;
-        //     }
-        //     Debug.Log(contractDataEntry);
-        // }
-        //
-        Debug.Log("JsonTest() completed");
-    }
     
     public async Task<bool> OnConnectWallet()
     {
@@ -93,6 +66,8 @@ public class StellarManager : MonoBehaviour
                 OnWalletConnected?.Invoke(false);
                 return false;
             };
+            JObject userResponse = await GetDataEntriesJson("User");
+            
             // StellarResponseData invokeRegisterResult = await InvokeContractFunction(getAddressResult.data, contract, "register", name);
             // if (invokeRegisterResult.code != 1)
             // {
@@ -106,6 +81,13 @@ public class StellarManager : MonoBehaviour
         #else
                 throw new Exception("not WebGL")
         #endif
+    }
+
+    async Task<JObject> GetDataEntriesJson(string key)
+    {
+        StellarResponseData response = await GetData(key, currentAddress);
+        JObject json = JObject.Parse(response.data);
+        return json;
     }
     
     public async Task<bool> TestFunction()
@@ -265,3 +247,95 @@ public class StellarResponseData
     public string data;
 }
 
+// ReSharper disable InconsistentNaming
+public struct RUser
+{
+    string user_id;
+    string name;
+    int games_played;
+    [CanBeNull] string current_lobby;
+
+    // public RUser(JObject json)
+    // {
+    //     
+    // }
+}
+
+public struct RUserState
+{
+    string user_id;
+    int team;
+}
+
+public struct RLobby
+{
+    string lobby_id;
+    string host;
+    RBoardDef board_def;
+    bool must_fill_all_tiles;
+    (int, int)[] max_pawns;
+    bool is_secure;
+    RUserState[] user_states;
+    int game_end_state;
+    (string, RPawn) pawns;
+}
+
+public struct RSetupCommitment
+{
+    string user_id;
+    RPawnCommitment[] pawn_positions;
+}
+
+public struct RPawnCommitment
+{
+    string user_id;
+    string pawn_id;
+    Vector2Int pos;
+    string def_hidden;
+}
+
+public struct RBoardDef
+{
+    string name;
+    Vector2Int size;
+    (Vector2Int, RTile) tiles;
+    bool isHex;
+    (int, int) default_max_pawns;
+}
+
+public struct RTile
+{
+    Vector2Int pos;
+    bool is_passable;
+    int setup_team;
+    int auto_setup_zone;
+}
+public struct RPawn
+{
+    string pawn_id;
+    string user;
+    int team;
+    string def_hidden;
+    string def_key;
+    RPawnDef? def;
+    Vector2Int pos;
+    bool is_alive;
+    bool is_moved;
+    bool is_revealed;
+}
+
+public struct RAddress
+{
+    string address;
+}
+
+public struct RPawnDef
+{
+    string def_id;
+    int rank;
+    string name;
+    int power;
+    int movement_range;
+
+}
+// ReSharper restore InconsistentNaming

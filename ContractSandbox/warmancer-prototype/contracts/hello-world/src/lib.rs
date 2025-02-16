@@ -4,12 +4,7 @@ use soroban_sdk::storage::Persistent;
 
 // global state defs
 pub type AllUserIds = Map<Address, ()>;
-pub type AllLobbyIds = Map<LobbyId, ()>;
-
-// key defs
-
-// user key is always the Address
-pub type LobbyId = u32;
+pub type AllLobbyIds = Map<String, ()>;
 
 // other struct defs
 
@@ -21,7 +16,7 @@ pub struct User {
     // mutable
     pub name: String,
     pub games_played: u32,
-    pub current_lobby: Option<LobbyId>,
+    pub current_lobby: Option<String>,
 }
 
 #[contracttype]
@@ -37,7 +32,7 @@ pub struct UserState
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lobby {
     // immutable
-    pub lobby_id: LobbyId,
+    pub lobby_id: String,
     pub host: Address,
     pub board_def: BoardDef,
     pub must_fill_all_tiles: bool,
@@ -47,21 +42,21 @@ pub struct Lobby {
     pub user_states: Vec<UserState>, // contains user specific state, changes when another user joins or leaves
     // game state
     pub game_end_state: u32,
-    pub pawns: Map<PawnId, Pawn>,
+    pub pawns: Map<String, Pawn>,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommitment {
     pub user_id: Address,
-    pub pawn_positions: Vec<PawnCommitment>,
+    pub pawn_commitments: Vec<PawnCommitment>,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommitment {
     pub user_id: Address,
-    pub pawn_id: PawnId,
+    pub pawn_id: String,
     pub pos: Vector2Int,
     pub def_hidden: String,
 }
@@ -85,12 +80,11 @@ pub struct Tile {
     pub auto_setup_zone: u32,
 }
 
-pub type PawnId = u32;
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pawn {
     // immutable
-    pub pawn_id: PawnId,
+    pub pawn_id: String,
     pub user: Address,
     pub team: u32,
     pub def_hidden: String,
@@ -107,8 +101,13 @@ pub struct Pawn {
 #[derive(Clone, Debug, Eq, PartialEq)]
 
 pub struct PawnDef {
-
+    pub def_id: String,
+    pub rank: u32,
+    pub name: String,
+    pub power: u32,
+    pub movement_range: u32,
 }
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Vector2Int {
@@ -129,8 +128,8 @@ pub enum DataKey {
     UserLobbyId(Address), // todo remove this
 
     // lobby specific data
-    Lobby(LobbyId),
-    SetupCommitments(LobbyId),
+    Lobby(String),
+    SetupCommitments(String),
 }
 
 // events
