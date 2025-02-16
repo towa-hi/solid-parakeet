@@ -125,8 +125,8 @@ pub enum DataKey {
 
     // user data
     User(Address),
-    UserGamesPlayed(Address),
-    UserLobbyId(Address),
+    UserGamesPlayed(Address), // todo remove this
+    UserLobbyId(Address), // todo remove this
 
     // lobby specific data
     Lobby(LobbyId),

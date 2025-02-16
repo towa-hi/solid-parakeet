@@ -25,7 +25,7 @@ mergeInto(LibraryManager.library, {
         return;
     },
     
-    JSGetAddress: async function()
+    JSGetFreighterAddress: async function()
     {
         const {Networks} = StellarSdk;
         const currentNetwork = Networks.TESTNET;
@@ -50,6 +50,54 @@ mergeInto(LibraryManager.library, {
         Module.SendUnityMessage(1, requestAccessRes.address);
     },
 
+    JSGetData: async function(userAddressPtr, contractAddressPtr, keyTypePtr, keyValuePtr)
+    {
+        const {rpc, xdr, Networks, Address} = window.StellarSdk;
+        const server = new rpc.Server("https://soroban-testnet.stellar.org");
+        const xdrJson = window.xdr;
+        // params
+        const contractAddress = Address.fromString(UTF8ToString(contractAddressPtr));
+        const userAddress = Address.fromString(UTF8ToString(userAddressPtr));
+        const keyTypeString = UTF8ToString(keyTypePtr);
+        const keyValueString = UTF8ToString(keyValuePtr);
+        console.log("KeyType and KeyValue:", keyTypeString, keyValueString);
+        let keyParts = [new xdr.ScVal.scvSymbol(keyTypeString)];
+        if (["User", "UserLobbyId"].includes(keyTypeString)) {
+            keyParts.push(Address.fromString(keyValueString).toScVal());
+        }
+        else if (["Lobby", "SetupCommitments"].includes(keyTypeString)) {
+            keyParts.push(new xdr.ScVal.scvU32(parseInt(keyValueString)));
+        }
+        else if (["AllUserIds", "AllLobbyIds"].includes(keyTypeString)) {
+            // Global keys have no additional parameters
+        }
+        const dataKey = new xdr.ScVal.scvVec(keyParts);
+        console.log("Generated datakey:", dataKey);
+        const ledgerKey = xdr.LedgerKey.contractData(
+            new xdr.LedgerKeyContractData({
+                contract: contractAddress.toScAddress(),
+                key: dataKey,
+                durability: xdr.ContractDataDurability.persistent(), // TODO: change this to be configurable later
+            })
+        );
+        console.log(`ledgerKey.toXDR: ${ledgerKey.toXDR('base64')}`);
+        const getLedgerEntriesRes = await server.getLedgerEntries(ledgerKey);
+        
+        const entries = getLedgerEntriesRes.entries;
+        console.log(entries);
+        let valJsonArray = [];
+        for (let entry of entries) {
+            const valString = entry.val.toXDR('base64');
+            console.log("valString", valString);
+            const valJson = JSON.parse(xdrJson.decode("LedgerEntryData", valString));
+            valJsonArray.push(valJson);
+        }
+        const result = {entries: valJsonArray};
+        console.log(`result: `, result);
+        const resultString = JSON.stringify(result);
+        Module.SendUnityMessage(1, resultString);
+    },
+    
     JSGetUser: async function(addressPtr, contractAddressPtr)
     {
         const {rpc, xdr, StrKey, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address} = StellarSdk;
@@ -88,19 +136,6 @@ mergeInto(LibraryManager.library, {
         const entryDataJson = xdrJson.decode("LedgerEntryData", valString);
         console.log("entryDataJson", entryDataJson);
         // TODO: finish this to return all entries
-        // let entries = getLedgerEntriesRes.entries.map(entry => {
-        //     return {
-        //         key: xdrJson.decode("LedgerKey", entry.key),
-        //         value: xdrJson.decode("LedgerEntryData", entry.value),
-        //         lastModifiedLedgerSeq: entry.lastModifiedLedgerSeq,
-        //         liveUntilLedgerSeq: entry.liveUntilLedgerSeq,
-        //     };
-        // });
-        // const jsonEntries = JSON.stringify({
-        //     entries,
-        //     latestLedger: getLedgerEntriesRes.latestLedger,
-        // });
-        // console.log("getLedgerEntriesRes", jsonEntries);
         Module.SendUnityMessage(1, "done");
     },
 

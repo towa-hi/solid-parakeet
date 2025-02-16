@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>stellar-dotnet-sdk-xdr</id>
+    <version>8.0.6</version>
+    <authors>stellar-dotnet-sdk-xdr</authors>
+    <license type="file">LICENSE.txt</license>
+    <licenseUrl>https://aka.ms/deprecateLicenseUrl</licenseUrl>
+    <projectUrl>https://github.com/elucidsoft/dotnet-stellar-sdk/tree/master/stellar-dotnet-sdk-xdr</projectUrl>
+    <description>The .NET Standard XDR Objects for the Stellar Network Protocol</description>
+    <copyright>elucidsoft 2019</copyright>
+    <tags>'.NET Core' 'Stellar' 'Horizon' 'Blockchain' 'Crypto' 'Distributed Ledger'</tags>
+    <repository type="git" url="https://github.com/elucidsoft/dotnet-stellar-sdk/tree/master/stellar-dotnet-sdk-xdr" />
+    <dependencies>
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+</package>

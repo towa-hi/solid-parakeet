@@ -27,10 +27,22 @@ public static class Shared
     public static float EaseInOutQuad(float t) {
         return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
     }
+
+    public static float InExpo(float t)
+    {
+        return (float)Math.Pow(2, 10 * (t - 1));
+    }
+
+    public static float OutExpo(float t)
+    {
+        return 1 - InExpo(1 - t);
+    }
+    
     public static string ShortGuid(Guid guid)
     {
         return guid.ToString().Substring(0, 4);
     }
+    
     
     public static UnityEngine.Vector2Int[] GetDirections(UnityEngine.Vector2Int pos, bool isHex)
     {

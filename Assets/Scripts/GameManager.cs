@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using PrimeTween;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -23,7 +24,8 @@ public class GameManager : MonoBehaviour
     public bool offlineMode;
 
     public List<PawnDef> orderedPawnDefList;
-    
+
+    public event Action<bool> OnRunWithEvents;
     void Awake()
     {
         Debug.developerConsoleVisible = true;
@@ -53,7 +55,15 @@ public class GameManager : MonoBehaviour
             Resources.Load<PawnDef>("Pawn/99-unknown"),
         };
     }
-
+    
+    void Start()
+    {
+        guiManager.Initialize();
+        cameraManager.Initialize();
+        Debug.Log("Enable input action");
+        Globals.InputActions.Game.Enable();
+    }
+    
     public Dictionary<Rank, PawnDef> GetPawnDefFromRank()
     {
         // NOTE: this is a nasty hack that wont work on the server side. we need to keep a lookup table for this later instead of loading from unity
@@ -103,7 +113,7 @@ public class GameManager : MonoBehaviour
             {
                 elapsed += Time.deltaTime;
                 float t = elapsed / fadeDuration;
-                t = OutExpo(t);
+                t = Shared.OutExpo(t);
                 colorAdjust.postExposure.value = Mathf.Lerp(startExposure, 0f, t);
                 colorAdjust.contrast.value = Mathf.Lerp(startContrast, 0f, t);
                 colorAdjust.saturation.value = Mathf.Lerp(startSaturation, 0f, t);
@@ -120,8 +130,7 @@ public class GameManager : MonoBehaviour
             whiteBalance.active = false;
         }
     }
-    public static float InExpo(float t) => (float)Math.Pow(2, 10 * (t - 1));
-    public static float OutExpo(float t) => 1 - InExpo(1 - t);
+    
     
     void SetDefaultPlayerPrefs()
     {
@@ -142,42 +151,33 @@ public class GameManager : MonoBehaviour
             settingsManager.SetRotateCamera(false);
         }
     }
-    
-    void Start()
+
+    public async Task<T> RunWithEvents<T>(Func<Task<T>> asyncFunction)
     {
-        guiManager.Initialize();
-        cameraManager.Initialize();
-        Debug.Log("Enable input action");
-        Globals.InputActions.Game.Enable();
+        OnRunWithEvents?.Invoke(true);
+        T result = await asyncFunction();
+        OnRunWithEvents?.Invoke(false);
+        return result;
     }
     
-    public async void SetOfflineMode(bool inOfflineMode)
+    public void SetOfflineMode()
     {
-        offlineMode = inOfflineMode;
-        if (inOfflineMode)
-        {
-            client = new FakeClient();
-            client.OnRegisterClientResponse += OnRegisterClientResponse;
-            client.OnDisconnect += OnDisconnect;
-            client.OnErrorResponse += OnErrorResponse;
-            client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
-            client.OnGameLobbyResponse += OnGameLobbyResponse;
-            client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
-            client.OnReadyLobbyResponse += OnReadyLobbyResponse;
-            client.OnDemoStartedResponse += OnDemoStartedResponse;
-            client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
-            client.OnSetupFinishedResponse += OnSetupFinishedResponse;
-            client.OnMoveResponse += OnMoveResponse;
-            client.OnResolveResponse += OnResolveResponse;
-            Debug.Log("GameManager: Initialized FakeClient for offline mode.");
-            client.ConnectToServer();
-        }
-        else
-        {
-            await stellarManager.OnConnectWallet();
-            //client = new GameClient();
-            Debug.Log("GameManager: Initialized GameClient for online mode.");
-        }
+        offlineMode = true;
+        client = new FakeClient();
+        client.OnRegisterClientResponse += OnRegisterClientResponse;
+        client.OnDisconnect += OnDisconnect;
+        client.OnErrorResponse += OnErrorResponse;
+        client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
+        client.OnGameLobbyResponse += OnGameLobbyResponse;
+        client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
+        client.OnReadyLobbyResponse += OnReadyLobbyResponse;
+        client.OnDemoStartedResponse += OnDemoStartedResponse;
+        client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
+        client.OnSetupFinishedResponse += OnSetupFinishedResponse;
+        client.OnMoveResponse += OnMoveResponse;
+        client.OnResolveResponse += OnResolveResponse;
+        Debug.Log("GameManager: Initialized FakeClient for offline mode.");
+        client.ConnectToServer();
     }
     
     void OnRegisterClientResponse(Response<string> response)

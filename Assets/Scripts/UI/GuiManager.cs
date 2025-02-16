@@ -130,7 +130,7 @@ public class GuiManager : MonoBehaviour
     void OnOfflineButton()
     {
         Debug.Log("OnOfflineButton");
-        GameManager.instance.SetOfflineMode(true);
+        GameManager.instance.SetOfflineMode();
         GameManager.instance.Lightning();
     }
     
@@ -139,7 +139,7 @@ public class GuiManager : MonoBehaviour
     void OnConnectWalletButton()
     {
         Debug.Log("OnConnectWalletButton");
-        GameManager.instance.stellarManager.OnConnectWallet();
+        _ = GameManager.instance.RunWithEvents<bool>(GameManager.instance.stellarManager.OnConnectWallet);
     }
 
     void OnTestButton()

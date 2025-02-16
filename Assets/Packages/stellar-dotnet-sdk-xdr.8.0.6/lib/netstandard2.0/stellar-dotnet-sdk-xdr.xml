@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>stellar-dotnet-sdk-xdr</name>
+    </assembly>
+    <members>
+        <member name="T:stellar_dotnet_sdk.xdr.XdrDataInputStream">
+            <summary>
+            Stream class for Reading XDR Data
+            </summary>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.#ctor(System.Byte[])">
+            <summary>
+            Create the stream from a byte array.
+            </summary>
+            <param name="bytes"></param>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.Read">
+            <summary>
+            Read single byte from stream.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.Read(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            Read from Stream and move position.
+            </summary>
+            <param name="buffer"></param>
+            <param name="offset"></param>
+            <param name="count"></param>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadString">
+            <summary>
+            Read a string from stream.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadIntArray">
+            <summary>
+            Read array of int from stream.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadInt">
+            <summary>
+            Read Int32 from Stream
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadUInt">
+            <summary>
+            Read UInt from stream
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadSingleArray">
+            <summary>
+            Read float from stream.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadDoubleArray">
+            <summary>
+            Read double from stream.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ToArray">
+            <summary>
+            Return bytes as an Array
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadVarOpaque(System.UInt32)">
+            <summary>
+            Read the array with the proper padding applied and check max length.
+            </summary>
+            <param name="max"></param>
+            <returns></returns>
+        </member>
+        <member name="M:stellar_dotnet_sdk.xdr.XdrDataInputStream.ReadFixOpaque(System.UInt32)">
+            <summary>
+            Read array with proper padding fixed if needed.
+            </summary>
+            <param name="len"></param>
+            <returns></returns>
+            <exception cref="T:System.IO.IOException"></exception>
+        </member>
+    </members>
+</doc>
