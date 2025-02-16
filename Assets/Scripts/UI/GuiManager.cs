@@ -145,7 +145,7 @@ public class GuiManager : MonoBehaviour
     void OnTestButton()
     {
         Debug.Log("OnTestButton");
-        GameManager.instance.stellarManager.TestFunction();
+        _ = GameManager.instance.stellarManager.TestFunction();
     }
 
     void OnNetworkBackButton()

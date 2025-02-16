@@ -1,11 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using UnityEngine;
-using Debug = UnityEngine.Debug;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
+using UnityEngine;
+using Debug = UnityEngine.Debug;
+using Stellar;
+using Stellar.RPC;
 
 public class StellarManager : MonoBehaviour
 {
@@ -34,12 +40,40 @@ public class StellarManager : MonoBehaviour
     public string currentAddress = null;
     public event Action<bool> OnWalletConnected; 
 
+    JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
+    {
+        ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
+        NullValueHandling = NullValueHandling.Ignore,
+    };
+    
     #region Public
 
+    public ContractDataEntry lastEntry;
     public void JsonTest()
     {
         string val = @"{""entries"":[{""contract_data"":{""ext"":""v0"",""contract"":""CCK2WEL5BBKDIMEIGMBEIS4CQLEI3D6CI5EFH52J4DOKNKR5AUR5UTYZ"",""key"":{""vec"":[{""symbol"":""User""},{""address"":""GAAFFCDB2UOOS7YHGL3M3YGTMKTQA35II64JKSGPEBXVZ5BRABDY65HH""}]},""durability"":""persistent"",""val"":{""map"":[{""key"":{""symbol"":""current_lobby""},""val"":""void""},{""key"":{""symbol"":""games_played""},""val"":{""u32"":0}},{""key"":{""symbol"":""name""},""val"":{""string"":""wewlad""}},{""key"":{""symbol"":""user_id""},""val"":{""address"":""GAAFFCDB2UOOS7YHGL3M3YGTMKTQA35II64JKSGPEBXVZ5BRABDY65HH""}}]}}}]}";
-        JObject result = XdrJsonHelper.DeserializeXdrJson(val);
+        Debug.Log(val);
+        JObject json = JObject.Parse(val);
+        // GetLedgerEntriesResult rpcResponse = JsonConvert.DeserializeObject<GetLedgerEntriesResult>(val, jsonSettings);
+        //
+        // JObject responseJson = JObject.Parse(val);
+        // foreach (Entries entry in rpcResponse.Entries)
+        // {
+        //     LedgerEntry.dataUnion.ContractData data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+        //     ContractDataEntry contractDataEntry = data.contractData;
+        //     lastEntry = contractDataEntry;
+        //     SCVal.ScvMap entryMap = contractDataEntry.val as SCVal.ScvMap;
+        //     SCMapEntry[] entries = entryMap.map;
+        //     foreach (SCMapEntry index in entries)
+        //     {
+        //         SCVal.ScvSymbol key = index.key as SCVal.ScvSymbol;
+        //         string attribute = key.sym;
+        //         SCVal value = index.val;
+        //         SCValType type = index.val.Discriminator;
+        //     }
+        //     Debug.Log(contractDataEntry);
+        // }
+        //
         Debug.Log("JsonTest() completed");
     }
     
@@ -76,17 +110,37 @@ public class StellarManager : MonoBehaviour
     
     public async Task<bool> TestFunction()
     {
+        Debug.Log("TestFunction started");
         //JsonTest();
         //return true;
         #if UNITY_WEBGL
-                // quick address check
-                await SetCurrentAddressFromFreighter();
-                string data = await GetData("User", currentAddress);
-                Debug.Log(data);
-                
-                return true;
+            // quick address check
+            await SetCurrentAddressFromFreighter();
+            StellarResponseData response = await GetData("User", currentAddress);
+            string dataXdrString = response.data;
+            
+            JObject jsonObject = JObject.Parse(response.data);
+            if (jsonObject["entries"] == null)
+            {
+                throw new Exception("jsonObject entries is null");
+            }
+            string[] xdrEntryStrings = jsonObject["entries"].ToObject<string[]>();
+            foreach (string xdrEntryString in xdrEntryStrings)
+            {
+                byte[] bytes = Convert.FromBase64String(xdrEntryString);
+                MemoryStream memoryStream = new MemoryStream(bytes);
+                XdrReader xdrReader = new XdrReader(memoryStream);
+                LedgerEntry entryObject = LedgerEntryXdr.Decode(xdrReader);
+                 
+                Debug.Log(entryObject.ToString());
+            }
+            byte[] xdrBytes = Convert.FromBase64String(response.data);
+            
+            //Debug.Log(data);
+            
+            return true;
         #else
-                throw new Exception("not WebGL")
+            throw new Exception("not WebGL")
         #endif
     }
     
@@ -136,14 +190,13 @@ public class StellarManager : MonoBehaviour
         return response;
     }
     
-    async Task<string> GetData(string keyType, string keyValue)
+    async Task<StellarResponseData> GetData(string keyType, string keyValue)
     {
         if (string.IsNullOrEmpty(currentAddress)) throw new Exception("GetData() called but no address yet");
         getDataTaskSource = new TaskCompletionSource<StellarResponseData>();
         JSGetData(currentAddress, contract, keyType, keyValue);
         StellarResponseData getDataRes = await getDataTaskSource.Task;
-        Debug.Log($"GetData() code: {getDataRes.code}");
-        return getDataRes.data;
+        return getDataRes;
     }
     
     async Task<StellarResponseData> InvokeContractFunction(string address, string contractAddress, string function, string data)
