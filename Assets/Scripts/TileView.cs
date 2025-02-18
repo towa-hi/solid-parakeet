@@ -44,9 +44,11 @@ public class TileView : MonoBehaviour
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
     static readonly int MainTexID = Shader.PropertyToID("_BaseMap");
 
-    
+    public Vector3 basePosition;
     public void Initialize(BoardManager boardManager, STile inTile, bool inIsHex)
     {
+        baseHeight = GetPerlin(inTile.pos);
+        basePosition = new Vector3(0, baseHeight, 0);
         isHex = inIsHex;
         if (isHex)
         {
@@ -72,6 +74,7 @@ public class TileView : MonoBehaviour
     
     public void FallingAnimation(float delay)
     {
+        fallSettings.endValue = basePosition;
         if (tile.isPassable)
         {
             //Debug.Log($"starting FallingAnimation on {tile.pos}");
@@ -199,7 +202,8 @@ public class TileView : MonoBehaviour
 
     public void Elevate(float height)
     {
-        Vector3 destination = new Vector3(0, height, 0);
+        float newHeight = basePosition.y + height;
+        Vector3 destination = new Vector3(0, newHeight, 0);
         currentTween.Stop();
         if (modelObject.transform.position != destination)
         {
@@ -210,5 +214,14 @@ public class TileView : MonoBehaviour
         {
             //Debug.Log($"Elevate didn't change at {tile.pos}");
         }
+    }
+
+    public float baseHeight;
+    static float GetPerlin(Vector2Int point)
+    {
+        float scale = 10f;
+        float x = point.x / scale;
+        float y = point.y / scale;
+        return Mathf.PerlinNoise(x, y);
     }
 }

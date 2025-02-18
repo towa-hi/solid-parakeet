@@ -740,25 +740,18 @@ public class MovePhase : IPhase
             {
                 // NOTE: queue move and THEN clear selection
                 QueueMove(selectedPawnView, hoveredPosition);
-                ClearSelection();
                 if (PlayerPrefs.GetInt("FASTMODE") == 1)
                 {
                     OnSubmitMove();
                     return;
                 }
             }
-            else
-            {
-                ClearSelection();
-                return;
-            }
         }
+        ClearSelection();
         // if is selectable
         if (IsPawnViewSelectable(currentHoveredPawnView))
         {
-            ClearSelection();
             SelectPawnViewAndTileView(currentHoveredPawnView, currentHoveredTileView);
-            //Debug.LogWarning($"Elevate caused by new selection to {selectedTileView.tile.pos}");
             ElevatePos(hoveredPosition, Globals.SelectedHoveredHeight);
             maybeQueuedMove = null;
         }
@@ -782,7 +775,6 @@ public class MovePhase : IPhase
         if (selectedTileView)
         {
             selectedTileView.OnSelect(false);
-            Debug.LogWarning($"Elevate caused by clear selection to {selectedTileView.tile.pos}");
             selectedTileView.Elevate(0);
         }
         selectedPawnView = null;

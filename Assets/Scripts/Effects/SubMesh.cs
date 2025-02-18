@@ -91,9 +91,9 @@ public class SubMesh : MonoBehaviour
         block.SetColor("_Base_Color", meshRenderer.material.GetColor("_Base_Color"));
         Color originalColor = block.GetColor("_Base_Color");
         meshRenderer.SetPropertyBlock(block);
-        Debug.Log(originalColor);
+        //Debug.Log(originalColor);
         float startAlpha = originalColor.a;
-        Debug.Log(startAlpha);
+        //Debug.Log(startAlpha);
         float currentTime = 0f;
         while (currentTime < lifespan)
         {
