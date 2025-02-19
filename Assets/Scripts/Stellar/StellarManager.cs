@@ -38,92 +38,146 @@ public class StellarManager : MonoBehaviour
     TaskCompletionSource<StellarResponseData> invokeContractFunctionTaskSource;
     
     // state
-    public bool registered = false;
-    public string currentAddress = null;
-    public event Action<bool> OnWalletConnected; 
+    public bool webGLBuild = false;
+    public RUser? currentUser;
+    public event Action<bool> OnWalletConnected;
+    public event Action OnCurrentUserChanged;
 
     JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
     {
         ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
         NullValueHandling = NullValueHandling.Ignore,
     };
-    
+
+    void Awake()
+    {
+        #if UNITY_WEBGL
+            webGLBuild = true;
+        #endif
+    }
     #region Public
     
     public async Task<bool> OnConnectWallet()
     {
-        #if UNITY_WEBGL
-            string name = "wewlad";
-            StellarResponseData checkWalletResult = await CheckWallet();
-            if (checkWalletResult.code != 1)
+        if (!webGLBuild)
+        {
+            return false;
+        }
+        currentUser = null;
+        OnCurrentUserChanged?.Invoke();
+        StellarResponseData checkWalletResult = await CheckWallet();
+        if (checkWalletResult.code != 1)
+        {
+            return false;
+        };
+        StellarResponseData getAddressResult = await GetAddressFromFreighter();
+        if (getAddressResult.code != 1)
+        {
+            return false;
+        };
+        string currentAddress = getAddressResult.data;
+        (int getUserDataCode, RUser? userData) = await GetUserData(currentAddress);
+        if (getUserDataCode != 1)
+        {
+            return false;
+        }
+        Debug.Log(userData.HasValue);
+        if (!userData.HasValue)
+        {
+            Debug.Log("This user is new and needs to be registered");
+            string defaultName = "kiki";
+            (int registerUserCode, RUser? newUserData) = await RegisterUser(currentAddress, defaultName);
+            if (registerUserCode != 1)
             {
-                OnWalletConnected?.Invoke(false);
+                currentUser = null;
                 return false;
-            };
-            StellarResponseData setAddressResult = await SetCurrentAddressFromFreighter();
-            if (setAddressResult.code != 1)
-            {
-                OnWalletConnected?.Invoke(false);
-                return false;
-            };
-            JObject userResponse = await GetDataEntriesJson("User");
-            
-            // StellarResponseData invokeRegisterResult = await InvokeContractFunction(getAddressResult.data, contract, "register", name);
-            // if (invokeRegisterResult.code != 1)
-            // {
-            //     OnWalletConnected?.Invoke(false);
-            //     return false;
-            // };
-            // registered = true;
-            Debug.Log("OnConnectWallet completed");
-            OnWalletConnected?.Invoke(true);
+            }
+            currentUser = newUserData.Value;
+            OnCurrentUserChanged?.Invoke();
             return true;
-        #else
-                throw new Exception("not WebGL")
-        #endif
-    }
-
-    async Task<JObject> GetDataEntriesJson(string key)
-    {
-        StellarResponseData response = await GetData(key, currentAddress);
-        JObject json = JObject.Parse(response.data);
-        return json;
+        }
+        else
+        {
+            Debug.Log(userData.Value);
+        }
+        currentUser = userData.Value;
+        OnCurrentUserChanged?.Invoke();
+        return true;
     }
     
     public async Task<bool> TestFunction()
     {
-        Debug.Log("TestFunction started");
-        //JsonTest();
-        //return true;
-        #if UNITY_WEBGL
-            // quick address check
-            await SetCurrentAddressFromFreighter();
-            StellarResponseData response = await GetData("User", currentAddress);
-            string dataXdrString = response.data;
-            
-            JObject jsonObject = JObject.Parse(response.data);
-            if (jsonObject["entries"] == null)
+        if (!webGLBuild)
+        {
+            return false;
+        }
+        // Debug.Log("TestFunction started");
+        // // quick address check
+        // await GetAddressFromFreighter();
+        // StellarResponseData response = await GetData("User", currentAddress);
+        // string dataString = response.data;
+        // Debug.Log(dataString);
+        // JObject jsonObject = JObject.Parse(dataString);
+        // if (jsonObject["entries"] == null)
+        // {
+        //     throw new Exception("jsonObject entries is null");
+        // }
+        //
+        //Debug.Log(data);
+        
+        return true;
+    }
+
+    #endregion
+    #region helper
+    
+    async Task<(int, RUser?)> GetUserData(string address)
+    {
+        StellarResponseData response = await GetData(address, "User", address);
+        if (response.code != 1)
+        {
+            return (response.code, null);
+        }
+        Debug.Log(response.data);
+        try
+        {
+            JObject jsonEntries = JObject.Parse(response.data);
+            if (!jsonEntries["entries"].HasValues)
             {
-                throw new Exception("jsonObject entries is null");
+                Debug.Log("entries has no data");
+                return (response.code, null);
             }
-            string[] xdrEntryStrings = jsonObject["entries"].ToObject<string[]>();
-            foreach (string xdrEntryString in xdrEntryStrings)
-            {
-                byte[] bytes = Convert.FromBase64String(xdrEntryString);
-                MemoryStream memoryStream = new MemoryStream(bytes);
-                XdrReader xdrReader = new XdrReader(memoryStream);
-                LedgerEntry entryObject = LedgerEntryXdr.Decode(xdrReader);
-                 
-                Debug.Log(entryObject.ToString());
-            }
-            byte[] xdrBytes = Convert.FromBase64String(response.data);
+            string entry = jsonEntries["entries"].First.ToString();
+            RUser user = new RUser(entry);
+            return (response.code, user);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e);
+            throw;
+        }
+    }
+
+    async Task<(int, RUser?)> RegisterUser(string address, string userName)
+    {
+        StellarResponseData response = await InvokeContractFunction(address, contract, "register", userName);
+        if (response.code != 1)
+        {
+            return (response.code, null);
+        }
+        try
+        {
+            Debug.Log(response.data);
+            JObject json = JObject.Parse(response.data);
             
-            //Debug.Log(data);
-            
-            return true;
-        #else
-            throw new Exception("not WebGL")
-        #endif
+            return (response.code, null);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e);
+            throw;
+        }
+
     }
     
     #endregion
@@ -142,16 +196,17 @@ public class StellarManager : MonoBehaviour
         return checkWalletRes;
     }
     
-    async Task<StellarResponseData> SetCurrentAddressFromFreighter()
+    async Task<StellarResponseData> GetAddressFromFreighter()
     {
         if (setCurrentAddressFromFreighterTaskSource != null && !setCurrentAddressFromFreighterTaskSource.Task.IsCompleted)
         {
-            throw new Exception("GetAddress() is already in progress");
+            throw new Exception("GetAddressFromFreighter() is already in progress");
         }
         setCurrentAddressFromFreighterTaskSource = new TaskCompletionSource<StellarResponseData>();
         JSGetFreighterAddress();
         StellarResponseData response = await setCurrentAddressFromFreighterTaskSource.Task;
         setCurrentAddressFromFreighterTaskSource = null;
+        // NOTE: we retry once because of a bug where if a user isn't signed in freighter returns empty data
         if (response.data == "")
         {
             setCurrentAddressFromFreighterTaskSource = new TaskCompletionSource<StellarResponseData>();
@@ -160,23 +215,20 @@ public class StellarManager : MonoBehaviour
             setCurrentAddressFromFreighterTaskSource = null;
             if (response2.code != 1 || response2.data == "")
             {
-                throw new Exception("GetAddress() returned an empty address again");
+                throw new Exception("GetAddressFromFreighter() returned an empty address again");
             }
             else
             {
-                currentAddress = response2.data;
                 return response2;
             }
         }
-        currentAddress = response.data;
         return response;
     }
     
-    async Task<StellarResponseData> GetData(string keyType, string keyValue)
+    async Task<StellarResponseData> GetData(string address, string keyType, string keyValue)
     {
-        if (string.IsNullOrEmpty(currentAddress)) throw new Exception("GetData() called but no address yet");
         getDataTaskSource = new TaskCompletionSource<StellarResponseData>();
-        JSGetData(currentAddress, contract, keyType, keyValue);
+        JSGetData(address, contract, keyType, keyValue);
         StellarResponseData getDataRes = await getDataTaskSource.Task;
         return getDataRes;
     }
@@ -188,7 +240,6 @@ public class StellarManager : MonoBehaviour
             throw new Exception("InvokeContractFunction() is already in progress");
         }
         invokeContractFunctionTaskSource = new TaskCompletionSource<StellarResponseData>();
-        Debug.Log($"contract address: {contractAddress}");
         JSInvokeContractFunction(address, contractAddress, function, data);
         StellarResponseData response = await invokeContractFunctionTaskSource.Task;
         return response;
@@ -250,15 +301,20 @@ public class StellarResponseData
 // ReSharper disable InconsistentNaming
 public struct RUser
 {
-    string user_id;
-    string name;
-    int games_played;
-    [CanBeNull] string current_lobby;
+    public string user_id;
+    public string name;
+    public int games_played;
+    public string current_lobby;
 
-    // public RUser(JObject json)
-    // {
-    //     
-    // }
+    public RUser(string jsonString)
+    {
+        JObject json = JObject.Parse(jsonString);
+        user_id = json["user_id"]?.ToString() ?? "";
+        name = json["name"]?.ToString() ?? "";
+        games_played = json["games_played"]?.ToObject<int>() ?? 0;
+        current_lobby = json["current_lobby"]?.ToString() == "void" ? null : json["current_lobby"]?.ToString();
+
+    }
 }
 
 public struct RUserState
@@ -339,3 +395,8 @@ public struct RPawnDef
 
 }
 // ReSharper restore InconsistentNaming
+
+public enum NetworkStatus
+{
+    
+}

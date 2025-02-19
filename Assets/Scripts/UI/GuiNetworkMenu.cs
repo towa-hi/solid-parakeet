@@ -10,6 +10,12 @@ public class GuiNetworkMenu : MenuElement
     public Button connectWalletButton;
     public Button testButton;
     public Button backButton;
+
+    public TextMeshProUGUI connectionStatusText;
+    public TextMeshProUGUI userNameText;
+    public TextMeshProUGUI userIdText;
+    public TextMeshProUGUI userGamesPlayedText;
+    public TextMeshProUGUI userCurrentLobbyText;
     
     public event Action OnConnectWalletButton;
     public event Action OnTestButton;
@@ -20,13 +26,33 @@ public class GuiNetworkMenu : MenuElement
         connectWalletButton.onClick.AddListener(HandleConnectWalletButton);
         testButton.onClick.AddListener(HandleTestButton);
         backButton.onClick.AddListener(HandleBackButton);
-        GameManager.instance.stellarManager.OnWalletConnected += OnWalletConnectedEvent;
+        GameManager.instance.stellarManager.OnCurrentUserChanged += OnCurrentUserChangedEvent;
+        
     }
 
     void OnWalletConnectedEvent(bool success)
     {
         string message = success ? "Connected" : "Disconnected";
         walletConnectedText.text = message;
+    }
+
+    void OnCurrentUserChangedEvent()
+    {
+        RUser? currentUser = GameManager.instance.stellarManager.currentUser;
+        if (currentUser != null)
+        {
+            userNameText.text = currentUser.Value.name;
+            userIdText.text = currentUser.Value.user_id;
+            userGamesPlayedText.text = currentUser.Value.games_played.ToString();
+            userCurrentLobbyText.text = currentUser.Value.current_lobby == "" ? "no lobby" : currentUser.Value.current_lobby;
+        }
+        else
+        {
+            userNameText.text = "no user";
+            userIdText.text = "";
+            userGamesPlayedText.text = "";
+            userCurrentLobbyText.text = "";
+        }
     }
     
     public override void ShowElement(bool enable)
@@ -39,11 +65,13 @@ public class GuiNetworkMenu : MenuElement
     }
     void HandleConnectWalletButton()
     {
+        _ = GameManager.instance.RunWithEvents<bool>(GameManager.instance.stellarManager.OnConnectWallet);
         OnConnectWalletButton?.Invoke();
     }
 
     void HandleTestButton()
     {
+        _ = GameManager.instance.stellarManager.TestFunction();
         OnTestButton?.Invoke();
     }
 

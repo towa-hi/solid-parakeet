@@ -52,7 +52,7 @@ mergeInto(LibraryManager.library, {
 
     JSGetData: async function(userAddressPtr, contractAddressPtr, keyTypePtr, keyValuePtr)
     {
-        const {rpc, xdr, Networks, Address} = window.StellarSdk;
+        const {rpc, xdr, Networks, Address, scValToNative} = window.StellarSdk;
         const server = new rpc.Server("https://soroban-testnet.stellar.org");
         const xdrJson = window.xdr;
         // params
@@ -87,63 +87,26 @@ mergeInto(LibraryManager.library, {
         console.log(entries);
         let valJsonArray = [];
         for (let entry of entries) {
-            const valString = entry.val.toXDR('base64');
-            console.log("valString", valString);
-            const valJson = JSON.parse(xdrJson.decode("LedgerEntryData", valString));
-            valJsonArray.push(valJson);
+            
+            const entryData = entry.val._value._attributes.val;
+            console.log(entryData);
+            const native = scValToNative(entryData);
+            console.log(native);
+            const entryDataJson = JSON.stringify(native);
+            console.log(entryDataJson)
+            valJsonArray.push(entryDataJson);
         }
         const result = {entries: valJsonArray};
         console.log(`result: `, result);
         const resultString = JSON.stringify(result);
         Module.SendUnityMessage(1, resultString);
     },
-    
-    JSGetUser: async function(addressPtr, contractAddressPtr)
-    {
-        const {rpc, xdr, StrKey, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address} = StellarSdk;
-        const server = new rpc.Server("https://soroban-testnet.stellar.org");
-        const xdrJson = window.xdr;
-        
-        const currentNetwork = Networks.TESTNET;
-        // params
-        const addressString = UTF8ToString(addressPtr);
-        const contractAddressString = UTF8ToString(contractAddressPtr);
-        console.log(`addressString: ${addressString}`);
-        console.log(`contractAddressString: ${contractAddressString}`);
-
-        const contract = Address.fromString(contractAddressString);
-        
-        const address = Address.fromString(addressString);
-        const userKey = new xdr.ScVal.scvVec([
-            new xdr.ScVal.scvSymbol("User"),
-            address.toScVal()
-        ]);
-        console.log("userKey", userKey);
-        
-        const ledgerKey = xdr.LedgerKey.contractData(
-            new xdr.LedgerKeyContractData({
-                contract: contract.toScAddress(),
-                key: userKey,
-                durability: xdr.ContractDataDurability.persistent(),
-            })
-        );
-        console.log(`ledgerKey.toXDR: ${ledgerKey.toXDR('base64')}`);
-        const getLedgerEntriesRes = await server.getLedgerEntries(ledgerKey);
-        const entry = getLedgerEntriesRes.entries[0];
-        console.log("entry", entry);
-        const valString = entry.val.toXDR('base64');
-        console.log("valString", valString);
-        const entryDataJson = xdrJson.decode("LedgerEntryData", valString);
-        console.log("entryDataJson", entryDataJson);
-        // TODO: finish this to return all entries
-        Module.SendUnityMessage(1, "done");
-    },
 
     JSInvokeContractFunction: async function(addressPtr, contractAddressPtr, contractFunctionPtr, dataPtr)
     {
         try {
             // actual constants
-            const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address} = StellarSdk;
+            const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
             const FreighterApi = window.freighterApi;
             const server = new rpc.Server("https://soroban-testnet.stellar.org");
             const currentNetwork = Networks.TESTNET;
@@ -220,14 +183,17 @@ mergeInto(LibraryManager.library, {
             console.log(`JSInvokeContractFunction() polling transaction hash ${transactionHash}, please wait warmly...`);
             let getTransactionRes = await server.pollTransaction(transactionHash, {attempts: maxTries, sleepStrategy: rpc.LinearSleepStrategy});
             // waiting...
-            
+            console.log(getTransactionRes);
             if (getTransactionRes.status !== "SUCCESS") {
                 Module.SendUnityMessage(-4, `JSInvokeContractFunction() getTransactionRes error: ${getTransactionRes}`);
                 return;
             }
-            const returnValueXdrString = getTransactionRes.returnValue.toXDR('base64');
-            console.log(`JSInvokeContractFunction() completed: returnValueXdrString: ${returnValueXdrString}`);
-            Module.SendUnityMessage(1, returnValueXdrString);
+            
+            
+            let result = scValToNative(getTransactionRes.returnValue);
+            console.log(`JSInvokeContractFunction() completed: result:`, result);
+            const resultString = JSON.stringify(result);
+            Module.SendUnityMessage(1, resultString);
             return;
         }
         catch (e)

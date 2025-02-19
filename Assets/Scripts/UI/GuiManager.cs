@@ -139,13 +139,11 @@ public class GuiManager : MonoBehaviour
     void OnConnectWalletButton()
     {
         Debug.Log("OnConnectWalletButton");
-        _ = GameManager.instance.RunWithEvents<bool>(GameManager.instance.stellarManager.OnConnectWallet);
     }
 
     void OnTestButton()
     {
         Debug.Log("OnTestButton");
-        _ = GameManager.instance.stellarManager.TestFunction();
     }
 
     void OnNetworkBackButton()
