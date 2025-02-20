@@ -24,10 +24,13 @@ public class StellarManager : MonoBehaviour
     static extern void JSGetFreighterAddress();
 
     [DllImport("__Internal")]
-    static extern void JSGetData(string userAddressPtr, string contractAddressPtr, string keyTypePtr, string keyValuePtr);
+    static extern void JSGetData(string contractAddressPtr, string keyTypePtr, string keyValuePtr);
     
     [DllImport("__Internal")]
     static extern void JSInvokeContractFunction(string addressPtr, string contractAddressPtr, string contractFunctionPtr, string dataPtr);
+
+    [DllImport("__Internal")]
+    static extern void JSGetEvents(string filterPtr, string contractAddressPtr, string topicPtr);
     
     string contract = "CCK2WEL5BBKDIMEIGMBEIS4CQLEI3D6CI5EFH52J4DOKNKR5AUR5UTYZ";
     
@@ -36,6 +39,7 @@ public class StellarManager : MonoBehaviour
     TaskCompletionSource<StellarResponseData> setCurrentAddressFromFreighterTaskSource;
     TaskCompletionSource<StellarResponseData> getDataTaskSource;
     TaskCompletionSource<StellarResponseData> invokeContractFunctionTaskSource;
+    TaskCompletionSource<StellarResponseData> getEventsTaskSource;
     
     // state
     public bool webGLBuild = false;
@@ -55,7 +59,7 @@ public class StellarManager : MonoBehaviour
             webGLBuild = true;
         #endif
     }
-    #region Public
+    #region pub
     
     public async Task<bool> OnConnectWallet()
     {
@@ -126,6 +130,12 @@ public class StellarManager : MonoBehaviour
         //Debug.Log(data);
         
         return true;
+    }
+
+    public async Task<bool> SecondTestFunction()
+    {
+        await GetEvents("", contract, "");
+        return true; 
     }
 
     #endregion
@@ -228,7 +238,7 @@ public class StellarManager : MonoBehaviour
     async Task<StellarResponseData> GetData(string address, string keyType, string keyValue)
     {
         getDataTaskSource = new TaskCompletionSource<StellarResponseData>();
-        JSGetData(address, contract, keyType, keyValue);
+        JSGetData(contract, keyType, keyValue);
         StellarResponseData getDataRes = await getDataTaskSource.Task;
         return getDataRes;
     }
@@ -243,6 +253,17 @@ public class StellarManager : MonoBehaviour
         JSInvokeContractFunction(address, contractAddress, function, data);
         StellarResponseData response = await invokeContractFunctionTaskSource.Task;
         return response;
+    }
+    
+    async Task<bool> GetEvents(string filter, string contractAddress, string topic)
+    {
+        Debug.Log("GetEvents() started");
+        JSGetEvents(filter, contractAddress, topic);
+        getEventsTaskSource = new TaskCompletionSource<StellarResponseData>();
+        StellarResponseData response = await getEventsTaskSource.Task;
+        getEventsTaskSource = null;
+        Debug.Log(response.data);
+        return true;
     }
     
     #endregion
@@ -264,6 +285,7 @@ public class StellarManager : MonoBehaviour
                 "_JSGetFreighterAddress" => setCurrentAddressFromFreighterTaskSource,
                 "_JSGetData" => getDataTaskSource,
                 "_JSInvokeContractFunction" => invokeContractFunctionTaskSource,
+                "_JSGetEvents" => getEventsTaskSource,
                 _ => throw new Exception($"StellarResponse() function not found {response}")
             };
             if (task == null)

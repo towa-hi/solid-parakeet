@@ -34,7 +34,7 @@ public class CameraManager : MonoBehaviour
         mainCamera.fieldOfView = startAnchor.fov;
         originalOrientation = mainCamera.transform.rotation;
         Vector3 euler = originalOrientation.eulerAngles;
-        SetRotateOnMouse(PlayerPrefs.GetInt("ROTATECAMERA") == 1);
+        //SetRotateOnMouse(PlayerPrefs.GetInt("ROTATECAMERA") == 1);
     }
 
     float GetTransitionDuration()

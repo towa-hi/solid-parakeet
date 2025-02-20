@@ -9,6 +9,7 @@ public class GuiNetworkMenu : MenuElement
     public TextMeshProUGUI walletConnectedText;
     public Button connectWalletButton;
     public Button testButton;
+    public Button secondTestButton;
     public Button backButton;
 
     public TextMeshProUGUI connectionStatusText;
@@ -25,6 +26,7 @@ public class GuiNetworkMenu : MenuElement
     {
         connectWalletButton.onClick.AddListener(HandleConnectWalletButton);
         testButton.onClick.AddListener(HandleTestButton);
+        secondTestButton.onClick.AddListener(HandleSecondTestButton);
         backButton.onClick.AddListener(HandleBackButton);
         GameManager.instance.stellarManager.OnCurrentUserChanged += OnCurrentUserChangedEvent;
         
@@ -54,7 +56,7 @@ public class GuiNetworkMenu : MenuElement
             userCurrentLobbyText.text = "";
         }
     }
-    
+
     public override void ShowElement(bool enable)
     {
         base.ShowElement(enable);
@@ -78,5 +80,10 @@ public class GuiNetworkMenu : MenuElement
     void HandleBackButton()
     {
         OnBackButton?.Invoke();
+    }
+    
+    void HandleSecondTestButton()
+    {
+        _ = GameManager.instance.stellarManager.SecondTestFunction();
     }
 }

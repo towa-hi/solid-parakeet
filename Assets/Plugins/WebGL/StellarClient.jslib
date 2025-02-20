@@ -50,14 +50,12 @@ mergeInto(LibraryManager.library, {
         Module.SendUnityMessage(1, requestAccessRes.address);
     },
 
-    JSGetData: async function(userAddressPtr, contractAddressPtr, keyTypePtr, keyValuePtr)
+    JSGetData: async function(contractAddressPtr, keyTypePtr, keyValuePtr)
     {
-        const {rpc, xdr, Networks, Address, scValToNative} = window.StellarSdk;
+        const {rpc, xdr, Address, scValToNative} = window.StellarSdk;
         const server = new rpc.Server("https://soroban-testnet.stellar.org");
-        const xdrJson = window.xdr;
         // params
         const contractAddress = Address.fromString(UTF8ToString(contractAddressPtr));
-        const userAddress = Address.fromString(UTF8ToString(userAddressPtr));
         const keyTypeString = UTF8ToString(keyTypePtr);
         const keyValueString = UTF8ToString(keyValuePtr);
         console.log("KeyType and KeyValue:", keyTypeString, keyValueString);
@@ -202,5 +200,57 @@ mergeInto(LibraryManager.library, {
             Module.SendUnityMessage(-666, e);
             return;
         }
+    },
+    
+    JSGetEvents: async function(filterPtr, contractAddressPtr, topicPtr) {
+        const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
+        const filterString = UTF8ToString(filterPtr);
+        const contractAddressString = UTF8ToString(contractAddressPtr);
+        const topicString = UTF8ToString(topicPtr);
+        
+        const server = new rpc.Server("https://soroban-testnet.stellar.org");
+        
+        const includeDiagnosticEvents = false;
+        
+        // get startLedger
+        const currentLedger = await server.getLatestLedger();
+        const startLedgerSequence = Math.max(1, currentLedger.sequence - "100000");
+        console.log(startLedgerSequence);
+        console.log(contractAddressString);
+        
+        
+        const events = await server.getEvents({
+            startLedger: startLedgerSequence,
+            filters: [{
+                    contractIds: [contractAddressString],
+            }]
+        });
+        console.log(events);
+        let eventList = [];
+        for (let event of events.events)
+        {
+            if (!includeDiagnosticEvents && event.type === "diagnostic") {
+                continue;
+            }
+            const eventTopicNative = event.topic.map(scVal => scValToNative(scVal));
+            console.log(eventTopicNative);
+            let eventValueNative = scValToNative(event.value);
+            console.log(eventValueNative);
+            const eventEntry = {
+                contractId: event.contractId.toString(),
+                id: event.id,
+                type: event.type,
+                pagingToken: event.pagingToken,
+                topic: eventTopicNative,
+                value: eventValueNative,
+                txHash: event.txHash,
+            }
+            console.log(eventEntry);
+            eventList.push(eventEntry);
+        }
+        const result = {events: eventList};
+        console.log(result);
+        const resultString = JSON.stringify(result);
+        Module.SendUnityMessage(1, resultString);
     }
 });
