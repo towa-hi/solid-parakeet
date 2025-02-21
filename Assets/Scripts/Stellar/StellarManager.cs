@@ -32,7 +32,7 @@ public class StellarManager : MonoBehaviour
     [DllImport("__Internal")]
     static extern void JSGetEvents(string filterPtr, string contractAddressPtr, string topicPtr);
     
-    string contract = "CCK2WEL5BBKDIMEIGMBEIS4CQLEI3D6CI5EFH52J4DOKNKR5AUR5UTYZ";
+    public string contract = "CAIDQUNCEPDSBXJXVTCRWJ3Z5XVVFNW7VFTOIENCWNJHFI3KKRPWRN7O";
     
     // wrapper tasks
     TaskCompletionSource<StellarResponseData> checkWalletTaskSource;
@@ -46,6 +46,7 @@ public class StellarManager : MonoBehaviour
     public RUser? currentUser;
     public event Action<bool> OnWalletConnected;
     public event Action OnCurrentUserChanged;
+    public event Action<string> OnContractChanged;
 
     JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
     {
@@ -60,6 +61,12 @@ public class StellarManager : MonoBehaviour
         #endif
     }
     #region pub
+
+    public void SetContract(string inContract)
+    {
+        contract = inContract;
+        OnContractChanged?.Invoke(contract);
+    }
     
     public async Task<bool> OnConnectWallet()
     {
@@ -85,7 +92,6 @@ public class StellarManager : MonoBehaviour
         {
             return false;
         }
-        Debug.Log(userData.HasValue);
         if (!userData.HasValue)
         {
             Debug.Log("This user is new and needs to be registered");
@@ -100,10 +106,6 @@ public class StellarManager : MonoBehaviour
             OnCurrentUserChanged?.Invoke();
             return true;
         }
-        else
-        {
-            Debug.Log(userData.Value);
-        }
         currentUser = userData.Value;
         OnCurrentUserChanged?.Invoke();
         return true;
@@ -115,30 +117,17 @@ public class StellarManager : MonoBehaviour
         {
             return false;
         }
-        // Debug.Log("TestFunction started");
-        // // quick address check
-        // await GetAddressFromFreighter();
-        // StellarResponseData response = await GetData("User", currentAddress);
-        // string dataString = response.data;
-        // Debug.Log(dataString);
-        // JObject jsonObject = JObject.Parse(dataString);
-        // if (jsonObject["entries"] == null)
-        // {
-        //     throw new Exception("jsonObject entries is null");
-        // }
-        //
-        //Debug.Log(data);
-        
         return true;
     }
 
-    public async Task<bool> SecondTestFunction()
+    public async Task<bool> SecondTestFunction(bool filter)
     {
-        string test = "6acda013-a1e9-499e-ab33-a086cf31c143";
-        Guid testGuid = Guid.Parse(test);
-        Debug.Log(testGuid.ToString());
-        Debug.Log(testGuid);
-        await GetEvents("", contract, "");
+        string fil = "";
+        if (filter)
+        {
+            fil = "hi";
+        }
+        await GetEvents(fil, contract, "");
         return true; 
     }
 

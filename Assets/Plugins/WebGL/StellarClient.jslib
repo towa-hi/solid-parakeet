@@ -217,14 +217,24 @@ mergeInto(LibraryManager.library, {
         const startLedgerSequence = Math.max(1, currentLedger.sequence - "100000");
         console.log(startLedgerSequence);
         console.log(contractAddressString);
-        
-        
-        const events = await server.getEvents({
-            startLedger: startLedgerSequence,
-            filters: [{
+        let params;
+        if (filterString === "")
+        {
+            params = {
+                startLedger: startLedgerSequence,
+            };
+        }
+        else
+        {
+            params = {
+                startLedger: startLedgerSequence,
+                filters: [{
                     contractIds: [contractAddressString],
-            }]
-        });
+                }]
+            };
+        }
+        console.log(params);
+        const events = await server.getEvents(params);
         console.log(events);
         let eventList = [];
         for (let event of events.events)

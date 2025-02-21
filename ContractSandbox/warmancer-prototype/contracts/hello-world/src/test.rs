@@ -1,5 +1,7 @@
 #![cfg(test)]
 extern crate std;
+extern crate alloc;
+
 use super::*;
 use soroban_sdk::testutils::{Ledger};
 use alloc::string::ToString;

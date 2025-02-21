@@ -10,6 +10,10 @@ public class GuiNetworkMenu : MenuElement
     public Button connectWalletButton;
     public Button testButton;
     public Button secondTestButton;
+    public Button oldContractButton;
+    public Button newContractButton;
+    public Button toggleFiltersButton;
+    
     public Button backButton;
 
     public TextMeshProUGUI connectionStatusText;
@@ -17,18 +21,28 @@ public class GuiNetworkMenu : MenuElement
     public TextMeshProUGUI userIdText;
     public TextMeshProUGUI userGamesPlayedText;
     public TextMeshProUGUI userCurrentLobbyText;
+    public TextMeshProUGUI contractText;
+    public TextMeshProUGUI toggleFiltersText;
+    
     
     public event Action OnConnectWalletButton;
     public event Action OnTestButton;
     public event Action OnBackButton;
 
+    string oldContract = "CCK2WEL5BBKDIMEIGMBEIS4CQLEI3D6CI5EFH52J4DOKNKR5AUR5UTYZ";
+    string newContract = "CAIDQUNCEPDSBXJXVTCRWJ3Z5XVVFNW7VFTOIENCWNJHFI3KKRPWRN7O";
     void Start()
     {
         connectWalletButton.onClick.AddListener(HandleConnectWalletButton);
         testButton.onClick.AddListener(HandleTestButton);
         secondTestButton.onClick.AddListener(HandleSecondTestButton);
+        oldContractButton.onClick.AddListener(HandleOldContractButton);
+        newContractButton.onClick.AddListener(HandleNewContractButton);
+        toggleFiltersButton.onClick.AddListener(HandleToggleFiltersButton);
         backButton.onClick.AddListener(HandleBackButton);
         GameManager.instance.stellarManager.OnCurrentUserChanged += OnCurrentUserChangedEvent;
+        GameManager.instance.stellarManager.OnContractChanged += OnContractChangedEvent;
+        OnContractChangedEvent(GameManager.instance.stellarManager.contract);
         
     }
 
@@ -38,11 +52,18 @@ public class GuiNetworkMenu : MenuElement
         walletConnectedText.text = message;
     }
 
+    void OnContractChangedEvent(string contract)
+    {
+        contractText.text = contract;
+    }
+    
     void OnCurrentUserChangedEvent()
     {
         RUser? currentUser = GameManager.instance.stellarManager.currentUser;
+        Debug.Log("OnCurrentUserChangedEvent");
         if (currentUser != null)
         {
+            Debug.Log("setting currentUser");
             userNameText.text = currentUser.Value.name;
             userIdText.text = currentUser.Value.user_id;
             userGamesPlayedText.text = currentUser.Value.games_played.ToString();
@@ -50,6 +71,7 @@ public class GuiNetworkMenu : MenuElement
         }
         else
         {
+            Debug.Log("clearing currentUser");
             userNameText.text = "no user";
             userIdText.text = "";
             userGamesPlayedText.text = "";
@@ -84,6 +106,31 @@ public class GuiNetworkMenu : MenuElement
     
     void HandleSecondTestButton()
     {
-        _ = GameManager.instance.stellarManager.SecondTestFunction();
+        _ = GameManager.instance.stellarManager.SecondTestFunction(filterOn);
+    }
+
+    void HandleOldContractButton()
+    {
+        GameManager.instance.stellarManager.SetContract(oldContract);
+    }
+
+    void HandleNewContractButton()
+    {
+        GameManager.instance.stellarManager.SetContract(newContract);
+    }
+
+    bool filterOn;
+    void HandleToggleFiltersButton()
+    {
+        if (!filterOn)
+        {
+            filterOn = true;
+            toggleFiltersText.text = "event filter enabled";
+        }
+        else
+        {
+            filterOn = false;
+            toggleFiltersText.text = "event filter disabled";
+        }
     }
 }

@@ -1,6 +1,5 @@
 #![no_std]
 
-extern crate alloc;
 
 use soroban_sdk::*;
 use soroban_sdk::xdr::*;
@@ -245,64 +244,59 @@ impl Contract {
         true
     }
 
-    pub(crate) fn generate_uuid(env: &Env, invoker: String, salt: u32) -> String {
+    pub(crate) fn generate_uuid(env: &Env, salt_string: String, salt_int: u32) -> String {
+        const DASH_POSITIONS: [usize; 4] = [8, 13, 18, 23];
         let mut combined = Bytes::new(env);
-
-        // Convert values into bytes and append them
-        combined.append(&invoker.to_xdr(env));
+        combined.append(&salt_string.to_xdr(env));
         combined.append(&env.ledger().timestamp().to_xdr(env));
         combined.append(&env.ledger().sequence().to_xdr(env));
-        combined.append(&salt.to_xdr(env));
+        combined.append(&salt_int.to_xdr(env));
 
-        // Hash the combined bytes
-        let hash: BytesN<32> = env.crypto().sha256(&combined).to_bytes();
-        let mut bytes = hash.to_array();
+        // hash combined bytes
+        let mut bytes = env.crypto().sha256(&combined).to_array();
 
-        // Force "version 4" in byte[6] (the 7th byte)
+        // force "version 4" in bytes[6]
         bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        // Force "variant 1" in byte[8] (the 9th byte)
+        // force "variant 1" in bytes[8]
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
-        // We'll produce a 36-char output: 32 hex digits + 4 dashes
+        // output is 32 hex digits + 4 dashes
         let mut output = [0u8; 36];
-        // Insert dashes at these positions in the final string
-        let dash_positions = [8, 13, 18, 23];
 
-        let mut out_i = 0;
-        // Convert only the first 16 bytes to hex (the standard UUID size)
+        let mut cursor = 0;
+        // convert only the first 16 bytes to hex (the standard UUID size)
         for i in 0..16 {
-            // Insert dash if we're at a dash position
-            if dash_positions.contains(&out_i) {
-                output[out_i] = b'-';
-                out_i += 1;
+            // insert dash if at a dash position
+            if DASH_POSITIONS.contains(&cursor) {
+                output[cursor] = b'-';
+                cursor += 1;
             }
 
-            // Convert high nibble
+            // convert high nibble
             let high = (bytes[i] >> 4) & 0x0f;
-            output[out_i] = if high < 10 {
+            output[cursor] = if high < 10 {
                 high + b'0'
             } else {
                 (high - 10) + b'a'
             };
-            out_i += 1;
+            cursor += 1;
 
-            // Insert dash if next position is a dash
-            if dash_positions.contains(&out_i) {
-                output[out_i] = b'-';
-                out_i += 1;
+            // insert dash if next position is a dash
+            if DASH_POSITIONS.contains(&cursor) {
+                output[cursor] = b'-';
+                cursor += 1;
             }
 
-            // Convert low nibble
+            // convert low nibble
             let low = bytes[i] & 0x0f;
-            output[out_i] = if low < 10 {
+            output[cursor] = if low < 10 {
                 low + b'0'
             } else {
                 (low - 10) + b'a'
             };
-            out_i += 1;
+            cursor += 1;
         }
 
-        // Convert the 36-byte array into a Soroban String
         String::from_bytes(env, &output)
     }
 }
