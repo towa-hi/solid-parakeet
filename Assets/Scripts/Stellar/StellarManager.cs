@@ -134,6 +134,10 @@ public class StellarManager : MonoBehaviour
 
     public async Task<bool> SecondTestFunction()
     {
+        string test = "6acda013-a1e9-499e-ab33-a086cf31c143";
+        Guid testGuid = Guid.Parse(test);
+        Debug.Log(testGuid.ToString());
+        Debug.Log(testGuid);
         await GetEvents("", contract, "");
         return true; 
     }
