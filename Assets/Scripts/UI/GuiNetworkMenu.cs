@@ -1,4 +1,5 @@
 using System;
+using ContractTypes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -23,20 +24,17 @@ public class GuiNetworkMenu : MenuElement
     public TextMeshProUGUI userCurrentLobbyText;
     public TextMeshProUGUI contractText;
     public TextMeshProUGUI toggleFiltersText;
-    
-    
+    public TMP_InputField guestInputField;
+    public TMP_InputField contractInputField;
     public event Action OnConnectWalletButton;
     public event Action OnTestButton;
     public event Action OnBackButton;
 
-    string oldContract = "CCK2WEL5BBKDIMEIGMBEIS4CQLEI3D6CI5EFH52J4DOKNKR5AUR5UTYZ";
-    string newContract = "CAIDQUNCEPDSBXJXVTCRWJ3Z5XVVFNW7VFTOIENCWNJHFI3KKRPWRN7O";
     void Start()
     {
         connectWalletButton.onClick.AddListener(HandleConnectWalletButton);
         testButton.onClick.AddListener(HandleTestButton);
         secondTestButton.onClick.AddListener(HandleSecondTestButton);
-        oldContractButton.onClick.AddListener(HandleOldContractButton);
         newContractButton.onClick.AddListener(HandleNewContractButton);
         toggleFiltersButton.onClick.AddListener(HandleToggleFiltersButton);
         backButton.onClick.AddListener(HandleBackButton);
@@ -59,7 +57,7 @@ public class GuiNetworkMenu : MenuElement
     
     void OnCurrentUserChangedEvent()
     {
-        RUser? currentUser = GameManager.instance.stellarManager.currentUser;
+        User? currentUser = GameManager.instance.stellarManager.currentUser;
         Debug.Log("OnCurrentUserChangedEvent");
         if (currentUser != null)
         {
@@ -106,17 +104,12 @@ public class GuiNetworkMenu : MenuElement
     
     void HandleSecondTestButton()
     {
-        _ = GameManager.instance.stellarManager.SecondTestFunction(filterOn);
-    }
-
-    void HandleOldContractButton()
-    {
-        GameManager.instance.stellarManager.SetContract(oldContract);
+        _ = GameManager.instance.stellarManager.SecondTestFunction(guestInputField.text);
     }
 
     void HandleNewContractButton()
     {
-        GameManager.instance.stellarManager.SetContract(newContract);
+        GameManager.instance.stellarManager.SetContract(contractInputField.text);
     }
 
     bool filterOn;

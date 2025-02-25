@@ -6,6 +6,7 @@ using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using ContractTypes;
 using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -14,6 +15,7 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Stellar;
 using Stellar.RPC;
+using Random = UnityEngine.Random;
 
 public class StellarManager : MonoBehaviour
 {
@@ -32,7 +34,7 @@ public class StellarManager : MonoBehaviour
     [DllImport("__Internal")]
     static extern void JSGetEvents(string filterPtr, string contractAddressPtr, string topicPtr);
     
-    public string contract = "CAIDQUNCEPDSBXJXVTCRWJ3Z5XVVFNW7VFTOIENCWNJHFI3KKRPWRN7O";
+    public string contract = "CBHNTQX7TBVXR2DJC6VCMYJLBCO4GEHYTQHB6MLCHT2725FZNL2IWLTF";
     
     // wrapper tasks
     TaskCompletionSource<StellarResponseData> checkWalletTaskSource;
@@ -43,7 +45,7 @@ public class StellarManager : MonoBehaviour
     
     // state
     public bool webGLBuild = false;
-    public RUser? currentUser;
+    public User? currentUser;
     public event Action<bool> OnWalletConnected;
     public event Action OnCurrentUserChanged;
     public event Action<string> OnContractChanged;
@@ -87,7 +89,7 @@ public class StellarManager : MonoBehaviour
             return false;
         };
         string currentAddress = getAddressResult.data;
-        (int getUserDataCode, RUser? userData) = await GetUserData(currentAddress);
+        (int getUserDataCode, User? userData) = await GetUserData(currentAddress);
         if (getUserDataCode != 1)
         {
             return false;
@@ -96,7 +98,7 @@ public class StellarManager : MonoBehaviour
         {
             Debug.Log("This user is new and needs to be registered");
             string defaultName = "kiki";
-            (int registerUserCode, RUser? newUserData) = await RegisterUser(currentAddress, defaultName);
+            (int registerUserCode, User? newUserData) = await RegisterUser(currentAddress, defaultName);
             if (registerUserCode != 1)
             {
                 currentUser = null;
@@ -113,28 +115,35 @@ public class StellarManager : MonoBehaviour
     
     public async Task<bool> TestFunction()
     {
-        if (!webGLBuild)
+        Debug.Log("registering name");
+        if (currentUser == null)
         {
+            Debug.Log("TestFunction() didnt work because currentUser must exist");
             return false;
         }
+        int num = Random.Range(0, 100);
+        string newName = "kiki" + num.ToString();
+        (int registerUserCode, User? newUserData) = await RegisterUser(currentUser.Value.user_id, newName);
+        if (registerUserCode != 1)
+        {
+            currentUser = null;
+            return false;
+        }
+        currentUser = newUserData.Value;
+        OnCurrentUserChanged?.Invoke();
         return true;
     }
 
-    public async Task<bool> SecondTestFunction(bool filter)
+    public async Task<bool> SecondTestFunction(string guestAddress)
     {
-        string fil = "";
-        if (filter)
-        {
-            fil = "hi";
-        }
-        await GetEvents(fil, contract, "");
+        await StartLobby();
         return true; 
     }
 
     #endregion
     #region helper
     
-    async Task<(int, RUser?)> GetUserData(string address)
+    async Task<(int, User?)> GetUserData(string address)
     {
         StellarResponseData response = await GetData(address, "User", address);
         if (response.code != 1)
@@ -151,7 +160,7 @@ public class StellarManager : MonoBehaviour
                 return (response.code, null);
             }
             string entry = jsonEntries["entries"].First.ToString();
-            RUser user = new RUser(entry);
+            User user = new User(entry);
             return (response.code, user);
         }
         catch (Exception e)
@@ -161,7 +170,7 @@ public class StellarManager : MonoBehaviour
         }
     }
 
-    async Task<(int, RUser?)> RegisterUser(string address, string userName)
+    async Task<(int, User?)> RegisterUser(string address, string userName)
     {
         StellarResponseData response = await InvokeContractFunction(address, contract, "register", userName);
         if (response.code != 1)
@@ -181,6 +190,14 @@ public class StellarManager : MonoBehaviour
             throw;
         }
 
+    }
+
+    async Task<int> StartLobby()
+    {
+        
+        StellarResponseData response = await InvokeContractFunction(currentUser.Value.user_id, contract, "test_get_lobby", "");
+        // TODO: finish this
+        return 0;
     }
     
     #endregion
@@ -313,103 +330,168 @@ public class StellarResponseData
     public string data;
 }
 
-// ReSharper disable InconsistentNaming
-public struct RUser
+public class RStartLobbyRequestData
 {
-    public string user_id;
-    public string name;
-    public int games_played;
-    public string current_lobby;
+    public ContractTypes.Lobby lobby;
+}
 
-    public RUser(string jsonString)
+namespace ContractTypes
+{
+// ReSharper disable InconsistentNaming
+
+    public struct User
     {
-        JObject json = JObject.Parse(jsonString);
-        user_id = json["user_id"]?.ToString() ?? "";
-        name = json["name"]?.ToString() ?? "";
-        games_played = json["games_played"]?.ToObject<int>() ?? 0;
-        current_lobby = json["current_lobby"]?.ToString() == "void" ? null : json["current_lobby"]?.ToString();
+        public string user_id;
+        public string name;
+        public int games_played;
+        public string current_lobby;
+
+        public User(string jsonString)
+        {
+            JObject json = JObject.Parse(jsonString);
+            user_id = json["user_id"]?.ToString() ?? "";
+            name = json["name"]?.ToString() ?? "";
+            games_played = json["games_played"]?.ToObject<int>() ?? 0;
+            current_lobby = json["current_lobby"]?.ToString() == "void" ? null : json["current_lobby"]?.ToString();
+        }
+    }
+
+    public struct Vector2Int
+    {
+        public int x;
+        public int y;
+
+        public Vector2Int(UnityEngine.Vector2Int vector)
+        {
+            x = vector.x;
+            y = vector.y;
+        }
+    }
+    
+    public struct UserState
+    {
+        public string user_id;
+        public int team;
+    }
+
+    public struct PawnDef
+    {
+        public string def_id;
+        public int rank;
+        public string name;
+        public int power;
+        public int movement_range;
 
     }
-}
+    
+    public struct Tile
+    {
+        public Vector2Int pos;
+        public bool is_passable;
+        public int setup_team;
+        public int auto_setup_zone;
 
-public struct RUserState
-{
-    string user_id;
-    int team;
-}
+        public Tile(global::Tile tile)
+        {
+            pos = new Vector2Int(tile.pos);
+            is_passable = tile.isPassable;
+            setup_team = (int)tile.setupTeam;
+            auto_setup_zone = tile.autoSetupZone;
+        }
+        
+    }
+    
+    public struct PawnCommitment
+    {
+        string user_id;
+        string pawn_id;
+        Vector2Int pos;
+        string def_hidden;
+    }
+    
+    public struct SetupCommitment
+    {
+        string user_id;
+        List<PawnCommitment> pawn_positions;
+    }
+    
+    public struct Pawn
+    {
+        public string pawn_id;
+        public string user;
+        public int team;
+        public string def_hidden;
+        public string def_key;
+        public PawnDef def;
+        public Vector2Int pos;
+        public bool is_alive;
+        public bool is_moved;
+        public bool is_revealed;
+    }
+    
+    public struct Lobby
+    {
+        public string lobby_id;
+        public string host;
+        public RBoardDef board_def;
+        public bool must_fill_all_tiles;
+        public Dictionary<int, int> max_pawns;
+        public bool is_secure;
+        public List<UserState> user_states;
+        public int game_end_state;
+        public List<Pawn> pawns;
 
-public struct RLobby
-{
-    string lobby_id;
-    string host;
-    RBoardDef board_def;
-    bool must_fill_all_tiles;
-    (int, int)[] max_pawns;
-    bool is_secure;
-    RUserState[] user_states;
-    int game_end_state;
-    (string, RPawn) pawns;
-}
+        public Lobby(string host_address, string guest_address, LobbyParameters parameters)
+        {
+            lobby_id = "UNDEFINED";
+            host = host_address;
+            board_def =  new RBoardDef(parameters.board);
+            must_fill_all_tiles = parameters.mustFillAllTiles;
+            max_pawns = new Dictionary<int, int>();
+            for (int i = 0; i < parameters.maxPawns.Length; i++)
+            {
+                max_pawns[(int)parameters.maxPawns[i].rank] = parameters.maxPawns[i].max;
+            }
+            is_secure = false;
+            user_states = new List<UserState>();
+            // TODO: add user states
+            game_end_state = 0;
+            pawns = new List<Pawn>();
+        }
+    }
 
-public struct RSetupCommitment
-{
-    string user_id;
-    RPawnCommitment[] pawn_positions;
-}
 
-public struct RPawnCommitment
-{
-    string user_id;
-    string pawn_id;
-    Vector2Int pos;
-    string def_hidden;
-}
+    public struct RBoardDef
+    {
+        public string name;
+        public Vector2Int size;
+        public Dictionary<Vector2Int, Tile> tiles;
+        public bool isHex;
+        public Dictionary<int, int> default_max_pawns;
 
-public struct RBoardDef
-{
-    string name;
-    Vector2Int size;
-    (Vector2Int, RTile) tiles;
-    bool isHex;
-    (int, int) default_max_pawns;
-}
+        public RBoardDef(BoardDef boardDef)
+        {
+            name = boardDef.boardName;
+            size = new Vector2Int(boardDef.boardSize);
+            tiles = new Dictionary<Vector2Int, Tile>();
+            for (int i = 0; i < boardDef.tiles.Length; i++)
+            {
+                Tile tile = new(boardDef.tiles[i]);
+                tiles[tile.pos] = tile;
+            }
+            isHex = boardDef.isHex;
+            default_max_pawns = new Dictionary<int, int>();
+            for (int i = 0; i < boardDef.maxPawns.Length; i++)
+            {
+                default_max_pawns[(int)boardDef.maxPawns[i].rank] = boardDef.maxPawns[i].max;
+            }
+        }
+    }
 
-public struct RTile
-{
-    Vector2Int pos;
-    bool is_passable;
-    int setup_team;
-    int auto_setup_zone;
-}
-public struct RPawn
-{
-    string pawn_id;
-    string user;
-    int team;
-    string def_hidden;
-    string def_key;
-    RPawnDef? def;
-    Vector2Int pos;
-    bool is_alive;
-    bool is_moved;
-    bool is_revealed;
-}
 
-public struct RAddress
-{
-    string address;
-}
-
-public struct RPawnDef
-{
-    string def_id;
-    int rank;
-    string name;
-    int power;
-    int movement_range;
+    // ReSharper restore InconsistentNaming
 
 }
-// ReSharper restore InconsistentNaming
 
 public enum NetworkStatus
 {

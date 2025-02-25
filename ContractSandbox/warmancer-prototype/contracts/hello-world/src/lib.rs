@@ -224,6 +224,89 @@ impl Contract {
         Ok(new_lobby)
     }
 
+    pub fn test_set_lobby(env: Env, user_id: Address, lobby: Lobby) -> Result<Lobby, Error> {
+        let storage = env.storage().persistent();
+        let mut user = storage.get(&DataKey::User(user_id.clone())).clone();
+        storage.set(&user_id.clone(), &user);
+        user.ok_or(Error::UserNotFound)
+    }
+
+    pub fn test_get_lobby(env: Env, user_id: Address) -> Result<Lobby, Error> {
+        let mut max_pawns: Map<u32, u32> = Map::new(&env);
+        max_pawns.set(1, 111);
+        max_pawns.set(2, 111);
+        max_pawns.set(3, 111);
+        max_pawns.set(4, 111);
+        let test_pawn: Pawn = Pawn {
+            pawn_id: String::from_str(&env, "test pawn id"),
+            user: user_id.clone(),
+            team: 0,
+            def_hidden: String::from_str(&env, "def_hidden string"),
+            def_key: String::from_str(&env, "def_key string"),
+            def: PawnDef {
+                def_id: String::from_str(&env, "pawndef def_id string"),
+                rank: 123,
+                name: String::from_str(&env, "pawndef name string"),
+                power: 456,
+                movement_range: 789,
+            },
+            pos: Vector2Int { x:9, y:8},
+            is_alive: true,
+            is_moved: false,
+            is_revealed: false,
+        };
+        let test_pawn_two: Pawn = Pawn {
+            pawn_id: String::from_str(&env, "test pawn two id"),
+            user: user_id.clone(),
+            team: 0,
+            def_hidden: String::from_str(&env, "def_hidden string"),
+            def_key: String::from_str(&env, "def_key string"),
+            def: PawnDef {
+                def_id: String::from_str(&env, "pawnDef def_id string"),
+                rank: 123,
+                name: String::from_str(&env, "pawnDef name string"),
+                power: 456,
+                movement_range: 789,
+            },
+            pos: Vector2Int { x:5, y:6},
+            is_alive: true,
+            is_moved: false,
+            is_revealed: false,
+        };
+        let mut pawns: Map<String, Pawn> = Map::new(&env);
+        pawns.set(test_pawn.pawn_id.clone(), test_pawn);
+        pawns.set(test_pawn_two.pawn_id.clone(), test_pawn_two);
+        let mut new_lobby = Lobby {
+            lobby_id: String::from_str(&env, "test lobby id"),
+            host: user_id.clone(),
+            board_def: BoardDef {
+                name: String::from_str(&env, "board def name"),
+                size: Vector2Int { x: 10, y: 10 },
+                tiles: Map::new(&env),
+                is_hex: false,
+                default_max_pawns: Map::new(&env),
+            },
+            must_fill_all_tiles: false,
+            max_pawns: max_pawns,
+            is_secure: false,
+            user_states: Vec::from_array(
+                &env,
+          [
+                    UserState {
+                        user_id: user_id.clone(),
+                        team: 0,
+                    },
+                    UserState {
+                        user_id: user_id.clone(),
+                        team: 0,
+                    },
+                ],
+            ),
+            game_end_state: 0,
+            pawns: pawns,
+        };
+        Ok(new_lobby)
+    }
 
     fn validate_username(username: String) -> bool {
         let username_length = username.len(); // This is u32
@@ -251,7 +334,7 @@ impl Contract {
         combined.append(&env.ledger().timestamp().to_xdr(env));
         combined.append(&env.ledger().sequence().to_xdr(env));
         combined.append(&salt_int.to_xdr(env));
-
+        // TODO: add a time based salt
         // hash combined bytes
         let mut bytes = env.crypto().sha256(&combined).to_array();
 

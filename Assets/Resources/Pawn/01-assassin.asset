@@ -19,4 +19,4 @@ MonoBehaviour:
   movementRange: 1
   icon: {fileID: 21300000, guid: 4a7d096a33a36d340b6b7cfd1d6a10a7, type: 3}
   redSprite: {fileID: 21300000, guid: dcaef929b890fe94195cda03c708acbe, type: 3}
-  blueSprite: {fileID: 21300000, guid: f5483565cb90bde41a32fa499c7467f6, type: 3}
+  blueSprite: {fileID: 21300000, guid: 8ef6ec8a98c17ee4489d8b25ea9780bd, type: 3}

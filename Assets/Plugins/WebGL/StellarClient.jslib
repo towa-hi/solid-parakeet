@@ -130,14 +130,29 @@ mergeInto(LibraryManager.library, {
             
             console.log(`JSInvokeContractFunction() account: ${account}`);
             // convert data to xdr
-            const addressScVal = new Address(address).toScVal();
-            const inputScVal = nativeToScVal(data, {type: "string"});
+            let addressScVal = new Address(address).toScVal();
+            let inputScVal;
+            if (data !== "")
+            {
+                inputScVal = nativeToScVal(data, {type: "string"});
+            }
             // make contract object and call the contractFunction with address and inputScVal
             const contract = new Contract(contractAddress);
-            const contractCallOperation = contract.call(
-                contractFunction,
-                addressScVal,
-                inputScVal);
+            let contractCallOperation;
+            if (inputScVal !== undefined)
+            {
+                contractCallOperation = contract.call(
+                    contractFunction,
+                    addressScVal,
+                    inputScVal);
+            }
+            else
+            {
+                contractCallOperation = contract.call(
+                    contractFunction,
+                    addressScVal);
+                console.log(`JSInvokeContractFunction() calling with no parameters`);
+            }
             // build the transaction and then sim it with prepareTransaction
             const transaction = new TransactionBuilder(account, {fee: fee, networkPassphrase: currentNetwork})
                 .addOperation(contractCallOperation)
@@ -214,7 +229,7 @@ mergeInto(LibraryManager.library, {
         
         // get startLedger
         const currentLedger = await server.getLatestLedger();
-        const startLedgerSequence = Math.max(1, currentLedger.sequence - "100000");
+        const startLedgerSequence = Math.max(1, currentLedger.sequence - "9999");
         console.log(startLedgerSequence);
         console.log(contractAddressString);
         let params;
@@ -222,6 +237,9 @@ mergeInto(LibraryManager.library, {
         {
             params = {
                 startLedger: startLedgerSequence,
+                filters: [{
+                    contractIds: [contractAddressString],
+                }]
             };
         }
         else
@@ -230,6 +248,7 @@ mergeInto(LibraryManager.library, {
                 startLedger: startLedgerSequence,
                 filters: [{
                     contractIds: [contractAddressString],
+                    // TODO: get topics
                 }]
             };
         }

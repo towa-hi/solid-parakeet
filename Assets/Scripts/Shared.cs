@@ -116,4 +116,9 @@ public static class Shared
             _ => team
         };
     }
+
+    public static (int, int) VectorToTuple(this Vector2Int v)
+    {
+        return (v.x, v.y);
+    }
 }
