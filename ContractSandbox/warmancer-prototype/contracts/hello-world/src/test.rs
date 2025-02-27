@@ -7,25 +7,6 @@ use soroban_sdk::testutils::{Ledger};
 use alloc::string::ToString;
 
 #[test]
-fn test() {
-    let env = get_test_env();
-    log!(env, "test() started");
-    let contract_id = env.register(Contract, ());
-    let client = ContractClient::new(&env, &contract_id);
-
-    let words = client.hello(&String::from_str(&env, "Dev"));
-    assert_eq!(
-        words,
-        vec![
-            &env,
-            String::from_str(&env, "Hello"),
-            String::from_str(&env, "Dev"),
-        ]
-    );
-    log!(env, "test() ended");
-}
-
-#[test]
 fn test_generate_uuid() {
     let env = &get_test_env();
     log!(env, "test_generate_uuid() started");

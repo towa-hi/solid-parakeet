@@ -5,9 +5,14 @@ use soroban_sdk::*;
 use soroban_sdk::xdr::*;
 // region global state defs
 
-pub type AllUserIds = Map<Address, ()>;
-pub type AllLobbyIds = Map<String, ()>;
-
+pub type UserAddress = String;
+pub type LobbyGuid = String;
+pub type PawnGuid = String;
+pub type PawnGuidHash = String;
+pub type PawnDefHash = String;
+pub type PosHash = String;
+pub type Team = u32;
+pub type Rank = u32;
 // endregion
 // region errors
 #[contracterror]
@@ -15,6 +20,33 @@ pub type AllLobbyIds = Map<String, ()>;
 pub enum Error {
     UserNotFound = 1,
     InvalidUsername = 2,
+    AlreadyInitialized = 3,
+    InvalidAddress = 4,
+    InvalidExpirationLedger = 5,
+    InvalidParameters = 6,
+}
+
+// endregion
+// region enums
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Phase {
+    Uninitialized = 0,
+    Setup = 1,
+    Movement = 2,
+    Commitment = 3,
+    Resolve = 4,
+    Ending = 5,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum UserLobbyState {
+    NotAccepted = 0,
+    InLobby = 1,
+    Ready = 2,
+    InGame = 3,
 }
 
 // endregion
@@ -22,36 +54,34 @@ pub enum Error {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct User {
-    // immutable
-    pub user_id: Address,
-    // mutable
-    pub name: String,
-    pub games_played: u32,
-    pub current_lobby: Option<String>,
+pub struct MoveIndex {
+    pub lobby_id: LobbyGuid,
+    pub user_address: UserAddress,
+    pub turn: u32,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Vector2Int {
+pub struct User {
+    // immutable
+    pub index: UserAddress,
+    // mutable
+    pub name: String,
+    pub games_completed: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Pos {
     pub x: i32,
     pub y: i32,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct UserState {
-    // immutable for now
-    pub user_id: Address,
-    pub team: u32,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnDef {
-    pub def_id: String,
-    pub rank: u32,
     pub name: String,
+    pub rank: Rank,
     pub power: u32,
     pub movement_range: u32,
 }
@@ -62,36 +92,34 @@ pub struct PawnDef {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Tile {
-    pub pos: Vector2Int,
+    pub pos: Pos,
     pub is_passable: bool,
-    pub setup_team: u32,
+    pub setup_team: Team,
     pub auto_setup_zone: u32,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommitment {
-    pub user_id: Address,
-    pub pawn_id: String,
-    pub pos: Vector2Int,
-    pub def_hidden: String,
+    pub pawn_id: PawnGuid,
+    pub starting_pos: Pos,
+    pub pawn_def_hash: PawnDefHash, // hash of the def of that pawn in case there's a conflict
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pawn {
     // immutable
-    pub pawn_id: String,
-    pub user: Address,
-    pub team: u32,
-    pub def_hidden: String,
+    pub pawn_id: PawnGuid,
+    pub user_address: UserAddress,
+    pub team: Team,
     // mutable
-    pub def_key: String,
-    pub def: PawnDef,
-    pub pos: Vector2Int,
+    pub pos: Pos,
     pub is_alive: bool,
     pub is_moved: bool,
     pub is_revealed: bool,
+    // unknown until revealed
+    pub pawn_def: PawnDef,
 }
 
 // endregion
@@ -101,17 +129,10 @@ pub struct Pawn {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BoardDef {
     pub name: String,
-    pub size: Vector2Int,
-    pub tiles: Map<Vector2Int, Tile>,
+    pub size: Pos,
+    pub tiles: Map<Pos, Tile>,
     pub is_hex: bool,
-    pub default_max_pawns: Map<u32, u32>,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SetupCommitment {
-    pub user_id: Address,
-    pub pawn_commitments: Vec<PawnCommitment>,
+    pub default_max_pawns: Map<Rank, u32>,
 }
 
 // endregion
@@ -119,38 +140,149 @@ pub struct SetupCommitment {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Lobby {
-    // immutable
-    pub lobby_id: String,
-    pub host: Address,
+pub struct LobbyParameters {
+    pub host: UserAddress,
+    pub guest: UserAddress,
     pub board_def: BoardDef,
     pub must_fill_all_tiles: bool,
-    pub max_pawns: Map<u32, u32>,
-    pub is_secure: bool,
+    pub max_pawns: Map<Rank, u32>,
+    pub dev_mode: bool,
+    pub security_mode: bool,
+}
+
+
+// endregion
+// region level 4 structs
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Invite {
+    pub host_address: UserAddress,
+    pub guest_address: UserAddress,
+    pub sent_ledger: u32,
+    pub ledgers_until_expiration: u32,
+    pub expiration_ledger: u32,
+    pub parameters: LobbyParameters,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Lobby {
+    // immutable
+    pub index: LobbyGuid,
+    pub parameters: LobbyParameters,
     // mutable
-    pub user_states: Vec<UserState>, // contains user specific state, changes when another user joins or leaves
+    pub user_lobby_states: Map<UserAddress, UserLobbyState>, // contains user specific state, changes when another user joins or leaves
     // game state
     pub game_end_state: u32,
-    pub pawns: Map<String, Pawn>,
+    pub setup_commitments: Map<UserAddress, Vec<PawnCommitment>>,
+    pub turn: u32,
+    pub phase: Phase,
 }
 
 // endregion
+// region requests
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SendInviteReq {
+    pub host_address: UserAddress,
+    pub guest_address: UserAddress,
+    pub ledgers_until_expiration: u32,
+    pub parameters: LobbyParameters,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AcceptInviteReq {
+    pub host_address: UserAddress,
+    pub guest_address: UserAddress,
+}
+
+// NOTE: DenyInviteReq is not in here as it is pointless and costs gas until we have a sponsorship model
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CancelInviteReq {
+    pub host_address: UserAddress,
+    pub guest_address: UserAddress,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LeaveLobbyReq {
+    pub host_address: UserAddress,
+    pub guest_address: UserAddress,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SetupCommitReq {
+    pub setup_commitments: Vec<PawnCommitment>
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MoveCommitReq {
+    pub lobby: LobbyGuid,
+    pub user_address: UserAddress,
+    pub turn: u32,
+    pub pawn_id_hash: PawnGuidHash,
+    pub move_pos_hash: PosHash, // hash of the Pos it's moving to
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MoveSubmitReq {
+    pub lobby: LobbyGuid,
+    pub user_address: UserAddress,
+    pub turn: u32,
+    pub pawn_id: PawnGuid,
+    pub move_pos: Pos,
+    pub pawn_def: PawnDef,
+}
+
+// endregion
+// region responses
+
+
+// endregion
+// region events
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InviteEvent {
+    pub invite: Invite,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InviteAcceptedEvent {
+    pub lobby: Lobby,
+}
+
+
 // region keys
+
+pub type PendingInvites = Map<UserAddress, InviteEvent>;
+pub type AllInvites = Map<UserAddress, u32>;
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     // global
-    AllUserIds,
-    AllLobbyIds,
+    Admin,
 
     // user data
-    User(Address),
-    UserGamesPlayed(Address), // todo remove this
-    UserLobbyId(Address), // todo remove this
+    User(UserAddress),
 
     // lobby specific data
-    Lobby(String),
-    SetupCommitments(String),
+    Lobby(LobbyGuid),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TempKey {
+    PendingInvites(UserAddress) // guests (the recipient) address
 }
 
 // endregion
@@ -158,6 +290,7 @@ pub enum DataKey {
 
 pub const EVENT_REGISTER: &str = "register user";
 pub const EVENT_UPDATE: &str = "update user";
+pub const EVENT_INVITE: &str = "invite";
 
 // endregion
 // region contract
@@ -167,157 +300,106 @@ pub struct Contract;
 
 #[contractimpl]
 impl Contract {
-    pub fn hello(env: Env, to: String) -> Vec<String> {
-        vec![&env, String::from_str(&env, "Hello"), to]
+    pub fn init(env: Env, admin: Address) -> Result<(), Error> {
+        if env.storage().instance().has(&DataKey::Admin) {
+            return Err(Error::AlreadyInitialized);
+        }
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        Ok(())
     }
 
-    pub fn register(env: Env, user_id: Address, user_name: String) -> Result<User, Error> {
-        user_id.require_auth();
-        // validate username string
-        if !Self::validate_username(user_name.clone()) {
-            return Err(Error::InvalidUsername);
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    pub fn send_invite(env: Env, address: Address, req: SendInviteReq) -> Result<(), Error> {
+        const MAX_EXPIRATION_LEDGERS: u32 = 1000;
+        address.require_auth();
+        if req.host_address != address.to_string() {
+            return Err(Error::InvalidAddress)
         }
-        let storage = env.storage().persistent();
-        let mut new_user_registered = false;
-        let user = if storage.has(&DataKey::User(user_id.clone())) {
-            storage.update(&DataKey::User(user_id.clone()), |existing: Option<User>| {
-                let mut user = existing.unwrap();
-                user.name = user_name;
-                user
-            })
+        // TODO: validate addresses
+        // if user is already registered, get their user struct or create a new one for them
+        let _host_user = Self::get_or_make_user(&env, &req.host_address);
+        let _guest_user = Self::get_or_make_user(&env, &req.guest_address);
+        if req.ledgers_until_expiration > MAX_EXPIRATION_LEDGERS {
+            return Err(Error::InvalidExpirationLedger)
+        }
+        // TODO: validate parameters
+        if req.parameters.host != req.host_address {
+            return Err(Error::InvalidParameters)
+        }
+        if req.parameters.guest != req.guest_address {
+            return Err(Error::InvalidParameters)
+        }
+        let current_ledger = env.ledger().sequence();
+        let invite_event = InviteEvent {
+            invite: Invite {
+                host_address: req.host_address.clone(),
+                guest_address: req.guest_address.clone(),
+                sent_ledger: current_ledger,
+                ledgers_until_expiration: req.ledgers_until_expiration,
+                expiration_ledger: current_ledger + req.ledgers_until_expiration,
+                parameters: req.parameters,
+            },
+        };
+        Self::update_invites(&env, &invite_event);
+        env.events().publish((EVENT_INVITE, req.host_address, req.guest_address), invite_event);
+        Ok(())
+    }
+
+    pub(crate) fn get_or_make_user(e: &Env, user_address: &UserAddress) -> User {
+        let storage = e.storage().persistent();
+        let key = DataKey::User(user_address.clone());
+        let user = if storage.has(&key) {
+            storage.get(&DataKey::User(user_address.clone())).unwrap()
         } else {
-            // Create new user
             let new_user = User {
-                user_id: user_id.clone(),
-                name: user_name,
-                games_played: 0,
-                current_lobby: None,
+                index: user_address.clone(),
+                name: String::from_str(e, "default name"),
+                games_completed: 0,
             };
-            storage.set(&DataKey::User(user_id.clone()), &new_user);
-            let mut all_users: AllUserIds = storage.get(&DataKey::AllUserIds).unwrap_or_else(||Map::new(&env));
-            all_users.set(user_id.clone(), ());
-            storage.set(&DataKey::AllUserIds, &all_users);
-            new_user_registered = true;
+            storage.set(&key, &new_user);
             new_user
         };
-        if new_user_registered {
-            env.events().publish((EVENT_REGISTER, user_id.clone()), user.clone());
+        user
+    }
+
+    pub(crate) fn update_invites(e: &Env, new_invite_event: &InviteEvent) {
+        let temp = e.storage().temporary();
+        let current_ledger = e.ledger().sequence();
+        let new_invite = new_invite_event.invite.clone();
+        let key = TempKey::PendingInvites(new_invite.guest_address.clone());
+        let mut pending_invites: PendingInvites = temp.get(&key).unwrap_or_else(|| PendingInvites::new(e));
+        // prune pending invites
+        let mut changed = false;
+        for (invite_address, pending_invite_event) in pending_invites.iter() {
+            if pending_invite_event.invite.expiration_ledger < current_ledger {
+                pending_invites.remove(invite_address.clone());
+                changed = true;
+            }
         }
-        else
-        {
-            env.events().publish((EVENT_UPDATE, user_id.clone()), user.clone());
+        // if new_invite isn't already expired, add it to pending
+        if new_invite.expiration_ledger >= current_ledger {
+            pending_invites.set(new_invite.host_address.clone(), new_invite_event.clone());
+            changed = true;
         }
-        Ok(user)
+        if changed {
+            temp.set(&key, &pending_invites);
+            temp.extend_ttl(&key, 0, new_invite.ledgers_until_expiration);
+        }
     }
 
-    pub fn get_user_data(env: Env, user_id: Address) -> Result<User, Error> {
-        let storage = env.storage().persistent();
-        storage.get(&DataKey::User(user_id)).ok_or(Error::UserNotFound)
-    }
-
-    pub fn create_lobby(_env: Env, user_id: Address, lobby: Lobby) -> Result<Lobby, Error> {
-        let mut new_lobby = lobby.clone();
-        user_id.require_auth();
-        new_lobby.lobby_id = Self::generate_uuid(&_env, user_id.to_string(), 0);
-
-
-        Ok(new_lobby)
-    }
-
-    pub fn test_set_lobby(env: Env, user_id: Address, lobby: Lobby) -> Result<Lobby, Error> {
-        let storage = env.storage().persistent();
-        let mut user = storage.get(&DataKey::User(user_id.clone())).clone();
-        storage.set(&user_id.clone(), &user);
-        user.ok_or(Error::UserNotFound)
-    }
-
-    pub fn test_get_lobby(env: Env, user_id: Address) -> Result<Lobby, Error> {
-        let mut max_pawns: Map<u32, u32> = Map::new(&env);
-        max_pawns.set(1, 111);
-        max_pawns.set(2, 111);
-        max_pawns.set(3, 111);
-        max_pawns.set(4, 111);
-        let test_pawn: Pawn = Pawn {
-            pawn_id: String::from_str(&env, "test pawn id"),
-            user: user_id.clone(),
-            team: 0,
-            def_hidden: String::from_str(&env, "def_hidden string"),
-            def_key: String::from_str(&env, "def_key string"),
-            def: PawnDef {
-                def_id: String::from_str(&env, "pawndef def_id string"),
-                rank: 123,
-                name: String::from_str(&env, "pawndef name string"),
-                power: 456,
-                movement_range: 789,
-            },
-            pos: Vector2Int { x:9, y:8},
-            is_alive: true,
-            is_moved: false,
-            is_revealed: false,
-        };
-        let test_pawn_two: Pawn = Pawn {
-            pawn_id: String::from_str(&env, "test pawn two id"),
-            user: user_id.clone(),
-            team: 0,
-            def_hidden: String::from_str(&env, "def_hidden string"),
-            def_key: String::from_str(&env, "def_key string"),
-            def: PawnDef {
-                def_id: String::from_str(&env, "pawnDef def_id string"),
-                rank: 123,
-                name: String::from_str(&env, "pawnDef name string"),
-                power: 456,
-                movement_range: 789,
-            },
-            pos: Vector2Int { x:5, y:6},
-            is_alive: true,
-            is_moved: false,
-            is_revealed: false,
-        };
-        let mut pawns: Map<String, Pawn> = Map::new(&env);
-        pawns.set(test_pawn.pawn_id.clone(), test_pawn);
-        pawns.set(test_pawn_two.pawn_id.clone(), test_pawn_two);
-        let mut new_lobby = Lobby {
-            lobby_id: String::from_str(&env, "test lobby id"),
-            host: user_id.clone(),
-            board_def: BoardDef {
-                name: String::from_str(&env, "board def name"),
-                size: Vector2Int { x: 10, y: 10 },
-                tiles: Map::new(&env),
-                is_hex: false,
-                default_max_pawns: Map::new(&env),
-            },
-            must_fill_all_tiles: false,
-            max_pawns: max_pawns,
-            is_secure: false,
-            user_states: Vec::from_array(
-                &env,
-          [
-                    UserState {
-                        user_id: user_id.clone(),
-                        team: 0,
-                    },
-                    UserState {
-                        user_id: user_id.clone(),
-                        team: 0,
-                    },
-                ],
-            ),
-            game_end_state: 0,
-            pawns: pawns,
-        };
-        Ok(new_lobby)
-    }
-
-    fn validate_username(username: String) -> bool {
+    pub(crate) fn validate_username(username: String) -> bool {
         let username_length = username.len(); // This is u32
         if username_length == 0 || username_length > 16 {
             return false;
         }
-
         let mut buffer = [0u8; 16];
         // Convert username_length to usize for slice indexing
         username.copy_into_slice(&mut buffer[..username_length as usize]);
-
         // Also need to convert for the validation loop
         for &b in buffer[..username_length as usize].iter() {
             if !(b.is_ascii_alphanumeric() || b == b'_') {
@@ -327,25 +409,22 @@ impl Contract {
         true
     }
 
-    pub(crate) fn generate_uuid(env: &Env, salt_string: String, salt_int: u32) -> String {
+    pub(crate) fn generate_uuid(e: &Env, salt_string: String, salt_int: u32) -> String {
         const DASH_POSITIONS: [usize; 4] = [8, 13, 18, 23];
-        let mut combined = Bytes::new(env);
-        combined.append(&salt_string.to_xdr(env));
-        combined.append(&env.ledger().timestamp().to_xdr(env));
-        combined.append(&env.ledger().sequence().to_xdr(env));
-        combined.append(&salt_int.to_xdr(env));
+        let mut combined = Bytes::new(e);
+        combined.append(&salt_string.to_xdr(e));
+        combined.append(&e.ledger().timestamp().to_xdr(e));
+        combined.append(&e.ledger().sequence().to_xdr(e));
+        combined.append(&salt_int.to_xdr(e));
         // TODO: add a time based salt
         // hash combined bytes
-        let mut bytes = env.crypto().sha256(&combined).to_array();
-
+        let mut bytes = e.crypto().sha256(&combined).to_array();
         // force "version 4" in bytes[6]
         bytes[6] = (bytes[6] & 0x0f) | 0x40;
         // force "variant 1" in bytes[8]
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
         // output is 32 hex digits + 4 dashes
         let mut output = [0u8; 36];
-
         let mut cursor = 0;
         // convert only the first 16 bytes to hex (the standard UUID size)
         for i in 0..16 {
@@ -354,7 +433,6 @@ impl Contract {
                 output[cursor] = b'-';
                 cursor += 1;
             }
-
             // convert high nibble
             let high = (bytes[i] >> 4) & 0x0f;
             output[cursor] = if high < 10 {
@@ -363,13 +441,11 @@ impl Contract {
                 (high - 10) + b'a'
             };
             cursor += 1;
-
             // insert dash if next position is a dash
             if DASH_POSITIONS.contains(&cursor) {
                 output[cursor] = b'-';
                 cursor += 1;
             }
-
             // convert low nibble
             let low = bytes[i] & 0x0f;
             output[cursor] = if low < 10 {
@@ -379,8 +455,7 @@ impl Contract {
             };
             cursor += 1;
         }
-
-        String::from_bytes(env, &output)
+        String::from_bytes(e, &output)
     }
 }
 
