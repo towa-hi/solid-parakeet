@@ -23,7 +23,9 @@ pub enum Error {
     AlreadyInitialized = 3,
     InvalidAddress = 4,
     InvalidExpirationLedger = 5,
-    InvalidParameters = 6,
+    InvalidArgs = 6,
+    InviteNotFound = 7,
+    LobbyNotFound = 8,
 }
 
 // endregion
@@ -141,8 +143,6 @@ pub struct BoardDef {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyParameters {
-    pub host: UserAddress,
-    pub guest: UserAddress,
     pub board_def: BoardDef,
     pub must_fill_all_tiles: bool,
     pub max_pawns: Map<Rank, u32>,
@@ -169,17 +169,34 @@ pub struct Invite {
 pub struct Lobby {
     // immutable
     pub index: LobbyGuid,
+    pub host_address: UserAddress,
+    pub guest_address: UserAddress,
     pub parameters: LobbyParameters,
     // mutable
     pub user_lobby_states: Map<UserAddress, UserLobbyState>, // contains user specific state, changes when another user joins or leaves
     // game state
     pub game_end_state: u32,
-    pub setup_commitments: Map<UserAddress, Vec<PawnCommitment>>,
+    pub setup_commitments: Map<UserAddress, Map<PawnCommitment, ()>>,
     pub turn: u32,
     pub phase: Phase,
 }
 
 // endregion
+// region events
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InviteEvent {
+    pub invite: Invite,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InviteAcceptedEvent {
+    pub lobby: Lobby,
+}
+//endregion
+
 // region requests
 
 #[contracttype]
@@ -195,7 +212,6 @@ pub struct SendInviteReq {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AcceptInviteReq {
     pub host_address: UserAddress,
-    pub guest_address: UserAddress,
 }
 
 // NOTE: DenyInviteReq is not in here as it is pointless and costs gas until we have a sponsorship model
@@ -217,7 +233,8 @@ pub struct LeaveLobbyReq {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommitReq {
-    pub setup_commitments: Vec<PawnCommitment>
+    pub lobby_id: LobbyGuid,
+    pub setup_commitments: Map<PawnCommitment, ()>
 }
 
 #[contracttype]
@@ -246,19 +263,6 @@ pub struct MoveSubmitReq {
 
 
 // endregion
-// region events
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InviteEvent {
-    pub invite: Invite,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InviteAcceptedEvent {
-    pub lobby: Lobby,
-}
 
 
 // region keys
@@ -275,22 +279,24 @@ pub enum DataKey {
     // user data
     User(UserAddress),
 
-    // lobby specific data
-    Lobby(LobbyGuid),
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TempKey {
-    PendingInvites(UserAddress) // guests (the recipient) address
+    PendingInvites(UserAddress), // guests (the recipient) address
+
+    // lobby specific data
+    Lobby(LobbyGuid),
 }
 
 // endregion
 // region events
 
-pub const EVENT_REGISTER: &str = "register user";
-pub const EVENT_UPDATE: &str = "update user";
-pub const EVENT_INVITE: &str = "invite";
+pub const EVENT_REGISTER: Symbol = symbol_short!("USERREG");
+pub const EVENT_UPDATE: Symbol = symbol_short!("USERUPD");
+pub const EVENT_INVITE: Symbol = symbol_short!("INVITE");
+pub const EVENT_START: Symbol = symbol_short!("START");
 
 // endregion
 // region contract
@@ -321,6 +327,9 @@ impl Contract {
             return Err(Error::InvalidAddress)
         }
         // TODO: validate addresses
+        if (req.host_address == req.guest_address) || (req.ledgers_until_expiration > MAX_EXPIRATION_LEDGERS) {
+            return Err(Error::InvalidArgs)
+        }
         // if user is already registered, get their user struct or create a new one for them
         let _host_user = Self::get_or_make_user(&env, &req.host_address);
         let _guest_user = Self::get_or_make_user(&env, &req.guest_address);
@@ -328,12 +337,6 @@ impl Contract {
             return Err(Error::InvalidExpirationLedger)
         }
         // TODO: validate parameters
-        if req.parameters.host != req.host_address {
-            return Err(Error::InvalidParameters)
-        }
-        if req.parameters.guest != req.guest_address {
-            return Err(Error::InvalidParameters)
-        }
         let current_ledger = env.ledger().sequence();
         let invite_event = InviteEvent {
             invite: Invite {
@@ -347,6 +350,74 @@ impl Contract {
         };
         Self::update_invites(&env, &invite_event);
         env.events().publish((EVENT_INVITE, req.host_address, req.guest_address), invite_event);
+        Ok(())
+    }
+
+    pub fn accept_invite(env: Env, address: Address, req: AcceptInviteReq) -> Result<(), Error> {
+        address.require_auth();
+        let temp = env.storage().temporary();
+        let pending_invites_key = TempKey::PendingInvites(address.to_string());
+        // see if invite from this user exists in pending invites
+        let mut pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
+        let invite_event = match pending_invites.get(req.host_address.clone()) {
+            Some(v) => v,
+            None => return Err(Error::InviteNotFound),
+        };
+        let invite = invite_event.invite;
+        let current_ledger = env.ledger().sequence();
+        if invite.expiration_ledger < current_ledger {
+            return Err(Error::InvalidExpirationLedger)
+        }
+        // remove invite
+        pending_invites.remove(req.host_address.clone());
+        temp.set(&pending_invites_key, &pending_invites);
+        // make a lobby from the invite
+        let lobby_id = Self::generate_uuid(&env, invite.host_address.clone(), current_ledger);
+        let mut user_lobby_states: Map<UserAddress, UserLobbyState> = Map::new(&env);
+        user_lobby_states.set(invite.host_address.clone(), UserLobbyState::InLobby);
+        user_lobby_states.set(invite.guest_address.clone(), UserLobbyState::InLobby);
+        let setup_commitments: Map<UserAddress, Map<PawnCommitment, ()>> = Map::new(&env); // intentionally empty
+        let lobby = Lobby {
+            index: lobby_id.clone(),
+            host_address: invite.host_address.clone(),
+            guest_address: invite.guest_address.clone(),
+            parameters: invite.parameters,
+            user_lobby_states: user_lobby_states,
+            game_end_state: 0,
+            setup_commitments: setup_commitments,
+            turn: 0,
+            phase: Phase::Setup,
+        };
+        let lobby_key = TempKey::Lobby(lobby_id.clone());
+        temp.set(&lobby_key, &lobby.clone());
+        temp.extend_ttl(&lobby_key, 0, 999);
+        let invite_accepted_event = InviteAcceptedEvent {
+            lobby: lobby.clone(),
+        };
+        env.events().publish((EVENT_START, invite.host_address, invite.guest_address, lobby_id), invite_accepted_event);
+        Ok(())
+    }
+
+    pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
+        let temp = env.storage().temporary();
+        let lobby_key = TempKey::Lobby(req.lobby_id.clone());
+        let mut lobby: Lobby = match temp.get(&lobby_key) {
+            Some(v) => v,
+            None => return Err(Error::LobbyNotFound),
+        };
+
+        // validate commitment
+        if !Self::validate_setup_commitment(&env, &req.setup_commitments, &lobby.parameters) {
+            return Err(Error::InvalidArgs);
+        }
+        lobby.setup_commitments.set(address.to_string(), req.setup_commitments);
+        if (lobby.setup_commitments.keys().len() == 2)
+        {
+            // TODO: start game
+        }
+
+
+
         Ok(())
     }
 
@@ -367,6 +438,7 @@ impl Contract {
         user
     }
 
+    // TODO: make this function take in pending invites instead of calling storage
     pub(crate) fn update_invites(e: &Env, new_invite_event: &InviteEvent) {
         let temp = e.storage().temporary();
         let current_ledger = e.ledger().sequence();
@@ -457,8 +529,25 @@ impl Contract {
         }
         String::from_bytes(e, &output)
     }
-}
 
+    fn validate_setup_commitment(e: &Env, setup_commitments: &Map<PawnCommitment, ()>, parameters: &LobbyParameters) -> bool {
+        for pawn in setup_commitments.keys().iter() {
+            if !Self::validate_pos(e, &pawn.starting_pos, &parameters.board_def) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn validate_pos(e: &Env, pos: &Pos, board_def: &BoardDef) -> bool {
+        let tile = match board_def.tiles.get(pos.clone()) {
+            Some(v) => v,
+            None => return false,
+        };
+        tile.is_passable
+    }
+
+}
 // endregion
 
 mod test;
