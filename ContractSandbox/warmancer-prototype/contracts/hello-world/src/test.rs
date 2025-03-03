@@ -10,10 +10,11 @@ use alloc::string::ToString;
 fn test_generate_uuid() {
     let env = &get_test_env();
     log!(env, "test_generate_uuid() started");
-
-    let test_invoker = String::from_str(&env, "test_invoker");
     let test_salt: u32 = 0;
-    let uuid: String = Contract::generate_uuid(&env, test_invoker.clone(), test_salt);
+    let contract_id = env.register(Contract, ());
+    let uuid: String = env.as_contract(&contract_id, || {
+        Contract::generate_uuid(&env, test_salt)
+    });
     assert_eq!(uuid.len(), 36);
     let uuid_str = uuid.to_string();
     for c in uuid_str.chars() {

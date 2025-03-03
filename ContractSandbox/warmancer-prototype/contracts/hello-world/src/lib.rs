@@ -1,10 +1,7 @@
 #![no_std]
-
-
 use soroban_sdk::*;
 use soroban_sdk::xdr::*;
 // region global state defs
-
 pub type UserAddress = String;
 pub type LobbyGuid = String;
 pub type PawnGuid = String;
@@ -14,9 +11,8 @@ pub type PosHash = String;
 pub type Team = u32;
 pub type Rank = u32;
 // endregion
-// region errors
-#[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+// region enums errors
+#[contracterror]#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Error {
     UserNotFound = 1,
     InvalidUsername = 2,
@@ -26,13 +22,9 @@ pub enum Error {
     InvalidArgs = 6,
     InviteNotFound = 7,
     LobbyNotFound = 8,
+    WrongPhase = 9,
 }
-
-// endregion
-// region enums
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Phase {
     Uninitialized = 0,
     Setup = 1,
@@ -41,29 +33,16 @@ pub enum Phase {
     Resolve = 4,
     Ending = 5,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UserLobbyState {
     NotAccepted = 0,
     InLobby = 1,
     Ready = 2,
     InGame = 3,
 }
-
 // endregion
 // region level 0 structs
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MoveIndex {
-    pub lobby_id: LobbyGuid,
-    pub user_address: UserAddress,
-    pub turn: u32,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
     // immutable
     pub index: UserAddress,
@@ -71,45 +50,35 @@ pub struct User {
     pub name: String,
     pub games_completed: u32,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pos {
     pub x: i32,
     pub y: i32,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnDef {
+    pub id: u32,
     pub name: String,
     pub rank: Rank,
     pub power: u32,
     pub movement_range: u32,
 }
-
 // endregion
 // region level 1 structs
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Tile {
     pub pos: Pos,
     pub is_passable: bool,
     pub setup_team: Team,
     pub auto_setup_zone: u32,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommitment {
     pub pawn_id: PawnGuid,
     pub starting_pos: Pos,
     pub pawn_def_hash: PawnDefHash, // hash of the def of that pawn in case there's a conflict
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pawn {
     // immutable
     pub pawn_id: PawnGuid,
@@ -123,12 +92,9 @@ pub struct Pawn {
     // unknown until revealed
     pub pawn_def: PawnDef,
 }
-
 // endregion
 // region level 2 structs
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BoardDef {
     pub name: String,
     pub size: Pos,
@@ -136,12 +102,9 @@ pub struct BoardDef {
     pub is_hex: bool,
     pub default_max_pawns: Map<Rank, u32>,
 }
-
 // endregion
 // region level 3 structs
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyParameters {
     pub board_def: BoardDef,
     pub must_fill_all_tiles: bool,
@@ -149,12 +112,16 @@ pub struct LobbyParameters {
     pub dev_mode: bool,
     pub security_mode: bool,
 }
-
-
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TurnMove {
+    pub user_address: UserAddress,
+    pub turn: u32,
+    pub pawn_id: PawnGuid,
+    pub pos: Pos,
+}
 // endregion
 // region level 4 structs
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Invite {
     pub host_address: UserAddress,
     pub guest_address: UserAddress,
@@ -163,9 +130,7 @@ pub struct Invite {
     pub expiration_ledger: u32,
     pub parameters: LobbyParameters,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lobby {
     // immutable
     pub index: LobbyGuid,
@@ -176,69 +141,55 @@ pub struct Lobby {
     pub user_lobby_states: Map<UserAddress, UserLobbyState>, // contains user specific state, changes when another user joins or leaves
     // game state
     pub game_end_state: u32,
+    pub teams: Map<UserAddress, Team>,
     pub setup_commitments: Map<UserAddress, Map<PawnCommitment, ()>>,
     pub turn: u32,
     pub phase: Phase,
+    pub pawns: Map<PawnGuid, Pawn>,
+    pub moves: Map<u32, Map<UserAddress, TurnMove>>,
 }
-
 // endregion
 // region events
+pub const EVENT_UPDATE_USER: &str = "EVENT_UPDATE_USER";
+pub const EVENT_INVITE: &str = "EVENT_INVITE";
+pub const EVENT_INVITE_ACCEPT: &str = "EVENT_INVITE_ACCEPT";
+pub const EVENT_SETUP_START: &str = "EVENT_SETUP_START";
+pub const EVENT_SETUP_END: &str = "EVENT_SETUP_END";
 
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InviteEvent {
-    pub invite: Invite,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InviteAcceptedEvent {
-    pub lobby: Lobby,
-}
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EventUpdateUser { pub user: User, }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EventInvite { pub invite: Invite, }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EventInviteAccept { pub lobby: Lobby, }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EventSetupStart { pub lobby: Lobby, }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EventSetupEnd { pub lobby: Lobby, }
 //endregion
-
 // region requests
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SendInviteReq {
     pub host_address: UserAddress,
     pub guest_address: UserAddress,
     pub ledgers_until_expiration: u32,
     pub parameters: LobbyParameters,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AcceptInviteReq {
     pub host_address: UserAddress,
 }
-
-// NOTE: DenyInviteReq is not in here as it is pointless and costs gas until we have a sponsorship model
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CancelInviteReq {
-    pub host_address: UserAddress,
-    pub guest_address: UserAddress,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LeaveLobbyReq {
     pub host_address: UserAddress,
     pub guest_address: UserAddress,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommitReq {
     pub lobby_id: LobbyGuid,
     pub setup_commitments: Map<PawnCommitment, ()>
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MoveCommitReq {
     pub lobby: LobbyGuid,
     pub user_address: UserAddress,
@@ -246,9 +197,7 @@ pub struct MoveCommitReq {
     pub pawn_id_hash: PawnGuidHash,
     pub move_pos_hash: PosHash, // hash of the Pos it's moving to
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MoveSubmitReq {
     pub lobby: LobbyGuid,
     pub user_address: UserAddress,
@@ -258,59 +207,69 @@ pub struct MoveSubmitReq {
     pub pawn_def: PawnDef,
 }
 
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FlatTestReq {
+    pub number: u32,
+    pub word: String,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NestedTestReq {
+    pub number: u32,
+    pub word: String,
+    pub flat: FlatTestReq
+}
+
 // endregion
 // region responses
 
-
 // endregion
-
-
 // region keys
+pub type TestSendInviteReq = SendInviteReq;
 
-pub type PendingInvites = Map<UserAddress, InviteEvent>;
-pub type AllInvites = Map<UserAddress, u32>;
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
-    // global
-    Admin,
-
-    // user data
+    Admin, // Address
     User(UserAddress),
 
+    TestSendInviteReq,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+pub type PendingInvites = Map<UserAddress, EventInvite>;
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TempKey {
     PendingInvites(UserAddress), // guests (the recipient) address
-
-    // lobby specific data
-    Lobby(LobbyGuid),
+    Lobby(LobbyGuid), // lobby specific data
 }
-
-// endregion
-// region events
-
-pub const EVENT_REGISTER: Symbol = symbol_short!("USERREG");
-pub const EVENT_UPDATE: Symbol = symbol_short!("USERUPD");
-pub const EVENT_INVITE: Symbol = symbol_short!("INVITE");
-pub const EVENT_START: Symbol = symbol_short!("START");
-
 // endregion
 // region contract
-
 #[contract]
 pub struct Contract;
-
 #[contractimpl]
 impl Contract {
     pub fn init(env: Env, admin: Address) -> Result<(), Error> {
         if env.storage().instance().has(&DataKey::Admin) {
             return Err(Error::AlreadyInitialized);
         }
-        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().persistent().set(&DataKey::Admin, &admin);
+        let test_req = SendInviteReq {
+            host_address: String::from_str(&env, "host address"),
+            guest_address: String::from_str(&env, "guest address"),
+            ledgers_until_expiration: 0,
+            parameters: LobbyParameters {
+                board_def: BoardDef {
+                    name: String::from_str(&env, "board def name"),
+                    size: Pos { x: 0, y: 0 },
+                    tiles: Map::new(&env),
+                    is_hex: true,
+                    default_max_pawns: Map::new(&env),
+                },
+                must_fill_all_tiles: false,
+                max_pawns: Map::new(&env),
+                dev_mode: false,
+                security_mode: false,
+            },
+        };
+        env.storage().persistent().set(&DataKey::TestSendInviteReq, &test_req);
         Ok(())
     }
 
@@ -320,9 +279,18 @@ impl Contract {
         env.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
+    pub fn flat_param_test(env: Env, address: Address, req: FlatTestReq) -> Result<FlatTestReq, Error> {
+        Ok(req.clone())
+    }
+
+    pub fn nested_param_test(env: Env, address: Address, req: NestedTestReq) -> Result<NestedTestReq, Error> {
+        Ok(req.clone())
+    }
+
     pub fn send_invite(env: Env, address: Address, req: SendInviteReq) -> Result<(), Error> {
-        const MAX_EXPIRATION_LEDGERS: u32 = 1000;
         address.require_auth();
+        const MAX_EXPIRATION_LEDGERS: u32 = 1000;
+        let temp = env.storage().temporary();
         if req.host_address != address.to_string() {
             return Err(Error::InvalidAddress)
         }
@@ -332,13 +300,14 @@ impl Contract {
         }
         // if user is already registered, get their user struct or create a new one for them
         let _host_user = Self::get_or_make_user(&env, &req.host_address);
+        //TODO: prevent users from adding non existent guest users
         let _guest_user = Self::get_or_make_user(&env, &req.guest_address);
         if req.ledgers_until_expiration > MAX_EXPIRATION_LEDGERS {
             return Err(Error::InvalidExpirationLedger)
         }
         // TODO: validate parameters
         let current_ledger = env.ledger().sequence();
-        let invite_event = InviteEvent {
+        let event_invite = EventInvite {
             invite: Invite {
                 host_address: req.host_address.clone(),
                 guest_address: req.guest_address.clone(),
@@ -348,8 +317,14 @@ impl Contract {
                 parameters: req.parameters,
             },
         };
-        Self::update_invites(&env, &invite_event);
-        env.events().publish((EVENT_INVITE, req.host_address, req.guest_address), invite_event);
+        // add invite to guest's PendingInvites and prune dead invites for guest
+        let pending_invites_key = TempKey::PendingInvites(req.guest_address.clone());
+        let pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
+        let mut pruned_pending_invites = Self::prune_pending_invites(&env, &pending_invites);
+        pruned_pending_invites.set(req.guest_address.clone(), event_invite.clone());
+        temp.set(&pending_invites_key, &pruned_pending_invites);
+        temp.extend_ttl(&pending_invites_key, 0, req.ledgers_until_expiration);
+        env.events().publish((EVENT_INVITE, req.host_address, req.guest_address), event_invite);
         Ok(())
     }
 
@@ -358,25 +333,24 @@ impl Contract {
         let temp = env.storage().temporary();
         let pending_invites_key = TempKey::PendingInvites(address.to_string());
         // see if invite from this user exists in pending invites
-        let mut pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
-        let invite_event = match pending_invites.get(req.host_address.clone()) {
+        let pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
+        let mut pruned_pending_invites = Self::prune_pending_invites(&env, &pending_invites);
+        let invite_event = match pruned_pending_invites.get(req.host_address.clone()) {
             Some(v) => v,
             None => return Err(Error::InviteNotFound),
         };
         let invite = invite_event.invite;
-        let current_ledger = env.ledger().sequence();
-        if invite.expiration_ledger < current_ledger {
-            return Err(Error::InvalidExpirationLedger)
-        }
         // remove invite
-        pending_invites.remove(req.host_address.clone());
+        pruned_pending_invites.remove(req.host_address.clone());
         temp.set(&pending_invites_key, &pending_invites);
         // make a lobby from the invite
-        let lobby_id = Self::generate_uuid(&env, invite.host_address.clone(), current_ledger);
+        let lobby_id = Self::generate_uuid(&env, env.ledger().sequence());
         let mut user_lobby_states: Map<UserAddress, UserLobbyState> = Map::new(&env);
         user_lobby_states.set(invite.host_address.clone(), UserLobbyState::InLobby);
         user_lobby_states.set(invite.guest_address.clone(), UserLobbyState::InLobby);
-        let setup_commitments: Map<UserAddress, Map<PawnCommitment, ()>> = Map::new(&env); // intentionally empty
+        let mut teams: Map<UserAddress, Team> = Map::new(&env); // TODO: make teams configurable later
+        teams.set(invite.host_address.clone(), 1); // host is always RED
+        teams.set(invite.guest_address.clone(), 2); // guest is always BLUE
         let lobby = Lobby {
             index: lobby_id.clone(),
             host_address: invite.host_address.clone(),
@@ -384,40 +358,82 @@ impl Contract {
             parameters: invite.parameters,
             user_lobby_states: user_lobby_states,
             game_end_state: 0,
-            setup_commitments: setup_commitments,
+            teams: teams,
+            setup_commitments: Map::new(&env),
             turn: 0,
             phase: Phase::Setup,
+            pawns: Map::new(&env),
+            moves: Map::new(&env),
         };
         let lobby_key = TempKey::Lobby(lobby_id.clone());
         temp.set(&lobby_key, &lobby.clone());
         temp.extend_ttl(&lobby_key, 0, 999);
-        let invite_accepted_event = InviteAcceptedEvent {
+        let event_invite_accept = EventInviteAccept {
             lobby: lobby.clone(),
         };
-        env.events().publish((EVENT_START, invite.host_address, invite.guest_address, lobby_id), invite_accepted_event);
+        env.events().publish((EVENT_INVITE_ACCEPT, invite.host_address, invite.guest_address, lobby_id), event_invite_accept);
         Ok(())
     }
 
     pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
+        address.require_auth();
         let temp = env.storage().temporary();
         let lobby_key = TempKey::Lobby(req.lobby_id.clone());
         let mut lobby: Lobby = match temp.get(&lobby_key) {
             Some(v) => v,
             None => return Err(Error::LobbyNotFound),
         };
-
+        if lobby.phase != Phase::Setup {
+            return Err(Error::WrongPhase);
+        }
         // validate commitment
         if !Self::validate_setup_commitment(&env, &req.setup_commitments, &lobby.parameters) {
             return Err(Error::InvalidArgs);
         }
         lobby.setup_commitments.set(address.to_string(), req.setup_commitments);
-        if (lobby.setup_commitments.keys().len() == 2)
+        // if both players have submitted
+        let all_players_committed = lobby.setup_commitments.keys().len() == 2;
+        if all_players_committed
         {
-            // TODO: start game
+            let mut sneed: u32 = 0;
+            // start game
+            let mut pawns: Map<PawnGuid, Pawn> = Map::new(&env);
+            for (user_address, commitment_map) in lobby.setup_commitments.iter() {
+                let team = lobby.teams.get_unchecked(user_address.clone());
+                for pawn_commitment in commitment_map.keys().iter() {
+                    let pawn_id = Self::generate_uuid(&env, sneed);
+                    let pawn_def = PawnDef {
+                        id: 99,
+                        name: String::from_str(&env, "UNKNOWN"),
+                        rank: 99,
+                        power: 0,
+                        movement_range: 0,
+                    };
+                    let pawn = Pawn {
+                        pawn_id: pawn_id.clone(),
+                        user_address: user_address.clone(),
+                        team: team,
+                        pos: pawn_commitment.starting_pos,
+                        is_alive: true,
+                        is_moved: false,
+                        is_revealed: false,
+                        pawn_def: pawn_def,
+                    };
+                    pawns.set(pawn_id, pawn);
+                    sneed += 1;
+                }
+            }
+            lobby.pawns = pawns;
+            lobby.phase = Phase::Movement;
+            lobby.turn = 1;
+            temp.set(&lobby_key, &lobby);
+            let event_setup_end = EventSetupEnd {
+                lobby: lobby.clone(),
+            };
+            env.events().publish((EVENT_SETUP_END, lobby.host_address, lobby.guest_address, lobby.index), event_setup_end);
+        } else {
+            temp.set(&lobby_key, &lobby);
         }
-
-
-
         Ok(())
     }
 
@@ -438,57 +454,25 @@ impl Contract {
         user
     }
 
-    // TODO: make this function take in pending invites instead of calling storage
-    pub(crate) fn update_invites(e: &Env, new_invite_event: &InviteEvent) {
-        let temp = e.storage().temporary();
+    pub(crate) fn prune_pending_invites(e: &Env, pending_invites: &PendingInvites) -> PendingInvites
+    {
+        let mut new_pending_invites = pending_invites.clone();
         let current_ledger = e.ledger().sequence();
-        let new_invite = new_invite_event.invite.clone();
-        let key = TempKey::PendingInvites(new_invite.guest_address.clone());
-        let mut pending_invites: PendingInvites = temp.get(&key).unwrap_or_else(|| PendingInvites::new(e));
-        // prune pending invites
-        let mut changed = false;
-        for (invite_address, pending_invite_event) in pending_invites.iter() {
-            if pending_invite_event.invite.expiration_ledger < current_ledger {
-                pending_invites.remove(invite_address.clone());
-                changed = true;
+        for (invite_address, invite_event) in pending_invites.iter() {
+            if invite_event.invite.expiration_ledger >= current_ledger {
+                new_pending_invites.set(invite_address, invite_event);
             }
         }
-        // if new_invite isn't already expired, add it to pending
-        if new_invite.expiration_ledger >= current_ledger {
-            pending_invites.set(new_invite.host_address.clone(), new_invite_event.clone());
-            changed = true;
-        }
-        if changed {
-            temp.set(&key, &pending_invites);
-            temp.extend_ttl(&key, 0, new_invite.ledgers_until_expiration);
-        }
+        new_pending_invites
     }
 
-    pub(crate) fn validate_username(username: String) -> bool {
-        let username_length = username.len(); // This is u32
-        if username_length == 0 || username_length > 16 {
-            return false;
-        }
-        let mut buffer = [0u8; 16];
-        // Convert username_length to usize for slice indexing
-        username.copy_into_slice(&mut buffer[..username_length as usize]);
-        // Also need to convert for the validation loop
-        for &b in buffer[..username_length as usize].iter() {
-            if !(b.is_ascii_alphanumeric() || b == b'_') {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub(crate) fn generate_uuid(e: &Env, salt_string: String, salt_int: u32) -> String {
+    pub(crate) fn generate_uuid(e: &Env, salt_int: u32) -> String {
+        let random_number: u64 = e.prng().gen();
         const DASH_POSITIONS: [usize; 4] = [8, 13, 18, 23];
         let mut combined = Bytes::new(e);
-        combined.append(&salt_string.to_xdr(e));
-        combined.append(&e.ledger().timestamp().to_xdr(e));
+        combined.append(&random_number.to_xdr(e));
         combined.append(&e.ledger().sequence().to_xdr(e));
         combined.append(&salt_int.to_xdr(e));
-        // TODO: add a time based salt
         // hash combined bytes
         let mut bytes = e.crypto().sha256(&combined).to_array();
         // force "version 4" in bytes[6]
@@ -539,7 +523,7 @@ impl Contract {
         true
     }
 
-    fn validate_pos(e: &Env, pos: &Pos, board_def: &BoardDef) -> bool {
+    fn validate_pos(_e: &Env, pos: &Pos, board_def: &BoardDef) -> bool {
         let tile = match board_def.tiles.get(pos.clone()) {
             Some(v) => v,
             None => return false,
@@ -547,7 +531,25 @@ impl Contract {
         tile.is_passable
     }
 
+    /*
+    pub(crate) fn validate_username(username: String) -> bool {
+        let username_length = username.len(); // This is u32
+        if username_length == 0 || username_length > 16 {
+            return false;
+        }
+        let mut buffer = [0u8; 16];
+        // Convert username_length to usize for slice indexing
+        username.copy_into_slice(&mut buffer[..username_length as usize]);
+        // Also need to convert for the validation loop
+        for &b in buffer[..username_length as usize].iter() {
+            if !(b.is_ascii_alphanumeric() || b == b'_') {
+                return false;
+            }
+        }
+        true
+    }
+     */
 }
 // endregion
 
-mod test;
+mod test;// run tests

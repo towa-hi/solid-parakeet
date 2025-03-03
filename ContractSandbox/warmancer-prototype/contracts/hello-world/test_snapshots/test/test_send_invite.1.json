@@ -209,7 +209,7 @@
                   "map": [
                     {
                       "key": {
-                        "string": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                        "string": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                       },
                       "val": {
                         "map": [
@@ -619,7 +619,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "INVITE"
+                "string": "EVENT_INVITE"
               },
               {
                 "string": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"

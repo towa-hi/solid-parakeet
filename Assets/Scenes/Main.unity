@@ -3359,7 +3359,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b1a354568423554aa91ad1aae367434, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  contract: CAIDQUNCEPDSBXJXVTCRWJ3Z5XVVFNW7VFTOIENCWNJHFI3KKRPWRN7O
+  contract: CBTBFRIT5GIMIFLI6WWVHSJA7VWRI2TGX32VACQQO5W53UWVZ674Q4OB
+  testBoardDef: {fileID: 11400000, guid: 515235a2881a7ba43a6895fb11662267, type: 2}
   webGLBuild: 0
 --- !u!4 &667410737
 Transform:

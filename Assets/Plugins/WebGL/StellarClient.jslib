@@ -104,7 +104,7 @@ mergeInto(LibraryManager.library, {
     {
         try {
             // actual constants
-            const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
+            const {rpc, xdr, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
             const FreighterApi = window.freighterApi;
             const server = new rpc.Server("https://soroban-testnet.stellar.org");
             const currentNetwork = Networks.TESTNET;
@@ -116,43 +116,52 @@ mergeInto(LibraryManager.library, {
             const contractAddress = UTF8ToString(contractAddressPtr);
             const contractFunction = UTF8ToString(contractFunctionPtr);
             const transactionTimeoutSec = 2000;
+            // get account object with sequence number from rpc server (need this to make transaction)
+            const account = await server.getAccount(address);
+            // waiting...
+            console.log(`JSInvokeContractFunction() account: ${account}`);
+            // convert data to xdr
+
+            const dataObject = JSON.parse(data);
+            const dataScVal = nativeToScVal(dataObject, {
+                type: "FlatTestReq",
+                FlatTestReq: {
+                    number: {type: "u32"},
+                    word: {type: "string"}
+                }
+            });
+            const fakeScVal = xdr.ScVal.scvMap([
+                new xdr.ScMapEntry({
+                    key: xdr.ScVal.scvSymbol("number"),
+                    val: xdr.ScVal.scvU32(dataObject.number),
+                }),
+                new xdr.ScMapEntry({
+                    key: xdr.ScVal.scvSymbol("word"),
+                    val: xdr.ScVal.scvString(dataObject.word),
+                })
+            ]);
+            const fakeScValString = fakeScVal.toXDR('base64');
+            const dataScValString = dataScVal.toXDR('base64');
+            let addressScVal = new Address(address).toScVal();
+
             console.log(`JSInvokeContractFunction() started. 
                 address: ${address}, 
                 contractAddress: ${contractAddress}, 
                 contractFunction: ${contractFunction}, 
                 data: ${data}, 
+                fakeScValString: ${fakeScValString},
                 currentNetwork: ${currentNetwork},
                 transactionTimeoutSec: ${transactionTimeoutSec},
             `);
-            // get account object with sequence number from rpc server (need this to make transaction)
-            const account = await server.getAccount(address);
-            // waiting...
             
-            console.log(`JSInvokeContractFunction() account: ${account}`);
-            // convert data to xdr
-            let addressScVal = new Address(address).toScVal();
-            let inputScVal;
-            if (data !== "")
-            {
-                inputScVal = nativeToScVal(data, {type: "string"});
-            }
             // make contract object and call the contractFunction with address and inputScVal
             const contract = new Contract(contractAddress);
-            let contractCallOperation;
-            if (inputScVal !== undefined)
-            {
-                contractCallOperation = contract.call(
-                    contractFunction,
-                    addressScVal,
-                    inputScVal);
-            }
-            else
-            {
-                contractCallOperation = contract.call(
-                    contractFunction,
-                    addressScVal);
-                console.log(`JSInvokeContractFunction() calling with no parameters`);
-            }
+            const spec = await contract.spec();
+            
+            let contractCallOperation = contract.call(
+                contractFunction,
+                addressScVal,
+                fakeScVal);
             // build the transaction and then sim it with prepareTransaction
             const transaction = new TransactionBuilder(account, {fee: fee, networkPassphrase: currentNetwork})
                 .addOperation(contractCallOperation)

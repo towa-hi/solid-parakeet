@@ -63,9 +63,8 @@ public class GuiNetworkMenu : MenuElement
         {
             Debug.Log("setting currentUser");
             userNameText.text = currentUser.Value.name;
-            userIdText.text = currentUser.Value.user_id;
-            userGamesPlayedText.text = currentUser.Value.games_played.ToString();
-            userCurrentLobbyText.text = currentUser.Value.current_lobby == "" ? "no lobby" : currentUser.Value.current_lobby;
+            userIdText.text = currentUser.Value.index;
+            userGamesPlayedText.text = currentUser.Value.games_completed.ToString();
         }
         else
         {

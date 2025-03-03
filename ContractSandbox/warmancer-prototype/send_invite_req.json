@@ -1,0 +1,18 @@
+{
+  "guest_address": "guest address",
+  "host_address": "host address",
+  "ledgers_until_expiration": 0,
+  "parameters": {
+    "board_def": {
+      "default_max_pawns": {},
+      "is_hex": true,
+      "name": "board def name",
+      "size": {"x": 0, "y": 0},
+      "tiles": {}
+    },
+    "dev_mode": false,
+    "max_pawns": {},
+    "must_fill_all_tiles": false,
+    "security_mode": false
+  }
+}
