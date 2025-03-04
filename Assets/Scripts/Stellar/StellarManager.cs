@@ -1,9 +1,13 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using ContractTypes;
@@ -15,6 +19,7 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Stellar;
 using Stellar.RPC;
+using Stellar.Utilities;
 using Random = UnityEngine.Random;
 
 public class StellarManager : MonoBehaviour
@@ -123,22 +128,156 @@ public class StellarManager : MonoBehaviour
     
     public async Task<bool> TestFunction()
     {
-        Debug.Log("registering name");
-        if (currentUser == null)
+        MuxedAccount.KeyTypeEd25519 testAccount = MuxedAccount.FromSecretSeed("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB");
+        AccountID testAccountId = new AccountID(testAccount.XdrPublicKey);
+        string demoContractId = "CDO5UFNRHPMCLFN6NXFPMS22HTQFZQACUZP6S25QUTFIGDFP4HLD3YVN"; // See SorobanExample project in the solution
+        HttpClient httpClient = new HttpClient();
+        httpClient.BaseAddress = new Uri("https://soroban-testnet.stellar.org");
+        StellarRPCClient client = new StellarRPCClient(httpClient);
+        
+        Network.UseTestNetwork();
+        
+        // get account info
+        LedgerKey accountKey = new LedgerKey.Account()
         {
-            Debug.Log("TestFunction() didnt work because currentUser must exist");
-            return false;
-        }
-        int num = Random.Range(0, 100);
-        string newName = "kiki" + num.ToString();
-        (int registerUserCode, User? newUserData) = await RegisterUser(currentUser.Value.index, newName);
-        if (registerUserCode != 1)
+            account = new LedgerKey.accountStruct()
+            {
+                accountID = testAccountId
+            }
+        };
+        var encodedAccountKey = LedgerKeyXdr.EncodeToBase64(accountKey);
+        var getLedgerEntriesArgs = new GetLedgerEntriesParams()
         {
-            currentUser = null;
-            return false;
-        }
-        currentUser = newUserData.Value;
-        OnCurrentUserChanged?.Invoke();
+            Keys = new [] {encodedAccountKey},
+        };
+        GetLedgerEntriesResult getLedgerEntriesResponse = await client.GetLedgerEntriesAsync(getLedgerEntriesArgs);
+        LedgerEntry.dataUnion.Account ledgerEntry = getLedgerEntriesResponse.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
+        AccountEntry accountEntry = ledgerEntry.account;
+        
+        
+        // First, create the nested FlatTestReq struct as an SCMap
+        var flatTestReqMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
+                    val = new SCVal.ScvU32() { u32 = 42 }  // Example value
+                },
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
+                    val = new SCVal.ScvString() { str = new SCString("hello") }  // Example value
+                }
+            })
+        };
+
+        // Then, create the parent NestedTestReq struct as an SCMap
+        var nestedTestReqMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                /*
+                 *  MUST BE IN ALPHA ORDER
+                 */
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("flat") },
+                    val = flatTestReqMap  // Using the nested struct we created above
+                },
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("numba") },
+                    val = new SCVal.ScvU32() { u32 = 100 }  // Example value
+                },
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
+                    val = new SCVal.ScvString() { str = new SCString("world") }  // Example value
+                },
+
+            })
+        };
+        
+        
+        NestedTestReq nestedTestReq = new()
+        {
+            numba = 34,
+            word = "nested word",
+            flat = new FlatTestReq
+            {
+                number = 21,
+                word = "flat word",
+            },
+        };
+        SCVal nested = SCValConverter.NativeToSCVal(nestedTestReq);
+        string encoded = SCValXdr.EncodeToBase64(nested);
+        string testEncoded = SCValXdr.EncodeToBase64(nestedTestReqMap);
+        Debug.Log(encoded);
+        Operation nestedParamTestInvocation = new Operation()
+        {
+            sourceAccount = testAccount,
+            body = new Operation.bodyUnion.InvokeHostFunction()
+            {
+                invokeHostFunctionOp = new InvokeHostFunctionOp()
+                {
+                    auth = Array.Empty<SorobanAuthorizationEntry>(),
+                    hostFunction = new HostFunction.HostFunctionTypeInvokeContract()
+                    {
+                        invokeContract = new InvokeContractArgs()
+                        {
+                            contractAddress = new SCAddress.ScAddressTypeContract()
+                            {
+                                contractId = new Hash(StrKey.DecodeContractId(demoContractId))
+                            },
+                            functionName = new SCSymbol("nested_param_test"),
+                            args = new [] { nested },
+                        },
+                    },
+                },
+            },
+        };
+        Transaction invokeContractTransaction = new Transaction()
+        {
+            sourceAccount = testAccount,
+            fee = 100,
+            memo = new Memo.MemoNone(),
+            seqNum = accountEntry.seqNum.Increment(),
+            cond = new Preconditions.PrecondNone(),
+            ext = new Transaction.extUnion.case_0(),
+            operations = new [] { nestedParamTestInvocation },
+        };
+        
+        TransactionEnvelope simulateEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
+        {
+            v1 = new TransactionV1Envelope()
+            {
+                tx = invokeContractTransaction,
+                signatures = Array.Empty<DecoratedSignature>(),
+            },
+        };
+        SimulateTransactionResult simulationResult = await client.SimulateTransactionAsync(new SimulateTransactionParams()
+        {
+            Transaction = TransactionEnvelopeXdr.EncodeToBase64(simulateEnvelope),
+        });
+
+        Transaction assembledTransaction = simulationResult.ApplyTo(invokeContractTransaction);
+        DecoratedSignature signature = assembledTransaction.Sign(testAccount);
+        TransactionEnvelope sendEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
+        {
+            v1 = new TransactionV1Envelope()
+            {
+                tx = assembledTransaction,
+                signatures = new[] { signature },
+            },
+        };
+        
+        SendTransactionResult result = await client.SendTransactionAsync(new SendTransactionParams
+        {
+            Transaction = TransactionEnvelopeXdr.EncodeToBase64(sendEnvelope),
+        });
+        
         return true;
     }
 
@@ -174,7 +313,7 @@ public class StellarManager : MonoBehaviour
         StellarResponseData response = await InvokeContractFunction(currentUser.Value.index, contract, "flat_param_test", flat_json);
         NestedTestReq nested = new NestedTestReq()
         {
-            number = 2,
+            numba = 2,
             word = "nested",
             flat = flat,
         };
@@ -375,6 +514,100 @@ public class StellarResponseData
     public string data;
 }
 
+public interface XDRCompatable
+{
+    public SCVal ToSCVal();
+}
+
+public static class SCValConverter
+{
+    public static SCVal NativeToSCVal(object input)
+    {
+        if (input == null)
+            throw new ArgumentNullException(nameof(input));
+
+        Type type = input.GetType();
+
+        // Handle primitive types
+        if (type == typeof(int))
+        {
+            // Convert int to an unsigned 32-bit SCVal.
+            // (Ensure your ints are non-negative or handle negatives as needed.)
+            return new SCVal.ScvU32 { u32 = Convert.ToUInt32(input) };
+        }
+        else if (type == typeof(bool))
+        {
+            return new SCVal.ScvBool { b = (bool)input };
+        }
+        else if (type == typeof(string))
+        {
+            return new SCVal.ScvString { str = new SCString((string)input) };
+        }
+        // If the input is a map/dictionary, convert keys and values using native conversion.
+        if (input is IDictionary dictionary)
+        {
+            var entries = new List<SCMapEntry>();
+            
+            
+        }
+        
+        
+        
+        
+        
+        // Handle structs (non-primitive value types)
+        if (type.IsValueType && !type.IsPrimitive)
+        {
+            // Use a dictionary to avoid duplicate keys when both a property and a field have the same name.
+            var entryDict = new Dictionary<string, SCMapEntry>();
+
+            // Process public properties
+            foreach (var prop in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (prop.CanRead)
+                {
+                    var value = prop.GetValue(input);
+                    var scVal = NativeToSCVal(value);
+                    entryDict[prop.Name] = new SCMapEntry
+                    {
+                        key = new SCVal.ScvSymbol { sym = new SCSymbol(prop.Name) },
+                        val = scVal
+                    };
+                }
+            }
+
+            // Process public fields (only if not already added via properties)
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (!entryDict.ContainsKey(field.Name))
+                {
+                    object value = field.GetValue(input);
+                    SCVal scVal = NativeToSCVal(value);
+                    entryDict[field.Name] = new SCMapEntry
+                    {
+                        key = new SCVal.ScvSymbol { sym = new SCSymbol(field.Name) },
+                        val = scVal
+                    };
+                }
+            }
+
+            // Sort entries by the symbol (key) in alphabetical order
+            var entries = entryDict.Values.ToList();
+            entries.Sort((a, b) =>
+                string.Compare(
+                    ((SCVal.ScvSymbol)a.key).sym, 
+                    ((SCVal.ScvSymbol)b.key).sym, 
+                    StringComparison.Ordinal));
+            // Create the SCMap and wrap it into an SCVal.ScvMap
+            SCMap map = new SCMap(entries.ToArray());
+            return new SCVal.ScvMap { map = map };
+        }
+        else
+        {
+            throw new NotSupportedException($"Type {type.Name} is not supported for conversion to SCVal.");
+        }
+    }
+}
 
 namespace ContractTypes
 {
@@ -386,6 +619,7 @@ namespace ContractTypes
         public string guest_address;
         public int ledgers_until_expiration;
         public LobbyParameters parameters;
+        
     }
     
     public struct LobbyParameters
@@ -511,7 +745,7 @@ namespace ContractTypes
 
     public struct NestedTestReq
     {
-        public int number;
+        public int numba;
         public string word;
         public FlatTestReq flat;
     }
