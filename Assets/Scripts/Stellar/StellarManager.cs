@@ -9,6 +9,7 @@ using System.Linq.Expressions;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using ContractTypes;
 using JetBrains.Annotations;
@@ -20,6 +21,8 @@ using Debug = UnityEngine.Debug;
 using Stellar;
 using Stellar.RPC;
 using Stellar.Utilities;
+using UnityEngine.Networking;
+using UnityEngine.Scripting;
 using Random = UnityEngine.Random;
 
 public class StellarManager : MonoBehaviour
@@ -126,159 +129,210 @@ public class StellarManager : MonoBehaviour
         return true;
     }
     
+    JsonSerializerSettings _jsonSettings = new JsonSerializerSettings()
+    {
+        ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
+        NullValueHandling = NullValueHandling.Ignore
+    };
+    
     public async Task<bool> TestFunction()
     {
-        MuxedAccount.KeyTypeEd25519 testAccount = MuxedAccount.FromSecretSeed("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB");
-        AccountID testAccountId = new AccountID(testAccount.XdrPublicKey);
-        string demoContractId = "CDO5UFNRHPMCLFN6NXFPMS22HTQFZQACUZP6S25QUTFIGDFP4HLD3YVN"; // See SorobanExample project in the solution
+        StellarDotnet stellar = new StellarDotnet("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB", "CDO5UFNRHPMCLFN6NXFPMS22HTQFZQACUZP6S25QUTFIGDFP4HLD3YVN");
+        await stellar.TestFunction();
+        // MuxedAccount.KeyTypeEd25519 testAccount = MuxedAccount.FromSecretSeed("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB");
+        // AccountID testAccountId = new AccountID(testAccount.XdrPublicKey);
+        // string demoContractId = "CDO5UFNRHPMCLFN6NXFPMS22HTQFZQACUZP6S25QUTFIGDFP4HLD3YVN"; // See SorobanExample project in the solution
         HttpClient httpClient = new HttpClient();
         httpClient.BaseAddress = new Uri("https://soroban-testnet.stellar.org");
         StellarRPCClient client = new StellarRPCClient(httpClient);
+        //
+        // Network.UseTestNetwork();
+        //
+        // // get account info
+        // LedgerKey accountKey = new LedgerKey.Account()
+        // {
+        //     account = new LedgerKey.accountStruct()
+        //     {
+        //         accountID = testAccountId
+        //     }
+        // };
+        // var encodedAccountKey = LedgerKeyXdr.EncodeToBase64(accountKey);
+        // GetLedgerEntriesParams getLedgerEntriesArgs = new GetLedgerEntriesParams()
+        // {
+        //     Keys = new [] {encodedAccountKey},
+        // };
+        // Debug.Log(getLedgerEntriesArgs.Keys.Count);
+        // Debug.Log(encodedAccountKey);
+        // JsonRpcRequestPreserved request = new()
+        // {
+        //     JsonRpc = "2.0",
+        //     Method = "getLedgerEntries",
+        //     Params = (object) getLedgerEntriesArgs,
+        //     Id = 1,
+        // };
+        // string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
+        // Debug.Log(requestJson);
+        // // string requestJson = "{\"jsonrpc\":\"2.0\",\"method\":\"getLedgerEntries\",\"params\":{\"keys\":[\"AAAAAAAAAADD7Tr9j/eP2nOWQiurFxP0zCTTIBwGNdFKN2hC09AYyQ==\"]},\"id\":1}";
+        // string response = await SendJsonRequest("https://soroban-testnet.stellar.org", requestJson);
+        // Debug.Log(response);
+        // Debug.Log("sending off request");
+        // HttpResponseMessage response = await httpClient.PostAsync("", (HttpContent) new StringContent(requestJson, Encoding.UTF8, "application/json"));
+        // Debug.Log("got response");
+        // string content = await response.Content.ReadAsStringAsync();
+        // Debug.Log(content);
         
-        Network.UseTestNetwork();
-        
-        // get account info
-        LedgerKey accountKey = new LedgerKey.Account()
-        {
-            account = new LedgerKey.accountStruct()
-            {
-                accountID = testAccountId
-            }
-        };
-        var encodedAccountKey = LedgerKeyXdr.EncodeToBase64(accountKey);
-        var getLedgerEntriesArgs = new GetLedgerEntriesParams()
-        {
-            Keys = new [] {encodedAccountKey},
-        };
-        GetLedgerEntriesResult getLedgerEntriesResponse = await client.GetLedgerEntriesAsync(getLedgerEntriesArgs);
-        LedgerEntry.dataUnion.Account ledgerEntry = getLedgerEntriesResponse.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
-        AccountEntry accountEntry = ledgerEntry.account;
-        
-        
-        // First, create the nested FlatTestReq struct as an SCMap
-        var flatTestReqMap = new SCVal.ScvMap()
-        {
-            map = new SCMap(new SCMapEntry[]
-            {
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
-                    val = new SCVal.ScvU32() { u32 = 42 }  // Example value
-                },
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
-                    val = new SCVal.ScvString() { str = new SCString("hello") }  // Example value
-                }
-            })
-        };
-
-        // Then, create the parent NestedTestReq struct as an SCMap
-        var nestedTestReqMap = new SCVal.ScvMap()
-        {
-            map = new SCMap(new SCMapEntry[]
-            {
-                /*
-                 *  MUST BE IN ALPHA ORDER
-                 */
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("flat") },
-                    val = flatTestReqMap  // Using the nested struct we created above
-                },
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("numba") },
-                    val = new SCVal.ScvU32() { u32 = 100 }  // Example value
-                },
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
-                    val = new SCVal.ScvString() { str = new SCString("world") }  // Example value
-                },
-
-            })
-        };
-        
-        
-        NestedTestReq nestedTestReq = new()
-        {
-            numba = 34,
-            word = "nested word",
-            flat = new FlatTestReq
-            {
-                number = 21,
-                word = "flat word",
-            },
-        };
-        SCVal nested = SCValConverter.NativeToSCVal(nestedTestReq);
-        string encoded = SCValXdr.EncodeToBase64(nested);
-        string testEncoded = SCValXdr.EncodeToBase64(nestedTestReqMap);
-        Debug.Log(encoded);
-        Operation nestedParamTestInvocation = new Operation()
-        {
-            sourceAccount = testAccount,
-            body = new Operation.bodyUnion.InvokeHostFunction()
-            {
-                invokeHostFunctionOp = new InvokeHostFunctionOp()
-                {
-                    auth = Array.Empty<SorobanAuthorizationEntry>(),
-                    hostFunction = new HostFunction.HostFunctionTypeInvokeContract()
-                    {
-                        invokeContract = new InvokeContractArgs()
-                        {
-                            contractAddress = new SCAddress.ScAddressTypeContract()
-                            {
-                                contractId = new Hash(StrKey.DecodeContractId(demoContractId))
-                            },
-                            functionName = new SCSymbol("nested_param_test"),
-                            args = new [] { nested },
-                        },
-                    },
-                },
-            },
-        };
-        Transaction invokeContractTransaction = new Transaction()
-        {
-            sourceAccount = testAccount,
-            fee = 100,
-            memo = new Memo.MemoNone(),
-            seqNum = accountEntry.seqNum.Increment(),
-            cond = new Preconditions.PrecondNone(),
-            ext = new Transaction.extUnion.case_0(),
-            operations = new [] { nestedParamTestInvocation },
-        };
-        
-        TransactionEnvelope simulateEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
-        {
-            v1 = new TransactionV1Envelope()
-            {
-                tx = invokeContractTransaction,
-                signatures = Array.Empty<DecoratedSignature>(),
-            },
-        };
-        SimulateTransactionResult simulationResult = await client.SimulateTransactionAsync(new SimulateTransactionParams()
-        {
-            Transaction = TransactionEnvelopeXdr.EncodeToBase64(simulateEnvelope),
-        });
-
-        Transaction assembledTransaction = simulationResult.ApplyTo(invokeContractTransaction);
-        DecoratedSignature signature = assembledTransaction.Sign(testAccount);
-        TransactionEnvelope sendEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
-        {
-            v1 = new TransactionV1Envelope()
-            {
-                tx = assembledTransaction,
-                signatures = new[] { signature },
-            },
-        };
-        
-        SendTransactionResult result = await client.SendTransactionAsync(new SendTransactionParams
-        {
-            Transaction = TransactionEnvelopeXdr.EncodeToBase64(sendEnvelope),
-        });
-        
+        // GetLedgerEntriesResult getLedgerEntriesResponse = await client.GetLedgerEntriesAsync(getLedgerEntriesArgs);
+        // LedgerEntry.dataUnion.Account ledgerEntry = getLedgerEntriesResponse.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
+        // AccountEntry accountEntry = ledgerEntry.account;
+        //
+        //
+        // // First, create the nested FlatTestReq struct as an SCMap
+        // var flatTestReqMap = new SCVal.ScvMap()
+        // {
+        //     map = new SCMap(new SCMapEntry[]
+        //     {
+        //         new SCMapEntry()
+        //         {
+        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
+        //             val = new SCVal.ScvU32() { u32 = 42 }  // Example value
+        //         },
+        //         new SCMapEntry()
+        //         {
+        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
+        //             val = new SCVal.ScvString() { str = new SCString("hello") }  // Example value
+        //         }
+        //     })
+        // };
+        //
+        // // Then, create the parent NestedTestReq struct as an SCMap
+        // var nestedTestReqMap = new SCVal.ScvMap()
+        // {
+        //     map = new SCMap(new SCMapEntry[]
+        //     {
+        //         /*
+        //          *  MUST BE IN ALPHA ORDER
+        //          */
+        //         new SCMapEntry()
+        //         {
+        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("flat") },
+        //             val = flatTestReqMap  // Using the nested struct we created above
+        //         },
+        //         new SCMapEntry()
+        //         {
+        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("numba") },
+        //             val = new SCVal.ScvU32() { u32 = 100 }  // Example value
+        //         },
+        //         new SCMapEntry()
+        //         {
+        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
+        //             val = new SCVal.ScvString() { str = new SCString("world") }  // Example value
+        //         },
+        //
+        //     })
+        // };
+        //
+        //
+        // NestedTestReq nestedTestReq = new()
+        // {
+        //     numba = 34,
+        //     word = "nested word",
+        //     flat = new FlatTestReq
+        //     {
+        //         number = 21,
+        //         word = "flat word",
+        //     },
+        // };
+        // SCVal nested = SCValConverter.NativeToSCVal(nestedTestReq);
+        // string encoded = SCValXdr.EncodeToBase64(nested);
+        // string testEncoded = SCValXdr.EncodeToBase64(nestedTestReqMap);
+        // Debug.Log(encoded);
+        // Operation nestedParamTestInvocation = new Operation()
+        // {
+        //     sourceAccount = testAccount,
+        //     body = new Operation.bodyUnion.InvokeHostFunction()
+        //     {
+        //         invokeHostFunctionOp = new InvokeHostFunctionOp()
+        //         {
+        //             auth = Array.Empty<SorobanAuthorizationEntry>(),
+        //             hostFunction = new HostFunction.HostFunctionTypeInvokeContract()
+        //             {
+        //                 invokeContract = new InvokeContractArgs()
+        //                 {
+        //                     contractAddress = new SCAddress.ScAddressTypeContract()
+        //                     {
+        //                         contractId = new Hash(StrKey.DecodeContractId(demoContractId))
+        //                     },
+        //                     functionName = new SCSymbol("nested_param_test"),
+        //                     args = new [] { nested },
+        //                 },
+        //             },
+        //         },
+        //     },
+        // };
+        // Transaction invokeContractTransaction = new Transaction()
+        // {
+        //     sourceAccount = testAccount,
+        //     fee = 100,
+        //     memo = new Memo.MemoNone(),
+        //     seqNum = accountEntry.seqNum.Increment(),
+        //     cond = new Preconditions.PrecondNone(),
+        //     ext = new Transaction.extUnion.case_0(),
+        //     operations = new [] { nestedParamTestInvocation },
+        // };
+        //
+        // TransactionEnvelope simulateEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
+        // {
+        //     v1 = new TransactionV1Envelope()
+        //     {
+        //         tx = invokeContractTransaction,
+        //         signatures = Array.Empty<DecoratedSignature>(),
+        //     },
+        // };
+        // SimulateTransactionResult simulationResult = await client.SimulateTransactionAsync(new SimulateTransactionParams()
+        // {
+        //     Transaction = TransactionEnvelopeXdr.EncodeToBase64(simulateEnvelope),
+        // });
+        //
+        // Transaction assembledTransaction = simulationResult.ApplyTo(invokeContractTransaction);
+        // DecoratedSignature signature = assembledTransaction.Sign(testAccount);
+        // TransactionEnvelope sendEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
+        // {
+        //     v1 = new TransactionV1Envelope()
+        //     {
+        //         tx = assembledTransaction,
+        //         signatures = new[] { signature },
+        //     },
+        // };
+        //
+        // SendTransactionResult result = await client.SendTransactionAsync(new SendTransactionParams
+        // {
+        //     Transaction = TransactionEnvelopeXdr.EncodeToBase64(sendEnvelope),
+        // });
+        // Debug.Log("TEST FUNCTION COMPLETE WITH RESULT:" + result.Status);
         return true;
+    }
+
+    async Task<string> SendJsonRequest(string url, string json)
+    {
+        UnityWebRequest request = new UnityWebRequest(url, "POST");
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+        Debug.Log("SendJsonRequest sending off");
+        await request.SendWebRequest();
+        
+        if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
+        {
+            Debug.LogError("Error: " + request.error);
+        }
+        else
+        {
+            Debug.Log("got response");
+            Debug.Log("Response: " + request.downloadHandler.text);
+        }
+
+        return request.downloadHandler.text;
     }
 
     public async Task<bool> SecondTestFunction(string guestAddress)
