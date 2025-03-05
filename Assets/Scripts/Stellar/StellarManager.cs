@@ -129,305 +129,73 @@ public class StellarManager : MonoBehaviour
         return true;
     }
     
-    JsonSerializerSettings _jsonSettings = new JsonSerializerSettings()
-    {
-        ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
-        NullValueHandling = NullValueHandling.Ignore
-    };
-    
     public async Task<bool> TestFunction()
     {
-        StellarDotnet stellar = new StellarDotnet("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB", "CDO5UFNRHPMCLFN6NXFPMS22HTQFZQACUZP6S25QUTFIGDFP4HLD3YVN");
-        await stellar.TestFunction();
-        // MuxedAccount.KeyTypeEd25519 testAccount = MuxedAccount.FromSecretSeed("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB");
-        // AccountID testAccountId = new AccountID(testAccount.XdrPublicKey);
-        // string demoContractId = "CDO5UFNRHPMCLFN6NXFPMS22HTQFZQACUZP6S25QUTFIGDFP4HLD3YVN"; // See SorobanExample project in the solution
-        HttpClient httpClient = new HttpClient();
-        httpClient.BaseAddress = new Uri("https://soroban-testnet.stellar.org");
-        StellarRPCClient client = new StellarRPCClient(httpClient);
-        //
-        // Network.UseTestNetwork();
-        //
-        // // get account info
-        // LedgerKey accountKey = new LedgerKey.Account()
-        // {
-        //     account = new LedgerKey.accountStruct()
-        //     {
-        //         accountID = testAccountId
-        //     }
-        // };
-        // var encodedAccountKey = LedgerKeyXdr.EncodeToBase64(accountKey);
-        // GetLedgerEntriesParams getLedgerEntriesArgs = new GetLedgerEntriesParams()
-        // {
-        //     Keys = new [] {encodedAccountKey},
-        // };
-        // Debug.Log(getLedgerEntriesArgs.Keys.Count);
-        // Debug.Log(encodedAccountKey);
-        // JsonRpcRequestPreserved request = new()
-        // {
-        //     JsonRpc = "2.0",
-        //     Method = "getLedgerEntries",
-        //     Params = (object) getLedgerEntriesArgs,
-        //     Id = 1,
-        // };
-        // string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
-        // Debug.Log(requestJson);
-        // // string requestJson = "{\"jsonrpc\":\"2.0\",\"method\":\"getLedgerEntries\",\"params\":{\"keys\":[\"AAAAAAAAAADD7Tr9j/eP2nOWQiurFxP0zCTTIBwGNdFKN2hC09AYyQ==\"]},\"id\":1}";
-        // string response = await SendJsonRequest("https://soroban-testnet.stellar.org", requestJson);
-        // Debug.Log(response);
-        // Debug.Log("sending off request");
-        // HttpResponseMessage response = await httpClient.PostAsync("", (HttpContent) new StringContent(requestJson, Encoding.UTF8, "application/json"));
-        // Debug.Log("got response");
-        // string content = await response.Content.ReadAsStringAsync();
-        // Debug.Log(content);
+        SCVal.ScvMap flatTestReqMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
+                    val = new SCVal.ScvI32() { i32 = 42 }  // Example value
+                },
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
+                    val = new SCVal.ScvString() { str = new SCString("hello") }  // Example value
+                },
+            }),
+        };
         
-        // GetLedgerEntriesResult getLedgerEntriesResponse = await client.GetLedgerEntriesAsync(getLedgerEntriesArgs);
-        // LedgerEntry.dataUnion.Account ledgerEntry = getLedgerEntriesResponse.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
-        // AccountEntry accountEntry = ledgerEntry.account;
-        //
-        //
-        // // First, create the nested FlatTestReq struct as an SCMap
-        // var flatTestReqMap = new SCVal.ScvMap()
-        // {
-        //     map = new SCMap(new SCMapEntry[]
-        //     {
-        //         new SCMapEntry()
-        //         {
-        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
-        //             val = new SCVal.ScvU32() { u32 = 42 }  // Example value
-        //         },
-        //         new SCMapEntry()
-        //         {
-        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
-        //             val = new SCVal.ScvString() { str = new SCString("hello") }  // Example value
-        //         }
-        //     })
-        // };
-        //
-        // // Then, create the parent NestedTestReq struct as an SCMap
-        // var nestedTestReqMap = new SCVal.ScvMap()
-        // {
-        //     map = new SCMap(new SCMapEntry[]
-        //     {
-        //         /*
-        //          *  MUST BE IN ALPHA ORDER
-        //          */
-        //         new SCMapEntry()
-        //         {
-        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("flat") },
-        //             val = flatTestReqMap  // Using the nested struct we created above
-        //         },
-        //         new SCMapEntry()
-        //         {
-        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("numba") },
-        //             val = new SCVal.ScvU32() { u32 = 100 }  // Example value
-        //         },
-        //         new SCMapEntry()
-        //         {
-        //             key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
-        //             val = new SCVal.ScvString() { str = new SCString("world") }  // Example value
-        //         },
-        //
-        //     })
-        // };
-        //
-        //
-        // NestedTestReq nestedTestReq = new()
-        // {
-        //     numba = 34,
-        //     word = "nested word",
-        //     flat = new FlatTestReq
-        //     {
-        //         number = 21,
-        //         word = "flat word",
-        //     },
-        // };
-        // SCVal nested = SCValConverter.NativeToSCVal(nestedTestReq);
-        // string encoded = SCValXdr.EncodeToBase64(nested);
-        // string testEncoded = SCValXdr.EncodeToBase64(nestedTestReqMap);
-        // Debug.Log(encoded);
-        // Operation nestedParamTestInvocation = new Operation()
-        // {
-        //     sourceAccount = testAccount,
-        //     body = new Operation.bodyUnion.InvokeHostFunction()
-        //     {
-        //         invokeHostFunctionOp = new InvokeHostFunctionOp()
-        //         {
-        //             auth = Array.Empty<SorobanAuthorizationEntry>(),
-        //             hostFunction = new HostFunction.HostFunctionTypeInvokeContract()
-        //             {
-        //                 invokeContract = new InvokeContractArgs()
-        //                 {
-        //                     contractAddress = new SCAddress.ScAddressTypeContract()
-        //                     {
-        //                         contractId = new Hash(StrKey.DecodeContractId(demoContractId))
-        //                     },
-        //                     functionName = new SCSymbol("nested_param_test"),
-        //                     args = new [] { nested },
-        //                 },
-        //             },
-        //         },
-        //     },
-        // };
-        // Transaction invokeContractTransaction = new Transaction()
-        // {
-        //     sourceAccount = testAccount,
-        //     fee = 100,
-        //     memo = new Memo.MemoNone(),
-        //     seqNum = accountEntry.seqNum.Increment(),
-        //     cond = new Preconditions.PrecondNone(),
-        //     ext = new Transaction.extUnion.case_0(),
-        //     operations = new [] { nestedParamTestInvocation },
-        // };
-        //
-        // TransactionEnvelope simulateEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
-        // {
-        //     v1 = new TransactionV1Envelope()
-        //     {
-        //         tx = invokeContractTransaction,
-        //         signatures = Array.Empty<DecoratedSignature>(),
-        //     },
-        // };
-        // SimulateTransactionResult simulationResult = await client.SimulateTransactionAsync(new SimulateTransactionParams()
-        // {
-        //     Transaction = TransactionEnvelopeXdr.EncodeToBase64(simulateEnvelope),
-        // });
-        //
-        // Transaction assembledTransaction = simulationResult.ApplyTo(invokeContractTransaction);
-        // DecoratedSignature signature = assembledTransaction.Sign(testAccount);
-        // TransactionEnvelope sendEnvelope = new TransactionEnvelope.EnvelopeTypeTx()
-        // {
-        //     v1 = new TransactionV1Envelope()
-        //     {
-        //         tx = assembledTransaction,
-        //         signatures = new[] { signature },
-        //     },
-        // };
-        //
-        // SendTransactionResult result = await client.SendTransactionAsync(new SendTransactionParams
-        // {
-        //     Transaction = TransactionEnvelopeXdr.EncodeToBase64(sendEnvelope),
-        // });
-        // Debug.Log("TEST FUNCTION COMPLETE WITH RESULT:" + result.Status);
+        // Then, create the parent NestedTestReq struct as an SCMap
+        SCVal.ScvMap nestedTestReqMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                /*
+                 *  MUST BE IN ALPHA ORDER
+                 */
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("flat") },
+                    val = flatTestReqMap  // Using the nested struct we created above
+                },
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
+                    val = new SCVal.ScvI32() { i32 = 100 }  // Example value
+                },
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
+                    val = new SCVal.ScvString() { str = new SCString("world") }  // Example value
+                },
+        
+            }),
+        };
+        
+        NestedTestReq test = SCValConverter.SCValToNative<NestedTestReq>(nestedTestReqMap);
+        
+        // StellarDotnet stellar = new StellarDotnet("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB", "CBTBFRIT5GIMIFLI6WWVHSJA7VWRI2TGX32VACQQO5W53UWVZ674Q4OB");
+        // await stellar.TestFunction();
         return true;
     }
 
-    async Task<string> SendJsonRequest(string url, string json)
-    {
-        UnityWebRequest request = new UnityWebRequest(url, "POST");
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
-        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-        request.downloadHandler = new DownloadHandlerBuffer();
-        request.SetRequestHeader("Content-Type", "application/json");
-        Debug.Log("SendJsonRequest sending off");
-        await request.SendWebRequest();
-        
-        if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
-        {
-            Debug.LogError("Error: " + request.error);
-        }
-        else
-        {
-            Debug.Log("got response");
-            Debug.Log("Response: " + request.downloadHandler.text);
-        }
-
-        return request.downloadHandler.text;
-    }
 
     public async Task<bool> SecondTestFunction(string guestAddress)
     {
-        // StellarResponseData testResponse = await GetData(currentUser.Value.index, "TestSendInviteReq","");
-        // JObject jsonEntries = JObject.Parse(testResponse.data);
-        // string entry = jsonEntries["entries"].First.ToString();
-        // Debug.Log("C# got this entry, now sending");
-        // Debug.Log(entry);
-        //
-        // SendInviteReq req = new SendInviteReq
-        // {
-        //     host_address = currentUser.Value.index,
-        //     guest_address = guestAddress,
-        //     ledgers_until_expiration = 123,
-        //     parameters = new ContractTypes.LobbyParameters
-        //     {
-        //         board_def = new ContractTypes.BoardDef(testBoardDef),
-        //         must_fill_all_tiles = false,
-        //         max_pawns = null,
-        //         dev_mode = false,
-        //         security_mode = false
-        //     },
-        // };
-        // string data = JsonConvert.SerializeObject(req, jsonSettings);
-        FlatTestReq flat = new FlatTestReq()
-        {
-            number = 1,
-            word = "bob"
-        };
-        string flat_json = JsonConvert.SerializeObject(flat, jsonSettings);
-        StellarResponseData response = await InvokeContractFunction(currentUser.Value.index, contract, "flat_param_test", flat_json);
-        NestedTestReq nested = new NestedTestReq()
-        {
-            numba = 2,
-            word = "nested",
-            flat = flat,
-        };
-        string nested_json = JsonConvert.SerializeObject(nested, jsonSettings);
-        StellarResponseData response2 = await InvokeContractFunction(currentUser.Value.index, contract, "nested_param_test", nested_json);
-
-        return true; 
+        SCVal data = SCValConverter.TestSendInviteReqRoundTripConversion();
+        StellarDotnet client = new StellarDotnet(
+            "SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB",
+            "CDSL3FT6KO5CFQHQFGZHREBYR4HZEAJTMR2KJ2YYCF7QITXO4G7TKVL3");
+        await client.TestFunction();
+        
+        return true;
     }
-
+    
     #endregion
     #region helper
-    //
-    // async Task<(int, User?)> GetUserData(string address)
-    // {
-    //     StellarResponseData response = await GetData(address, "User", address);
-    //     if (response.code != 1)
-    //     {
-    //         return (response.code, null);
-    //     }
-    //     Debug.Log(response.data);
-    //     try
-    //     {
-    //         JObject jsonEntries = JObject.Parse(response.data);
-    //         if (!jsonEntries["entries"].HasValues)
-    //         {
-    //             Debug.Log("entries has no data");
-    //             return (response.code, null);
-    //         }
-    //         string entry = jsonEntries["entries"].First.ToString();
-    //         User user = new User(entry);
-    //         return (response.code, user);
-    //     }
-    //     catch (Exception e)
-    //     {
-    //         Debug.LogError(e);
-    //         throw;
-    //     }
-    // }
-
-    async Task<(int, User?)> RegisterUser(string address, string userName)
-    {
-        StellarResponseData response = await InvokeContractFunction(address, contract, "register", userName);
-        if (response.code != 1)
-        {
-            return (response.code, null);
-        }
-        try
-        {
-            Debug.Log(response.data);
-            JObject json = JObject.Parse(response.data);
-            
-            return (response.code, null);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError(e);
-            throw;
-        }
-
-    }
 
     async Task<int> StartLobby()
     {
@@ -575,91 +343,539 @@ public interface XDRCompatable
 
 public static class SCValConverter
 {
+    /// <summary>
+    /// Converts an SCVal into a native object of the given type.
+    /// For ints, we now expect and produce SCVal.ScvI32. 
+    /// If a SCVal.ScvU32 is encountered when expecting an int, a warning is logged.
+    /// </summary>
+    public static object SCValToNative(SCVal scVal, Type targetType)
+    {
+        if (targetType == typeof(int))
+        {
+            // Prefer I32. If we get a U32, log a warning.
+            if (scVal is SCVal.ScvI32 i32Val)
+            {
+                return i32Val.i32.InnerValue;
+            }
+            else if (scVal is SCVal.ScvU32 u32Val)
+            {
+                Debug.LogWarning("SCValToNative: Expected SCVal.ScvI32 for int conversion, got SCVal.ScvU32. Converting anyway.");
+                return Convert.ToInt32(u32Val.u32.InnerValue);
+            }
+            else
+            {
+                throw new NotSupportedException("Expected SCVal.ScvI32 (or SCVal.ScvU32 as fallback) for int conversion.");
+            }
+        }
+        else if (targetType == typeof(string))
+        {
+            if (scVal is SCVal.ScvString strVal)
+                return strVal.str.InnerValue;
+            else
+                throw new NotSupportedException("Expected SCVal.ScvString for string conversion.");
+        }
+        else if (targetType == typeof(bool))
+        {
+            if (scVal is SCVal.ScvBool boolVal)
+                return boolVal.b;
+            else
+                throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
+        }
+        // Special branch for dictionaries.
+        else if (typeof(IDictionary).IsAssignableFrom(targetType))
+        {
+            if (scVal is SCVal.ScvMap scvMap)
+            {
+                var result = (IDictionary)Activator.CreateInstance(targetType);
+                Type[] args = targetType.GetGenericArguments();
+                Type keyType = args[0];
+                Type valueType = args[1];
+                foreach (SCMapEntry entry in scvMap.map.InnerValue)
+                {
+                    // We assume keys were converted to symbols.
+                    string keyStr = ((SCVal.ScvSymbol)entry.key).sym.InnerValue;
+                    object nativeKey;
+                    if (keyType == typeof(int))
+                        nativeKey = int.Parse(keyStr);
+                    else if (keyType == typeof(string))
+                        nativeKey = keyStr;
+                    else
+                        nativeKey = Convert.ChangeType(keyStr, keyType);
+                    object nativeValue = SCValToNative(entry.val, valueType);
+                    result.Add(nativeKey, nativeValue);
+                }
+                return result;
+            }
+            else
+            {
+                throw new NotSupportedException("Expected SCVal.ScvMap for dictionary conversion.");
+            }
+        }
+        // Handle collections (arrays or IList) that are not dictionaries.
+        else if (scVal is SCVal.ScvVec scvVec)
+        {
+            Type elementType = targetType.IsArray
+                ? targetType.GetElementType()
+                : (targetType.IsGenericType ? targetType.GetGenericArguments()[0] : typeof(object));
+            if (elementType == null)
+                throw new NotSupportedException("Unable to determine element type for collection conversion.");
+            SCVal[] innerArray = scvVec.vec.InnerValue;
+            int len = innerArray.Length;
+            object[] convertedElements = new object[len];
+            for (int i = 0; i < len; i++)
+                convertedElements[i] = SCValToNative(innerArray[i], elementType);
+            if (targetType.IsArray)
+            {
+                Array arr = Array.CreateInstance(elementType, len);
+                for (int i = 0; i < len; i++)
+                    arr.SetValue(convertedElements[i], i);
+                return arr;
+            }
+            else
+            {
+                var list = (IList)Activator.CreateInstance(targetType);
+                for (int i = 0; i < len; i++)
+                    list.Add(convertedElements[i]);
+                return list;
+            }
+        }
+        // Handle structured types (native structs/classes) via SCVal.ScvMap.
+        else if (scVal is SCVal.ScvMap scvMap2)
+        {
+            object instance = Activator.CreateInstance(targetType);
+            var dict = new Dictionary<string, SCMapEntry>();
+            foreach (SCMapEntry entry in scvMap2.map.InnerValue)
+            {
+                if (entry.key is SCVal.ScvSymbol sym)
+                    dict[sym.sym.InnerValue] = entry;
+                else
+                    throw new NotSupportedException("Expected map key to be SCVal.ScvSymbol.");
+            }
+            foreach (FieldInfo field in targetType.GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (dict.TryGetValue(field.Name, out SCMapEntry mapEntry))
+                {
+                    object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
+                    field.SetValue(instance, fieldValue);
+                }
+            }
+            foreach (PropertyInfo prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (!prop.CanWrite) continue;
+                if (dict.TryGetValue(prop.Name, out SCMapEntry mapEntry))
+                {
+                    object propValue = SCValToNative(mapEntry.val, prop.PropertyType);
+                    prop.SetValue(instance, propValue);
+                }
+            }
+            return instance;
+        }
+        else
+        {
+            throw new NotSupportedException("SCVal type not supported for conversion.");
+        }
+    }
+
+    public static T SCValToNative<T>(SCVal scVal)
+    {
+        return (T)SCValToNative(scVal, typeof(T));
+    }
+
+    /// <summary>
+    /// Converts a native object into an SCVal.
+    /// For native ints, always produces an SCVal.ScvI32.
+    /// </summary>
     public static SCVal NativeToSCVal(object input)
     {
         if (input == null)
             throw new ArgumentNullException(nameof(input));
-
         Type type = input.GetType();
 
-        // Handle primitive types
+        // Special handling for Pos: use I32 for its fields.
+        if (type == typeof(Pos))
+        {
+            Pos pos = (Pos)input;
+            var entries = new List<SCMapEntry>();
+            entries.Add(new SCMapEntry
+            {
+                key = new SCVal.ScvSymbol { sym = new SCSymbol("x") },
+                val = new SCVal.ScvI32 { i32 = new int32(pos.x) }
+            });
+            entries.Add(new SCMapEntry
+            {
+                key = new SCVal.ScvSymbol { sym = new SCSymbol("y") },
+                val = new SCVal.ScvI32 { i32 = new int32(pos.y) }
+            });
+            entries.Sort((a, b) => string.Compare(((SCVal.ScvSymbol)a.key).sym.InnerValue,
+                                                    ((SCVal.ScvSymbol)b.key).sym.InnerValue,
+                                                    StringComparison.Ordinal));
+            return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
+        }
+        // For native int (outside Pos), always convert to SCVal.ScvI32.
         if (type == typeof(int))
         {
-            // Convert int to an unsigned 32-bit SCVal.
-            // (Ensure your ints are non-negative or handle negatives as needed.)
-            return new SCVal.ScvU32 { u32 = Convert.ToUInt32(input) };
-        }
-        else if (type == typeof(bool))
-        {
-            return new SCVal.ScvBool { b = (bool)input };
+            return new SCVal.ScvI32 { i32 = new int32((int)input) };
         }
         else if (type == typeof(string))
         {
             return new SCVal.ScvString { str = new SCString((string)input) };
         }
-        // If the input is a map/dictionary, convert keys and values using native conversion.
-        if (input is IDictionary dictionary)
+        else if (type == typeof(bool))
+        {
+            return new SCVal.ScvBool { b = (bool)input };
+        }
+        // Handle dictionaries.
+        else if (input is IDictionary dict)
         {
             var entries = new List<SCMapEntry>();
-            
-            
+            foreach (DictionaryEntry entry in dict)
+            {
+                string keyStr = entry.Key.ToString();
+                SCVal keySCVal = new SCVal.ScvSymbol { sym = new SCSymbol(keyStr) };
+                SCVal valueSCVal = NativeToSCVal(entry.Value);
+                entries.Add(new SCMapEntry { key = keySCVal, val = valueSCVal });
+            }
+            entries.Sort((a, b) => string.Compare(((SCVal.ScvSymbol)a.key).sym.InnerValue,
+                                                    ((SCVal.ScvSymbol)b.key).sym.InnerValue,
+                                                    StringComparison.Ordinal));
+            return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
         }
-        
-        
-        
-        
-        
-        // Handle structs (non-primitive value types)
-        if (type.IsValueType && !type.IsPrimitive)
+        // Handle collections (arrays or IList) that are not dictionaries.
+        else if (typeof(IEnumerable).IsAssignableFrom(type) && type != typeof(string))
         {
-            // Use a dictionary to avoid duplicate keys when both a property and a field have the same name.
-            var entryDict = new Dictionary<string, SCMapEntry>();
-
-            // Process public properties
-            foreach (var prop in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (prop.CanRead)
-                {
-                    var value = prop.GetValue(input);
-                    var scVal = NativeToSCVal(value);
-                    entryDict[prop.Name] = new SCMapEntry
-                    {
-                        key = new SCVal.ScvSymbol { sym = new SCSymbol(prop.Name) },
-                        val = scVal
-                    };
-                }
-            }
-
-            // Process public fields (only if not already added via properties)
-            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (!entryDict.ContainsKey(field.Name))
-                {
-                    object value = field.GetValue(input);
-                    SCVal scVal = NativeToSCVal(value);
-                    entryDict[field.Name] = new SCMapEntry
-                    {
-                        key = new SCVal.ScvSymbol { sym = new SCSymbol(field.Name) },
-                        val = scVal
-                    };
-                }
-            }
-
-            // Sort entries by the symbol (key) in alphabetical order
-            var entries = entryDict.Values.ToList();
-            entries.Sort((a, b) =>
-                string.Compare(
-                    ((SCVal.ScvSymbol)a.key).sym, 
-                    ((SCVal.ScvSymbol)b.key).sym, 
-                    StringComparison.Ordinal));
-            // Create the SCMap and wrap it into an SCVal.ScvMap
-            SCMap map = new SCMap(entries.ToArray());
-            return new SCVal.ScvMap { map = map };
+            var elements = new List<SCVal>();
+            foreach (var item in (IEnumerable)input)
+                elements.Add(NativeToSCVal(item));
+            return new SCVal.ScvVec { vec = new SCVec(elements.ToArray()) };
         }
+        // Otherwise, assume a structured type.
         else
         {
-            throw new NotSupportedException($"Type {type.Name} is not supported for conversion to SCVal.");
+            var entries = new List<SCMapEntry>();
+            foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                object fieldValue = field.GetValue(input);
+                SCVal scFieldVal = NativeToSCVal(fieldValue);
+                entries.Add(new SCMapEntry
+                {
+                    key = new SCVal.ScvSymbol { sym = new SCSymbol(field.Name) },
+                    val = scFieldVal
+                });
+            }
+            foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (!prop.CanRead) continue;
+                object propValue = prop.GetValue(input);
+                SCVal scPropVal = NativeToSCVal(propValue);
+                entries.Add(new SCMapEntry
+                {
+                    key = new SCVal.ScvSymbol { sym = new SCSymbol(prop.Name) },
+                    val = scPropVal
+                });
+            }
+            entries.Sort((a, b) => string.Compare(((SCVal.ScvSymbol)a.key).sym.InnerValue,
+                                                    ((SCVal.ScvSymbol)b.key).sym.InnerValue,
+                                                    StringComparison.Ordinal));
+            return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
         }
+    }
+
+    /// <summary>
+    /// Deeply compares two SCVal objects for equality.
+    /// Logs debug warnings when mismatches are found.
+    /// Special handling is added so that SCVal.ScvI32 and SCVal.ScvU32 are considered equal
+    /// if their numeric values match.
+    /// </summary>
+    public static bool DeepEqual(SCVal a, SCVal b)
+    {
+        if (a == null || b == null)
+        {
+            if (a != b)
+                Debug.LogWarning("DeepEqual: One value is null while the other is not.");
+            return a == b;
+        }
+
+        // Special handling: if one is I32 and the other is U32, compare numeric values.
+        if ((a.Discriminator == SCValType.SCV_I32 && b.Discriminator == SCValType.SCV_U32) ||
+            (a.Discriminator == SCValType.SCV_U32 && b.Discriminator == SCValType.SCV_I32))
+        {
+            int aVal = (a is SCVal.ScvI32) ? ((SCVal.ScvI32)a).i32.InnerValue : Convert.ToInt32(((SCVal.ScvU32)a).u32.InnerValue);
+            int bVal = (b is SCVal.ScvI32) ? ((SCVal.ScvI32)b).i32.InnerValue : Convert.ToInt32(((SCVal.ScvU32)b).u32.InnerValue);
+            if (aVal != bVal)
+            {
+                Debug.LogWarning($"DeepEqual: Int value mismatch: {aVal} vs {bVal}");
+                return false;
+            }
+            return true;
+        }
+
+        if (a.Discriminator != b.Discriminator)
+        {
+            Debug.LogWarning($"DeepEqual: Discriminator mismatch: {a.Discriminator} vs {b.Discriminator}");
+            return false;
+        }
+
+        switch (a.Discriminator)
+        {
+            case SCValType.SCV_I32:
+                {
+                    var aVal = ((SCVal.ScvI32)a).i32.InnerValue;
+                    var bVal = ((SCVal.ScvI32)b).i32.InnerValue;
+                    if (!aVal.Equals(bVal))
+                    {
+                        Debug.LogWarning($"DeepEqual: I32 mismatch: {aVal} vs {bVal}");
+                        return false;
+                    }
+                    return true;
+                }
+            case SCValType.SCV_U32:
+                {
+                    var aVal = ((SCVal.ScvU32)a).u32.InnerValue;
+                    var bVal = ((SCVal.ScvU32)b).u32.InnerValue;
+                    if (!aVal.Equals(bVal))
+                    {
+                        Debug.LogWarning($"DeepEqual: U32 mismatch: {aVal} vs {bVal}");
+                        return false;
+                    }
+                    return true;
+                }
+            case SCValType.SCV_STRING:
+                {
+                    var aVal = ((SCVal.ScvString)a).str.InnerValue;
+                    var bVal = ((SCVal.ScvString)b).str.InnerValue;
+                    if (!aVal.Equals(bVal))
+                    {
+                        Debug.LogWarning($"DeepEqual: String mismatch: '{aVal}' vs '{bVal}'");
+                        return false;
+                    }
+                    return true;
+                }
+            case SCValType.SCV_BOOL:
+                {
+                    var aVal = ((SCVal.ScvBool)a).b;
+                    var bVal = ((SCVal.ScvBool)b).b;
+                    if (!aVal.Equals(bVal))
+                    {
+                        Debug.LogWarning($"DeepEqual: Bool mismatch: {aVal} vs {bVal}");
+                        return false;
+                    }
+                    return true;
+                }
+            case SCValType.SCV_VEC:
+                {
+                    var vecA = ((SCVal.ScvVec)a).vec.InnerValue;
+                    var vecB = ((SCVal.ScvVec)b).vec.InnerValue;
+                    if (vecA.Length != vecB.Length)
+                    {
+                        Debug.LogWarning($"DeepEqual: Vector length mismatch: {vecA.Length} vs {vecB.Length}");
+                        return false;
+                    }
+                    for (int i = 0; i < vecA.Length; i++)
+                    {
+                        if (!DeepEqual(vecA[i], vecB[i]))
+                        {
+                            Debug.LogWarning($"DeepEqual: Vector element at index {i} mismatch.");
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            case SCValType.SCV_MAP:
+                {
+                    var mapA = ((SCVal.ScvMap)a).map.InnerValue;
+                    var mapB = ((SCVal.ScvMap)b).map.InnerValue;
+                    if (mapA.Length != mapB.Length)
+                    {
+                        Debug.LogWarning($"DeepEqual: Map entry count mismatch: {mapA.Length} vs {mapB.Length}");
+                        return false;
+                    }
+                    var sortedA = mapA.OrderBy(e => ((SCVal.ScvSymbol)e.key).sym.InnerValue).ToArray();
+                    var sortedB = mapB.OrderBy(e => ((SCVal.ScvSymbol)e.key).sym.InnerValue).ToArray();
+                    for (int i = 0; i < sortedA.Length; i++)
+                    {
+                        var keyA = ((SCVal.ScvSymbol)sortedA[i].key).sym.InnerValue;
+                        var keyB = ((SCVal.ScvSymbol)sortedB[i].key).sym.InnerValue;
+                        if (!keyA.Equals(keyB))
+                        {
+                            Debug.LogWarning($"DeepEqual: Map key mismatch at index {i}: '{keyA}' vs '{keyB}'");
+                            return false;
+                        }
+                        if (!DeepEqual(sortedA[i].val, sortedB[i].val))
+                        {
+                            Debug.LogWarning($"DeepEqual: Map value mismatch for key '{keyA}'");
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            default:
+                Debug.LogWarning("DeepEqual: Unsupported SCVal type for deep equality check.");
+                return a.Equals(b);
+        }
+    }
+
+    /// <summary>
+    /// Test: Converts a SendInviteReq SCVal to a native object and back,
+    /// then checks deep equality.
+    /// </summary>
+    public static SCVal TestSendInviteReqRoundTripConversion()
+    {
+        // --- Build Pos as a structured type (with fields "x" and "y") ---
+        SCVal.ScvMap posMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("x") },
+                    val = new SCVal.ScvI32() { i32 = new int32(10) }
+                },
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("y") },
+                    val = new SCVal.ScvI32() { i32 = new int32(20) }
+                }
+            })
+        };
+
+        // --- Build an empty tiles map for BoardDef ---
+        SCVal.ScvMap tilesMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[0])
+        };
+
+        // --- Build default_max_pawns as a map: key "1" -> 42 ---
+        SCVal.ScvMap maxPawnsMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("1") },
+                    val = new SCVal.ScvI32() { i32 = new int32(42) }
+                }
+            })
+        };
+
+        // --- Build BoardDef ---
+        SCVal.ScvMap boardDefMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                // name
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("name") },
+                    val = new SCVal.ScvString() { str = new SCString("TestBoard") }
+                },
+                // size (a Pos)
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("size") },
+                    val = posMap
+                },
+                // tiles
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("tiles") },
+                    val = tilesMap
+                },
+                // is_hex
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("is_hex") },
+                    val = new SCVal.ScvBool() { b = true }
+                },
+                // default_max_pawns
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("default_max_pawns") },
+                    val = maxPawnsMap
+                }
+            })
+        };
+
+        // --- Build LobbyParameters ---
+        SCVal.ScvMap lobbyParamsMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                // board_def
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("board_def") },
+                    val = boardDefMap
+                },
+                // must_fill_all_tiles
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("must_fill_all_tiles") },
+                    val = new SCVal.ScvBool() { b = true }
+                },
+                // max_pawns
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("max_pawns") },
+                    val = maxPawnsMap
+                },
+                // dev_mode
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("dev_mode") },
+                    val = new SCVal.ScvBool() { b = false }
+                },
+                // security_mode
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("security_mode") },
+                    val = new SCVal.ScvBool() { b = true }
+                }
+            })
+        };
+
+        // --- Build SendInviteReq ---
+        SCVal.ScvMap sendInviteReqMap = new SCVal.ScvMap()
+        {
+            map = new SCMap(new SCMapEntry[]
+            {
+                // guest_address
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("guest_address") },
+                    val = new SCVal.ScvString() { str = new SCString("Guest123") }
+                },
+                // host_address
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("host_address") },
+                    val = new SCVal.ScvString() { str = new SCString("Host456") }
+                },
+                // ledgers_until_expiration
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("ledgers_until_expiration") },
+                    val = new SCVal.ScvI32() { i32 = new int32(10) }
+                },
+                // parameters
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("parameters") },
+                    val = lobbyParamsMap
+                }
+            })
+        };
+
+        // Convert the original SCVal into a native SendInviteReq.
+        SendInviteReq inviteReq = SCValToNative<SendInviteReq>(sendInviteReqMap);
+
+        // Convert the native object back into an SCVal.
+        SCVal roundTrip = NativeToSCVal(inviteReq);
+
+        // Check deep equality.
+        bool areEqual = DeepEqual(sendInviteReqMap, roundTrip);
+        Debug.Log($"Roundtrip equality: {areEqual}");
+        return roundTrip;
+        
     }
 }
 
@@ -799,10 +1015,11 @@ namespace ContractTypes
 
     public struct NestedTestReq
     {
-        public int numba;
+        public int number;
         public string word;
         public FlatTestReq flat;
     }
+    
     //
     // public struct Lobby
     // {

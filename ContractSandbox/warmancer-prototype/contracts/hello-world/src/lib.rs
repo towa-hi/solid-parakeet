@@ -48,7 +48,7 @@ pub struct User {
     pub index: UserAddress,
     // mutable
     pub name: String,
-    pub games_completed: u32,
+    pub games_completed: i32,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pos {
@@ -57,11 +57,11 @@ pub struct Pos {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnDef {
-    pub id: u32,
+    pub id: i32,
     pub name: String,
     pub rank: Rank,
-    pub power: u32,
-    pub movement_range: u32,
+    pub power: i32,
+    pub movement_range: i32,
 }
 // endregion
 // region level 1 structs
@@ -70,7 +70,7 @@ pub struct Tile {
     pub pos: Pos,
     pub is_passable: bool,
     pub setup_team: Team,
-    pub auto_setup_zone: u32,
+    pub auto_setup_zone: i32,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommitment {
@@ -100,7 +100,7 @@ pub struct BoardDef {
     pub size: Pos,
     pub tiles: Map<Pos, Tile>,
     pub is_hex: bool,
-    pub default_max_pawns: Map<Rank, u32>,
+    pub default_max_pawns: Map<Rank, i32>,
 }
 // endregion
 // region level 3 structs
@@ -108,14 +108,14 @@ pub struct BoardDef {
 pub struct LobbyParameters {
     pub board_def: BoardDef,
     pub must_fill_all_tiles: bool,
-    pub max_pawns: Map<Rank, u32>,
+    pub max_pawns: Map<Rank, i32>,
     pub dev_mode: bool,
     pub security_mode: bool,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TurnMove {
     pub user_address: UserAddress,
-    pub turn: u32,
+    pub turn: i32,
     pub pawn_id: PawnGuid,
     pub pos: Pos,
 }
@@ -125,9 +125,9 @@ pub struct TurnMove {
 pub struct Invite {
     pub host_address: UserAddress,
     pub guest_address: UserAddress,
-    pub sent_ledger: u32,
-    pub ledgers_until_expiration: u32,
-    pub expiration_ledger: u32,
+    pub sent_ledger: i32,
+    pub ledgers_until_expiration: i32,
+    pub expiration_ledger: i32,
     pub parameters: LobbyParameters,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -140,13 +140,13 @@ pub struct Lobby {
     // mutable
     pub user_lobby_states: Map<UserAddress, UserLobbyState>, // contains user specific state, changes when another user joins or leaves
     // game state
-    pub game_end_state: u32,
+    pub game_end_state: i32,
     pub teams: Map<UserAddress, Team>,
     pub setup_commitments: Map<UserAddress, Map<PawnCommitment, ()>>,
-    pub turn: u32,
+    pub turn: i32,
     pub phase: Phase,
     pub pawns: Map<PawnGuid, Pawn>,
-    pub moves: Map<u32, Map<UserAddress, TurnMove>>,
+    pub moves: Map<i32, Map<UserAddress, TurnMove>>,
 }
 // endregion
 // region events
@@ -172,7 +172,7 @@ pub struct EventSetupEnd { pub lobby: Lobby, }
 pub struct SendInviteReq {
     pub host_address: UserAddress,
     pub guest_address: UserAddress,
-    pub ledgers_until_expiration: u32,
+    pub ledgers_until_expiration: i32,
     pub parameters: LobbyParameters,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -193,7 +193,7 @@ pub struct SetupCommitReq {
 pub struct MoveCommitReq {
     pub lobby: LobbyGuid,
     pub user_address: UserAddress,
-    pub turn: u32,
+    pub turn: i32,
     pub pawn_id_hash: PawnGuidHash,
     pub move_pos_hash: PosHash, // hash of the Pos it's moving to
 }
@@ -201,7 +201,7 @@ pub struct MoveCommitReq {
 pub struct MoveSubmitReq {
     pub lobby: LobbyGuid,
     pub user_address: UserAddress,
-    pub turn: u32,
+    pub turn: i32,
     pub pawn_id: PawnGuid,
     pub move_pos: Pos,
     pub pawn_def: PawnDef,
@@ -209,13 +209,13 @@ pub struct MoveSubmitReq {
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FlatTestReq {
-    pub number: u32,
+    pub number: i32,
     pub word: String,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NestedTestReq {
-    pub number: u32,
+    pub number: i32,
     pub word: String,
     pub flat: FlatTestReq
 }
@@ -289,7 +289,7 @@ impl Contract {
 
     pub fn send_invite(env: Env, address: Address, req: SendInviteReq) -> Result<(), Error> {
         address.require_auth();
-        const MAX_EXPIRATION_LEDGERS: u32 = 1000;
+        const MAX_EXPIRATION_LEDGERS: i32 = 1000;
         let temp = env.storage().temporary();
         if req.host_address != address.to_string() {
             return Err(Error::InvalidAddress)
@@ -306,14 +306,14 @@ impl Contract {
             return Err(Error::InvalidExpirationLedger)
         }
         // TODO: validate parameters
-        let current_ledger = env.ledger().sequence();
+        let current_ledger = env.ledger().sequence() as i32;
         let event_invite = EventInvite {
             invite: Invite {
                 host_address: req.host_address.clone(),
                 guest_address: req.guest_address.clone(),
                 sent_ledger: current_ledger,
                 ledgers_until_expiration: req.ledgers_until_expiration,
-                expiration_ledger: current_ledger + req.ledgers_until_expiration,
+                expiration_ledger: (current_ledger + req.ledgers_until_expiration),
                 parameters: req.parameters,
             },
         };
@@ -323,7 +323,7 @@ impl Contract {
         let mut pruned_pending_invites = Self::prune_pending_invites(&env, &pending_invites);
         pruned_pending_invites.set(req.guest_address.clone(), event_invite.clone());
         temp.set(&pending_invites_key, &pruned_pending_invites);
-        temp.extend_ttl(&pending_invites_key, 0, req.ledgers_until_expiration);
+        temp.extend_ttl(&pending_invites_key, 0, req.ledgers_until_expiration as u32);
         env.events().publish((EVENT_INVITE, req.host_address, req.guest_address), event_invite);
         Ok(())
     }
@@ -457,7 +457,7 @@ impl Contract {
     pub(crate) fn prune_pending_invites(e: &Env, pending_invites: &PendingInvites) -> PendingInvites
     {
         let mut new_pending_invites = pending_invites.clone();
-        let current_ledger = e.ledger().sequence();
+        let current_ledger = e.ledger().sequence() as i32;
         for (invite_address, invite_event) in pending_invites.iter() {
             if invite_event.invite.expiration_ledger >= current_ledger {
                 new_pending_invites.set(invite_address, invite_event);
