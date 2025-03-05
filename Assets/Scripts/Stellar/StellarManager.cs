@@ -573,6 +573,7 @@ public static class SCValConverter
                     val = scPropVal
                 });
             }
+            // Todo: make a more consistent sort that follows this https://github.com/stellar/js-stellar-base/blob/e77bb26492adc6d4a886324cedd6781556af67da/src/scval.js#L191
             entries.Sort((a, b) => string.Compare(((SCVal.ScvSymbol)a.key).sym.InnerValue,
                                                     ((SCVal.ScvSymbol)b.key).sym.InnerValue,
                                                     StringComparison.Ordinal));
