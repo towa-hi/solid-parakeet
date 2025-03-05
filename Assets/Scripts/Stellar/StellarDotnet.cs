@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -69,6 +71,32 @@ public class StellarDotnet
         SCVal arg = SCValConverter.NativeToSCVal(nestedTestReq);
         SCVal[] args = {addressArg, arg };
         SendTransactionResult result = await InvokeContractFunction(accountEntry, "nested_param_test", args);
+        Debug.Log("transaction hash " + result.Hash);
+        GetTransactionResult getResult = await WaitForTransaction(result.Hash, 2000);
+        if (getResult == null)
+        {
+            Debug.LogError("get transaction failed");
+            return false;
+        }
+        // TODO: fix delay not working
+        SCVal returnValue = (getResult.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
+        NestedTestReq decoded = SCValConverter.SCValToNative<NestedTestReq>(returnValue);
+        Debug.Log(decoded.word);
+        SCVal arg2 = SCValConverter.NativeToSCVal(decoded);
+        SCVal[] args2 = { addressArg, arg2 };
+        SendTransactionResult result2 = await InvokeContractFunction(accountEntry, "nested_param_test", args2);
+        GetTransactionResult getResult2 = await WaitForTransaction(result.Hash, 2000);
+        if (getResult2 == null)
+        {
+            Debug.LogError("get transaction failed");
+            return false;
+        }
+        SCVal returnValue2 = (getResult2.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
+        NestedTestReq decoded2 = SCValConverter.SCValToNative<NestedTestReq>(returnValue2);
+        if (SCValConverter.DeepEqual(returnValue, returnValue2))
+        {
+            Debug.Log("test good");
+        }
         return true;
     }
     
@@ -85,7 +113,7 @@ public class StellarDotnet
         {
             Transaction = encodedSignedTransaction,
         });
-        return new SendTransactionResult();
+        return sendTransactionResult;
     }
     
 
@@ -163,11 +191,32 @@ public class StellarDotnet
         return TransactionEnvelopeXdr.EncodeToBase64(envelope);
     }
 
-    async Task<GetTransactionResult> WaitForTransaction(SendTransactionResult result)
+    async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
     {
-        //yield return new WaitForSeconds(3);
-        // TODO: finish this
-        return new GetTransactionResult();
+        int max_attempts = 10;
+        int attempts = 0;
+        await AsyncDelay.Delay(delayMS);
+        while (attempts < max_attempts)
+        {
+            Debug.Log("WaitForTransaction started");
+            GetTransactionResult completion = await GetTransactionAsync(new GetTransactionParams()
+            {
+                Hash = txHash
+            });
+            switch (completion.Status)
+            {
+                case GetTransactionResultStatus.FAILED:
+                    return null;
+                case GetTransactionResultStatus.NOT_FOUND:
+                    Debug.Log("Wait for transaction waiting a bit");
+                    await AsyncDelay.Delay(delayMS);
+                    continue;
+                case GetTransactionResultStatus.SUCCESS:
+                    return completion;
+            }
+        }
+
+        return null;
     }
     
     
@@ -270,5 +319,51 @@ public class StellarDotnet
                 accountID = account.XdrPublicKey,
             },
         });
+    }
+}
+
+public static class AsyncDelay
+{
+    public static Task Delay(int millisecondsDelay)
+    {
+#if UNITY_WEBGL && UNITY_EDITOR
+        // Use a coroutine-based delay in WebGL
+        return WaitForSecondsAsync(millisecondsDelay / 1000f);
+#else
+        return Task.Delay(millisecondsDelay);
+#endif
+    }
+
+    private static Task WaitForSecondsAsync(float seconds)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        // CoroutineRunner is a MonoBehaviour that can run coroutines.
+        CoroutineRunner.Instance.StartCoroutine(WaitForSecondsCoroutine(seconds, tcs));
+        return tcs.Task;
+    }
+
+    private static IEnumerator WaitForSecondsCoroutine(float seconds, TaskCompletionSource<bool> tcs)
+    {
+        yield return new WaitForSeconds(seconds);
+        tcs.SetResult(true);
+    }
+}
+
+public class CoroutineRunner : MonoBehaviour
+{
+    private static CoroutineRunner _instance;
+    public static CoroutineRunner Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                // Create a new GameObject to attach the runner
+                var go = new GameObject("CoroutineRunner");
+                _instance = go.AddComponent<CoroutineRunner>();
+                DontDestroyOnLoad(go);
+            }
+            return _instance;
+        }
     }
 }
