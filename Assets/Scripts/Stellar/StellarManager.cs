@@ -131,54 +131,8 @@ public class StellarManager : MonoBehaviour
     
     public async Task<bool> TestFunction()
     {
-        SCVal.ScvMap flatTestReqMap = new SCVal.ScvMap()
-        {
-            map = new SCMap(new SCMapEntry[]
-            {
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
-                    val = new SCVal.ScvI32() { i32 = 42 }  // Example value
-                },
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
-                    val = new SCVal.ScvString() { str = new SCString("hello") }  // Example value
-                },
-            }),
-        };
+        SignString.Sign("banana");
         
-        // Then, create the parent NestedTestReq struct as an SCMap
-        SCVal.ScvMap nestedTestReqMap = new SCVal.ScvMap()
-        {
-            map = new SCMap(new SCMapEntry[]
-            {
-                /*
-                 *  MUST BE IN ALPHA ORDER
-                 */
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("flat") },
-                    val = flatTestReqMap  // Using the nested struct we created above
-                },
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("number") },
-                    val = new SCVal.ScvI32() { i32 = 100 }  // Example value
-                },
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("word") },
-                    val = new SCVal.ScvString() { str = new SCString("world") }  // Example value
-                },
-        
-            }),
-        };
-        
-        NestedTestReq test = SCValConverter.SCValToNative<NestedTestReq>(nestedTestReqMap);
-        
-        // StellarDotnet stellar = new StellarDotnet("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB", "CBTBFRIT5GIMIFLI6WWVHSJA7VWRI2TGX32VACQQO5W53UWVZ674Q4OB");
-        // await stellar.TestFunction();
         return true;
     }
 
