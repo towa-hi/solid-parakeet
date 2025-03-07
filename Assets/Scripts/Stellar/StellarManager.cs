@@ -186,10 +186,10 @@ public class StellarManager : MonoBehaviour
     public async Task<bool> SecondTestFunction(string guestAddress)
     {
         SCVal data = SCValConverter.TestSendInviteReqRoundTripConversion();
-        StellarDotnet client = new StellarDotnet(
-            "SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB",
-            "CDSL3FT6KO5CFQHQFGZHREBYR4HZEAJTMR2KJ2YYCF7QITXO4G7TKVL3");
-        await client.TestFunction();
+        // StellarDotnet client = new StellarDotnet(
+        //     "SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB",
+        //     "CDSL3FT6KO5CFQHQFGZHREBYR4HZEAJTMR2KJ2YYCF7QITXO4G7TKVL3");
+        // await client.TestFunction();
         
         return true;
     }
@@ -336,11 +336,6 @@ public class StellarResponseData
     public string data;
 }
 
-public interface XDRCompatable
-{
-    public SCVal ToSCVal();
-}
-
 public static class SCValConverter
 {
     /// <summary>
@@ -350,11 +345,14 @@ public static class SCValConverter
     /// </summary>
     public static object SCValToNative(SCVal scVal, Type targetType)
     {
+        Debug.Log($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
         if (targetType == typeof(int))
         {
+            Debug.Log("SCValToNative: Target type is int.");
             // Prefer I32. If we get a U32, log a warning.
             if (scVal is SCVal.ScvI32 i32Val)
             {
+                Debug.Log($"SCValToNative: Found SCVal.ScvI32 with value {i32Val.i32.InnerValue}.");
                 return i32Val.i32.InnerValue;
             }
             else if (scVal is SCVal.ScvU32 u32Val)
@@ -364,154 +362,157 @@ public static class SCValConverter
             }
             else
             {
+                Debug.LogError("SCValToNative: Failed int conversion. SCVal is not I32 or U32.");
                 throw new NotSupportedException("Expected SCVal.ScvI32 (or SCVal.ScvU32 as fallback) for int conversion.");
             }
         }
         else if (targetType == typeof(string))
         {
+            Debug.Log("SCValToNative: Target type is string.");
             if (scVal is SCVal.ScvString strVal)
+            {
+                Debug.Log($"SCValToNative: Found SCVal.ScvString with value '{strVal.str.InnerValue}'.");
                 return strVal.str.InnerValue;
+            }
             else
+            {
+                Debug.LogError("SCValToNative: Failed string conversion. SCVal is not SCvString.");
                 throw new NotSupportedException("Expected SCVal.ScvString for string conversion.");
+            }
         }
         else if (targetType == typeof(bool))
         {
+            Debug.Log("SCValToNative: Target type is bool.");
             if (scVal is SCVal.ScvBool boolVal)
+            {
+                Debug.Log($"SCValToNative: Found SCVal.ScvBool with value {boolVal.b}.");
                 return boolVal.b;
+            }
             else
+            {
+                Debug.LogError("SCValToNative: Failed bool conversion. SCVal is not SCvBool.");
                 throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
-        }
-        // Special branch for dictionaries.
-        else if (typeof(IDictionary).IsAssignableFrom(targetType))
-        {
-            if (scVal is SCVal.ScvMap scvMap)
-            {
-                var result = (IDictionary)Activator.CreateInstance(targetType);
-                Type[] args = targetType.GetGenericArguments();
-                Type keyType = args[0];
-                Type valueType = args[1];
-                foreach (SCMapEntry entry in scvMap.map.InnerValue)
-                {
-                    // We assume keys were converted to symbols.
-                    string keyStr = ((SCVal.ScvSymbol)entry.key).sym.InnerValue;
-                    object nativeKey;
-                    if (keyType == typeof(int))
-                        nativeKey = int.Parse(keyStr);
-                    else if (keyType == typeof(string))
-                        nativeKey = keyStr;
-                    else
-                        nativeKey = Convert.ChangeType(keyStr, keyType);
-                    object nativeValue = SCValToNative(entry.val, valueType);
-                    result.Add(nativeKey, nativeValue);
-                }
-                return result;
-            }
-            else
-            {
-                throw new NotSupportedException("Expected SCVal.ScvMap for dictionary conversion.");
             }
         }
-        // Handle collections (arrays or IList) that are not dictionaries.
         else if (scVal is SCVal.ScvVec scvVec)
         {
+            Debug.Log("SCValToNative: Target type is a collection. Using vector conversion branch.");
             Type elementType = targetType.IsArray
                 ? targetType.GetElementType()
                 : (targetType.IsGenericType ? targetType.GetGenericArguments()[0] : typeof(object));
             if (elementType == null)
+            {
+                Debug.LogError("SCValToNative: Unable to determine element type for collection conversion.");
                 throw new NotSupportedException("Unable to determine element type for collection conversion.");
+            }
             SCVal[] innerArray = scvVec.vec.InnerValue;
             int len = innerArray.Length;
             object[] convertedElements = new object[len];
             for (int i = 0; i < len; i++)
+            {
+                Debug.Log($"SCValToNative: Converting collection element at index {i}.");
                 convertedElements[i] = SCValToNative(innerArray[i], elementType);
+            }
             if (targetType.IsArray)
             {
                 Array arr = Array.CreateInstance(elementType, len);
                 for (int i = 0; i < len; i++)
+                {
                     arr.SetValue(convertedElements[i], i);
+                }
+                Debug.Log("SCValToNative: Collection converted to array.");
                 return arr;
-            }
-            else
-            {
-                var list = (IList)Activator.CreateInstance(targetType);
-                for (int i = 0; i < len; i++)
-                    list.Add(convertedElements[i]);
-                return list;
             }
         }
         // Handle structured types (native structs/classes) via SCVal.ScvMap.
-        else if (scVal is SCVal.ScvMap scvMap2)
+        else if (scVal is SCVal.ScvMap scvMap)
         {
-            object instance = Activator.CreateInstance(targetType);
-            var dict = new Dictionary<string, SCMapEntry>();
-            foreach (SCMapEntry entry in scvMap2.map.InnerValue)
+            Debug.Log("SCValToNative: Target type is either a map or a structured type.");
+            // sorting test
+            SCMapEntry[] originalEntries = scvMap.map.InnerValue;
+            SCMapEntry[] sortedEntries = (SCMapEntry[])originalEntries.Clone();
+            Array.Sort(sortedEntries, new SCMapEntryComparer());
+            bool orderChanged = false;
+            for (int i = 0; i < sortedEntries.Length; i++)
             {
-                if (entry.key is SCVal.ScvSymbol sym)
-                    dict[sym.sym.InnerValue] = entry;
-                else
-                    throw new NotSupportedException("Expected map key to be SCVal.ScvSymbol.");
-            }
-            foreach (FieldInfo field in targetType.GetFields(BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (dict.TryGetValue(field.Name, out SCMapEntry mapEntry))
+                int cmp = new SCMapEntryComparer().Compare(originalEntries[i], sortedEntries[i]);
+                if (cmp != 0)
                 {
-                    object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
-                    field.SetValue(instance, fieldValue);
+                    orderChanged = true;
+                    Debug.LogWarning($"SCValToNative: got a map with invalid entry order!!!! index {i}");
+                    break;
                 }
             }
-            foreach (PropertyInfo prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            // if is a OrderedDictionary
+            if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(OrderedDictionary<,>))
             {
-                if (!prop.CanWrite) continue;
-                if (dict.TryGetValue(prop.Name, out SCMapEntry mapEntry))
+                object instance = Activator.CreateInstance(targetType);
+                IDictionary dict = (IDictionary)instance;
+                Type[] args = targetType.GetGenericArguments();
+                Type keyType = args[0];
+                Type valueType = args[1];
+                foreach (SCMapEntry entry in sortedEntries)
                 {
-                    object propValue = SCValToNative(mapEntry.val, prop.PropertyType);
-                    prop.SetValue(instance, propValue);
+                    object nativeKey = SCValToNative(entry.key, keyType);
+                    object nativeValue = SCValToNative(entry.val, valueType);
+                    Debug.Log($"SCValToNative: Adding dictionary entry with key '{nativeKey}' and value '{nativeValue}'.");
+                    dict.Add(nativeKey, nativeValue);
                 }
+                return instance;
             }
-            return instance;
+            // if is a struct
+            if (targetType.IsValueType && !targetType.IsPrimitive)
+            {
+                object instance = Activator.CreateInstance(targetType);
+                Debug.Log("SCValToNative: Target type is a struct");
+                Dictionary<string, SCMapEntry> dict = new Dictionary<string, SCMapEntry>();
+                foreach (SCMapEntry entry in scvMap.map.InnerValue)
+                {
+                    if (entry.key is SCVal.ScvSymbol sym)
+                    {
+                        dict[sym.sym.InnerValue] = entry;
+                        Debug.Log($"SCValToNative: Found map key '{sym.sym.InnerValue}'.");
+                    }
+                    else
+                    {
+                        Debug.LogError("SCValToNative: Expected map key to be SCVal.ScvSymbol.");
+                        throw new NotSupportedException("Expected map key to be SCVal.ScvSymbol.");
+                    }
+                }
+                foreach (FieldInfo field in targetType.GetFields(BindingFlags.Instance | BindingFlags.Public))
+                {
+                    if (dict.TryGetValue(field.Name, out SCMapEntry mapEntry))
+                    {
+                        Debug.Log($"SCValToNative: Converting field '{field.Name}'.");
+                        object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
+                        field.SetValue(instance, fieldValue);
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"SCValToNative: Field '{field.Name}' not found in SCVal map.");
+                    }
+                }
+                return instance;
+            }
         }
-        else
-        {
-            throw new NotSupportedException("SCVal type not supported for conversion.");
-        }
+        Debug.LogError("SCValToNative: SCVal type not supported for conversion.");
+        throw new NotSupportedException("SCVal type not supported for conversion.");
     }
+
 
     public static T SCValToNative<T>(SCVal scVal)
     {
         return (T)SCValToNative(scVal, typeof(T));
     }
 
-    /// <summary>
-    /// Converts a native object into an SCVal.
-    /// For native ints, always produces an SCVal.ScvI32.
-    /// </summary>
     public static SCVal NativeToSCVal(object input)
     {
         if (input == null)
-            throw new ArgumentNullException(nameof(input));
-        Type type = input.GetType();
-
-        // Special handling for Pos: use I32 for its fields.
-        if (type == typeof(Pos))
         {
-            Pos pos = (Pos)input;
-            var entries = new List<SCMapEntry>();
-            entries.Add(new SCMapEntry
-            {
-                key = new SCVal.ScvSymbol { sym = new SCSymbol("x") },
-                val = new SCVal.ScvI32 { i32 = new int32(pos.x) }
-            });
-            entries.Add(new SCMapEntry
-            {
-                key = new SCVal.ScvSymbol { sym = new SCSymbol("y") },
-                val = new SCVal.ScvI32 { i32 = new int32(pos.y) }
-            });
-            entries.Sort((a, b) => string.Compare(((SCVal.ScvSymbol)a.key).sym.InnerValue,
-                                                    ((SCVal.ScvSymbol)b.key).sym.InnerValue,
-                                                    StringComparison.Ordinal));
-            return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
+            throw new ArgumentNullException(nameof(input));
         }
-        // For native int (outside Pos), always convert to SCVal.ScvI32.
+        Type type = input.GetType();
+        // For native int always convert to SCVal.ScvI32.
         if (type == typeof(int))
         {
             return new SCVal.ScvI32 { i32 = new int32((int)input) };
@@ -524,34 +525,35 @@ public static class SCValConverter
         {
             return new SCVal.ScvBool { b = (bool)input };
         }
-        // Handle dictionaries.
-        else if (input is IDictionary dict)
+        // Handle OrderedDictionaries.
+        else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(OrderedDictionary<,>))
         {
-            var entries = new List<SCMapEntry>();
+            IDictionary dict = (IDictionary)input;
+            List<SCMapEntry> entries = new List<SCMapEntry>();
             foreach (DictionaryEntry entry in dict)
             {
-                string keyStr = entry.Key.ToString();
-                SCVal keySCVal = new SCVal.ScvSymbol { sym = new SCSymbol(keyStr) };
+                SCVal keySCVal = NativeToSCVal(entry.Key);
                 SCVal valueSCVal = NativeToSCVal(entry.Value);
                 entries.Add(new SCMapEntry { key = keySCVal, val = valueSCVal });
             }
-            entries.Sort((a, b) => string.Compare(((SCVal.ScvSymbol)a.key).sym.InnerValue,
-                                                    ((SCVal.ScvSymbol)b.key).sym.InnerValue,
-                                                    StringComparison.Ordinal));
+            // Sort using our custom comparer.
+            entries.Sort(new SCMapEntryComparer());
             return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
         }
         // Handle collections (arrays or IList) that are not dictionaries.
         else if (typeof(IEnumerable).IsAssignableFrom(type) && type != typeof(string))
         {
-            var elements = new List<SCVal>();
-            foreach (var item in (IEnumerable)input)
+            List<SCVal> elements = new List<SCVal>();
+            foreach (object item in (IEnumerable)input)
+            {
                 elements.Add(NativeToSCVal(item));
+            }
             return new SCVal.ScvVec { vec = new SCVec(elements.ToArray()) };
         }
         // Otherwise, assume a structured type.
         else
         {
-            var entries = new List<SCMapEntry>();
+            List<SCMapEntry> entries = new List<SCMapEntry>();
             foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
             {
                 object fieldValue = field.GetValue(input);
@@ -559,162 +561,24 @@ public static class SCValConverter
                 entries.Add(new SCMapEntry
                 {
                     key = new SCVal.ScvSymbol { sym = new SCSymbol(field.Name) },
-                    val = scFieldVal
+                    val = scFieldVal,
                 });
             }
-            foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (!prop.CanRead) continue;
-                object propValue = prop.GetValue(input);
-                SCVal scPropVal = NativeToSCVal(propValue);
-                entries.Add(new SCMapEntry
-                {
-                    key = new SCVal.ScvSymbol { sym = new SCSymbol(prop.Name) },
-                    val = scPropVal
-                });
-            }
-            // Todo: make a more consistent sort that follows this https://github.com/stellar/js-stellar-base/blob/e77bb26492adc6d4a886324cedd6781556af67da/src/scval.js#L191
-            entries.Sort((a, b) => string.Compare(((SCVal.ScvSymbol)a.key).sym.InnerValue,
-                                                    ((SCVal.ScvSymbol)b.key).sym.InnerValue,
-                                                    StringComparison.Ordinal));
+            entries.Sort(new SCMapEntryComparer());
             return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
         }
     }
 
-    /// <summary>
-    /// Deeply compares two SCVal objects for equality.
-    /// Logs debug warnings when mismatches are found.
-    /// Special handling is added so that SCVal.ScvI32 and SCVal.ScvU32 are considered equal
-    /// if their numeric values match.
-    /// </summary>
-    public static bool DeepEqual(SCVal a, SCVal b)
+
+    public static bool HashEqual(SCVal a, SCVal b)
     {
-        if (a == null || b == null)
-        {
-            if (a != b)
-                Debug.LogWarning("DeepEqual: One value is null while the other is not.");
-            return a == b;
-        }
-
-        // Special handling: if one is I32 and the other is U32, compare numeric values.
-        if ((a.Discriminator == SCValType.SCV_I32 && b.Discriminator == SCValType.SCV_U32) ||
-            (a.Discriminator == SCValType.SCV_U32 && b.Discriminator == SCValType.SCV_I32))
-        {
-            int aVal = (a is SCVal.ScvI32) ? ((SCVal.ScvI32)a).i32.InnerValue : Convert.ToInt32(((SCVal.ScvU32)a).u32.InnerValue);
-            int bVal = (b is SCVal.ScvI32) ? ((SCVal.ScvI32)b).i32.InnerValue : Convert.ToInt32(((SCVal.ScvU32)b).u32.InnerValue);
-            if (aVal != bVal)
-            {
-                Debug.LogWarning($"DeepEqual: Int value mismatch: {aVal} vs {bVal}");
-                return false;
-            }
-            return true;
-        }
-
-        if (a.Discriminator != b.Discriminator)
-        {
-            Debug.LogWarning($"DeepEqual: Discriminator mismatch: {a.Discriminator} vs {b.Discriminator}");
-            return false;
-        }
-
-        switch (a.Discriminator)
-        {
-            case SCValType.SCV_I32:
-                {
-                    var aVal = ((SCVal.ScvI32)a).i32.InnerValue;
-                    var bVal = ((SCVal.ScvI32)b).i32.InnerValue;
-                    if (!aVal.Equals(bVal))
-                    {
-                        Debug.LogWarning($"DeepEqual: I32 mismatch: {aVal} vs {bVal}");
-                        return false;
-                    }
-                    return true;
-                }
-            case SCValType.SCV_U32:
-                {
-                    var aVal = ((SCVal.ScvU32)a).u32.InnerValue;
-                    var bVal = ((SCVal.ScvU32)b).u32.InnerValue;
-                    if (!aVal.Equals(bVal))
-                    {
-                        Debug.LogWarning($"DeepEqual: U32 mismatch: {aVal} vs {bVal}");
-                        return false;
-                    }
-                    return true;
-                }
-            case SCValType.SCV_STRING:
-                {
-                    var aVal = ((SCVal.ScvString)a).str.InnerValue;
-                    var bVal = ((SCVal.ScvString)b).str.InnerValue;
-                    if (!aVal.Equals(bVal))
-                    {
-                        Debug.LogWarning($"DeepEqual: String mismatch: '{aVal}' vs '{bVal}'");
-                        return false;
-                    }
-                    return true;
-                }
-            case SCValType.SCV_BOOL:
-                {
-                    var aVal = ((SCVal.ScvBool)a).b;
-                    var bVal = ((SCVal.ScvBool)b).b;
-                    if (!aVal.Equals(bVal))
-                    {
-                        Debug.LogWarning($"DeepEqual: Bool mismatch: {aVal} vs {bVal}");
-                        return false;
-                    }
-                    return true;
-                }
-            case SCValType.SCV_VEC:
-                {
-                    var vecA = ((SCVal.ScvVec)a).vec.InnerValue;
-                    var vecB = ((SCVal.ScvVec)b).vec.InnerValue;
-                    if (vecA.Length != vecB.Length)
-                    {
-                        Debug.LogWarning($"DeepEqual: Vector length mismatch: {vecA.Length} vs {vecB.Length}");
-                        return false;
-                    }
-                    for (int i = 0; i < vecA.Length; i++)
-                    {
-                        if (!DeepEqual(vecA[i], vecB[i]))
-                        {
-                            Debug.LogWarning($"DeepEqual: Vector element at index {i} mismatch.");
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-            case SCValType.SCV_MAP:
-                {
-                    var mapA = ((SCVal.ScvMap)a).map.InnerValue;
-                    var mapB = ((SCVal.ScvMap)b).map.InnerValue;
-                    if (mapA.Length != mapB.Length)
-                    {
-                        Debug.LogWarning($"DeepEqual: Map entry count mismatch: {mapA.Length} vs {mapB.Length}");
-                        return false;
-                    }
-                    var sortedA = mapA.OrderBy(e => ((SCVal.ScvSymbol)e.key).sym.InnerValue).ToArray();
-                    var sortedB = mapB.OrderBy(e => ((SCVal.ScvSymbol)e.key).sym.InnerValue).ToArray();
-                    for (int i = 0; i < sortedA.Length; i++)
-                    {
-                        var keyA = ((SCVal.ScvSymbol)sortedA[i].key).sym.InnerValue;
-                        var keyB = ((SCVal.ScvSymbol)sortedB[i].key).sym.InnerValue;
-                        if (!keyA.Equals(keyB))
-                        {
-                            Debug.LogWarning($"DeepEqual: Map key mismatch at index {i}: '{keyA}' vs '{keyB}'");
-                            return false;
-                        }
-                        if (!DeepEqual(sortedA[i].val, sortedB[i].val))
-                        {
-                            Debug.LogWarning($"DeepEqual: Map value mismatch for key '{keyA}'");
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-            default:
-                Debug.LogWarning("DeepEqual: Unsupported SCVal type for deep equality check.");
-                return a.Equals(b);
-        }
+        string encodedA = SCValXdr.EncodeToBase64(a);
+        Debug.Log(encodedA);
+        string encodedB = SCValXdr.EncodeToBase64(b);
+        Debug.Log(encodedB);
+        return encodedA == encodedB;
     }
-
+    
     /// <summary>
     /// Test: Converts a SendInviteReq SCVal to a native object and back,
     /// then checks deep equality.
@@ -752,17 +616,29 @@ public static class SCValConverter
             {
                 new SCMapEntry()
                 {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("1") },
+                    key = new SCVal.ScvI32() { i32 = new int32(1447) },
                     val = new SCVal.ScvI32() { i32 = new int32(42) }
                 }
             })
         };
-
+        SCMapEntryComparer.SortMap(maxPawnsMap);
         // --- Build BoardDef ---
         SCVal.ScvMap boardDefMap = new SCVal.ScvMap()
         {
             map = new SCMap(new SCMapEntry[]
             {
+                // default_max_pawns
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("default_max_pawns") },
+                    val = maxPawnsMap
+                },
+                // is_hex
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("is_hex") },
+                    val = new SCVal.ScvBool() { b = true }
+                },
                 // name
                 new SCMapEntry()
                 {
@@ -781,21 +657,9 @@ public static class SCValConverter
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("tiles") },
                     val = tilesMap
                 },
-                // is_hex
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("is_hex") },
-                    val = new SCVal.ScvBool() { b = true }
-                },
-                // default_max_pawns
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("default_max_pawns") },
-                    val = maxPawnsMap
-                }
-            })
+            }),
         };
-
+        SCMapEntryComparer.SortMap(boardDefMap);
         // --- Build LobbyParameters ---
         SCVal.ScvMap lobbyParamsMap = new SCVal.ScvMap()
         {
@@ -805,35 +669,35 @@ public static class SCValConverter
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("board_def") },
-                    val = boardDefMap
-                },
-                // must_fill_all_tiles
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("must_fill_all_tiles") },
-                    val = new SCVal.ScvBool() { b = true }
-                },
-                // max_pawns
-                new SCMapEntry()
-                {
-                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("max_pawns") },
-                    val = maxPawnsMap
+                    val = boardDefMap,
                 },
                 // dev_mode
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("dev_mode") },
-                    val = new SCVal.ScvBool() { b = false }
+                    val = new SCVal.ScvBool() { b = false },
+                },
+                // must_fill_all_tiles
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("must_fill_all_tiles") },
+                    val = new SCVal.ScvBool() { b = true },
+                },
+                // max_pawns
+                new SCMapEntry()
+                {
+                    key = new SCVal.ScvSymbol() { sym = new SCSymbol("max_pawns") },
+                    val = maxPawnsMap,
                 },
                 // security_mode
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("security_mode") },
-                    val = new SCVal.ScvBool() { b = true }
-                }
+                    val = new SCVal.ScvBool() { b = true },
+                },
             })
         };
-
+        SCMapEntryComparer.SortMap(lobbyParamsMap);
         // --- Build SendInviteReq ---
         SCVal.ScvMap sendInviteReqMap = new SCVal.ScvMap()
         {
@@ -843,40 +707,112 @@ public static class SCValConverter
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("guest_address") },
-                    val = new SCVal.ScvString() { str = new SCString("Guest123") }
+                    val = new SCVal.ScvString() { str = new SCString("Guest123") },
                 },
                 // host_address
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("host_address") },
-                    val = new SCVal.ScvString() { str = new SCString("Host456") }
+                    val = new SCVal.ScvString() { str = new SCString("Host456") },
                 },
                 // ledgers_until_expiration
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("ledgers_until_expiration") },
-                    val = new SCVal.ScvI32() { i32 = new int32(10) }
+                    val = new SCVal.ScvI32() { i32 = new int32(10) },
                 },
                 // parameters
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("parameters") },
-                    val = lobbyParamsMap
-                }
-            })
+                    val = lobbyParamsMap,
+                },
+            }),
         };
-
+        SCMapEntryComparer.SortMap(sendInviteReqMap);
         // Convert the original SCVal into a native SendInviteReq.
+
         SendInviteReq inviteReq = SCValToNative<SendInviteReq>(sendInviteReqMap);
 
         // Convert the native object back into an SCVal.
         SCVal roundTrip = NativeToSCVal(inviteReq);
 
-        // Check deep equality.
-        bool areEqual = DeepEqual(sendInviteReqMap, roundTrip);
-        Debug.Log($"Roundtrip equality: {areEqual}");
-        return roundTrip;
+        bool areEqual = HashEqual(sendInviteReqMap, roundTrip);
+        Debug.Log(areEqual);
+        // // Check deep equality.
+        // bool areEqual = DeepEqual(sendInviteReqMap, roundTrip);
+        // Debug.Log($"Roundtrip equality: {areEqual}");
+        // return roundTrip;
+        return sendInviteReqMap;
         
+        
+    }
+}
+
+public class SCMapEntryComparer : IComparer<SCMapEntry>
+{
+    public int Compare(SCMapEntry x, SCMapEntry y)
+    {
+        return SCValComparer.Compare(x.key, y.key);
+    }
+
+    public static void SortMap(SCVal.ScvMap scvMap)
+    {
+        List<SCMapEntry> entries = new List<SCMapEntry>(scvMap.map.InnerValue);
+        entries.Sort(new SCMapEntryComparer());
+        scvMap.map.InnerValue = entries.ToArray();
+    }
+}
+
+public static class SCValComparer
+{
+    public static int Compare(SCVal a, SCVal b)
+    {
+        // First, compare the discriminators (tags) numerically.
+        if (a.Discriminator != b.Discriminator)
+        {
+            return ((int)a.Discriminator).CompareTo((int)b.Discriminator);
+        }
+
+        // Same tag: compare based on type.
+        switch (a.Discriminator)
+        {
+            case SCValType.SCV_I32:
+            {
+                int aVal = ((SCVal.ScvI32)a).i32.InnerValue;
+                int bVal = ((SCVal.ScvI32)b).i32.InnerValue;
+                return aVal.CompareTo(bVal);
+            }
+            case SCValType.SCV_U32:
+            {
+                uint aVal = ((SCVal.ScvU32)a).u32.InnerValue;
+                uint bVal = ((SCVal.ScvU32)b).u32.InnerValue;
+                return aVal.CompareTo(bVal);
+            }
+            case SCValType.SCV_STRING:
+            {
+                string aVal = ((SCVal.ScvString)a).str.InnerValue;
+                string bVal = ((SCVal.ScvString)b).str.InnerValue;
+                return string.Compare(aVal, bVal, StringComparison.Ordinal);
+            }
+            case SCValType.SCV_BOOL:
+            {
+                bool aVal = ((SCVal.ScvBool)a).b;
+                bool bVal = ((SCVal.ScvBool)b).b;
+                return aVal.CompareTo(bVal); // false < true.
+            }
+            case SCValType.SCV_SYMBOL:
+            {
+                string aVal = ((SCVal.ScvSymbol)a).sym.InnerValue;
+                string bVal = ((SCVal.ScvSymbol)b).sym.InnerValue;
+                return string.Compare(aVal, bVal, StringComparison.Ordinal);
+            }
+            default:
+            {
+                // For other small-value types, fall back to comparing their string representations.
+                return a.ToString().CompareTo(b.ToString());
+            }
+        }
     }
 }
 
@@ -896,44 +832,44 @@ namespace ContractTypes
     public struct LobbyParameters
     {
         public BoardDef board_def;
-        public bool must_fill_all_tiles;
-        public Dictionary<int, int> max_pawns;
         public bool dev_mode;
+        public OrderedDictionary<int, int> max_pawns;
+        public bool must_fill_all_tiles;
         public bool security_mode;
     }
 
     public struct BoardDef
     {
+        public OrderedDictionary<int, int> default_max_pawns;
+        public bool is_hex;
         public string name;
         public Pos size;
-        public Dictionary<Pos, Tile> tiles;
-        public bool is_hex;
-        public Dictionary<int, int> default_max_pawns;
+        public OrderedDictionary<Pos, Tile> tiles;
 
         public BoardDef(global::BoardDef boardDef)
         {
             name = boardDef.name;
             size = new Pos(boardDef.boardSize);
-            tiles = new Dictionary<Pos, Tile>();
+            tiles = new OrderedDictionary<Pos, Tile>();
             foreach (global::Tile val in boardDef.tiles)
             {
-                tiles[new Pos(val.pos)] = new Tile(val);
+                tiles.Add(new Pos(val.pos), new Tile(val));
             }
             is_hex = boardDef.isHex;
-            default_max_pawns = new Dictionary<int, int>();
+            default_max_pawns = new OrderedDictionary<int, int>();
             foreach (SMaxPawnsPerRank maxPawnsPerRank in boardDef.maxPawns)
             {
-                default_max_pawns[(int)maxPawnsPerRank.rank] = maxPawnsPerRank.max;
+                default_max_pawns.Add((int)maxPawnsPerRank.rank, maxPawnsPerRank.max);
             }
         }
     }
     
     public struct Tile
     {
-        public Pos pos;
-        public bool is_passable;
-        public int setup_team;
         public int auto_setup_zone;
+        public bool is_passable;
+        public Pos pos;
+        public int setup_team;
 
         public Tile(global::Tile tile)
         {
@@ -965,47 +901,46 @@ namespace ContractTypes
     
     public struct UserState
     {
-        public string user_id;
         public int team;
+        public string user_id;
     }
 
     public struct PawnDef
     {
         public string def_id;
-        public int rank;
+        public int movement_range;
         public string name;
         public int power;
-        public int movement_range;
-
+        public int rank;
     }
     
     
     public struct PawnCommitment
     {
-        string user_id;
+        string def_hidden;
         string pawn_id;
         Vector2Int pos;
-        string def_hidden;
+        string user_id;
     }
     
     public struct SetupCommitment
     {
-        string user_id;
         List<PawnCommitment> pawn_positions;
+        string user_id;
     }
     
     public struct Pawn
     {
-        public string pawn_id;
-        public string user;
-        public int team;
+        public PawnDef def;
         public string def_hidden;
         public string def_key;
-        public PawnDef def;
-        public Vector2Int pos;
         public bool is_alive;
         public bool is_moved;
         public bool is_revealed;
+        public string pawn_id;
+        public Vector2Int pos;
+        public int team;
+        public string user;
     }
 
     public struct FlatTestReq
@@ -1016,77 +951,205 @@ namespace ContractTypes
 
     public struct NestedTestReq
     {
+        public FlatTestReq flat;
         public int number;
         public string word;
-        public FlatTestReq flat;
     }
     
-    //
-    // public struct Lobby
-    // {
-    //     public string lobby_id;
-    //     public string host;
-    //     public RBoardDef board_def;
-    //     public bool must_fill_all_tiles;
-    //     public Dictionary<int, int> max_pawns;
-    //     public bool is_secure;
-    //     public List<UserState> user_states;
-    //     public int game_end_state;
-    //     public List<Pawn> pawns;
-    //
-    //     public Lobby(string host_address, string guest_address, global::LobbyParameters parameters)
-    //     {
-    //         lobby_id = "UNDEFINED";
-    //         host = host_address;
-    //         board_def =  new RBoardDef(parameters.board);
-    //         must_fill_all_tiles = parameters.mustFillAllTiles;
-    //         max_pawns = new Dictionary<int, int>();
-    //         for (int i = 0; i < parameters.maxPawns.Length; i++)
-    //         {
-    //             max_pawns[(int)parameters.maxPawns[i].rank] = parameters.maxPawns[i].max;
-    //         }
-    //         is_secure = false;
-    //         user_states = new List<UserState>();
-    //         // TODO: add user states
-    //         game_end_state = 0;
-    //         pawns = new List<Pawn>();
-    //     }
-    // }
-    //
-
-    // public struct RBoardDef
-    // {
-    //     public string name;
-    //     public Vector2Int size;
-    //     public Dictionary<Vector2Int, Tile> tiles;
-    //     public bool isHex;
-    //     public Dictionary<int, int> default_max_pawns;
-    //
-    //     public RBoardDef(BoardDef boardDef)
-    //     {
-    //         name = boardDef.boardName;
-    //         size = new Vector2Int(boardDef.boardSize);
-    //         tiles = new Dictionary<Vector2Int, Tile>();
-    //         for (int i = 0; i < boardDef.tiles.Length; i++)
-    //         {
-    //             Tile tile = new(boardDef.tiles[i]);
-    //             tiles[tile.pos] = tile;
-    //         }
-    //         isHex = boardDef.isHex;
-    //         default_max_pawns = new Dictionary<int, int>();
-    //         for (int i = 0; i < boardDef.maxPawns.Length; i++)
-    //         {
-    //             default_max_pawns[(int)boardDef.maxPawns[i].rank] = boardDef.maxPawns[i].max;
-    //         }
-    //     }
-    // }
-
-
-    // ReSharper restore InconsistentNaming
 
 }
 
-public enum NetworkStatus
+
+public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary
 {
-    
+    private readonly Dictionary<TKey, TValue> _dictionary;
+    private readonly List<TKey> _keys;
+
+    public OrderedDictionary()
+    {
+        _dictionary = new Dictionary<TKey, TValue>();
+        _keys = new List<TKey>();
+    }
+
+    // IDictionary<TKey, TValue> members
+    public TValue this[TKey key]
+    {
+        get => _dictionary[key];
+        set
+        {
+            if (!_dictionary.ContainsKey(key))
+                _keys.Add(key);
+            _dictionary[key] = value;
+        }
+    }
+
+    public ICollection<TKey> Keys => _keys.AsReadOnly();
+
+    public ICollection<TValue> Values
+    {
+        get
+        {
+            List<TValue> values = new List<TValue>(_keys.Count);
+            foreach (TKey key in _keys)
+                values.Add(_dictionary[key]);
+            return values.AsReadOnly();
+        }
+    }
+
+    public int Count => _dictionary.Count;
+    public bool IsReadOnly => false;
+
+    public void Add(TKey key, TValue value)
+    {
+        if (_dictionary.ContainsKey(key))
+            throw new ArgumentException("An element with the same key already exists.");
+        _dictionary.Add(key, value);
+        _keys.Add(key);
+    }
+
+    public bool ContainsKey(TKey key) => _dictionary.ContainsKey(key);
+
+    public bool Remove(TKey key)
+    {
+        if (_dictionary.Remove(key))
+        {
+            _keys.Remove(key);
+            return true;
+        }
+        return false;
+    }
+
+    public bool TryGetValue(TKey key, out TValue value) =>
+        _dictionary.TryGetValue(key, out value);
+
+    public void Add(KeyValuePair<TKey, TValue> item) =>
+        Add(item.Key, item.Value);
+
+    public void Clear()
+    {
+        _dictionary.Clear();
+        _keys.Clear();
+    }
+
+    public bool Contains(KeyValuePair<TKey, TValue> item) =>
+        _dictionary.ContainsKey(item.Key) &&
+        EqualityComparer<TValue>.Default.Equals(_dictionary[item.Key], item.Value);
+
+    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
+    {
+        foreach (TKey key in _keys)
+        {
+            array[arrayIndex++] = new KeyValuePair<TKey, TValue>(key, _dictionary[key]);
+        }
+    }
+
+    public bool Remove(KeyValuePair<TKey, TValue> item)
+    {
+        if (Contains(item))
+            return Remove(item.Key);
+        return false;
+    }
+
+    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+    {
+        foreach (TKey key in _keys)
+        {
+            yield return new KeyValuePair<TKey, TValue>(key, _dictionary[key]);
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    // IDictionary members (non-generic)
+    object IDictionary.this[object key]
+    {
+        get
+        {
+            if (key is TKey typedKey)
+                return this[typedKey];
+            throw new ArgumentException("Key is of an incorrect type");
+        }
+        set
+        {
+            if (key is TKey typedKey && value is TValue typedValue)
+                this[typedKey] = typedValue;
+            else
+                throw new ArgumentException("Key or value is of an incorrect type");
+        }
+    }
+
+    bool IDictionary.IsFixedSize => false;
+
+    ICollection IDictionary.Keys => _keys;
+
+    ICollection IDictionary.Values
+    {
+        get
+        {
+            List<TValue> values = new List<TValue>(_keys.Count);
+            foreach (TKey key in _keys)
+                values.Add(_dictionary[key]);
+            return values;
+        }
+    }
+
+    void IDictionary.Add(object key, object value)
+    {
+        if (key is TKey typedKey && value is TValue typedValue)
+            Add(typedKey, typedValue);
+        else
+            throw new ArgumentException("Key or value is of an incorrect type");
+    }
+
+    bool IDictionary.Contains(object key)
+    {
+        if (key is TKey typedKey)
+            return ContainsKey(typedKey);
+        return false;
+    }
+
+    IDictionaryEnumerator IDictionary.GetEnumerator()
+    {
+        return new OrderedDictionaryEnumerator(this);
+    }
+
+    void IDictionary.Remove(object key)
+    {
+        if (key is TKey typedKey)
+            Remove(typedKey);
+    }
+
+    void ICollection.CopyTo(Array array, int index)
+    {
+        foreach (var pair in this)
+        {
+            array.SetValue(pair, index++);
+        }
+    }
+
+    bool ICollection.IsSynchronized => false;
+
+    object ICollection.SyncRoot => this;
+
+    private class OrderedDictionaryEnumerator : IDictionaryEnumerator
+    {
+        private readonly IEnumerator<KeyValuePair<TKey, TValue>> _enumerator;
+
+        public OrderedDictionaryEnumerator(OrderedDictionary<TKey, TValue> dict)
+        {
+            _enumerator = dict.GetEnumerator();
+        }
+
+        public DictionaryEntry Entry => new DictionaryEntry(Key, Value);
+
+        public object Key => _enumerator.Current.Key;
+
+        public object Value => _enumerator.Current.Value;
+
+        public object Current => Entry;
+
+        public bool MoveNext() => _enumerator.MoveNext();
+
+        public void Reset() => _enumerator.Reset();
+    }
 }

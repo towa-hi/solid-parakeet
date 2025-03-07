@@ -93,7 +93,7 @@ public class StellarDotnet
         }
         SCVal returnValue2 = (getResult2.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
         NestedTestReq decoded2 = SCValConverter.SCValToNative<NestedTestReq>(returnValue2);
-        if (SCValConverter.DeepEqual(returnValue, returnValue2))
+        if (SCValConverter.HashEqual(returnValue, returnValue2))
         {
             Debug.Log("test good");
         }
