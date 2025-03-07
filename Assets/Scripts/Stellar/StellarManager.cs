@@ -579,10 +579,6 @@ public static class SCValConverter
         return encodedA == encodedB;
     }
     
-    /// <summary>
-    /// Test: Converts a SendInviteReq SCVal to a native object and back,
-    /// then checks deep equality.
-    /// </summary>
     public static SCVal TestSendInviteReqRoundTripConversion()
     {
         // --- Build Pos as a structured type (with fields "x" and "y") ---
@@ -807,6 +803,11 @@ public static class SCValComparer
                 string bVal = ((SCVal.ScvSymbol)b).sym.InnerValue;
                 return string.Compare(aVal, bVal, StringComparison.Ordinal);
             }
+            case SCValType.SCV_MAP:
+            {
+                // TODO: figure out how map comparison works
+                return a.ToString().CompareTo(b.ToString());
+            }
             default:
             {
                 // For other small-value types, fall back to comparing their string representations.
@@ -816,29 +817,110 @@ public static class SCValComparer
     }
 }
 
+public interface IScvMapCompatable
+{
+    SCVal.ScvMap ToScvMap();
+}
+
 namespace ContractTypes
 {
 // ReSharper disable InconsistentNaming
 
-    public struct SendInviteReq
+    public struct SendInviteReq: IScvMapCompatable
     {
         public string host_address;
         public string guest_address;
         public int ledgers_until_expiration;
         public LobbyParameters parameters;
-        
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    // guest_address
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("guest_address") },
+                        val = new SCVal.ScvString() { str = new SCString(guest_address) },
+                    },
+                    // host_address
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("host_address") },
+                        val = new SCVal.ScvString() { str = new SCString(host_address) },
+                    },
+                    // ledgers_until_expiration
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("ledgers_until_expiration") },
+                        val = new SCVal.ScvI32() { i32 = new int32(ledgers_until_expiration) },
+                    },
+                    // parameters
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("parameters") },
+                        val = parameters.ToScvMap(),
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
     
-    public struct LobbyParameters
+    public struct LobbyParameters: IScvMapCompatable
     {
         public BoardDef board_def;
         public bool dev_mode;
         public OrderedDictionary<int, int> max_pawns;
         public bool must_fill_all_tiles;
         public bool security_mode;
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    // board_def
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("board_def") },
+                        val = board_def.ToScvMap(),
+                    },
+                    // dev_mode
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("dev_mode") },
+                        val = new SCVal.ScvBool() { b = dev_mode },
+                    },
+                    // must_fill_all_tiles
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("must_fill_all_tiles") },
+                        val = new SCVal.ScvBool() { b = must_fill_all_tiles },
+                    },
+                    // max_pawns
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("max_pawns") },
+                        val = max_pawns.ToScvMap(),
+                    },
+                    // security_mode
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("security_mode") },
+                        val = new SCVal.ScvBool() { b = security_mode },
+                    },
+                })
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
 
-    public struct BoardDef
+    public struct BoardDef: IScvMapCompatable
     {
         public OrderedDictionary<int, int> default_max_pawns;
         public bool is_hex;
@@ -862,9 +944,51 @@ namespace ContractTypes
                 default_max_pawns.Add((int)maxPawnsPerRank.rank, maxPawnsPerRank.max);
             }
         }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    // default_max_pawns
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("default_max_pawns") },
+                        val = default_max_pawns.ToScvMap(),
+                    },
+                    // is_hex
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("is_hex") },
+                        val = new SCVal.ScvBool() { b = is_hex }
+                    },
+                    // name
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("name") },
+                        val = new SCVal.ScvString() { str = new SCString(name) }
+                    },
+                    // size (a Pos)
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("size") },
+                        val = size.ToScvMap(),
+                    },
+                    // tiles
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("tiles") },
+                        val = tiles.ToScvMap(),
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
     
-    public struct Tile
+    public struct Tile: IScvMapCompatable
     {
         public int auto_setup_zone;
         public bool is_passable;
@@ -878,16 +1002,74 @@ namespace ContractTypes
             setup_team = (int)tile.setupTeam;
             auto_setup_zone = tile.autoSetupZone;
         }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("auto_setup_zone") },
+                        val = new SCVal.ScvI32() { i32 = new int32(auto_setup_zone) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("is_passable") },
+                        val = new SCVal.ScvBool() { b = is_passable },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("pos") },
+                        val = pos.ToScvMap(),
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("setup_team") },
+                        val = new SCVal.ScvI32() { i32 = new int32(setup_team) },
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
     
-    public struct User
+    public struct User: IScvMapCompatable
     {
+        public int games_completed;
         public string index;
         public string name;
-        public int games_completed;
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("games_completed") },
+                        val = new SCVal.ScvI32() { i32 = new int32(games_completed) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("index") },
+                        val = new SCVal.ScvString() { str = new SCString(index) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("name") },
+                        val = new SCVal.ScvString() { str = new SCString(name) },
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
 
-    public struct Pos
+    public struct Pos: IScvMapCompatable
     {
         public int x;
         public int y;
@@ -897,70 +1079,193 @@ namespace ContractTypes
             x = vector.x;
             y = vector.y;
         }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("x") },
+                        val = new SCVal.ScvI32() { i32 = new int32(x) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("y") },
+                        val = new SCVal.ScvI32() { i32 = new int32(y) },
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
     
-    public struct UserState
+    public struct UserState: IScvMapCompatable
     {
         public int team;
         public string user_id;
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("team") },
+                        val = new SCVal.ScvI32() { i32 = new int32(team) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("user_id") },
+                        val = new SCVal.ScvString() { str = new SCString(user_id) },
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
 
-    public struct PawnDef
+    public struct PawnDef: IScvMapCompatable
     {
         public string def_id;
         public int movement_range;
         public string name;
         public int power;
         public int rank;
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("def_id") },
+                        val = new SCVal.ScvString() { str = new SCString(def_id) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("movement_range") },
+                        val = new SCVal.ScvI32() { i32 = new int32(movement_range) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("name") },
+                        val = new SCVal.ScvString() { str = new SCString(name) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("power") },
+                        val = new SCVal.ScvI32() { i32 = new int32(power) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("rank") },
+                        val = new SCVal.ScvI32() { i32 = new int32(rank) },
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
     
     
-    public struct PawnCommitment
+    public struct PawnCommitment: IScvMapCompatable
     {
         string def_hidden;
         string pawn_id;
-        Vector2Int pos;
+        Pos pos;
         string user_id;
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("def_hidden") },
+                        val = new SCVal.ScvString() { str = new SCString(def_hidden) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("pawn_id") },
+                        val = new SCVal.ScvString() { str = new SCString(pawn_id) },
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("pos") },
+                        val = pos.ToScvMap(),
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("user_id") },
+                        val = new SCVal.ScvString() { str = new SCString(user_id) },
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
     
-    public struct SetupCommitment
+    public struct SetupCommitment: IScvMapCompatable
     {
         List<PawnCommitment> pawn_positions;
         string user_id;
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("pawn_positions") },
+                        val = SCValConverter.NativeToSCVal(pawn_positions),
+                    },
+                    new SCMapEntry()
+                    {
+                        key = new SCVal.ScvSymbol() { sym = new SCSymbol("user_id") },
+                        val = new SCVal.ScvString() { str = new SCString(user_id) },
+                    },
+                }),
+            };
+            SCMapEntryComparer.SortMap(scvMap);
+            return scvMap;
+        }
     }
     
-    public struct Pawn
-    {
-        public PawnDef def;
-        public string def_hidden;
-        public string def_key;
-        public bool is_alive;
-        public bool is_moved;
-        public bool is_revealed;
-        public string pawn_id;
-        public Vector2Int pos;
-        public int team;
-        public string user;
-    }
-
-    public struct FlatTestReq
+    public struct FlatTestReq: IScvMapCompatable
     {
         public int number;
         public string word;
+        public SCVal.ScvMap ToScvMap()
+        {
+            throw new NotImplementedException();
+        }
     }
 
-    public struct NestedTestReq
+    public struct NestedTestReq: IScvMapCompatable
     {
         public FlatTestReq flat;
         public int number;
         public string word;
+        public SCVal.ScvMap ToScvMap()
+        {
+            throw new NotImplementedException();
+        }
     }
-    
-
 }
 
 
-public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary
+public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IScvMapCompatable
 {
     private readonly Dictionary<TKey, TValue> _dictionary;
     private readonly List<TKey> _keys;
@@ -1151,5 +1456,10 @@ public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDicti
         public bool MoveNext() => _enumerator.MoveNext();
 
         public void Reset() => _enumerator.Reset();
+    }
+
+    public SCVal.ScvMap ToScvMap()
+    {
+        return (SCVal.ScvMap)SCValConverter.NativeToSCVal(this);
     }
 }
