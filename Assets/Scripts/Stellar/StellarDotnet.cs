@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using ContractTypes;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using Stellar;
 using Stellar.RPC;
@@ -47,20 +49,10 @@ public class StellarDotnet
         userAccount = MuxedAccount.FromSecretSeed(inSecretSneed);
     }
     
-    public async Task<bool> TestFunction()
+    public async Task<bool> TestFunction(SCVal data)
     {
         AccountEntry accountEntry = await ReqAccountEntry(userAccount);
         // make structs
-        NestedTestReq nestedTestReq = new()
-        {
-            number = 34,
-            word = "nested word",
-            flat = new FlatTestReq
-            {
-                number = 21,
-                word = "flat word",
-            },
-        };
         SCVal.ScvAddress addressArg = new SCVal.ScvAddress
         {
             address = new SCAddress.ScAddressTypeAccount()
@@ -68,9 +60,8 @@ public class StellarDotnet
                 accountId = accountId,
             },
         };
-        SCVal arg = SCValConverter.NativeToSCVal(nestedTestReq);
-        SCVal[] args = {addressArg, arg };
-        SendTransactionResult result = await InvokeContractFunction(accountEntry, "nested_param_test", args);
+        SCVal[] args = {addressArg, data };
+        SendTransactionResult result = await InvokeContractFunction(accountEntry, "send_invite", args);
         Debug.Log("transaction hash " + result.Hash);
         GetTransactionResult getResult = await WaitForTransaction(result.Hash, 2000);
         if (getResult == null)
@@ -78,25 +69,26 @@ public class StellarDotnet
             Debug.LogError("get transaction failed");
             return false;
         }
+        Debug.Log(getResult.Status);
         // TODO: fix delay not working
-        SCVal returnValue = (getResult.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
-        NestedTestReq decoded = SCValConverter.SCValToNative<NestedTestReq>(returnValue);
-        Debug.Log(decoded.word);
-        SCVal arg2 = SCValConverter.NativeToSCVal(decoded);
-        SCVal[] args2 = { addressArg, arg2 };
-        SendTransactionResult result2 = await InvokeContractFunction(accountEntry, "nested_param_test", args2);
-        GetTransactionResult getResult2 = await WaitForTransaction(result.Hash, 2000);
-        if (getResult2 == null)
-        {
-            Debug.LogError("get transaction failed");
-            return false;
-        }
-        SCVal returnValue2 = (getResult2.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
-        NestedTestReq decoded2 = SCValConverter.SCValToNative<NestedTestReq>(returnValue2);
-        if (SCValConverter.HashEqual(returnValue, returnValue2))
-        {
-            Debug.Log("test good");
-        }
+        // SCVal returnValue = (getResult.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
+        // SendInviteReq decoded = SCValConverter.SCValToNative<SendInviteReq>(returnValue);
+        // Debug.Log(decoded);
+        // SCVal arg2 = SCValConverter.NativeToSCVal(decoded);
+        // SCVal[] args2 = { addressArg, arg2 };
+        // SendTransactionResult result2 = await InvokeContractFunction(accountEntry, "nested_param_test", args2);
+        // GetTransactionResult getResult2 = await WaitForTransaction(result.Hash, 2000);
+        // if (getResult2 == null)
+        // {
+        //     Debug.LogError("get transaction failed");
+        //     return false;
+        // }
+        // SCVal returnValue2 = (getResult2.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
+        // NestedTestReq decoded2 = SCValConverter.SCValToNative<NestedTestReq>(returnValue2);
+        // if (SCValConverter.HashEqual(returnValue, returnValue2))
+        // {
+        //     Debug.Log("test good");
+        // }
         return true;
     }
     
@@ -232,9 +224,23 @@ public class StellarDotnet
         };
         string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
         string content = await SendJsonRequest(requestJson);
-        JsonRpcResponse<SimulateTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<SimulateTransactionResult>>(content);
-        SimulateTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
-        return transactionResult;
+        JObject jsonObject = JObject.Parse(content);
+        // Remove "stateChanges" entirely to avoid deserialization issues
+        JObject resultObj = (JObject)jsonObject["result"];
+        resultObj.Remove("stateChanges");
+
+        try
+        {
+            JsonRpcResponse<SimulateTransactionResult> rpcResponse = jsonObject.ToObject<JsonRpcResponse<SimulateTransactionResult>>();
+            SimulateTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
+            return transactionResult;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e);
+            throw e;
+        }
+
     }
     
     // variant of StellarRPCClient.SendTransactionAsync()
@@ -305,7 +311,6 @@ public class StellarDotnet
         {
             Debug.Log("Response: " + request.downloadHandler.text);
             string content = request.downloadHandler.text;
-            JsonRpcResponse<GetLatestLedgerResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetLatestLedgerResult>>(content, _jsonSettings);
         }
         return request.downloadHandler.text;
     }

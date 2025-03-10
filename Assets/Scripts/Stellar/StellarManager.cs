@@ -186,10 +186,12 @@ public class StellarManager : MonoBehaviour
     public async Task<bool> SecondTestFunction(string guestAddress)
     {
         SCVal data = SCValConverter.TestSendInviteReqRoundTripConversion();
-        // StellarDotnet client = new StellarDotnet(
-        //     "SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB",
-        //     "CDSL3FT6KO5CFQHQFGZHREBYR4HZEAJTMR2KJ2YYCF7QITXO4G7TKVL3");
-        // await client.TestFunction();
+        StellarDotnet client = new StellarDotnet(
+            "SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB",
+            "CDB6HCKZCRDFCYPTNYX522BB3VPQ3SQ276VNI6TPO5LJE64GVX77G2MA");
+        
+        
+        await client.TestFunction(data);
         
         return true;
     }
@@ -334,6 +336,13 @@ public class StellarResponseData
     public string function;
     public int code;
     public string data;
+}
+
+public class SendInviteTestReq
+{
+    public string host_address;
+    public string guest_address;
+    public int ledgers_until_expiration;
 }
 
 public static class SCValConverter
@@ -709,7 +718,7 @@ public static class SCValConverter
                 new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol("host_address") },
-                    val = new SCVal.ScvString() { str = new SCString("Host456") },
+                    val = new SCVal.ScvString() { str = new SCString("GDB62OX5R73Y7WTTSZBCXKYXCP2MYJGTEAOAMNORJI3WQQWT2AMMTR24") },
                 },
                 // ledgers_until_expiration
                 new SCMapEntry()
@@ -739,6 +748,7 @@ public static class SCValConverter
         // bool areEqual = DeepEqual(sendInviteReqMap, roundTrip);
         // Debug.Log($"Roundtrip equality: {areEqual}");
         // return roundTrip;
+        
         return sendInviteReqMap;
         
         

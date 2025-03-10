@@ -40,7 +40,7 @@
                         "symbol": "ledgers_until_expiration"
                       },
                       "val": {
-                        "u32": 100
+                        "i32": 100
                       }
                     },
                     {
@@ -224,7 +224,7 @@
                                     "symbol": "expiration_ledger"
                                   },
                                   "val": {
-                                    "u32": 101
+                                    "i32": 101
                                   }
                                 },
                                 {
@@ -248,7 +248,7 @@
                                     "symbol": "ledgers_until_expiration"
                                   },
                                   "val": {
-                                    "u32": 100
+                                    "i32": 100
                                   }
                                 },
                                 {
@@ -363,7 +363,7 @@
                                     "symbol": "sent_ledger"
                                   },
                                   "val": {
-                                    "u32": 1
+                                    "i32": 1
                                   }
                                 }
                               ]
@@ -423,7 +423,7 @@
                         "symbol": "games_completed"
                       },
                       "val": {
-                        "u32": 0
+                        "i32": 0
                       }
                     },
                     {
@@ -493,7 +493,7 @@
                         "symbol": "games_completed"
                       },
                       "val": {
-                        "u32": 0
+                        "i32": 0
                       }
                     },
                     {
@@ -641,7 +641,7 @@
                           "symbol": "expiration_ledger"
                         },
                         "val": {
-                          "u32": 101
+                          "i32": 101
                         }
                       },
                       {
@@ -665,7 +665,7 @@
                           "symbol": "ledgers_until_expiration"
                         },
                         "val": {
-                          "u32": 100
+                          "i32": 100
                         }
                       },
                       {
@@ -780,7 +780,7 @@
                           "symbol": "sent_ledger"
                         },
                         "val": {
-                          "u32": 1
+                          "i32": 1
                         }
                       }
                     ]

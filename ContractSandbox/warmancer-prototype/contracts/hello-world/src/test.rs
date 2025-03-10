@@ -59,6 +59,10 @@ fn test_send_invite() {
     let events = env.events().all();
     assert!(!events.is_empty());
     // TODO: test events better
+
+
+
+
 }
 
 

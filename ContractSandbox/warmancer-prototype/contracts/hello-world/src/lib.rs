@@ -12,7 +12,8 @@ pub type Team = u32;
 pub type Rank = u32;
 // endregion
 // region enums errors
-#[contracterror]#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Error {
     UserNotFound = 1,
     InvalidUsername = 2,
@@ -176,6 +177,13 @@ pub struct SendInviteReq {
     pub parameters: LobbyParameters,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SendInviteTestReq {
+    pub host_address: UserAddress,
+    pub guest_address: UserAddress,
+    pub ledgers_until_expiration: i32,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AcceptInviteReq {
     pub host_address: UserAddress,
 }
@@ -287,6 +295,14 @@ impl Contract {
         Ok(req.clone())
     }
 
+    pub fn test_invite(env: Env, address: Address, req: SendInviteTestReq) -> Result<SendInviteTestReq, Error> {
+        Ok(req.clone())
+    }
+
+    pub fn test_send_invite_req(env: Env, address: Address, req: SendInviteReq) -> Result<SendInviteReq, Error> {
+        Ok(req.clone())
+    }
+
     pub fn send_invite(env: Env, address: Address, req: SendInviteReq) -> Result<(), Error> {
         address.require_auth();
         const MAX_EXPIRATION_LEDGERS: i32 = 1000;
@@ -302,9 +318,6 @@ impl Contract {
         let _host_user = Self::get_or_make_user(&env, &req.host_address);
         //TODO: prevent users from adding non existent guest users
         let _guest_user = Self::get_or_make_user(&env, &req.guest_address);
-        if req.ledgers_until_expiration > MAX_EXPIRATION_LEDGERS {
-            return Err(Error::InvalidExpirationLedger)
-        }
         // TODO: validate parameters
         let current_ledger = env.ledger().sequence() as i32;
         let event_invite = EventInvite {
