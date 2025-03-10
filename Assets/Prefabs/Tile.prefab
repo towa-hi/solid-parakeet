@@ -60,11 +60,11 @@ MonoBehaviour:
   squareTileTopRenderer: {fileID: 3036712548443931823}
   squareTileSurfaceRenderer: {fileID: 3717637468162726108}
   hexTile: {fileID: 4190175199679390049}
-  hexTileTopRenderer: {fileID: 7733890324342330788}
+  hexTileTopRenderer: {fileID: 2823830958297784926}
   hexTileSurfaceRenderer: {fileID: 436879349753901311}
-  baseColor: {r: 0, g: 0.67513883, b: 0.7264151, a: 1}
-  redColor: {r: 0.33962262, g: 0, b: 0, a: 1}
-  blueColor: {r: 0, g: 0.028938925, b: 0.34117648, a: 1}
+  baseColor: {r: 1, g: 1, b: 1, a: 1}
+  redColor: {r: 0.990566, g: 0, b: 0, a: 1}
+  blueColor: {r: 0, g: 0.080459595, b: 1, a: 1}
   isHex: 0
   isShowing: 0
   isHovered: 0
@@ -162,6 +162,8 @@ MonoBehaviour:
       endDelay: 0
       useUnscaledTime: 0
       useFixedUpdate: 0
+  basePosition: {x: 0, y: 0, z: 0}
+  baseHeight: 0
 --- !u!114 &4418170331486867016
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1237,14 +1239,14 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 602351131653977845, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
   m_PrefabInstance: {fileID: 285308441923803693}
   m_PrefabAsset: {fileID: 0}
+--- !u!23 &2823830958297784926 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2649767840048937075, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
+  m_PrefabInstance: {fileID: 285308441923803693}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &4190175199679390049 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4166921062069795660, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
-  m_PrefabInstance: {fileID: 285308441923803693}
-  m_PrefabAsset: {fileID: 0}
---- !u!23 &7733890324342330788 stripped
-MeshRenderer:
-  m_CorrespondingSourceObject: {fileID: 7539538981961633673, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
   m_PrefabInstance: {fileID: 285308441923803693}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &6757040599036080838
