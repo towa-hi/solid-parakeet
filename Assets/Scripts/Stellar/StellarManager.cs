@@ -338,13 +338,6 @@ public class StellarResponseData
     public string data;
 }
 
-public class SendInviteTestReq
-{
-    public string host_address;
-    public string guest_address;
-    public int ledgers_until_expiration;
-}
-
 public static class SCValConverter
 {
     /// <summary>

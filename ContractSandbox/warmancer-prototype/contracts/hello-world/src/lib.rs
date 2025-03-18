@@ -176,12 +176,6 @@ pub struct SendInviteReq {
     pub ledgers_until_expiration: i32,
     pub parameters: LobbyParameters,
 }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SendInviteTestReq {
-    pub host_address: UserAddress,
-    pub guest_address: UserAddress,
-    pub ledgers_until_expiration: i32,
-}
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AcceptInviteReq {
@@ -292,10 +286,6 @@ impl Contract {
     }
 
     pub fn nested_param_test(env: Env, address: Address, req: NestedTestReq) -> Result<NestedTestReq, Error> {
-        Ok(req.clone())
-    }
-
-    pub fn test_invite(env: Env, address: Address, req: SendInviteTestReq) -> Result<SendInviteTestReq, Error> {
         Ok(req.clone())
     }
 
