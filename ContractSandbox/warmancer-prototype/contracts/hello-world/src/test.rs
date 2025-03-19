@@ -39,12 +39,12 @@ fn test_send_invite() {
         board_def: BoardDef {
             name: String::from_str(&env, "test board"),
             size: Pos { x: 10, y: 10 },
-            tiles: Map::new(&env),
+            tiles: Vec::new(&env),
             is_hex: false,
-            default_max_pawns: Map::new(&env),
+            default_max_pawns: Vec::new(&env),
         },
         must_fill_all_tiles: false,
-        max_pawns: Map::new(&env),
+        max_pawns: Vec::new(&env),
         dev_mode: false,
         security_mode: false,
     };

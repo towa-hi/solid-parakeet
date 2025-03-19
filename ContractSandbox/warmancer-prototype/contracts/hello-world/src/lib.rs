@@ -8,8 +8,7 @@ pub type PawnGuid = String;
 pub type PawnGuidHash = String;
 pub type PawnDefHash = String;
 pub type PosHash = String;
-pub type Team = u32;
-pub type Rank = u32;
+pub type Rank = i32;
 // endregion
 // region enums errors
 #[contracterror]
@@ -41,6 +40,13 @@ pub enum UserLobbyState {
     Ready = 2,
     InGame = 3,
 }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Team {
+    None = 0,
+    Red = 1,
+    Blue = 2,
+}
+
 // endregion
 // region level 0 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -56,6 +62,14 @@ pub struct Pos {
     pub x: i32,
     pub y: i32,
 }
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UserState {
+    pub lobby_state: UserLobbyState,
+    pub setup_commitments: Vec<PawnCommitment>,
+    pub team: Team,
+    pub user_address: UserAddress,
+}
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnDef {
     pub id: i32,
@@ -64,6 +78,13 @@ pub struct PawnDef {
     pub power: i32,
     pub movement_range: i32,
 }
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MaxPawns {
+    pub max: i32,
+    pub rank: Rank,
+}
+
 // endregion
 // region level 1 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -99,9 +120,9 @@ pub struct Pawn {
 pub struct BoardDef {
     pub name: String,
     pub size: Pos,
-    pub tiles: Map<Pos, Tile>,
+    pub tiles: Vec<Tile>,
     pub is_hex: bool,
-    pub default_max_pawns: Map<Rank, i32>,
+    pub default_max_pawns: Vec<MaxPawns>,
 }
 // endregion
 // region level 3 structs
@@ -109,19 +130,28 @@ pub struct BoardDef {
 pub struct LobbyParameters {
     pub board_def: BoardDef,
     pub must_fill_all_tiles: bool,
-    pub max_pawns: Map<Rank, i32>,
+    pub max_pawns: Vec<MaxPawns>,
     pub dev_mode: bool,
     pub security_mode: bool,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TurnMove {
-    pub user_address: UserAddress,
-    pub turn: i32,
+    pub initialized: bool,
     pub pawn_id: PawnGuid,
     pub pos: Pos,
+    pub turn: i32,
+    pub user_address: UserAddress,
 }
 // endregion
 // region level 4 structs
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Turn {
+    pub guest_turn: TurnMove,
+    pub host_turn: TurnMove,
+    pub turn: i32,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Invite {
     pub host_address: UserAddress,
@@ -139,16 +169,15 @@ pub struct Lobby {
     pub guest_address: UserAddress,
     pub parameters: LobbyParameters,
     // mutable
-    pub user_lobby_states: Map<UserAddress, UserLobbyState>, // contains user specific state, changes when another user joins or leaves
+    pub host_state: UserState,
+    pub guest_state: UserState,
     // game state
     pub game_end_state: i32,
-    pub teams: Map<UserAddress, Team>,
-    pub setup_commitments: Map<UserAddress, Map<PawnCommitment, ()>>,
-    pub turn: i32,
     pub phase: Phase,
-    pub pawns: Map<PawnGuid, Pawn>,
-    pub moves: Map<i32, Map<UserAddress, TurnMove>>,
+    pub pawns: Vec<Pawn>,
+    pub turns: Vec<Turn>,
 }
+
 // endregion
 // region events
 pub const EVENT_UPDATE_USER: &str = "EVENT_UPDATE_USER";
@@ -189,7 +218,7 @@ pub struct LeaveLobbyReq {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommitReq {
     pub lobby_id: LobbyGuid,
-    pub setup_commitments: Map<PawnCommitment, ()>
+    pub setup_commitments: Vec<PawnCommitment>
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MoveCommitReq {
@@ -227,14 +256,12 @@ pub struct NestedTestReq {
 
 // endregion
 // region keys
-pub type TestSendInviteReq = SendInviteReq;
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     Admin, // Address
     User(UserAddress),
 
-    TestSendInviteReq,
 }
 pub type PendingInvites = Map<UserAddress, EventInvite>;
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -253,25 +280,6 @@ impl Contract {
             return Err(Error::AlreadyInitialized);
         }
         env.storage().persistent().set(&DataKey::Admin, &admin);
-        let test_req = SendInviteReq {
-            host_address: String::from_str(&env, "host address"),
-            guest_address: String::from_str(&env, "guest address"),
-            ledgers_until_expiration: 0,
-            parameters: LobbyParameters {
-                board_def: BoardDef {
-                    name: String::from_str(&env, "board def name"),
-                    size: Pos { x: 0, y: 0 },
-                    tiles: Map::new(&env),
-                    is_hex: true,
-                    default_max_pawns: Map::new(&env),
-                },
-                must_fill_all_tiles: false,
-                max_pawns: Map::new(&env),
-                dev_mode: false,
-                security_mode: false,
-            },
-        };
-        env.storage().persistent().set(&DataKey::TestSendInviteReq, &test_req);
         Ok(())
     }
 
@@ -316,7 +324,7 @@ impl Contract {
                 guest_address: req.guest_address.clone(),
                 sent_ledger: current_ledger,
                 ledgers_until_expiration: req.ledgers_until_expiration,
-                expiration_ledger: (current_ledger + req.ledgers_until_expiration),
+                expiration_ledger: current_ledger + req.ledgers_until_expiration,
                 parameters: req.parameters,
             },
         };
@@ -333,6 +341,7 @@ impl Contract {
 
     pub fn accept_invite(env: Env, address: Address, req: AcceptInviteReq) -> Result<(), Error> {
         address.require_auth();
+
         let temp = env.storage().temporary();
         let pending_invites_key = TempKey::PendingInvites(address.to_string());
         // see if invite from this user exists in pending invites
@@ -348,25 +357,29 @@ impl Contract {
         temp.set(&pending_invites_key, &pending_invites);
         // make a lobby from the invite
         let lobby_id = Self::generate_uuid(&env, env.ledger().sequence());
-        let mut user_lobby_states: Map<UserAddress, UserLobbyState> = Map::new(&env);
-        user_lobby_states.set(invite.host_address.clone(), UserLobbyState::InLobby);
-        user_lobby_states.set(invite.guest_address.clone(), UserLobbyState::InLobby);
-        let mut teams: Map<UserAddress, Team> = Map::new(&env); // TODO: make teams configurable later
-        teams.set(invite.host_address.clone(), 1); // host is always RED
-        teams.set(invite.guest_address.clone(), 2); // guest is always BLUE
+        let host_state = UserState {
+            lobby_state: UserLobbyState::InGame,
+            setup_commitments: Vec::new(&env),
+            team: Team::Red,
+            user_address: invite.host_address.clone(),
+        };
+        let guest_state = UserState {
+            lobby_state: UserLobbyState::InGame,
+            setup_commitments: Vec::new(&env),
+            team: Team::Blue,
+            user_address: invite.guest_address.clone(),
+        };
         let lobby = Lobby {
             index: lobby_id.clone(),
             host_address: invite.host_address.clone(),
             guest_address: invite.guest_address.clone(),
             parameters: invite.parameters,
-            user_lobby_states: user_lobby_states,
+            host_state: host_state,
+            guest_state: guest_state,
             game_end_state: 0,
-            teams: teams,
-            setup_commitments: Map::new(&env),
-            turn: 0,
             phase: Phase::Setup,
-            pawns: Map::new(&env),
-            moves: Map::new(&env),
+            pawns: Vec::new(&env),
+            turns: Vec::new(&env),
         };
         let lobby_key = TempKey::Lobby(lobby_id.clone());
         temp.set(&lobby_key, &lobby.clone());
@@ -380,6 +393,7 @@ impl Contract {
 
     pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
         address.require_auth();
+
         let temp = env.storage().temporary();
         let lobby_key = TempKey::Lobby(req.lobby_id.clone());
         let mut lobby: Lobby = match temp.get(&lobby_key) {
@@ -389,53 +403,86 @@ impl Contract {
         if lobby.phase != Phase::Setup {
             return Err(Error::WrongPhase);
         }
-        // validate commitment
-        if !Self::validate_setup_commitment(&env, &req.setup_commitments, &lobby.parameters) {
-            return Err(Error::InvalidArgs);
-        }
-        lobby.setup_commitments.set(address.to_string(), req.setup_commitments);
-        // if both players have submitted
-        let all_players_committed = lobby.setup_commitments.keys().len() == 2;
-        if all_players_committed
-        {
-            let mut sneed: u32 = 0;
-            // start game
-            let mut pawns: Map<PawnGuid, Pawn> = Map::new(&env);
-            for (user_address, commitment_map) in lobby.setup_commitments.iter() {
-                let team = lobby.teams.get_unchecked(user_address.clone());
-                for pawn_commitment in commitment_map.keys().iter() {
-                    let pawn_id = Self::generate_uuid(&env, sneed);
-                    let pawn_def = PawnDef {
-                        id: 99,
-                        name: String::from_str(&env, "UNKNOWN"),
-                        rank: 99,
-                        power: 0,
-                        movement_range: 0,
-                    };
-                    let pawn = Pawn {
-                        pawn_id: pawn_id.clone(),
-                        user_address: user_address.clone(),
-                        team: team,
-                        pos: pawn_commitment.starting_pos,
-                        is_alive: true,
-                        is_moved: false,
-                        is_revealed: false,
-                        pawn_def: pawn_def,
-                    };
-                    pawns.set(pawn_id, pawn);
-                    sneed += 1;
-                }
-            }
-            lobby.pawns = pawns;
-            lobby.phase = Phase::Movement;
-            lobby.turn = 1;
-            temp.set(&lobby_key, &lobby);
-            let event_setup_end = EventSetupEnd {
-                lobby: lobby.clone(),
-            };
-            env.events().publish((EVENT_SETUP_END, lobby.host_address, lobby.guest_address, lobby.index), event_setup_end);
+        // get state
+        let user_address = address.to_string();
+        let (mut user_state, other_user_committed) = if user_address == lobby.host_address {
+            (lobby.host_state.clone(), !lobby.guest_state.setup_commitments.clone().is_empty())
+        } else if user_address == lobby.guest_address {
+            (lobby.guest_state.clone(), !lobby.host_state.setup_commitments.clone().is_empty())
         } else {
-            temp.set(&lobby_key, &lobby);
+            return Err(Error::InvalidArgs);
+        };
+        user_state.setup_commitments = req.setup_commitments.clone();
+        if other_user_committed
+        {
+            let unknown_pawn_def = PawnDef {
+                id: 99,
+                name: String::from_str(&env, "UNKNOWN"),
+                rank: 99,
+                power: 0,
+                movement_range: 0,
+            };
+            let mut sneed: u32 = 0;
+            for commitment in lobby.host_state.setup_commitments.clone() {
+                let pawn = Pawn {
+                    pawn_id: Self::generate_uuid(&env, sneed),
+                    user_address: lobby.host_state.user_address.clone(),
+                    team: lobby.host_state.team.clone(),
+                    pos: commitment.starting_pos.clone(),
+                    is_alive: true,
+                    is_moved: false,
+                    is_revealed: false,
+                    pawn_def: unknown_pawn_def.clone(),
+                };
+                lobby.pawns.push_back(pawn);
+                sneed += 1;
+            }
+            for commitment in lobby.guest_state.setup_commitments.clone() {
+                let pawn = Pawn {
+                    pawn_id: Self::generate_uuid(&env, sneed),
+                    user_address: lobby.guest_state.user_address.clone(),
+                    team: lobby.guest_state.team.clone(),
+                    pos: commitment.starting_pos.clone(),
+                    is_alive: true,
+                    is_moved: false,
+                    is_revealed: false,
+                    pawn_def: unknown_pawn_def.clone(),
+                };
+                lobby.pawns.push_back(pawn);
+                sneed += 1;
+            }
+            lobby.phase = Phase::Movement;
+            let empty_pawn_id = String::from_str(&env, "Empty pawn Id");
+            let empty_pos = Pos {
+                x: -666,
+                y: -666,
+            };
+            let first_turn = Turn {
+                guest_turn: TurnMove {
+                    initialized: false,
+                    pawn_id: empty_pawn_id.clone(),
+                    pos: empty_pos.clone(),
+                    turn: 1,
+                    user_address: lobby.guest_address.clone(),
+                },
+                host_turn: TurnMove {
+                    initialized: false,
+                    pawn_id: empty_pawn_id.clone(),
+                    pos: empty_pos.clone(),
+                    turn: 1,
+                    user_address: lobby.host_address.clone(),
+                },
+                turn: 1,
+            };
+            lobby.turns.push_back(first_turn);
+        }
+        temp.set(&lobby_key, &lobby);
+        let event_setup_end = EventSetupEnd {
+            lobby: lobby.clone(),
+        };
+        if other_user_committed
+        {
+            env.events().publish((EVENT_SETUP_END, lobby.host_address, lobby.guest_address, lobby.index), event_setup_end);
         }
         Ok(())
     }
@@ -515,23 +562,6 @@ impl Contract {
             cursor += 1;
         }
         String::from_bytes(e, &output)
-    }
-
-    fn validate_setup_commitment(e: &Env, setup_commitments: &Map<PawnCommitment, ()>, parameters: &LobbyParameters) -> bool {
-        for pawn in setup_commitments.keys().iter() {
-            if !Self::validate_pos(e, &pawn.starting_pos, &parameters.board_def) {
-                return false;
-            }
-        }
-        true
-    }
-
-    fn validate_pos(_e: &Env, pos: &Pos, board_def: &BoardDef) -> bool {
-        let tile = match board_def.tiles.get(pos.clone()) {
-            Some(v) => v,
-            None => return false,
-        };
-        tile.is_passable
     }
 
     /*
