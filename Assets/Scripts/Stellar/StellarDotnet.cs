@@ -48,6 +48,29 @@ public class StellarDotnet
     {
         userAccount = MuxedAccount.FromSecretSeed(inSecretSneed);
     }
+
+    public async Task<bool> SendInvite(SendInviteReq req)
+    {
+        AccountEntry accountEntry = await ReqAccountEntry(userAccount);
+        SCVal reqArg = req.ToScvMap();
+        SCVal.ScvAddress addressArg = new SCVal.ScvAddress
+        {
+            address = new SCAddress.ScAddressTypeAccount()
+            {
+                accountId = accountId,
+            },
+        };
+        SCVal[] args = {addressArg, reqArg };
+        SendTransactionResult result = await InvokeContractFunction(accountEntry, "send_invite", args);
+        Debug.Log("transaction hash " + result.Hash);
+        GetTransactionResult getResult = await WaitForTransaction(result.Hash, 2000);
+        if (getResult == null)
+        {
+            Debug.LogError("get transaction failed");
+            return false;
+        }
+        return true;
+    }
     
     public async Task<bool> TestFunction(SCVal data)
     {
