@@ -1,4 +1,44 @@
 mergeInto(LibraryManager.library, {
+    SignStringJS: async function(message) {
+        const {rpc, xdr, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
+        const FreighterApi = window.freighterApi;
+        // Sign a new transaction that calls the contract function "hello" with one argument, a string.
+        const { TransactionBuilder, Operation, Networks } = StellarSdk;
+        const publicKey = await freighter.getPublicKey();
+        const server = new StellarSdk.Server('https://horizon-testnet.stellar.org');
+        const account = await server.loadAccount(publicKey);
+
+        const transaction = new TransactionBuilder(account, {
+                fee: '100',
+                networkPassphrase: Networks.TESTNET
+            })
+            .addOperation(Operation.invokeHostFunction({
+                contractId: contractId,
+                function: 'hello',
+                parameters: [StellarSdk.xdr.ScVal.scvString(message)]
+            }))
+            .setTimeout(30)
+            .build();
+
+        const signedXDR = await FreighterApi.signTransaction(
+                transaction.toXDR(),
+                { networkPassphrase: Networks.TESTNET }
+        );
+
+        if (signedXDR.error) {
+            Module.SendUnityMessage(-1, `SignStringJS() signedXDR error: ${signedXDR.error}`);
+            return;
+        }
+
+        // Convert the string to a Unity-compatible format
+        var bufferSize = lengthBytesUTF8(signedXDR.signedTxXdr) + 1;
+        var buffer = _malloc(bufferSize);
+        stringToUTF8(signedXDR.signedTxXdr, buffer, bufferSize);
+
+        Module.SendUnityMessage(1, buffer);
+    },
+    
+    
     JSCheckWallet: async function()
     {
         const FreighterApi = window.freighterApi;
