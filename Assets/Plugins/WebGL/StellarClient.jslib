@@ -1,5 +1,5 @@
 mergeInto(LibraryManager.library, {
-    SignStringJS: async function(message) {
+    JSSignString: async function(message) {
         const {rpc, xdr, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
         const FreighterApi = window.freighterApi;
         // Sign a new transaction that calls the contract function "hello" with one argument, a string.
@@ -26,7 +26,7 @@ mergeInto(LibraryManager.library, {
         );
 
         if (signedXDR.error) {
-            Module.SendUnityMessage(-1, `SignStringJS() signedXDR error: ${signedXDR.error}`);
+            Module.SendUnityMessage(-1, `JSSignString() signedXDR error: ${signedXDR.error}`);
             return;
         }
 

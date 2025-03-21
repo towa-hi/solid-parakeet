@@ -42,6 +42,9 @@ public class StellarManager : MonoBehaviour
     [DllImport("__Internal")]
     static extern void JSGetEvents(string filterPtr, string contractAddressPtr, string topicPtr);
     
+    [DllImport("__Internal")]
+    static extern void JSSignString(string message);
+    
     public string contract;
 
     public BoardDef testBoardDef;
@@ -183,16 +186,14 @@ public class StellarManager : MonoBehaviour
     }
 
 
-    public async Task<bool> SecondTestFunction(string guestAddress)
+    public async Task<bool> SecondTestFunction(string input)
     {
-        SCVal data = SCValConverter.TestSendInviteReqRoundTripConversion();
-        StellarDotnet client = new StellarDotnet(
-            "SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB",
-            "CDB6HCKZCRDFCYPTNYX522BB3VPQ3SQ276VNI6TPO5LJE64GVX77G2MA");
-        
-        
-        await client.TestFunction(data);
-        
+        Debug.Log("SecondTestFunction() started");
+        JSSignString(input);
+        getEventsTaskSource = new TaskCompletionSource<StellarResponseData>();
+        StellarResponseData response = await getEventsTaskSource.Task;
+        getEventsTaskSource = null;
+        Debug.Log($" SecondTestFunction response: {response.data}");
         return true;
     }
     
