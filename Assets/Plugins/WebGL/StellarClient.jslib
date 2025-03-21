@@ -1,5 +1,6 @@
 mergeInto(LibraryManager.library, {
     SignStringJS: async function(message) {
+        const {rpc, xdr, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
         const FreighterApi = window.freighterApi;
         // Sign a new transaction that calls the contract function "hello" with one argument, a string.
         const { TransactionBuilder, Operation, Networks } = StellarSdk;
@@ -19,11 +20,10 @@ mergeInto(LibraryManager.library, {
             .setTimeout(30)
             .build();
 
-        const signedXDR = await freighter.signTransaction(
+        const signedXDR = await FreighterApi.signTransaction(
                 transaction.toXDR(),
                 { networkPassphrase: Networks.TESTNET }
         );
-
 
         if (signedXDR.error) {
             Module.SendUnityMessage(-1, `SignStringJS() signedXDR error: ${signedXDR.error}`);
