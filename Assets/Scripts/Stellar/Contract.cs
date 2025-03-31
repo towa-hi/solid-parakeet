@@ -1,0 +1,718 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using Stellar;
+using UnityEngine;
+
+namespace Contract
+{
+    public interface IScvMapCompatable
+    {
+        SCVal.ScvMap ToScvMap();
+    }
+    
+    public static class SCUtility
+    {
+        public static SCVal NativeToSCVal(object input)
+        {
+            if (input == null)
+            {
+                throw new ArgumentNullException(nameof(input));
+            }
+            Type type = input.GetType();
+            // For native int always convert to SCVal.ScvI32.
+            if (type == typeof(int))
+            {
+                return new SCVal.ScvI32 { i32 = new int32((int)input) };
+            }
+            else if (type == typeof(string))
+            {
+                return new SCVal.ScvString { str = new SCString((string)input) };
+            }
+            else if (type == typeof(bool))
+            {
+                return new SCVal.ScvBool { b = (bool)input };
+            }
+            else if (input is Array inputArray)
+            {
+                SCVal[] scValArray = new SCVal[inputArray.Length];
+                for (int i = 0; i < inputArray.Length; i++)
+                {
+                    scValArray[i] = NativeToSCVal(inputArray.GetValue(i));
+                }
+                return new SCVal.ScvVec() { vec = new SCVec(scValArray) };
+            }
+            else if (input is IScvMapCompatable inputStruct)
+            {
+                return inputStruct.ToScvMap();
+                // List<SCMapEntry> entries = new();
+                // foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+                // {
+                //     object fieldValue = field.GetValue(input);
+                //     SCVal scFieldVal = NativeToSCVal(fieldValue);
+                //     entries.Add(new SCMapEntry
+                //     {
+                //         key = new SCVal.ScvSymbol { sym = new SCSymbol(field.Name) },
+                //         val = scFieldVal,
+                //     });
+                // }
+                // entries.Sort(new SCMapEntryComparer());
+                // return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
+            }
+            else
+            {
+                throw new NotImplementedException($"Type {input.GetType()} not implemented.");
+            }
+        }
+
+        public static object SCValToNative(SCVal scVal, Type targetType)
+        {
+            Debug.Log($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
+            if (targetType == typeof(int))
+            {
+                Debug.Log("SCValToNative: Target type is int.");
+                // Prefer I32. If we get a U32, log a warning.
+                if (scVal is SCVal.ScvI32 i32Val)
+                {
+                    Debug.Log($"SCValToNative: Found SCVal.ScvI32 with value {i32Val.i32.InnerValue}.");
+                    return i32Val.i32.InnerValue;
+                }
+                else if (scVal is SCVal.ScvU32 u32Val)
+                {
+                    Debug.LogWarning("SCValToNative: Expected SCVal.ScvI32 for int conversion, got SCVal.ScvU32. Converting anyway.");
+                    return Convert.ToInt32(u32Val.u32.InnerValue);
+                }
+                else
+                {
+                    Debug.LogError("SCValToNative: Failed int conversion. SCVal is not I32 or U32.");
+                    throw new NotSupportedException("Expected SCVal.ScvI32 (or SCVal.ScvU32 as fallback) for int conversion.");
+                }
+            }
+            else if (targetType == typeof(string))
+            {
+                Debug.Log("SCValToNative: Target type is string.");
+                if (scVal is SCVal.ScvString strVal)
+                {
+                    Debug.Log($"SCValToNative: Found SCVal.ScvString with value '{strVal.str.InnerValue}'.");
+                    return strVal.str.InnerValue;
+                }
+                else
+                {
+                    Debug.LogError("SCValToNative: Failed string conversion. SCVal is not SCvString.");
+                    throw new NotSupportedException("Expected SCVal.ScvString for string conversion.");
+                }
+            }
+            else if (targetType == typeof(bool))
+            {
+                Debug.Log("SCValToNative: Target type is bool.");
+                if (scVal is SCVal.ScvBool boolVal)
+                {
+                    Debug.Log($"SCValToNative: Found SCVal.ScvBool with value {boolVal.b}.");
+                    return boolVal.b;
+                }
+                else
+                {
+                    Debug.LogError("SCValToNative: Failed bool conversion. SCVal is not SCvBool.");
+                    throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
+                }
+            }
+            else if (scVal is SCVal.ScvVec scvVec)
+            {
+                Debug.Log("SCValToNative: Target type is a collection. Using vector conversion branch.");
+                Type elementType = targetType.IsArray
+                    ? targetType.GetElementType()
+                    : (targetType.IsGenericType ? targetType.GetGenericArguments()[0] : typeof(object));
+                if (elementType == null)
+                {
+                    Debug.LogError("SCValToNative: Unable to determine element type for collection conversion.");
+                    throw new NotSupportedException("Unable to determine element type for collection conversion.");
+                }
+                SCVal[] innerArray = scvVec.vec.InnerValue;
+                int len = innerArray.Length;
+                object[] convertedElements = new object[len];
+                for (int i = 0; i < len; i++)
+                {
+                    Debug.Log($"SCValToNative: Converting collection element at index {i}.");
+                    convertedElements[i] = SCValToNative(innerArray[i], elementType);
+                }
+                if (targetType.IsArray)
+                {
+                    Array arr = Array.CreateInstance(elementType, len);
+                    for (int i = 0; i < len; i++)
+                    {
+                        arr.SetValue(convertedElements[i], i);
+                    }
+                    Debug.Log("SCValToNative: Collection converted to array.");
+                    return arr;
+                }
+            }
+            // Handle structured types (native structs/classes) via SCVal.ScvMap.
+            else if (scVal is SCVal.ScvMap scvMap)
+            {
+                Debug.Log("SCValToNative: Target type is either a map or a structured type.");
+                // if is a struct
+                if (targetType.IsValueType && !targetType.IsPrimitive)
+                {
+                    object instance = Activator.CreateInstance(targetType);
+                    Debug.Log("SCValToNative: Target type is a struct");
+                    Dictionary<string, SCMapEntry> dict = new Dictionary<string, SCMapEntry>();
+                    foreach (SCMapEntry entry in scvMap.map.InnerValue)
+                    {
+                        if (entry.key is SCVal.ScvSymbol sym)
+                        {
+                            dict[sym.sym.InnerValue] = entry;
+                            Debug.Log($"SCValToNative: Found map key '{sym.sym.InnerValue}'.");
+                        }
+                        else
+                        {
+                            Debug.LogError("SCValToNative: Expected map key to be SCVal.ScvSymbol.");
+                            throw new NotSupportedException("Expected map key to be SCVal.ScvSymbol.");
+                        }
+                    }
+                    foreach (FieldInfo field in targetType.GetFields(BindingFlags.Instance | BindingFlags.Public))
+                    {
+                        if (dict.TryGetValue(field.Name, out SCMapEntry mapEntry))
+                        {
+                            Debug.Log($"SCValToNative: Converting field '{field.Name}'.");
+                            object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
+                            field.SetValue(instance, fieldValue);
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"SCValToNative: Field '{field.Name}' not found in SCVal map.");
+                        }
+                    }
+                    return instance;
+                }
+            }
+            Debug.LogError("SCValToNative: SCVal type not supported for conversion.");
+            throw new NotSupportedException("SCVal type not supported for conversion.");
+        }
+        
+        public static T SCValToNative<T>(SCVal scVal)
+        {
+            return (T)SCValToNative(scVal, typeof(T));
+        }
+        
+        public static SCMapEntry FieldToSCMapEntry(string fieldName, object input)
+        {
+            return new SCMapEntry()
+            {
+                key = new SCVal.ScvSymbol() { sym = new SCSymbol(fieldName) },
+                val = NativeToSCVal(input),
+            };
+        }
+        
+        public static bool HashEqual(SCVal a, SCVal b)
+        {
+            string encodedA = SCValXdr.EncodeToBase64(a);
+            string encodedB = SCValXdr.EncodeToBase64(b);
+            return encodedA == encodedB;
+        }
+    }
+    
+    // ReSharper disable InconsistentNaming
+    
+    
+    public struct User: IScvMapCompatable
+    {
+        public int games_completed;
+        public string index;
+        public string name;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("games_completed", games_completed),
+                    SCUtility.FieldToSCMapEntry("index", index),
+                    SCUtility.FieldToSCMapEntry("name", name),
+                }),
+            };
+        }
+    }
+    
+    public struct Pos: IScvMapCompatable
+    {
+        public int x;
+        public int y;
+
+        public Pos(UnityEngine.Vector2Int vector)
+        {
+            x = vector.x;
+            y = vector.y;
+        }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("x", x),
+                    SCUtility.FieldToSCMapEntry("y", y),
+                }),
+            };
+        }
+    }
+    
+    public struct UserState: IScvMapCompatable
+    {
+        public int lobby_state;
+        public PawnCommitment[] setup_commitments;
+        public int team;
+        public string user_address;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby_state", lobby_state),
+                    SCUtility.FieldToSCMapEntry("setup_commitments", setup_commitments),
+                    SCUtility.FieldToSCMapEntry("team", team),
+                    SCUtility.FieldToSCMapEntry("user_address", user_address),
+                }),
+            };
+        }
+    }
+    
+    public struct PawnDef: IScvMapCompatable
+    {
+        public string id;
+        public int movement_range;
+        public string name;
+        public int power;
+        public int rank;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("id", id),
+                    SCUtility.FieldToSCMapEntry("movement_range", movement_range),
+                    SCUtility.FieldToSCMapEntry("name", name),
+                    SCUtility.FieldToSCMapEntry("power", power),
+                    SCUtility.FieldToSCMapEntry("rank", rank),
+                }),
+            };
+        }
+    }
+
+    public struct MaxPawns : IScvMapCompatable
+    {
+        public int max;
+        public int rank;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("max", max),
+                    SCUtility.FieldToSCMapEntry("rank", rank),
+                }),
+            };
+            return scvMap;
+        }
+    }
+    
+    public struct Tile: IScvMapCompatable
+    {
+        public int auto_setup_zone;
+        public bool is_passable;
+        public Pos pos;
+        public int setup_team;  // Team enum
+
+        public Tile(global::Tile tile)
+        {
+            auto_setup_zone = tile.autoSetupZone;
+            is_passable = tile.isPassable;
+            pos = new Pos(tile.pos);
+            setup_team = (int)tile.setupTeam;
+        }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("auto_setup_zone", auto_setup_zone),
+                    SCUtility.FieldToSCMapEntry("is_passable", is_passable),
+                    SCUtility.FieldToSCMapEntry("pos", pos),
+                    SCUtility.FieldToSCMapEntry("setup_team", setup_team),
+                }),
+            };
+        }
+    }
+    
+    public struct PawnCommitment : IScvMapCompatable
+    {
+        public string pawn_def_hash;
+        public string pawn_id;
+        public Pos starting_pos;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("pawn_def_hash", pawn_def_hash),
+                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
+                    SCUtility.FieldToSCMapEntry("starting_pos", starting_pos),
+                }),
+            };
+        }
+    }
+    
+    public struct Pawn : IScvMapCompatable
+    {
+        public bool is_alive;
+        public bool is_moved;
+        public bool is_revealed;
+        public PawnDef pawn_def;
+        public string pawn_id;
+        public Pos pos;
+        public int team; // Team enum
+        public string user_address;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("is_alive", is_alive),
+                    SCUtility.FieldToSCMapEntry("is_moved", is_moved),
+                    SCUtility.FieldToSCMapEntry("is_revealed", is_revealed),
+                    SCUtility.FieldToSCMapEntry("pawn_def", pawn_def),
+                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
+                    SCUtility.FieldToSCMapEntry("pos", pos),
+                    SCUtility.FieldToSCMapEntry("team", team),
+                    SCUtility.FieldToSCMapEntry("user_address", user_address),
+                }),
+            };
+        }
+    }
+    
+    public struct BoardDef : IScvMapCompatable
+    {
+        public MaxPawns[] default_max_pawns;
+        public bool is_hex;
+        public string name;
+        public Pos size;
+        public Tile[] tiles;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("default_max_pawns", default_max_pawns),
+                    SCUtility.FieldToSCMapEntry("is_hex", is_hex),
+                    SCUtility.FieldToSCMapEntry("name", name),
+                    SCUtility.FieldToSCMapEntry("size", size),
+                    SCUtility.FieldToSCMapEntry("tiles", tiles),
+                }),
+            };
+        }
+    }
+    public struct LobbyParameters : IScvMapCompatable
+    {
+        public BoardDef board_def;
+        public bool dev_mode;
+        public MaxPawns[] max_pawns;
+        public bool must_fill_all_tiles;
+        public bool security_mode;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("board_def", board_def),
+                    SCUtility.FieldToSCMapEntry("dev_mode", dev_mode),
+                    SCUtility.FieldToSCMapEntry("max_pawns", max_pawns),
+                    SCUtility.FieldToSCMapEntry("must_fill_all_tiles", must_fill_all_tiles),
+                    SCUtility.FieldToSCMapEntry("security_mode", security_mode),
+                }),
+            };
+        }
+    }
+    
+    public struct TurnMove : IScvMapCompatable
+    {
+        public bool initialized;
+        public string pawn_id;
+        public Pos pos;
+        public int turn;
+        public string user_address;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("initialized", initialized),
+                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
+                    SCUtility.FieldToSCMapEntry("pos", pos),
+                    SCUtility.FieldToSCMapEntry("turn", turn),
+                    SCUtility.FieldToSCMapEntry("user_address", user_address),
+                }),
+            };
+        }
+    }
+    
+    public struct Turn : IScvMapCompatable
+    {
+        public TurnMove guest_turn;
+        public TurnMove host_turn;
+        public int turn;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("guest_turn", guest_turn),
+                    SCUtility.FieldToSCMapEntry("host_turn", host_turn),
+                    SCUtility.FieldToSCMapEntry("turn", turn),
+                }),
+            };
+        }
+    }
+    
+    public struct Invite : IScvMapCompatable
+    {
+        public int expiration_ledger;
+        public string guest_address;
+        public string host_address;
+        public int ledgers_until_expiration;
+        public LobbyParameters parameters;
+        public int sent_ledger;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("expiration_ledger", expiration_ledger),
+                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
+                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                    SCUtility.FieldToSCMapEntry("ledgers_until_expiration", ledgers_until_expiration),
+                    SCUtility.FieldToSCMapEntry("parameters", parameters),
+                    SCUtility.FieldToSCMapEntry("sent_ledger", sent_ledger),
+                }),
+            };
+        }
+    }
+    
+    public struct Lobby : IScvMapCompatable
+    {
+        public int game_end_state;
+        public string guest_address;
+        public UserState guest_state;
+        public string host_address;
+        public UserState host_state;
+        public string index;
+        public LobbyParameters parameters;
+        public Pawn[] pawns;
+        public int phase; // Phase enum
+        public Turn[] turns;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("game_end_state", game_end_state),
+                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
+                    SCUtility.FieldToSCMapEntry("guest_state", guest_state),
+                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                    SCUtility.FieldToSCMapEntry("host_state", host_state),
+                    SCUtility.FieldToSCMapEntry("index", index),
+                    SCUtility.FieldToSCMapEntry("parameters", parameters),
+                    SCUtility.FieldToSCMapEntry("pawns", pawns),
+                    SCUtility.FieldToSCMapEntry("phase", phase),
+                    SCUtility.FieldToSCMapEntry("turns", turns),
+                }),
+            };
+        }
+    }
+    
+    public struct SendInviteReq : IScvMapCompatable
+    {
+        public string guest_address;
+        public string host_address;
+        public int ledgers_until_expiration;
+        public LobbyParameters parameters;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
+                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                    SCUtility.FieldToSCMapEntry("ledgers_until_expiration", ledgers_until_expiration),
+                    SCUtility.FieldToSCMapEntry("parameters", parameters),
+                }),
+            };
+        }
+    }
+    
+    public struct AcceptInviteReq : IScvMapCompatable
+    {
+        public string host_address;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                }),
+            };
+        }
+    }
+    
+    public struct LeaveLobbyReq : IScvMapCompatable
+    {
+        public string guest_address;
+        public string host_address;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
+                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                }),
+            };
+        }
+    }
+    
+    public struct SetupCommitReq : IScvMapCompatable
+    {
+        public string lobby_id;
+        public PawnCommitment[] setup_commitments;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
+                    SCUtility.FieldToSCMapEntry("setup_commitments", setup_commitments),
+                }),
+            };
+        }
+    }
+    
+    public struct MoveCommitReq : IScvMapCompatable
+    {
+        public string lobby;
+        public string move_pos_hash;
+        public string pawn_id_hash;
+        public int turn;
+        public string user_address;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby", lobby),
+                    SCUtility.FieldToSCMapEntry("move_pos_hash", move_pos_hash),
+                    SCUtility.FieldToSCMapEntry("pawn_id_hash", pawn_id_hash),
+                    SCUtility.FieldToSCMapEntry("turn", turn),
+                    SCUtility.FieldToSCMapEntry("user_address", user_address),
+                }),
+            };
+        }
+    }
+    
+    public struct MoveSubmitReq : IScvMapCompatable
+    {
+        public string lobby;
+        public Pos move_pos;
+        public PawnDef pawn_def;
+        public string pawn_id;
+        public int turn;
+        public string user_address;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby", lobby),
+                    SCUtility.FieldToSCMapEntry("move_pos", move_pos),
+                    SCUtility.FieldToSCMapEntry("pawn_def", pawn_def),
+                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
+                    SCUtility.FieldToSCMapEntry("turn", turn),
+                    SCUtility.FieldToSCMapEntry("user_address", user_address),
+                }),
+            };
+        }
+    }
+    
+    public struct FlatTestReq : IScvMapCompatable
+    {
+        public int number;
+        public string word;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("number", number),
+                    SCUtility.FieldToSCMapEntry("word", word),
+                }),
+            };
+        }
+    }
+    
+    public struct NestedTestReq : IScvMapCompatable
+    {
+        public FlatTestReq flat;
+        public int number;
+        public string word;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("flat", flat),
+                    SCUtility.FieldToSCMapEntry("number", number),
+                    SCUtility.FieldToSCMapEntry("word", word),
+                }),
+            };
+        }
+    }
+}

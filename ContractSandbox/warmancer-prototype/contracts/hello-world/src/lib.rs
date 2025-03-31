@@ -51,18 +51,15 @@ pub enum Team {
 // region level 0 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
-    // immutable
-    pub index: UserAddress,
-    // mutable
-    pub name: String,
     pub games_completed: i32,
+    pub index: UserAddress,
+    pub name: String,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pos {
     pub x: i32,
     pub y: i32,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserState {
     pub lobby_state: UserLobbyState,
@@ -73,10 +70,10 @@ pub struct UserState {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnDef {
     pub id: i32,
-    pub name: String,
-    pub rank: Rank,
-    pub power: i32,
     pub movement_range: i32,
+    pub name: String,
+    pub power: i32,
+    pub rank: Rank,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -89,10 +86,10 @@ pub struct MaxPawns {
 // region level 1 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Tile {
-    pub pos: Pos,
-    pub is_passable: bool,
-    pub setup_team: Team,
     pub auto_setup_zone: i32,
+    pub is_passable: bool,
+    pub pos: Pos,
+    pub setup_team: Team,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommitment {
@@ -102,36 +99,33 @@ pub struct PawnCommitment {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pawn {
-    // immutable
-    pub pawn_id: PawnGuid,
-    pub user_address: UserAddress,
-    pub team: Team,
-    // mutable
-    pub pos: Pos,
     pub is_alive: bool,
     pub is_moved: bool,
     pub is_revealed: bool,
-    // unknown until revealed
     pub pawn_def: PawnDef,
+    pub pawn_id: PawnGuid,
+    pub pos: Pos,
+    pub team: Team,
+    pub user_address: UserAddress,
 }
 // endregion
 // region level 2 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BoardDef {
+    pub default_max_pawns: Vec<MaxPawns>,
+    pub is_hex: bool,
     pub name: String,
     pub size: Pos,
     pub tiles: Vec<Tile>,
-    pub is_hex: bool,
-    pub default_max_pawns: Vec<MaxPawns>,
 }
 // endregion
 // region level 3 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyParameters {
     pub board_def: BoardDef,
-    pub must_fill_all_tiles: bool,
-    pub max_pawns: Vec<MaxPawns>,
     pub dev_mode: bool,
+    pub max_pawns: Vec<MaxPawns>,
+    pub must_fill_all_tiles: bool,
     pub security_mode: bool,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -154,27 +148,24 @@ pub struct Turn {
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Invite {
-    pub host_address: UserAddress,
-    pub guest_address: UserAddress,
-    pub sent_ledger: i32,
-    pub ledgers_until_expiration: i32,
     pub expiration_ledger: i32,
+    pub guest_address: UserAddress,
+    pub host_address: UserAddress,
+    pub ledgers_until_expiration: i32,
+    pub sent_ledger: i32,
     pub parameters: LobbyParameters,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lobby {
-    // immutable
-    pub index: LobbyGuid,
-    pub host_address: UserAddress,
-    pub guest_address: UserAddress,
-    pub parameters: LobbyParameters,
-    // mutable
-    pub host_state: UserState,
-    pub guest_state: UserState,
-    // game state
     pub game_end_state: i32,
-    pub phase: Phase,
+    pub guest_address: UserAddress,
+    pub guest_state: UserState,
+    pub host_address: UserAddress,
+    pub host_state: UserState,
+    pub index: LobbyGuid,
+    pub parameters: LobbyParameters,
     pub pawns: Vec<Pawn>,
+    pub phase: Phase,
     pub turns: Vec<Turn>,
 }
 
@@ -200,20 +191,19 @@ pub struct EventSetupEnd { pub lobby: Lobby, }
 // region requests
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SendInviteReq {
-    pub host_address: UserAddress,
     pub guest_address: UserAddress,
+    pub host_address: UserAddress,
     pub ledgers_until_expiration: i32,
     pub parameters: LobbyParameters,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AcceptInviteReq {
     pub host_address: UserAddress,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LeaveLobbyReq {
-    pub host_address: UserAddress,
     pub guest_address: UserAddress,
+    pub host_address: UserAddress,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommitReq {
@@ -223,27 +213,25 @@ pub struct SetupCommitReq {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MoveCommitReq {
     pub lobby: LobbyGuid,
-    pub user_address: UserAddress,
-    pub turn: i32,
-    pub pawn_id_hash: PawnGuidHash,
     pub move_pos_hash: PosHash, // hash of the Pos it's moving to
+    pub pawn_id_hash: PawnGuidHash,
+    pub turn: i32,
+    pub user_address: UserAddress,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MoveSubmitReq {
     pub lobby: LobbyGuid,
-    pub user_address: UserAddress,
-    pub turn: i32,
-    pub pawn_id: PawnGuid,
     pub move_pos: Pos,
+    pub pawn_id: PawnGuid,
     pub pawn_def: PawnDef,
+    pub turn: i32,
+    pub user_address: UserAddress,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FlatTestReq {
     pub number: i32,
     pub word: String,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NestedTestReq {
     pub number: i32,

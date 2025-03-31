@@ -1,5 +1,5 @@
 using System;
-using ContractTypes;
+using Contract;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;

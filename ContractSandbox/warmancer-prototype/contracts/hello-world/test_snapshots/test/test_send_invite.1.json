@@ -60,7 +60,7 @@
                                     "symbol": "default_max_pawns"
                                   },
                                   "val": {
-                                    "map": []
+                                    "vec": []
                                   }
                                 },
                                 {
@@ -109,7 +109,7 @@
                                     "symbol": "tiles"
                                   },
                                   "val": {
-                                    "map": []
+                                    "vec": []
                                   }
                                 }
                               ]
@@ -128,7 +128,7 @@
                               "symbol": "max_pawns"
                             },
                             "val": {
-                              "map": []
+                              "vec": []
                             }
                           },
                           {
@@ -268,7 +268,7 @@
                                                 "symbol": "default_max_pawns"
                                               },
                                               "val": {
-                                                "map": []
+                                                "vec": []
                                               }
                                             },
                                             {
@@ -317,7 +317,7 @@
                                                 "symbol": "tiles"
                                               },
                                               "val": {
-                                                "map": []
+                                                "vec": []
                                               }
                                             }
                                           ]
@@ -336,7 +336,7 @@
                                           "symbol": "max_pawns"
                                         },
                                         "val": {
-                                          "map": []
+                                          "vec": []
                                         }
                                       },
                                       {
@@ -685,7 +685,7 @@
                                       "symbol": "default_max_pawns"
                                     },
                                     "val": {
-                                      "map": []
+                                      "vec": []
                                     }
                                   },
                                   {
@@ -734,7 +734,7 @@
                                       "symbol": "tiles"
                                     },
                                     "val": {
-                                      "map": []
+                                      "vec": []
                                     }
                                   }
                                 ]
@@ -753,7 +753,7 @@
                                 "symbol": "max_pawns"
                               },
                               "val": {
-                                "map": []
+                                "vec": []
                               }
                             },
                             {
