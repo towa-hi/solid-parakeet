@@ -111,9 +111,77 @@ public class StellarManager : MonoBehaviour
     
     public async Task<bool> TestFunction()
     {
+        StellarDotnet stellar = new StellarDotnet("SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV", "CDB6NMVSPVZ54F4O74ZQDGMUZEYUE2MROK4JP4LBCGYNNTK6AQKWULOY");
+        // NestedTestReq nestedTestReq = new NestedTestReq()
+        // {
+        //     flat = new FlatTestReq()
+        //     {
+        //         number = 1,
+        //         word = "flat word",
+        //     },
+        //     number = 2,
+        //     word = "nested word",
+        // };
+        // await stellar.TestFunction("nested_param_test", nestedTestReq);
+        SendInviteReq sendInviteReq = new SendInviteReq
+        {
+            guest_address = "guest address",
+            host_address = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56",
+            ledgers_until_expiration = 10,
+            parameters = new Contract.LobbyParameters
+            {
+                board_def = new Contract.BoardDef
+                {
+                    default_max_pawns = new MaxPawns[]
+                    {
+                        new MaxPawns
+                        {
+                            max = 9,
+                            rank = 5,
+                        }
+                    },
+                    is_hex = false,
+                    name = "name",
+                    size = new Pos(new Vector2Int(2,3)),
+                    tiles = new Contract.Tile[]
+                    {
+                        new Contract.Tile
+                        {
+                            auto_setup_zone = 0,
+                            is_passable = false,
+                            pos = new Pos(new Vector2Int(4,5)),
+                            setup_team = 0
+                        }
+                    }
+                },
+                dev_mode = false,
+                max_pawns = new MaxPawns[]
+                {
+                    new MaxPawns
+                    {
+                        max = 19,
+                        rank = 15,
+                    },
+                },
+                must_fill_all_tiles = false,
+                security_mode = false
+            },
+        };
+        SCVal xdr1 = sendInviteReq.ToScvMap();
         
-        // StellarDotnet stellar = new StellarDotnet("SBBAF3LZZPQVPPBJKSY2ZE7EF2L3IIWRL7RXQCXVOELS4NQRMNLZN6PB", "CBTBFRIT5GIMIFLI6WWVHSJA7VWRI2TGX32VACQQO5W53UWVZ674Q4OB");
-        // await stellar.TestFunction();
+        SCVal xdr2 = await stellar.TestFunction("test_send_invite_req", sendInviteReq);
+        SendInviteReq result = SCUtility.SCValToNative<SendInviteReq>(xdr2);
+        Debug.Log(SCValXdr.EncodeToBase64(xdr1));
+        Debug.Log(SCValXdr.EncodeToBase64(xdr2));
+        if (result.Equals(sendInviteReq))
+        {
+            Debug.Log("hash same");
+        }
+        else
+        {
+            Debug.Log("hash diff");
+        }
+         
         return true;
     }
 

@@ -72,8 +72,9 @@ public class StellarDotnet
         return true;
     }
     
-    public async Task<bool> TestFunction(SCVal data)
+    public async Task<SCVal> TestFunction(string functionName, IScvMapCompatable obj)
     {
+        Debug.Log("testfunction called on " + functionName);
         AccountEntry accountEntry = await ReqAccountEntry(userAccount);
         // make structs
         SCVal.ScvAddress addressArg = new SCVal.ScvAddress
@@ -83,36 +84,21 @@ public class StellarDotnet
                 accountId = accountId,
             },
         };
+        SCVal data = obj.ToScvMap();
         SCVal[] args = {addressArg, data };
-        SendTransactionResult result = await InvokeContractFunction(accountEntry, "send_invite", args);
+        SendTransactionResult result = await InvokeContractFunction(accountEntry, functionName, args);
         Debug.Log("transaction hash " + result.Hash);
         GetTransactionResult getResult = await WaitForTransaction(result.Hash, 2000);
         if (getResult == null)
         {
             Debug.LogError("get transaction failed");
-            return false;
+            return null;
         }
         Debug.Log(getResult.Status);
         // TODO: fix delay not working
-        // SCVal returnValue = (getResult.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
-        // SendInviteReq decoded = SCValConverter.SCValToNative<SendInviteReq>(returnValue);
-        // Debug.Log(decoded);
-        // SCVal arg2 = SCValConverter.NativeToSCVal(decoded);
-        // SCVal[] args2 = { addressArg, arg2 };
-        // SendTransactionResult result2 = await InvokeContractFunction(accountEntry, "nested_param_test", args2);
-        // GetTransactionResult getResult2 = await WaitForTransaction(result.Hash, 2000);
-        // if (getResult2 == null)
-        // {
-        //     Debug.LogError("get transaction failed");
-        //     return false;
-        // }
-        // SCVal returnValue2 = (getResult2.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
-        // NestedTestReq decoded2 = SCValConverter.SCValToNative<NestedTestReq>(returnValue2);
-        // if (SCValConverter.HashEqual(returnValue, returnValue2))
-        // {
-        //     Debug.Log("test good");
-        // }
-        return true;
+        SCVal returnValue = (getResult.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
+        Debug.Log(SCUtility.HashEqual(returnValue, data) ? "test good" : "test bad");
+        return returnValue;
     }
     
     public async Task<SendTransactionResult> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
@@ -333,7 +319,6 @@ public class StellarDotnet
         else
         {
             Debug.Log("Response: " + request.downloadHandler.text);
-            string content = request.downloadHandler.text;
         }
         return request.downloadHandler.text;
     }

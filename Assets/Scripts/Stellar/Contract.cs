@@ -17,6 +17,7 @@ namespace Contract
         {
             if (input == null)
             {
+                Debug.LogError("input is null!!!!");
                 throw new ArgumentNullException(nameof(input));
             }
             Type type = input.GetType();
