@@ -179,15 +179,8 @@ pub const EVENT_SETUP_END: &str = "EVENT_SETUP_END";
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EventUpdateUser { pub user: User, }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EventInvite { pub invite: Invite, }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EventInviteAccept { pub lobby: Lobby, }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EventSetupStart { pub lobby: Lobby, }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EventSetupEnd { pub lobby: Lobby, }
 //endregion
+
 // region requests
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SendInviteReq {
@@ -251,7 +244,7 @@ pub enum DataKey {
     User(UserAddress),
 
 }
-pub type PendingInvites = Map<UserAddress, EventInvite>;
+pub type PendingInvites = Map<UserAddress, Invite>;
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TempKey {
     PendingInvites(UserAddress), // guests (the recipient) address
@@ -296,7 +289,7 @@ impl Contract {
         if req.host_address != address.to_string() {
             return Err(Error::InvalidAddress)
         }
-        // TODO: validate addresses
+        // TODO: check if guest_address is a valid account
         if (req.host_address == req.guest_address) || (req.ledgers_until_expiration > MAX_EXPIRATION_LEDGERS) {
             return Err(Error::InvalidArgs)
         }
@@ -306,28 +299,25 @@ impl Contract {
         let _guest_user = Self::get_or_make_user(&env, &req.guest_address);
         // TODO: validate parameters
         let current_ledger = env.ledger().sequence() as i32;
-        let event_invite = EventInvite {
-            invite: Invite {
+        let invite = Invite {
                 host_address: req.host_address.clone(),
                 guest_address: req.guest_address.clone(),
                 sent_ledger: current_ledger,
                 ledgers_until_expiration: req.ledgers_until_expiration,
                 expiration_ledger: current_ledger + req.ledgers_until_expiration,
                 parameters: req.parameters,
-            },
         };
         // add invite to guest's PendingInvites and prune dead invites for guest
         let pending_invites_key = TempKey::PendingInvites(req.guest_address.clone());
         let pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
         let mut pruned_pending_invites = Self::prune_pending_invites(&env, &pending_invites);
-        pruned_pending_invites.set(req.guest_address.clone(), event_invite.clone());
+        pruned_pending_invites.set(req.host_address.clone(), invite);
         temp.set(&pending_invites_key, &pruned_pending_invites);
         temp.extend_ttl(&pending_invites_key, 0, req.ledgers_until_expiration as u32);
-        env.events().publish((EVENT_INVITE, req.host_address, req.guest_address), event_invite);
         Ok(())
     }
 
-    pub fn accept_invite(env: Env, address: Address, req: AcceptInviteReq) -> Result<(), Error> {
+    pub fn accept_invite(env: Env, address: Address, req: AcceptInviteReq) -> Result<String, Error> {
         address.require_auth();
 
         let temp = env.storage().temporary();
@@ -335,11 +325,10 @@ impl Contract {
         // see if invite from this user exists in pending invites
         let pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
         let mut pruned_pending_invites = Self::prune_pending_invites(&env, &pending_invites);
-        let invite_event = match pruned_pending_invites.get(req.host_address.clone()) {
+        let invite = match pruned_pending_invites.get(req.host_address.clone()) {
             Some(v) => v,
             None => return Err(Error::InviteNotFound),
         };
-        let invite = invite_event.invite;
         // remove invite
         pruned_pending_invites.remove(req.host_address.clone());
         temp.set(&pending_invites_key, &pending_invites);
@@ -372,11 +361,7 @@ impl Contract {
         let lobby_key = TempKey::Lobby(lobby_id.clone());
         temp.set(&lobby_key, &lobby.clone());
         temp.extend_ttl(&lobby_key, 0, 999);
-        let event_invite_accept = EventInviteAccept {
-            lobby: lobby.clone(),
-        };
-        env.events().publish((EVENT_INVITE_ACCEPT, invite.host_address, invite.guest_address, lobby_id), event_invite_accept);
-        Ok(())
+        Ok(lobby_id)
     }
 
     pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
@@ -465,13 +450,6 @@ impl Contract {
             lobby.turns.push_back(first_turn);
         }
         temp.set(&lobby_key, &lobby);
-        let event_setup_end = EventSetupEnd {
-            lobby: lobby.clone(),
-        };
-        if other_user_committed
-        {
-            env.events().publish((EVENT_SETUP_END, lobby.host_address, lobby.guest_address, lobby.index), event_setup_end);
-        }
         Ok(())
     }
 
@@ -496,9 +474,9 @@ impl Contract {
     {
         let mut new_pending_invites = pending_invites.clone();
         let current_ledger = e.ledger().sequence() as i32;
-        for (invite_address, invite_event) in pending_invites.iter() {
-            if invite_event.invite.expiration_ledger >= current_ledger {
-                new_pending_invites.set(invite_address, invite_event);
+        for (invite_address, invite) in pending_invites.iter() {
+            if invite.expiration_ledger >= current_ledger {
+                new_pending_invites.set(invite_address, invite);
             }
         }
         new_pending_invites

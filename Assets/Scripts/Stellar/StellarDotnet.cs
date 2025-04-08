@@ -20,6 +20,7 @@ public class StellarDotnet
 {
     public string contractId;
     MuxedAccount.KeyTypeEd25519 userAccount;
+    
     AccountID accountId => new AccountID(userAccount.XdrPublicKey);
     
     Uri networkUri;
@@ -72,7 +73,7 @@ public class StellarDotnet
         return true;
     }
     
-    public async Task<SCVal> TestFunction(string functionName, IScvMapCompatable obj)
+    public async Task<GetTransactionResult> CallParameterlessFunction(string functionName, IScvMapCompatable obj)
     {
         Debug.Log("testfunction called on " + functionName);
         AccountEntry accountEntry = await ReqAccountEntry(userAccount);
@@ -97,8 +98,8 @@ public class StellarDotnet
         Debug.Log(getResult.Status);
         // TODO: fix delay not working
         SCVal returnValue = (getResult.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
-        Debug.Log(SCUtility.HashEqual(returnValue, data) ? "test good" : "test bad");
-        return returnValue;
+        //Debug.Log(SCUtility.HashEqual(returnValue, data) ? "test good" : "test bad");
+        return getResult;
     }
     
     public async Task<SendTransactionResult> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
@@ -126,6 +127,40 @@ public class StellarDotnet
         });
         LedgerEntry.dataUnion.Account entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
         return entry?.account;
+    }
+
+    public async Task<bool> ReqInvites()
+    {
+        // figure out how to turn a string into a SCAddress.ScAddressTypeContract.Hash
+        SCAddress someAddress = new SCAddress.ScAddressTypeContract
+        {
+            contractId = null
+        };
+        SCVal.ScvVec someVec = new SCVal.ScvVec
+        {
+            vec = new SCVec(new SCVal[]
+            {
+                new SCVal.ScvSymbol
+                {
+                    sym = "PendingInvites",
+                },
+            }),
+        };
+        string key = LedgerKeyXdr.EncodeToBase64(new LedgerKey.ContractData()
+        {
+            contractData = new LedgerKey.contractDataStruct
+            {
+                contract = someAddress,
+                key = someVec,
+                durability = ContractDataDurability.TEMPORARY
+            }
+        });
+        
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
+        {
+            Keys = new string[] {key},
+        });
+        return true;
     }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
@@ -332,6 +367,105 @@ public class StellarDotnet
                 accountID = account.XdrPublicKey,
             },
         });
+    }
+    
+    public static bool IsValidStellarAddress(string address)
+    {
+        // Check if the address is null, empty, or whitespace.
+        if (string.IsNullOrWhiteSpace(address))
+            return false;
+
+        // Check that the address starts with "G" (as expected for Stellar public keys).
+        if (!address.StartsWith("G"))
+            return false;
+
+        // The address should be exactly 56 characters in its Base32-encoded form.
+        if (address.Length != 56)
+            return false;
+
+        try
+        {
+            // Decode the Base32 encoded string to get the underlying binary data.
+            byte[] decoded = Base32Decode(address);
+            
+            // The decoded binary should be exactly 35 bytes:
+            // 1-byte version + 32-byte public key + 2-byte checksum.
+            if (decoded.Length != 35)
+                return false;
+
+            // Check the version byte (for public keys, it should be 6 << 3 which is 48).
+            if (decoded[0] != 48)
+                return false;
+
+            // Verify the checksum:
+            // Extract the checksum from the last two bytes.
+            ushort checksum = BitConverter.ToUInt16(decoded, decoded.Length - 2);
+
+            // Compute the CRC16-XModem checksum for the first 33 bytes (version byte + key).
+            ushort computedChecksum = CalculateCRC16(decoded.Take(33).ToArray());
+            
+            // Return true only if the checksums match.
+            return checksum == computedChecksum;
+        }
+        catch (Exception)
+        {
+            // If any exception occurs (for example, during decoding), the address is invalid.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Decodes a Base32 encoded string using the alphabet "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".
+    /// Stellar’s StrKey encoding uses this alphabet (without padding).
+    /// </summary>
+    private static byte[] Base32Decode(string input)
+    {
+        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+        // Remove any padding if present (typically Stellar addresses do not include '=' padding).
+        input = input.TrimEnd('=');
+        int byteCount = input.Length * 5 / 8;
+        byte[] output = new byte[byteCount];
+
+        int bitBuffer = 0;
+        int bitsLeft = 0;
+        int index = 0;
+        foreach (char c in input)
+        {
+            int value = alphabet.IndexOf(c);
+            if (value < 0)
+                throw new ArgumentException("Invalid character encountered in the address.");
+
+            bitBuffer = (bitBuffer << 5) | value;
+            bitsLeft += 5;
+            if (bitsLeft >= 8)
+            {
+                // Take the top 8 bits out of the buffer.
+                output[index++] = (byte)((bitBuffer >> (bitsLeft - 8)) & 0xFF);
+                bitsLeft -= 8;
+            }
+        }
+        return output;
+    }
+
+    /// <summary>
+    /// Calculates the CRC16-XModem checksum for the provided data.
+    /// </summary>
+    private static ushort CalculateCRC16(byte[] data)
+    {
+        ushort crc = 0;
+        foreach (byte b in data)
+        {
+            crc ^= (ushort)(b << 8);
+            for (int i = 0; i < 8; i++)
+            {
+                if ((crc & 0x8000) != 0)
+                    crc = (ushort)((crc << 1) ^ 0x1021);
+                else
+                    crc <<= 1;
+            }
+        }
+        return crc;
     }
 }
 

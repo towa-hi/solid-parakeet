@@ -13,6 +13,10 @@ namespace Contract
     
     public static class SCUtility
     {
+        public static bool log = false;
+        
+        public static void DebugLog(string msg) { if (log) { Debug.Log(msg); } }
+        
         public static SCVal NativeToSCVal(object input)
         {
             if (input == null)
@@ -68,14 +72,14 @@ namespace Contract
 
         public static object SCValToNative(SCVal scVal, Type targetType)
         {
-            Debug.Log($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
+            DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
             if (targetType == typeof(int))
             {
-                Debug.Log("SCValToNative: Target type is int.");
+                DebugLog("SCValToNative: Target type is int.");
                 // Prefer I32. If we get a U32, log a warning.
                 if (scVal is SCVal.ScvI32 i32Val)
                 {
-                    Debug.Log($"SCValToNative: Found SCVal.ScvI32 with value {i32Val.i32.InnerValue}.");
+                    DebugLog($"SCValToNative: Found SCVal.ScvI32 with value {i32Val.i32.InnerValue}.");
                     return i32Val.i32.InnerValue;
                 }
                 else if (scVal is SCVal.ScvU32 u32Val)
@@ -91,10 +95,10 @@ namespace Contract
             }
             else if (targetType == typeof(string))
             {
-                Debug.Log("SCValToNative: Target type is string.");
+                DebugLog("SCValToNative: Target type is string.");
                 if (scVal is SCVal.ScvString strVal)
                 {
-                    Debug.Log($"SCValToNative: Found SCVal.ScvString with value '{strVal.str.InnerValue}'.");
+                    DebugLog($"SCValToNative: Found SCVal.ScvString with value '{strVal.str.InnerValue}'.");
                     return strVal.str.InnerValue;
                 }
                 else
@@ -105,10 +109,10 @@ namespace Contract
             }
             else if (targetType == typeof(bool))
             {
-                Debug.Log("SCValToNative: Target type is bool.");
+                DebugLog("SCValToNative: Target type is bool.");
                 if (scVal is SCVal.ScvBool boolVal)
                 {
-                    Debug.Log($"SCValToNative: Found SCVal.ScvBool with value {boolVal.b}.");
+                    DebugLog($"SCValToNative: Found SCVal.ScvBool with value {boolVal.b}.");
                     return boolVal.b;
                 }
                 else
@@ -119,7 +123,7 @@ namespace Contract
             }
             else if (scVal is SCVal.ScvVec scvVec)
             {
-                Debug.Log("SCValToNative: Target type is a collection. Using vector conversion branch.");
+                DebugLog("SCValToNative: Target type is a collection. Using vector conversion branch.");
                 Type elementType = targetType.IsArray
                     ? targetType.GetElementType()
                     : (targetType.IsGenericType ? targetType.GetGenericArguments()[0] : typeof(object));
@@ -133,7 +137,7 @@ namespace Contract
                 object[] convertedElements = new object[len];
                 for (int i = 0; i < len; i++)
                 {
-                    Debug.Log($"SCValToNative: Converting collection element at index {i}.");
+                    DebugLog($"SCValToNative: Converting collection element at index {i}.");
                     convertedElements[i] = SCValToNative(innerArray[i], elementType);
                 }
                 if (targetType.IsArray)
@@ -143,26 +147,26 @@ namespace Contract
                     {
                         arr.SetValue(convertedElements[i], i);
                     }
-                    Debug.Log("SCValToNative: Collection converted to array.");
+                    DebugLog("SCValToNative: Collection converted to array.");
                     return arr;
                 }
             }
             // Handle structured types (native structs/classes) via SCVal.ScvMap.
             else if (scVal is SCVal.ScvMap scvMap)
             {
-                Debug.Log("SCValToNative: Target type is either a map or a structured type.");
+                DebugLog("SCValToNative: Target type is either a map or a structured type.");
                 // if is a struct
                 if (targetType.IsValueType && !targetType.IsPrimitive)
                 {
                     object instance = Activator.CreateInstance(targetType);
-                    Debug.Log("SCValToNative: Target type is a struct");
+                    DebugLog("SCValToNative: Target type is a struct");
                     Dictionary<string, SCMapEntry> dict = new Dictionary<string, SCMapEntry>();
                     foreach (SCMapEntry entry in scvMap.map.InnerValue)
                     {
                         if (entry.key is SCVal.ScvSymbol sym)
                         {
                             dict[sym.sym.InnerValue] = entry;
-                            Debug.Log($"SCValToNative: Found map key '{sym.sym.InnerValue}'.");
+                            DebugLog($"SCValToNative: Found map key '{sym.sym.InnerValue}'.");
                         }
                         else
                         {
@@ -174,7 +178,7 @@ namespace Contract
                     {
                         if (dict.TryGetValue(field.Name, out SCMapEntry mapEntry))
                         {
-                            Debug.Log($"SCValToNative: Converting field '{field.Name}'.");
+                            DebugLog($"SCValToNative: Converting field '{field.Name}'.");
                             object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
                             field.SetValue(instance, fieldValue);
                         }

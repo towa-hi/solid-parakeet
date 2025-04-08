@@ -42,8 +42,6 @@ public class StellarManager : MonoBehaviour
     [DllImport("__Internal")]
     static extern void JSGetEvents(string filterPtr, string contractAddressPtr, string topicPtr);
     
-    public string contract;
-
     public BoardDef testBoardDef;
     
     // wrapper tasks
@@ -56,9 +54,16 @@ public class StellarManager : MonoBehaviour
     // state
     public bool webGLBuild = false;
     public User? currentUser;
+    public StellarDotnet stellar;
+    
     public event Action<bool> OnWalletConnected;
     public event Action OnCurrentUserChanged;
     public event Action<string> OnContractChanged;
+
+    public static string testContract = "CDBKPWZKQDBWR437CNCIYYJNBUXKSTBFIVRNFV4WTBVIXYOYBSUCYEXN";
+    public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
+    public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
+    public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
 
     JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
     {
@@ -68,16 +73,17 @@ public class StellarManager : MonoBehaviour
 
     void Awake()
     {
+        stellar = new StellarDotnet(testHostSneed, testContract);
         #if UNITY_WEBGL
             webGLBuild = true;
         #endif
     }
     #region pub
 
-    public void SetContract(string inContract)
+    public void SetContract(string contractId)
     {
-        contract = inContract;
-        OnContractChanged?.Invoke(contract);
+        stellar.SetContractId(contractId);
+        OnContractChanged?.Invoke(contractId);
     }
     
     public async Task<bool> OnConnectWallet()
@@ -108,80 +114,25 @@ public class StellarManager : MonoBehaviour
         OnCurrentUserChanged?.Invoke();
         return true;
     }
+
+    public async Task<bool> OnSendInviteButton(SendInviteReq sendInviteReq)
+    {
+        SCVal xdr1 = sendInviteReq.ToScvMap();
+        Debug.Log("XDR1:" + SCValXdr.EncodeToBase64(xdr1));
+        GetTransactionResult result = await stellar.CallParameterlessFunction("send_invite", sendInviteReq);
+
+        return true;
+    }
+
+    public async Task<bool> CheckInvites()
+    {
+        
+        return true;
+    }
     
     public async Task<bool> TestFunction()
     {
-        StellarDotnet stellar = new StellarDotnet("SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV", "CDB6NMVSPVZ54F4O74ZQDGMUZEYUE2MROK4JP4LBCGYNNTK6AQKWULOY");
-        // NestedTestReq nestedTestReq = new NestedTestReq()
-        // {
-        //     flat = new FlatTestReq()
-        //     {
-        //         number = 1,
-        //         word = "flat word",
-        //     },
-        //     number = 2,
-        //     word = "nested word",
-        // };
-        // await stellar.TestFunction("nested_param_test", nestedTestReq);
-        SendInviteReq sendInviteReq = new SendInviteReq
-        {
-            guest_address = "guest address",
-            host_address = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56",
-            ledgers_until_expiration = 10,
-            parameters = new Contract.LobbyParameters
-            {
-                board_def = new Contract.BoardDef
-                {
-                    default_max_pawns = new MaxPawns[]
-                    {
-                        new MaxPawns
-                        {
-                            max = 9,
-                            rank = 5,
-                        }
-                    },
-                    is_hex = false,
-                    name = "name",
-                    size = new Pos(new Vector2Int(2,3)),
-                    tiles = new Contract.Tile[]
-                    {
-                        new Contract.Tile
-                        {
-                            auto_setup_zone = 0,
-                            is_passable = false,
-                            pos = new Pos(new Vector2Int(4,5)),
-                            setup_team = 0
-                        }
-                    }
-                },
-                dev_mode = false,
-                max_pawns = new MaxPawns[]
-                {
-                    new MaxPawns
-                    {
-                        max = 19,
-                        rank = 15,
-                    },
-                },
-                must_fill_all_tiles = false,
-                security_mode = false
-            },
-        };
-        SCVal xdr1 = sendInviteReq.ToScvMap();
-        
-        SCVal xdr2 = await stellar.TestFunction("test_send_invite_req", sendInviteReq);
-        SendInviteReq result = SCUtility.SCValToNative<SendInviteReq>(xdr2);
-        Debug.Log(SCValXdr.EncodeToBase64(xdr1));
-        Debug.Log(SCValXdr.EncodeToBase64(xdr2));
-        if (result.Equals(sendInviteReq))
-        {
-            Debug.Log("hash same");
-        }
-        else
-        {
-            Debug.Log("hash diff");
-        }
-         
+        await stellar.ReqInvites();
         return true;
     }
 
@@ -198,7 +149,7 @@ public class StellarManager : MonoBehaviour
     async Task<int> StartLobby()
     {
         
-        StellarResponseData response = await InvokeContractFunction(currentUser.Value.index, contract, "test_get_lobby", "");
+        //StellarResponseData response = await InvokeContractFunction(currentUser.Value.index, contract, "test_get_lobby", "");
         // TODO: finish this
         return 0;
     }
@@ -246,37 +197,6 @@ public class StellarManager : MonoBehaviour
             }
         }
         return response;
-    }
-    
-    async Task<StellarResponseData> GetData(string address, string keyType, string keyValue)
-    {
-        getDataTaskSource = new TaskCompletionSource<StellarResponseData>();
-        JSGetData(contract, keyType, keyValue);
-        StellarResponseData getDataRes = await getDataTaskSource.Task;
-        return getDataRes;
-    }
-    
-    async Task<StellarResponseData> InvokeContractFunction(string address, string contractAddress, string function, string data)
-    {
-        if (invokeContractFunctionTaskSource != null && !invokeContractFunctionTaskSource.Task.IsCompleted)
-        {
-            throw new Exception("InvokeContractFunction() is already in progress");
-        }
-        invokeContractFunctionTaskSource = new TaskCompletionSource<StellarResponseData>();
-        JSInvokeContractFunction(address, contractAddress, function, data);
-        StellarResponseData response = await invokeContractFunctionTaskSource.Task;
-        return response;
-    }
-    
-    async Task<bool> GetEvents(string filter, string contractAddress, string topic)
-    {
-        Debug.Log("GetEvents() started");
-        JSGetEvents(filter, contractAddress, topic);
-        getEventsTaskSource = new TaskCompletionSource<StellarResponseData>();
-        StellarResponseData response = await getEventsTaskSource.Task;
-        getEventsTaskSource = null;
-        Debug.Log(response.data);
-        return true;
     }
     
     #endregion
