@@ -19,10 +19,10 @@ using UnityEngine.Networking;
 public class StellarDotnet
 {
     public string contractId;
-    MuxedAccount.KeyTypeEd25519 userAccount;
+    public string sneed;
+    public MuxedAccount.KeyTypeEd25519 userAccount;
     
-    AccountID accountId => new AccountID(userAccount.XdrPublicKey);
-    
+    public AccountID accountId => new AccountID(userAccount.XdrPublicKey);
     Uri networkUri;
     // ReSharper disable once InconsistentNaming
     JsonSerializerSettings _jsonSettings;
@@ -31,7 +31,7 @@ public class StellarDotnet
     {
         networkUri = new Uri("https://soroban-testnet.stellar.org");
         Network.UseTestNetwork();
-        SetUserAccount(inSecretSneed);
+        SetAccountId(inSecretSneed);
         SetContractId(inContractId);
         _jsonSettings = new JsonSerializerSettings()
         {
@@ -45,8 +45,9 @@ public class StellarDotnet
         contractId = inContractId;
     }
 
-    public void SetUserAccount(string inSecretSneed)
+    public void SetAccountId(string inSecretSneed)
     {
+        sneed = inSecretSneed;
         userAccount = MuxedAccount.FromSecretSeed(inSecretSneed);
     }
 
@@ -97,8 +98,6 @@ public class StellarDotnet
         }
         Debug.Log(getResult.Status);
         // TODO: fix delay not working
-        SCVal returnValue = (getResult.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
-        //Debug.Log(SCUtility.HashEqual(returnValue, data) ? "test good" : "test bad");
         return getResult;
     }
     
@@ -129,14 +128,14 @@ public class StellarDotnet
         return entry?.account;
     }
 
-    public async Task<bool> ReqInvites()
+    public async Task<List<Invite>> ReqInvites()
     {
         // figure out how to turn a string into a SCAddress.ScAddressTypeContract.Hash
         SCAddress someAddress = new SCAddress.ScAddressTypeContract
         {
-            contractId = null
+            contractId = new Hash(StrKey.DecodeContractId(contractId)),
         };
-        SCVal.ScvVec someVec = new SCVal.ScvVec
+        SCVal.ScvVec enumKey = new SCVal.ScvVec
         {
             vec = new SCVec(new SCVal[]
             {
@@ -144,23 +143,40 @@ public class StellarDotnet
                 {
                     sym = "PendingInvites",
                 },
+                new SCVal.ScvString
+                {
+                    str = StellarManager.testGuest,
+                },
             }),
         };
-        string key = LedgerKeyXdr.EncodeToBase64(new LedgerKey.ContractData()
+        LedgerKey ledgerKey = new LedgerKey.ContractData()
         {
             contractData = new LedgerKey.contractDataStruct
             {
                 contract = someAddress,
-                key = someVec,
-                durability = ContractDataDurability.TEMPORARY
+                key = enumKey,
+                durability = ContractDataDurability.TEMPORARY,
             }
-        });
+        };
         
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
-            Keys = new string[] {key},
+            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
         });
-        return true;
+        List<Invite> invites = new List<Invite>();
+        foreach (Entries entry in getLedgerEntriesResult.Entries)
+        {
+            LedgerEntry.dataUnion.ContractData data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+            SCVal.ScvMap value = data.contractData.val as SCVal.ScvMap;
+            foreach (SCMapEntry thing in value.map.InnerValue)
+            {
+                string host = SCUtility.SCValToNative<string>(thing.key);
+                Invite invite = SCUtility.SCValToNative<Invite>(thing.val);
+                invites.Add(invite);
+                Debug.Log(host + " - " + invite.host_address);
+            }
+        }
+        return invites;
     }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
@@ -345,7 +361,7 @@ public class StellarDotnet
         request.uploadHandler = new UploadHandlerRaw(bodyRaw);
         request.downloadHandler = new DownloadHandlerBuffer();
         request.SetRequestHeader("Content-Type", "application/json");
-        Debug.Log("SendJsonRequest sending off");
+        Debug.Log("SendJsonRequest sending off: " + json);
         await request.SendWebRequest();
         if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
         {
@@ -473,12 +489,8 @@ public static class AsyncDelay
 {
     public static Task Delay(int millisecondsDelay)
     {
-#if UNITY_WEBGL && UNITY_EDITOR
         // Use a coroutine-based delay in WebGL
         return WaitForSecondsAsync(millisecondsDelay / 1000f);
-#else
-        return Task.Delay(millisecondsDelay);
-#endif
     }
 
     private static Task WaitForSecondsAsync(float seconds)

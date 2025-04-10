@@ -59,6 +59,8 @@ public class StellarManager : MonoBehaviour
     public event Action<bool> OnWalletConnected;
     public event Action OnCurrentUserChanged;
     public event Action<string> OnContractChanged;
+    public event Action<bool> OnInviteSent;
+    public event Action<List<Invite>> OnInviteCheck;
 
     public static string testContract = "CDBKPWZKQDBWR437CNCIYYJNBUXKSTBFIVRNFV4WTBVIXYOYBSUCYEXN";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
@@ -120,12 +122,14 @@ public class StellarManager : MonoBehaviour
         SCVal xdr1 = sendInviteReq.ToScvMap();
         Debug.Log("XDR1:" + SCValXdr.EncodeToBase64(xdr1));
         GetTransactionResult result = await stellar.CallParameterlessFunction("send_invite", sendInviteReq);
-
-        return true;
+        bool status = result.Status == GetTransactionResultStatus.SUCCESS;
+        OnInviteSent?.Invoke(status);
+        return status;
     }
 
     public async Task<bool> CheckInvites()
     {
+        List<Invite> invites = await stellar.ReqInvites();
         
         return true;
     }

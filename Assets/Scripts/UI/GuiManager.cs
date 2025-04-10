@@ -12,6 +12,7 @@ public class GuiManager : MonoBehaviour
     public GuiGame gameOverlay;
     public GuiNicknameModal nicknameModal;
     public GuiPasswordModal passwordModal;
+    public GuiTestMenuController testMenuController;
     
     public GameObject modalPanel;
 
@@ -124,7 +125,7 @@ public class GuiManager : MonoBehaviour
     void OnConnectButton()
     {
         Debug.Log("OnConnectButton");
-        ShowMenu(networkMenu);
+        ShowMenu(testMenuController);
     }
     
     void OnOfflineButton()
