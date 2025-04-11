@@ -9,14 +9,14 @@ public class StellarManagerTest : MonoBehaviour
     public static string test;
     public static StellarDotnet stellar;
     
-    public static string testContract = "CDBKPWZKQDBWR437CNCIYYJNBUXKSTBFIVRNFV4WTBVIXYOYBSUCYEXN";
+    public static string testContract = "CBIYKACJD4FO5HLDB4Y57X42OB22UFDJ6WH4EE56FKLC23ETCLV6K2GC";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
 
     public static event Action<string> OnContractIdChanged;
     public static event Action<string> OnAccountIdChanged;
-    public static event Action<bool> OnWaiting;
+    
     void Awake()
     {
         stellar = new StellarDotnet(testHostSneed, testContract);
@@ -85,10 +85,8 @@ public class StellarManagerTest : MonoBehaviour
                 security_mode = parameters.securityMode,
             },
         };
-        OnWaiting?.Invoke(true);
         GetTransactionResult result = await stellar.CallParameterlessFunction("send_invite", sendInviteReq);
         bool status = result.Status == GetTransactionResultStatus.SUCCESS;
-        OnWaiting?.Invoke(false);
         return status;
     }
 }

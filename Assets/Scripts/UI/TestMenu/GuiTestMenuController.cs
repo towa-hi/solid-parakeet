@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class GuiTestMenuController : MenuElement
@@ -12,14 +14,13 @@ public class GuiTestMenuController : MenuElement
     public GameObject blocker;
     // state
     public TestGuiElement currentElement;
-    public bool blocked;
+    public string currentProcedure;
     
     void Start()
     {
         startMenuElement.makeInviteButton.onClick.AddListener(GotoInviteMenu);
         inviteMenuElement.backButton.onClick.AddListener(GotoStartMenu);
         inviteMenuElement.sendButton.onClick.AddListener(OnSendInviteButton);
-        StellarManagerTest.OnWaiting += Blocker;
         stellar.Initialize();
         Initialize();
     }
@@ -55,18 +56,32 @@ public class GuiTestMenuController : MenuElement
         ShowElement(startMenuElement);
     }
 
-    void OnSendInviteButton()
+    void GotoWaiting()
     {
-        InviteMenuParameters parameters = inviteMenuElement.GetInviteMenuParameters();
-        _ = stellar.SendInvite(parameters);
+        ShowElement(waitingElement);
     }
     
-    public void Blocker(bool inBlocked)
+    async void OnSendInviteButton()
     {
-        // TODO: make this into a actual await manager
-        blocked = inBlocked;
-        blocker.SetActive(inBlocked);
+        Blocker(true);
+        InviteMenuParameters parameters = inviteMenuElement.GetInviteMenuParameters();
+        bool success = await stellar.SendInvite(parameters);
+        Blocker(false);
+        if (success)
+        {
+            GotoWaiting();
+        }
+        else
+        {
+            Debug.LogError("SendInvite failed");
+        }
     }
+    
+    void Blocker(bool isOn)
+    {
+        blocker.SetActive(isOn);
+    }
+
 }
 
 public class TestGuiElement: MonoBehaviour

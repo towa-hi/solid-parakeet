@@ -221,6 +221,7 @@ namespace Contract
     
     public struct User: IScvMapCompatable
     {
+        public string current_lobby;
         public int games_completed;
         public string index;
         public string name;
@@ -231,6 +232,7 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
+                    SCUtility.FieldToSCMapEntry("current_lobby", current_lobby),
                     SCUtility.FieldToSCMapEntry("games_completed", games_completed),
                     SCUtility.FieldToSCMapEntry("index", index),
                     SCUtility.FieldToSCMapEntry("name", name),
@@ -554,6 +556,26 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("pawns", pawns),
                     SCUtility.FieldToSCMapEntry("phase", phase),
                     SCUtility.FieldToSCMapEntry("turns", turns),
+                }),
+            };
+        }
+    }
+
+    public struct MakeLobbyReq : IScvMapCompatable
+    {
+        public string host_address;
+        public LobbyParameters parameters;
+        public int salt;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                    SCUtility.FieldToSCMapEntry("parameters", parameters),
+                    SCUtility.FieldToSCMapEntry("salt", salt),
                 }),
             };
         }

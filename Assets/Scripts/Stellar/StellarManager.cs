@@ -109,6 +109,7 @@ public class StellarManager : MonoBehaviour
         string currentAddress = getAddressResult.data;
         currentUser = new User
         {
+            current_lobby = "",
             index = currentAddress,
             name = "uninitialized",
             games_completed = 0,

@@ -23,7 +23,18 @@ pub enum Error {
     InviteNotFound = 7,
     LobbyNotFound = 8,
     WrongPhase = 9,
+    HostAlreadyInLobby = 10,
+    GuestAlreadyInLobby = 11,
 }
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum InviteStatus {
+    None = 0,
+    Sent = 1,
+    Accepted = 2,
+    Rejected = 3,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Phase {
     Uninitialized = 0,
@@ -51,6 +62,7 @@ pub enum Team {
 // region level 0 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
+    pub current_lobby: LobbyGuid,
     pub games_completed: i32,
     pub index: UserAddress,
     pub name: String,
@@ -69,7 +81,7 @@ pub struct UserState {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnDef {
-    pub id: i32,
+    pub string: i32,
     pub movement_range: i32,
     pub name: String,
     pub power: i32,
@@ -182,6 +194,14 @@ pub struct EventUpdateUser { pub user: User, }
 //endregion
 
 // region requests
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MakeLobbyReq {
+    pub host_address: UserAddress,
+    pub parameters: LobbyParameters,
+    pub salt: u32,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SendInviteReq {
     pub guest_address: UserAddress,
@@ -282,6 +302,43 @@ impl Contract {
         Ok(req.clone())
     }
 
+    pub fn make_lobby(env: Env, address: Address, req: MakeLobbyReq) -> Result<LobbyGuid, Error> {
+        let persistent = &env.storage().persistent();
+        let temporary = &env.storage().temporary();
+        let mut host_user = Self::get_or_make_user(&env, &req.host_address);
+        if !host_user.current_lobby.is_empty()
+        {
+            return Err(Error::HostAlreadyInLobby)
+        }
+        let lobby_id:LobbyGuid = Self::generate_uuid(&env, req.salt);
+        let lobby = Lobby {
+            game_end_state: 0,
+            guest_address: String::from_str(&env, ""),
+            guest_state: UserState {
+                lobby_state: UserLobbyState::NotAccepted,
+                setup_commitments: Vec::new(&env),
+                team: Team::Blue,
+                user_address: String::from_str(&env, ""),
+            },
+            host_address: host_user.index.clone(),
+            host_state: UserState {
+                lobby_state: UserLobbyState::InLobby,
+                setup_commitments: Vec::new(&env),
+                team: Team::None,
+                user_address: host_user.index.clone(),
+            },
+            index: lobby_id.clone(),
+            parameters: req.parameters,
+            pawns: Vec::new(&env),
+            phase: Phase::Uninitialized,
+            turns: Vec::new(&env),
+        };
+        let lobby_key = TempKey::Lobby(lobby_id.clone());
+        temporary.set(&lobby_key, &lobby);
+        host_user.current_lobby = lobby_id.clone();
+        Ok(lobby_id)
+    }
+
     pub fn send_invite(env: Env, address: Address, req: SendInviteReq) -> Result<(), Error> {
         address.require_auth();
         const MAX_EXPIRATION_LEDGERS: i32 = 1000;
@@ -294,9 +351,10 @@ impl Contract {
             return Err(Error::InvalidArgs)
         }
         // if user is already registered, get their user struct or create a new one for them
-        let _host_user = Self::get_or_make_user(&env, &req.host_address);
-        //TODO: prevent users from adding non existent guest users
-        let _guest_user = Self::get_or_make_user(&env, &req.guest_address);
+        let mut host_user = Self::get_or_make_user(&env, &req.host_address);
+        let guest_user = Self::get_or_make_user(&env, &req.guest_address);
+
+        // TODO: prevent users from adding non existent guest users
         // TODO: validate parameters
         let current_ledger = env.ledger().sequence() as i32;
         let invite = Invite {
@@ -308,10 +366,11 @@ impl Contract {
                 parameters: req.parameters,
         };
         // add invite to guest's PendingInvites and prune dead invites for guest
-        let pending_invites_key = TempKey::PendingInvites(req.guest_address.clone());
-        let pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
-        let mut pruned_pending_invites = Self::prune_pending_invites(&env, &pending_invites);
-        pruned_pending_invites.set(req.host_address.clone(), invite);
+        let pending_invites_key = TempKey::PendingInvites(req.guest_address);
+        let mut pruned_pending_invites = temp.get(&pending_invites_key)
+            .map(|invites| Self::prune_pending_invites(&env, &invites))
+            .unwrap_or_else(|| PendingInvites::new(&env));
+        pruned_pending_invites.set(req.host_address, invite);
         temp.set(&pending_invites_key, &pruned_pending_invites);
         temp.extend_ttl(&pending_invites_key, 0, req.ledgers_until_expiration as u32);
         Ok(())
@@ -456,23 +515,21 @@ impl Contract {
     pub(crate) fn get_or_make_user(e: &Env, user_address: &UserAddress) -> User {
         let storage = e.storage().persistent();
         let key = DataKey::User(user_address.clone());
-        let user = if storage.has(&key) {
-            storage.get(&DataKey::User(user_address.clone())).unwrap()
-        } else {
+        storage.get(&key).unwrap_or_else(|| {
             let new_user = User {
+                current_lobby: String::from_str(e, ""),
+                games_completed: 0,
                 index: user_address.clone(),
                 name: String::from_str(e, "default name"),
-                games_completed: 0,
             };
             storage.set(&key, &new_user);
             new_user
-        };
-        user
+        })
     }
 
     pub(crate) fn prune_pending_invites(e: &Env, pending_invites: &PendingInvites) -> PendingInvites
     {
-        let mut new_pending_invites = pending_invites.clone();
+        let mut new_pending_invites = PendingInvites::new(e);
         let current_ledger = e.ledger().sequence() as i32;
         for (invite_address, invite) in pending_invites.iter() {
             if invite.expiration_ledger >= current_ledger {
