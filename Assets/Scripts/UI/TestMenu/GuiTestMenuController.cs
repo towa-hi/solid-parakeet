@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Contract;
 using UnityEngine;
 
 public class GuiTestMenuController : MenuElement
@@ -8,7 +9,7 @@ public class GuiTestMenuController : MenuElement
     public StellarManagerTest stellar;
     
     public GuiTestStartMenu startMenuElement;
-    public GuiTestInviteMenu inviteMenuElement;
+    public GuiTestLobbyMaker lobbyMakerElement;
     public GuiTestInviteList inviteListElement;
     public GuiTestWaiting waitingElement;
     public GameObject blocker;
@@ -18,17 +19,19 @@ public class GuiTestMenuController : MenuElement
     
     void Start()
     {
-        startMenuElement.makeInviteButton.onClick.AddListener(GotoInviteMenu);
-        inviteMenuElement.backButton.onClick.AddListener(GotoStartMenu);
-        inviteMenuElement.sendButton.onClick.AddListener(OnSendInviteButton);
+        startMenuElement.makeInviteButton.onClick.AddListener(GotoLobbyMaker);
+        lobbyMakerElement.backButton.onClick.AddListener(GotoStartMenu);
+        lobbyMakerElement.makeLobbyButton.onClick.AddListener(OnMakeLobbyButton);
+        lobbyMakerElement.deleteLobbyButton.onClick.AddListener(OnDeleteLobbyButton);
         stellar.Initialize();
         Initialize();
     }
-    
+
+
     public void Initialize()
     {
         startMenuElement.SetIsEnabled(false);
-        inviteMenuElement.SetIsEnabled(false);
+        lobbyMakerElement.SetIsEnabled(false);
         inviteListElement.SetIsEnabled(false);
         waitingElement.SetIsEnabled(false);
         
@@ -46,9 +49,9 @@ public class GuiTestMenuController : MenuElement
         currentElement.Initialize();
     }
 
-    void GotoInviteMenu()
+    void GotoLobbyMaker()
     {
-        ShowElement(inviteMenuElement);
+        ShowElement(lobbyMakerElement);
     }
 
     void GotoStartMenu()
@@ -61,20 +64,25 @@ public class GuiTestMenuController : MenuElement
         ShowElement(waitingElement);
     }
     
-    async void OnSendInviteButton()
+    async void OnMakeLobbyButton()
     {
         Blocker(true);
-        InviteMenuParameters parameters = inviteMenuElement.GetInviteMenuParameters();
-        bool success = await stellar.SendInvite(parameters);
+        Contract.LobbyParameters parameters = lobbyMakerElement.GetLobbyParameters();
+        (int code, Lobby? lobby) = await stellar.MakeLobbyRequest(parameters);
+        if (lobby != null)
+        {
+            Debug.Log(lobby.Value.index);
+        }
         Blocker(false);
-        if (success)
-        {
-            GotoWaiting();
-        }
-        else
-        {
-            Debug.LogError("SendInvite failed");
-        }
+        lobbyMakerElement.OnLobbyMade(code);
+    }
+
+    async void OnDeleteLobbyButton()
+    {
+        Blocker(true);
+        int code = await stellar.LeaveLobbyRequest();
+        Debug.Log(code);
+        Blocker(false);
     }
     
     void Blocker(bool isOn)

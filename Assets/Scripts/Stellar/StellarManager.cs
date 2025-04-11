@@ -117,23 +117,6 @@ public class StellarManager : MonoBehaviour
         OnCurrentUserChanged?.Invoke();
         return true;
     }
-
-    public async Task<bool> OnSendInviteButton(SendInviteReq sendInviteReq)
-    {
-        SCVal xdr1 = sendInviteReq.ToScvMap();
-        Debug.Log("XDR1:" + SCValXdr.EncodeToBase64(xdr1));
-        GetTransactionResult result = await stellar.CallParameterlessFunction("send_invite", sendInviteReq);
-        bool status = result.Status == GetTransactionResultStatus.SUCCESS;
-        OnInviteSent?.Invoke(status);
-        return status;
-    }
-
-    public async Task<bool> CheckInvites()
-    {
-        List<Invite> invites = await stellar.ReqInvites();
-        
-        return true;
-    }
     
     public async Task<bool> TestFunction()
     {

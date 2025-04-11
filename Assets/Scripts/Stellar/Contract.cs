@@ -25,6 +25,10 @@ namespace Contract
                 throw new ArgumentNullException(nameof(input));
             }
             Type type = input.GetType();
+            if (type == typeof(uint))
+            {
+                return new SCVal.ScvU32() { u32 = new uint32((uint)input) };
+            }
             // For native int always convert to SCVal.ScvI32.
             if (type == typeof(int))
             {
@@ -289,7 +293,7 @@ namespace Contract
     
     public struct PawnDef: IScvMapCompatable
     {
-        public string id;
+        public int id;
         public int movement_range;
         public string name;
         public int power;
@@ -315,6 +319,12 @@ namespace Contract
     {
         public int max;
         public int rank;
+
+        public MaxPawns(SMaxPawnsPerRank maxPawns)
+        {
+            max = maxPawns.max;
+            rank = (int)maxPawns.rank;
+        }
         
         public SCVal.ScvMap ToScvMap()
         {
@@ -418,6 +428,23 @@ namespace Contract
         public Pos size;
         public Tile[] tiles;
 
+        public BoardDef(global::BoardDef def)
+        {
+            default_max_pawns = new MaxPawns[def.maxPawns.Length];
+            for (int i = 0; i < def.maxPawns.Length; i++)
+            {
+                default_max_pawns[i] = new MaxPawns(def.maxPawns[i]);
+            }
+            is_hex = def.isHex;
+            name = def.name;
+            size = new Pos(def.boardSize);
+            tiles = new Contract.Tile[def.tiles.Length];
+            for (int i = 0; i < def.tiles.Length; i++)
+            {
+                tiles[i] = new Contract.Tile(def.tiles[i]);
+            }
+        }
+        
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap()
@@ -435,7 +462,7 @@ namespace Contract
     }
     public struct LobbyParameters : IScvMapCompatable
     {
-        public BoardDef board_def;
+        public string board_def_name;
         public bool dev_mode;
         public MaxPawns[] max_pawns;
         public bool must_fill_all_tiles;
@@ -447,7 +474,7 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
-                    SCUtility.FieldToSCMapEntry("board_def", board_def),
+                    SCUtility.FieldToSCMapEntry("board_def_name", board_def_name),
                     SCUtility.FieldToSCMapEntry("dev_mode", dev_mode),
                     SCUtility.FieldToSCMapEntry("max_pawns", max_pawns),
                     SCUtility.FieldToSCMapEntry("must_fill_all_tiles", must_fill_all_tiles),
@@ -565,7 +592,7 @@ namespace Contract
     {
         public string host_address;
         public LobbyParameters parameters;
-        public int salt;
+        public uint salt;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -576,6 +603,24 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("host_address", host_address),
                     SCUtility.FieldToSCMapEntry("parameters", parameters),
                     SCUtility.FieldToSCMapEntry("salt", salt),
+                }),
+            };
+        }
+    }
+
+    public struct JoinLobbyReq : IScvMapCompatable
+    {
+        public string guest_address;
+        public string lobby_id;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
+                    SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                 }),
             };
         }
@@ -741,5 +786,20 @@ namespace Contract
                 }),
             };
         }
+    }
+    
+    public enum ErrorCode {
+        UserNotFound = 1,
+        InvalidUsername = 2,
+        AlreadyInitialized = 3,
+        InvalidAddress = 4,
+        InvalidExpirationLedger = 5,
+        InvalidArgs = 6,
+        InviteNotFound = 7,
+        LobbyNotFound = 8,
+        WrongPhase = 9,
+        HostAlreadyInLobby = 10,
+        GuestAlreadyInLobby = 11,
+        LobbyNotJoinable = 12,
     }
 }

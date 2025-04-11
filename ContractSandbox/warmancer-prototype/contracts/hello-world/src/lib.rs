@@ -25,6 +25,7 @@ pub enum Error {
     WrongPhase = 9,
     HostAlreadyInLobby = 10,
     GuestAlreadyInLobby = 11,
+    LobbyNotJoinable = 12,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,13 +44,14 @@ pub enum Phase {
     Commitment = 3,
     Resolve = 4,
     Ending = 5,
+    Aborted = 6,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UserLobbyState {
     NotAccepted = 0,
     InLobby = 1,
-    Ready = 2,
-    InGame = 3,
+    InGame = 2,
+    Left= 3,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Team {
@@ -58,8 +60,28 @@ pub enum Team {
     Blue = 2,
 }
 
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EndState {
+    Tie = 0,
+    Red = 1,
+    Blue = 2,
+    Playing = 3,
+    Aborted = 4,
+}
+
 // endregion
 // region level 0 structs
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LobbyRecord {
+    pub end_ledger: u32,
+    pub guest_address: UserAddress,
+    pub host_address: UserAddress,
+    pub index: String,
+    pub lobby_id: LobbyGuid,
+    pub start_ledger: u32,
+    pub winner: UserAddress,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
     pub current_lobby: LobbyGuid,
@@ -81,7 +103,7 @@ pub struct UserState {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnDef {
-    pub string: i32,
+    pub id: i32,
     pub movement_range: i32,
     pub name: String,
     pub power: i32,
@@ -134,7 +156,7 @@ pub struct BoardDef {
 // region level 3 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyParameters {
-    pub board_def: BoardDef,
+    pub board_def_name: String,
     pub dev_mode: bool,
     pub max_pawns: Vec<MaxPawns>,
     pub must_fill_all_tiles: bool,
@@ -159,17 +181,8 @@ pub struct Turn {
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Invite {
-    pub expiration_ledger: i32,
-    pub guest_address: UserAddress,
-    pub host_address: UserAddress,
-    pub ledgers_until_expiration: i32,
-    pub sent_ledger: i32,
-    pub parameters: LobbyParameters,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lobby {
-    pub game_end_state: i32,
+    pub game_end_state: EndState,
     pub guest_address: UserAddress,
     pub guest_state: UserState,
     pub host_address: UserAddress,
@@ -184,13 +197,10 @@ pub struct Lobby {
 // endregion
 // region events
 pub const EVENT_UPDATE_USER: &str = "EVENT_UPDATE_USER";
-pub const EVENT_INVITE: &str = "EVENT_INVITE";
 pub const EVENT_INVITE_ACCEPT: &str = "EVENT_INVITE_ACCEPT";
 pub const EVENT_SETUP_START: &str = "EVENT_SETUP_START";
 pub const EVENT_SETUP_END: &str = "EVENT_SETUP_END";
-
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EventUpdateUser { pub user: User, }
+pub const EVENT_USER_LEFT: &str = "EVENT_USER_LEFT";
 //endregion
 
 // region requests
@@ -201,23 +211,18 @@ pub struct MakeLobbyReq {
     pub parameters: LobbyParameters,
     pub salt: u32,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SendInviteReq {
+pub struct JoinLobbyReq {
     pub guest_address: UserAddress,
-    pub host_address: UserAddress,
-    pub ledgers_until_expiration: i32,
-    pub parameters: LobbyParameters,
+    pub lobby_id: LobbyGuid,
 }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AcceptInviteReq {
-    pub host_address: UserAddress,
-}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LeaveLobbyReq {
     pub guest_address: UserAddress,
     pub host_address: UserAddress,
 }
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommitReq {
     pub lobby_id: LobbyGuid,
@@ -262,9 +267,9 @@ pub struct NestedTestReq {
 pub enum DataKey {
     Admin, // Address
     User(UserAddress),
-
+    Record(String)
 }
-pub type PendingInvites = Map<UserAddress, Invite>;
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TempKey {
     PendingInvites(UserAddress), // guests (the recipient) address
@@ -298,11 +303,12 @@ impl Contract {
         Ok(req.clone())
     }
 
-    pub fn test_send_invite_req(env: Env, address: Address, req: SendInviteReq) -> Result<SendInviteReq, Error> {
-        Ok(req.clone())
-    }
-
     pub fn make_lobby(env: Env, address: Address, req: MakeLobbyReq) -> Result<LobbyGuid, Error> {
+        address.require_auth();
+        if address.to_string() != req.host_address
+        {
+            return Err(Error::InvalidArgs)
+        }
         let persistent = &env.storage().persistent();
         let temporary = &env.storage().temporary();
         let mut host_user = Self::get_or_make_user(&env, &req.host_address);
@@ -312,7 +318,7 @@ impl Contract {
         }
         let lobby_id:LobbyGuid = Self::generate_uuid(&env, req.salt);
         let lobby = Lobby {
-            game_end_state: 0,
+            game_end_state: EndState::Playing,
             guest_address: String::from_str(&env, ""),
             guest_state: UserState {
                 lobby_state: UserLobbyState::NotAccepted,
@@ -324,7 +330,7 @@ impl Contract {
             host_state: UserState {
                 lobby_state: UserLobbyState::InLobby,
                 setup_commitments: Vec::new(&env),
-                team: Team::None,
+                team: Team::Red,
                 user_address: host_user.index.clone(),
             },
             index: lobby_id.clone(),
@@ -335,92 +341,104 @@ impl Contract {
         };
         let lobby_key = TempKey::Lobby(lobby_id.clone());
         temporary.set(&lobby_key, &lobby);
+        temporary.extend_ttl(&lobby_key, 0, 8888);
         host_user.current_lobby = lobby_id.clone();
+        let host_key = DataKey::User(host_user.index.clone());
+        persistent.set(&host_key, &host_user);
         Ok(lobby_id)
     }
 
-    pub fn send_invite(env: Env, address: Address, req: SendInviteReq) -> Result<(), Error> {
+    pub fn leave_lobby(env: Env, address: Address) -> Result<bool, Error> {
+        let user_address: UserAddress = address.to_string();
         address.require_auth();
-        const MAX_EXPIRATION_LEDGERS: i32 = 1000;
-        let temp = env.storage().temporary();
-        if req.host_address != address.to_string() {
-            return Err(Error::InvalidAddress)
-        }
-        // TODO: check if guest_address is a valid account
-        if (req.host_address == req.guest_address) || (req.ledgers_until_expiration > MAX_EXPIRATION_LEDGERS) {
-            return Err(Error::InvalidArgs)
-        }
-        // if user is already registered, get their user struct or create a new one for them
-        let mut host_user = Self::get_or_make_user(&env, &req.host_address);
-        let guest_user = Self::get_or_make_user(&env, &req.guest_address);
-
-        // TODO: prevent users from adding non existent guest users
-        // TODO: validate parameters
-        let current_ledger = env.ledger().sequence() as i32;
-        let invite = Invite {
-                host_address: req.host_address.clone(),
-                guest_address: req.guest_address.clone(),
-                sent_ledger: current_ledger,
-                ledgers_until_expiration: req.ledgers_until_expiration,
-                expiration_ledger: current_ledger + req.ledgers_until_expiration,
-                parameters: req.parameters,
+        let temporary = &env.storage().temporary();
+        let persistent = &env.storage().persistent();
+        let user_key = DataKey::User(user_address.clone());
+        let mut user: User = match persistent.get(&user_key) {
+            Some(thing) => thing,
+            None => return Err(Error::UserNotFound),
         };
-        // add invite to guest's PendingInvites and prune dead invites for guest
-        let pending_invites_key = TempKey::PendingInvites(req.guest_address);
-        let mut pruned_pending_invites = temp.get(&pending_invites_key)
-            .map(|invites| Self::prune_pending_invites(&env, &invites))
-            .unwrap_or_else(|| PendingInvites::new(&env));
-        pruned_pending_invites.set(req.host_address, invite);
-        temp.set(&pending_invites_key, &pruned_pending_invites);
-        temp.extend_ttl(&pending_invites_key, 0, req.ledgers_until_expiration as u32);
-        Ok(())
+        let lobby_key = TempKey::Lobby(user.current_lobby.clone());
+        let mut lobby: Lobby = match temporary.get(&lobby_key) {
+            Some(thing) => thing,
+            None => return Err(Error::LobbyNotFound),
+        };
+        // TODO: make a version of this where the lobby id is already known
+        // decouple user
+        user.current_lobby = String::from_str(&env, "");
+        persistent.set(&user_key, &user);
+
+        let user_is_host = user.index == lobby.host_address;
+        let other_user_address = if user_is_host {lobby.guest_address.clone()} else {lobby.host_address.clone()};
+        if user_is_host
+        {
+            lobby.host_state.lobby_state = UserLobbyState::Left;
+        }
+        else
+        {
+            lobby.guest_state.lobby_state = UserLobbyState::Left;
+        }
+        lobby.game_end_state = EndState::Aborted;
+        temporary.set(&lobby_key, &lobby);
+        if !other_user_address.is_empty()
+        {
+            env.events().publish((EVENT_USER_LEFT, lobby.index, user.index.clone(), other_user_address), user.index);
+        }
+        Ok(true)
     }
 
-    pub fn accept_invite(env: Env, address: Address, req: AcceptInviteReq) -> Result<String, Error> {
+    pub fn join_lobby(env: Env, address: Address, req: JoinLobbyReq) -> Result<bool, Error> {
         address.require_auth();
-
-        let temp = env.storage().temporary();
-        let pending_invites_key = TempKey::PendingInvites(address.to_string());
-        // see if invite from this user exists in pending invites
-        let pending_invites: PendingInvites = temp.get(&pending_invites_key).unwrap_or_else(|| PendingInvites::new(&env));
-        let mut pruned_pending_invites = Self::prune_pending_invites(&env, &pending_invites);
-        let invite = match pruned_pending_invites.get(req.host_address.clone()) {
-            Some(v) => v,
-            None => return Err(Error::InviteNotFound),
+        let temporary = &env.storage().temporary();
+        let lobby_key = TempKey::Lobby(req.lobby_id.clone());
+        let mut lobby: Lobby = match temporary.get(&lobby_key) {
+            Some(thing) => thing,
+            None => return Err(Error::LobbyNotFound),
         };
-        // remove invite
-        pruned_pending_invites.remove(req.host_address.clone());
-        temp.set(&pending_invites_key, &pending_invites);
-        // make a lobby from the invite
-        let lobby_id = Self::generate_uuid(&env, env.ledger().sequence());
-        let host_state = UserState {
-            lobby_state: UserLobbyState::InGame,
-            setup_commitments: Vec::new(&env),
-            team: Team::Red,
-            user_address: invite.host_address.clone(),
-        };
-        let guest_state = UserState {
+        // check if lobby is joinable
+        if lobby.phase != Phase::Uninitialized
+        {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if !lobby.guest_address.is_empty()
+        {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if !lobby.guest_state.user_address.is_empty()
+        {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if lobby.host_state.lobby_state != UserLobbyState::InLobby
+        {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if lobby.host_address == req.guest_address
+        {
+            return Err(Error::LobbyNotJoinable)
+        }
+        let mut guest_user = Self::get_or_make_user(&env, &req.guest_address);
+        if !guest_user.current_lobby.is_empty()
+        {
+            return Err(Error::GuestAlreadyInLobby)
+        }
+        // write lobby
+        lobby.guest_address = req.guest_address.clone();
+        lobby.guest_state = UserState {
             lobby_state: UserLobbyState::InGame,
             setup_commitments: Vec::new(&env),
             team: Team::Blue,
-            user_address: invite.guest_address.clone(),
+            user_address: req.guest_address.clone(),
         };
-        let lobby = Lobby {
-            index: lobby_id.clone(),
-            host_address: invite.host_address.clone(),
-            guest_address: invite.guest_address.clone(),
-            parameters: invite.parameters,
-            host_state: host_state,
-            guest_state: guest_state,
-            game_end_state: 0,
-            phase: Phase::Setup,
-            pawns: Vec::new(&env),
-            turns: Vec::new(&env),
-        };
-        let lobby_key = TempKey::Lobby(lobby_id.clone());
-        temp.set(&lobby_key, &lobby.clone());
-        temp.extend_ttl(&lobby_key, 0, 999);
-        Ok(lobby_id)
+        lobby.host_state.lobby_state = UserLobbyState::InGame;
+        lobby.phase = Phase::Setup;
+        temporary.set(&lobby_key, &lobby);
+        temporary.extend_ttl(&lobby_key, 0, 8888);
+        // write guest user
+        guest_user.current_lobby = req.lobby_id.clone();
+        let persistent = &env.storage().persistent();
+        let guest_key = DataKey::User(req.guest_address.clone());
+        persistent.set(&guest_key, &guest_user);
+        Ok(true)
     }
 
     pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
@@ -509,6 +527,7 @@ impl Contract {
             lobby.turns.push_back(first_turn);
         }
         temp.set(&lobby_key, &lobby);
+        temp.extend_ttl(&lobby_key, 0, 8888);
         Ok(())
     }
 
@@ -527,23 +546,11 @@ impl Contract {
         })
     }
 
-    pub(crate) fn prune_pending_invites(e: &Env, pending_invites: &PendingInvites) -> PendingInvites
-    {
-        let mut new_pending_invites = PendingInvites::new(e);
-        let current_ledger = e.ledger().sequence() as i32;
-        for (invite_address, invite) in pending_invites.iter() {
-            if invite.expiration_ledger >= current_ledger {
-                new_pending_invites.set(invite_address, invite);
-            }
-        }
-        new_pending_invites
-    }
-
     pub(crate) fn generate_uuid(e: &Env, salt_int: u32) -> String {
-        let random_number: u64 = e.prng().gen();
+        //let random_number: u64 = e.prng().gen();
         const DASH_POSITIONS: [usize; 4] = [8, 13, 18, 23];
         let mut combined = Bytes::new(e);
-        combined.append(&random_number.to_xdr(e));
+        //combined.append(&random_number.to_xdr(e));
         combined.append(&e.ledger().sequence().to_xdr(e));
         combined.append(&salt_int.to_xdr(e));
         // hash combined bytes

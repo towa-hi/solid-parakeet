@@ -14,11 +14,7 @@ public class GuiInviteListEntry : MonoBehaviour
     
     public void Initialize(int inIndex, Invite inInvite)
     {
-        index = inIndex;
-        inInvite = inInvite;
-        string labelText = invite.host_address + " - " + invite.parameters.board_def.name;
-        label.text = labelText;
-        acceptButton.onClick.AddListener(HandleAccept);
+
     }
 
     void HandleAccept()

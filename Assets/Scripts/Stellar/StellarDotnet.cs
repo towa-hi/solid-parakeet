@@ -21,6 +21,10 @@ public class StellarDotnet
     public string contractId;
     public string sneed;
     public MuxedAccount.KeyTypeEd25519 userAccount;
+    SCAddress contractAddress => new SCAddress.ScAddressTypeContract
+    {
+        contractId = new Hash(StrKey.DecodeContractId(contractId)),
+    };
     
     public AccountID accountId => new AccountID(userAccount.XdrPublicKey);
     Uri networkUri;
@@ -51,32 +55,9 @@ public class StellarDotnet
         userAccount = MuxedAccount.FromSecretSeed(inSecretSneed);
     }
 
-    public async Task<bool> SendInvite(SendInviteReq req)
+    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable obj)
     {
-        AccountEntry accountEntry = await ReqAccountEntry(userAccount);
-        SCVal reqArg = req.ToScvMap();
-        SCVal.ScvAddress addressArg = new SCVal.ScvAddress
-        {
-            address = new SCAddress.ScAddressTypeAccount()
-            {
-                accountId = accountId,
-            },
-        };
-        SCVal[] args = {addressArg, reqArg };
-        SendTransactionResult result = await InvokeContractFunction(accountEntry, "send_invite", args);
-        Debug.Log("transaction hash " + result.Hash);
-        GetTransactionResult getResult = await WaitForTransaction(result.Hash, 2000);
-        if (getResult == null)
-        {
-            Debug.LogError("get transaction failed");
-            return false;
-        }
-        return true;
-    }
-    
-    public async Task<GetTransactionResult> CallParameterlessFunction(string functionName, IScvMapCompatable obj)
-    {
-        Debug.Log("testfunction called on " + functionName);
+        Debug.Log("CallVoidFunction called on " + functionName);
         AccountEntry accountEntry = await ReqAccountEntry(userAccount);
         // make structs
         SCVal.ScvAddress addressArg = new SCVal.ScvAddress
@@ -86,35 +67,49 @@ public class StellarDotnet
                 accountId = accountId,
             },
         };
-        SCVal data = obj.ToScvMap();
-        SCVal[] args = {addressArg, data };
-        SendTransactionResult result = await InvokeContractFunction(accountEntry, functionName, args);
-        Debug.Log("transaction hash " + result.Hash);
-        GetTransactionResult getResult = await WaitForTransaction(result.Hash, 2000);
+        List<SCVal> argsList = new List<SCVal>() { addressArg };
+        if (obj != null)
+        {
+            SCVal data = obj.ToScvMap();
+            argsList.Add(data);
+        }
+        SCVal[] args = argsList.ToArray();
+        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await InvokeContractFunction(accountEntry, functionName, args);
+        if (simResult.Error != null)
+        {
+            return (null, simResult);
+        }
+        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 2000);
         if (getResult == null)
         {
             Debug.LogError("get transaction failed");
-            return null;
         }
-        Debug.Log(getResult.Status);
+        else
+        {
+            Debug.Log(getResult.Status);
+        }
         // TODO: fix delay not working
-        return getResult;
+        return (getResult, simResult);
     }
     
-    public async Task<SendTransactionResult> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
+    public async Task<(SendTransactionResult, SimulateTransactionResult)> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
     {
         Transaction invokeContractTransaction = InvokeContractTransaction(functionName, accountEntry, args);
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(new SimulateTransactionParams()
         {
             Transaction = EncodeTransaction(invokeContractTransaction),
         });
+        if (simulateTransactionResult.Error != null)
+        {
+            return (null, simulateTransactionResult);
+        }
         Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
         string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
         SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
         {
             Transaction = encodedSignedTransaction,
         });
-        return sendTransactionResult;
+        return (sendTransactionResult, simulateTransactionResult);
     }
     
 
@@ -128,13 +123,48 @@ public class StellarDotnet
         return entry?.account;
     }
 
+    public async Task<Lobby?> ReqLobby(string key)
+    {
+        SCVal.ScvVec enumKey = new SCVal.ScvVec
+        {
+            vec = new SCVec(new SCVal[]
+            {
+                new SCVal.ScvSymbol
+                {
+                    sym = "Lobby",
+                },
+                new SCVal.ScvString
+                {
+                    str = key,
+                },
+            }),
+        };
+        LedgerKey ledgerKey = new LedgerKey.ContractData
+        {
+            contractData = new LedgerKey.contractDataStruct
+            {
+                contract = contractAddress,
+                key = enumKey,
+                durability = ContractDataDurability.TEMPORARY,
+            },
+        };
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
+        {
+            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
+        });
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            return null;
+        }
+
+        var data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+        Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
+        return lobby;
+    }
+    
     public async Task<List<Invite>> ReqInvites()
     {
         // figure out how to turn a string into a SCAddress.ScAddressTypeContract.Hash
-        SCAddress someAddress = new SCAddress.ScAddressTypeContract
-        {
-            contractId = new Hash(StrKey.DecodeContractId(contractId)),
-        };
         SCVal.ScvVec enumKey = new SCVal.ScvVec
         {
             vec = new SCVec(new SCVal[]
@@ -149,11 +179,11 @@ public class StellarDotnet
                 },
             }),
         };
-        LedgerKey ledgerKey = new LedgerKey.ContractData()
+        LedgerKey ledgerKey = new LedgerKey.ContractData
         {
             contractData = new LedgerKey.contractDataStruct
             {
-                contract = someAddress,
+                contract = contractAddress,
                 key = enumKey,
                 durability = ContractDataDurability.TEMPORARY,
             }
@@ -245,12 +275,13 @@ public class StellarDotnet
 
     async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
     {
+        Debug.Log("WaitForTransaction started for hash" + txHash);
         int max_attempts = 10;
         int attempts = 0;
         await AsyncDelay.Delay(delayMS);
         while (attempts < max_attempts)
         {
-            Debug.Log("WaitForTransaction started");
+            Debug.Log("WaitForTransaction attempt " + attempts);
             GetTransactionResult completion = await GetTransactionAsync(new GetTransactionParams()
             {
                 Hash = txHash
@@ -258,16 +289,19 @@ public class StellarDotnet
             switch (completion.Status)
             {
                 case GetTransactionResultStatus.FAILED:
+                    Debug.Log("WaitForTransaction FAILED");
                     return null;
                 case GetTransactionResultStatus.NOT_FOUND:
-                    Debug.Log("Wait for transaction waiting a bit");
+                    Debug.Log("WaitForTransaction waiting a bit");
                     await AsyncDelay.Delay(delayMS);
                     continue;
                 case GetTransactionResultStatus.SUCCESS:
+                    Debug.Log("WaitForTransaction SUCCESS");
                     return completion;
             }
+            attempts++;
         }
-
+        Debug.Log("WaitForTransaction timed out");
         return null;
     }
     
