@@ -41,7 +41,7 @@ public class GuiNetworkMenu : MenuElement
         backButton.onClick.AddListener(HandleBackButton);
         GameManager.instance.stellarManager.OnCurrentUserChanged += OnCurrentUserChangedEvent;
         GameManager.instance.stellarManager.OnContractChanged += OnContractChangedEvent;
-        OnContractChangedEvent(GameManager.instance.stellarManager.stellar.contractId);
+        //OnContractChangedEvent(GameManager.instance.stellarManager.stellar.contractId);
         //EnableLobbySetupModal(true);
     }
 

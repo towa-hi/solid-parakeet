@@ -120,7 +120,7 @@ public class StellarManager : MonoBehaviour
     
     public async Task<bool> TestFunction()
     {
-        await stellar.ReqInvites();
+
         return true;
     }
 

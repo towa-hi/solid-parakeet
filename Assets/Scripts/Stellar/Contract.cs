@@ -77,7 +77,16 @@ namespace Contract
         public static object SCValToNative(SCVal scVal, Type targetType)
         {
             DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
-            if (targetType == typeof(int))
+            if (targetType == typeof(uint))
+            {
+                DebugLog("SCValToNative: Target type is uint.");
+                if (scVal is SCVal.ScvU32 u32Val)
+                {
+                    DebugLog($"SCValToNative: Found SCVal.ScvU32 with value {u32Val.u32.InnerValue}.");
+                    return u32Val.u32.InnerValue;
+                }
+            }
+            else if (targetType == typeof(int))
             {
                 DebugLog("SCValToNative: Target type is int.");
                 // Prefer I32. If we get a U32, log a warning.
@@ -89,7 +98,7 @@ namespace Contract
                 else if (scVal is SCVal.ScvU32 u32Val)
                 {
                     Debug.LogWarning("SCValToNative: Expected SCVal.ScvI32 for int conversion, got SCVal.ScvU32. Converting anyway.");
-                    return Convert.ToInt32(u32Val.u32.InnerValue);
+                    return u32Val.u32.InnerValue;
                 }
                 else
                 {
@@ -271,9 +280,9 @@ namespace Contract
     
     public struct UserState: IScvMapCompatable
     {
-        public int lobby_state;
+        public uint lobby_state;
         public PawnCommitment[] setup_commitments;
-        public int team;
+        public uint team;
         public string user_address;
         
         public SCVal.ScvMap ToScvMap()
@@ -556,7 +565,7 @@ namespace Contract
     
     public struct Lobby : IScvMapCompatable
     {
-        public int game_end_state;
+        public uint game_end_state;
         public string guest_address;
         public UserState guest_state;
         public string host_address;
@@ -564,7 +573,7 @@ namespace Contract
         public string index;
         public LobbyParameters parameters;
         public Pawn[] pawns;
-        public int phase; // Phase enum
+        public uint phase; // Phase enum
         public Turn[] turns;
 
         public SCVal.ScvMap ToScvMap()

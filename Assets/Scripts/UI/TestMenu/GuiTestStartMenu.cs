@@ -1,4 +1,5 @@
 using System;
+using Contract;
 using Stellar.Utilities;
 using TMPro;
 using UnityEngine;
@@ -14,26 +15,37 @@ public class GuiTestStartMenu : TestGuiElement
     public Button setSneedButton;
     public TextMeshProUGUI currentSneedText;
     public TextMeshProUGUI currentAddressText;
-
-    public Button checkInboxButton;
-    public Button makeInviteButton;
+    public TextMeshProUGUI currentLobbyText;
+    public Button joinLobbyButton;
+    public Button makeLobbyButton;
+    public Button viewLobbyButton;
     public Button cancelButton;
-    public Button checkSentInviteButton;
+
+    public event Action<string> OnSetContractButton;
+    public event Action<string> OnSetSneedButton;
+
+    public event Action OnJoinLobbyButton;
+    public event Action OnMakeLobbyButton;
+    public event Action OnViewLobbyButton;
+    public event Action OnCancelButton;
+    
     
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         contractField.onValueChanged.AddListener(OnContractFieldChanged);
-        setContractButton.onClick.AddListener(OnSetContractButton);
+        setContractButton.onClick.AddListener(HandleSetContractButton);
         sneedField.onValueChanged.AddListener(OnSneedFieldChanged);
-        setSneedButton.onClick.AddListener(OnSetSneedButton);
-        checkInboxButton.onClick.AddListener(OnCheckInboxButton);
-        makeInviteButton.onClick.AddListener(OnMakeInviteButton);
-        cancelButton.onClick.AddListener(OnCancelButton);
-        checkSentInviteButton.onClick.AddListener(OnCheckSentInviteButton);
-        StellarManagerTest.OnContractIdChanged += OnContractIdChanged;
-        StellarManagerTest.OnAccountIdChanged += OnAccountIdChanged;
+        setSneedButton.onClick.AddListener(HandleSetSneedButton);
+        joinLobbyButton.onClick.AddListener(HandleJoinLobbyButton);
+        makeLobbyButton.onClick.AddListener(HandleMakeLobbyButton);
+        cancelButton.onClick.AddListener(HandleCancelButton);
+        viewLobbyButton.onClick.AddListener(HandleViewLobbyButton);
+        StellarManagerTest.OnContractAddressUpdated += OnContractIdChanged;
+        StellarManagerTest.OnSneedUpdated += OnAccountIdChanged;
+        StellarManagerTest.OnCurrentUserUpdated += OnCurrentUserUpdated;
     }
+
 
     public override void Initialize()
     {
@@ -43,11 +55,37 @@ public class GuiTestStartMenu : TestGuiElement
     }
     public override void Refresh()
     {
-        setContractButton.interactable = StellarManagerTest.stellar.contractId != contractField.text && StrKey.IsValidContractId(contractField.text);
-        setSneedButton.interactable = StellarManagerTest.stellar.sneed != sneedField.text && StrKey.IsValidContractId(sneedField.text);
-        currentContractText.text = StellarManagerTest.stellar.contractId;
+        setContractButton.interactable = StellarManagerTest.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
+        setSneedButton.interactable = StellarManagerTest.GetUserAddress() != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
+        currentContractText.text = StellarManagerTest.GetContractAddress();
         currentSneedText.text = StellarManagerTest.stellar.sneed;
-        currentAddressText.text = StrKey.EncodeStellarAccountId(StellarManagerTest.stellar.userAccount.PublicKey);
+        currentAddressText.text = StellarManagerTest.GetUserAddress();
+        User? currentUser = StellarManagerTest.currentUser;
+        joinLobbyButton.interactable = true;
+        makeLobbyButton.interactable = true;
+        viewLobbyButton.interactable = false;
+        if (currentUser.HasValue)
+        {
+            User user = currentUser.Value;
+            if (string.IsNullOrEmpty(user.current_lobby))
+            {
+                currentLobbyText.text = "No lobby";
+                viewLobbyButton.interactable = false;
+            }
+            else
+            {
+                // user is in a lobby
+                currentLobbyText.text = user.current_lobby;
+                joinLobbyButton.interactable = false;
+                makeLobbyButton.interactable = false;
+                viewLobbyButton.interactable = true;
+            }
+        }
+        else
+        {
+            currentLobbyText.text = "No user";
+            viewLobbyButton.interactable = false;
+        }
     }
 
     void OnContractFieldChanged(string input)
@@ -55,50 +93,55 @@ public class GuiTestStartMenu : TestGuiElement
         Refresh();
     }
     
-    void OnSetContractButton()
-    {
-        StellarManagerTest.SetContractId(contractField.text);
-        contractField.text = string.Empty;
-    }
-
     void OnSneedFieldChanged(string input)
     {
         Refresh();
     }
     
-    void OnSetSneedButton()
+    void OnCurrentUserUpdated(User? currentUser)
     {
-        StellarManagerTest.SetAccountId(sneedField.text);
-        sneedField.text = string.Empty;
+        Refresh();
     }
-
-    void OnCheckInboxButton()
-    {
-        
-    }
-
-    void OnMakeInviteButton()
-    {
-        
-    }
-
-    void OnCancelButton()
-    {
-        
-    }
-
-    void OnCheckSentInviteButton()
-    {
-        
-    }
-
+    
     void OnContractIdChanged(string contractId)
     {
-        
+        Refresh();
     }
 
     void OnAccountIdChanged(string accountId)
     {
-        
+        Refresh();
+    }
+    
+    void HandleSetContractButton()
+    {
+        OnSetContractButton?.Invoke(contractField.text);
+        contractField.text = string.Empty;
+    }
+    
+    void HandleSetSneedButton()
+    {
+        OnSetSneedButton?.Invoke(sneedField.text);
+        sneedField.text = string.Empty;
+    }
+    
+    void HandleMakeLobbyButton()
+    {
+        OnMakeLobbyButton?.Invoke();
+    }
+
+    void HandleJoinLobbyButton()
+    {
+        OnJoinLobbyButton?.Invoke();
+    }
+    
+    void HandleCancelButton()
+    {
+        OnCancelButton?.Invoke();
+    }
+    
+    void HandleViewLobbyButton()
+    {
+        OnViewLobbyButton?.Invoke();
     }
 }

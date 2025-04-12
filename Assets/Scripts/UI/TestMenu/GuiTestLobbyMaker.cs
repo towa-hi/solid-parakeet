@@ -12,18 +12,23 @@ public class GuiTestLobbyMaker : TestGuiElement
     public TMP_InputField hostAddressField;
     public TextMeshProUGUI statusText;
     public Button backButton;
-    public Button deleteLobbyButton;
     public Button makeLobbyButton;
     BoardDef[] boardDefs;
-    public bool lobbyMade;
-    public Lobby lobby;
+    public bool lobbyMade = false;
     
     public override void Initialize()
     {
         ResetBoardDropdown();
         Refresh();
+        
     }
 
+
+    public override void Refresh()
+    {
+        hostAddressField.text = StellarManagerTest.GetUserAddress();
+        statusText.text = "Making a new lobby";
+    }
     void ResetBoardDropdown()
     {
         boardDropdown.ClearOptions();
@@ -53,10 +58,27 @@ public class GuiTestLobbyMaker : TestGuiElement
     public void OnLobbyMade(int code)
     {
         string msg = "Lobby successfully made!";
-        if (code != 0)
+        switch (code)
         {
-            Contract.ErrorCode error = (ErrorCode)code;
-            msg = "Error: " + error.ToString();
+            case 0:
+                msg = "Lobby successfully made!";
+                break;
+            case -1:
+                msg = "Lobby failed because failed to simulate tx";
+                break;
+            case -2:
+                msg = "Lobby failed because failed to send tx";
+                break;
+            case -3:
+                msg = "Lobby failed because tx result was not success";
+                break;
+            case -666:
+                msg = "Lobby failed because unspecified contract error";
+                break;
+            default:
+                Contract.ErrorCode error = (ErrorCode)code;
+                msg = "Lobby failed with server side error: " + error;
+                break;
         }
         statusText.text = msg;
     }

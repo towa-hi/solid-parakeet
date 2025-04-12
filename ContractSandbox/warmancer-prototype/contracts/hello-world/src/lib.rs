@@ -551,7 +551,7 @@ impl Contract {
         const DASH_POSITIONS: [usize; 4] = [8, 13, 18, 23];
         let mut combined = Bytes::new(e);
         //combined.append(&random_number.to_xdr(e));
-        combined.append(&e.ledger().sequence().to_xdr(e));
+        //combined.append(&e.ledger().sequence().to_xdr(e));
         combined.append(&salt_int.to_xdr(e));
         // hash combined bytes
         let mut bytes = e.crypto().sha256(&combined).to_array();

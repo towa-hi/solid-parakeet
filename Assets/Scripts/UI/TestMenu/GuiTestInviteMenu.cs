@@ -32,12 +32,8 @@ public class GuiTestInviteMenu : TestGuiElement
     
     public override void Refresh()
     {
-        hostAddressField.text = StrKey.EncodeStellarAccountId(StellarManagerTest.stellar.userAccount.PublicKey);
-        bool isBoardValid = false;
-        if (boardDropdown.value >= 0 && boardDropdown.value < boardDefs.Length)
-        {
-            isBoardValid = true;
-        }
+        hostAddressField.text = StellarManagerTest.stellar.userAddress;
+        bool isBoardValid = boardDropdown.value >= 0 && boardDropdown.value < boardDefs.Length;
         if (!isBoardValid)
         {
             statusText.text = "Please select a board";

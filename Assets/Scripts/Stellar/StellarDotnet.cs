@@ -18,41 +18,40 @@ using UnityEngine.Networking;
 
 public class StellarDotnet
 {
-    public string contractId;
-    public string sneed;
-    public MuxedAccount.KeyTypeEd25519 userAccount;
-    SCAddress contractAddress => new SCAddress.ScAddressTypeContract
-    {
-        contractId = new Hash(StrKey.DecodeContractId(contractId)),
-    };
+    // sneed and derived properties
+    public string sneed = null;
+    MuxedAccount.KeyTypeEd25519 userAccount => MuxedAccount.FromSecretSeed(sneed);
+    public string userAddress => StrKey.EncodeStellarAccountId(userAccount.PublicKey);
     
-    public AccountID accountId => new AccountID(userAccount.XdrPublicKey);
+    // contract address and derived properties
+    public string contractAddress = null;
+    
+    
+
     Uri networkUri;
     // ReSharper disable once InconsistentNaming
-    JsonSerializerSettings _jsonSettings;
+    JsonSerializerSettings _jsonSettings = new JsonSerializerSettings()
+    {
+        ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
+        NullValueHandling = NullValueHandling.Ignore,
+    };
     
     public StellarDotnet(string inSecretSneed, string inContractId)
     {
         networkUri = new Uri("https://soroban-testnet.stellar.org");
         Network.UseTestNetwork();
-        SetAccountId(inSecretSneed);
+        SetSneed(inSecretSneed);
         SetContractId(inContractId);
-        _jsonSettings = new JsonSerializerSettings()
-        {
-            ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
-            NullValueHandling = NullValueHandling.Ignore,
-        };
-    }
-    
-    public void SetContractId(string inContractId)
-    {
-        contractId = inContractId;
     }
 
-    public void SetAccountId(string inSecretSneed)
+    public void SetSneed(string inSneed)
     {
-        sneed = inSecretSneed;
-        userAccount = MuxedAccount.FromSecretSeed(inSecretSneed);
+        sneed = inSneed;
+    }
+    
+    public void SetContractId(string inContractAddress)
+    {
+        contractAddress = inContractAddress;
     }
 
     public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable obj)
@@ -64,7 +63,7 @@ public class StellarDotnet
         {
             address = new SCAddress.ScAddressTypeAccount()
             {
-                accountId = accountId,
+                accountId = new AccountID(userAccount.XdrPublicKey),
             },
         };
         List<SCVal> argsList = new List<SCVal>() { addressArg };
@@ -82,11 +81,11 @@ public class StellarDotnet
         GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 2000);
         if (getResult == null)
         {
-            Debug.LogError("get transaction failed");
+            Debug.LogError("CallVoidFunction timed out or failed to connect");
         }
-        else
+        else if (getResult.Status != GetTransactionResultStatus.SUCCESS)
         {
-            Debug.Log(getResult.Status);
+            Debug.LogWarning("CallVoidFunction got " + getResult.Status);
         }
         // TODO: fix delay not working
         return (getResult, simResult);
@@ -123,32 +122,54 @@ public class StellarDotnet
         return entry?.account;
     }
 
-    public async Task<Lobby?> ReqLobby(string key)
+    LedgerKey MakeLedgerKey(string sym, object key, ContractDataDurability durability)
     {
+        SCVal scKey = SCUtility.NativeToSCVal(key);
         SCVal.ScvVec enumKey = new SCVal.ScvVec
         {
             vec = new SCVec(new SCVal[]
             {
                 new SCVal.ScvSymbol
                 {
-                    sym = "Lobby",
+                    sym = sym,
                 },
-                new SCVal.ScvString
-                {
-                    str = key,
-                },
+                scKey,
             }),
         };
-        LedgerKey ledgerKey = new LedgerKey.ContractData
+        return new LedgerKey.ContractData
         {
             contractData = new LedgerKey.contractDataStruct
             {
-                contract = contractAddress,
+                contract = new SCAddress.ScAddressTypeContract
+                {
+                    contractId = new Hash(StrKey.DecodeContractId(contractAddress)),
+                },
                 key = enumKey,
-                durability = ContractDataDurability.TEMPORARY,
+                durability = durability,
             },
         };
-        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
+    }
+    
+    public async Task<User?> ReqUserData(string key)
+    {
+        LedgerKey ledgerKey = MakeLedgerKey("User", key, ContractDataDurability.PERSISTENT);
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
+        {
+            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)}
+        });
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            return null;
+        }
+        var data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+        User user = SCUtility.SCValToNative<User>(data.contractData.val);
+        return user;
+    }
+
+    public async Task<Lobby?> ReqLobbyData(string key)
+    {
+        LedgerKey ledgerKey = MakeLedgerKey("Lobby", key, ContractDataDurability.TEMPORARY);
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
             Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
         });
@@ -160,53 +181,6 @@ public class StellarDotnet
         var data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
         Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
         return lobby;
-    }
-    
-    public async Task<List<Invite>> ReqInvites()
-    {
-        // figure out how to turn a string into a SCAddress.ScAddressTypeContract.Hash
-        SCVal.ScvVec enumKey = new SCVal.ScvVec
-        {
-            vec = new SCVec(new SCVal[]
-            {
-                new SCVal.ScvSymbol
-                {
-                    sym = "PendingInvites",
-                },
-                new SCVal.ScvString
-                {
-                    str = StellarManager.testGuest,
-                },
-            }),
-        };
-        LedgerKey ledgerKey = new LedgerKey.ContractData
-        {
-            contractData = new LedgerKey.contractDataStruct
-            {
-                contract = contractAddress,
-                key = enumKey,
-                durability = ContractDataDurability.TEMPORARY,
-            }
-        };
-        
-        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
-        {
-            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
-        });
-        List<Invite> invites = new List<Invite>();
-        foreach (Entries entry in getLedgerEntriesResult.Entries)
-        {
-            LedgerEntry.dataUnion.ContractData data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            SCVal.ScvMap value = data.contractData.val as SCVal.ScvMap;
-            foreach (SCMapEntry thing in value.map.InnerValue)
-            {
-                string host = SCUtility.SCValToNative<string>(thing.key);
-                Invite invite = SCUtility.SCValToNative<Invite>(thing.val);
-                invites.Add(invite);
-                Debug.Log(host + " - " + invite.host_address);
-            }
-        }
-        return invites;
     }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
@@ -225,7 +199,7 @@ public class StellarDotnet
                         {
                             contractAddress = new SCAddress.ScAddressTypeContract()
                             {
-                                contractId = new Hash(StrKey.DecodeContractId(contractId)),
+                                contractId = new Hash(StrKey.DecodeContractId(contractAddress)),
                             },
                             functionName = new SCSymbol(functionName),
                             args = args,
@@ -275,7 +249,7 @@ public class StellarDotnet
 
     async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
     {
-        Debug.Log("WaitForTransaction started for hash" + txHash);
+        Debug.Log("WaitForTransaction started for txhash " + txHash);
         int max_attempts = 10;
         int attempts = 0;
         await AsyncDelay.Delay(delayMS);
@@ -290,7 +264,7 @@ public class StellarDotnet
             {
                 case GetTransactionResultStatus.FAILED:
                     Debug.Log("WaitForTransaction FAILED");
-                    return null;
+                    return completion;
                 case GetTransactionResultStatus.NOT_FOUND:
                     Debug.Log("WaitForTransaction waiting a bit");
                     await AsyncDelay.Delay(delayMS);
