@@ -267,13 +267,13 @@ pub struct NestedTestReq {
 pub enum DataKey {
     Admin, // Address
     User(UserAddress),
-    Record(String)
+    Record(String),
+    Lobby(LobbyGuid), // lobby specific data
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TempKey {
     PendingInvites(UserAddress), // guests (the recipient) address
-    Lobby(LobbyGuid), // lobby specific data
 }
 // endregion
 // region contract
@@ -305,16 +305,20 @@ impl Contract {
 
     pub fn make_lobby(env: Env, address: Address, req: MakeLobbyReq) -> Result<LobbyGuid, Error> {
         address.require_auth();
-        if address.to_string() != req.host_address
-        {
+        if address.to_string() != req.host_address {
             return Err(Error::InvalidArgs)
         }
         let persistent = &env.storage().persistent();
-        let temporary = &env.storage().temporary();
+        //let temporary = &env.storage().temporary();
         let mut host_user = Self::get_or_make_user(&env, &req.host_address);
-        if !host_user.current_lobby.is_empty()
-        {
-            return Err(Error::HostAlreadyInLobby)
+        if !host_user.current_lobby.is_empty() {
+            let old_lobby_key = DataKey::Lobby(host_user.current_lobby.clone());
+            if env.storage().persistent().has(&old_lobby_key) {
+                return Err(Error::HostAlreadyInLobby);
+            }
+            else {
+                host_user.current_lobby = String::from_str(&env, "");
+            }
         }
         let lobby_id:LobbyGuid = Self::generate_uuid(&env, req.salt);
         let lobby = Lobby {
@@ -339,9 +343,9 @@ impl Contract {
             phase: Phase::Uninitialized,
             turns: Vec::new(&env),
         };
-        let lobby_key = TempKey::Lobby(lobby_id.clone());
-        temporary.set(&lobby_key, &lobby);
-        temporary.extend_ttl(&lobby_key, 0, 8888);
+        let lobby_key = DataKey::Lobby(lobby_id.clone());
+        persistent.set(&lobby_key, &lobby);
+        //persistent.extend_ttl(&lobby_key, 0, 17279);
         host_user.current_lobby = lobby_id.clone();
         let host_key = DataKey::User(host_user.index.clone());
         persistent.set(&host_key, &host_user);
@@ -351,37 +355,40 @@ impl Contract {
     pub fn leave_lobby(env: Env, address: Address) -> Result<bool, Error> {
         let user_address: UserAddress = address.to_string();
         address.require_auth();
-        let temporary = &env.storage().temporary();
+        //let temporary = &env.storage().temporary();
         let persistent = &env.storage().persistent();
         let user_key = DataKey::User(user_address.clone());
         let mut user: User = match persistent.get(&user_key) {
             Some(thing) => thing,
             None => return Err(Error::UserNotFound),
         };
-        let lobby_key = TempKey::Lobby(user.current_lobby.clone());
-        let mut lobby: Lobby = match temporary.get(&lobby_key) {
-            Some(thing) => thing,
-            None => return Err(Error::LobbyNotFound),
-        };
-        // TODO: make a version of this where the lobby id is already known
-        // decouple user
+        if user.current_lobby.is_empty()
+        {
+            return Err(Error::LobbyNotFound)
+        }
+        let lobby_key = DataKey::Lobby(user.current_lobby.clone());
+        //decouple user
         user.current_lobby = String::from_str(&env, "");
         persistent.set(&user_key, &user);
-
+        // do not mutate user after this
+        // update lobby
+        let mut lobby: Lobby = match persistent.get(&lobby_key) {
+            Some(thing) => thing,
+            None => {
+                return Err(Error::LobbyNotFound)
+            },
+        };
         let user_is_host = user.index == lobby.host_address;
         let other_user_address = if user_is_host {lobby.guest_address.clone()} else {lobby.host_address.clone()};
-        if user_is_host
-        {
+        if user_is_host {
             lobby.host_state.lobby_state = UserLobbyState::Left;
         }
-        else
-        {
+        else {
             lobby.guest_state.lobby_state = UserLobbyState::Left;
         }
         lobby.game_end_state = EndState::Aborted;
-        temporary.set(&lobby_key, &lobby);
-        if !other_user_address.is_empty()
-        {
+        persistent.set(&lobby_key, &lobby);
+        if !other_user_address.is_empty() {
             env.events().publish((EVENT_USER_LEFT, lobby.index, user.index.clone(), other_user_address), user.index);
         }
         Ok(true)
@@ -389,37 +396,40 @@ impl Contract {
 
     pub fn join_lobby(env: Env, address: Address, req: JoinLobbyReq) -> Result<bool, Error> {
         address.require_auth();
-        let temporary = &env.storage().temporary();
-        let lobby_key = TempKey::Lobby(req.lobby_id.clone());
-        let mut lobby: Lobby = match temporary.get(&lobby_key) {
+        if address.to_string() != req.guest_address {
+            return Err(Error::InvalidArgs)
+        }
+        let persistent = &env.storage().persistent();
+        let lobby_key = DataKey::Lobby(req.lobby_id.clone());
+        let mut user: User = Self::get_or_make_user(&env, &req.guest_address);
+        let user_key = DataKey::User(req.guest_address.clone());
+        if !user.current_lobby.is_empty() {
+            let old_lobby_key = DataKey::Lobby(user.current_lobby.clone());
+            if env.storage().persistent().has(&old_lobby_key) {
+                return Err(Error::GuestAlreadyInLobby);
+            }
+            user.current_lobby = String::from_str(&env, "");
+            persistent.set(&user_key, &user);
+        }
+        let mut lobby: Lobby = match persistent.get(&lobby_key) {
             Some(thing) => thing,
             None => return Err(Error::LobbyNotFound),
         };
         // check if lobby is joinable
-        if lobby.phase != Phase::Uninitialized
-        {
+        if lobby.phase != Phase::Uninitialized {
             return Err(Error::LobbyNotJoinable)
         }
-        if !lobby.guest_address.is_empty()
-        {
+        if !lobby.guest_address.is_empty() {
             return Err(Error::LobbyNotJoinable)
         }
-        if !lobby.guest_state.user_address.is_empty()
-        {
+        if !lobby.guest_state.user_address.is_empty() {
             return Err(Error::LobbyNotJoinable)
         }
-        if lobby.host_state.lobby_state != UserLobbyState::InLobby
-        {
+        if lobby.host_state.lobby_state != UserLobbyState::InLobby {
             return Err(Error::LobbyNotJoinable)
         }
-        if lobby.host_address == req.guest_address
-        {
+        if lobby.host_address == req.guest_address {
             return Err(Error::LobbyNotJoinable)
-        }
-        let mut guest_user = Self::get_or_make_user(&env, &req.guest_address);
-        if !guest_user.current_lobby.is_empty()
-        {
-            return Err(Error::GuestAlreadyInLobby)
         }
         // write lobby
         lobby.guest_address = req.guest_address.clone();
@@ -431,22 +441,18 @@ impl Contract {
         };
         lobby.host_state.lobby_state = UserLobbyState::InGame;
         lobby.phase = Phase::Setup;
-        temporary.set(&lobby_key, &lobby);
-        temporary.extend_ttl(&lobby_key, 0, 8888);
+        persistent.set(&lobby_key, &lobby);
         // write guest user
-        guest_user.current_lobby = req.lobby_id.clone();
-        let persistent = &env.storage().persistent();
-        let guest_key = DataKey::User(req.guest_address.clone());
-        persistent.set(&guest_key, &guest_user);
+        user.current_lobby = req.lobby_id.clone();
+        persistent.set(&user_key, &user);
         Ok(true)
     }
 
     pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
         address.require_auth();
-
-        let temp = env.storage().temporary();
-        let lobby_key = TempKey::Lobby(req.lobby_id.clone());
-        let mut lobby: Lobby = match temp.get(&lobby_key) {
+        let persistent = env.storage().persistent();
+        let lobby_key = DataKey::Lobby(req.lobby_id.clone());
+        let mut lobby: Lobby = match persistent.get(&lobby_key) {
             Some(v) => v,
             None => return Err(Error::LobbyNotFound),
         };
@@ -526,8 +532,7 @@ impl Contract {
             };
             lobby.turns.push_back(first_turn);
         }
-        temp.set(&lobby_key, &lobby);
-        temp.extend_ttl(&lobby_key, 0, 8888);
+        persistent.set(&lobby_key, &lobby);
         Ok(())
     }
 

@@ -15,7 +15,7 @@ public class GuiLobbySetupMenu : MenuElement
     public Toggle mustFillAllTilesToggle;
     public Button teamButton;
     public TextMeshProUGUI teamButtonText;
-    public TMP_InputField addressInput;
+    //public TMP_InputField addressInput;
 
     public event Action OnCancelButton;
     public event Action<LobbyParameters> OnStartButton;
@@ -38,7 +38,7 @@ public class GuiLobbySetupMenu : MenuElement
         boardDropdown.onValueChanged.AddListener(HandleBoardDropdown);
         mustFillAllTilesToggle.onValueChanged.AddListener(HandleMustFillAllTilesToggle);
         teamButton.onClick.AddListener(HandleTeamButton);
-        addressInput.onValueChanged.AddListener(HandleAddressInput);
+        //addressInput.onValueChanged.AddListener(HandleAddressInput);
     }
 
     public override void ShowElement(bool enable)
@@ -50,7 +50,7 @@ public class GuiLobbySetupMenu : MenuElement
         // Reset default selections when showing the menu
         hostTeam = 1;
         mustFillAllTiles = true;
-        addressInput.text = string.Empty;
+        //addressInput.text = string.Empty;
         UpdateTeamButton();
         PopulateBoardDropdown();
         UpdateLobbyButton();
@@ -64,18 +64,18 @@ public class GuiLobbySetupMenu : MenuElement
     {
         // Determine configuration validity based on board selection and address input
         bool isBoardValid = selectedBoardDef != null;
-        bool isAddressValid = StellarDotnet.IsValidStellarAddress(addressInput.text);
-        bool isValidConfig = isBoardValid && isAddressValid;
+        //bool isAddressValid = StellarDotnet.IsValidStellarAddress(addressInput.text);
+        bool isValidConfig = isBoardValid;
 
         // Set appropriate message for the start button based on UI state
         if (!isBoardValid)
         {
             startButtonText.text = "Please select a board";
         }
-        else if (!isAddressValid)
-        {
-            startButtonText.text = "Please enter a valid address";
-        }
+        //else if (!isAddressValid)
+        //{
+        //    startButtonText.text = "Please enter a valid address";
+        //}
         else
         {
             startButtonText.text = "Start Lobby";

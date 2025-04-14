@@ -595,6 +595,37 @@ namespace Contract
                 }),
             };
         }
+
+        public bool IsLobbyStartable()
+        {
+            
+            if (string.IsNullOrEmpty(host_address))
+            {
+                return false;
+            }
+            if (string.IsNullOrEmpty(guest_address))
+            {
+                return false;
+            }
+            if (game_end_state != 3)
+            {
+                return false;
+            }
+            if (host_state.lobby_state == 4)
+            {
+                return false;
+            }
+            if (guest_state.lobby_state == 4)
+            {
+                return false;
+            }
+            if (phase == 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
     }
 
     public struct MakeLobbyReq : IScvMapCompatable

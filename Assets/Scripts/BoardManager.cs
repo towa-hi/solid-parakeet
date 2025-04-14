@@ -46,6 +46,7 @@ public class BoardManager : MonoBehaviour
     public void InvokeOnSetupStateChanged(PawnDef selectedPawnDef) {OnSetupStateChanged?.Invoke(selectedPawnDef);}
     public SpotLight spotLightHandler;
     
+    
     void Start()
     {
         clickInputManager.Initialize(this);

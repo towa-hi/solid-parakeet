@@ -153,9 +153,10 @@ public class StellarDotnet
     public async Task<User?> ReqUserData(string key)
     {
         LedgerKey ledgerKey = MakeLedgerKey("User", key, ContractDataDurability.PERSISTENT);
+        Debug.Log("ReqUserData on " + key + " contract " + contractAddress);
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
-            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)}
+            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
         });
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
@@ -168,7 +169,8 @@ public class StellarDotnet
 
     public async Task<Lobby?> ReqLobbyData(string key)
     {
-        LedgerKey ledgerKey = MakeLedgerKey("Lobby", key, ContractDataDurability.TEMPORARY);
+        Debug.Log("ReqLobbyData on " + key + " contract " + contractAddress);
+        LedgerKey ledgerKey = MakeLedgerKey("Lobby", key, ContractDataDurability.PERSISTENT);
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
             Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},

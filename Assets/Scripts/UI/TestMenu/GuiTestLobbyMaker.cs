@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Contract;
 using TMPro;
@@ -15,6 +16,15 @@ public class GuiTestLobbyMaker : TestGuiElement
     public Button makeLobbyButton;
     BoardDef[] boardDefs;
     public bool lobbyMade = false;
+
+    public event Action OnBackButton;
+    public event Action OnSubmitLobbyButton;
+
+    void Start()
+    {
+        backButton.onClick.AddListener(delegate { OnBackButton?.Invoke(); });
+        makeLobbyButton.onClick.AddListener(delegate { OnSubmitLobbyButton?.Invoke(); });
+    }
     
     public override void Initialize()
     {

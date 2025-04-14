@@ -39,8 +39,8 @@ public class GuiNetworkMenu : MenuElement
         newContractButton.onClick.AddListener(HandleNewContractButton);
         toggleFiltersButton.onClick.AddListener(HandleToggleFiltersButton);
         backButton.onClick.AddListener(HandleBackButton);
-        GameManager.instance.stellarManager.OnCurrentUserChanged += OnCurrentUserChangedEvent;
-        GameManager.instance.stellarManager.OnContractChanged += OnContractChangedEvent;
+        //GameManager.instance.stellarManager.OnCurrentUserChanged += OnCurrentUserChangedEvent;
+        //GameManager.instance.stellarManager.OnContractChanged += OnContractChangedEvent;
         //OnContractChangedEvent(GameManager.instance.stellarManager.stellar.contractId);
         //EnableLobbySetupModal(true);
     }
@@ -58,23 +58,23 @@ public class GuiNetworkMenu : MenuElement
     
     void OnCurrentUserChangedEvent()
     {
-        User? currentUser = GameManager.instance.stellarManager.currentUser;
-        Debug.Log("OnCurrentUserChangedEvent");
-        if (currentUser != null)
-        {
-            Debug.Log("setting currentUser");
-            userNameText.text = currentUser.Value.name;
-            userIdText.text = currentUser.Value.index;
-            userGamesPlayedText.text = currentUser.Value.games_completed.ToString();
-        }
-        else
-        {
-            Debug.Log("clearing currentUser");
-            userNameText.text = "no user";
-            userIdText.text = "";
-            userGamesPlayedText.text = "";
-            userCurrentLobbyText.text = "";
-        }
+        //User? currentUser = GameManager.instance.stellarManager.currentUser;
+        // Debug.Log("OnCurrentUserChangedEvent");
+        // if (currentUser != null)
+        // {
+        //     Debug.Log("setting currentUser");
+        //     userNameText.text = currentUser.Value.name;
+        //     userIdText.text = currentUser.Value.index;
+        //     userGamesPlayedText.text = currentUser.Value.games_completed.ToString();
+        // }
+        // else
+        // {
+        //     Debug.Log("clearing currentUser");
+        //     userNameText.text = "no user";
+        //     userIdText.text = "";
+        //     userGamesPlayedText.text = "";
+        //     userCurrentLobbyText.text = "";
+        // }
     }
 
     public override void ShowElement(bool enable)
@@ -87,13 +87,13 @@ public class GuiNetworkMenu : MenuElement
     }
     void HandleConnectWalletButton()
     {
-        _ = GameManager.instance.RunWithEvents<bool>(GameManager.instance.stellarManager.OnConnectWallet);
+        //_ = GameManager.instance.RunWithEvents<bool>(GameManager.instance.stellarManager.OnConnectWallet);
         OnConnectWalletButton?.Invoke();
     }
 
     void HandleTestButton()
     {
-        _ = GameManager.instance.stellarManager.TestFunction();
+        //_ = GameManager.instance.stellarManager.TestFunction();
         OnTestButton?.Invoke();
     }
 
@@ -109,7 +109,7 @@ public class GuiNetworkMenu : MenuElement
 
     void HandleNewContractButton()
     {
-        GameManager.instance.stellarManager.SetContract(contractInputField.text);
+        //GameManager.instance.stellarManager.SetContract(contractInputField.text);
     }
 
     bool filterOn;

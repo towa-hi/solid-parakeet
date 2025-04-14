@@ -20,18 +20,23 @@ public class GuiTestMenuController : MenuElement
     void Start()
     {
         StellarManagerTest.Initialize();
-        startMenuElement.makeLobbyButton.onClick.AddListener(GotoLobbyMaker);
-        startMenuElement.joinLobbyButton.onClick.AddListener(GotoJoinLobby);
         startMenuElement.OnSetSneedButton += OnSetSneed;
         startMenuElement.OnSetContractButton += OnSetContract;
         startMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
         startMenuElement.OnCancelButton += CloseMenu;
         startMenuElement.OnViewLobbyButton += ViewLobby;
-        lobbyMakerElement.backButton.onClick.AddListener(GotoStartMenu);
-        lobbyMakerElement.makeLobbyButton.onClick.AddListener(OnMakeLobbyButton);
+        startMenuElement.OnJoinLobbyButton += GotoJoinLobby;
+
+        lobbyMakerElement.OnBackButton += GotoStartMenu;
+        lobbyMakerElement.OnSubmitLobbyButton += OnSubmitLobbyButton;
+        
         lobbyViewerElement.OnDeleteButton += OnDeleteLobbyButton;
         lobbyViewerElement.OnBackButton += GotoStartMenu;
         lobbyViewerElement.OnRefreshButton += RefreshNetworkState;
+        lobbyViewerElement.OnStartButton += OnStartGame;
+        
+        lobbyJoinerElement.OnBackButton += GotoStartMenu;
+        lobbyJoinerElement.OnJoinButton += JoinLobby;
         startMenuElement.SetIsEnabled(false);
         lobbyMakerElement.SetIsEnabled(false);
         lobbyJoinerElement.SetIsEnabled(false);
@@ -57,8 +62,7 @@ public class GuiTestMenuController : MenuElement
             lobbyMakerElement.SetIsEnabled(false);
             lobbyJoinerElement.SetIsEnabled(false);
             waitingElement.SetIsEnabled(false);
-            ShowElement(startMenuElement);
-            _ = UpdateNetworkState();
+            GotoStartMenu();
         }
     }
 
@@ -110,14 +114,24 @@ public class GuiTestMenuController : MenuElement
         ShowElement(lobbyMakerElement);
     }
 
-    void GotoStartMenu()
+    async void GotoStartMenu()
     {
+        Blocker(true);
+        _ = await StellarManagerTest.UpdateState();
+        Blocker(false);
         ShowElement(startMenuElement);
     }
 
-    void GotoJoinLobby()
+    async void GotoJoinLobby()
     {
-        ShowElement(lobbyJoinerElement);
+        Blocker(true);
+        _ = await StellarManagerTest.UpdateState();
+        Blocker(false);
+        User? maybeUser = StellarManagerTest.currentUser;
+        if (maybeUser.HasValue)
+        {
+            ShowElement(lobbyJoinerElement);
+        }
     }
 
     async void ViewLobby()
@@ -130,9 +144,62 @@ public class GuiTestMenuController : MenuElement
             ShowElement(lobbyViewerElement);
         }
     }
-    void GotoLobbyViewer()
+
+    async void JoinLobby()
     {
-        ShowElement(lobbyViewerElement);
+        Blocker(true);
+        string lobbyId = lobbyJoinerElement.GetLobbyId();
+        Lobby? maybeLobby = await StellarManagerTest.GetLobby(lobbyId);
+        if (maybeLobby.HasValue)
+        {
+            Lobby lobby = maybeLobby.Value;
+            if (string.IsNullOrEmpty(lobby.guest_address))
+            {
+                int code = await StellarManagerTest.JoinLobbyRequest(lobby.index);
+                _ = await StellarManagerTest.UpdateState();
+                if (code == 0)
+                {
+                    ShowElement(lobbyViewerElement);
+                }
+                else if (code == 12)
+                {
+                    Debug.LogWarning($"Failed to join lobby with code {code}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"attempted to join lobby {lobby.index} but lobby.guest_address is already {lobby.guest_address}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"lobby {lobbyId} not found");
+        }
+        Blocker(false);
+        
+    }
+
+    async void OnStartGame()
+    {
+        Blocker(true);
+        _ = await StellarManagerTest.UpdateState();
+        Lobby? maybeLobby = StellarManagerTest.currentLobby;
+        if (!maybeLobby.HasValue)
+        {
+            Debug.LogError("no lobby");
+        }
+        Lobby lobby = maybeLobby.Value;
+        Blocker(false);
+        if (!lobby.IsLobbyStartable())
+        {
+            Debug.LogError("Lobby is not startable");
+        }
+        else
+        {
+            GameManager.instance.StartGame(lobby);
+        }
+        
+        
     }
     
     void GotoWaiting()
@@ -140,22 +207,18 @@ public class GuiTestMenuController : MenuElement
         ShowElement(waitingElement);
     }
     
-    async void OnMakeLobbyButton()
+    async void OnSubmitLobbyButton()
     {
         Blocker(true);
         Contract.LobbyParameters parameters = lobbyMakerElement.GetLobbyParameters();
-        (int code, Lobby? lobby) = await StellarManagerTest.MakeLobbyRequest(parameters);
-        if (lobby != null)
-        {
-            Debug.Log(lobby.Value.index);
-        }
-        lobbyMakerElement.OnLobbyMade(code);
+        int code = await StellarManagerTest.MakeLobbyRequest(parameters);
+        //lobbyMakerElement.OnLobbyMade(code);
         _ = await StellarManagerTest.UpdateState();
+        Blocker(false);
         if (code == 0)
         {
-            GotoLobbyViewer();
+            ShowElement(lobbyViewerElement);
         }
-        Blocker(false);
     }
 
     async void OnDeleteLobbyButton()

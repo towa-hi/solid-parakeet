@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Contract;
 using PrimeTween;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -14,12 +15,13 @@ public class GameManager : MonoBehaviour
 
     public Volume globalVolume;
     public BoardManager boardManager;
+    public TestBoardManager testBoardManager;
     public GuiManager guiManager;
     public CameraManager cameraManager;
     public AudioManager audioManager;
     public PoolManager poolManager;
     public SettingsManager settingsManager;
-    public StellarManager stellarManager;
+    //public StellarManager stellarManager;
     public IGameClient client;
     public bool offlineMode;
 
@@ -63,6 +65,22 @@ public class GameManager : MonoBehaviour
         Debug.Log("Enable input action");
         Globals.InputActions.Game.Enable();
     }
+
+
+    public void StartGame(Lobby lobby)
+    {
+        guiManager.OnDemoStartedResponse(null);
+        testBoardManager.StartGame();
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     public Dictionary<Rank, PawnDef> GetPawnDefFromRank()
     {

@@ -13,11 +13,11 @@ public class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CAW2VJMTCM7LPUY7CSVBXX3SPYXWVYR2IRAVZSJ64PYWBBWGSH23BDJG";
+    public static string testContract = "CBRKQJMVTJ3SGKN32GQG3PEWIRUQVN3LQZEYOCK3D6GZ4O3PRXQGWAOD";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
-    public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
+    //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
-
+    public static string testGuestSneed = "SBHR4URT5RHIK4U4N45ZNUNEKLYEJYVFQSLSTR4A4RVNFHLIERGVZSIE";
     public static event Action<string> OnSneedUpdated;
     public static event Action<string> OnContractAddressUpdated;
     public static event Action<User?> OnCurrentUserUpdated;
@@ -29,6 +29,9 @@ public class StellarManagerTest
     public static void Initialize()
     {
         stellar = new StellarDotnet(testHostSneed, testContract);
+        Debug.Log("Initialized sneed and contract address");
+        Debug.Log("sneed" + stellar.sneed);
+        Debug.Log("contract" + stellar.contractAddress);
     }
 
     public static async Task<bool> UpdateState()
@@ -36,16 +39,43 @@ public class StellarManagerTest
         User? oldUser = currentUser;
         Lobby? oldLobby = currentLobby;
         Debug.Log("Updating State...");
+        Debug.Log("sneed " + stellar.sneed);
+        Debug.Log("contract " + stellar.contractAddress);
         currentUser = null;
         currentLobby = null;
         if (stellar.sneed == null || stellar.contractAddress == null)
         {
+            Debug.Log("no sneed or contract address");
             return true;
         }
         currentUser = await GetUser(stellar.userAddress);
         if (currentUser.HasValue)
         {
-            currentLobby = await GetLobby(currentUser.Value.current_lobby);
+            Debug.Log("currentUser set to " + currentUser.Value.index);
+        }
+        else
+        {
+            Debug.Log("currentUser set to null");
+            Debug.Log("currentLobby set to null because current user is null");
+        }
+        if (currentUser.HasValue)
+        {
+            if (!string.IsNullOrEmpty(currentUser.Value.current_lobby))
+            {
+                currentLobby = await GetLobby(currentUser.Value.current_lobby);
+                if (currentLobby.HasValue)
+                {
+                    Debug.Log("currentLobby set to " + currentLobby.Value.index);
+                }
+                else
+                {
+                    Debug.Log("currentLobby set to null because lobby could not be fetched");
+                }
+            }
+            else
+            {
+                Debug.Log("currentLobby set to null because currentUser.current_lobby is empty");
+            }
         }
         Debug.Log("OnCurrentUserUpdated");
         OnCurrentUserUpdated?.Invoke(currentUser);
@@ -80,12 +110,12 @@ public class StellarManagerTest
     {
         return stellar.contractAddress;
     }
-    public static async Task<(int, Lobby?)> MakeLobbyRequest(Contract.LobbyParameters parameters)
+    public static async Task<int> MakeLobbyRequest(Contract.LobbyParameters parameters)
     {
         uint salt = (uint)Random.Range(0, 4000000);
         MakeLobbyReq req = new MakeLobbyReq
         {
-            host_address = stellar.userAddress,
+            host_address = GetUserAddress(),
             parameters = parameters,
             salt = salt,
         };
@@ -93,7 +123,7 @@ public class StellarManagerTest
         if (simResult == null)
         {
             Debug.LogError("MakeLobbyReq simResult is null");
-            return (-1, null);
+            return -1;
         }
         else if (simResult.Error != null)
         {
@@ -105,27 +135,24 @@ public class StellarManagerTest
             }
             if (errorCodes.Count == 1)
             {
-                return (errorCodes[0], null);
+                return errorCodes[0];
             }
             else
             {
-                return (-666, null);
+                return -666;
             }
         }
         else if (result == null)
         {
             Debug.LogError("MakeLobbyReq final result is null");
-            return (-2, null);
+            return -2;
         }
         else if (result.Status != GetTransactionResultStatus.SUCCESS)
         {
             Debug.LogWarning("MakeLobbyReq sim got " + result.Status);
-            return (-3, null);
+            return -3;
         }
-        SCVal returnValue = (result.TransactionResultMeta as TransactionMeta.case_3).v3.sorobanMeta.returnValue;
-        string lobbyId = SCUtility.SCValToNative<string>(returnValue);
-        Lobby? lobby = await GetLobby(lobbyId);
-        return (0, lobby);
+        return 0;
     }
 
     public static async Task<int> LeaveLobbyRequest()
@@ -143,6 +170,49 @@ public class StellarManagerTest
             {
                 return errorCodes[0];
             }
+        }
+        return 0;
+    }
+
+    public static async Task<int> JoinLobbyRequest(string lobbyId)
+    {
+        JoinLobbyReq req = new()
+        {
+            guest_address = GetUserAddress(),
+            lobby_id = lobbyId,
+        };
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("join_lobby", req);
+        if (simResult == null)
+        {
+            Debug.LogError("JoinLobbyRequest simResult is null");
+            return -1;
+        }
+        else if (simResult.Error != null)
+        {
+            Debug.Log("JoinLobbyRequest sim got " + simResult.Error);
+            List<int> errorCodes = GetErrorCodes(simResult.DiagnosticEvents);
+            if (errorCodes.Count > 1)
+            {
+                Debug.LogWarning("JoinLobbyRequest failed to simulate with more than 1 error");
+            }
+            if (errorCodes.Count == 1)
+            {
+                return errorCodes[0];
+            }
+            else
+            {
+                return -666;
+            }
+        }
+        else if (result == null)
+        {
+            Debug.LogError("JoinLobbyRequest final result is null");
+            return -2;
+        }
+        else if (result.Status != GetTransactionResultStatus.SUCCESS)
+        {
+            Debug.LogWarning("JoinLobbyRequest sim got " + result.Status);
+            return -3;
         }
         return 0;
     }

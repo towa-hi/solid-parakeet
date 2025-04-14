@@ -14,11 +14,13 @@ public class GuiTestLobbyViewer : TestGuiElement
     public Button deleteButton;
     public Button refreshButton;
     public Button startButton;
-
+    public Button enterGameButton;
+    
     public event Action OnBackButton;
     public event Action OnDeleteButton;
     public event Action OnRefreshButton;
     public event Action OnStartButton;
+    public event Action OnEnterGameButton;
     
     void Start()
     {
@@ -26,6 +28,7 @@ public class GuiTestLobbyViewer : TestGuiElement
         deleteButton.onClick.AddListener(HandleDeleteButton);
         refreshButton.onClick.AddListener(HandleRefreshButton);
         startButton.onClick.AddListener(HandleStartButton);
+        enterGameButton.onClick.AddListener(HandleEnterGameButton);
         StellarManagerTest.OnCurrentLobbyUpdated += OnLobbyUpdate;
     }
     
@@ -43,23 +46,64 @@ public class GuiTestLobbyViewer : TestGuiElement
     {
         Lobby? maybeLobby = StellarManagerTest.currentLobby;
         lobbyView.Refresh(maybeLobby);
-        
-        string status = "Lobby not found";
         startButton.interactable = false;
+        enterGameButton.interactable = false;
+        List<string> problems = new List<string>();
+        bool lobbyStartable = true;
         if (maybeLobby.HasValue)
         {
-            if (!string.IsNullOrEmpty(maybeLobby.Value.guest_address))
+            Lobby lobby = maybeLobby.Value;
+            if (string.IsNullOrEmpty(lobby.host_address))
             {
-                status = "Can start game";
-                startButton.interactable = true;
+                problems.Add("lobby.host_address is empty");
+                lobbyStartable = false;
             }
-            else
+            if (string.IsNullOrEmpty(lobby.guest_address))
             {
-                status = "Waiting for a guest...";
+                problems.Add("lobby.guest_address is empty");
+                lobbyStartable = false;
             }
+
+            if (lobby.game_end_state != 3)
+            {
+                problems.Add($"lobby.game_end_state is {lobby.game_end_state}");
+                lobbyStartable = false;
+            }
+
+            // if (lobby.host_state.lobby_state != 1)
+            // {
+            //     problems.Add($"lobby.host_state is {lobby.host_state.lobby_state}");
+            //     lobbyStartable = false;
+            // }
+            //
+            // if (lobby.guest_state.lobby_state != 1)
+            // {
+            //     problems.Add($"lobby.guest_state is {lobby.guest_state.lobby_state}");
+            //     lobbyStartable = false;
+            // }
         }
+        else
+        {
+            problems.Add("lobby not found...");
+            lobbyStartable = false;
+        }
+        if (problems.Count > 0)
+        {
+            string problemsString = string.Join("", problems);
+            statusText.text = problemsString;
+            // foreach (var problem in problems)
+            // {
+            //     Debug.LogWarning(problem);
+            // }
+        }
+
+        if (lobbyStartable)
+        {
+            startButton.interactable = true;
+            statusText.text = "lobby startable";
+        }
+        startButton.interactable = lobbyStartable;
         
-        statusText.text = status;
     }
 
     void HandleBackButton()
@@ -80,5 +124,10 @@ public class GuiTestLobbyViewer : TestGuiElement
     void HandleStartButton()
     {
         OnStartButton?.Invoke();
+    }
+
+    void HandleEnterGameButton()
+    {
+        OnEnterGameButton?.Invoke();
     }
 }

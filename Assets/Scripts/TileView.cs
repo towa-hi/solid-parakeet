@@ -64,7 +64,11 @@ public class TileView : MonoBehaviour
             hexTile.SetActive(false);
             hexTileSurfaceRenderer.gameObject.SetActive(false);
         }
-        boardManager.OnPhaseChanged += OnPhaseChanged;
+
+        if (boardManager != null)
+        {
+            boardManager.OnPhaseChanged += OnPhaseChanged;
+        }
         tile = inTile;
         gameObject.name = $"Tile ({tile.pos.x},{tile.pos.y})";
         ShowTile(tile.isPassable);

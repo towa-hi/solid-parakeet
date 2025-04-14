@@ -56,7 +56,7 @@ public class GuiTestStartMenu : TestGuiElement
     public override void Refresh()
     {
         setContractButton.interactable = StellarManagerTest.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
-        setSneedButton.interactable = StellarManagerTest.GetUserAddress() != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
+        setSneedButton.interactable = StellarManagerTest.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
         currentContractText.text = StellarManagerTest.GetContractAddress();
         currentSneedText.text = StellarManagerTest.stellar.sneed;
         currentAddressText.text = StellarManagerTest.GetUserAddress();

@@ -84,7 +84,7 @@ public class StellarManager : MonoBehaviour
 
     public void SetContract(string contractId)
     {
-        stellar.SetContractId(contractId);
+        //stellar.SetContractId(contractId);
         OnContractChanged?.Invoke(contractId);
     }
     
@@ -115,19 +115,6 @@ public class StellarManager : MonoBehaviour
             games_completed = 0,
         };
         OnCurrentUserChanged?.Invoke();
-        return true;
-    }
-    
-    public async Task<bool> TestFunction()
-    {
-
-        return true;
-    }
-
-
-    public async Task<bool> SecondTestFunction(string guestAddress)
-    {
-        
         return true;
     }
     
