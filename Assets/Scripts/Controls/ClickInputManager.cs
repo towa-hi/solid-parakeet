@@ -41,15 +41,6 @@ public class ClickInputManager : MonoBehaviour
         hoveredTileView = null;
     }
 
-    public void Initialize(TestBoardManager boardManager)
-    {
-        boardManager.OnPhaseChanged += OnPhaseChanged;
-        hoveredPosition = Globals.Purgatory;
-        hoveredObject = null;
-        hoveredPawnView = null;
-        hoveredTileView = null;
-    }
-    
     void OnPhaseChanged(IPhase phase)
     {
         switch (phase)
@@ -93,17 +84,10 @@ public class ClickInputManager : MonoBehaviour
         if (!isUpdating) return;
         // get screen pointer position
         screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
-        Ray ray = Camera.main.ScreenPointToRay(screenPointerPosition);
-        if (Physics.Raycast(ray, out RaycastHit hit))
-        {
-            Debug.Log(hit);
-        }
-        Debug.DrawRay(ray.origin, ray.direction * 100, Color.red, 1f);
         PointerEventData eventData = new(EventSystem.current)
         {
-            position = screenPointerPosition,
+            position = screenPointerPosition
         };
-        Debug.Log(eventData.enterEventCamera);
         // get list of hits
         List<RaycastResult> results = new();
         EventSystem.current.RaycastAll(eventData, results);
@@ -117,11 +101,6 @@ public class ClickInputManager : MonoBehaviour
             return priorityA.CompareTo(priorityB);
         });
         resultsCount = results.Count;
-        Debug.Log(resultsCount);
-        foreach (RaycastResult result in results)
-        {
-            Debug.Log(result);
-        }
         bool hitUI = false;
         bool hitPawnView = false;
         bool hitTileView = false;
