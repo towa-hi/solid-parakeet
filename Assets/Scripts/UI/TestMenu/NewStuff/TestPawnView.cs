@@ -17,7 +17,7 @@ public class TestPawnView : MonoBehaviour
         string objectName = $"{pawn.team} Pawn {pawn.def.pawnName}";
         if (!pawn.isAlive)
         {
-            objectName += $"{Shared.ShortGuid(pawn.pawnId)}";
+            objectName += $" {Shared.ShortGuid(pawn.pawnId)}";
         }
         gameObject.name = objectName;
         badge.Initialize(pawn, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);

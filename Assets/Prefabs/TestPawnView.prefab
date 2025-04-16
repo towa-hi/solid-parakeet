@@ -268,7 +268,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &8076956040870363752
 Transform:
   m_ObjectHideFlags: 0
@@ -797,6 +797,7 @@ MonoBehaviour:
     isAlive: 0
     hasMoved: 0
     isVisibleToOpponent: 0
+    dirty: 0
 --- !u!114 &1369725078652453297
 MonoBehaviour:
   m_ObjectHideFlags: 0

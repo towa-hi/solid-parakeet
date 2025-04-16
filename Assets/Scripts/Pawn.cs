@@ -17,6 +17,8 @@ public class Pawn
     public bool hasMoved;
     public bool isVisibleToOpponent;
 
+    public bool dirty;
+    
     public Pawn()
     {
         
@@ -32,6 +34,7 @@ public class Pawn
         isAlive = p.is_alive;
         hasMoved = p.is_moved;
         isVisibleToOpponent = p.is_revealed;
+        dirty = false;
     }
     
     public Pawn(PawnDef inDef, Team inTeam, bool inIsSetup)
@@ -45,7 +48,20 @@ public class Pawn
         isAlive = false;
         isVisibleToOpponent = false;
     }
-    
+
+    public void MutSetupAdd(Vector2Int inPos)
+    {
+        isAlive = true;
+        pos = inPos;
+        dirty = true;
+    }
+
+    public void MutSetupRemove()
+    {
+        isAlive = false;
+        pos = Globals.Purgatory;
+        dirty = true;
+    }
 }
 
 [Serializable]

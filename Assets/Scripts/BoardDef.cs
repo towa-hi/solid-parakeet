@@ -17,6 +17,35 @@ public class BoardDef : ScriptableObject
     {
         return Array.Find(tiles, tile => tile.pos == pos);
     }
+    
+    public List<Tile> GetEmptySetupTiles(Team team, Rank rank, HashSet<Tile> usedTiles)
+    {
+        int setupZone = Rules.GetSetupZone(rank);
+        List<Tile> eligibleTiles = new();
+        List<Tile> preferredTiles = new();
+        foreach (Tile tile in tiles)
+        {
+            if (!tile.IsTileSetupAllowed(team))
+            {
+                continue;
+            }
+            if (usedTiles.Contains(tile))
+            {
+                continue;
+            }
+            eligibleTiles.Add(tile);
+            if (setupZone <= tile.autoSetupZone)
+            {
+                preferredTiles.Add(tile);
+            }
+        }
+        if (preferredTiles.Count != 0)
+        {
+            return preferredTiles;
+        }
+        Debug.LogWarning($"{rank} had to fallback to allTiles {setupZone}");
+        return eligibleTiles;
+    }
 }
 
 [Serializable]

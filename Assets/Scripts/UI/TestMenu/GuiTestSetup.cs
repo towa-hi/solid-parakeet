@@ -34,16 +34,38 @@ public class GuiTestSetup : MonoBehaviour
             rankListEntry.SetButtonOnClick(OnEntryClicked);
             rankListEntry.Refresh((Rank)maxPawn.rank, maxPawn.max, false);
         }
+
+        // Set up button listeners
+        autoSetupButton.onClick.AddListener(OnAutoSetupButton);
     }
 
+    public void Refresh(TestBoardManager boardManager)
+    {
+        foreach (GuiRankListEntry entry in entries)
+        {
+            entry.Refresh(entry.rank, entry.remaining, entry.rank == selectedRankEntry?.rank);
+        }
+    }
+    
     public void OnEntryClicked(GuiRankListEntry clickedEntry)
     {
-        selectedRankEntry = clickedEntry;
-        Debug.Log(clickedEntry.rank);
-        foreach (var entry in entries)
+        if (selectedRankEntry == clickedEntry)
         {
-            entry.Refresh(entry.rank, entry.remaining, entry.rank == clickedEntry.rank);
+            selectedRankEntry = null;
+        }
+        else
+        {
+            selectedRankEntry = clickedEntry;
         }
         OnRankSelected?.Invoke(clickedEntry.rank);
+    }
+
+    public void OnAutoSetupButton()
+    {
+        if (GameManager.instance.testBoardManager.currentPhase is SetupTestPhase setupPhase)
+        {
+            setupPhase.OnAutoSetup();
+            GameManager.instance.testBoardManager.UpdateAllPawnVisuals();
+        }
     }
 }

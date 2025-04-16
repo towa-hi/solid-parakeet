@@ -13,9 +13,7 @@ public class TestBoardManager : MonoBehaviour
     public TestClickInputManager clickInputManager;
     public Vortex vortex;
     public GuiTestGame guiTestGame;
-
-    public UserState userState;
-
+    
     public Dictionary<Vector2Int, TestTileView> tileViews = new();
     public List<TestPawnView> pawnViews = new();
 
@@ -25,11 +23,15 @@ public class TestBoardManager : MonoBehaviour
     public BoardDef boardDef;
     public ITestPhase currentPhase;
     
+    //stuff that never changes while ingame
+    public LobbyParameters parameters;
+    public Team userTeam;
+    
     public event Action<ITestPhase> OnPhaseChanged;
-    public event Action<PawnDef> OnSetupStateChanged;
+    public event Action<TestBoardManager> OnStateChanged;
     public event Action<Pawn> OnPawnChanged;
     
-    Lobby GetLobby()
+    public Lobby GetLobby()
     {
         Lobby? maybeLobby = StellarManagerTest.currentLobby;
         if (maybeLobby.HasValue)
@@ -42,10 +44,38 @@ public class TestBoardManager : MonoBehaviour
         }
     }
 
+    public User GetUser()
+    {
+        User? maybeUser = StellarManagerTest.currentUser;
+        if (maybeUser.HasValue)
+        {
+            return maybeUser.Value;
+        }
+        else
+        {
+            throw new NullReferenceException();
+        }
+    }
+
+    public UserState GetUserState()
+    {
+        Lobby lobby = GetLobby();
+        User user = GetUser();
+        if (lobby.guest_address == user.index)
+        {
+            return lobby.guest_state;
+        }
+        else if (lobby.host_address == user.index)
+        {
+            return lobby.host_state;
+        }
+        throw new NullReferenceException();
+    }
     void Start()
     {
         clickInputManager.Initialize();
         clickInputManager.OnClick += OnClick;
+        
     }
 
     public void UpdateAllPawnVisuals()
@@ -65,6 +95,19 @@ public class TestBoardManager : MonoBehaviour
     public void StartGame()
     {
         Lobby lobby = GetLobby();
+        User user = GetUser();
+        if (user.index == lobby.host_address)
+        {
+            userTeam = (Team)lobby.host_state.team;
+        }
+        else if (user.index == lobby.guest_address)
+        {
+            userTeam = (Team)lobby.guest_state.team;
+        }
+        else
+        {
+            throw new Exception("User is not a part of this lobby");
+        }
         BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
         foreach (var board in boardDefs)
         {
@@ -122,6 +165,12 @@ public class TestBoardManager : MonoBehaviour
             guiTestGame.setup.OnRankSelected -= OnRankSelected;
         }
     }
+
+    public void StateChanged()
+    {
+        
+        UpdateAllPawnVisuals();
+    }
     
     void OnRankSelected(Rank rank)
     {
@@ -129,6 +178,7 @@ public class TestBoardManager : MonoBehaviour
         {
             setupPhase.selectedRank = rank;
         }
+        OnStateChanged?.Invoke(this);
     }
     
     void OnClick(Vector2Int pos)
@@ -137,7 +187,7 @@ public class TestBoardManager : MonoBehaviour
         TestPawnView pawnView = pawnViews.FirstOrDefault(p => p.pawn.pos == pos);
         currentPhase?.OnClick(pos, tileView, pawnView);
         // Update all visuals after state changes are complete
-        UpdateAllPawnVisuals();
+        //UpdateAllPawnVisuals();
     }
 }
 
@@ -198,17 +248,15 @@ public class SetupTestPhase : ITestPhase
         if (selectedRank.HasValue)
         {
             // Find the first available pawn of the selected rank
-            TestPawnView availablePawn = bm.pawnViews.FirstOrDefault(p => 
-                p.pawn.def.rank == selectedRank.Value && !p.pawn.isAlive);
-                
-            if (availablePawn)
+            TestPawnView availablePawnView = bm.pawnViews.FirstOrDefault(p => 
+                p.pawn.def.rank == selectedRank.Value && !p.pawn.isAlive &&p.pawn.team == bm.userTeam);
+            if (availablePawnView)
             {
-                availablePawn.pawn.isAlive = true;
-                availablePawn.pawn.pos = clickedPos;
+                availablePawnView.pawn.MutSetupAdd(clickedPos);
             }
             else
             {
-                Debug.LogError($"No available pawns of rank {selectedRank.Value} to place");
+                Debug.LogWarning($"No available pawns of rank {selectedRank.Value} to place");
             }
         }
         else
@@ -216,5 +264,47 @@ public class SetupTestPhase : ITestPhase
             Debug.LogWarning("No rank selected");
             // do nothing
         }
+        bm.StateChanged();
+    }
+
+    public void OnAutoSetup()
+    {
+        // Get the lobby parameters
+        Lobby lobby = bm.GetLobby();
+
+        // Generate valid setup positions for each pawn
+        HashSet<Tile> usedTiles = new();
+        foreach (MaxPawns maxPawns in lobby.parameters.max_pawns)
+        {
+            for (int i = 0; i < maxPawns.max; i++)
+            {
+                // Get available tiles for this rank
+                List<Tile> availableTiles = bm.boardDef.GetEmptySetupTiles(bm.userTeam, (Rank)maxPawns.rank, usedTiles);
+                if (availableTiles.Count == 0)
+                {
+                    Debug.LogError($"No available tiles for rank {maxPawns.rank}");
+                    continue;
+                }
+
+                // Pick a random tile from available tiles
+                int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
+                Tile selectedTile = availableTiles[randomIndex];
+                usedTiles.Add(selectedTile);
+
+                // Find a pawn of this rank in purgatory
+                TestPawnView pawnView = bm.pawnViews.FirstOrDefault(p => 
+                    p.pawn.def.rank == (Rank)maxPawns.rank && !p.pawn.isAlive);
+
+                if (pawnView != null)
+                {
+                    pawnView.pawn.MutSetupAdd(selectedTile.pos);
+                }
+                else
+                {
+                    Debug.LogError($"No available pawns of rank {maxPawns.rank} to place");
+                }
+            }
+        }
+        bm.StateChanged();
     }
 }

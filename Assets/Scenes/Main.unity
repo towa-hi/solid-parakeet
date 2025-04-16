@@ -8677,6 +8677,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97db8cb0e22ee4e4aa56a47795616069, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  purgatory: {fileID: 835277602}
   globalVolume: {fileID: 1836091540}
   boardManager: {fileID: 1153439522}
   testBoardManager: {fileID: 1972489292}
@@ -11810,6 +11811,7 @@ GameObject:
   - component: {fileID: 1972489289}
   - component: {fileID: 1972489288}
   - component: {fileID: 1972489287}
+  - component: {fileID: 1972489294}
   m_Layer: 0
   m_Name: TestBoardManager
   m_TagString: Untagged
@@ -11889,19 +11891,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   purgatory: {fileID: 835277602}
   tilePrefab: {fileID: 8479329327937393150, guid: 78d00e7c8d847a14fbec45dab43e1bde, type: 3}
-  pawnPrefab: {fileID: 5772243482056531592, guid: fbbb2d88163dc90448c1b1546229c1a5, type: 3}
+  pawnPrefab: {fileID: 6569549633362740824, guid: 601190ac36873374f89fa423ef86fe51, type: 3}
   grid: {fileID: 1972489288}
-  clickInputManager: {fileID: 0}
+  clickInputManager: {fileID: 1972489294}
   vortex: {fileID: 1972489287}
+  guiTestGame: {fileID: 1035372904}
   pawnViews: []
-  hoveredPos: {x: 0, y: 0}
-  previousHoveredPawnView: {fileID: 0}
-  currentHoveredPawnView: {fileID: 0}
-  previousHoveredTileView: {fileID: 0}
-  currentHoveredTileView: {fileID: 0}
   waveStartPositionOne: {fileID: 1800112619}
   waveStartPositionTwo: {fileID: 2045328833}
   waveSpeed: 2
+  boardDef: {fileID: 0}
 --- !u!4 &1972489293
 Transform:
   m_ObjectHideFlags: 0
@@ -11920,6 +11919,27 @@ Transform:
   - {fileID: 2045328833}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1972489294
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1972489286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7d34edf6c898c541952ff389bfc3b7c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoveredPosition: {x: 0, y: 0}
+  screenPointerPosition: {x: 0, y: 0}
+  hoveredObject: {fileID: 0}
+  isOverUI: 0
+  hoveredPawnView: {fileID: 0}
+  hoveredTileView: {fileID: 0}
+  hoveredBoardMakerTile: {fileID: 0}
+  isUpdating: 0
+  resultsCount: 0
 --- !u!1001 &2005522794
 PrefabInstance:
   m_ObjectHideFlags: 0

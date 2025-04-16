@@ -11,6 +11,7 @@ public class GuiTestGame : TestGuiElement
     void Start()
     {
         GameManager.instance.testBoardManager.OnPhaseChanged += OnPhaseChanged;
+        GameManager.instance.testBoardManager.OnStateChanged += OnStateChanged;
     }
     
     public override void Initialize()
@@ -29,6 +30,18 @@ public class GuiTestGame : TestGuiElement
             default:
                 throw new ArgumentOutOfRangeException(nameof(obj));
 
+        }
+    }
+
+    void OnStateChanged(TestBoardManager boardManager)
+    {
+        switch (boardManager.currentPhase)
+        {
+            case SetupTestPhase setupTestPhase:
+                setup.Refresh(boardManager);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(boardManager.currentPhase));
         }
     }
 

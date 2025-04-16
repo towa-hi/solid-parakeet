@@ -19,16 +19,8 @@ public class TestTileView : MonoBehaviour
     {
         tile = inTile;
         gameObject.name = $"Tile ({tile.pos.x}, {tile.pos.y})";
-        if (isHex)
-        {
-            hexTileModel.SetActive(true);
-            squareTileModel.SetActive(false);
-        }
-        else
-        {
-            hexTileModel.SetActive(false);
-            squareTileModel.SetActive(true);
-        }
+        hexTileModel.gameObject.SetActive(false);
+        squareTileModel.gameObject.SetActive(false);
         tileModel = isHex ? hexTileModel : squareTileModel;
         tileModel.gameObject.SetActive(true);
         GameManager.instance.testBoardManager.OnPhaseChanged += OnPhaseChanged;

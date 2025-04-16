@@ -16,6 +16,11 @@ public class Tile
     {
         return isPassable && setupTeam == team;
     }
+    
+    public bool IsTileSetupAllowed(Team team)
+    {
+        return isPassable && setupTeam == team;
+    }
 }
 
 [Serializable]

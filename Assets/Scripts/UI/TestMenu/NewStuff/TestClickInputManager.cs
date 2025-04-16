@@ -130,7 +130,7 @@ public class TestClickInputManager : MonoBehaviour
         {
             // Update the hovered position and object
             hoveredPosition = currentHoveredPosition;
-            Debug.Log($"OnPositionHovered tile: {hoveredTileView?.tile.pos} pawn: {hoveredPawnView?.pawn.pos}");
+            // Debug.Log($"OnPositionHovered tile: {hoveredTileView?.tile.pos} pawn: {hoveredPawnView?.pawn.pos}");
             // Invoke the event with old and new positions
             OnPositionHovered?.Invoke(hoveredPosition);
 
