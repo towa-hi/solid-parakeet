@@ -60,7 +60,7 @@ public class CameraManager : MonoBehaviour
     Sequence currentSequence;
     CameraAnchor currentTarget;
     
-    void MoveCameraTo(CameraAnchor target, bool inRotateOnMouse)
+    public void MoveCameraTo(CameraAnchor target, bool inRotateOnMouse)
     {
         if (target.GetPosition() == mainCamera.transform.position)
         {

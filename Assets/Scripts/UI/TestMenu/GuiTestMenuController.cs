@@ -12,6 +12,7 @@ public class GuiTestMenuController : MenuElement
     public GuiTestLobbyViewer lobbyViewerElement;
     public GuiTestLobbyJoiner lobbyJoinerElement;
     public GuiTestWaiting waitingElement;
+    public GuiTestGame gameElement;
     public GameObject blocker;
     // state
     public TestGuiElement currentElement;
@@ -42,6 +43,7 @@ public class GuiTestMenuController : MenuElement
         lobbyJoinerElement.SetIsEnabled(false);
         lobbyViewerElement.SetIsEnabled(false);
         waitingElement.SetIsEnabled(false);
+        gameElement.SetIsEnabled(false);
     }
     
     public void Initialize()
@@ -127,11 +129,7 @@ public class GuiTestMenuController : MenuElement
         Blocker(true);
         _ = await StellarManagerTest.UpdateState();
         Blocker(false);
-        User? maybeUser = StellarManagerTest.currentUser;
-        if (maybeUser.HasValue)
-        {
-            ShowElement(lobbyJoinerElement);
-        }
+        ShowElement(lobbyJoinerElement);
     }
 
     async void ViewLobby()
@@ -196,7 +194,9 @@ public class GuiTestMenuController : MenuElement
         }
         else
         {
-            GameManager.instance.StartGame(lobby);
+            GameManager.instance.testBoardManager.StartGame();
+            ShowElement(gameElement);
+            //GameManager.instance.StartGame(lobby);
         }
         
         

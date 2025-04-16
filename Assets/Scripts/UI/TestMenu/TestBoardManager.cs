@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Contract;
 using UnityEngine;
 
@@ -9,29 +10,25 @@ public class TestBoardManager : MonoBehaviour
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
     public BoardGrid grid;
-    public ClickInputManager clickInputManager;
+    public TestClickInputManager clickInputManager;
     public Vortex vortex;
+    public GuiTestGame guiTestGame;
 
     public UserState userState;
 
-    public Dictionary<Vector2Int, TileView> tileViews = new();
-    public List<PawnView> pawnViews = new();
-
-    public Vector2Int hoveredPos;
-    public PawnView previousHoveredPawnView;
-    public PawnView currentHoveredPawnView;
-    public TileView previousHoveredTileView;
-    public TileView currentHoveredTileView;
+    public Dictionary<Vector2Int, TestTileView> tileViews = new();
+    public List<TestPawnView> pawnViews = new();
 
     public Transform waveStartPositionOne;
     public Transform waveStartPositionTwo;
     public float waveSpeed;
+    public BoardDef boardDef;
+    public ITestPhase currentPhase;
     
-    public IPhase currentPhase;
-    
-    public event Action<IPhase> OnPhaseChanged;
+    public event Action<ITestPhase> OnPhaseChanged;
     public event Action<PawnDef> OnSetupStateChanged;
-
+    public event Action<Pawn> OnPawnChanged;
+    
     Lobby GetLobby()
     {
         Lobby? maybeLobby = StellarManagerTest.currentLobby;
@@ -47,10 +44,24 @@ public class TestBoardManager : MonoBehaviour
 
     void Start()
     {
-        //clickInputManager.Initialize(this);
+        clickInputManager.Initialize();
+        clickInputManager.OnClick += OnClick;
     }
 
-    BoardDef boardDef;
+    public void UpdateAllPawnVisuals()
+    {
+        foreach (var pawnView in pawnViews)
+        {
+            pawnView.Apply();
+        }
+    }
+    
+    public Pawn GetPawnAtPosition(Vector2Int pos)
+    {
+        TestPawnView pawnView = pawnViews.FirstOrDefault(p => p.pawn.pos == pos);
+        return pawnView?.pawn;
+    }
+    
     public void StartGame()
     {
         Lobby lobby = GetLobby();
@@ -64,12 +75,146 @@ public class TestBoardManager : MonoBehaviour
         grid.SetBoard(new SBoardDef(boardDef));
         foreach (Tile tile in boardDef.tiles)
         {
-            STile sTile = new STile(tile);
             Vector3 worldPosition = grid.CellToWorld(tile.pos);
-            GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity);
-            TileView tileView = tileObject.GetComponent<TileView>();
-            tileView.Initialize(null, sTile,boardDef.isHex);
+            GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
+            TestTileView tileView = tileObject.GetComponent<TestTileView>();
+            tileView.Initialize(tile,boardDef.isHex);
             tileViews.Add(tile.pos, tileView);
+        }
+
+        // Clear any existing pawn views
+        foreach (var pawnView in pawnViews)
+        {
+            Destroy(pawnView.gameObject);
+        }
+        pawnViews.Clear();
+
+        // Instantiate pawn views for each pawn in the lobby, preserving their server state
+        foreach (Contract.Pawn p in lobby.pawns)
+        {
+            Pawn pawn = new Pawn(p);  // This will preserve the state from the server
+            GameObject pawnObject = Instantiate(pawnPrefab, transform);
+            TestPawnView pawnView = pawnObject.GetComponent<TestPawnView>();
+            pawnView.Initialize(pawn);
+            pawnViews.Add(pawnView);
+        }
+
+        // Update all pawn visuals to match their server state
+        UpdateAllPawnVisuals();
+
+        SetPhase(new SetupTestPhase(this));
+    }
+    
+    void SetPhase(ITestPhase newPhase)
+    {
+        currentPhase?.ExitState();
+        currentPhase = newPhase;
+        currentPhase.EnterState();
+        OnPhaseChanged?.Invoke(currentPhase);
+        
+        // Subscribe to GUI events when entering setup phase
+        if (currentPhase is SetupTestPhase setupPhase)
+        {
+            guiTestGame.setup.OnRankSelected += OnRankSelected;
+        }
+        else
+        {
+            guiTestGame.setup.OnRankSelected -= OnRankSelected;
+        }
+    }
+    
+    void OnRankSelected(Rank rank)
+    {
+        if (currentPhase is SetupTestPhase setupPhase)
+        {
+            setupPhase.selectedRank = rank;
+        }
+    }
+    
+    void OnClick(Vector2Int pos)
+    {
+        TestTileView tileView = tileViews.TryGetValue(pos, out TestTileView tile) ? tile : null;
+        TestPawnView pawnView = pawnViews.FirstOrDefault(p => p.pawn.pos == pos);
+        currentPhase?.OnClick(pos, tileView, pawnView);
+        // Update all visuals after state changes are complete
+        UpdateAllPawnVisuals();
+    }
+}
+
+public interface ITestPhase
+{
+    public void EnterState();
+    public void ExitState();
+    public void Update();
+    public void OnHover();
+    public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
+}
+
+public class SetupTestPhase : ITestPhase
+{
+    TestBoardManager bm;
+    
+    public SetupTestPhase(TestBoardManager boardManager)
+    {
+        bm = boardManager;
+    }
+    
+    public Rank? selectedRank = null;
+    
+    public void EnterState()
+    {
+        
+    }
+
+    public void ExitState()
+    {
+        
+    }
+
+    public void Update()
+    {
+        
+    }
+
+    public void OnHover()
+    {
+        
+    }
+
+    public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
+    {
+        Debug.Log("OnClick from setup Phase");
+        if (tileView == null) return;
+        
+        // If there's a pawn at the clicked position, remove it
+        if (pawnView)
+        {
+            pawnView.pawn.isAlive = false;
+            pawnView.pawn.pos = Globals.Purgatory;
+            return;
+        }
+        
+        // If no pawn at position and we have a selected rank, try to place a pawn
+        if (selectedRank.HasValue)
+        {
+            // Find the first available pawn of the selected rank
+            TestPawnView availablePawn = bm.pawnViews.FirstOrDefault(p => 
+                p.pawn.def.rank == selectedRank.Value && !p.pawn.isAlive);
+                
+            if (availablePawn)
+            {
+                availablePawn.pawn.isAlive = true;
+                availablePawn.pawn.pos = clickedPos;
+            }
+            else
+            {
+                Debug.LogError($"No available pawns of rank {selectedRank.Value} to place");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("No rank selected");
+            // do nothing
         }
     }
 }

@@ -13,6 +13,8 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
 
+    public Transform purgatory;
+    
     public Volume globalVolume;
     public BoardManager boardManager;
     public TestBoardManager testBoardManager;

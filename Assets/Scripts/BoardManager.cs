@@ -71,7 +71,7 @@ public class BoardManager : MonoBehaviour
 
     public void OnGameStartTransitionFinished()
     {
-        SetPhase(new SetupPhase(this, cachedResponse.data));
+        //SetPhase(new SetupPhase(this, cachedResponse.data));
     }
 
     Response<SLobbyParameters> cachedResponse;

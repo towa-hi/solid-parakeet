@@ -2,6 +2,7 @@ using System;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Serialization;
+using System.Linq;
 
 [System.Serializable]
 public class Pawn
@@ -10,6 +11,7 @@ public class Pawn
     public PawnDef def;
     public Team team;
     public Vector2Int pos;
+    // DEPRECATED: This field is being phased out but kept for compatibility
     public bool isSetup;
     public bool isAlive;
     public bool hasMoved;
@@ -18,6 +20,18 @@ public class Pawn
     public Pawn()
     {
         
+    }
+
+    public Pawn(Contract.Pawn p)
+    {
+        pawnId = Guid.Parse(p.pawn_id);
+        def = GameManager.instance.orderedPawnDefList.FirstOrDefault(pawnDef => pawnDef.id == p.pawn_def.id);
+        team = (Team)p.team;
+        pos = new Vector2Int(p.pos.x, p.pos.y);
+        isSetup = true;
+        isAlive = p.is_alive;
+        hasMoved = p.is_moved;
+        isVisibleToOpponent = p.is_revealed;
     }
     
     public Pawn(PawnDef inDef, Team inTeam, bool inIsSetup)

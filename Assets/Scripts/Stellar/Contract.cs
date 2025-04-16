@@ -13,7 +13,7 @@ namespace Contract
     
     public static class SCUtility
     {
-        public static bool log = false;
+        public static bool log = true;
         
         public static void DebugLog(string msg) { if (log) { Debug.Log(msg); } }
         
@@ -407,7 +407,7 @@ namespace Contract
         public PawnDef pawn_def;
         public string pawn_id;
         public Pos pos;
-        public int team; // Team enum
+        public uint team; // Team enum
         public string user_address;
 
         public SCVal.ScvMap ToScvMap()
@@ -841,5 +841,16 @@ namespace Contract
         HostAlreadyInLobby = 10,
         GuestAlreadyInLobby = 11,
         LobbyNotJoinable = 12,
+    }
+
+    public enum Phase
+    {
+        Uninitialized = 0,
+        Setup = 1,
+        Movement = 2,
+        Commitment = 3,
+        Resolve = 4,
+        Ending = 5,
+        Aborted = 6,
     }
 }

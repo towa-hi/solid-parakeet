@@ -13,7 +13,7 @@ public class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CBRKQJMVTJ3SGKN32GQG3PEWIRUQVN3LQZEYOCK3D6GZ4O3PRXQGWAOD";
+    public static string testContract = "CDOC5K2V7SNXVJRDMNFA7K3DTLA3RA4HBPZ4GYJ4N6EVDIWXQV4UEBOZ";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";

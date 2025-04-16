@@ -12,6 +12,11 @@ public class BoardDef : ScriptableObject
     public Tile[] tiles;
     public bool isHex;
     public SMaxPawnsPerRank[] maxPawns;
+    
+    public Tile GetTileByPos(Vector2Int pos)
+    {
+        return Array.Find(tiles, tile => tile.pos == pos);
+    }
 }
 
 [Serializable]

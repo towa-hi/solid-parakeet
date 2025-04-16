@@ -394,6 +394,109 @@ impl Contract {
         Ok(true)
     }
 
+    pub(crate) fn create_pawn_def(env: &Env, rank: Rank) -> PawnDef {
+        match rank {
+            0 => PawnDef {
+                id: 0,
+                name: String::from_str(env, "Throne"),
+                rank: 0,
+                power: 0,
+                movement_range: 0,
+            },
+            1 => PawnDef {
+                id: 1,
+                name: String::from_str(env, "Assassin"),
+                rank: 1,
+                power: 1,
+                movement_range: 1,
+            },
+            2 => PawnDef {
+                id: 2,
+                name: String::from_str(env, "Scout"),
+                rank: 2,
+                power: 2,
+                movement_range: 11, // Scout has special movement
+            },
+            3 => PawnDef {
+                id: 3,
+                name: String::from_str(env, "Seer"),
+                rank: 3,
+                power: 3,
+                movement_range: 1,
+            },
+            4 => PawnDef {
+                id: 4,
+                name: String::from_str(env, "Grunt"),
+                rank: 4,
+                power: 4,
+                movement_range: 1,
+            },
+            5 => PawnDef {
+                id: 5,
+                name: String::from_str(env, "Knight"),
+                rank: 5,
+                power: 5,
+                movement_range: 1,
+            },
+            6 => PawnDef {
+                id: 6,
+                name: String::from_str(env, "Wraith"),
+                rank: 6,
+                power: 6,
+                movement_range: 1,
+            },
+            7 => PawnDef {
+                id: 7,
+                name: String::from_str(env, "Reaver"),
+                rank: 7,
+                power: 7,
+                movement_range: 1,
+            },
+            8 => PawnDef {
+                id: 8,
+                name: String::from_str(env, "Herald"),
+                rank: 8,
+                power: 8,
+                movement_range: 1,
+            },
+            9 => PawnDef {
+                id: 9,
+                name: String::from_str(env, "Champion"),
+                rank: 9,
+                power: 9,
+                movement_range: 1,
+            },
+            10 => PawnDef {
+                id: 10,
+                name: String::from_str(env, "Warlord"),
+                rank: 10,
+                power: 10,
+                movement_range: 1,
+            },
+            11 => PawnDef {
+                id: 11,
+                name: String::from_str(env, "Trap"),
+                rank: 11,
+                power: 11,
+                movement_range: 1,
+            },
+            99 => PawnDef {
+                id: 99,
+                name: String::from_str(env, "Unknown"),
+                rank: 99,
+                power: 0,
+                movement_range: 0,
+            },
+            _ => PawnDef {
+                id: 99,
+                name: String::from_str(env, "Unknown"),
+                rank: 99,
+                power: 0,
+                movement_range: 0,
+            },
+        }
+    }
+
     pub fn join_lobby(env: Env, address: Address, req: JoinLobbyReq) -> Result<bool, Error> {
         address.require_auth();
         if address.to_string() != req.guest_address {
@@ -441,6 +544,47 @@ impl Contract {
         };
         lobby.host_state.lobby_state = UserLobbyState::InGame;
         lobby.phase = Phase::Setup;
+
+        // Generate pawns for both teams based on max_pawns
+        let mut pawn_id_counter: u32 = 0;
+        let purgatory_pos = Pos { x: -666, y: -666 };
+        
+        // Generate pawns for Red team (host)
+        for max_pawn in lobby.parameters.max_pawns.iter() {
+            for _ in 0..max_pawn.max {
+                let pawn = Pawn {
+                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
+                    user_address: lobby.host_address.clone(),
+                    team: Team::Red,
+                    pos: purgatory_pos.clone(),
+                    is_alive: false,
+                    is_moved: false,
+                    is_revealed: false,
+                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
+                };
+                lobby.pawns.push_back(pawn);
+                pawn_id_counter += 1;
+            }
+        }
+
+        // Generate pawns for Blue team (guest)
+        for max_pawn in lobby.parameters.max_pawns.iter() {
+            for _ in 0..max_pawn.max {
+                let pawn = Pawn {
+                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
+                    user_address: req.guest_address.clone(),
+                    team: Team::Blue,
+                    pos: purgatory_pos.clone(),
+                    is_alive: false,
+                    is_moved: false,
+                    is_revealed: false,
+                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
+                };
+                lobby.pawns.push_back(pawn);
+                pawn_id_counter += 1;
+            }
+        }
+
         persistent.set(&lobby_key, &lobby);
         // write guest user
         user.current_lobby = req.lobby_id.clone();
