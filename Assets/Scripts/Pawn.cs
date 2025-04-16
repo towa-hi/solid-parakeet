@@ -62,6 +62,12 @@ public class Pawn
         pos = Globals.Purgatory;
         dirty = true;
     }
+
+    public void MutMove(Vector2Int inPos)
+    {
+        pos = inPos;
+        dirty = true;
+    }
 }
 
 [Serializable]

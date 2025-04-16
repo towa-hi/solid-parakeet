@@ -34,15 +34,15 @@ public class GuiTestStartMenu : TestGuiElement
     void Start()
     {
         contractField.onValueChanged.AddListener(OnContractFieldChanged);
-        setContractButton.onClick.AddListener(HandleSetContractButton);
+        setContractButton.onClick.AddListener(() => OnSetContractButton?.Invoke(contractField.text));
         sneedField.onValueChanged.AddListener(OnSneedFieldChanged);
-        setSneedButton.onClick.AddListener(HandleSetSneedButton);
-        joinLobbyButton.onClick.AddListener(HandleJoinLobbyButton);
-        makeLobbyButton.onClick.AddListener(HandleMakeLobbyButton);
-        cancelButton.onClick.AddListener(HandleCancelButton);
-        viewLobbyButton.onClick.AddListener(HandleViewLobbyButton);
-        StellarManagerTest.OnContractAddressUpdated += OnContractIdChanged;
-        StellarManagerTest.OnSneedUpdated += OnAccountIdChanged;
+        setSneedButton.onClick.AddListener(() => OnSetSneedButton?.Invoke(sneedField.text));
+        joinLobbyButton.onClick.AddListener(() => OnJoinLobbyButton?.Invoke());
+        makeLobbyButton.onClick.AddListener(() => OnMakeLobbyButton?.Invoke());
+        cancelButton.onClick.AddListener(() => OnCancelButton?.Invoke());
+        viewLobbyButton.onClick.AddListener(() => OnViewLobbyButton?.Invoke());
+        StellarManagerTest.OnContractAddressUpdated += OnContractAddressUpdated;
+        StellarManagerTest.OnSneedUpdated += OnSneedUpdated;
         StellarManagerTest.OnCurrentUserUpdated += OnCurrentUserUpdated;
     }
 
@@ -98,50 +98,20 @@ public class GuiTestStartMenu : TestGuiElement
         Refresh();
     }
     
+    void OnContractAddressUpdated(string contractId)
+    {
+        contractField.text = string.Empty;
+        Refresh();
+    }
+
+    void OnSneedUpdated(string accountId)
+    {
+        sneedField.text = string.Empty;
+        Refresh();
+    }
+    
     void OnCurrentUserUpdated(User? currentUser)
     {
         Refresh();
-    }
-    
-    void OnContractIdChanged(string contractId)
-    {
-        Refresh();
-    }
-
-    void OnAccountIdChanged(string accountId)
-    {
-        Refresh();
-    }
-    
-    void HandleSetContractButton()
-    {
-        OnSetContractButton?.Invoke(contractField.text);
-        contractField.text = string.Empty;
-    }
-    
-    void HandleSetSneedButton()
-    {
-        OnSetSneedButton?.Invoke(sneedField.text);
-        sneedField.text = string.Empty;
-    }
-    
-    void HandleMakeLobbyButton()
-    {
-        OnMakeLobbyButton?.Invoke();
-    }
-
-    void HandleJoinLobbyButton()
-    {
-        OnJoinLobbyButton?.Invoke();
-    }
-    
-    void HandleCancelButton()
-    {
-        OnCancelButton?.Invoke();
-    }
-    
-    void HandleViewLobbyButton()
-    {
-        OnViewLobbyButton?.Invoke();
     }
 }

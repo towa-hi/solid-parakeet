@@ -50,6 +50,10 @@ public class TestTileView : MonoBehaviour
                         throw new ArgumentOutOfRangeException();
                 }
                 break;
+            case MovementTestPhase movementTestPhase:
+                EnableEmission(false);
+                SetTopEmission(baseColor);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(phase));
 

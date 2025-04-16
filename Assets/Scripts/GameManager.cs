@@ -72,7 +72,6 @@ public class GameManager : MonoBehaviour
     public void StartGame(Lobby lobby)
     {
         guiManager.OnDemoStartedResponse(null);
-        testBoardManager.StartGame();
     }
     
     

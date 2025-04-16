@@ -76,7 +76,7 @@ public class GuiTestMenuController : MenuElement
         return success;
     }
     
-    void ShowElement(TestGuiElement element)
+    void ShowMenuElement(TestGuiElement element)
     {
         if (currentElement != null)
         {
@@ -113,7 +113,7 @@ public class GuiTestMenuController : MenuElement
         Blocker(true);
         _ = await StellarManagerTest.UpdateState();
         Blocker(false);
-        ShowElement(lobbyMakerElement);
+        ShowMenuElement(lobbyMakerElement);
     }
 
     async void GotoStartMenu()
@@ -121,7 +121,7 @@ public class GuiTestMenuController : MenuElement
         Blocker(true);
         _ = await StellarManagerTest.UpdateState();
         Blocker(false);
-        ShowElement(startMenuElement);
+        ShowMenuElement(startMenuElement);
     }
 
     async void GotoJoinLobby()
@@ -129,7 +129,7 @@ public class GuiTestMenuController : MenuElement
         Blocker(true);
         _ = await StellarManagerTest.UpdateState();
         Blocker(false);
-        ShowElement(lobbyJoinerElement);
+        ShowMenuElement(lobbyJoinerElement);
     }
 
     async void ViewLobby()
@@ -139,7 +139,7 @@ public class GuiTestMenuController : MenuElement
         Blocker(false);
         if (StellarManagerTest.currentLobby != null)
         {
-            ShowElement(lobbyViewerElement);
+            ShowMenuElement(lobbyViewerElement);
         }
     }
 
@@ -157,7 +157,7 @@ public class GuiTestMenuController : MenuElement
                 _ = await StellarManagerTest.UpdateState();
                 if (code == 0)
                 {
-                    ShowElement(lobbyViewerElement);
+                    ShowMenuElement(lobbyViewerElement);
                 }
                 else if (code == 12)
                 {
@@ -181,12 +181,19 @@ public class GuiTestMenuController : MenuElement
     {
         Blocker(true);
         _ = await StellarManagerTest.UpdateState();
-        Lobby? maybeLobby = StellarManagerTest.currentLobby;
-        if (!maybeLobby.HasValue)
+
+        if (!StellarManagerTest.currentUser.HasValue)
+        {
+            Debug.LogError("no user");
+            return;
+        }
+        if (!StellarManagerTest.currentLobby.HasValue)
         {
             Debug.LogError("no lobby");
+            return;
         }
-        Lobby lobby = maybeLobby.Value;
+        Lobby lobby = StellarManagerTest.currentLobby.GetValueOrDefault();
+        User user = StellarManagerTest.currentUser.GetValueOrDefault();
         Blocker(false);
         if (!lobby.IsLobbyStartable())
         {
@@ -194,17 +201,16 @@ public class GuiTestMenuController : MenuElement
         }
         else
         {
-            GameManager.instance.testBoardManager.StartGame();
-            ShowElement(gameElement);
-            //GameManager.instance.StartGame(lobby);
+            Debug.Log("Starting game");
+            GameManager.instance.testBoardManager.StartGame(lobby, user);
+            Debug.Log("showing game element");
+            ShowMenuElement(gameElement);
         }
-        
-        
     }
     
     void GotoWaiting()
     {
-        ShowElement(waitingElement);
+        ShowMenuElement(waitingElement);
     }
     
     async void OnSubmitLobbyButton()
@@ -217,7 +223,7 @@ public class GuiTestMenuController : MenuElement
         Blocker(false);
         if (code == 0)
         {
-            ShowElement(lobbyViewerElement);
+            ShowMenuElement(lobbyViewerElement);
         }
     }
 
@@ -230,7 +236,7 @@ public class GuiTestMenuController : MenuElement
         GotoStartMenu();
         Blocker(false);
     }
-
+    
     async void RefreshNetworkState()
     {
         Blocker(true);
@@ -260,6 +266,27 @@ public class TestGuiElement: MonoBehaviour
     }
 
     public virtual void Initialize()
+    {
+        
+    }
+}
+
+public class GameElement: MonoBehaviour
+{
+    bool isEnabled;
+    
+    public void SetIsEnabled(bool inIsEnabled)
+    {
+        isEnabled = inIsEnabled;
+        gameObject.SetActive(inIsEnabled);
+    }
+
+    public virtual void Refresh(TestBoardManager boardManager)
+    {
+        
+    }
+
+    public virtual void Initialize(TestBoardManager boardManager)
     {
         
     }

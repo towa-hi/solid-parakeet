@@ -357,6 +357,7 @@ MonoBehaviour:
   button: {fileID: 7162087428290110609}
   buttonText: {fileID: 4187485814382692974}
   numberText: {fileID: 4859324987008429849}
+  numberBackground: {fileID: 7431138882532190667}
   rank: 0
   remaining: 0
   selected: 0

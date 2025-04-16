@@ -45,6 +45,9 @@ public class TestClickInputManager : MonoBehaviour
             case SetupTestPhase setupTestPhase:
                 isUpdating = true;
                 break;
+            case MovementTestPhase movementTestPhase:
+                isUpdating = true;
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(phase));
 

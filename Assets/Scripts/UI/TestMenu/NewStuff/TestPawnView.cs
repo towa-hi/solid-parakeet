@@ -11,9 +11,10 @@ public class TestPawnView : MonoBehaviour
     ConstraintSource parentSource;
     public Pawn pawn;
     
-    public void Initialize(Pawn inPawn)
+    public void Initialize(Pawn inPawn, TestBoardManager bm)
     {
         pawn = inPawn;
+        bm.OnStateChanged += OnStateChanged;
         string objectName = $"{pawn.team} Pawn {pawn.def.pawnName}";
         if (!pawn.isAlive)
         {
@@ -25,12 +26,18 @@ public class TestPawnView : MonoBehaviour
         {
             transform.position = GameManager.instance.purgatory.position;
         }
+        else
+        {
+            TestTileView tileView = GameManager.instance.testBoardManager.GetTileViewAtPos(pawn.pos);
+            transform.position = tileView.origin.position;
+        }
     }
 
-    public void Apply()
+    void OnStateChanged(TestBoardManager bm)
     {
         // Update visual position based on the pawn's current state
-        if (GameManager.instance.testBoardManager.tileViews.TryGetValue(pawn.pos, out TestTileView tileView))
+        TestTileView tileView = GameManager.instance.testBoardManager.GetTileViewAtPos(pawn.pos);
+        if (tileView)
         {
             // Set position directly to the tile's origin
             transform.position = tileView.origin.position;

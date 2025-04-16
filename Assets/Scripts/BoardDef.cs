@@ -46,6 +46,11 @@ public class BoardDef : ScriptableObject
         Debug.LogWarning($"{rank} had to fallback to allTiles {setupZone}");
         return eligibleTiles;
     }
+    
+    public bool IsPosValid(Vector2Int pos)
+    {
+        return tiles.Any(tile => tile.pos == pos);
+    }
 }
 
 [Serializable]

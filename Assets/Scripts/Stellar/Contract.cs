@@ -13,7 +13,7 @@ namespace Contract
     
     public static class SCUtility
     {
-        public static bool log = true;
+        public static bool log = false;
         
         public static void DebugLog(string msg) { if (log) { Debug.Log(msg); } }
         
@@ -611,11 +611,11 @@ namespace Contract
             {
                 return false;
             }
-            if (host_state.lobby_state == 4)
+            if (host_state.lobby_state == 3)
             {
                 return false;
             }
-            if (guest_state.lobby_state == 4)
+            if (guest_state.lobby_state == 3)
             {
                 return false;
             }

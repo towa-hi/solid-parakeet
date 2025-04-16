@@ -13,7 +13,7 @@ public class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CDOC5K2V7SNXVJRDMNFA7K3DTLA3RA4HBPZ4GYJ4N6EVDIWXQV4UEBOZ";
+    public static string testContract = "CB5FSTAFH3VD56SEBMJITZLV5EJ7PE7B36QRR5HPJNQFIQ4YSSKM3SFS";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -174,6 +174,60 @@ public class StellarManagerTest
         return 0;
     }
 
+    public static async Task<int> CommitSetupRequest(List<Pawn> myPawns)
+    {
+        PawnCommitment[] setup_commitments = new PawnCommitment[myPawns.Count];
+        for (int i = 0; i < myPawns.Count; i++)
+        {
+            Pawn pawn = myPawns[i];
+            setup_commitments[i] = new PawnCommitment
+            {
+                pawn_def_hash = pawn.def.id.ToString(),
+                pawn_id = pawn.pawnId.ToString(),
+                starting_pos = new Pos(pawn.pos),
+            };
+        }
+        SetupCommitReq req = new()
+        {
+            lobby_id = currentLobby.Value.index,
+            setup_commitments = setup_commitments,
+        };
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
+        if (simResult == null)
+        {
+            Debug.LogError("CommitSetupRequest simResult is null");
+            return -1;
+        }
+        else if (simResult.Error != null)
+        {
+            Debug.Log("CommitSetupRequest sim got " + simResult.Error);
+            List<int> errorCodes = GetErrorCodes(simResult.DiagnosticEvents);
+            if (errorCodes.Count > 1)
+            {
+                Debug.LogWarning("CommitSetupRequest failed to simulate with more than 1 error");
+            }
+            if (errorCodes.Count == 1)
+            {
+                return errorCodes[0];
+            }
+            else
+            {
+                return -666;
+            }
+        }
+        else if (result == null)
+        {
+            Debug.LogError("CommitSetupRequest final result is null");
+            return -2;
+        }
+        else if (result.Status != GetTransactionResultStatus.SUCCESS)
+        {
+            Debug.LogWarning("CommitSetupRequest sim got " + result.Status);
+            return -3;
+        }
+        return 0;
+    }
+    
     public static async Task<int> JoinLobbyRequest(string lobbyId)
     {
         JoinLobbyReq req = new()

@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Contract;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiTestSetup : MonoBehaviour
+public class GuiTestSetup : GameElement
 {
     public Transform rankEntryListRoot;
 
@@ -13,59 +15,99 @@ public class GuiTestSetup : MonoBehaviour
     public Button submitButton;
     
     public GameObject rankEntryPrefab;
-    MaxPawns[] maxPawns;
     public List<GuiRankListEntry> entries;
     public GuiRankListEntry selectedRankEntry;
-    
-    public event System.Action<Rank> OnRankSelected;
-    
-    public void Initialize()
+
+    public event Action OnClearButton;
+    public event Action OnAutoSetupButton;
+    public event Action OnDeleteButton;
+    public event Action OnSubmitButton;
+
+    void Start()
     {
-        Lobby? maybeLobby = StellarManagerTest.currentLobby;
-        if (!maybeLobby.HasValue) return;
-        Lobby lobby = maybeLobby.Value;
-        maxPawns = lobby.parameters.max_pawns;
+        clearButton.onClick.AddListener(() => OnClearButton?.Invoke());
+        autoSetupButton.onClick.AddListener(() => OnAutoSetupButton?.Invoke());
+        deleteButton.onClick.AddListener(() => OnDeleteButton?.Invoke());
+        submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
+    }
+    
+    public override void Initialize(TestBoardManager boardManager)
+    {
+        // Clear existing entries
         foreach (Transform child in rankEntryListRoot.transform) { Destroy(child.gameObject); }
+        entries.Clear();
         selectedRankEntry = null;
-        foreach (MaxPawns maxPawn in maxPawns)
+        
+        // Get unique ranks from pawns that belong to the user's team
+        HashSet<Rank> userTeamRanks = new HashSet<Rank>();
+        List<Pawn> myPawns = boardManager.GetMyPawns();
+        foreach (var pawn in myPawns)
+        {
+            userTeamRanks.Add(pawn.def.rank);
+        }
+        
+        // Create entries for each rank that belongs to the user's team
+        foreach (var rank in userTeamRanks)
         {
             GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
             entries.Add(rankListEntry);
             rankListEntry.SetButtonOnClick(OnEntryClicked);
-            rankListEntry.Refresh((Rank)maxPawn.rank, maxPawn.max, false);
+            rankListEntry.rank = rank;
         }
-
-        // Set up button listeners
-        autoSetupButton.onClick.AddListener(OnAutoSetupButton);
+        
+        // Refresh to update counts
+        Refresh(boardManager);
     }
 
-    public void Refresh(TestBoardManager boardManager)
+    public override void Refresh(TestBoardManager boardManager)
     {
-        foreach (GuiRankListEntry entry in entries)
+        // Count dead pawns of each rank that belong to the user's team
+        Dictionary<Rank, int> deadPawnCounts = new Dictionary<Rank, int>();
+        
+        // Initialize counts for all ranks to 0
+        foreach (var entry in entries)
         {
-            entry.Refresh(entry.rank, entry.remaining, entry.rank == selectedRankEntry?.rank);
+            deadPawnCounts[entry.rank] = 0;
+        }
+        
+        // Count pawns that are not alive (dead) for the user's team
+        List<Pawn> myPawns = boardManager.GetMyPawns();
+        foreach (var pawn in myPawns)
+        {
+            if (!pawn.isAlive)
+            {
+                Rank rank = pawn.def.rank;
+                if (deadPawnCounts.ContainsKey(rank))
+                {
+                    deadPawnCounts[rank]++;
+                }
+            }
+        }
+        
+        // Update UI entries
+        foreach (var entry in entries)
+        {
+            int deadCount = deadPawnCounts.ContainsKey(entry.rank) ? deadPawnCounts[entry.rank] : 0;
+            bool isSelected = selectedRankEntry != null && selectedRankEntry.rank == entry.rank;
+            entry.Refresh(entry.rank, deadCount, isSelected);
         }
     }
     
     public void OnEntryClicked(GuiRankListEntry clickedEntry)
     {
+        // Toggle the selected rank
         if (selectedRankEntry == clickedEntry)
         {
+            // If clicking the same rank again, deselect it
             selectedRankEntry = null;
         }
         else
         {
+            // Select this rank
             selectedRankEntry = clickedEntry;
         }
-        OnRankSelected?.Invoke(clickedEntry.rank);
-    }
-
-    public void OnAutoSetupButton()
-    {
-        if (GameManager.instance.testBoardManager.currentPhase is SetupTestPhase setupPhase)
-        {
-            setupPhase.OnAutoSetup();
-            GameManager.instance.testBoardManager.UpdateAllPawnVisuals();
-        }
+        
+        // Update the UI to reflect the selection
+        Refresh(GameManager.instance.testBoardManager);
     }
 }

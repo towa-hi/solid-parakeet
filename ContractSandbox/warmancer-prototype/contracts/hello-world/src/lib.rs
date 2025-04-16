@@ -26,6 +26,7 @@ pub enum Error {
     HostAlreadyInLobby = 10,
     GuestAlreadyInLobby = 11,
     LobbyNotJoinable = 12,
+    TurnAlreadyInitialized = 13,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -379,7 +380,7 @@ impl Contract {
             },
         };
         let user_is_host = user.index == lobby.host_address;
-        let other_user_address = if user_is_host {lobby.guest_address.clone()} else {lobby.host_address.clone()};
+        let other_user_address = if user_is_host {&lobby.guest_address} else {&lobby.host_address};
         if user_is_host {
             lobby.host_state.lobby_state = UserLobbyState::Left;
         }
@@ -389,9 +390,322 @@ impl Contract {
         lobby.game_end_state = EndState::Aborted;
         persistent.set(&lobby_key, &lobby);
         if !other_user_address.is_empty() {
-            env.events().publish((EVENT_USER_LEFT, lobby.index, user.index.clone(), other_user_address), user.index);
+            env.events().publish((EVENT_USER_LEFT, lobby.index, user.index.clone(), other_user_address.clone()), user.index);
         }
         Ok(true)
+    }
+
+    pub fn join_lobby(env: Env, address: Address, req: JoinLobbyReq) -> Result<bool, Error> {
+        address.require_auth();
+        if address.to_string() != req.guest_address {
+            return Err(Error::InvalidArgs)
+        }
+        let persistent = &env.storage().persistent();
+        let lobby_key = DataKey::Lobby(req.lobby_id.clone());
+        let mut user: User = Self::get_or_make_user(&env, &req.guest_address);
+        let user_key = DataKey::User(req.guest_address.clone());
+        if !user.current_lobby.is_empty() {
+            let old_lobby_key = DataKey::Lobby(user.current_lobby.clone());
+            if env.storage().persistent().has(&old_lobby_key) {
+                return Err(Error::GuestAlreadyInLobby);
+            }
+            user.current_lobby = String::from_str(&env, "");
+            persistent.set(&user_key, &user);
+        }
+        let mut lobby: Lobby = match persistent.get(&lobby_key) {
+            Some(thing) => thing,
+            None => return Err(Error::LobbyNotFound),
+        };
+        // check if lobby is joinable
+        if lobby.phase != Phase::Uninitialized {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if !lobby.guest_address.is_empty() {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if !lobby.guest_state.user_address.is_empty() {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if lobby.host_state.lobby_state != UserLobbyState::InLobby {
+            return Err(Error::LobbyNotJoinable)
+        }
+        if lobby.host_address == req.guest_address {
+            return Err(Error::LobbyNotJoinable)
+        }
+        // write lobby
+        lobby.guest_address = req.guest_address.clone();
+        lobby.guest_state = UserState {
+            lobby_state: UserLobbyState::InGame,
+            setup_commitments: Vec::new(&env),
+            team: Team::Blue,
+            user_address: req.guest_address.clone(),
+        };
+        lobby.host_state.lobby_state = UserLobbyState::InGame;
+        lobby.phase = Phase::Setup;
+        // generate pawns
+        let mut pawn_id_counter: u32 = 0;
+        let purgatory_pos = Pos { x: -666, y: -666 };
+        for max_pawn in lobby.parameters.max_pawns.iter() {
+            for _ in 0..max_pawn.max {
+                let pawn = Pawn {
+                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
+                    user_address: lobby.host_address.clone(),
+                    team: Team::Red,
+                    pos: purgatory_pos.clone(),
+                    is_alive: false,
+                    is_moved: false,
+                    is_revealed: false,
+                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
+                };
+                lobby.pawns.push_back(pawn);
+                pawn_id_counter += 1;
+            }
+        }
+        for max_pawn in lobby.parameters.max_pawns.iter() {
+            for _ in 0..max_pawn.max {
+                let pawn = Pawn {
+                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
+                    user_address: req.guest_address.clone(),
+                    team: Team::Blue,
+                    pos: purgatory_pos.clone(),
+                    is_alive: false,
+                    is_moved: false,
+                    is_revealed: false,
+                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
+                };
+                lobby.pawns.push_back(pawn);
+                pawn_id_counter += 1;
+            }
+        }
+        persistent.set(&lobby_key, &lobby);
+        // write guest user
+        user.current_lobby = req.lobby_id.clone();
+        persistent.set(&user_key, &user);
+        Ok(true)
+    }
+
+    pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
+        address.require_auth();
+        let persistent = env.storage().persistent();
+        let lobby_key = DataKey::Lobby(req.lobby_id.clone());
+        let mut lobby: Lobby = match persistent.get(&lobby_key) {
+            Some(v) => v,
+            None => return Err(Error::LobbyNotFound),
+        };
+        if lobby.phase != Phase::Setup {
+            return Err(Error::WrongPhase);
+        }
+        // get state
+        let user_address = address.to_string();
+        let (user_state, other_user_committed) = if user_address == lobby.host_address {
+            (&mut lobby.host_state, !lobby.guest_state.setup_commitments.is_empty())
+        } else if user_address == lobby.guest_address {
+            (&mut lobby.guest_state, !lobby.host_state.setup_commitments.is_empty())
+        } else {
+            return Err(Error::InvalidArgs);
+        };
+        user_state.setup_commitments = req.setup_commitments.clone();
+        // apply commitments if both players have submitted
+        if other_user_committed
+        {
+            let mut commitment_map: Map<PawnGuid, PawnCommitment> = Map::new(&env);
+            for commit in lobby.host_state.setup_commitments.iter() {
+                commitment_map.set(commit.pawn_id.clone(), commit.clone());
+            }
+            for commit in lobby.guest_state.setup_commitments.iter() {
+                commitment_map.set(commit.pawn_id.clone(), commit.clone());
+            }
+            for i in 0..lobby.pawns.len() {
+                let pawn_id = lobby.pawns.get_unchecked(i).pawn_id.clone();
+                if let Some(commit) = commitment_map.get(pawn_id) {
+                    // Get a mutable reference to the pawn using get_unchecked
+                    let mut pawn = lobby.pawns.get_unchecked(i);
+                    pawn.pos = commit.starting_pos.clone();
+                    pawn.is_alive = true;
+                    lobby.pawns.set(i, pawn);
+                }
+            }
+            let first_turn = Turn {
+                guest_turn: TurnMove {
+                    initialized: false,
+                    pawn_id: String::from_str(&env, ""),
+                    pos: Pos { x: -666, y: -666, },
+                    turn: 0,
+                    user_address: lobby.guest_address.clone(),
+                },
+                host_turn: TurnMove {
+                    initialized: false,
+                    pawn_id: String::from_str(&env, ""),
+                    pos: Pos { x: -666, y: -666, },
+                    turn: 0,
+                    user_address: lobby.host_address.clone(),
+                },
+                turn: 0,
+            };
+            lobby.turns.push_back(first_turn);
+            lobby.phase = Phase::Movement;
+        }
+        persistent.set(&lobby_key, &lobby);
+        Ok(())
+    }
+
+    pub fn submit_move(env: Env, address: Address, req: MoveSubmitReq) -> Result<(), Error> {
+        address.require_auth();
+        if address.to_string() != req.user_address {
+            return Err(Error::InvalidArgs)
+        }
+        let persistent = env.storage().persistent();
+        let lobby_key = DataKey::Lobby(req.lobby.clone());
+        let mut lobby: Lobby = match persistent.get(&lobby_key) {
+            Some(v) => v,
+            None => return Err(Error::LobbyNotFound),
+        };
+        if lobby.phase != Phase::Movement {
+            return Err(Error::WrongPhase)
+        }
+        let turn_index = lobby.turns.len() - 1;
+        let mut turn = lobby.turns.get_unchecked(turn_index);
+        if req.turn != turn.turn
+        {
+            return Err(Error::InvalidArgs)
+        }
+        let mut other_user_initialized = false;
+        if req.user_address == turn.host_turn.user_address {
+            if turn.host_turn.initialized {
+                return Err(Error::TurnAlreadyInitialized)
+            }
+            other_user_initialized = turn.guest_turn.initialized;
+            turn.host_turn.initialized = true;
+            turn.host_turn.pos = req.move_pos.clone();
+            turn.host_turn.pawn_id = req.pawn_id.clone();
+        } else if req.user_address == turn.guest_turn.user_address {
+            if turn.guest_turn.initialized {
+                return Err(Error::TurnAlreadyInitialized)
+            }
+            other_user_initialized = turn.host_turn.initialized;
+            turn.guest_turn.initialized = true;
+            turn.guest_turn.pos = req.move_pos.clone();
+            turn.guest_turn.pawn_id = req.pawn_id.clone();
+        }
+        else
+        {
+            return Err(Error::InvalidArgs)
+        }
+        lobby.turns.set(turn_index, turn);
+
+        let mut pawn_found = false;
+        let mut pawn_valid = false;
+        let mut pawn_index: u32 = 0;
+        for (i, pawn) in lobby.pawns.iter().enumerate() {
+            if pawn.pawn_id == req.pawn_id {
+                pawn_found = true;
+                pawn_index = i as u32;
+                if pawn.user_address != req.user_address {
+                    return Err(Error::InvalidArgs) // Pawn belongs to another user
+                }
+                if !pawn.is_alive {
+                    return Err(Error::InvalidArgs) // Pawn is not alive
+                }
+                pawn_valid = true;
+                break;
+            }
+        }
+        if !pawn_found {
+            return Err(Error::InvalidArgs) // Pawn not found
+        }
+        if !pawn_valid {
+            return Err(Error::InvalidArgs) // Pawn validation failed
+        }
+        let mut pawn = lobby.pawns.get_unchecked(pawn_index);
+        pawn.is_moved = true;
+        lobby.pawns.set(pawn_index, pawn);
+        if other_user_initialized {
+            let next_turn_index = lobby.turns.len() as i32;
+            let next_turn = Turn {
+                guest_turn: TurnMove {
+                    initialized: false,
+                    pawn_id: String::from_str(&env, ""),
+                    pos: Pos { x: -666, y: -666, },
+                    turn: next_turn_index,
+                    user_address: lobby.guest_address.clone(),
+                },
+                host_turn: TurnMove {
+                    initialized: false,
+                    pawn_id: String::from_str(&env, ""),
+                    pos: Pos { x: -666, y: -666, },
+                    turn: next_turn_index,
+                    user_address: lobby.host_address.clone(),
+                },
+                turn: next_turn_index,
+            };
+            lobby.turns.push_back(next_turn);
+            // resolve turns later, we just trust the client to sort it out for now
+        }
+        persistent.set(&lobby_key, &lobby);
+        Ok(())
+    }
+
+    pub(crate) fn get_or_make_user(e: &Env, user_address: &UserAddress) -> User {
+        let storage = e.storage().persistent();
+        let key = DataKey::User(user_address.clone());
+        storage.get(&key).unwrap_or_else(|| {
+            let new_user = User {
+                current_lobby: String::from_str(e, ""),
+                games_completed: 0,
+                index: user_address.clone(),
+                name: String::from_str(e, "default name"),
+            };
+            storage.set(&key, &new_user);
+            new_user
+        })
+    }
+
+    pub(crate) fn generate_uuid(e: &Env, salt_int: u32) -> String {
+        //let random_number: u64 = e.prng().gen();
+        const DASH_POSITIONS: [usize; 4] = [8, 13, 18, 23];
+        let mut combined = Bytes::new(e);
+        //combined.append(&random_number.to_xdr(e));
+        //combined.append(&e.ledger().sequence().to_xdr(e));
+        combined.append(&salt_int.to_xdr(e));
+        // hash combined bytes
+        let mut bytes = e.crypto().sha256(&combined).to_array();
+        // force "version 4" in bytes[6]
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        // force "variant 1" in bytes[8]
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        // output is 32 hex digits + 4 dashes
+        let mut output = [0u8; 36];
+        let mut cursor = 0;
+        // convert only the first 16 bytes to hex (the standard UUID size)
+        for i in 0..16 {
+            // insert dash if at a dash position
+            if DASH_POSITIONS.contains(&cursor) {
+                output[cursor] = b'-';
+                cursor += 1;
+            }
+            // convert high nibble
+            let high = (bytes[i] >> 4) & 0x0f;
+            output[cursor] = if high < 10 {
+                high + b'0'
+            } else {
+                (high - 10) + b'a'
+            };
+            cursor += 1;
+            // insert dash if next position is a dash
+            if DASH_POSITIONS.contains(&cursor) {
+                output[cursor] = b'-';
+                cursor += 1;
+            }
+            // convert low nibble
+            let low = bytes[i] & 0x0f;
+            output[cursor] = if low < 10 {
+                low + b'0'
+            } else {
+                (low - 10) + b'a'
+            };
+            cursor += 1;
+        }
+        String::from_bytes(e, &output)
     }
 
     pub(crate) fn create_pawn_def(env: &Env, rank: Rank) -> PawnDef {
@@ -495,252 +809,6 @@ impl Contract {
                 movement_range: 0,
             },
         }
-    }
-
-    pub fn join_lobby(env: Env, address: Address, req: JoinLobbyReq) -> Result<bool, Error> {
-        address.require_auth();
-        if address.to_string() != req.guest_address {
-            return Err(Error::InvalidArgs)
-        }
-        let persistent = &env.storage().persistent();
-        let lobby_key = DataKey::Lobby(req.lobby_id.clone());
-        let mut user: User = Self::get_or_make_user(&env, &req.guest_address);
-        let user_key = DataKey::User(req.guest_address.clone());
-        if !user.current_lobby.is_empty() {
-            let old_lobby_key = DataKey::Lobby(user.current_lobby.clone());
-            if env.storage().persistent().has(&old_lobby_key) {
-                return Err(Error::GuestAlreadyInLobby);
-            }
-            user.current_lobby = String::from_str(&env, "");
-            persistent.set(&user_key, &user);
-        }
-        let mut lobby: Lobby = match persistent.get(&lobby_key) {
-            Some(thing) => thing,
-            None => return Err(Error::LobbyNotFound),
-        };
-        // check if lobby is joinable
-        if lobby.phase != Phase::Uninitialized {
-            return Err(Error::LobbyNotJoinable)
-        }
-        if !lobby.guest_address.is_empty() {
-            return Err(Error::LobbyNotJoinable)
-        }
-        if !lobby.guest_state.user_address.is_empty() {
-            return Err(Error::LobbyNotJoinable)
-        }
-        if lobby.host_state.lobby_state != UserLobbyState::InLobby {
-            return Err(Error::LobbyNotJoinable)
-        }
-        if lobby.host_address == req.guest_address {
-            return Err(Error::LobbyNotJoinable)
-        }
-        // write lobby
-        lobby.guest_address = req.guest_address.clone();
-        lobby.guest_state = UserState {
-            lobby_state: UserLobbyState::InGame,
-            setup_commitments: Vec::new(&env),
-            team: Team::Blue,
-            user_address: req.guest_address.clone(),
-        };
-        lobby.host_state.lobby_state = UserLobbyState::InGame;
-        lobby.phase = Phase::Setup;
-
-        // Generate pawns for both teams based on max_pawns
-        let mut pawn_id_counter: u32 = 0;
-        let purgatory_pos = Pos { x: -666, y: -666 };
-        
-        // Generate pawns for Red team (host)
-        for max_pawn in lobby.parameters.max_pawns.iter() {
-            for _ in 0..max_pawn.max {
-                let pawn = Pawn {
-                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
-                    user_address: lobby.host_address.clone(),
-                    team: Team::Red,
-                    pos: purgatory_pos.clone(),
-                    is_alive: false,
-                    is_moved: false,
-                    is_revealed: false,
-                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
-                };
-                lobby.pawns.push_back(pawn);
-                pawn_id_counter += 1;
-            }
-        }
-
-        // Generate pawns for Blue team (guest)
-        for max_pawn in lobby.parameters.max_pawns.iter() {
-            for _ in 0..max_pawn.max {
-                let pawn = Pawn {
-                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
-                    user_address: req.guest_address.clone(),
-                    team: Team::Blue,
-                    pos: purgatory_pos.clone(),
-                    is_alive: false,
-                    is_moved: false,
-                    is_revealed: false,
-                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
-                };
-                lobby.pawns.push_back(pawn);
-                pawn_id_counter += 1;
-            }
-        }
-
-        persistent.set(&lobby_key, &lobby);
-        // write guest user
-        user.current_lobby = req.lobby_id.clone();
-        persistent.set(&user_key, &user);
-        Ok(true)
-    }
-
-    pub fn commit_setup(env: Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
-        address.require_auth();
-        let persistent = env.storage().persistent();
-        let lobby_key = DataKey::Lobby(req.lobby_id.clone());
-        let mut lobby: Lobby = match persistent.get(&lobby_key) {
-            Some(v) => v,
-            None => return Err(Error::LobbyNotFound),
-        };
-        if lobby.phase != Phase::Setup {
-            return Err(Error::WrongPhase);
-        }
-        // get state
-        let user_address = address.to_string();
-        let (mut user_state, other_user_committed) = if user_address == lobby.host_address {
-            (lobby.host_state.clone(), !lobby.guest_state.setup_commitments.clone().is_empty())
-        } else if user_address == lobby.guest_address {
-            (lobby.guest_state.clone(), !lobby.host_state.setup_commitments.clone().is_empty())
-        } else {
-            return Err(Error::InvalidArgs);
-        };
-        user_state.setup_commitments = req.setup_commitments.clone();
-        if other_user_committed
-        {
-            let unknown_pawn_def = PawnDef {
-                id: 99,
-                name: String::from_str(&env, "UNKNOWN"),
-                rank: 99,
-                power: 0,
-                movement_range: 0,
-            };
-            let mut sneed: u32 = 0;
-            for commitment in lobby.host_state.setup_commitments.clone() {
-                let pawn = Pawn {
-                    pawn_id: Self::generate_uuid(&env, sneed),
-                    user_address: lobby.host_state.user_address.clone(),
-                    team: lobby.host_state.team.clone(),
-                    pos: commitment.starting_pos.clone(),
-                    is_alive: true,
-                    is_moved: false,
-                    is_revealed: false,
-                    pawn_def: unknown_pawn_def.clone(),
-                };
-                lobby.pawns.push_back(pawn);
-                sneed += 1;
-            }
-            for commitment in lobby.guest_state.setup_commitments.clone() {
-                let pawn = Pawn {
-                    pawn_id: Self::generate_uuid(&env, sneed),
-                    user_address: lobby.guest_state.user_address.clone(),
-                    team: lobby.guest_state.team.clone(),
-                    pos: commitment.starting_pos.clone(),
-                    is_alive: true,
-                    is_moved: false,
-                    is_revealed: false,
-                    pawn_def: unknown_pawn_def.clone(),
-                };
-                lobby.pawns.push_back(pawn);
-                sneed += 1;
-            }
-            lobby.phase = Phase::Movement;
-            let empty_pawn_id = String::from_str(&env, "Empty pawn Id");
-            let empty_pos = Pos {
-                x: -666,
-                y: -666,
-            };
-            let first_turn = Turn {
-                guest_turn: TurnMove {
-                    initialized: false,
-                    pawn_id: empty_pawn_id.clone(),
-                    pos: empty_pos.clone(),
-                    turn: 1,
-                    user_address: lobby.guest_address.clone(),
-                },
-                host_turn: TurnMove {
-                    initialized: false,
-                    pawn_id: empty_pawn_id.clone(),
-                    pos: empty_pos.clone(),
-                    turn: 1,
-                    user_address: lobby.host_address.clone(),
-                },
-                turn: 1,
-            };
-            lobby.turns.push_back(first_turn);
-        }
-        persistent.set(&lobby_key, &lobby);
-        Ok(())
-    }
-
-    pub(crate) fn get_or_make_user(e: &Env, user_address: &UserAddress) -> User {
-        let storage = e.storage().persistent();
-        let key = DataKey::User(user_address.clone());
-        storage.get(&key).unwrap_or_else(|| {
-            let new_user = User {
-                current_lobby: String::from_str(e, ""),
-                games_completed: 0,
-                index: user_address.clone(),
-                name: String::from_str(e, "default name"),
-            };
-            storage.set(&key, &new_user);
-            new_user
-        })
-    }
-
-    pub(crate) fn generate_uuid(e: &Env, salt_int: u32) -> String {
-        //let random_number: u64 = e.prng().gen();
-        const DASH_POSITIONS: [usize; 4] = [8, 13, 18, 23];
-        let mut combined = Bytes::new(e);
-        //combined.append(&random_number.to_xdr(e));
-        //combined.append(&e.ledger().sequence().to_xdr(e));
-        combined.append(&salt_int.to_xdr(e));
-        // hash combined bytes
-        let mut bytes = e.crypto().sha256(&combined).to_array();
-        // force "version 4" in bytes[6]
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        // force "variant 1" in bytes[8]
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        // output is 32 hex digits + 4 dashes
-        let mut output = [0u8; 36];
-        let mut cursor = 0;
-        // convert only the first 16 bytes to hex (the standard UUID size)
-        for i in 0..16 {
-            // insert dash if at a dash position
-            if DASH_POSITIONS.contains(&cursor) {
-                output[cursor] = b'-';
-                cursor += 1;
-            }
-            // convert high nibble
-            let high = (bytes[i] >> 4) & 0x0f;
-            output[cursor] = if high < 10 {
-                high + b'0'
-            } else {
-                (high - 10) + b'a'
-            };
-            cursor += 1;
-            // insert dash if next position is a dash
-            if DASH_POSITIONS.contains(&cursor) {
-                output[cursor] = b'-';
-                cursor += 1;
-            }
-            // convert low nibble
-            let low = bytes[i] & 0x0f;
-            output[cursor] = if low < 10 {
-                low + b'0'
-            } else {
-                (low - 10) + b'a'
-            };
-            cursor += 1;
-        }
-        String::from_bytes(e, &output)
     }
 
     /*
