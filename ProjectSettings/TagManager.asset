@@ -16,8 +16,8 @@ TagManager:
   - PawnView
   - TileView
   - BoardMakerTile
-  - 
-  - 
+  - StencilLayer1
+  - StencilLayer2
   - 
   - 
   - 

@@ -50,6 +50,18 @@ mergeInto(LibraryManager.library, {
         Module.SendUnityMessage(1, requestAccessRes.address);
     },
 
+    JSGetNetworkDetails: async function()
+    {
+        const FreighterApi = window.freighterApi;
+        const getNetworkDetailsRes = await FreighterApi.getNetworkDetails();
+        if (getNetworkDetailsRes.error) {
+            Module.SendUnityMessage(-1, `JSGetNetworkDetails() getNetworkDetailsRes error: ${getNetworkDetailsRes}`)
+            return;
+        }
+        const resultString = JSON.stringify(getNetworkDetailsRes);
+        Module.SendUnityMessage(1, resultString);
+    },
+    
     JSGetData: async function(contractAddressPtr, keyTypePtr, keyValuePtr)
     {
         const {rpc, xdr, Address, scValToNative} = window.StellarSdk;

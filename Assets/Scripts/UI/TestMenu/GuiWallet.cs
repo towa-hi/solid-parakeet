@@ -1,4 +1,5 @@
 using System;
+using Stellar;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,8 +19,6 @@ public class GuiWallet : TestGuiElement
     public event Action OnConnectWalletButton;
     public event Action OnRefreshButton;
     
-    public WalletManager walletManager;
-
     
     void Start()
     {
@@ -37,8 +36,18 @@ public class GuiWallet : TestGuiElement
     }
     async void HandleOnConnectWalletButton()
     {
-        _ = await walletManager.OnConnectWallet();
+        bool connected = await StellarManagerTest.ConnectWallet();
+        if (!connected)
+        {
+            walletText.text = "Not connected";
+            networkText.text = "Not connected";
+            return;
+        }
         walletText.text = WalletManager.address;
+        networkText.text = WalletManager.networkDetails.networkPassphrase;
+        AccountEntry accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
+        balanceText.text = accountEntry.balance.ToString();
+        
     }
 
     void HandleRefreshButton()

@@ -231,6 +231,23 @@ public class StellarManagerTest
         EndTask(task);
         return result;
     }
+
+    public static async Task<AccountEntry> GetAccount(string key)
+    {
+        TaskInfo task = SetCurrentTask("ReqAccountEntry");
+        AccountEntry result = await stellar.ReqAccountEntry(MuxedAccount.FromAccountId(key));
+        EndTask(task);
+        return result;
+    }
+
+    public static async Task<bool> ConnectWallet()
+    {
+        TaskInfo task = SetCurrentTask("WalletManager.ConnectWallet");
+        bool result = await WalletManager.ConnectWallet();
+        EndTask(task);
+        return result;
+    }
+    
 }
 
 public class TaskInfo

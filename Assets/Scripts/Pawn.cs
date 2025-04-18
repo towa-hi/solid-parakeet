@@ -68,6 +68,19 @@ public class Pawn
         pos = inPos;
         dirty = true;
     }
+
+    public void MutUpdate(Contract.Pawn p)
+    {
+        pawnId = Guid.Parse(p.pawn_id);
+        def = GameManager.instance.orderedPawnDefList.FirstOrDefault(pawnDef => pawnDef.id == p.pawn_def.id);
+        team = (Team)p.team;
+        pos = new Vector2Int(p.pos.x, p.pos.y);
+        isSetup = true;
+        isAlive = p.is_alive;
+        hasMoved = p.is_moved;
+        isVisibleToOpponent = p.is_revealed;
+        dirty = true;
+    }
 }
 
 [Serializable]

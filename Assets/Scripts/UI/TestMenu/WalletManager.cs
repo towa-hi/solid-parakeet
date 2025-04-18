@@ -13,18 +13,23 @@ public class WalletManager : MonoBehaviour
     [DllImport("__Internal")]
     static extern void JSGetFreighterAddress();
 
+    [DllImport("__Internal")]
+    static extern void JSGetNetworkDetails();
+
     public static string address;
+    public static NetworkDetails networkDetails;
     
     public static bool webGL;
     
-    // wrapper tasks
-    TaskCompletionSource<StellarResponseData> checkWalletTaskSource;
-    TaskCompletionSource<StellarResponseData> getAddressTaskSource;
-    TaskCompletionSource<StellarResponseData> getDataTaskSource;
-    TaskCompletionSource<StellarResponseData> invokeContractFunctionTaskSource;
-    TaskCompletionSource<StellarResponseData> getEventsTaskSource;
+    public static WalletManager instance;
     
-    public JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
+    
+    // wrapper tasks
+    static TaskCompletionSource<StellarResponseData> checkWalletTaskSource;
+    static TaskCompletionSource<StellarResponseData> getAddressTaskSource;
+    static TaskCompletionSource<StellarResponseData> getNetworkDetailsTaskSource;
+    
+    static JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
     {
         ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
         NullValueHandling = NullValueHandling.Ignore,
@@ -32,14 +37,20 @@ public class WalletManager : MonoBehaviour
 
     void Awake()
     {
-#if UNITY_WEBGL
-        webGL = true;
-#endif
+        if (instance == null)
+        {
+            instance = this;
+        }
+        #if UNITY_WEBGL
+            webGL = true;
+        #endif
     }
 
-    public async Task<bool> OnConnectWallet()
+    public static async Task<bool> ConnectWallet()
     {
         bool walletExists = await CheckWallet();
+        address = null;
+        networkDetails = null;
         if (!walletExists)
         {
             Debug.LogWarning("Wallet could not be found");
@@ -51,10 +62,40 @@ public class WalletManager : MonoBehaviour
             Debug.LogWarning("Address not found");
             return false;
         }
-        return true;
+        string networkDetailsJson = await GetNetworkDetails();
+        if (string.IsNullOrEmpty(networkDetailsJson))
+        {
+            Debug.LogWarning("Network details not found");
+            return false;
+        }
+        try
+        {
+            // First try to parse as error
+            var errorObj = JsonConvert.DeserializeAnonymousType(networkDetailsJson, new { error = "" }, jsonSettings);
+            if (!string.IsNullOrEmpty(errorObj?.error))
+            {
+                Debug.LogError($"Network details error: {errorObj.error}");
+                return false;
+            }
+            // If no error, parse as network details
+            NetworkDetails networkDetailsObj = JsonConvert.DeserializeObject<NetworkDetails>(networkDetailsJson, jsonSettings);
+            if (networkDetailsObj == null)
+            {
+                Debug.LogError("Invalid network details format");
+                return false;
+            }
+            Debug.Log($"Connected to network: {networkDetailsObj.network}");
+            networkDetails = networkDetailsObj;
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            Debug.LogError($"Failed to parse network details: {ex.Message}");
+            return false;
+        }
     }
     
-    async Task<bool> CheckWallet()
+    static async Task<bool> CheckWallet()
     {
         if (checkWalletTaskSource != null && !checkWalletTaskSource.Task.IsCompleted)
         {
@@ -73,7 +114,7 @@ public class WalletManager : MonoBehaviour
         return true;
     }
 
-    async Task<string> GetAddress()
+    static async Task<string> GetAddress()
     {
         if (getAddressTaskSource != null && !getAddressTaskSource.Task.IsCompleted)
         {
@@ -88,8 +129,27 @@ public class WalletManager : MonoBehaviour
             Debug.Log("GetAddress() failed with code " + getAddressRes.code);
             return null;
         }
-        Debug.Log("GetAddress() completed");
+        Debug.Log($"GetAddress() completed with data {getAddressRes.data}");
         return getAddressRes.data;
+    }
+
+    static async Task<string> GetNetworkDetails()
+    {
+        if (getNetworkDetailsTaskSource != null && !getNetworkDetailsTaskSource.Task.IsCompleted)
+        {
+            throw new Exception("GetNetworkDetails() is already in progress");
+        }
+        getNetworkDetailsTaskSource = new TaskCompletionSource<StellarResponseData>();
+        JSGetNetworkDetails();
+        StellarResponseData getNetworkDetailsRes = await getNetworkDetailsTaskSource.Task;
+        getNetworkDetailsTaskSource = null;
+        if (getNetworkDetailsRes.code != 1)
+        {
+            Debug.Log("GetNetworkDetails() failed with code " + getNetworkDetailsRes.code);
+            return null;
+        }
+        Debug.Log($"GetNetworkDetails() completed with data {getNetworkDetailsRes.data}");
+        return getNetworkDetailsRes.data;
     }
     
     public void StellarResponse(string json)
@@ -105,9 +165,7 @@ public class WalletManager : MonoBehaviour
             {
                 "_JSCheckWallet" => checkWalletTaskSource,
                 "_JSGetFreighterAddress" => getAddressTaskSource,
-                "_JSGetData" => getDataTaskSource,
-                "_JSInvokeContractFunction" => invokeContractFunctionTaskSource,
-                "_JSGetEvents" => getEventsTaskSource,
+                "_JSGetNetworkDetails" => getNetworkDetailsTaskSource,
                 _ => throw new Exception($"StellarResponse() function not found {response}")
             };
             if (task == null)
@@ -122,4 +180,12 @@ public class WalletManager : MonoBehaviour
             throw;
         }
     }
+}
+
+public class NetworkDetails
+{
+    public string network { get; set; }
+    public string networkUrl { get; set; }
+    public string networkPassphrase { get; set; }
+    public string sorobanRpcUrl { get; set; }
 }

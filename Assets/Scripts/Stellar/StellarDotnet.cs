@@ -111,12 +111,11 @@ public class StellarDotnet
         return (sendTransactionResult, simulateTransactionResult);
     }
     
-
-    async Task<AccountEntry> ReqAccountEntry(MuxedAccount.KeyTypeEd25519 account)
+    public async Task<AccountEntry> ReqAccountEntry(MuxedAccount.KeyTypeEd25519 account)
     {
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
-            Keys = new [] {EncodedAccountKey(userAccount)},
+            Keys = new [] {EncodedAccountKey(account)},
         });
         LedgerEntry.dataUnion.Account entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
         return entry?.account;
@@ -162,7 +161,7 @@ public class StellarDotnet
         {
             return null;
         }
-        var data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+        LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
         User user = SCUtility.SCValToNative<User>(data.contractData.val);
         return user;
     }
@@ -179,10 +178,19 @@ public class StellarDotnet
         {
             return null;
         }
-
-        var data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+        LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
         Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
         return lobby;
+    }
+
+    public async void ReqTrustLines(string key)
+    {
+        Debug.Log("ReqTrustLines on " + key);
+        LedgerKey.trustLineStruct ledgerKey = new LedgerKey.trustLineStruct
+        {
+            accountID = null,
+            asset = null
+        };
     }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
