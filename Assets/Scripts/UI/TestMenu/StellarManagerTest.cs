@@ -7,6 +7,7 @@ using Stellar;
 using Stellar.RPC;
 using Stellar.Utilities;
 using UnityEngine;
+using UnityEngine.Assertions;
 using Random = UnityEngine.Random;
 
 public class StellarManagerTest
@@ -22,6 +23,10 @@ public class StellarManagerTest
     public static event Action<string> OnContractAddressUpdated;
     public static event Action<User?> OnCurrentUserUpdated;
     public static event Action<Lobby?> OnCurrentLobbyUpdated;
+
+    public static event Action<TaskInfo> OnTaskStarted;
+    public static event Action<TaskInfo> OnTaskEnded;
+    public static TaskInfo currentTask;
     
     public static User? currentUser = null;
     public static Lobby? currentLobby = null;
@@ -34,47 +39,52 @@ public class StellarManagerTest
         Debug.Log("contract" + stellar.contractAddress);
     }
 
+    static TaskInfo SetCurrentTask(string message)
+    {
+        if (currentTask != null)
+        {
+            throw new Exception("Task is already set");
+        }
+        TaskInfo taskInfo = new TaskInfo();
+        taskInfo.taskId = Guid.NewGuid();
+        taskInfo.taskMessage = message;
+        currentTask = taskInfo;
+        OnTaskStarted?.Invoke(taskInfo);
+        return taskInfo;
+    }
+
+    static void EndTask(TaskInfo taskInfo)
+    {
+        if (taskInfo == null)
+        {
+            throw new Exception("Task is null");
+        }
+        if (currentTask == null)
+        {
+            throw new Exception("Task is not set");
+        }
+        if (currentTask.taskId != taskInfo.taskId)
+        {
+            throw new Exception("Task is not taskId");
+        }
+        OnTaskEnded?.Invoke(currentTask);
+        currentTask = null;
+    }
+    
     public static async Task<bool> UpdateState()
     {
-        User? oldUser = currentUser;
-        Lobby? oldLobby = currentLobby;
-        Debug.Log("Updating State...");
-        Debug.Log("sneed " + stellar.sneed);
-        Debug.Log("contract " + stellar.contractAddress);
         currentUser = null;
         currentLobby = null;
-        if (stellar.sneed == null || stellar.contractAddress == null)
-        {
-            Debug.Log("no sneed or contract address");
-            return true;
-        }
-        currentUser = await GetUser(stellar.userAddress);
-        if (currentUser.HasValue)
-        {
-            Debug.Log("currentUser set to " + currentUser.Value.index);
-        }
-        else
-        {
-            Debug.Log("currentUser set to null");
-            Debug.Log("currentLobby set to null because current user is null");
-        }
+        TaskInfo getUserTask = SetCurrentTask("ReqUserData");
+        currentUser = await stellar.ReqUserData(stellar.userAddress);
+        EndTask(getUserTask);
         if (currentUser.HasValue)
         {
             if (!string.IsNullOrEmpty(currentUser.Value.current_lobby))
             {
-                currentLobby = await GetLobby(currentUser.Value.current_lobby);
-                if (currentLobby.HasValue)
-                {
-                    Debug.Log("currentLobby set to " + currentLobby.Value.index);
-                }
-                else
-                {
-                    Debug.Log("currentLobby set to null because lobby could not be fetched");
-                }
-            }
-            else
-            {
-                Debug.Log("currentLobby set to null because currentUser.current_lobby is empty");
+                TaskInfo getLobbyTask = SetCurrentTask("ReqLobbyData");
+                currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
+                EndTask(getLobbyTask);
             }
         }
         Debug.Log("OnCurrentUserUpdated");
@@ -84,21 +94,20 @@ public class StellarManagerTest
         return true;
     }
     
-    public static async Task SetContractAddress(string contractId)
+    public static void SetContractAddress(string contractId)
     {
-        
         stellar.SetContractId(contractId);
         Debug.Log("OnContractAddressUpdated");
         OnContractAddressUpdated?.Invoke(contractId);
-        await UpdateState();
+        _ = UpdateState();
     }
 
-    public static async Task SetSneed(string accountSneed)
+    public static void SetSneed(string accountSneed)
     {
         stellar.SetSneed(accountSneed);
         Debug.Log("OnSneedUpdated");
         OnSneedUpdated?.Invoke(accountSneed);
-        await UpdateState();
+        _ = UpdateState();
     }
 
     public static string GetUserAddress()
@@ -110,8 +119,52 @@ public class StellarManagerTest
     {
         return stellar.contractAddress;
     }
+
+    static int ProcessTransactionResult(GetTransactionResult result, SimulateTransactionResult simResult)
+    {
+        if (simResult == null)
+        {
+            return -1;
+        }
+        if (simResult.Error != null)
+        {
+            List<int> errorCodes = new();
+            foreach (DiagnosticEvent diag in simResult.DiagnosticEvents.Where(diag => !diag.inSuccessfulContractCall))
+            {
+                Debug.Log(diag); 
+                ContractEvent.bodyUnion.case_0 body = (ContractEvent.bodyUnion.case_0)diag._event.body;
+                foreach (SCVal topic in body.v0.topics)
+                {
+                    if (topic is not SCVal.ScvError { error: SCError.SceContract contractError }) continue;
+                    int code = (int)contractError.contractCode.InnerValue;
+                    errorCodes.Add(code);
+                }
+            }
+            switch (errorCodes.Count)
+            {
+                case > 1:
+                    Debug.LogWarning("ProcessTransactionResult failed to simulate with more than 1 error");
+                    return errorCodes[0];
+                case 1:
+                    return errorCodes[0];
+                default:
+                    return -2;
+            }
+        }
+        if (result == null)
+        {
+            return -3;
+        }
+        if (result.Status != GetTransactionResultStatus.SUCCESS)
+        {
+            return -4;
+        }
+        return 0;
+    }
+    
     public static async Task<int> MakeLobbyRequest(Contract.LobbyParameters parameters)
     {
+        
         uint salt = (uint)Random.Range(0, 4000000);
         MakeLobbyReq req = new MakeLobbyReq
         {
@@ -119,68 +172,28 @@ public class StellarManagerTest
             parameters = parameters,
             salt = salt,
         };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req);
-        if (simResult == null)
-        {
-            Debug.LogError("MakeLobbyReq simResult is null");
-            return -1;
-        }
-        else if (simResult.Error != null)
-        {
-            Debug.Log("MakeLobbyReq sim got " + simResult.Error);
-            List<int> errorCodes = GetErrorCodes(simResult.DiagnosticEvents);
-            if (errorCodes.Count > 1)
-            {
-                Debug.LogWarning("MakeLobbyRequest failed to simulate with more than 1 error");
-            }
-            if (errorCodes.Count == 1)
-            {
-                return errorCodes[0];
-            }
-            else
-            {
-                return -666;
-            }
-        }
-        else if (result == null)
-        {
-            Debug.LogError("MakeLobbyReq final result is null");
-            return -2;
-        }
-        else if (result.Status != GetTransactionResultStatus.SUCCESS)
-        {
-            Debug.LogWarning("MakeLobbyReq sim got " + result.Status);
-            return -3;
-        }
-        return 0;
+        EndTask(task);
+        return ProcessTransactionResult(result, simResult);
     }
 
     public static async Task<int> LeaveLobbyRequest()
     {
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("leave_lobby", null);
-        if (simResult.Error != null)
-        {
-            Debug.Log(simResult.Error);
-            List<int> errorCodes = GetErrorCodes(simResult.DiagnosticEvents);
-            if (errorCodes.Count > 1)
-            {
-                Debug.LogWarning("LeaveLobbyRequest failed to simulate with more than 1 error");
-            }
-            if (errorCodes.Count == 1)
-            {
-                return errorCodes[0];
-            }
-        }
-        return 0;
+        EndTask(task);
+        return ProcessTransactionResult(result, simResult);
     }
 
     public static async Task<int> CommitSetupRequest(List<Pawn> myPawns)
     {
-        PawnCommitment[] setup_commitments = new PawnCommitment[myPawns.Count];
+        Assert.IsTrue(currentLobby.HasValue);
+        PawnCommitment[] setupCommitments = new PawnCommitment[myPawns.Count];
         for (int i = 0; i < myPawns.Count; i++)
         {
             Pawn pawn = myPawns[i];
-            setup_commitments[i] = new PawnCommitment
+            setupCommitments[i] = new PawnCommitment
             {
                 pawn_def_hash = pawn.def.id.ToString(),
                 pawn_id = pawn.pawnId.ToString(),
@@ -190,42 +203,12 @@ public class StellarManagerTest
         SetupCommitReq req = new()
         {
             lobby_id = currentLobby.Value.index,
-            setup_commitments = setup_commitments,
+            setup_commitments = setupCommitments,
         };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
-        if (simResult == null)
-        {
-            Debug.LogError("CommitSetupRequest simResult is null");
-            return -1;
-        }
-        else if (simResult.Error != null)
-        {
-            Debug.Log("CommitSetupRequest sim got " + simResult.Error);
-            List<int> errorCodes = GetErrorCodes(simResult.DiagnosticEvents);
-            if (errorCodes.Count > 1)
-            {
-                Debug.LogWarning("CommitSetupRequest failed to simulate with more than 1 error");
-            }
-            if (errorCodes.Count == 1)
-            {
-                return errorCodes[0];
-            }
-            else
-            {
-                return -666;
-            }
-        }
-        else if (result == null)
-        {
-            Debug.LogError("CommitSetupRequest final result is null");
-            return -2;
-        }
-        else if (result.Status != GetTransactionResultStatus.SUCCESS)
-        {
-            Debug.LogWarning("CommitSetupRequest sim got " + result.Status);
-            return -3;
-        }
-        return 0;
+        EndTask(task);
+        return ProcessTransactionResult(result, simResult);
     }
     
     public static async Task<int> JoinLobbyRequest(string lobbyId)
@@ -235,71 +218,23 @@ public class StellarManagerTest
             guest_address = GetUserAddress(),
             lobby_id = lobbyId,
         };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("join_lobby", req);
-        if (simResult == null)
-        {
-            Debug.LogError("JoinLobbyRequest simResult is null");
-            return -1;
-        }
-        else if (simResult.Error != null)
-        {
-            Debug.Log("JoinLobbyRequest sim got " + simResult.Error);
-            List<int> errorCodes = GetErrorCodes(simResult.DiagnosticEvents);
-            if (errorCodes.Count > 1)
-            {
-                Debug.LogWarning("JoinLobbyRequest failed to simulate with more than 1 error");
-            }
-            if (errorCodes.Count == 1)
-            {
-                return errorCodes[0];
-            }
-            else
-            {
-                return -666;
-            }
-        }
-        else if (result == null)
-        {
-            Debug.LogError("JoinLobbyRequest final result is null");
-            return -2;
-        }
-        else if (result.Status != GetTransactionResultStatus.SUCCESS)
-        {
-            Debug.LogWarning("JoinLobbyRequest sim got " + result.Status);
-            return -3;
-        }
-        return 0;
+        EndTask(task);
+        return ProcessTransactionResult(result, simResult);
     }
     
-    static List<int> GetErrorCodes(List<DiagnosticEvent> diagnosticEvents)
-    {
-        List<int> errorCodes = new List<int>();
-        foreach (DiagnosticEvent diag in diagnosticEvents.Where(diag => !diag.inSuccessfulContractCall))
-        {
-            Debug.Log(diag); 
-            ContractEvent.bodyUnion.case_0 body = (ContractEvent.bodyUnion.case_0)diag._event.body;
-            foreach (SCVal topic in body.v0.topics)
-            {
-                if (topic is SCVal.ScvError { error: SCError.SceContract contractError })
-                {
-                    int code = (int)contractError.contractCode.InnerValue;
-                    errorCodes.Add(code);
-                }
-            }
-        }
-        return errorCodes;
-    }
-
     public static async Task<Lobby?> GetLobby(string key)
     {
+        TaskInfo task = SetCurrentTask("ReqLobbyData");
         Lobby? result = await stellar.ReqLobbyData(key);
+        EndTask(task);
         return result;
     }
+}
 
-    public static async Task<User?> GetUser(string key)
-    {
-        User? result = await stellar.ReqUserData(key);
-        return result;
-    }
-
+public class TaskInfo
+{
+    public Guid taskId;
+    public string taskMessage;
 }

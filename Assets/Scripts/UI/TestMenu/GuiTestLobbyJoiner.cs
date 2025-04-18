@@ -15,13 +15,13 @@ public class GuiTestLobbyJoiner : TestGuiElement
     public Button backButton;
     public Button joinButton;
 
-    public event Action OnJoinButton;
+    public event Action<string> OnJoinButton;
     public event Action OnBackButton;
 
     void Start()
     {
         backButton.onClick.AddListener(delegate { OnBackButton?.Invoke(); });
-        joinButton.onClick.AddListener(delegate { OnJoinButton?.Invoke(); });
+        joinButton.onClick.AddListener(delegate { OnJoinButton?.Invoke(lobbyIdInputField.text); });
         lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdValueChanged);
         StellarManagerTest.OnContractAddressUpdated += OnContractAddressUpdated;
         StellarManagerTest.OnSneedUpdated += OnSneedUpdated;

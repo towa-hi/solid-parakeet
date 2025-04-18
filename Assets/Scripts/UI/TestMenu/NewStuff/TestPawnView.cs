@@ -16,36 +16,24 @@ public class TestPawnView : MonoBehaviour
         pawn = inPawn;
         bm.OnStateChanged += OnStateChanged;
         string objectName = $"{pawn.team} Pawn {pawn.def.pawnName}";
-        if (!pawn.isAlive)
-        {
-            objectName += $" {Shared.ShortGuid(pawn.pawnId)}";
-        }
         gameObject.name = objectName;
         badge.Initialize(pawn, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
-        if (!pawn.isAlive)
-        {
-            transform.position = GameManager.instance.purgatory.position;
-        }
-        else
-        {
-            TestTileView tileView = GameManager.instance.testBoardManager.GetTileViewAtPos(pawn.pos);
-            transform.position = tileView.origin.position;
-        }
     }
 
     void OnStateChanged(TestBoardManager bm)
     {
         // Update visual position based on the pawn's current state
-        TestTileView tileView = GameManager.instance.testBoardManager.GetTileViewAtPos(pawn.pos);
-        if (tileView)
+        if (pawn.isAlive)
         {
             // Set position directly to the tile's origin
+            TestTileView tileView = GameManager.instance.testBoardManager.GetTileViewAtPos(pawn.pos);
             transform.position = tileView.origin.position;
         }
-        else if (pawn.pos == Globals.Purgatory)
+        else
         {
             // If the pawn is in purgatory, set position to purgatory
             transform.position = GameManager.instance.purgatory.position;
         }
     }
+    
 }

@@ -13,7 +13,6 @@ public class GuiManager : MonoBehaviour
     public GuiNicknameModal nicknameModal;
     public GuiPasswordModal passwordModal;
     public GuiTestMenuController testMenuController;
-    
     public GameObject modalPanel;
 
     [SerializeField] GuiElement currentMenu;

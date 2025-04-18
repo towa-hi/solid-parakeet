@@ -20,7 +20,8 @@ public class GuiTestStartMenu : TestGuiElement
     public Button makeLobbyButton;
     public Button viewLobbyButton;
     public Button cancelButton;
-
+    public Button walletButton;
+    
     public event Action<string> OnSetContractButton;
     public event Action<string> OnSetSneedButton;
 
@@ -28,7 +29,8 @@ public class GuiTestStartMenu : TestGuiElement
     public event Action OnMakeLobbyButton;
     public event Action OnViewLobbyButton;
     public event Action OnCancelButton;
-    
+    public event Action OnWalletButton;
+
     
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -41,6 +43,7 @@ public class GuiTestStartMenu : TestGuiElement
         makeLobbyButton.onClick.AddListener(() => OnMakeLobbyButton?.Invoke());
         cancelButton.onClick.AddListener(() => OnCancelButton?.Invoke());
         viewLobbyButton.onClick.AddListener(() => OnViewLobbyButton?.Invoke());
+        walletButton.onClick.AddListener(() => OnWalletButton?.Invoke());
         StellarManagerTest.OnContractAddressUpdated += OnContractAddressUpdated;
         StellarManagerTest.OnSneedUpdated += OnSneedUpdated;
         StellarManagerTest.OnCurrentUserUpdated += OnCurrentUserUpdated;

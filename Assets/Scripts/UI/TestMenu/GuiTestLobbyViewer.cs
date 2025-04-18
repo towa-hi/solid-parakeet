@@ -69,18 +69,6 @@ public class GuiTestLobbyViewer : TestGuiElement
                 problems.Add($"lobby.game_end_state is {lobby.game_end_state}");
                 lobbyStartable = false;
             }
-
-            // if (lobby.host_state.lobby_state != 1)
-            // {
-            //     problems.Add($"lobby.host_state is {lobby.host_state.lobby_state}");
-            //     lobbyStartable = false;
-            // }
-            //
-            // if (lobby.guest_state.lobby_state != 1)
-            // {
-            //     problems.Add($"lobby.guest_state is {lobby.guest_state.lobby_state}");
-            //     lobbyStartable = false;
-            // }
         }
         else
         {
@@ -91,19 +79,13 @@ public class GuiTestLobbyViewer : TestGuiElement
         {
             string problemsString = string.Join("", problems);
             statusText.text = problemsString;
-            // foreach (var problem in problems)
-            // {
-            //     Debug.LogWarning(problem);
-            // }
         }
-
         if (lobbyStartable)
         {
             startButton.interactable = true;
             statusText.text = "lobby startable";
         }
         startButton.interactable = lobbyStartable;
-        
     }
 
     void HandleBackButton()

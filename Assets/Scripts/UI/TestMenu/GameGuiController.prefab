@@ -2677,6 +2677,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   setup: {fileID: 2357161617163206493}
   movement: {fileID: 7966010754862713443}
+  blocker: {fileID: 0}
+  blockerText: {fileID: 0}
   boardAnchor: {fileID: 0}
   currentElement: {fileID: 0}
 --- !u!1 &7041036051722262160

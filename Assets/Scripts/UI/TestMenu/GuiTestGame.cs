@@ -1,12 +1,16 @@
 using System;
 using Contract;
 using JetBrains.Annotations;
+using TMPro;
 using UnityEngine;
 
 public class GuiTestGame : TestGuiElement
 {
     public GuiTestSetup setup;
     public GuiTestMovement movement;
+    
+    public GameObject blocker;
+    public TextMeshProUGUI blockerText;
     
     public CameraAnchor boardAnchor;
     public GameElement currentElement;

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Contract;
 using Stellar.Utilities;
+using TMPro;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 public class GuiTestMenuController : MenuElement
 {
@@ -11,23 +13,31 @@ public class GuiTestMenuController : MenuElement
     public GuiTestLobbyMaker lobbyMakerElement;
     public GuiTestLobbyViewer lobbyViewerElement;
     public GuiTestLobbyJoiner lobbyJoinerElement;
-    public GuiTestWaiting waitingElement;
+    public GuiWallet walletElement;
     public GuiTestGame gameElement;
-    public GameObject blocker;
+    public GameObject blockerObject;
+    public TextMeshProUGUI blockerText;
+    static GameObject blocker;
+    
     // state
     public TestGuiElement currentElement;
     public string currentProcedure;
     
     void Start()
     {
+        blocker = blockerObject;
         StellarManagerTest.Initialize();
+
+        StellarManagerTest.OnTaskStarted += EnableBlocker;
+        StellarManagerTest.OnTaskEnded += DisableBlocker;
+        
         startMenuElement.OnSetSneedButton += OnSetSneed;
         startMenuElement.OnSetContractButton += OnSetContract;
         startMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
         startMenuElement.OnCancelButton += CloseMenu;
         startMenuElement.OnViewLobbyButton += ViewLobby;
         startMenuElement.OnJoinLobbyButton += GotoJoinLobby;
-
+        startMenuElement.OnWalletButton += GotoWallet;
         lobbyMakerElement.OnBackButton += GotoStartMenu;
         lobbyMakerElement.OnSubmitLobbyButton += OnSubmitLobbyButton;
         
@@ -38,42 +48,26 @@ public class GuiTestMenuController : MenuElement
         
         lobbyJoinerElement.OnBackButton += GotoStartMenu;
         lobbyJoinerElement.OnJoinButton += JoinLobby;
+        
+        walletElement.OnBackButton += GotoStartMenu;
+        
+        
+        
         startMenuElement.SetIsEnabled(false);
         lobbyMakerElement.SetIsEnabled(false);
         lobbyJoinerElement.SetIsEnabled(false);
         lobbyViewerElement.SetIsEnabled(false);
-        waitingElement.SetIsEnabled(false);
         gameElement.SetIsEnabled(false);
+        walletElement.SetIsEnabled(false);
     }
     
-    public void Initialize()
-    {
-        
-    }
-
-    void OnNetworkUpdate()
-    {
-        
-    }
     public override void ShowElement(bool show)
     {
         base.ShowElement(show);
         if (show)
         {
-            startMenuElement.SetIsEnabled(false);
-            lobbyMakerElement.SetIsEnabled(false);
-            lobbyJoinerElement.SetIsEnabled(false);
-            waitingElement.SetIsEnabled(false);
             GotoStartMenu();
         }
-    }
-
-    async Task<bool> UpdateNetworkState()
-    {
-        Blocker(true);
-        bool success = await StellarManagerTest.UpdateState();
-        Blocker(false);
-        return success;
     }
     
     void ShowMenuElement(TestGuiElement element)
@@ -89,18 +83,12 @@ public class GuiTestMenuController : MenuElement
 
     void OnSetSneed(string sneed)
     {
-        if (StrKey.IsValidEd25519SecretSeed(sneed))
-        {
-            _ = StellarManagerTest.SetSneed(sneed);
-        }
+        StellarManagerTest.SetSneed(sneed);
     }
 
     void OnSetContract(string contractAddress)
     {
-        if (StrKey.IsValidContractId(contractAddress))
-        {
-            _ = StellarManagerTest.SetContractAddress(contractAddress);
-        }
+        StellarManagerTest.SetContractAddress(contractAddress);
     }
 
     void CloseMenu()
@@ -110,117 +98,75 @@ public class GuiTestMenuController : MenuElement
     
     async void GotoLobbyMaker()
     {
-        Blocker(true);
-        _ = await StellarManagerTest.UpdateState();
-        Blocker(false);
-        ShowMenuElement(lobbyMakerElement);
+        if (await StellarManagerTest.UpdateState())
+        {
+            ShowMenuElement(lobbyMakerElement);
+        }
     }
 
     async void GotoStartMenu()
     {
-        Blocker(true);
-        _ = await StellarManagerTest.UpdateState();
-        Blocker(false);
-        ShowMenuElement(startMenuElement);
+        if (await StellarManagerTest.UpdateState())
+        {
+            ShowMenuElement(startMenuElement);
+        }
     }
 
     async void GotoJoinLobby()
     {
-        Blocker(true);
-        _ = await StellarManagerTest.UpdateState();
-        Blocker(false);
-        ShowMenuElement(lobbyJoinerElement);
+        if (await StellarManagerTest.UpdateState())
+        {
+            ShowMenuElement(lobbyJoinerElement);
+        }
     }
 
+    void GotoWallet()
+    {
+        ShowMenuElement(walletElement);
+    }
+    
     async void ViewLobby()
     {
-        Blocker(true);
-        _ = await StellarManagerTest.UpdateState();
-        Blocker(false);
-        if (StellarManagerTest.currentLobby != null)
+        if (await StellarManagerTest.UpdateState())
         {
             ShowMenuElement(lobbyViewerElement);
         }
     }
 
-    async void JoinLobby()
+    async void JoinLobby(string lobbyId)
     {
-        Blocker(true);
-        string lobbyId = lobbyJoinerElement.GetLobbyId();
-        Lobby? maybeLobby = await StellarManagerTest.GetLobby(lobbyId);
-        if (maybeLobby.HasValue)
+        int code = await StellarManagerTest.JoinLobbyRequest(lobbyId);
+        if (code == 0)
         {
-            Lobby lobby = maybeLobby.Value;
-            if (string.IsNullOrEmpty(lobby.guest_address))
-            {
-                int code = await StellarManagerTest.JoinLobbyRequest(lobby.index);
-                _ = await StellarManagerTest.UpdateState();
-                if (code == 0)
-                {
-                    ShowMenuElement(lobbyViewerElement);
-                }
-                else if (code == 12)
-                {
-                    Debug.LogWarning($"Failed to join lobby with code {code}");
-                }
-            }
-            else
-            {
-                Debug.LogWarning($"attempted to join lobby {lobby.index} but lobby.guest_address is already {lobby.guest_address}");
-            }
+            ShowMenuElement(lobbyViewerElement);
         }
-        else
-        {
-            Debug.LogWarning($"lobby {lobbyId} not found");
-        }
-        Blocker(false);
-        
     }
 
     async void OnStartGame()
     {
-        Blocker(true);
         _ = await StellarManagerTest.UpdateState();
-
-        if (!StellarManagerTest.currentUser.HasValue)
-        {
-            Debug.LogError("no user");
-            return;
-        }
-        if (!StellarManagerTest.currentLobby.HasValue)
-        {
-            Debug.LogError("no lobby");
-            return;
-        }
+        Assert.IsTrue(StellarManagerTest.currentUser.HasValue);
+        Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
         Lobby lobby = StellarManagerTest.currentLobby.GetValueOrDefault();
         User user = StellarManagerTest.currentUser.GetValueOrDefault();
-        Blocker(false);
-        if (!lobby.IsLobbyStartable())
-        {
-            Debug.LogError("Lobby is not startable");
-        }
-        else
+        if (lobby.IsLobbyStartable())
         {
             Debug.Log("Starting game");
             GameManager.instance.testBoardManager.StartGame(lobby, user);
-            Debug.Log("showing game element");
             ShowMenuElement(gameElement);
         }
-    }
-    
-    void GotoWaiting()
-    {
-        ShowMenuElement(waitingElement);
+        else
+        {
+            Debug.LogError("Lobby is not startable");
+        }
     }
     
     async void OnSubmitLobbyButton()
     {
-        Blocker(true);
         Contract.LobbyParameters parameters = lobbyMakerElement.GetLobbyParameters();
         int code = await StellarManagerTest.MakeLobbyRequest(parameters);
         //lobbyMakerElement.OnLobbyMade(code);
         _ = await StellarManagerTest.UpdateState();
-        Blocker(false);
         if (code == 0)
         {
             ShowMenuElement(lobbyViewerElement);
@@ -229,25 +175,30 @@ public class GuiTestMenuController : MenuElement
 
     async void OnDeleteLobbyButton()
     {
-        Blocker(true);
         int code = await StellarManagerTest.LeaveLobbyRequest();
         Debug.Log(code);
         _ = await StellarManagerTest.UpdateState();
         GotoStartMenu();
-        Blocker(false);
     }
     
     async void RefreshNetworkState()
     {
-        Blocker(true);
         _ = await StellarManagerTest.UpdateState();
-        Blocker(false);
-    }
-    void Blocker(bool isOn)
-    {
-        blocker.SetActive(isOn);
     }
 
+    void EnableBlocker(TaskInfo task)
+    {
+        blocker.SetActive(true);
+        Debug.Log("Enabled blocker");
+        blockerText.text = task.taskMessage;
+    }
+    
+    void DisableBlocker(TaskInfo task)
+    {
+        blocker.SetActive(false);
+        Debug.Log("Disabled blocker");
+        blockerText.text = "";
+    }
 }
 
 public class TestGuiElement: MonoBehaviour

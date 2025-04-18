@@ -15,15 +15,17 @@ public class TestBoardManager : MonoBehaviour
     public Vortex vortex;
     // UI stuff generally gets done in the phase
     public GuiTestGame guiTestGame;
-    // internal game state. call OnStateChanged when updating these
-    public Dictionary<Vector2Int, TestTileView> tileViews = new();
-    public List<TestPawnView> pawnViews = new();
-    // generally doesn't change
+    // generally doesn't change after lobby is set in StartGame
     public BoardDef boardDef;
     public Contract.LobbyParameters parameters;
     public Team userTeam;
+    public string lobbyId; //when lobbyId is empty it means the boardManager hasn't been initialized yet
+    // internal game state. call OnStateChanged when updating these. only StartGame can make new views
+    public Dictionary<Vector2Int, TestTileView> tileViews = new();
+    public List<TestPawnView> pawnViews = new();
     
     public ITestPhase currentPhase;
+    
     public event Action<ITestPhase> OnPhaseChanged;
     public event Action<TestBoardManager> OnStateChanged;
     
@@ -31,7 +33,7 @@ public class TestBoardManager : MonoBehaviour
     {
         clickInputManager.Initialize();
         clickInputManager.OnClick += OnClick;
-        
+        StellarManagerTest.OnCurrentLobbyUpdated += OnCurrentLobbyUpdated;
     }
     
     public List<Pawn> GetMyPawns()
@@ -42,6 +44,41 @@ public class TestBoardManager : MonoBehaviour
             .ToList();
     }
 
+    void OnCurrentLobbyUpdated(Lobby? maybeLobby)
+    {
+        Debug.Log("OnCurrentLobbyUpdated from TestBoardManager");
+        if (string.IsNullOrEmpty(lobbyId))
+        {
+            Debug.LogWarning("OnCurrentLobbyUpdated but TestBoardManager is uninitialized");
+            return;
+        }
+        if (!maybeLobby.HasValue)
+        {
+            return;
+        }
+        Lobby lobby = maybeLobby.Value;
+        if (lobby.index != lobbyId) { throw new Exception("Lobby id got changed"); }
+        // from this point on we assume that all the pawns and tiles are there and we gotta change state 
+        foreach (TestPawnView pawnView in pawnViews)
+        {
+            Contract.Pawn data = lobby.pawns.FirstOrDefault(p => p.pawn_id == pawnView.pawn.pawnId.ToString());
+            if (string.IsNullOrEmpty(data.pawn_id)) { throw new Exception("Pawn not found"); }
+            pawnView.pawn.MutUpdate(data);
+        }
+        switch (lobby.phase)
+        {
+            case 1:
+                SetPhase(new SetupTestPhase(this, guiTestGame.setup));
+                break;
+            case 2:
+                SetPhase(new MovementTestPhase(this, guiTestGame.movement));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+        StateChanged();
+    }
+    
     public List<TestPawnView> GetMyPawnViews()
     {
         return pawnViews.Where(pv => pv.pawn.team == userTeam).ToList();
@@ -73,6 +110,7 @@ public class TestBoardManager : MonoBehaviour
     
     public void StartGame(Lobby lobby, User user)
     {
+        lobbyId = lobby.index;
         parameters = lobby.parameters;
         if (user.index == lobby.host_address)
         {
@@ -86,12 +124,17 @@ public class TestBoardManager : MonoBehaviour
         {
             throw new Exception("User is not a part of this lobby");
         }
-        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        foreach (var board in boardDefs)
+        // Clear existing tileviews and replace
+        foreach (TestTileView tile in tileViews.Values)
         {
-            if (board.name != lobby.parameters.board_def_name) continue;
-            boardDef = board;
-            break;
+            Destroy(tile.gameObject);
+        }
+        tileViews.Clear();
+        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
+        boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
+        if (!boardDef)
+        {
+            throw new Exception("Board def not found");
         }
         grid.SetBoard(new SBoardDef(boardDef));
         foreach (Tile tile in boardDef.tiles)
@@ -102,15 +145,12 @@ public class TestBoardManager : MonoBehaviour
             tileView.Initialize(tile,boardDef.isHex);
             tileViews.Add(tile.pos, tileView);
         }
-
-        // Clear any existing pawn views
+        // Clear any existing pawnviews and replace
         foreach (var pawnView in pawnViews)
         {
             Destroy(pawnView.gameObject);
         }
         pawnViews.Clear();
-
-        // Instantiate pawn views for each pawn in the lobby, preserving their server state
         foreach (Contract.Pawn p in lobby.pawns)
         {
             Pawn pawn = new Pawn(p);  // This will preserve the state from the server
@@ -119,19 +159,7 @@ public class TestBoardManager : MonoBehaviour
             pawnView.Initialize(pawn, this);
             pawnViews.Add(pawnView);
         }
-
-        switch (lobby.phase)
-        {
-            case 1:
-                SetPhase(new SetupTestPhase(this, guiTestGame.setup));
-                break;
-            case 2:
-                SetPhase(new MovementTestPhase(this, guiTestGame.movement));
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        
+        OnCurrentLobbyUpdated(lobby);
     }
     
     void SetPhase(ITestPhase newPhase)
@@ -144,8 +172,17 @@ public class TestBoardManager : MonoBehaviour
 
     public void StateChanged()
     {
-        // TODO: figure out a good way to react to network changes and swap phases
+        Debug.LogWarning("TestBoardManager::StateChanged");
         OnStateChanged?.Invoke(this);
+    }
+    
+    public void StateChanged(bool networkChanged)
+    {
+        if (networkChanged)
+        {
+            Debug.LogWarning("Network state changed");
+            StellarManagerTest.UpdateState();
+        }
     }
     
     void OnClick(Vector2Int pos)
@@ -295,7 +332,7 @@ public class SetupTestPhase : ITestPhase
     {
         List<Pawn> myPawns = bm.GetMyPawns();
         int code = await StellarManagerTest.CommitSetupRequest(myPawns);
-        bm.StateChanged();
+        bm.StateChanged(true);
         Debug.Log(code);
         
     }
