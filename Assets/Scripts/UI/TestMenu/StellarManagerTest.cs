@@ -14,16 +14,13 @@ public class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CB5FSTAFH3VD56SEBMJITZLV5EJ7PE7B36QRR5HPJNQFIQ4YSSKM3SFS";
+    public static string testContract = "CBYVDEPIQ4QEMAZUDNPH2JLSZDGE2Z3W4HNIE3G7TPKNZL6LJWUSXI6K";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
     public static string testGuestSneed = "SBHR4URT5RHIK4U4N45ZNUNEKLYEJYVFQSLSTR4A4RVNFHLIERGVZSIE";
-    public static event Action<string> OnSneedUpdated;
-    public static event Action<string> OnContractAddressUpdated;
-    public static event Action<User?> OnCurrentUserUpdated;
-    public static event Action<Lobby?> OnCurrentLobbyUpdated;
-
+    public static event Action OnNetworkStateUpdated;
+    
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
     public static TaskInfo currentTask;
@@ -87,27 +84,24 @@ public class StellarManagerTest
                 EndTask(getLobbyTask);
             }
         }
-        Debug.Log("OnCurrentUserUpdated");
-        OnCurrentUserUpdated?.Invoke(currentUser);
-        Debug.Log("OnCurrentLobbyUpdated");
-        OnCurrentLobbyUpdated?.Invoke(currentLobby);
+        OnNetworkStateUpdated?.Invoke();
         return true;
     }
     
-    public static void SetContractAddress(string contractId)
+    public static async Task<bool> SetContractAddress(string contractId)
     {
         stellar.SetContractId(contractId);
         Debug.Log("OnContractAddressUpdated");
-        OnContractAddressUpdated?.Invoke(contractId);
-        _ = UpdateState();
+        _ = await UpdateState();
+        return true;
     }
 
-    public static void SetSneed(string accountSneed)
+    public static async Task<bool> SetSneed(string accountSneed)
     {
         stellar.SetSneed(accountSneed);
         Debug.Log("OnSneedUpdated");
-        OnSneedUpdated?.Invoke(accountSneed);
-        _ = UpdateState();
+        _ = await UpdateState();
+        return true;
     }
 
     public static string GetUserAddress()
@@ -240,13 +234,6 @@ public class StellarManagerTest
         return result;
     }
 
-    public static async Task<bool> ConnectWallet()
-    {
-        TaskInfo task = SetCurrentTask("WalletManager.ConnectWallet");
-        bool result = await WalletManager.ConnectWallet();
-        EndTask(task);
-        return result;
-    }
     
 }
 

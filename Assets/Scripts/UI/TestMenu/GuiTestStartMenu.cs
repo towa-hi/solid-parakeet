@@ -12,6 +12,8 @@ public class GuiTestStartMenu : TestGuiElement
     public Button setContractButton;
     public TextMeshProUGUI currentContractText;
     public TMP_InputField sneedField;
+    public Button fillGuestSneedButton;
+    public Button fillHostSneedButton;
     public Button setSneedButton;
     public TextMeshProUGUI currentSneedText;
     public TextMeshProUGUI currentAddressText;
@@ -22,42 +24,50 @@ public class GuiTestStartMenu : TestGuiElement
     public Button cancelButton;
     public Button walletButton;
     
-    public event Action<string> OnSetContractButton;
-    public event Action<string> OnSetSneedButton;
 
     public event Action OnJoinLobbyButton;
     public event Action OnMakeLobbyButton;
-    public event Action OnViewLobbyButton;
     public event Action OnCancelButton;
+    public event Action OnViewLobbyButton;
     public event Action OnWalletButton;
 
     
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         contractField.onValueChanged.AddListener(OnContractFieldChanged);
-        setContractButton.onClick.AddListener(() => OnSetContractButton?.Invoke(contractField.text));
+        setContractButton.onClick.AddListener(OnSetContract);
         sneedField.onValueChanged.AddListener(OnSneedFieldChanged);
-        setSneedButton.onClick.AddListener(() => OnSetSneedButton?.Invoke(sneedField.text));
+        setSneedButton.onClick.AddListener(OnSetSneed);
+        fillGuestSneedButton.onClick.AddListener(OnFillGuestSneed);
+        fillHostSneedButton.onClick.AddListener(OnFillHostSneed);
         joinLobbyButton.onClick.AddListener(() => OnJoinLobbyButton?.Invoke());
         makeLobbyButton.onClick.AddListener(() => OnMakeLobbyButton?.Invoke());
         cancelButton.onClick.AddListener(() => OnCancelButton?.Invoke());
         viewLobbyButton.onClick.AddListener(() => OnViewLobbyButton?.Invoke());
         walletButton.onClick.AddListener(() => OnWalletButton?.Invoke());
-        StellarManagerTest.OnContractAddressUpdated += OnContractAddressUpdated;
-        StellarManagerTest.OnSneedUpdated += OnSneedUpdated;
-        StellarManagerTest.OnCurrentUserUpdated += OnCurrentUserUpdated;
+        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
-
-
-    public override void Initialize()
+    
+    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
     {
-        contractField.text = string.Empty;
-        sneedField.text = string.Empty;
+        base.SetIsEnabled(inIsEnabled, networkUpdated);
+        if (isEnabled && networkUpdated)
+        {
+            sneedField.text = string.Empty;
+            currentContractText.text = string.Empty;
+            OnNetworkStateUpdated();
+        }
+    }
+    
+    void OnNetworkStateUpdated()
+    {
+        if (!isEnabled) return;
         Refresh();
     }
-    public override void Refresh()
+    
+    void Refresh()
     {
+        Debug.Log("Refresh");
         setContractButton.interactable = StellarManagerTest.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
         setSneedButton.interactable = StellarManagerTest.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
         currentContractText.text = StellarManagerTest.GetContractAddress();
@@ -100,21 +110,24 @@ public class GuiTestStartMenu : TestGuiElement
     {
         Refresh();
     }
-    
-    void OnContractAddressUpdated(string contractId)
+
+    void OnFillGuestSneed()
     {
-        contractField.text = string.Empty;
-        Refresh();
+        sneedField.text = StellarManagerTest.testGuestSneed;
     }
 
-    void OnSneedUpdated(string accountId)
+    void OnFillHostSneed()
     {
-        sneedField.text = string.Empty;
-        Refresh();
+        sneedField.text = StellarManagerTest.testHostSneed;
     }
     
-    void OnCurrentUserUpdated(User? currentUser)
+    void OnSetSneed()
     {
-        Refresh();
+        _ = StellarManagerTest.SetSneed(sneedField.text);
+    }
+    
+    void OnSetContract()
+    {
+        _ = StellarManagerTest.SetContractAddress(contractField.text);
     }
 }

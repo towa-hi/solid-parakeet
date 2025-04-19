@@ -9,10 +9,8 @@ public class GuiTestGame : TestGuiElement
     public GuiTestSetup setup;
     public GuiTestMovement movement;
     
-    public GameObject blocker;
-    public TextMeshProUGUI blockerText;
-    
     public CameraAnchor boardAnchor;
+    
     public GameElement currentElement;
     
     void Start()
@@ -22,19 +20,19 @@ public class GuiTestGame : TestGuiElement
         setup.SetIsEnabled(false);
         movement.SetIsEnabled(false);
     }
-
-    public override void Initialize()
+    
+    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
     {
+        base.SetIsEnabled(inIsEnabled, networkUpdated);
         // TODO: make this not jank
-        GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
+        if (isEnabled && networkUpdated)
+        {
+            GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
+            GameManager.instance.testBoardManager.StartBoardManager(networkUpdated);
+        }
         
     }
-
-    public override void Refresh()
-    {
-        
-    }
-
+    
     void SetCurrentElement(GameElement element)
     {
         currentElement?.SetIsEnabled(false);

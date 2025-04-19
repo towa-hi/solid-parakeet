@@ -20,48 +20,35 @@ public class GuiTestLobbyJoiner : TestGuiElement
 
     void Start()
     {
-        backButton.onClick.AddListener(delegate { OnBackButton?.Invoke(); });
-        joinButton.onClick.AddListener(delegate { OnJoinButton?.Invoke(lobbyIdInputField.text); });
-        lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdValueChanged);
-        StellarManagerTest.OnContractAddressUpdated += OnContractAddressUpdated;
-        StellarManagerTest.OnSneedUpdated += OnSneedUpdated;
-        StellarManagerTest.OnCurrentUserUpdated += OnCurrentUserUpdated;
+        backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
+        joinButton.onClick.AddListener(() => { OnJoinButton?.Invoke(lobbyIdInputField.text); });
+        lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdInputFieldChanged);
+        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
-    void OnLobbyIdValueChanged(string arg0)
+    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
     {
+        base.SetIsEnabled(inIsEnabled, networkUpdated);
+        if (isEnabled && networkUpdated)
+        {
+            OnNetworkStateUpdated();
+        }
+    }
+
+    void OnNetworkStateUpdated()
+    {
+        if (!isEnabled) return;
         Refresh();
     }
 
-    void OnCurrentUserUpdated(User? obj)
-    {
-        Refresh();
-    }
-
-    void OnSneedUpdated(string obj)
-    {
-        Refresh();
-    }
-
-    void OnContractAddressUpdated(string obj)
-    {
-        Refresh();
-    }
-
-    public override void Initialize()
-    {
-        lobbyIdInputField.text = string.Empty;
-        Refresh();
-    }
-
-    public override void Refresh()
+    void Refresh()
     {
         contractAddressText.text = StellarManagerTest.GetContractAddress();
         joinButton.interactable = Guid.TryParse(lobbyIdInputField.text, out _);
     }
 
-    public string GetLobbyId()
+    void OnLobbyIdInputFieldChanged(string input)
     {
-        return lobbyIdInputField.text;
+        Refresh();
     }
 }

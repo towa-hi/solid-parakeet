@@ -14,40 +14,43 @@ public class GuiTestLobbyViewer : TestGuiElement
     public Button deleteButton;
     public Button refreshButton;
     public Button startButton;
-    public Button enterGameButton;
     
     public event Action OnBackButton;
     public event Action OnDeleteButton;
     public event Action OnRefreshButton;
     public event Action OnStartButton;
-    public event Action OnEnterGameButton;
     
     void Start()
     {
-        backButton.onClick.AddListener(HandleBackButton);
-        deleteButton.onClick.AddListener(HandleDeleteButton);
-        refreshButton.onClick.AddListener(HandleRefreshButton);
-        startButton.onClick.AddListener(HandleStartButton);
-        enterGameButton.onClick.AddListener(HandleEnterGameButton);
-        StellarManagerTest.OnCurrentLobbyUpdated += OnLobbyUpdate;
-    }
-    
-    public override void Initialize()
-    {
-        Refresh();
+        backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
+        deleteButton.onClick.AddListener(() => { OnDeleteButton?.Invoke(); });
+        refreshButton.onClick.AddListener(() => { OnRefreshButton?.Invoke(); });
+        startButton.onClick.AddListener(() => { OnStartButton?.Invoke(); });
+        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
-    void OnLobbyUpdate(Lobby? lobby)
+    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
     {
+        base.SetIsEnabled(inIsEnabled, networkUpdated);
+        if (isEnabled && networkUpdated)
+        {
+            OnNetworkStateUpdated();
+        }
+    }
+
+    void OnNetworkStateUpdated()
+    {
+        if (!isEnabled) return;
         Refresh();
+        
     }
     
-    public override void Refresh()
+    void Refresh()
     {
+        User? maybeUser = StellarManagerTest.currentUser;
         Lobby? maybeLobby = StellarManagerTest.currentLobby;
         lobbyView.Refresh(maybeLobby);
         startButton.interactable = false;
-        enterGameButton.interactable = false;
         List<string> problems = new List<string>();
         bool lobbyStartable = true;
         if (maybeLobby.HasValue)
@@ -86,30 +89,5 @@ public class GuiTestLobbyViewer : TestGuiElement
             statusText.text = "lobby startable";
         }
         startButton.interactable = lobbyStartable;
-    }
-
-    void HandleBackButton()
-    {
-        OnBackButton?.Invoke();
-    }
-
-    void HandleDeleteButton()
-    {
-        OnDeleteButton?.Invoke();
-    }
-    
-    void HandleRefreshButton()
-    {
-        OnRefreshButton?.Invoke();
-    }
-
-    void HandleStartButton()
-    {
-        OnStartButton?.Invoke();
-    }
-
-    void HandleEnterGameButton()
-    {
-        OnEnterGameButton?.Invoke();
     }
 }

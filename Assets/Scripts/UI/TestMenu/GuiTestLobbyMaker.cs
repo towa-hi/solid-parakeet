@@ -15,30 +15,39 @@ public class GuiTestLobbyMaker : TestGuiElement
     public Button backButton;
     public Button makeLobbyButton;
     BoardDef[] boardDefs;
-    public bool lobbyMade = false;
 
     public event Action OnBackButton;
-    public event Action OnSubmitLobbyButton;
+    public event Action<Contract.LobbyParameters> OnSubmitLobbyButton;
 
     void Start()
     {
-        backButton.onClick.AddListener(delegate { OnBackButton?.Invoke(); });
-        makeLobbyButton.onClick.AddListener(delegate { OnSubmitLobbyButton?.Invoke(); });
+        backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
+        makeLobbyButton.onClick.AddListener(() => { OnSubmitLobbyButton?.Invoke(GetLobbyParameters()); });
+        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+    }
+
+    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
+    {
+        base.SetIsEnabled(inIsEnabled, networkUpdated);
+        if (isEnabled && networkUpdated)
+        {
+            ResetBoardDropdown();
+            OnNetworkStateUpdated();
+        }
     }
     
-    public override void Initialize()
+    void OnNetworkStateUpdated()
     {
-        ResetBoardDropdown();
+        if (!isEnabled) return;
         Refresh();
-        
     }
-
-
-    public override void Refresh()
+    
+    void Refresh()
     {
         hostAddressField.text = StellarManagerTest.GetUserAddress();
         statusText.text = "Making a new lobby";
     }
+    
     void ResetBoardDropdown()
     {
         boardDropdown.ClearOptions();
@@ -52,7 +61,7 @@ public class GuiTestLobbyMaker : TestGuiElement
         boardDropdown.RefreshShownValue();
     }
 
-    public Contract.LobbyParameters GetLobbyParameters()
+    Contract.LobbyParameters GetLobbyParameters()
     {
         Contract.BoardDef selectedBoard = new Contract.BoardDef(boardDefs[boardDropdown.value]);
         return new Contract.LobbyParameters
@@ -63,33 +72,5 @@ public class GuiTestLobbyMaker : TestGuiElement
             must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
             security_mode = securityModeToggle.isOn,
         };
-    }
-
-    public void OnLobbyMade(int code)
-    {
-        string msg = "Lobby successfully made!";
-        switch (code)
-        {
-            case 0:
-                msg = "Lobby successfully made!";
-                break;
-            case -1:
-                msg = "Lobby failed because failed to simulate tx";
-                break;
-            case -2:
-                msg = "Lobby failed because failed to send tx";
-                break;
-            case -3:
-                msg = "Lobby failed because tx result was not success";
-                break;
-            case -666:
-                msg = "Lobby failed because unspecified contract error";
-                break;
-            default:
-                Contract.ErrorCode error = (ErrorCode)code;
-                msg = "Lobby failed with server side error: " + error;
-                break;
-        }
-        statusText.text = msg;
     }
 }

@@ -497,34 +497,30 @@ impl Contract {
         }
         // get state
         let user_address = address.to_string();
-        let (user_state, other_user_committed) = if user_address == lobby.host_address {
-            (&mut lobby.host_state, !lobby.guest_state.setup_commitments.is_empty())
+        let (user_state, other_user_state) = if user_address == lobby.host_address {
+            (&mut lobby.host_state, &mut lobby.guest_state)
         } else if user_address == lobby.guest_address {
-            (&mut lobby.guest_state, !lobby.host_state.setup_commitments.is_empty())
+            (&mut lobby.guest_state, &mut lobby.host_state)
         } else {
             return Err(Error::InvalidArgs);
         };
         user_state.setup_commitments = req.setup_commitments.clone();
-        // apply commitments if both players have submitted
-        if other_user_committed
+        // apply commitments for this user
+        let mut commitment_map: Map<PawnGuid, PawnCommitment> = Map::new(&env);
+        for commit in user_state.setup_commitments.iter() {
+            commitment_map.set(commit.pawn_id.clone(), commit.clone());
+        }
+        for i in 0..lobby.pawns.len() {
+            let mut pawn = lobby.pawns.get_unchecked(i);
+            if let Some(commit) = commitment_map.get(pawn.pawn_id.clone()) {
+                pawn.pos = commit.starting_pos;
+                pawn.is_alive = true;
+                lobby.pawns.set(i, pawn);
+            }
+        }
+        // go to movement phase if both players have submitted
+        if other_user_state.setup_commitments.len() > 0
         {
-            let mut commitment_map: Map<PawnGuid, PawnCommitment> = Map::new(&env);
-            for commit in lobby.host_state.setup_commitments.iter() {
-                commitment_map.set(commit.pawn_id.clone(), commit.clone());
-            }
-            for commit in lobby.guest_state.setup_commitments.iter() {
-                commitment_map.set(commit.pawn_id.clone(), commit.clone());
-            }
-            for i in 0..lobby.pawns.len() {
-                let pawn_id = lobby.pawns.get_unchecked(i).pawn_id.clone();
-                if let Some(commit) = commitment_map.get(pawn_id) {
-                    // Get a mutable reference to the pawn using get_unchecked
-                    let mut pawn = lobby.pawns.get_unchecked(i);
-                    pawn.pos = commit.starting_pos.clone();
-                    pawn.is_alive = true;
-                    lobby.pawns.set(i, pawn);
-                }
-            }
             let first_turn = Turn {
                 guest_turn: TurnMove {
                     initialized: false,

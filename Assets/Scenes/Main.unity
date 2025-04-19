@@ -4057,7 +4057,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &607824246
 Transform:
   m_ObjectHideFlags: 0
@@ -12996,6 +12996,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f8073f9701a79c4bb3af2b6e151548d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  initialized: 0
   purgatory: {fileID: 835277602}
   tilePrefab: {fileID: 8479329327937393150, guid: 78d00e7c8d847a14fbec45dab43e1bde, type: 3}
   pawnPrefab: {fileID: 6569549633362740824, guid: 601190ac36873374f89fa423ef86fe51, type: 3}
@@ -24336,6 +24337,30 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2037552620479345613, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2037552620479345613, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2037552620479345613, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2037552620479345613, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2037552620479345613, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2037552620479345613, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2613433606808250024, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -24773,6 +24798,30 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5862550022777476008, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5962740204080833824, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5962740204080833824, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5962740204080833824, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5962740204080833824, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5962740204080833824, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5962740204080833824, guid: bb5f05adc0687714580ea867a714c5a1, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
@@ -28206,6 +28255,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4393429837804577597, guid: 4e00e7974c7504c44929b990ca250d1c, type: 3}
+      propertyPath: cardArea
+      value: 
+      objectReference: {fileID: 607824245}
+    - target: {fileID: 4393429837804577597, guid: 4e00e7974c7504c44929b990ca250d1c, type: 3}
+      propertyPath: walletArea
+      value: 
+      objectReference: {fileID: 1574240443}
     - target: {fileID: 4393429837804577597, guid: 4e00e7974c7504c44929b990ca250d1c, type: 3}
       propertyPath: walletManager
       value: 

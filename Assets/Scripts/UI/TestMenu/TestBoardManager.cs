@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Contract;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 public class TestBoardManager : MonoBehaviour
 {
+    public bool initialized;
     // never mutate these externally
     public Transform purgatory;
     public GameObject tilePrefab;
@@ -19,7 +22,7 @@ public class TestBoardManager : MonoBehaviour
     public BoardDef boardDef;
     public Contract.LobbyParameters parameters;
     public Team userTeam;
-    public string lobbyId; //when lobbyId is empty it means the boardManager hasn't been initialized yet
+    public string lobbyId;
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
     public Dictionary<Vector2Int, TestTileView> tileViews = new();
     public List<TestPawnView> pawnViews = new();
@@ -33,30 +36,30 @@ public class TestBoardManager : MonoBehaviour
     {
         clickInputManager.Initialize();
         clickInputManager.OnClick += OnClick;
-        StellarManagerTest.OnCurrentLobbyUpdated += OnCurrentLobbyUpdated;
-    }
-    
-    public List<Pawn> GetMyPawns()
-    {
-        return pawnViews
-            .Where(pv => pv.pawn.team == userTeam)
-            .Select(pv => pv.pawn)
-            .ToList();
+        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
-    void OnCurrentLobbyUpdated(Lobby? maybeLobby)
+    public void StartBoardManager(bool networkUpdated)
     {
-        Debug.Log("OnCurrentLobbyUpdated from TestBoardManager");
-        if (string.IsNullOrEmpty(lobbyId))
+        if (!networkUpdated)
         {
-            Debug.LogWarning("OnCurrentLobbyUpdated but TestBoardManager is uninitialized");
+            throw new NotImplementedException();
+        }
+        Assert.IsTrue(StellarManagerTest.currentUser.HasValue);
+        Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
+        Initialize(StellarManagerTest.currentUser.Value, StellarManagerTest.currentLobby.Value);
+        initialized = true;
+        OnNetworkStateUpdated();
+    }
+    
+    void OnNetworkStateUpdated()
+    {
+        if (!initialized)
+        {
             return;
         }
-        if (!maybeLobby.HasValue)
-        {
-            return;
-        }
-        Lobby lobby = maybeLobby.Value;
+        Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
+        Lobby lobby = StellarManagerTest.currentLobby.Value;
         if (lobby.index != lobbyId) { throw new Exception("Lobby id got changed"); }
         // from this point on we assume that all the pawns and tiles are there and we gotta change state 
         foreach (TestPawnView pawnView in pawnViews)
@@ -77,6 +80,55 @@ public class TestBoardManager : MonoBehaviour
                 throw new ArgumentOutOfRangeException();
         }
         StateChanged();
+    }
+    
+    void Initialize(User user, Lobby lobby)
+    {
+        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
+        boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
+        if (!boardDef)
+        {
+            throw new NullReferenceException();
+        }
+        if (user.index == lobby.host_address)
+        {
+            userTeam = (Team)lobby.host_state.team;
+        }
+        else
+        {
+            userTeam = (Team)lobby.guest_state.team;
+        }
+        // Clear existing tileviews and replace
+        foreach (TestTileView tile in tileViews.Values)
+        {
+            Destroy(tile.gameObject);
+        }
+        tileViews.Clear();
+        grid.SetBoard(new SBoardDef(boardDef));
+        foreach (Tile tile in boardDef.tiles)
+        {
+            Vector3 worldPosition = grid.CellToWorld(tile.pos);
+            GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
+            TestTileView tileView = tileObject.GetComponent<TestTileView>();
+            tileView.Initialize(tile,boardDef.isHex);
+            tileViews.Add(tile.pos, tileView);
+        }
+        // Clear any existing pawnviews and replace
+        foreach (TestPawnView pawnView in pawnViews)
+        {
+            Destroy(pawnView.gameObject);
+        }
+        pawnViews.Clear();
+        foreach (Contract.Pawn p in lobby.pawns)
+        {
+            Pawn pawn = new Pawn(p);  // This will preserve the state from the server
+            GameObject pawnObject = Instantiate(pawnPrefab, transform);
+            TestPawnView pawnView = pawnObject.GetComponent<TestPawnView>();
+            pawnView.Initialize(pawn, this);
+            pawnViews.Add(pawnView);
+        }
+        lobbyId = lobby.index;
+        parameters = lobby.parameters;
     }
     
     public List<TestPawnView> GetMyPawnViews()
@@ -108,59 +160,15 @@ public class TestBoardManager : MonoBehaviour
         return tileView;
     }
     
-    public void StartGame(Lobby lobby, User user)
+    public List<Pawn> GetMyPawns()
     {
-        lobbyId = lobby.index;
-        parameters = lobby.parameters;
-        if (user.index == lobby.host_address)
-        {
-            userTeam = (Team)lobby.host_state.team;
-        }
-        else if (user.index == lobby.guest_address)
-        {
-            userTeam = (Team)lobby.guest_state.team;
-        }
-        else
-        {
-            throw new Exception("User is not a part of this lobby");
-        }
-        // Clear existing tileviews and replace
-        foreach (TestTileView tile in tileViews.Values)
-        {
-            Destroy(tile.gameObject);
-        }
-        tileViews.Clear();
-        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
-        if (!boardDef)
-        {
-            throw new Exception("Board def not found");
-        }
-        grid.SetBoard(new SBoardDef(boardDef));
-        foreach (Tile tile in boardDef.tiles)
-        {
-            Vector3 worldPosition = grid.CellToWorld(tile.pos);
-            GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
-            TestTileView tileView = tileObject.GetComponent<TestTileView>();
-            tileView.Initialize(tile,boardDef.isHex);
-            tileViews.Add(tile.pos, tileView);
-        }
-        // Clear any existing pawnviews and replace
-        foreach (var pawnView in pawnViews)
-        {
-            Destroy(pawnView.gameObject);
-        }
-        pawnViews.Clear();
-        foreach (Contract.Pawn p in lobby.pawns)
-        {
-            Pawn pawn = new Pawn(p);  // This will preserve the state from the server
-            GameObject pawnObject = Instantiate(pawnPrefab, transform);
-            TestPawnView pawnView = pawnObject.GetComponent<TestPawnView>();
-            pawnView.Initialize(pawn, this);
-            pawnViews.Add(pawnView);
-        }
-        OnCurrentLobbyUpdated(lobby);
+        return pawnViews
+            .Where(pv => pv.pawn.team == userTeam)
+            .Select(pv => pv.pawn)
+            .ToList();
     }
+    
+    
     
     void SetPhase(ITestPhase newPhase)
     {

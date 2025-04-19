@@ -14,45 +14,50 @@ public class GuiWallet : TestGuiElement
     public Button backButton;
     public Button connectWalletButton;
     public Button refreshButton;
-
+    public GameObject cardArea;
+    
     public event Action OnBackButton;
     public event Action OnConnectWalletButton;
     public event Action OnRefreshButton;
-    
-    
+
+    public AccountEntry accountEntry = null;
     void Start()
     {
         backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
         connectWalletButton.onClick.AddListener(HandleOnConnectWalletButton);
         refreshButton.onClick.AddListener(HandleRefreshButton);
+    }
 
-        Refresh();
+    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
+    {
+        base.SetIsEnabled(inIsEnabled, networkUpdated);
+        cardArea.SetActive(inIsEnabled);
+        if (inIsEnabled)
+        {
+            Refresh();
+        }
     }
 
     void Refresh()
     {
-        // connectWalletButton.interactable = WalletManager.webGL;
+        walletText.text = string.IsNullOrEmpty(WalletManager.address) ? "Not connected" : WalletManager.address;
+        networkText.text = WalletManager.networkDetails == null ? "Not connected" : WalletManager.networkDetails.networkPassphrase;
+        if (accountEntry != null)
+        {
+            balanceText.text = accountEntry.balance.InnerValue.ToString() + " XLM";
+        }
         // refreshButton.interactable = WalletManager.webGL;
     }
+    
     async void HandleOnConnectWalletButton()
     {
-        bool connected = await StellarManagerTest.ConnectWallet();
-        if (!connected)
-        {
-            walletText.text = "Not connected";
-            networkText.text = "Not connected";
-            return;
-        }
-        walletText.text = WalletManager.address;
-        networkText.text = WalletManager.networkDetails.networkPassphrase;
-        AccountEntry accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
-        balanceText.text = accountEntry.balance.ToString();
-        
+        accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
+        Refresh();
     }
 
     void HandleRefreshButton()
     {
-        
+        Refresh();
     }
 
 }

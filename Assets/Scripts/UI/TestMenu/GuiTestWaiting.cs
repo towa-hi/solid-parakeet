@@ -14,7 +14,7 @@ public class GuiTestWaiting : TestGuiElement
         
     }
 
-    public override void Refresh()
+    void Refresh()
     {
         
     }

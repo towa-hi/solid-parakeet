@@ -31,18 +31,17 @@ public class GuiTestMenuController : MenuElement
         StellarManagerTest.OnTaskStarted += EnableBlocker;
         StellarManagerTest.OnTaskEnded += DisableBlocker;
         
-        startMenuElement.OnSetSneedButton += OnSetSneed;
-        startMenuElement.OnSetContractButton += OnSetContract;
+        startMenuElement.OnJoinLobbyButton += GotoJoinLobby;
         startMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
         startMenuElement.OnCancelButton += CloseMenu;
         startMenuElement.OnViewLobbyButton += ViewLobby;
-        startMenuElement.OnJoinLobbyButton += GotoJoinLobby;
         startMenuElement.OnWalletButton += GotoWallet;
+        
         lobbyMakerElement.OnBackButton += GotoStartMenu;
         lobbyMakerElement.OnSubmitLobbyButton += OnSubmitLobbyButton;
         
-        lobbyViewerElement.OnDeleteButton += OnDeleteLobbyButton;
         lobbyViewerElement.OnBackButton += GotoStartMenu;
+        lobbyViewerElement.OnDeleteButton += DeleteLobby;
         lobbyViewerElement.OnRefreshButton += RefreshNetworkState;
         lobbyViewerElement.OnStartButton += OnStartGame;
         
@@ -50,15 +49,15 @@ public class GuiTestMenuController : MenuElement
         lobbyJoinerElement.OnJoinButton += JoinLobby;
         
         walletElement.OnBackButton += GotoStartMenu;
-        
-        
-        
-        startMenuElement.SetIsEnabled(false);
-        lobbyMakerElement.SetIsEnabled(false);
-        lobbyJoinerElement.SetIsEnabled(false);
-        lobbyViewerElement.SetIsEnabled(false);
-        gameElement.SetIsEnabled(false);
-        walletElement.SetIsEnabled(false);
+
+
+
+        startMenuElement.SetIsEnabled(false, false);
+        lobbyMakerElement.SetIsEnabled(false, false);
+        lobbyJoinerElement.SetIsEnabled(false, false);
+        lobbyViewerElement.SetIsEnabled(false, false);
+        gameElement.SetIsEnabled(false, false);
+        walletElement.SetIsEnabled(false, false);
     }
     
     public override void ShowElement(bool show)
@@ -70,25 +69,14 @@ public class GuiTestMenuController : MenuElement
         }
     }
     
-    void ShowMenuElement(TestGuiElement element)
+    void ShowMenuElement(TestGuiElement element, bool networkUpdated)
     {
         if (currentElement != null)
         {
-            currentElement.SetIsEnabled(false);
+            currentElement.SetIsEnabled(false, networkUpdated);
         }
         currentElement = element;
-        currentElement.SetIsEnabled(true);
-        currentElement.Initialize();
-    }
-
-    void OnSetSneed(string sneed)
-    {
-        StellarManagerTest.SetSneed(sneed);
-    }
-
-    void OnSetContract(string contractAddress)
-    {
-        StellarManagerTest.SetContractAddress(contractAddress);
+        currentElement.SetIsEnabled(true, networkUpdated);
     }
 
     void CloseMenu()
@@ -98,87 +86,76 @@ public class GuiTestMenuController : MenuElement
     
     async void GotoLobbyMaker()
     {
-        if (await StellarManagerTest.UpdateState())
+        await StellarManagerTest.UpdateState();
+        if (StellarManagerTest.currentLobby.HasValue)
         {
-            ShowMenuElement(lobbyMakerElement);
+            ShowMenuElement(lobbyMakerElement, true);
         }
     }
 
     async void GotoStartMenu()
     {
-        if (await StellarManagerTest.UpdateState())
-        {
-            ShowMenuElement(startMenuElement);
-        }
+        await StellarManagerTest.UpdateState();
+        ShowMenuElement(startMenuElement, true);
     }
 
     async void GotoJoinLobby()
     {
-        if (await StellarManagerTest.UpdateState())
-        {
-            ShowMenuElement(lobbyJoinerElement);
-        }
+        await StellarManagerTest.UpdateState();
+        ShowMenuElement(lobbyJoinerElement, true);
     }
 
     void GotoWallet()
     {
-        ShowMenuElement(walletElement);
+        ShowMenuElement(walletElement, false);
     }
     
     async void ViewLobby()
     {
-        if (await StellarManagerTest.UpdateState())
+        _ = await StellarManagerTest.UpdateState();
+        if (StellarManagerTest.currentLobby.HasValue)
         {
-            ShowMenuElement(lobbyViewerElement);
+            ShowMenuElement(lobbyViewerElement, true);
         }
     }
 
     async void JoinLobby(string lobbyId)
     {
         int code = await StellarManagerTest.JoinLobbyRequest(lobbyId);
+        await StellarManagerTest.UpdateState();
         if (code == 0)
         {
-            ShowMenuElement(lobbyViewerElement);
+            ShowMenuElement(lobbyViewerElement, true);
         }
     }
 
     async void OnStartGame()
     {
-        _ = await StellarManagerTest.UpdateState();
-        Assert.IsTrue(StellarManagerTest.currentUser.HasValue);
-        Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
-        Lobby lobby = StellarManagerTest.currentLobby.GetValueOrDefault();
-        User user = StellarManagerTest.currentUser.GetValueOrDefault();
-        if (lobby.IsLobbyStartable())
+        await StellarManagerTest.UpdateState();
+        if (StellarManagerTest.currentLobby.HasValue)
         {
-            Debug.Log("Starting game");
-            GameManager.instance.testBoardManager.StartGame(lobby, user);
-            ShowMenuElement(gameElement);
-        }
-        else
-        {
-            Debug.LogError("Lobby is not startable");
+            ShowMenuElement(gameElement, true);
         }
     }
     
-    async void OnSubmitLobbyButton()
+    async void OnSubmitLobbyButton(Contract.LobbyParameters parameters)
     {
-        Contract.LobbyParameters parameters = lobbyMakerElement.GetLobbyParameters();
         int code = await StellarManagerTest.MakeLobbyRequest(parameters);
-        //lobbyMakerElement.OnLobbyMade(code);
-        _ = await StellarManagerTest.UpdateState();
+        await StellarManagerTest.UpdateState();
         if (code == 0)
         {
-            ShowMenuElement(lobbyViewerElement);
+            ShowMenuElement(lobbyViewerElement, true);
         }
     }
 
-    async void OnDeleteLobbyButton()
+    async void DeleteLobby()
     {
         int code = await StellarManagerTest.LeaveLobbyRequest();
-        Debug.Log(code);
-        _ = await StellarManagerTest.UpdateState();
-        GotoStartMenu();
+        await StellarManagerTest.UpdateState();
+        if (code == 0)
+        {
+            ShowMenuElement(startMenuElement, true);
+        }
     }
     
     async void RefreshNetworkState()
@@ -203,22 +180,12 @@ public class GuiTestMenuController : MenuElement
 
 public class TestGuiElement: MonoBehaviour
 {
-    bool isEnabled;
+    protected bool isEnabled;
     
-    public void SetIsEnabled(bool inIsEnabled)
+    public virtual void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
     {
         isEnabled = inIsEnabled;
         gameObject.SetActive(inIsEnabled);
-    }
-
-    public virtual void Refresh()
-    {
-        
-    }
-
-    public virtual void Initialize()
-    {
-        
     }
 }
 
