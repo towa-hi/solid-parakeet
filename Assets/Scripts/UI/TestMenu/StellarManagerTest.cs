@@ -92,7 +92,7 @@ public class StellarManagerTest
     {
         stellar.SetContractId(contractId);
         Debug.Log("OnContractAddressUpdated");
-        _ = await UpdateState();
+        await UpdateState();
         return true;
     }
 
@@ -100,7 +100,7 @@ public class StellarManagerTest
     {
         stellar.SetSneed(accountSneed);
         Debug.Log("OnSneedUpdated");
-        _ = await UpdateState();
+        await UpdateState();
         return true;
     }
 
@@ -169,6 +169,7 @@ public class StellarManagerTest
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req);
         EndTask(task);
+        await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
 
@@ -177,6 +178,7 @@ public class StellarManagerTest
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("leave_lobby", null);
         EndTask(task);
+        await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
 
@@ -202,6 +204,7 @@ public class StellarManagerTest
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
         EndTask(task);
+        await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
     

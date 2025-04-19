@@ -69,7 +69,7 @@ public class Pawn
         dirty = true;
     }
 
-    public void MutUpdate(Contract.Pawn p)
+    public void StrongUpdate(Contract.Pawn p)
     {
         pawnId = Guid.Parse(p.pawn_id);
         def = GameManager.instance.orderedPawnDefList.FirstOrDefault(pawnDef => pawnDef.id == p.pawn_def.id);

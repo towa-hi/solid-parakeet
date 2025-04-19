@@ -17,8 +17,8 @@ public class GuiWallet : TestGuiElement
     public GameObject cardArea;
     
     public event Action OnBackButton;
-    public event Action OnConnectWalletButton;
-    public event Action OnRefreshButton;
+    //public event Action OnConnectWalletButton;
+    //public event Action OnRefreshButton;
 
     public AccountEntry accountEntry = null;
     void Start()

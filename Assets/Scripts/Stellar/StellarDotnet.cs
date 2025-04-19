@@ -182,16 +182,6 @@ public class StellarDotnet
         Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
         return lobby;
     }
-
-    public async void ReqTrustLines(string key)
-    {
-        Debug.Log("ReqTrustLines on " + key);
-        LedgerKey.trustLineStruct ledgerKey = new LedgerKey.trustLineStruct
-        {
-            accountID = null,
-            asset = null
-        };
-    }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
     {

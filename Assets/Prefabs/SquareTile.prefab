@@ -182,6 +182,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1357657632524133384}
   - component: {fileID: 5248540432733022823}
+  - component: {fileID: 6623336976803911474}
   m_Layer: 0
   m_Name: SquareTile
   m_TagString: Untagged
@@ -222,6 +223,22 @@ MonoBehaviour:
   hitbox: {fileID: 2141739572570675732}
   topRenderer: {fileID: 8638261868429375081}
   hitboxRenderer: {fileID: 8143252726320072733}
+  renderEffect: {fileID: 6623336976803911474}
+--- !u!114 &6623336976803911474
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1224339228151505023}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7bbebfc0fd353ec44a550409353538e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  renderEffect: 
+  renderers:
+  - {fileID: 8143252726320072733}
 --- !u!1 &4054604466850909676
 GameObject:
   m_ObjectHideFlags: 0

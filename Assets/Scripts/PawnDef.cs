@@ -19,6 +19,11 @@ public class PawnDef : ScriptableObject
     public Sprite icon;
     public Sprite redSprite;
     public Sprite blueSprite;
+
+    public List<Sprite> sprites;
+
+    public AnimationClip idle;
+    
     // sounds
     
     public Rank GetRank()

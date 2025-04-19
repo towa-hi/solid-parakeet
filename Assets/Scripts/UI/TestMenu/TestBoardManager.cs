@@ -26,15 +26,17 @@ public class TestBoardManager : MonoBehaviour
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
     public Dictionary<Vector2Int, TestTileView> tileViews = new();
     public List<TestPawnView> pawnViews = new();
+    // last known lobby
+    public Lobby cachedLobby;
     
     public ITestPhase currentPhase;
     
-    public event Action<ITestPhase> OnPhaseChanged;
-    public event Action<TestBoardManager> OnStateChanged;
+    public event Action OnPhaseChanged;
+    public event Action OnStateChanged;
     
     void Start()
     {
-        clickInputManager.Initialize();
+        clickInputManager.Initialize(this);
         clickInputManager.OnClick += OnClick;
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
@@ -66,19 +68,23 @@ public class TestBoardManager : MonoBehaviour
         {
             Contract.Pawn data = lobby.pawns.FirstOrDefault(p => p.pawn_id == pawnView.pawn.pawnId.ToString());
             if (string.IsNullOrEmpty(data.pawn_id)) { throw new Exception("Pawn not found"); }
-            pawnView.pawn.MutUpdate(data);
+            pawnView.pawn.StrongUpdate(data);
         }
-        switch (lobby.phase)
+        if (lobby.phase != cachedLobby.phase)
         {
-            case 1:
-                SetPhase(new SetupTestPhase(this, guiTestGame.setup));
-                break;
-            case 2:
-                SetPhase(new MovementTestPhase(this, guiTestGame.movement));
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            switch (lobby.phase)
+            {
+                case 1:
+                    SetPhase(new SetupTestPhase(this, guiTestGame.setup));
+                    break;
+                case 2:
+                    SetPhase(new MovementTestPhase(this, guiTestGame.movement));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
+        cachedLobby = lobby;
         StateChanged();
     }
     
@@ -110,7 +116,7 @@ public class TestBoardManager : MonoBehaviour
             Vector3 worldPosition = grid.CellToWorld(tile.pos);
             GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
             TestTileView tileView = tileObject.GetComponent<TestTileView>();
-            tileView.Initialize(tile,boardDef.isHex);
+            tileView.Initialize(tile, this);
             tileViews.Add(tile.pos, tileView);
         }
         // Clear any existing pawnviews and replace
@@ -150,13 +156,13 @@ public class TestBoardManager : MonoBehaviour
 
     public Tile GetTileAtPos(Vector2Int pos)
     {
-        TestTileView tileView = tileViews.TryGetValue(pos, out TestTileView tile) ? tile : null;
+        TestTileView tileView = tileViews.GetValueOrDefault(pos);
         return tileView?.tile;
     }
 
     public TestTileView GetTileViewAtPos(Vector2Int pos)
     {
-        TestTileView tileView = tileViews.TryGetValue(pos, out TestTileView tile) ? tile : null;
+        TestTileView tileView = tileViews.GetValueOrDefault(pos);
         return tileView;
     }
     
@@ -175,13 +181,13 @@ public class TestBoardManager : MonoBehaviour
         currentPhase?.ExitState();
         currentPhase = newPhase;
         currentPhase.EnterState();
-        OnPhaseChanged?.Invoke(currentPhase);
+        OnPhaseChanged?.Invoke();
     }
 
     public void StateChanged()
     {
         Debug.LogWarning("TestBoardManager::StateChanged");
-        OnStateChanged?.Invoke(this);
+        OnStateChanged?.Invoke();
     }
     
     public void StateChanged(bool networkChanged)
@@ -189,7 +195,7 @@ public class TestBoardManager : MonoBehaviour
         if (networkChanged)
         {
             Debug.LogWarning("Network state changed");
-            StellarManagerTest.UpdateState();
+            _ = StellarManagerTest.UpdateState();
         }
     }
     
@@ -198,6 +204,13 @@ public class TestBoardManager : MonoBehaviour
         TestTileView tileView = GetTileViewAtPos(pos);
         TestPawnView pawnView = GetPawnViewAtPos(pos);
         currentPhase?.OnClick(pos, tileView, pawnView);
+    }
+
+    void OnHover(Vector2Int pos)
+    {
+        TestTileView tileView = GetTileViewAtPos(pos);
+        TestPawnView pawnView = GetPawnViewAtPos(pos);
+        currentPhase?.OnHover();
     }
 }
 
@@ -349,13 +362,17 @@ public class SetupTestPhase : ITestPhase
 public class MovementTestPhase : ITestPhase
 {
     TestBoardManager bm;
-    TestPawnView selectedPawnView;
+    public TestPawnView selectedPawnView;
+    public QueuedMove queuedMove;
+    public HashSet<TestTileView> highlightedTiles;
+    
     GuiTestMovement movementGui;
     
     public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui)
     {
         bm = inBm;
         movementGui = inMovementGui;
+        highlightedTiles = new();
     }
     
     public void EnterState()
@@ -374,41 +391,101 @@ public class MovementTestPhase : ITestPhase
 
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {
-        if (pawnView != null)
+        if (pawnView && pawnView.pawn.team == bm.userTeam)
         {
-            if (pawnView.pawn.team == bm.userTeam && !pawnView.pawn.hasMoved)
-            {
-                selectedPawnView = pawnView;
-            }
-        }
-        else if (tileView != null && selectedPawnView != null)
-        {
-            if (IsValidMove(selectedPawnView.pawn, clickedPos))
-            {
-                selectedPawnView.pawn.MutMove(clickedPos);
-                selectedPawnView = null;
-                bm.StateChanged();
-            }
+            selectedPawnView = pawnView;
+            highlightedTiles = GetMovableTileViews(pawnView.pawn);
+            bm.StateChanged();
         }
         else
         {
+            QueueMove(selectedPawnView, tileView);
             selectedPawnView = null;
+            highlightedTiles.Clear();
+            bm.StateChanged();
         }
     }
 
+    void QueueMove(TestPawnView pawnView, TestTileView tileView = null)
+    {
+        queuedMove = null;
+        if (pawnView && tileView)
+        {
+            if (highlightedTiles.Contains(tileView))
+            {
+                queuedMove = new QueuedMove
+                {
+                    pawnId = pawnView.pawn.pawnId,
+                    pos = tileView.tile.pos,
+                };
+            }
+        }
+
+        Debug.Log(queuedMove == null
+            ? "QueueMove set to null"
+            : $"QueuedMove set to {queuedMove.pawnId} to {queuedMove.pos}");
+    }
+    
     bool IsValidMove(Pawn pawn, Vector2Int targetPos)
     {
-        if (!bm.boardDef.IsPosValid(targetPos))
+        TestTileView existingTile = bm.GetTileViewAtPos(targetPos);
+        if (!existingTile)
+        {
             return false;
-            
-        Tile targetTile = bm.boardDef.GetTileByPos(targetPos);
-        if (!targetTile.isPassable)
+        }
+        if (!existingTile.tile.isPassable)
+        {
             return false;
-            
+        }
         TestPawnView existingPawn = bm.GetPawnViewAtPos(targetPos);
-        if (existingPawn != null)
+        if (existingPawn && existingPawn.pawn.team == bm.userTeam)
+        {
             return false;
-        // TODO: make sure its in range
+        }
         return true;
     }
+
+    public HashSet<TestTileView> GetMovableTileViews(Pawn pawn)
+    {
+        BoardDef boardDef = bm.boardDef;
+        HashSet<TestTileView> movableTileViews = new();
+        if (!pawn.isAlive)
+        {
+            return movableTileViews;
+        }
+        if (pawn.def.movementRange == 0)
+        {
+            return movableTileViews;
+        }
+        Vector2Int[] initialDirections = Shared.GetDirections(pawn.pos, boardDef.isHex);
+        for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
+        {
+            Vector2Int currentPos = pawn.pos;
+            int walkedTiles = 0;
+            while (walkedTiles < pawn.def.movementRange)
+            {
+                Vector2Int[] currentDirections = Shared.GetDirections(pawn.pos, boardDef.isHex);
+                currentPos += currentDirections[dirIndex];
+                TestTileView tileView = bm.GetTileViewAtPos(currentPos);
+                if (!tileView) break;
+                if (!tileView.tile.isPassable) break;
+                Pawn pawnOnPos = bm.GetPawnAtPos(currentPos);
+                if (pawnOnPos != null)
+                {
+                    if (pawnOnPos.team == pawn.team) break;
+                    movableTileViews.Add(tileView);
+                    break;
+                }
+                movableTileViews.Add(tileView);
+                walkedTiles++;
+            }
+        }
+        return movableTileViews;
+    }
+}
+
+public class QueuedMove
+{
+    public Guid pawnId;
+    public Vector2Int pos;
 }

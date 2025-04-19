@@ -87,7 +87,7 @@ public class GuiTestMenuController : MenuElement
     async void GotoLobbyMaker()
     {
         await StellarManagerTest.UpdateState();
-        if (StellarManagerTest.currentLobby.HasValue)
+        if (!StellarManagerTest.currentLobby.HasValue)
         {
             ShowMenuElement(lobbyMakerElement, true);
         }
@@ -102,7 +102,10 @@ public class GuiTestMenuController : MenuElement
     async void GotoJoinLobby()
     {
         await StellarManagerTest.UpdateState();
-        ShowMenuElement(lobbyJoinerElement, true);
+        if (!StellarManagerTest.currentLobby.HasValue)
+        {
+            ShowMenuElement(lobbyJoinerElement, true);
+        }
     }
 
     void GotoWallet()
@@ -112,7 +115,7 @@ public class GuiTestMenuController : MenuElement
     
     async void ViewLobby()
     {
-        _ = await StellarManagerTest.UpdateState();
+        await StellarManagerTest.UpdateState();
         if (StellarManagerTest.currentLobby.HasValue)
         {
             ShowMenuElement(lobbyViewerElement, true);
@@ -141,7 +144,6 @@ public class GuiTestMenuController : MenuElement
     async void OnSubmitLobbyButton(Contract.LobbyParameters parameters)
     {
         int code = await StellarManagerTest.MakeLobbyRequest(parameters);
-        await StellarManagerTest.UpdateState();
         if (code == 0)
         {
             ShowMenuElement(lobbyViewerElement, true);
@@ -151,7 +153,6 @@ public class GuiTestMenuController : MenuElement
     async void DeleteLobby()
     {
         int code = await StellarManagerTest.LeaveLobbyRequest();
-        await StellarManagerTest.UpdateState();
         if (code == 0)
         {
             ShowMenuElement(startMenuElement, true);
@@ -160,20 +161,18 @@ public class GuiTestMenuController : MenuElement
     
     async void RefreshNetworkState()
     {
-        _ = await StellarManagerTest.UpdateState();
+        await StellarManagerTest.UpdateState();
     }
 
     void EnableBlocker(TaskInfo task)
     {
         blocker.SetActive(true);
-        Debug.Log("Enabled blocker");
         blockerText.text = task.taskMessage;
     }
     
     void DisableBlocker(TaskInfo task)
     {
         blocker.SetActive(false);
-        Debug.Log("Disabled blocker");
         blockerText.text = "";
     }
 }

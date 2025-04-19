@@ -13,6 +13,8 @@ public class GuiTestGame : TestGuiElement
     
     public GameElement currentElement;
     
+    public TestBoardManager bm;
+    
     void Start()
     {
         GameManager.instance.testBoardManager.OnPhaseChanged += OnPhaseChanged;
@@ -28,7 +30,8 @@ public class GuiTestGame : TestGuiElement
         if (isEnabled && networkUpdated)
         {
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
-            GameManager.instance.testBoardManager.StartBoardManager(networkUpdated);
+            bm = GameManager.instance.testBoardManager;
+            bm.StartBoardManager(networkUpdated);
         }
         
     }
@@ -41,9 +44,9 @@ public class GuiTestGame : TestGuiElement
         currentElement.Initialize(GameManager.instance.testBoardManager);
     }
     
-    void OnPhaseChanged(ITestPhase obj)
+    void OnPhaseChanged()
     {
-        switch (obj)
+        switch (bm.currentPhase)
         {
             case SetupTestPhase setupTestPhase:
                 SetCurrentElement(setup);
@@ -52,23 +55,23 @@ public class GuiTestGame : TestGuiElement
                 SetCurrentElement(movement);
                 break;
             default:
-                throw new ArgumentOutOfRangeException(nameof(obj));
+                throw new ArgumentOutOfRangeException(nameof(bm.currentPhase));
 
         }
     }
 
-    void OnStateChanged(TestBoardManager boardManager)
+    void OnStateChanged()
     {
-        switch (boardManager.currentPhase)
+        switch (bm.currentPhase)
         {
             case SetupTestPhase setupTestPhase:
-                setup.Refresh(boardManager);
+                setup.Refresh(bm);
                 break;
             case MovementTestPhase movementTestPhase:
-                movement.Refresh(boardManager);
+                movement.Refresh(bm);
                 break;
             default:
-                throw new ArgumentOutOfRangeException(nameof(boardManager.currentPhase));
+                throw new ArgumentOutOfRangeException(nameof(bm.currentPhase));
         }
     }
 

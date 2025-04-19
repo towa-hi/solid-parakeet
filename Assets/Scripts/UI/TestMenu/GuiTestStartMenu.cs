@@ -72,6 +72,15 @@ public class GuiTestStartMenu : TestGuiElement
         setSneedButton.interactable = StellarManagerTest.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
         currentContractText.text = StellarManagerTest.GetContractAddress();
         currentSneedText.text = StellarManagerTest.stellar.sneed;
+        if (currentSneedText.text == StellarManagerTest.testHostSneed)
+        {
+            currentSneedText.text += " (Host sneed)";
+        }
+
+        if (currentSneedText.text == StellarManagerTest.testGuestSneed)
+        {
+            currentSneedText.text += " (Guest sneed)";
+        }
         currentAddressText.text = StellarManagerTest.GetUserAddress();
         User? currentUser = StellarManagerTest.currentUser;
         joinLobbyButton.interactable = true;
@@ -123,11 +132,15 @@ public class GuiTestStartMenu : TestGuiElement
     
     void OnSetSneed()
     {
-        _ = StellarManagerTest.SetSneed(sneedField.text);
+        string input = sneedField.text;
+        sneedField.text = string.Empty;
+        _ = StellarManagerTest.SetSneed(input);
     }
     
     void OnSetContract()
     {
-        _ = StellarManagerTest.SetContractAddress(contractField.text);
+        string input = contractField.text;
+        contractField.text = string.Empty;
+        _ = StellarManagerTest.SetContractAddress(input);
     }
 }

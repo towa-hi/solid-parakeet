@@ -119,6 +119,7 @@ GameObject:
   m_Component:
   - component: {fileID: 602351131653977845}
   - component: {fileID: 1979551154958012796}
+  - component: {fileID: 4218627267837294048}
   m_Layer: 0
   m_Name: HexTile
   m_TagString: Untagged
@@ -158,6 +159,22 @@ MonoBehaviour:
   hitbox: {fileID: 4573625080066503397}
   topRenderer: {fileID: 2649767840048937075}
   hitboxRenderer: {fileID: 3052216016052050331}
+  renderEffect: {fileID: 4218627267837294048}
+--- !u!114 &4218627267837294048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4166921062069795660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7bbebfc0fd353ec44a550409353538e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  renderEffect: 
+  renderers:
+  - {fileID: 3052216016052050331}
 --- !u!1 &7418615628955225503
 GameObject:
   m_ObjectHideFlags: 0

@@ -90,6 +90,7 @@ MonoBehaviour:
   baseColor: {r: 1, g: 1, b: 1, a: 1}
   redTeamColor: {r: 1, g: 0, b: 0, a: 1}
   blueTeamColor: {r: 0.013096625, g: 0, b: 0.5566038, a: 1}
+  renderEffect: {fileID: 0}
 --- !u!1001 &6739103970843217308
 PrefabInstance:
   m_ObjectHideFlags: 0

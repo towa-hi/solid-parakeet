@@ -120,14 +120,7 @@ public class StellarManager : MonoBehaviour
     
     #endregion
     #region helper
-
-    async Task<int> StartLobby()
-    {
-        
-        //StellarResponseData response = await InvokeContractFunction(currentUser.Value.index, contract, "test_get_lobby", "");
-        // TODO: finish this
-        return 0;
-    }
+    
     
     #endregion
     #region wrapper

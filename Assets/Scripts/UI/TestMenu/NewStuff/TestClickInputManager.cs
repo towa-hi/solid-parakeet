@@ -20,7 +20,8 @@ public class TestClickInputManager : MonoBehaviour
     
     public event Action<Vector2Int> OnPositionHovered;
     public event Action<Vector2Int> OnClick;
-    
+
+    TestBoardManager bm;
     void Awake()
     {
         layerPriorities = new()
@@ -33,14 +34,15 @@ public class TestClickInputManager : MonoBehaviour
         };
     }
     
-    public void Initialize()
+    public void Initialize(TestBoardManager inBoardManager)
     {
-        GameManager.instance.testBoardManager.OnPhaseChanged += OnPhaseChanged;
+        bm = inBoardManager;
+        bm.OnPhaseChanged += OnPhaseChanged;
     }
 
-    void OnPhaseChanged(ITestPhase phase)
+    void OnPhaseChanged()
     {
-        switch (phase)
+        switch (bm.currentPhase)
         {
             case SetupTestPhase setupTestPhase:
                 isUpdating = true;
@@ -49,8 +51,7 @@ public class TestClickInputManager : MonoBehaviour
                 isUpdating = true;
                 break;
             default:
-                throw new ArgumentOutOfRangeException(nameof(phase));
-
+                throw new ArgumentOutOfRangeException(nameof(bm.currentPhase));
         }
     }
 
