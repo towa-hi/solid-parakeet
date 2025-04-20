@@ -85,7 +85,7 @@ public class TestBoardManager : MonoBehaviour
             }
         }
         cachedLobby = lobby;
-        StateChanged();
+        ClientStateChanged();
     }
     
     void Initialize(User user, Lobby lobby)
@@ -184,19 +184,10 @@ public class TestBoardManager : MonoBehaviour
         OnPhaseChanged?.Invoke();
     }
 
-    public void StateChanged()
+    public void ClientStateChanged()
     {
         Debug.LogWarning("TestBoardManager::StateChanged");
         OnStateChanged?.Invoke();
-    }
-    
-    public void StateChanged(bool networkChanged)
-    {
-        if (networkChanged)
-        {
-            Debug.LogWarning("Network state changed");
-            _ = StellarManagerTest.UpdateState();
-        }
     }
     
     void OnClick(Vector2Int pos)
@@ -232,20 +223,23 @@ public class SetupTestPhase : ITestPhase
     {
         bm = inBm;
         setupGui = inSetupGui;
-        setupGui.OnClearButton += OnClear;
-        setupGui.OnAutoSetupButton += OnAutoSetup;
-        setupGui.OnDeleteButton += OnDelete;
-        setupGui.OnSubmitButton += OnSubmit;
+        
 
     }
     public void EnterState()
     {
-        
+        setupGui.OnClearButton += OnClear;
+        setupGui.OnAutoSetupButton += OnAutoSetup;
+        setupGui.OnDeleteButton += OnDelete;
+        setupGui.OnSubmitButton += OnSubmit;
     }
 
     public void ExitState()
     {
-        
+        setupGui.OnClearButton -= OnClear;
+        setupGui.OnAutoSetupButton -= OnAutoSetup;
+        setupGui.OnDeleteButton -= OnDelete;
+        setupGui.OnSubmitButton -= OnSubmit;
     }
 
     public void Update()
@@ -267,7 +261,7 @@ public class SetupTestPhase : ITestPhase
         if (pawnView)
         {
             pawnView.pawn.MutSetupRemove();
-            bm.StateChanged();
+            bm.ClientStateChanged();
             return;
         }
         Rank? selectedRank = setupGui.selectedRankEntry?.rank;
@@ -280,7 +274,7 @@ public class SetupTestPhase : ITestPhase
             if (availablePawnView)
             {
                 availablePawnView.pawn.MutSetupAdd(clickedPos);
-                bm.StateChanged();
+                bm.ClientStateChanged();
             }
             else
             {
@@ -301,7 +295,7 @@ public class SetupTestPhase : ITestPhase
         {
             p.MutSetupRemove();
         }
-        bm.StateChanged();
+        bm.ClientStateChanged();
     }
 
     void OnAutoSetup()
@@ -341,7 +335,7 @@ public class SetupTestPhase : ITestPhase
                 }
             }
         }
-        bm.StateChanged();
+        bm.ClientStateChanged();
     }
 
     void OnDelete()
@@ -353,7 +347,6 @@ public class SetupTestPhase : ITestPhase
     {
         List<Pawn> myPawns = bm.GetMyPawns();
         int code = await StellarManagerTest.CommitSetupRequest(myPawns);
-        bm.StateChanged(true);
         Debug.Log(code);
         
     }
@@ -372,17 +365,22 @@ public class MovementTestPhase : ITestPhase
     {
         bm = inBm;
         movementGui = inMovementGui;
-        highlightedTiles = new();
+        highlightedTiles = new HashSet<TestTileView>();
+        
     }
     
     public void EnterState()
     {
         selectedPawnView = null;
+        movementGui.OnSubmitMoveButton += SubmitMove;
+        movementGui.OnRefreshButton += RefreshState;
     }
 
     public void ExitState()
     {
         selectedPawnView = null;
+        movementGui.OnSubmitMoveButton -= SubmitMove;
+        movementGui.OnRefreshButton -= RefreshState;
     }
 
     public void Update() {}
@@ -395,14 +393,14 @@ public class MovementTestPhase : ITestPhase
         {
             selectedPawnView = pawnView;
             highlightedTiles = GetMovableTileViews(pawnView.pawn);
-            bm.StateChanged();
+            bm.ClientStateChanged();
         }
         else
         {
             QueueMove(selectedPawnView, tileView);
             selectedPawnView = null;
             highlightedTiles.Clear();
-            bm.StateChanged();
+            bm.ClientStateChanged();
         }
     }
 
@@ -426,26 +424,7 @@ public class MovementTestPhase : ITestPhase
             : $"QueuedMove set to {queuedMove.pawnId} to {queuedMove.pos}");
     }
     
-    bool IsValidMove(Pawn pawn, Vector2Int targetPos)
-    {
-        TestTileView existingTile = bm.GetTileViewAtPos(targetPos);
-        if (!existingTile)
-        {
-            return false;
-        }
-        if (!existingTile.tile.isPassable)
-        {
-            return false;
-        }
-        TestPawnView existingPawn = bm.GetPawnViewAtPos(targetPos);
-        if (existingPawn && existingPawn.pawn.team == bm.userTeam)
-        {
-            return false;
-        }
-        return true;
-    }
-
-    public HashSet<TestTileView> GetMovableTileViews(Pawn pawn)
+    HashSet<TestTileView> GetMovableTileViews(Pawn pawn)
     {
         BoardDef boardDef = bm.boardDef;
         HashSet<TestTileView> movableTileViews = new();
@@ -481,6 +460,17 @@ public class MovementTestPhase : ITestPhase
             }
         }
         return movableTileViews;
+    }
+
+    void SubmitMove()
+    {
+        if (queuedMove == null) return;
+        _ = StellarManagerTest.QueueMove(queuedMove);
+    }
+
+    void RefreshState()
+    {
+        
     }
 }
 

@@ -242,25 +242,9 @@ pub struct MoveSubmitReq {
     pub lobby: LobbyGuid,
     pub move_pos: Pos,
     pub pawn_id: PawnGuid,
-    pub pawn_def: PawnDef,
     pub turn: i32,
     pub user_address: UserAddress,
 }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FlatTestReq {
-    pub number: i32,
-    pub word: String,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NestedTestReq {
-    pub number: i32,
-    pub word: String,
-    pub flat: FlatTestReq
-}
-
-// endregion
-// region responses
-
 // endregion
 // region keys
 
@@ -270,11 +254,6 @@ pub enum DataKey {
     User(UserAddress),
     Record(String),
     Lobby(LobbyGuid), // lobby specific data
-}
-
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TempKey {
-    PendingInvites(UserAddress), // guests (the recipient) address
 }
 // endregion
 // region contract
@@ -294,14 +273,6 @@ impl Contract {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         env.deployer().update_current_contract_wasm(new_wasm_hash);
-    }
-
-    pub fn flat_param_test(env: Env, address: Address, req: FlatTestReq) -> Result<FlatTestReq, Error> {
-        Ok(req.clone())
-    }
-
-    pub fn nested_param_test(env: Env, address: Address, req: NestedTestReq) -> Result<NestedTestReq, Error> {
-        Ok(req.clone())
     }
 
     pub fn make_lobby(env: Env, address: Address, req: MakeLobbyReq) -> Result<LobbyGuid, Error> {
@@ -559,63 +530,37 @@ impl Contract {
         if lobby.phase != Phase::Movement {
             return Err(Error::WrongPhase)
         }
-        let turn_index = lobby.turns.len() - 1;
-        let mut turn = lobby.turns.get_unchecked(turn_index);
+        let mut turn = lobby.turns.last_unchecked();
         if req.turn != turn.turn
         {
             return Err(Error::InvalidArgs)
         }
-        let mut other_user_initialized = false;
         if req.user_address == turn.host_turn.user_address {
-            if turn.host_turn.initialized {
+            let mut host_turn = turn.host_turn.clone();
+            if host_turn.initialized {
                 return Err(Error::TurnAlreadyInitialized)
             }
-            other_user_initialized = turn.guest_turn.initialized;
-            turn.host_turn.initialized = true;
-            turn.host_turn.pos = req.move_pos.clone();
-            turn.host_turn.pawn_id = req.pawn_id.clone();
+            host_turn.initialized = true;
+            host_turn.pos = req.move_pos.clone();
+            host_turn.pawn_id = req.pawn_id.clone();
+            turn.host_turn = host_turn;
+            lobby.turns.set(lobby.turns.len() - 1, turn.clone());
         } else if req.user_address == turn.guest_turn.user_address {
-            if turn.guest_turn.initialized {
+            let mut guest_turn = turn.guest_turn.clone();
+            if guest_turn.initialized {
                 return Err(Error::TurnAlreadyInitialized)
             }
-            other_user_initialized = turn.host_turn.initialized;
-            turn.guest_turn.initialized = true;
-            turn.guest_turn.pos = req.move_pos.clone();
-            turn.guest_turn.pawn_id = req.pawn_id.clone();
+            guest_turn.initialized = true;
+            guest_turn.pos = req.move_pos.clone();
+            guest_turn.pawn_id = req.pawn_id.clone();
+            turn.guest_turn = guest_turn;
+            lobby.turns.set(lobby.turns.len() - 1, turn.clone());
         }
         else
         {
             return Err(Error::InvalidArgs)
         }
-        lobby.turns.set(turn_index, turn);
-
-        let mut pawn_found = false;
-        let mut pawn_valid = false;
-        let mut pawn_index: u32 = 0;
-        for (i, pawn) in lobby.pawns.iter().enumerate() {
-            if pawn.pawn_id == req.pawn_id {
-                pawn_found = true;
-                pawn_index = i as u32;
-                if pawn.user_address != req.user_address {
-                    return Err(Error::InvalidArgs) // Pawn belongs to another user
-                }
-                if !pawn.is_alive {
-                    return Err(Error::InvalidArgs) // Pawn is not alive
-                }
-                pawn_valid = true;
-                break;
-            }
-        }
-        if !pawn_found {
-            return Err(Error::InvalidArgs) // Pawn not found
-        }
-        if !pawn_valid {
-            return Err(Error::InvalidArgs) // Pawn validation failed
-        }
-        let mut pawn = lobby.pawns.get_unchecked(pawn_index);
-        pawn.is_moved = true;
-        lobby.pawns.set(pawn_index, pawn);
-        if other_user_initialized {
+        if turn.host_turn.initialized && turn.guest_turn.initialized {
             let next_turn_index = lobby.turns.len() as i32;
             let next_turn = Turn {
                 guest_turn: TurnMove {

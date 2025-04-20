@@ -14,7 +14,7 @@ public class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CBYVDEPIQ4QEMAZUDNPH2JLSZDGE2Z3W4HNIE3G7TPKNZL6LJWUSXI6K";
+    public static string testContract = "CC42HZKI6MZPLW3RQNST4LECU3G26MURIOIENP4OPOO6K7QESI6VK5HC";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -203,6 +203,36 @@ public class StellarManagerTest
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
+
+    public static async Task<int> QueueMove(QueuedMove queuedMove)
+    {
+        Assert.IsTrue(currentLobby.HasValue);
+        Assert.IsTrue(currentUser.HasValue);
+        Lobby lobby = currentLobby.Value;
+        User user = currentUser.Value;
+        Assert.IsNotNull(queuedMove);
+        Turn currentTurn = lobby.turns.Last();
+        bool isHost = false || currentTurn.host_turn.user_address == user.index;
+        TurnMove turnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
+        if (turnMove.initialized)
+        {
+            Debug.LogError("user already moved");
+            return -666;
+        }
+        MoveSubmitReq req = new()
+        {
+            lobby = lobby.index,
+            move_pos = new Pos(queuedMove.pos),
+            pawn_id = queuedMove.pawnId.ToString(),
+            turn = turnMove.turn,
+            user_address = turnMove.user_address,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("submit_move", req);
         EndTask(task);
         await UpdateState();
         return ProcessTransactionResult(result, simResult);

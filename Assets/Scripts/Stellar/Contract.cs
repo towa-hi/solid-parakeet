@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Stellar;
 using UnityEngine;
@@ -595,7 +596,41 @@ namespace Contract
                 }),
             };
         }
+        public Turn GetLatestTurn()
+        {
+            return turns.Last();
+        }
 
+        public TurnMove GetLatestTurnMove(Team team)
+        {
+            string user_address;
+            if ((uint)team == guest_state.team)
+            {
+                user_address = guest_state.user_address;
+            }
+            else if ((uint)team == host_state.team)
+            {
+                user_address = host_state.user_address;
+            }
+            else
+            {
+                throw new IndexOutOfRangeException();
+            }
+            Turn turn = turns.Last();
+            if (turn.host_turn.user_address == user_address)
+            {
+                return turn.host_turn;
+            }
+            else if (turn.guest_turn.user_address == user_address)
+            {
+                return turn.guest_turn;
+            }
+            else
+            {
+                throw new IndexOutOfRangeException();
+            }
+        }
+        
         public bool IsLobbyStartable()
         {
             
@@ -768,7 +803,6 @@ namespace Contract
     {
         public string lobby;
         public Pos move_pos;
-        public PawnDef pawn_def;
         public string pawn_id;
         public int turn;
         public string user_address;
@@ -781,7 +815,6 @@ namespace Contract
                 {
                     SCUtility.FieldToSCMapEntry("lobby", lobby),
                     SCUtility.FieldToSCMapEntry("move_pos", move_pos),
-                    SCUtility.FieldToSCMapEntry("pawn_def", pawn_def),
                     SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
                     SCUtility.FieldToSCMapEntry("turn", turn),
                     SCUtility.FieldToSCMapEntry("user_address", user_address),
