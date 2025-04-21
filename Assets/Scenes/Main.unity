@@ -13006,6 +13006,7 @@ MonoBehaviour:
   guiTestGame: {fileID: 1035372904}
   boardDef: {fileID: 0}
   userTeam: 0
+  isHost: 0
   lobbyId: 
   pawnViews: []
 --- !u!4 &1972489293

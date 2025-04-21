@@ -191,20 +191,15 @@ public class TestGuiElement: MonoBehaviour
 public class GameElement: MonoBehaviour
 {
     bool isEnabled;
-    
+    TestBoardManager bm;
     public void SetIsEnabled(bool inIsEnabled)
     {
         isEnabled = inIsEnabled;
         gameObject.SetActive(inIsEnabled);
     }
 
-    public virtual void Refresh(TestBoardManager boardManager)
+    public virtual void Initialize(TestBoardManager boardManager, Lobby lobby)
     {
-        
-    }
-
-    public virtual void Initialize(TestBoardManager boardManager)
-    {
-        
+        bm = boardManager;
     }
 }

@@ -17,8 +17,6 @@ public class GuiTestGame : TestGuiElement
     
     void Start()
     {
-        GameManager.instance.testBoardManager.OnPhaseChanged += OnPhaseChanged;
-        GameManager.instance.testBoardManager.OnStateChanged += OnStateChanged;
         setup.SetIsEnabled(false);
         movement.SetIsEnabled(false);
     }
@@ -36,43 +34,12 @@ public class GuiTestGame : TestGuiElement
         
     }
     
-    void SetCurrentElement(GameElement element)
+    public void SetCurrentElement(GameElement element, Lobby lobby)
     {
         currentElement?.SetIsEnabled(false);
         currentElement = element;
         currentElement.SetIsEnabled(true);
-        currentElement.Initialize(GameManager.instance.testBoardManager);
-    }
-    
-    void OnPhaseChanged()
-    {
-        switch (bm.currentPhase)
-        {
-            case SetupTestPhase setupTestPhase:
-                SetCurrentElement(setup);
-                break;
-            case MovementTestPhase movementTestPhase:
-                SetCurrentElement(movement);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(bm.currentPhase));
-
-        }
-    }
-
-    void OnStateChanged()
-    {
-        switch (bm.currentPhase)
-        {
-            case SetupTestPhase setupTestPhase:
-                setup.Refresh(bm);
-                break;
-            case MovementTestPhase movementTestPhase:
-                movement.Refresh(bm);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(bm.currentPhase));
-        }
+        currentElement.Initialize(GameManager.instance.testBoardManager, lobby);
     }
 
 }

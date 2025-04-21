@@ -37,24 +37,9 @@ public class TestClickInputManager : MonoBehaviour
     public void Initialize(TestBoardManager inBoardManager)
     {
         bm = inBoardManager;
-        bm.OnPhaseChanged += OnPhaseChanged;
+        isUpdating = true;
     }
-
-    void OnPhaseChanged()
-    {
-        switch (bm.currentPhase)
-        {
-            case SetupTestPhase setupTestPhase:
-                isUpdating = true;
-                break;
-            case MovementTestPhase movementTestPhase:
-                isUpdating = true;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(bm.currentPhase));
-        }
-    }
-
+    
     void Update()
     {
         if (!isUpdating) return;
@@ -111,7 +96,7 @@ public class TestClickInputManager : MonoBehaviour
         Vector2Int currentHoveredPosition;
         if (currentHoveredPawnView)
         {
-            currentHoveredPosition = currentHoveredPawnView.pawn.pos;
+            currentHoveredPosition = currentHoveredPawnView.displayedPos;
         }
         else if (currentHoveredTileView)
         {

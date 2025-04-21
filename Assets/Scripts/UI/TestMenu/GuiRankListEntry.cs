@@ -1,4 +1,5 @@
 using System;
+using Contract;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -13,6 +14,12 @@ public class GuiRankListEntry : MonoBehaviour
     public Rank rank;
     public int remaining;
     public bool selected;
+
+    public void Initialize(MaxPawns maxPawn)
+    {
+        rank = (Rank)maxPawn.rank;
+        remaining = maxPawn.max;
+    }
     
     public void Refresh(Rank inRank, int inRemaining, bool clicked)
     {

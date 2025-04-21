@@ -30,14 +30,8 @@ public class GuiTestMovement : GameElement
         graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
         refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
     }
-
-    public override void Initialize(TestBoardManager bm)
-    {
-        statusText.text = "status";
-        Refresh(bm);
-    }
-
-    public override void Refresh(TestBoardManager bm)
+    
+    public void Refresh(TestBoardManager bm)
     {
         if (bm.currentPhase is not MovementTestPhase movementTestPhase)
         {

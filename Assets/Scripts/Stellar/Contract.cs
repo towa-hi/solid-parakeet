@@ -277,6 +277,11 @@ namespace Contract
                 }),
             };
         }
+
+        public readonly Vector2Int ToVector2Int()
+        {
+            return new Vector2Int(x, y);
+        }
     }
     
     public struct UserState: IScvMapCompatable
@@ -298,6 +303,16 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("user_address", user_address),
                 }),
             };
+        }
+
+        public PawnCommitment GetPawnCommitmentById(string id)
+        {
+            return setup_commitments.FirstOrDefault(c => c.pawn_id == id);
+        }
+
+        public PawnCommitment GetPawnCommitmentById(Guid guid)
+        {
+            return GetPawnCommitmentById(guid.ToString());
         }
     }
     
@@ -405,11 +420,10 @@ namespace Contract
         public bool is_alive;
         public bool is_moved;
         public bool is_revealed;
-        public PawnDef pawn_def;
+        public string pawn_def_hash;
         public string pawn_id;
         public Pos pos;
         public uint team; // Team enum
-        public string user_address;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -420,11 +434,10 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("is_alive", is_alive),
                     SCUtility.FieldToSCMapEntry("is_moved", is_moved),
                     SCUtility.FieldToSCMapEntry("is_revealed", is_revealed),
-                    SCUtility.FieldToSCMapEntry("pawn_def", pawn_def),
+                    SCUtility.FieldToSCMapEntry("pawn_def_hash", pawn_def_hash),
                     SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
                     SCUtility.FieldToSCMapEntry("pos", pos),
                     SCUtility.FieldToSCMapEntry("team", team),
-                    SCUtility.FieldToSCMapEntry("user_address", user_address),
                 }),
             };
         }
@@ -660,6 +673,29 @@ namespace Contract
             }
 
             return true;
+        }
+
+        public Pawn GetPawnById(string pawn_id)
+        {
+            return pawns.First(x => x.pawn_id == pawn_id);
+        }
+
+        public Pawn GetPawnById(Guid pawn_guid)
+        {
+            string pawn_id = pawn_guid.ToString();
+            return GetPawnById(pawn_id);
+        }
+
+        public UserState GetUserStateByTeam(Team team)
+        {
+            if (host_state.team == (uint)team)
+            {
+                return host_state;
+            }
+            else
+            {
+                return guest_state;
+            }
         }
     }
 

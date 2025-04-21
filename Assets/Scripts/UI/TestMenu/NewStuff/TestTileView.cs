@@ -1,4 +1,5 @@
 using System;
+using Contract;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -23,10 +24,8 @@ public class TestTileView : MonoBehaviour
     {
         tile = inTile;
         bm = inBoardManager;
-        bm.OnPhaseChanged += OnPhaseChanged;
-        bm.OnStateChanged += OnStateChanged;
-        bm.clickInputManager.OnPositionHovered += OnHover;
-        
+        //bm.clickInputManager.OnPositionHovered += OnHover;
+        bm.OnClientGameStateChanged += OnClientGameStateChanged;
         gameObject.name = $"Tile ({tile.pos.x}, {tile.pos.y})";
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
@@ -49,15 +48,19 @@ public class TestTileView : MonoBehaviour
                 throw new ArgumentOutOfRangeException();
         }
     }
-
-    void OnStateChanged()
+    
+    uint oldPhase = 999;
+    void OnClientGameStateChanged(Lobby cachedLobby)
     {
-        EnableEmission(false);
-        SetTopEmission(baseColor);
-        tileModel.renderEffect.ClearEffects();
+        bool phaseChanged = cachedLobby.phase != oldPhase;
         switch (bm.currentPhase)
         {
             case MovementTestPhase movementTestPhase:
+                if (phaseChanged)
+                {
+                    SetSetupEmissionHighlight(false);
+                    tileModel.renderEffect.ClearEffects();
+                }
                 bool queued = false;
                 if (movementTestPhase.queuedMove != null)
                 {
@@ -74,30 +77,13 @@ public class TestTileView : MonoBehaviour
                 }
                 break;
             case SetupTestPhase setupTestPhase:
+                if (phaseChanged)
+                {
+                    SetSetupEmissionHighlight(true);
+                }
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
-
-        }
-    }
-
-    void OnPhaseChanged()
-    {
-        EnableEmission(false);
-        SetTopEmission(baseColor);
-        tileModel.renderEffect.ClearEffects();
-        switch (bm.currentPhase)
-        {
-            case SetupTestPhase setupTestPhase:
-                tileModel.renderEffect.SetEffect(EffectType.FILL, false);
-                SetSetupEmissionHighlight(true);
-                break;
-            case MovementTestPhase movementTestPhase:
-                tileModel.renderEffect.SetEffect(EffectType.FILL, false);
-                SetSetupEmissionHighlight(false);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(bm.currentPhase));
 
         }
     }

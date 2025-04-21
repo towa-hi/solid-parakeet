@@ -97,6 +97,7 @@ pub struct Pos {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserState {
+    pub committed: bool,
     pub lobby_state: UserLobbyState,
     pub setup_commitments: Vec<PawnCommitment>,
     pub team: Team,
@@ -128,20 +129,19 @@ pub struct Tile {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommitment {
+    pub pawn_def_hash: PawnDefHash, // hash of the def of that pawn in case there's a conflict
     pub pawn_id: PawnGuid,
     pub starting_pos: Pos,
-    pub pawn_def_hash: PawnDefHash, // hash of the def of that pawn in case there's a conflict
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pawn {
     pub is_alive: bool,
     pub is_moved: bool,
     pub is_revealed: bool,
-    pub pawn_def: PawnDef,
+    pub pawn_def_hash: PawnDefHash,
     pub pawn_id: PawnGuid,
     pub pos: Pos,
     pub team: Team,
-    pub user_address: UserAddress,
 }
 // endregion
 // region level 2 structs
@@ -297,6 +297,7 @@ impl Contract {
             game_end_state: EndState::Playing,
             guest_address: String::from_str(&env, ""),
             guest_state: UserState {
+                committed: false,
                 lobby_state: UserLobbyState::NotAccepted,
                 setup_commitments: Vec::new(&env),
                 team: Team::Blue,
@@ -304,6 +305,7 @@ impl Contract {
             },
             host_address: host_user.index.clone(),
             host_state: UserState {
+                committed: false,
                 lobby_state: UserLobbyState::InLobby,
                 setup_commitments: Vec::new(&env),
                 team: Team::Red,
@@ -405,46 +407,52 @@ impl Contract {
         }
         // write lobby
         lobby.guest_address = req.guest_address.clone();
-        lobby.guest_state = UserState {
-            lobby_state: UserLobbyState::InGame,
-            setup_commitments: Vec::new(&env),
-            team: Team::Blue,
-            user_address: req.guest_address.clone(),
-        };
+        lobby.guest_state.user_address = req.guest_address.clone();
+        lobby.guest_state.lobby_state = UserLobbyState::InGame;
         lobby.host_state.lobby_state = UserLobbyState::InGame;
         lobby.phase = Phase::Setup;
-        // generate pawns
+        // generate pawns and commitments
         let mut pawn_id_counter: u32 = 0;
         let purgatory_pos = Pos { x: -666, y: -666 };
         for max_pawn in lobby.parameters.max_pawns.iter() {
             for _ in 0..max_pawn.max {
                 let pawn = Pawn {
-                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
-                    user_address: lobby.host_address.clone(),
-                    team: Team::Red,
-                    pos: purgatory_pos.clone(),
                     is_alive: false,
                     is_moved: false,
                     is_revealed: false,
-                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
+                    pawn_def_hash: String::from_str(&env, ""),
+                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
+                    pos: purgatory_pos.clone(),
+                    team: lobby.host_state.team.clone(),
+                };
+                let commitment = PawnCommitment {
+                    pawn_def_hash: pawn.pawn_def_hash.clone(),
+                    pawn_id: pawn.pawn_id.clone(),
+                    starting_pos: pawn.pos.clone(),
                 };
                 lobby.pawns.push_back(pawn);
+                lobby.host_state.setup_commitments.push_back(commitment);
                 pawn_id_counter += 1;
             }
         }
         for max_pawn in lobby.parameters.max_pawns.iter() {
             for _ in 0..max_pawn.max {
                 let pawn = Pawn {
-                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
-                    user_address: req.guest_address.clone(),
-                    team: Team::Blue,
-                    pos: purgatory_pos.clone(),
                     is_alive: false,
                     is_moved: false,
                     is_revealed: false,
-                    pawn_def: Self::create_pawn_def(&env, max_pawn.rank),
+                    pawn_def_hash: String::from_str(&env, ""),
+                    pawn_id: Self::generate_uuid(&env, pawn_id_counter),
+                    pos: purgatory_pos.clone(),
+                    team: lobby.guest_state.team.clone(),
+                };
+                let commitment = PawnCommitment {
+                    pawn_def_hash: pawn.pawn_def_hash.clone(),
+                    pawn_id: pawn.pawn_id.clone(),
+                    starting_pos: pawn.pos.clone(),
                 };
                 lobby.pawns.push_back(pawn);
+                lobby.guest_state.setup_commitments.push_back(commitment);
                 pawn_id_counter += 1;
             }
         }
@@ -475,23 +483,31 @@ impl Contract {
         } else {
             return Err(Error::InvalidArgs);
         };
+        // TODO: we got to check to make sure it matches the lobby
+        if user_state.setup_commitments.len() != req.setup_commitments.len() {
+            return Err(Error::InvalidArgs);
+        }
         user_state.setup_commitments = req.setup_commitments.clone();
-        // apply commitments for this user
-        let mut commitment_map: Map<PawnGuid, PawnCommitment> = Map::new(&env);
-        for commit in user_state.setup_commitments.iter() {
-            commitment_map.set(commit.pawn_id.clone(), commit.clone());
-        }
-        for i in 0..lobby.pawns.len() {
-            let mut pawn = lobby.pawns.get_unchecked(i);
-            if let Some(commit) = commitment_map.get(pawn.pawn_id.clone()) {
-                pawn.pos = commit.starting_pos;
-                pawn.is_alive = true;
-                lobby.pawns.set(i, pawn);
-            }
-        }
+        user_state.committed = true;
         // go to movement phase if both players have submitted
-        if other_user_state.setup_commitments.len() > 0
+        if other_user_state.committed
         {
+            // apply commits for both users
+            let mut commitment_map: Map<PawnGuid, PawnCommitment> = Map::new(&env);
+            for commit in lobby.host_state.setup_commitments.iter() {
+                commitment_map.set(commit.pawn_id.clone(), commit.clone());
+            }
+            for commit in lobby.guest_state.setup_commitments.iter() {
+                commitment_map.set(commit.pawn_id.clone(), commit.clone());
+            }
+            for i in 0..lobby.pawns.len() {
+                let mut pawn = lobby.pawns.get_unchecked(i);
+                if let Some(commit) = commitment_map.get(pawn.pawn_id.clone()) {
+                    pawn.pos = commit.starting_pos;
+                    pawn.is_alive = true;
+                    lobby.pawns.set(i, pawn);
+                }
+            }
             let first_turn = Turn {
                 guest_turn: TurnMove {
                     initialized: false,

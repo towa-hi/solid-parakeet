@@ -51,6 +51,29 @@ public static class Globals
         }
         return PlayerPrefs.GetString("nickname");
     }
+    
+    public static PawnDef FakeHashToPawnDef(string pawnDefHash)
+    {
+        foreach (PawnDef def in GameManager.instance.orderedPawnDefList.Where(def => def.pawnName == pawnDefHash))
+        {
+            return def;
+        }
+        throw new KeyNotFoundException($"Could not find pawnDef {pawnDefHash}");
+    }
+
+    public static string PawnDefToFakeHash(PawnDef pawnDef)
+    {
+        return pawnDef.pawnName;
+    }
+
+    public static PawnDef RankToPawnDef(Rank rank)
+    {
+        foreach (PawnDef def in GameManager.instance.orderedPawnDefList.Where(def => def.rank == rank))
+        {
+            return def;
+        }
+        throw new KeyNotFoundException($"Could not find pawnDef {rank}");
+    }
 }
 
 public enum MessageGenre : uint

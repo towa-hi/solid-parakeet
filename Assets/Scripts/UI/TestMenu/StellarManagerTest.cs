@@ -14,7 +14,7 @@ public class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CC42HZKI6MZPLW3RQNST4LECU3G26MURIOIENP4OPOO6K7QESI6VK5HC";
+    public static string testContract = "CBI5SRQT5435IQTT2HL3CDPSFESRUXLHFUEOKCTY2RLXTI7ZASTCARPC";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -182,19 +182,16 @@ public class StellarManagerTest
         return ProcessTransactionResult(result, simResult);
     }
 
-    public static async Task<int> CommitSetupRequest(List<Pawn> myPawns)
+    public static async Task<int> CommitSetupRequest(Dictionary<string, PawnCommitment> commitments)
     {
         Assert.IsTrue(currentLobby.HasValue);
-        PawnCommitment[] setupCommitments = new PawnCommitment[myPawns.Count];
-        for (int i = 0; i < myPawns.Count; i++)
+        
+        PawnCommitment[] setupCommitments = new PawnCommitment[commitments.Count];
+        for (int i = 0; i < commitments.Count; i++)
         {
-            Pawn pawn = myPawns[i];
-            setupCommitments[i] = new PawnCommitment
-            {
-                pawn_def_hash = pawn.def.id.ToString(),
-                pawn_id = pawn.pawnId.ToString(),
-                starting_pos = new Pos(pawn.pos),
-            };
+            KeyValuePair<string, PawnCommitment> kvp = commitments.ElementAt(i);
+            PawnCommitment commitment = kvp.Value;
+            setupCommitments[i] = commitment;
         }
         SetupCommitReq req = new()
         {
