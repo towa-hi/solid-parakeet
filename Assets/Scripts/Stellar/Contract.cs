@@ -531,6 +531,11 @@ namespace Contract
                 }),
             };
         }
+
+        public override string ToString()
+        {
+            return JsonUtility.ToJson(this).ToString();
+        }
     }
     
     public struct Turn : IScvMapCompatable

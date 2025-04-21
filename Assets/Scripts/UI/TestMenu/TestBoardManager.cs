@@ -92,6 +92,7 @@ public class TestBoardManager : MonoBehaviour
                     throw new ArgumentOutOfRangeException();
             }
         }
+        currentPhase?.OnNetworkGameStateChanged(lobby);
         Debug.Log("invoking OnNetworkGameStateChanged");
         OnNetworkGameStateChanged?.Invoke(lobby);
         Debug.Log("invoking OnClientGameStateChanged");
@@ -269,6 +270,8 @@ public interface ITestPhase
     public void Update();
     public void OnHover();
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
+
+    public void OnNetworkGameStateChanged(Lobby lobby);
     
 }
 
@@ -326,7 +329,6 @@ public class SetupTestPhase : ITestPhase
         setupGui.OnSubmitButton += OnSubmit;
         setupGui.OnRankEntryClicked += OnRankEntryClicked;
 
-        bm.OnNetworkGameStateChanged += OnNetworkGameStateChanged;
     }
 
 
@@ -336,7 +338,6 @@ public class SetupTestPhase : ITestPhase
         setupGui.OnAutoSetupButton -= OnAutoSetup;
         setupGui.OnRefreshButton -= OnRefresh;
         setupGui.OnSubmitButton -= OnSubmit;
-        bm.OnNetworkGameStateChanged -= OnNetworkGameStateChanged;
     }
 
     public void Update()
@@ -395,12 +396,9 @@ public class SetupTestPhase : ITestPhase
         }
     }
 
-    void OnNetworkGameStateChanged(Lobby lobby)
+    public void OnNetworkGameStateChanged(Lobby lobby)
     {
-        if (bm.currentPhase == this)
-        {
-            setupGui.Refresh(this);
-        }
+        setupGui.Refresh(this);
     }
 
     void OnRankEntryClicked(Rank rank)
@@ -513,6 +511,7 @@ public class MovementTestPhase : ITestPhase
     public HashSet<TestTileView> highlightedTiles;
     
     GuiTestMovement movementGui;
+    public TurnMove committedMove;
     
     public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, Lobby lobby)
     {
@@ -521,6 +520,9 @@ public class MovementTestPhase : ITestPhase
         highlightedTiles = new HashSet<TestTileView>();
         // TODO: figure out a better way to tell gui to do stuff
         bm.guiTestGame.SetCurrentElement(movementGui, lobby);
+        TurnMove myMove = lobby.GetLatestTurnMove(bm.userTeam);
+        committedMove = myMove;
+        Debug.Log(committedMove);
     }
     
     public void EnterState()
@@ -529,7 +531,6 @@ public class MovementTestPhase : ITestPhase
         movementGui.OnSubmitMoveButton += SubmitMove;
         movementGui.OnRefreshButton += RefreshState;
         
-        bm.OnNetworkGameStateChanged += OnNetworkGameStateChanged;
     }
 
     public void ExitState()
@@ -538,15 +539,21 @@ public class MovementTestPhase : ITestPhase
         movementGui.OnSubmitMoveButton -= SubmitMove;
         movementGui.OnRefreshButton -= RefreshState;
         
-        bm.OnNetworkGameStateChanged -= OnNetworkGameStateChanged;
     }
 
     public void Update() {}
-
-    public void OnHover() {}
+    public void OnHover()
+    {
+        
+    }
 
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {
+        if (bm.currentPhase != this) return;
+        if (committedMove.initialized)
+        {
+            return;
+        }
         if (pawnView && pawnView.team == bm.userTeam)
         {
             selectedPawnView = pawnView;
@@ -559,11 +566,21 @@ public class MovementTestPhase : ITestPhase
             selectedPawnView = null;
             highlightedTiles.Clear();
         }
+        movementGui.Refresh(this);
+        bm.ClientGameStateChanged();
     }
 
     public void OnNetworkGameStateChanged(Lobby lobby)
     {
-        //throw new NotImplementedException();
+        committedMove = lobby.GetLatestTurnMove(bm.userTeam);
+        if (committedMove.initialized)
+        {
+            highlightedTiles.Clear();
+            queuedMove = null;
+            selectedPawnView = null;
+        }
+        Debug.Log(committedMove);
+        movementGui.Refresh(this);
     }
 
     void QueueMove(TestPawnView pawnView, TestTileView tileView = null)
@@ -606,7 +623,7 @@ public class MovementTestPhase : ITestPhase
             int walkedTiles = 0;
             while (walkedTiles < def.movementRange)
             {
-                Vector2Int[] currentDirections = Shared.GetDirections(pawnPos, boardDef.isHex);
+                Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
                 currentPos += currentDirections[dirIndex];
                 TestTileView tileView = bm.GetTileViewAtPos(currentPos);
                 if (!tileView) break;
@@ -628,6 +645,9 @@ public class MovementTestPhase : ITestPhase
     void SubmitMove()
     {
         if (queuedMove == null) return;
+        highlightedTiles.Clear();
+        queuedMove = null;
+        selectedPawnView = null;
         _ = StellarManagerTest.QueueMove(queuedMove);
     }
 

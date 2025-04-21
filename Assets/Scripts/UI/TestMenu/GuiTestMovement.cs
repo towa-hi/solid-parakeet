@@ -5,7 +5,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UI;
-using Debug = System.Diagnostics.Debug;
 
 public class GuiTestMovement : GameElement
 {
@@ -31,27 +30,15 @@ public class GuiTestMovement : GameElement
         refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
     }
     
-    public void Refresh(TestBoardManager bm)
+    public void Refresh(MovementTestPhase phase)
     {
-        if (bm.currentPhase is not MovementTestPhase movementTestPhase)
-        {
-            Debug.Fail("Current phase is not MovementTestPhase");
-            return;
-        }
-        submitMoveButton.interactable = movementTestPhase.queuedMove != null;
-        User? maybeUser = StellarManagerTest.currentUser;
-        Lobby? maybeLobby = StellarManagerTest.currentLobby;
-        if (!maybeLobby.HasValue) return;
-        if (!maybeUser.HasValue) return;
-        User user = maybeUser.Value;
-        Lobby lobby = maybeLobby.Value;
-        
-        Turn currentTurn = lobby.GetLatestTurn();
-        TurnMove myMove = lobby.GetLatestTurnMove(bm.userTeam);
-        if (myMove.initialized)
+        submitMoveButton.interactable = phase.queuedMove != null;
+        Debug.Log(phase.committedMove.initialized);
+        if (phase.committedMove.initialized)
         {
             submitMoveButton.interactable = false;
-            statusText.text = $"you commited move {myMove.pawn_id} to {myMove.pos}";
+            statusText.text = $"you commited move {phase.committedMove.pawn_id} to {phase.committedMove.pos}";
         }
     }
+    
 }

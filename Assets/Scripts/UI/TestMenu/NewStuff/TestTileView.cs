@@ -26,6 +26,7 @@ public class TestTileView : MonoBehaviour
         bm = inBoardManager;
         //bm.clickInputManager.OnPositionHovered += OnHover;
         bm.OnClientGameStateChanged += OnClientGameStateChanged;
+        bm.clickInputManager.OnPositionHovered += OnHover;
         gameObject.name = $"Tile ({tile.pos.x}, {tile.pos.y})";
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
@@ -36,7 +37,6 @@ public class TestTileView : MonoBehaviour
 
     void OnHover(Vector2Int pos)
     {
-        
         switch (bm.currentPhase)
         {
             case MovementTestPhase movementTestPhase:
