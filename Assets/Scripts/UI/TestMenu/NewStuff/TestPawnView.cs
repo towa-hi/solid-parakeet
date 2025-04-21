@@ -17,7 +17,8 @@ public class TestPawnView : MonoBehaviour
     public Team team;
     public bool isMyTeam;
     public Vector2Int displayedPos;
-
+    public string pawnDefHash;
+    
     public Animator animator;
     public RenderEffect renderEffect;
     TestBoardManager bm;
@@ -32,6 +33,7 @@ public class TestPawnView : MonoBehaviour
         bm.OnClientGameStateChanged += OnClientGameStateChanged;
         pawnId = Guid.Parse(p.pawn_id);
         team = (Team)p.team;
+        pawnDefHash = p.pawn_def_hash;
         isMyTeam = team == inBoardManager.userTeam;
         displayedPos = Globals.Purgatory;
         gameObject.name = $"Pawn {p.team} {p.pawn_id}";
@@ -54,6 +56,16 @@ public class TestPawnView : MonoBehaviour
         switch (bm.currentPhase)
         {
             case MovementTestPhase movementTestPhase:
+                if (phaseChanged)
+                {
+                    SetViewPos(lobby.GetPawnById(pawnId).pos.ToVector2Int());
+                    if (isMyTeam)
+                    {
+                        PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
+                        badge.symbolRenderer.sprite = def.icon;
+                    }
+                    
+                }
                 bool selected = movementTestPhase.selectedPawnView == this;
                 renderEffect.SetEffect(EffectType.SELECTOUTLINE, selected);
                 bool queued = movementTestPhase.queuedMove?.pawnId == pawnId;
@@ -98,6 +110,7 @@ public class TestPawnView : MonoBehaviour
         if (commitment.pawn_id != pawnId.ToString()) throw new InvalidOperationException();
         setupPos = commitment.starting_pos.ToVector2Int();
         badge.InitializeSetup(commitment, team, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
+        pawnDefHash = commitment.pawn_def_hash;
         SetViewPos(setupPos);
     }
     

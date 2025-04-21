@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Contract;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,15 +12,15 @@ public class GuiTestSetup : GameElement
 
     public Button clearButton;
     public Button autoSetupButton;
-    public Button deleteButton;
+    public Button refreshButton;
     public Button submitButton;
-    
+    public TextMeshProUGUI statusText;
     public GameObject rankEntryPrefab;
     public Dictionary<Rank, GuiRankListEntry> entries;
 
     public event Action OnClearButton;
     public event Action OnAutoSetupButton;
-    public event Action OnDeleteButton;
+    public event Action OnRefreshButton;
     public event Action OnSubmitButton;
     public event Action<Rank> OnRankEntryClicked;
     
@@ -27,7 +28,7 @@ public class GuiTestSetup : GameElement
     {
         clearButton.onClick.AddListener(() => OnClearButton?.Invoke());
         autoSetupButton.onClick.AddListener(() => OnAutoSetupButton?.Invoke());
-        deleteButton.onClick.AddListener(() => OnDeleteButton?.Invoke());
+        refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
     
@@ -50,6 +51,7 @@ public class GuiTestSetup : GameElement
     
     public void Refresh(SetupTestPhase phase)
     {
+        Debug.Log("GuiTestSetup Refresh");
         Dictionary<Rank, List<PawnCommitment>> orderedCommitments = new();
         foreach (Rank rank in Enum.GetValues(typeof(Rank)))
         {
@@ -84,6 +86,13 @@ public class GuiTestSetup : GameElement
             entries[rank].Refresh(rank, remainingCount, isSelected);
         }
         submitButton.interactable = !pawnsRemaining;
+        if (phase.committed)
+        {
+            submitButton.interactable = false;
+            autoSetupButton.interactable = false;
+            clearButton.interactable = false;
+            statusText.text = "Waiting for opponent";
+        }
     }
     
     void OnEntryClicked(GuiRankListEntry clickedEntry)

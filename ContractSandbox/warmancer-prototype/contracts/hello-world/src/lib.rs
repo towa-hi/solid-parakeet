@@ -504,6 +504,7 @@ impl Contract {
                 let mut pawn = lobby.pawns.get_unchecked(i);
                 if let Some(commit) = commitment_map.get(pawn.pawn_id.clone()) {
                     pawn.pos = commit.starting_pos;
+                    pawn.pawn_def_hash = commit.pawn_def_hash;
                     pawn.is_alive = true;
                     lobby.pawns.set(i, pawn);
                 }

@@ -286,6 +286,7 @@ namespace Contract
     
     public struct UserState: IScvMapCompatable
     {
+        public bool committed;
         public uint lobby_state;
         public PawnCommitment[] setup_commitments;
         public uint team;
@@ -297,6 +298,7 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
+                    SCUtility.FieldToSCMapEntry("committed", committed),
                     SCUtility.FieldToSCMapEntry("lobby_state", lobby_state),
                     SCUtility.FieldToSCMapEntry("setup_commitments", setup_commitments),
                     SCUtility.FieldToSCMapEntry("team", team),

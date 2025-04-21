@@ -68,6 +68,7 @@ public class TestBoardManager : MonoBehaviour
 
     void OnNetworkStateUpdated()
     {
+        Debug.Log("TestBoardManager::OnNetworkStateUpdated");
         if (!initialized)
         {
             return;
@@ -80,16 +81,20 @@ public class TestBoardManager : MonoBehaviour
             switch (lobby.phase)
             {
                 case 1:
+                    Debug.Log("SetPhase setup");
                     SetPhase(new SetupTestPhase(this, guiTestGame.setup, lobby));
                     break;
                 case 2:
+                    Debug.Log("SetPhase movement");
                     SetPhase(new MovementTestPhase(this, guiTestGame.movement, lobby));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
+        Debug.Log("invoking OnNetworkGameStateChanged");
         OnNetworkGameStateChanged?.Invoke(lobby);
+        Debug.Log("invoking OnClientGameStateChanged");
         OnClientGameStateChanged?.Invoke(lobby);
         cachedLobby = lobby;
     }
@@ -265,7 +270,6 @@ public interface ITestPhase
     public void OnHover();
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
     
-    public void OnNetworkGameStateUpdated(Lobby lobby);
 }
 
 public class SetupTestPhase : ITestPhase
@@ -274,6 +278,7 @@ public class SetupTestPhase : ITestPhase
     GuiTestSetup setupGui;
     public Dictionary<string, PawnCommitment> commitments;
     public Rank? selectedRank;
+    public bool committed = false;
     
     public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, Lobby lobby)
     {
@@ -281,23 +286,34 @@ public class SetupTestPhase : ITestPhase
         setupGui = inSetupGui;
         commitments = new Dictionary<string, PawnCommitment>();
         UserState userState = lobby.GetUserStateByTeam(bm.userTeam);
-        int pawnsIndex = 0;
-        foreach (MaxPawns maxRanks in lobby.parameters.max_pawns)
+        committed = userState.committed;
+        if (committed)
         {
-            for (int i = 0; i < maxRanks.max; i++)
+            foreach (PawnCommitment commitment in userState.setup_commitments)
             {
-                PawnCommitment commitment = new PawnCommitment()
-                {
-                    pawn_def_hash = Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank)),
-                    pawn_id = lobby.pawns[pawnsIndex].pawn_id,
-                    starting_pos = lobby.pawns[pawnsIndex].pos,
-                };
                 commitments[commitment.pawn_id] = commitment;
-                Debug.Log("COMMITMENT MADE FOR " + pawnsIndex + " with id " + commitment.pawn_id);
-                Debug.Log("Commitments size: " + commitments.Count);
-                pawnsIndex += 1;
             }
         }
+        else
+        {
+            // we can assume every max in maxRanks sums to commitIndex - 1;
+            int commitIndex = 0;
+            foreach (MaxPawns maxRanks in lobby.parameters.max_pawns)
+            {
+                for (int i = 0; i < maxRanks.max; i++)
+                {
+                    PawnCommitment commitment = new PawnCommitment()
+                    {
+                        pawn_def_hash = Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank)),
+                        pawn_id = userState.setup_commitments[commitIndex].pawn_id,
+                        starting_pos = new Pos(Globals.Purgatory),
+                    };
+                    commitments[commitment.pawn_id] = commitment;
+                    commitIndex += 1;
+                }
+            }
+        }
+        
         // TODO: figure out a better way to tell gui to do stuff
         bm.guiTestGame.SetCurrentElement(setupGui, lobby);
     }
@@ -306,10 +322,11 @@ public class SetupTestPhase : ITestPhase
     {
         setupGui.OnClearButton += OnClear;
         setupGui.OnAutoSetupButton += OnAutoSetup;
-        setupGui.OnDeleteButton += OnDelete;
+        setupGui.OnRefreshButton += OnRefresh;
         setupGui.OnSubmitButton += OnSubmit;
         setupGui.OnRankEntryClicked += OnRankEntryClicked;
-        setupGui.Refresh(this);
+
+        bm.OnNetworkGameStateChanged += OnNetworkGameStateChanged;
     }
 
 
@@ -317,8 +334,9 @@ public class SetupTestPhase : ITestPhase
     {
         setupGui.OnClearButton -= OnClear;
         setupGui.OnAutoSetupButton -= OnAutoSetup;
-        setupGui.OnDeleteButton -= OnDelete;
+        setupGui.OnRefreshButton -= OnRefresh;
         setupGui.OnSubmitButton -= OnSubmit;
+        bm.OnNetworkGameStateChanged -= OnNetworkGameStateChanged;
     }
 
     public void Update()
@@ -377,9 +395,12 @@ public class SetupTestPhase : ITestPhase
         }
     }
 
-    public void OnNetworkGameStateUpdated(Lobby lobby)
+    void OnNetworkGameStateChanged(Lobby lobby)
     {
-        setupGui.Refresh(this);
+        if (bm.currentPhase == this)
+        {
+            setupGui.Refresh(this);
+        }
     }
 
     void OnRankEntryClicked(Rank rank)
@@ -433,7 +454,6 @@ public class SetupTestPhase : ITestPhase
                     PawnCommitment commitment = maybeCommitment.Value;
                     commitment.starting_pos = new Pos(selectedTile.pos);
                     commitments[maybeCommitment.Value.pawn_id] = commitment;
-                    Debug.Log("Autosetup set commitment to " + selectedTile.pos);
                 }
                 else
                 {
@@ -464,9 +484,9 @@ public class SetupTestPhase : ITestPhase
         return null;
     }
     
-    void OnDelete()
+    void OnRefresh()
     {
-        
+        _ = StellarManagerTest.UpdateState();
     }
 
     async void OnSubmit()
@@ -508,6 +528,8 @@ public class MovementTestPhase : ITestPhase
         selectedPawnView = null;
         movementGui.OnSubmitMoveButton += SubmitMove;
         movementGui.OnRefreshButton += RefreshState;
+        
+        bm.OnNetworkGameStateChanged += OnNetworkGameStateChanged;
     }
 
     public void ExitState()
@@ -515,6 +537,8 @@ public class MovementTestPhase : ITestPhase
         selectedPawnView = null;
         movementGui.OnSubmitMoveButton -= SubmitMove;
         movementGui.OnRefreshButton -= RefreshState;
+        
+        bm.OnNetworkGameStateChanged -= OnNetworkGameStateChanged;
     }
 
     public void Update() {}
@@ -537,9 +561,9 @@ public class MovementTestPhase : ITestPhase
         }
     }
 
-    public void OnNetworkGameStateUpdated(Lobby lobby)
+    public void OnNetworkGameStateChanged(Lobby lobby)
     {
-        throw new NotImplementedException();
+        //throw new NotImplementedException();
     }
 
     void QueueMove(TestPawnView pawnView, TestTileView tileView = null)
