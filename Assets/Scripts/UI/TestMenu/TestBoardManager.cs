@@ -511,6 +511,8 @@ public class MovementTestPhase : ITestPhase
     public HashSet<TestTileView> highlightedTiles;
     
     GuiTestMovement movementGui;
+    
+    public Turn cachedTurn;
     public TurnMove committedMove;
     
     public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, Lobby lobby)
@@ -520,8 +522,8 @@ public class MovementTestPhase : ITestPhase
         highlightedTiles = new HashSet<TestTileView>();
         // TODO: figure out a better way to tell gui to do stuff
         bm.guiTestGame.SetCurrentElement(movementGui, lobby);
-        TurnMove myMove = lobby.GetLatestTurnMove(bm.userTeam);
-        committedMove = myMove;
+        cachedTurn = lobby.GetLatestTurn();
+        committedMove = lobby.GetLatestTurnMove(bm.userTeam);
         Debug.Log(committedMove);
     }
     
@@ -572,6 +574,7 @@ public class MovementTestPhase : ITestPhase
 
     public void OnNetworkGameStateChanged(Lobby lobby)
     {
+        cachedTurn = lobby.GetLatestTurn();
         committedMove = lobby.GetLatestTurnMove(bm.userTeam);
         if (committedMove.initialized)
         {
@@ -645,10 +648,10 @@ public class MovementTestPhase : ITestPhase
     void SubmitMove()
     {
         if (queuedMove == null) return;
+        _ = StellarManagerTest.QueueMove(queuedMove);
         highlightedTiles.Clear();
         queuedMove = null;
         selectedPawnView = null;
-        _ = StellarManagerTest.QueueMove(queuedMove);
     }
 
     void RefreshState()

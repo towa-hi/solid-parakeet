@@ -14,7 +14,9 @@ public class GuiTestMovement : GameElement
     public Button submitMoveButton;
     public Button graveyardButton;
     public Button refreshButton;
-
+    public Image redCheck;
+    public Image blueCheck;
+    
     public event Action OnMenuButton;
     public event Action OnExtraButton;
     public event Action OnSubmitMoveButton;
@@ -39,6 +41,9 @@ public class GuiTestMovement : GameElement
             submitMoveButton.interactable = false;
             statusText.text = $"you commited move {phase.committedMove.pawn_id} to {phase.committedMove.pos}";
         }
+
+        redCheck.enabled = phase.cachedTurn.host_turn.initialized;
+        blueCheck.enabled = phase.cachedTurn.guest_turn.initialized;
     }
     
 }
