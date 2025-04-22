@@ -32,18 +32,42 @@ public class GuiTestMovement : GameElement
         refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
     }
     
-    public void Refresh(MovementTestPhase phase)
+    public void Refresh(MovementClientState state)
     {
-        submitMoveButton.interactable = phase.queuedMove != null;
-        Debug.Log(phase.committedMove.initialized);
-        if (phase.committedMove.initialized)
+        bool canSubmit = state.queuedMove != null && !state.myTurnMove.initialized;
+        submitMoveButton.interactable = canSubmit;
+        string status = "please designate a move and click submit";
+        if (state.myTurnMove.initialized)
         {
-            submitMoveButton.interactable = false;
-            statusText.text = $"you commited move {phase.committedMove.pawn_id} to {phase.committedMove.pos}";
+            status = $"you commited move {state.myTurnMove.pawn_id} to {state.myTurnMove.pos}, click refresh to check opponent  status";
+            if (state.otherTurnMove.initialized)
+            {
+                status = "both players have submitted moves";
+                if (string.IsNullOrEmpty(state.myEventsHash))
+                {
+                    status = "automatically sending move hash please wait warmly";
+                    
+                } else if (string.IsNullOrEmpty(state.otherEventsHash))
+                {
+                    status = "waiting for other user to send move hash... click refresh to check";
+                }
+                else
+                {
+                    status = "turn is not valid. you shouldn't be seeing this";
+                }
+            }
         }
-
-        redCheck.enabled = phase.cachedTurn.host_turn.initialized;
-        blueCheck.enabled = phase.cachedTurn.guest_turn.initialized;
+        statusText.text = status;
+        if (state.team == Team.RED)
+        {
+            redCheck.enabled = state.myTurnMove.initialized;
+            blueCheck.enabled = state.otherTurnMove.initialized;
+        }
+        else if (state.team == Team.BLUE)
+        {
+            redCheck.enabled = state.otherTurnMove.initialized;
+            blueCheck.enabled = state.myTurnMove.initialized;
+        }
     }
     
 }

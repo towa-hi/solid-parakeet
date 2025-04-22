@@ -14,7 +14,7 @@ public class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CALWR53IGDOK7ICI5NQRLS5TMDMUZC7DMLS36UGQQ3JPPCYYRUL3LUSF";
+    public static string testContract = "CCDHAINND3MCHQLZZP7FBV2I2TZWTRKJJVJSCGLY4KVHZE3HOH7RQP5E";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -234,7 +234,22 @@ public class StellarManagerTest
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
-    
+
+    public static async Task<int> SubmitMoveHash()
+    {
+        // silently update lobby
+        Assert.IsTrue(currentUser.HasValue);
+        TaskInfo getLobbyTask = SetCurrentTask("ReqLobbyData");
+        currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
+        EndTask(getLobbyTask);
+        Assert.IsTrue(currentLobby.HasValue);
+        MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value);
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("resolve_move", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
     public static async Task<int> JoinLobbyRequest(string lobbyId)
     {
         JoinLobbyReq req = new()

@@ -50,31 +50,51 @@ public class TestTileView : MonoBehaviour
     }
     
     uint oldPhase = 999;
-    void OnClientGameStateChanged(Lobby cachedLobby)
+    void OnClientGameStateChanged(Lobby lobby, ITestPhase phase)
     {
-        bool phaseChanged = cachedLobby.phase != oldPhase;
+        bool phaseChanged = lobby.phase != oldPhase;
         switch (bm.currentPhase)
         {
             case MovementTestPhase movementTestPhase:
                 if (phaseChanged)
                 {
                     SetSetupEmissionHighlight(false);
-                    tileModel.renderEffect.ClearEffects();
                 }
-                bool queued = false;
-                if (movementTestPhase.queuedMove != null)
+                tileModel.renderEffect.ClearEffects();
+                tileModel.renderEffect.SetEffect(EffectType.FILL, false);
+                EnableEmission(false);
+                if (movementTestPhase.clientState.queuedMove != null)
                 {
-                    if (movementTestPhase.queuedMove.pos == tile.pos)
+                    bool isTarget = movementTestPhase.clientState.queuedMove.pos == tile.pos;
+                    tileModel.renderEffect.SetEffect(EffectType.FILL, isTarget);
+                    Contract.Pawn p = lobby.GetPawnById(movementTestPhase.clientState.queuedMove.pawnId);
+                    bool isOrigin = p.pos.ToVector2Int() == tile.pos;
+                    if (isOrigin)
                     {
-                        queued = true;
+                        SetTopEmission(Color.red);
+                        EnableEmission(true);
                     }
                 }
-                tileModel.renderEffect.SetEffect(EffectType.FILL, queued);
-                if (movementTestPhase.highlightedTiles.Contains(this))
+                else
                 {
-                    EnableEmission(true);
-                    SetTopEmission(Color.green);
+                    if (movementTestPhase.clientState.selectedPawnView)
+                    {
+                        Contract.Pawn p = lobby.GetPawnById(movementTestPhase.clientState.selectedPawnView.pawnId);
+                        bool isOrigin = p.pos.ToVector2Int() == tile.pos;
+                        if (isOrigin)
+                        {
+                            SetTopEmission(Color.red);
+                            EnableEmission(true);
+                        }
+                        bool isHighlighted = movementTestPhase.clientState.highlightedTiles.Contains(this);
+                        if (isHighlighted)
+                        {
+                            SetTopEmission(Color.green);
+                            EnableEmission(true);
+                        }
+                    }
                 }
+                
                 break;
             case SetupTestPhase setupTestPhase:
                 if (phaseChanged)
@@ -84,8 +104,8 @@ public class TestTileView : MonoBehaviour
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
-
         }
+        oldPhase = lobby.phase;
     }
 
     void SetSetupEmissionHighlight(bool highlight)

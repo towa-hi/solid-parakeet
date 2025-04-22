@@ -49,7 +49,7 @@ public class GuiTestSetup : GameElement
         }
     }
     
-    public void Refresh(SetupTestPhase phase)
+    public void Refresh(SetupClientState state)
     {
         Debug.Log("GuiTestSetup Refresh");
         Dictionary<Rank, List<PawnCommitment>> orderedCommitments = new();
@@ -57,7 +57,7 @@ public class GuiTestSetup : GameElement
         {
             orderedCommitments.Add(rank, new List<PawnCommitment>());
         }
-        foreach (PawnCommitment commitment in phase.commitments.Values)
+        foreach (PawnCommitment commitment in state.commitments.Values)
         {
             PawnDef def = Globals.FakeHashToPawnDef(commitment.pawn_def_hash);
             Rank rank = def.rank;
@@ -82,17 +82,29 @@ public class GuiTestSetup : GameElement
             {
                 pawnsRemaining = true;
             }
-            bool isSelected = phase.selectedRank.HasValue && phase.selectedRank.Value == rank;
+            bool isSelected = state.selectedRank.HasValue && state.selectedRank.Value == rank;
             entries[rank].Refresh(rank, remainingCount, isSelected);
         }
-        submitButton.interactable = !pawnsRemaining;
-        if (phase.committed)
+        submitButton.interactable = !state.committed && !pawnsRemaining;
+        autoSetupButton.interactable = !state.committed;
+        clearButton.interactable = !state.committed;
+        string status;
+        if (state.committed)
         {
-            submitButton.interactable = false;
-            autoSetupButton.interactable = false;
-            clearButton.interactable = false;
-            statusText.text = "Waiting for opponent";
+            status = "Waiting for opponent... Click refresh to check";
         }
+        else
+        {
+            if (pawnsRemaining)
+            {
+                status = "Please commit all pawns";
+            }
+            else
+            {
+                status = "Click submit to continue";
+            }
+        }
+        statusText.text = status;
     }
     
     void OnEntryClicked(GuiRankListEntry clickedEntry)

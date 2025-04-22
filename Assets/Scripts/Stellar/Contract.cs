@@ -255,7 +255,7 @@ namespace Contract
         }
     }
     
-    public struct Pos: IScvMapCompatable
+    public struct Pos: IScvMapCompatable, IEquatable<Pos>
     {
         public int x;
         public int y;
@@ -281,6 +281,31 @@ namespace Contract
         public readonly Vector2Int ToVector2Int()
         {
             return new Vector2Int(x, y);
+        }
+
+        public bool Equals(Pos other)
+        {
+            return x == other.x && y == other.y;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Pos other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(x, y);
+        }
+
+        public static bool operator ==(Pos left, Pos right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Pos left, Pos right)
+        {
+            return !left.Equals(right);
         }
     }
     
@@ -364,6 +389,32 @@ namespace Contract
                 }),
             };
             return scvMap;
+        }
+    }
+
+    public struct ResolveEvent : IScvMapCompatable
+    {
+        public string defender_pawn_id;
+        public uint event_type;
+        public Pos original_pos;
+        public string pawn_id;
+        public Pos target_pos;
+        public uint team;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("defender_pawn_id", defender_pawn_id),
+                    SCUtility.FieldToSCMapEntry("event_type", event_type),
+                    SCUtility.FieldToSCMapEntry("original_pos", original_pos),
+                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
+                    SCUtility.FieldToSCMapEntry("target_pos", target_pos),
+                    SCUtility.FieldToSCMapEntry("team", team),
+                }),
+            };
         }
     }
     
@@ -540,7 +591,11 @@ namespace Contract
     
     public struct Turn : IScvMapCompatable
     {
+        public ResolveEvent[] guest_events;
+        public string guest_events_hash;
         public TurnMove guest_turn;
+        public ResolveEvent[] host_events;
+        public string host_events_hash;
         public TurnMove host_turn;
         public int turn;
 
@@ -550,7 +605,11 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
+                    SCUtility.FieldToSCMapEntry("guest_events", guest_events),
+                    SCUtility.FieldToSCMapEntry("guest_events_hash", guest_events_hash),
                     SCUtility.FieldToSCMapEntry("guest_turn", guest_turn),
+                    SCUtility.FieldToSCMapEntry("host_events", host_events),
+                    SCUtility.FieldToSCMapEntry("host_events_hash", host_events_hash),
                     SCUtility.FieldToSCMapEntry("host_turn", host_turn),
                     SCUtility.FieldToSCMapEntry("turn", turn),
                 }),
@@ -693,6 +752,18 @@ namespace Contract
             return GetPawnById(pawn_id);
         }
 
+        public Pawn? GetPawnByPosition(Vector2Int pos)
+        {
+            foreach (Pawn p in pawns)
+            {
+                if (p.pos == new Pos(pos))
+                {
+                    return p;
+                }
+            }
+            return null;
+        }
+        
         public UserState GetUserStateByTeam(Team team)
         {
             if (host_state.team == (uint)team)
@@ -865,40 +936,26 @@ namespace Contract
             };
         }
     }
-    
-    public struct FlatTestReq : IScvMapCompatable
-    {
-        public int number;
-        public string word;
 
+    public struct MoveResolveReq : IScvMapCompatable
+    {
+        public ResolveEvent[] events;
+        public string events_hash;
+        public string lobby;
+        public int turn;
+        public string user_address;
+        
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap()
             {
                 map = new SCMap(new SCMapEntry[]
                 {
-                    SCUtility.FieldToSCMapEntry("number", number),
-                    SCUtility.FieldToSCMapEntry("word", word),
-                }),
-            };
-        }
-    }
-    
-    public struct NestedTestReq : IScvMapCompatable
-    {
-        public FlatTestReq flat;
-        public int number;
-        public string word;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("flat", flat),
-                    SCUtility.FieldToSCMapEntry("number", number),
-                    SCUtility.FieldToSCMapEntry("word", word),
+                    SCUtility.FieldToSCMapEntry("events", events),
+                    SCUtility.FieldToSCMapEntry("events_hash", events_hash),
+                    SCUtility.FieldToSCMapEntry("lobby", lobby),
+                    SCUtility.FieldToSCMapEntry("turn", turn),
+                    SCUtility.FieldToSCMapEntry("user_address", user_address),
                 }),
             };
         }

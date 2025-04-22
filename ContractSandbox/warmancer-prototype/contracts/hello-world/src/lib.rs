@@ -27,6 +27,7 @@ pub enum Error {
     GuestAlreadyInLobby = 11,
     LobbyNotJoinable = 12,
     TurnAlreadyInitialized = 13,
+    TurnHashConflict = 14,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,6 +70,13 @@ pub enum EndState {
     Playing = 3,
     Aborted = 4,
 }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ResolveEventType {
+    Move = 0,
+    Conflict = 1,
+    SwapConflict = 2,
+    Death =3,
+}
 
 // endregion
 // region level 0 structs
@@ -82,7 +90,6 @@ pub struct LobbyRecord {
     pub start_ledger: u32,
     pub winner: UserAddress,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
     pub current_lobby: LobbyGuid,
@@ -120,6 +127,15 @@ pub struct MaxPawns {
 
 // endregion
 // region level 1 structs
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResolveEvent {
+    pub defender_pawn_id: PawnGuid,
+    pub event_type: ResolveEventType,
+    pub original_pos: Pos,
+    pub pawn_id: PawnGuid,
+    pub target_pos: Pos,
+    pub team: Team,
+}
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Tile {
     pub auto_setup_zone: i32,
@@ -173,14 +189,16 @@ pub struct TurnMove {
 }
 // endregion
 // region level 4 structs
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Turn {
+    pub guest_events: Vec<ResolveEvent>,
+    pub guest_events_hash: String,
     pub guest_turn: TurnMove,
+    pub host_events: Vec<ResolveEvent>,
+    pub host_events_hash: String,
     pub host_turn: TurnMove,
     pub turn: i32,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lobby {
     pub game_end_state: EndState,
@@ -194,7 +212,6 @@ pub struct Lobby {
     pub phase: Phase,
     pub turns: Vec<Turn>,
 }
-
 // endregion
 // region events
 pub const EVENT_UPDATE_USER: &str = "EVENT_UPDATE_USER";
@@ -245,6 +262,15 @@ pub struct MoveSubmitReq {
     pub turn: i32,
     pub user_address: UserAddress,
 }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MoveResolveReq {
+    pub events: Vec<ResolveEvent>,
+    pub events_hash: String,
+    pub lobby: LobbyGuid,
+    pub turn: i32,
+    pub user_address: UserAddress,
+}
+
 // endregion
 // region keys
 
@@ -281,7 +307,6 @@ impl Contract {
             return Err(Error::InvalidArgs)
         }
         let persistent = &env.storage().persistent();
-        //let temporary = &env.storage().temporary();
         let mut host_user = Self::get_or_make_user(&env, &req.host_address);
         if !host_user.current_lobby.is_empty() {
             let old_lobby_key = DataKey::Lobby(host_user.current_lobby.clone());
@@ -329,7 +354,6 @@ impl Contract {
     pub fn leave_lobby(env: Env, address: Address) -> Result<bool, Error> {
         let user_address: UserAddress = address.to_string();
         address.require_auth();
-        //let temporary = &env.storage().temporary();
         let persistent = &env.storage().persistent();
         let user_key = DataKey::User(user_address.clone());
         let mut user: User = match persistent.get(&user_key) {
@@ -510,6 +534,8 @@ impl Contract {
                 }
             }
             let first_turn = Turn {
+                guest_events: Vec::new(&env),
+                guest_events_hash: String::from_str(&env, ""),
                 guest_turn: TurnMove {
                     initialized: false,
                     pawn_id: String::from_str(&env, ""),
@@ -517,6 +543,8 @@ impl Contract {
                     turn: 0,
                     user_address: lobby.guest_address.clone(),
                 },
+                host_events: Vec::new(&env),
+                host_events_hash:  String::from_str(&env, ""),
                 host_turn: TurnMove {
                     initialized: false,
                     pawn_id: String::from_str(&env, ""),
@@ -577,27 +605,167 @@ impl Contract {
         {
             return Err(Error::InvalidArgs)
         }
-        if turn.host_turn.initialized && turn.guest_turn.initialized {
-            let next_turn_index = lobby.turns.len() as i32;
-            let next_turn = Turn {
-                guest_turn: TurnMove {
-                    initialized: false,
-                    pawn_id: String::from_str(&env, ""),
-                    pos: Pos { x: -666, y: -666, },
+
+        persistent.set(&lobby_key, &lobby);
+        Ok(())
+    }
+
+    pub fn resolve_move(env: Env, address: Address, req: MoveResolveReq) -> Result<(), Error> {
+        address.require_auth();
+        if address.to_string() != req.user_address {
+            return Err(Error::InvalidArgs)
+        }
+        let persistent = env.storage().persistent();
+        let lobby_key = DataKey::Lobby(req.lobby.clone());
+        let mut lobby: Lobby = match persistent.get(&lobby_key) {
+            Some(v) => v,
+            None => return Err(Error::LobbyNotFound),
+        };
+        if lobby.phase != Phase::Movement {
+            return Err(Error::WrongPhase)
+        }
+        let mut turn = lobby.turns.last_unchecked();
+        if req.turn != turn.turn
+        {
+            return Err(Error::InvalidArgs)
+        }
+        if req.user_address == turn.host_turn.user_address {
+            if turn.host_turn.initialized {
+                turn.host_events = req.events.clone();
+                turn.host_events_hash = req.events_hash.clone();
+
+            }
+            else
+            {
+                return Err(Error::InvalidArgs);
+            }
+        } else if req.user_address == turn.guest_turn.user_address {
+            if turn.guest_turn.initialized {
+                turn.guest_events = req.events.clone();
+                turn.guest_events_hash = req.events_hash.clone();
+            }
+            else
+            {
+                return Err(Error::InvalidArgs);
+            }
+        }
+        else {
+            return Err(Error::InvalidArgs);
+        }
+        lobby.turns.set(lobby.turns.len() - 1, turn.clone());
+        // if both players resolved
+        if !turn.host_events_hash.is_empty() && !turn.guest_events_hash.is_empty() {
+            if turn.host_events_hash == turn.guest_events_hash
+            {
+                let purgatory_pos = Pos { x: -666, y: -666 };
+                // update the lobby state
+                // for now we just trust the guest
+                for resolve_event in req.events.clone() {
+                    match resolve_event.event_type {
+                        ResolveEventType::Move => {
+                            for i in 0..lobby.pawns.len() {
+                                let mut updated_pawn = lobby.pawns.get_unchecked(i);
+                                if updated_pawn.pawn_id == resolve_event.pawn_id {
+                                    updated_pawn.pos = resolve_event.target_pos;
+                                    updated_pawn.is_moved = true;
+                                    lobby.pawns.set(i, updated_pawn);
+                                    break;
+                                }
+                            }
+                        }
+                        ResolveEventType::Conflict => {
+                            for i in 0..lobby.pawns.len() {
+                                let mut updated_pawn = lobby.pawns.get_unchecked(i);
+                                let mut processed_count = 0;
+                                if updated_pawn.pawn_id == resolve_event.pawn_id || updated_pawn.pawn_id == resolve_event.defender_pawn_id {
+                                    updated_pawn.is_revealed = true;
+                                    lobby.pawns.set(i, updated_pawn);
+                                    processed_count += 1;
+                                }
+                                if processed_count >= 2 {
+                                    break;
+                                }
+                            }
+                        }
+                        ResolveEventType::SwapConflict => {
+                            for i in 0..lobby.pawns.len() {
+                                let mut updated_pawn = lobby.pawns.get_unchecked(i);
+                                let mut processed_count = 0;
+                                if updated_pawn.pawn_id == resolve_event.pawn_id || updated_pawn.pawn_id == resolve_event.defender_pawn_id {
+                                    updated_pawn.is_revealed = true;
+                                    lobby.pawns.set(i, updated_pawn);
+                                    processed_count += 1;
+                                }
+                                if processed_count >= 2 {
+                                    break;
+                                }
+                            }
+                        }
+                        ResolveEventType::Death => {
+                            for i in 0..lobby.pawns.len() {
+                                let mut updated_pawn = lobby.pawns.get_unchecked(i);
+                                if updated_pawn.pawn_id == resolve_event.pawn_id
+                                {
+                                    updated_pawn.is_alive = false;
+                                    updated_pawn.pos = purgatory_pos.clone();
+                                    lobby.pawns.set(i, updated_pawn);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                let mut red_throne_alive = false;
+                let mut blue_throne_alive = false;
+                // TODO: figure out a good way to check if all alive pawns are movable for a team
+                for i in 0..lobby.pawns.len() {
+                    let pawn = lobby.pawns.get_unchecked(i);
+                    if pawn.pawn_def_hash == String::from_str(&env, "Throne") && pawn.is_alive {
+                        if pawn.team == Team::Red {
+                            red_throne_alive = true;
+                        }
+                        if pawn.team == Team::Blue {
+                            blue_throne_alive = true;
+                        }
+                    }
+                }
+                if !red_throne_alive {
+                    lobby.game_end_state = EndState::Blue;
+                }
+                if !blue_throne_alive {
+                    lobby.game_end_state = EndState::Red;
+                }
+                if !red_throne_alive && !blue_throne_alive {
+                    lobby.game_end_state = EndState::Tie;
+                }
+                let next_turn_index = lobby.turns.len() as i32;
+                let next_turn = Turn {
+                    guest_events: Vec::new(&env),
+                    guest_events_hash: String::from_str(&env, ""),
+                    guest_turn: TurnMove {
+                        initialized: false,
+                        pawn_id: String::from_str(&env, ""),
+                        pos: Pos { x: -666, y: -666, },
+                        turn: next_turn_index,
+                        user_address: lobby.guest_address.clone(),
+                    },
+                    host_events: Vec::new(&env),
+                    host_events_hash: String::from_str(&env, ""),
+                    host_turn: TurnMove {
+                        initialized: false,
+                        pawn_id: String::from_str(&env, ""),
+                        pos: Pos { x: -666, y: -666, },
+                        turn: next_turn_index,
+                        user_address: lobby.host_address.clone(),
+                    },
                     turn: next_turn_index,
-                    user_address: lobby.guest_address.clone(),
-                },
-                host_turn: TurnMove {
-                    initialized: false,
-                    pawn_id: String::from_str(&env, ""),
-                    pos: Pos { x: -666, y: -666, },
-                    turn: next_turn_index,
-                    user_address: lobby.host_address.clone(),
-                },
-                turn: next_turn_index,
-            };
-            lobby.turns.push_back(next_turn);
-            // resolve turns later, we just trust the client to sort it out for now
+                };
+                lobby.turns.push_back(next_turn);
+            }
+            else
+            {
+                return Err(Error::TurnHashConflict);
+            }
         }
         persistent.set(&lobby_key, &lobby);
         Ok(())
@@ -666,102 +834,102 @@ impl Contract {
         String::from_bytes(e, &output)
     }
 
-    pub(crate) fn create_pawn_def(env: &Env, rank: Rank) -> PawnDef {
+    pub(crate) fn create_pawn_def(e: &Env, rank: Rank) -> PawnDef {
         match rank {
             0 => PawnDef {
                 id: 0,
-                name: String::from_str(env, "Throne"),
+                name: String::from_str(e, "Throne"),
                 rank: 0,
                 power: 0,
                 movement_range: 0,
             },
             1 => PawnDef {
                 id: 1,
-                name: String::from_str(env, "Assassin"),
+                name: String::from_str(e, "Assassin"),
                 rank: 1,
                 power: 1,
                 movement_range: 1,
             },
             2 => PawnDef {
                 id: 2,
-                name: String::from_str(env, "Scout"),
+                name: String::from_str(e, "Scout"),
                 rank: 2,
                 power: 2,
                 movement_range: 11, // Scout has special movement
             },
             3 => PawnDef {
                 id: 3,
-                name: String::from_str(env, "Seer"),
+                name: String::from_str(e, "Seer"),
                 rank: 3,
                 power: 3,
                 movement_range: 1,
             },
             4 => PawnDef {
                 id: 4,
-                name: String::from_str(env, "Grunt"),
+                name: String::from_str(e, "Grunt"),
                 rank: 4,
                 power: 4,
                 movement_range: 1,
             },
             5 => PawnDef {
                 id: 5,
-                name: String::from_str(env, "Knight"),
+                name: String::from_str(e, "Knight"),
                 rank: 5,
                 power: 5,
                 movement_range: 1,
             },
             6 => PawnDef {
                 id: 6,
-                name: String::from_str(env, "Wraith"),
+                name: String::from_str(e, "Wraith"),
                 rank: 6,
                 power: 6,
                 movement_range: 1,
             },
             7 => PawnDef {
                 id: 7,
-                name: String::from_str(env, "Reaver"),
+                name: String::from_str(e, "Reaver"),
                 rank: 7,
                 power: 7,
                 movement_range: 1,
             },
             8 => PawnDef {
                 id: 8,
-                name: String::from_str(env, "Herald"),
+                name: String::from_str(e, "Herald"),
                 rank: 8,
                 power: 8,
                 movement_range: 1,
             },
             9 => PawnDef {
                 id: 9,
-                name: String::from_str(env, "Champion"),
+                name: String::from_str(e, "Champion"),
                 rank: 9,
                 power: 9,
                 movement_range: 1,
             },
             10 => PawnDef {
                 id: 10,
-                name: String::from_str(env, "Warlord"),
+                name: String::from_str(e, "Warlord"),
                 rank: 10,
                 power: 10,
                 movement_range: 1,
             },
             11 => PawnDef {
                 id: 11,
-                name: String::from_str(env, "Trap"),
+                name: String::from_str(e, "Trap"),
                 rank: 11,
                 power: 11,
                 movement_range: 1,
             },
             99 => PawnDef {
                 id: 99,
-                name: String::from_str(env, "Unknown"),
+                name: String::from_str(e, "Unknown"),
                 rank: 99,
                 power: 0,
                 movement_range: 0,
             },
             _ => PawnDef {
                 id: 99,
-                name: String::from_str(env, "Unknown"),
+                name: String::from_str(e, "Unknown"),
                 rank: 99,
                 power: 0,
                 movement_range: 0,

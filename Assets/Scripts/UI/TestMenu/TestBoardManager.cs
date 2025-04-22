@@ -33,18 +33,12 @@ public class TestBoardManager : MonoBehaviour
     public ITestPhase currentPhase;
     
     //public event Action<Lobby> OnPhaseChanged;
-    public event Action<Lobby> OnClientGameStateChanged;
-    public event Action<Lobby> OnNetworkGameStateChanged;
+    public event Action<Lobby, ITestPhase> OnClientGameStateChanged;
     
     void Start()
     {
         clickInputManager.OnClick += OnClick;
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
-    }
-
-    public void ClientGameStateChanged()
-    {
-        OnClientGameStateChanged?.Invoke(cachedLobby);
     }
 
     bool firstTime;
@@ -75,7 +69,7 @@ public class TestBoardManager : MonoBehaviour
         }
         Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
         Lobby lobby = StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
-        if (firstTime || lobby.phase != cachedLobby.phase)
+        if (firstTime || lobby.phase != cachedLobby.phase || cachedLobby.turns.Length != lobby.turns.Length)
         {
             firstTime = false;
             switch (lobby.phase)
@@ -92,12 +86,14 @@ public class TestBoardManager : MonoBehaviour
                     throw new ArgumentOutOfRangeException();
             }
         }
-        currentPhase?.OnNetworkGameStateChanged(lobby);
-        Debug.Log("invoking OnNetworkGameStateChanged");
-        OnNetworkGameStateChanged?.Invoke(lobby);
-        Debug.Log("invoking OnClientGameStateChanged");
-        OnClientGameStateChanged?.Invoke(lobby);
         cachedLobby = lobby;
+        currentPhase?.OnNetworkGameStateChanged(lobby);
+    }
+
+    public void OnlyClientGameStateChanged()
+    {
+        Debug.Log("TestBoardManager::OnlyClientGameStateChanged");
+        OnClientGameStateChanged?.Invoke(cachedLobby, currentPhase);
     }
     
     void Initialize(User user, Lobby lobby)
@@ -275,50 +271,129 @@ public interface ITestPhase
     
 }
 
+public class SetupClientState
+{
+    public bool dirty = true;
+    public Dictionary<string, PawnCommitment> commitments;
+    public Rank? selectedRank;
+    public bool committed;
+    public Team team;
+
+    public void SetSelectedRank(Rank? rank)
+    {
+        selectedRank = rank;
+        dirty = true;
+    }
+
+    public bool SetCommitment(Rank rank, Vector2Int pos)
+    {
+        PawnCommitment? maybeCommitment = GetUnusedCommitment(rank);
+        if (!maybeCommitment.HasValue)
+        {
+            return false;
+        }
+        ChangeCommitment(maybeCommitment.Value.pawn_id, pos);
+        return true;
+    }
+    
+    public bool SetCommitment(Vector2Int pos)
+    {
+        if (!selectedRank.HasValue)
+        {
+            throw new Exception();
+        }
+        if (pos == Globals.Purgatory)
+        {
+            throw new Exception();
+        }
+        PawnCommitment? maybeCommitment = GetUnusedCommitment(selectedRank.Value);
+        if (!maybeCommitment.HasValue)
+        {
+            return false;
+        }
+        ChangeCommitment(maybeCommitment.Value.pawn_id, pos);
+        return true;
+    }
+
+    public void ClearCommitment(Guid guid)
+    {
+        ChangeCommitment(guid.ToString(), Globals.Purgatory);
+    }
+    
+    public void ClearAllCommitments()
+    {
+        List<string> keys = commitments.Keys.ToList();
+        foreach (string key in keys)
+        {
+            ChangeCommitment(key, Globals.Purgatory);
+        }
+    }
+    
+    void ChangeCommitment(string id, Vector2Int pos)
+    {
+        PawnCommitment commitment = commitments[id];
+        commitment.starting_pos = new Pos(pos);
+        commitments[id] = commitment;
+        dirty = true;
+    }
+
+    PawnCommitment? GetUnusedCommitment(Rank rank)
+    {
+        foreach (PawnCommitment commitment in commitments.Values
+                     .Where(commitment => commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
+                     .Where(commitment => Globals.FakeHashToPawnDef(commitment.pawn_def_hash).rank == rank))
+        {
+            return commitment;
+        }
+        return null;
+    }
+}
+
 public class SetupTestPhase : ITestPhase
 {
     TestBoardManager bm;
     GuiTestSetup setupGui;
-    public Dictionary<string, PawnCommitment> commitments;
-    public Rank? selectedRank;
-    public bool committed = false;
+
+    public SetupClientState clientState;
     
     public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, Lobby lobby)
     {
         bm = inBm;
         setupGui = inSetupGui;
-        commitments = new Dictionary<string, PawnCommitment>();
-        UserState userState = lobby.GetUserStateByTeam(bm.userTeam);
-        committed = userState.committed;
-        if (committed)
-        {
-            foreach (PawnCommitment commitment in userState.setup_commitments)
-            {
-                commitments[commitment.pawn_id] = commitment;
-            }
-        }
-        else
-        {
-            // we can assume every max in maxRanks sums to commitIndex - 1;
-            int commitIndex = 0;
-            foreach (MaxPawns maxRanks in lobby.parameters.max_pawns)
-            {
-                for (int i = 0; i < maxRanks.max; i++)
-                {
-                    PawnCommitment commitment = new PawnCommitment()
-                    {
-                        pawn_def_hash = Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank)),
-                        pawn_id = userState.setup_commitments[commitIndex].pawn_id,
-                        starting_pos = new Pos(Globals.Purgatory),
-                    };
-                    commitments[commitment.pawn_id] = commitment;
-                    commitIndex += 1;
-                }
-            }
-        }
-        
+        ResetClientState(lobby);
         // TODO: figure out a better way to tell gui to do stuff
         bm.guiTestGame.SetCurrentElement(setupGui, lobby);
+    }
+
+    void ResetClientState(Lobby lobby)
+    {
+        Debug.Log("SetupTestPhase.ResetClientState");
+        UserState userState = lobby.GetUserStateByTeam(bm.userTeam);
+        SetupClientState newSetupClientState = new SetupClientState()
+        {
+            selectedRank = null,
+            commitments = new Dictionary<string, PawnCommitment>(),
+            committed = userState.committed,
+            team = (Team)userState.team,
+        };
+        // we can assume every max in maxRanks sums to commitIndex - 1;
+        int commitIndex = 0;
+        foreach (MaxPawns maxRanks in lobby.parameters.max_pawns)
+        {
+            for (int i = 0; i < maxRanks.max; i++)
+            {
+                string pawnDefHash = userState.committed ? userState.setup_commitments[commitIndex].pawn_def_hash : Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank));
+                PawnCommitment commitment = new PawnCommitment()
+                {
+                    pawn_def_hash = pawnDefHash, // this is the only original data we fill in
+                    pawn_id = userState.setup_commitments[commitIndex].pawn_id,
+                    starting_pos = userState.setup_commitments[commitIndex].starting_pos,
+                };
+                newSetupClientState.commitments[commitment.pawn_id] = commitment;
+                commitIndex += 1;
+            }
+        }
+        clientState = newSetupClientState;
     }
     
     public void EnterState()
@@ -330,8 +405,7 @@ public class SetupTestPhase : ITestPhase
         setupGui.OnRankEntryClicked += OnRankEntryClicked;
 
     }
-
-
+    
     public void ExitState()
     {
         setupGui.OnClearButton -= OnClear;
@@ -358,30 +432,18 @@ public class SetupTestPhase : ITestPhase
         // If there's a pawn at the clicked position, remove it
         if (pawnView)
         {
-            ChangeCommitment(pawnView.pawnId.ToString(), Globals.Purgatory);
-            setupGui.Refresh(this);
-            bm.ClientGameStateChanged();
-            return;
+            clientState.ClearCommitment(pawnView.pawnId);
         }
         // If no pawn at position and we have a selected rank, try to place a pawn
-        if (selectedRank.HasValue)
+        else if (clientState.selectedRank.HasValue)
         {
             // if tile is your setup tile
-            if (tileView.tile.IsTileSetupAllowed(bm.userTeam))
+            if (tileView.tile.IsTileSetupAllowed(clientState.team))
             {
-                // Find the first available pawn of the selected rank
-                PawnCommitment? maybeCommitment = GetUnusedCommitment(selectedRank.Value);
-                if (maybeCommitment.HasValue)
+                bool success = clientState.SetCommitment(clickedPos);
+                if (!success)
                 {
-                    PawnCommitment commitment = maybeCommitment.Value;
-                    commitment.starting_pos = new Pos(clickedPos);
-                    commitments[maybeCommitment.Value.pawn_id] = commitment;
-                    setupGui.Refresh(this);
-                    bm.ClientGameStateChanged();
-                }
-                else
-                {
-                    Debug.LogWarning($"No available pawns of rank {selectedRank.Value} to place");
+                    Debug.LogWarning("Failed to find valid pawn of this rank");
                 }
             }
             else
@@ -394,40 +456,44 @@ public class SetupTestPhase : ITestPhase
             Debug.LogWarning("No rank selected");
             // do nothing
         }
+        ClientStateChanged();
     }
 
     public void OnNetworkGameStateChanged(Lobby lobby)
     {
-        setupGui.Refresh(this);
+        ResetClientState(lobby);
+        ClientStateChanged();
     }
 
+    void ClientStateChanged()
+    {
+        Debug.Log("SetupClientState.ClientStateChanged");
+        setupGui.Refresh(clientState);
+        bm.OnlyClientGameStateChanged();
+    }
+    
     void OnRankEntryClicked(Rank rank)
     {
-        if (selectedRank == rank)
+        if (clientState.selectedRank == rank)
         {
-            selectedRank = null;
+            clientState.SetSelectedRank(null);
         }
         else
         {
-            selectedRank = rank;
+            clientState.SetSelectedRank(rank);
         }
-        setupGui.Refresh(this);
+        ClientStateChanged();
     }
     
     void OnClear()
     {
-        List<string> keys = commitments.Keys.ToList();
-        foreach (string key in keys)
-        {
-            PawnCommitment commitment = commitments[key];
-            commitment.starting_pos = new Pos(Globals.Purgatory);
-            commitments[key] = commitment;
-        }
+        clientState.ClearAllCommitments();
+        ClientStateChanged();
     }
 
     void OnAutoSetup()
     {
-        OnClear();
+        clientState.ClearAllCommitments();
         // Generate valid setup positions for each pawn
         HashSet<Tile> usedTiles = new();
         foreach (MaxPawns maxPawns in bm.parameters.max_pawns)
@@ -446,40 +512,15 @@ public class SetupTestPhase : ITestPhase
                 Tile selectedTile = availableTiles[randomIndex];
                 usedTiles.Add(selectedTile);
                 // Find a pawn of this rank in purgatory
-                PawnCommitment? maybeCommitment = GetUnusedCommitment((Rank)maxPawns.rank);
-                if (maybeCommitment.HasValue)
-                {
-                    PawnCommitment commitment = maybeCommitment.Value;
-                    commitment.starting_pos = new Pos(selectedTile.pos);
-                    commitments[maybeCommitment.Value.pawn_id] = commitment;
-                }
-                else
+                
+                bool success = clientState.SetCommitment((Rank)maxPawns.rank, selectedTile.pos);
+                if (!success)
                 {
                     Debug.LogError($"No available pawns of rank {maxPawns.rank} to place");
                 }
             }
         }
-        setupGui.Refresh(this);
-        bm.ClientGameStateChanged();
-    }
-
-    void ChangeCommitment(string id, Vector2Int pos)
-    {
-        PawnCommitment commitment = commitments[id];
-        commitment.starting_pos = new Pos(pos);
-        commitments[id] = commitment;
-    }
-
-    PawnCommitment? GetUnusedCommitment(Rank rank)
-    {
-        foreach (PawnCommitment commitment in commitments.Values
-                     .Where(commitment => commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
-                     .Where(commitment => Globals.FakeHashToPawnDef(commitment.pawn_def_hash).rank == rank))
-        {
-            return commitment;
-        }
-
-        return null;
+        ClientStateChanged();
     }
     
     void OnRefresh()
@@ -487,9 +528,9 @@ public class SetupTestPhase : ITestPhase
         _ = StellarManagerTest.UpdateState();
     }
 
-    async void OnSubmit()
+    void OnSubmit()
     {
-        foreach (var commitment in commitments.Values)
+        foreach (var commitment in clientState.commitments.Values)
         {
             if (commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
             {
@@ -497,112 +538,175 @@ public class SetupTestPhase : ITestPhase
                 return;
             }
         }
-        int code = await StellarManagerTest.CommitSetupRequest(commitments);
-        Debug.Log(code);
-        
+        _ = StellarManagerTest.CommitSetupRequest(clientState.commitments);
     }
+}
+
+public class MovementClientState
+{
+    public bool dirty = true;
+    
+    public TestPawnView selectedPawnView;
+    public QueuedMove queuedMove;
+    public HashSet<TestTileView> highlightedTiles;
+    
+    public Team team;
+    public Contract.ResolveEvent[] myEvents;
+    public string myEventsHash;
+    public TurnMove myTurnMove;
+    public Contract.ResolveEvent[] otherEvents;
+    public string otherEventsHash;
+    public TurnMove otherTurnMove;
+    public int turn;
+
+    public void SetSelectedPawnView(TestPawnView inSelectedPawnView, HashSet<TestTileView> inHighlightedTiles)
+    {
+        selectedPawnView = inSelectedPawnView;
+        highlightedTiles = inHighlightedTiles ?? new();
+        dirty = true;
+    }
+    
+    public void QueueMove(Vector2Int pos)
+    {
+        Assert.IsTrue(selectedPawnView);
+        queuedMove = new QueuedMove()
+        {
+            pawnId = selectedPawnView.pawnId,
+            pos = pos,
+        };
+        selectedPawnView = null;
+        highlightedTiles = new();
+        dirty = true;
+    }
+
+    public void ClearQueueMove()
+    {
+        queuedMove = null;
+        selectedPawnView = null;
+        highlightedTiles = new();
+        dirty = true;
+    }
+    
 }
 
 public class MovementTestPhase : ITestPhase
 {
     TestBoardManager bm;
-    public TestPawnView selectedPawnView;
-    public QueuedMove queuedMove;
-    public HashSet<TestTileView> highlightedTiles;
+    // public TestPawnView selectedPawnView;
+    // public QueuedMove queuedMove;
+    // public HashSet<TestTileView> highlightedTiles;
     
     GuiTestMovement movementGui;
     
-    public Turn cachedTurn;
-    public TurnMove committedMove;
+    // public Turn cachedTurn;
+    // public TurnMove committedMove;
+    public MovementClientState clientState;
+    
     
     public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, Lobby lobby)
     {
         bm = inBm;
         movementGui = inMovementGui;
-        highlightedTiles = new HashSet<TestTileView>();
+        ResetClientState(lobby);
         // TODO: figure out a better way to tell gui to do stuff
         bm.guiTestGame.SetCurrentElement(movementGui, lobby);
-        cachedTurn = lobby.GetLatestTurn();
-        committedMove = lobby.GetLatestTurnMove(bm.userTeam);
-        Debug.Log(committedMove);
+    }
+
+    void ResetClientState(Lobby lobby)
+    {
+        Debug.Log("ResetClientState");
+        Turn currentTurn = lobby.GetLatestTurn();
+        MovementClientState newClientState = new MovementClientState()
+        {
+            dirty = true,
+            selectedPawnView = null,
+            queuedMove = null,
+            highlightedTiles = new HashSet<TestTileView>(),
+            team = bm.userTeam,
+            myEvents = bm.isHost ? currentTurn.host_events : currentTurn.guest_events,
+            myEventsHash = bm.isHost ? currentTurn.host_events_hash : currentTurn.guest_events_hash,
+            myTurnMove = bm.isHost ? currentTurn.host_turn : currentTurn.guest_turn,
+            otherEvents = bm.isHost ? currentTurn.guest_events : currentTurn.host_events,
+            otherEventsHash = bm.isHost ? currentTurn.guest_events_hash : currentTurn.host_events_hash,
+            otherTurnMove = bm.isHost ? currentTurn.guest_turn : currentTurn.host_turn,
+            turn = currentTurn.turn,
+        };
+        clientState = newClientState;
+    }
+    void ClientStateChanged()
+    {
+        movementGui.Refresh(clientState);
+        bm.OnlyClientGameStateChanged();
     }
     
     public void EnterState()
     {
-        selectedPawnView = null;
         movementGui.OnSubmitMoveButton += SubmitMove;
         movementGui.OnRefreshButton += RefreshState;
-        
     }
 
     public void ExitState()
     {
-        selectedPawnView = null;
         movementGui.OnSubmitMoveButton -= SubmitMove;
         movementGui.OnRefreshButton -= RefreshState;
-        
     }
 
     public void Update() {}
-    public void OnHover()
-    {
-        
-    }
-
+    
+    public void OnHover() {}
+    
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {
         if (bm.currentPhase != this) return;
-        if (committedMove.initialized)
+        if (clientState.myTurnMove.initialized)
         {
+            // if we already submitted a turn there's no clicking
             return;
         }
-        if (pawnView && pawnView.team == bm.userTeam)
+        if (pawnView && pawnView.isMyTeam)
         {
-            selectedPawnView = pawnView;
             Contract.Pawn pawn = bm.GetCachedPawnStateUnchecked(pawnView.pawnId);
-            highlightedTiles = GetMovableTileViews(pawn);
+            clientState.SetSelectedPawnView(pawnView, GetMovableTileViews(pawn));
         }
         else
         {
-            QueueMove(selectedPawnView, tileView);
-            selectedPawnView = null;
-            highlightedTiles.Clear();
+            if (clientState.selectedPawnView && clientState.highlightedTiles.Contains(tileView))
+            {
+                clientState.QueueMove(tileView.tile.pos);
+            }
+            else
+            {
+                clientState.ClearQueueMove();
+            }
         }
-        movementGui.Refresh(this);
-        bm.ClientGameStateChanged();
+        ClientStateChanged();
     }
 
     public void OnNetworkGameStateChanged(Lobby lobby)
     {
-        cachedTurn = lobby.GetLatestTurn();
-        committedMove = lobby.GetLatestTurnMove(bm.userTeam);
-        if (committedMove.initialized)
+        ResetClientState(lobby);
+        ClientStateChanged();
+        Turn latestTurn = lobby.GetLatestTurn();
+        if (latestTurn.host_turn.initialized && latestTurn.guest_turn.initialized)
         {
-            highlightedTiles.Clear();
-            queuedMove = null;
-            selectedPawnView = null;
-        }
-        Debug.Log(committedMove);
-        movementGui.Refresh(this);
-    }
-
-    void QueueMove(TestPawnView pawnView, TestTileView tileView = null)
-    {
-        queuedMove = null;
-        if (pawnView && tileView)
-        {
-            if (highlightedTiles.Contains(tileView))
+            if (bm.isHost)
             {
-                queuedMove = new QueuedMove
+                if (string.IsNullOrEmpty(latestTurn.host_events_hash))
                 {
-                    pawnId = pawnView.pawnId,
-                    pos = tileView.tile.pos,
-                };
+                    Debug.Log("Submitting move hash for host because both players have initialized their turns");
+                    StellarManagerTest.SubmitMoveHash();
+                }
             }
+            else
+            {
+                if (string.IsNullOrEmpty(latestTurn.guest_events_hash))
+                {
+                    Debug.Log("Submitting move hash for guest because both players have initialized their turns");
+                    StellarManagerTest.SubmitMoveHash();
+                }
+            }
+            
         }
-        Debug.Log(queuedMove == null
-            ? "QueueMove set to null"
-            : $"QueuedMove set to {queuedMove.pawnId} to {queuedMove.pos}");
     }
     
     HashSet<TestTileView> GetMovableTileViews(Contract.Pawn pawn)
@@ -647,16 +751,16 @@ public class MovementTestPhase : ITestPhase
 
     void SubmitMove()
     {
-        if (queuedMove == null) return;
-        _ = StellarManagerTest.QueueMove(queuedMove);
-        highlightedTiles.Clear();
-        queuedMove = null;
-        selectedPawnView = null;
+        if (clientState.queuedMove == null) return;
+        _ = StellarManagerTest.QueueMove(clientState.queuedMove);
+        clientState.ClearQueueMove();
+        ClientStateChanged();
+        bm.OnlyClientGameStateChanged();
     }
 
     void RefreshState()
     {
-        
+        _ = StellarManagerTest.UpdateState();
     }
 }
 
