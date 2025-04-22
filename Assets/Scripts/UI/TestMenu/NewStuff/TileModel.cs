@@ -6,6 +6,6 @@ public class TileModel : MonoBehaviour
     public Renderer topRenderer;
     public Renderer hitboxRenderer;
     public RenderEffect renderEffect;
-    
-    
+    public Renderer flatRenderer;
+
 }

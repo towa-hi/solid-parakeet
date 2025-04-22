@@ -665,6 +665,7 @@ public class MovementTestPhase : ITestPhase
         }
         if (pawnView && pawnView.isMyTeam)
         {
+            clientState.ClearQueueMove();
             Contract.Pawn pawn = bm.GetCachedPawnStateUnchecked(pawnView.pawnId);
             clientState.SetSelectedPawnView(pawnView, GetMovableTileViews(pawn));
         }

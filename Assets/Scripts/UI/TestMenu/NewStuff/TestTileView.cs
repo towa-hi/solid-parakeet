@@ -1,6 +1,7 @@
 using System;
 using Contract;
 using UnityEngine;
+using PrimeTween;
 using Random = UnityEngine.Random;
 
 public class TestTileView : MonoBehaviour
@@ -14,9 +15,12 @@ public class TestTileView : MonoBehaviour
     public Color baseColor;
     public Color redTeamColor;
     public Color blueTeamColor;
-    
+
+    public Color flatColor;
     
     static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
+    static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
+    Tween pulseTween;
 
     TestBoardManager bm;
     
@@ -33,6 +37,47 @@ public class TestTileView : MonoBehaviour
         tileModel = bm.boardDef.isHex ? hexTileModel : squareTileModel;
         tileModel.gameObject.SetActive(true);
         ShowTile(tile.isPassable);
+    }
+
+    void OnDestroy()
+    {
+        pulseTween.Stop();
+    }
+
+    public void StartPulse()
+    {
+        // Stop any existing pulse
+        pulseTween.Stop();
+
+        // Get the material
+        Material mat = tileModel.flatRenderer.material;
+        Color color = flatColor;
+
+        // Create a sequence that pulses alpha between 0.5 and 0.25
+        TweenSettings settings = new TweenSettings(
+            duration: 1f,
+            cycles: -1, 
+            cycleMode: CycleMode.Yoyo
+        );
+        
+        pulseTween = Tween.Custom(
+            0.5f,  // Start alpha
+            0.25f, // End alpha
+            onValueChange: alpha => {
+                color.a = alpha;
+                mat.SetColor(BaseColorProperty, color);
+            },
+            settings: settings
+        );
+    }
+
+    public void StopPulse()
+    {
+        pulseTween.Stop();
+        
+        // Reset alpha to default
+        Material mat = tileModel.flatRenderer.material;
+        mat.SetColor(BaseColorProperty, Color.clear);
     }
 
     void OnHover(Vector2Int pos)
@@ -60,19 +105,21 @@ public class TestTileView : MonoBehaviour
                 {
                     SetSetupEmissionHighlight(false);
                 }
-                tileModel.renderEffect.ClearEffects();
+                StopPulse();
                 tileModel.renderEffect.SetEffect(EffectType.FILL, false);
-                EnableEmission(false);
+                SetTopEmission(Color.clear);
                 if (movementTestPhase.clientState.queuedMove != null)
                 {
                     bool isTarget = movementTestPhase.clientState.queuedMove.pos == tile.pos;
-                    tileModel.renderEffect.SetEffect(EffectType.FILL, isTarget);
                     Contract.Pawn p = lobby.GetPawnById(movementTestPhase.clientState.queuedMove.pawnId);
                     bool isOrigin = p.pos.ToVector2Int() == tile.pos;
-                    if (isOrigin)
+                    if (isTarget)
+                    {
+                        SetTopEmission(Color.green);
+                    }
+                    else if (isOrigin)
                     {
                         SetTopEmission(Color.red);
-                        EnableEmission(true);
                     }
                 }
                 else
@@ -84,13 +131,13 @@ public class TestTileView : MonoBehaviour
                         if (isOrigin)
                         {
                             SetTopEmission(Color.red);
-                            EnableEmission(true);
+                            StartPulse();
                         }
                         bool isHighlighted = movementTestPhase.clientState.highlightedTiles.Contains(this);
                         if (isHighlighted)
                         {
                             SetTopEmission(Color.green);
-                            EnableEmission(true);
+                            StartPulse();
                         }
                     }
                 }
@@ -115,15 +162,12 @@ public class TestTileView : MonoBehaviour
             switch (tile.setupTeam)
             {
                 case Team.NONE:
-                    EnableEmission(false);
                     SetTopEmission(baseColor);
                     break;
                 case Team.RED:
-                    EnableEmission(true);
                     SetTopEmission(redTeamColor);
                     break;
                 case Team.BLUE:
-                    EnableEmission(true);
                     SetTopEmission(blueTeamColor);
                     break;
                 default:
@@ -132,7 +176,6 @@ public class TestTileView : MonoBehaviour
         }
         else
         {
-            EnableEmission(false);
             SetTopEmission(baseColor);
         }
     }
@@ -142,23 +185,19 @@ public class TestTileView : MonoBehaviour
         tileModel.gameObject.SetActive(show);
     }
     
-    void EnableEmission(bool emission)
+    void SetTopEmission(Color color)
     {
-        Material mat = tileModel.topRenderer.material;
-        if (emission)
+        Material mat = tileModel.flatRenderer.material;
+        if (color != Color.clear)
         {
-            mat.EnableKeyword("_EMISSION");
+            Color colorWithAlpha = new Color(color.r, color.g, color.b, 0.5f);
+            flatColor = colorWithAlpha;
         }
         else
         {
-            mat.DisableKeyword("_EMISSION");
+            flatColor = color;
         }
-    }
-    
-    void SetTopEmission(Color color)
-    {
-        Material mat = tileModel.topRenderer.material;
-        mat.SetColor(EmissionColor, color);
+        mat.SetColor(BaseColorProperty, flatColor);
     }
     
     
