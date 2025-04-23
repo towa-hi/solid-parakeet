@@ -100,9 +100,11 @@ public class TestPawnView : MonoBehaviour
         pawnId = Guid.Parse(p.pawn_id);
         team = (Team)p.team;
         pawnDefHash = p.pawn_def_hash;
-        PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
-        badge.symbolRenderer.sprite = def.icon;
-        
+        if (!string.IsNullOrEmpty(pawnDefHash))
+        {
+            PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
+            badge.symbolRenderer.sprite = def.icon;
+        }
         gameObject.name = $"Pawn {p.team} {p.pawn_id}";
         SetViewPos(p.pos.ToVector2Int());
     }

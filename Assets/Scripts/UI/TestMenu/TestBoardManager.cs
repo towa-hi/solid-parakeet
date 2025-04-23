@@ -520,7 +520,15 @@ public class SelectingPawnMovementClientSubState : MovementClientSubState
     public void SubmitMove()
     {
         if (!selectedPawnId.HasValue || !selectedPos.HasValue) return;
-        _ = StellarManagerTest.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
+        if (TestBoardManager.singlePlayer)
+        {
+            FakeServer.ins.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
+
+        }
+        else
+        {
+            _ = StellarManagerTest.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
+        }
     }
 }
 
@@ -750,6 +758,7 @@ public class MovementTestPhase : ITestPhase
     {
         ResetClientState(lobby);
         Turn latestTurn = lobby.GetLatestTurn();
+        // TODO: make this stateful
         if (latestTurn.host_turn.initialized && latestTurn.guest_turn.initialized)
         {
             if (bm.isHost)
@@ -757,7 +766,15 @@ public class MovementTestPhase : ITestPhase
                 if (string.IsNullOrEmpty(latestTurn.host_events_hash))
                 {
                     Debug.Log("Submitting move hash for host because both players have initialized their turns");
-                    StellarManagerTest.SubmitMoveHash();
+                    if (TestBoardManager.singlePlayer)
+                    {
+                        FakeServer.ins.SubmitMoveHash();
+                    }
+                    else
+                    {
+                        _ = StellarManagerTest.SubmitMoveHash();
+                    }
+                    
                 }
             }
             else
@@ -765,7 +782,14 @@ public class MovementTestPhase : ITestPhase
                 if (string.IsNullOrEmpty(latestTurn.guest_events_hash))
                 {
                     Debug.Log("Submitting move hash for guest because both players have initialized their turns");
-                    StellarManagerTest.SubmitMoveHash();
+                    if (TestBoardManager.singlePlayer)
+                    {
+                        FakeServer.ins.SubmitMoveHash();
+                    }
+                    else
+                    {
+                        _ = StellarManagerTest.SubmitMoveHash();
+                    }
                 }
             }
         }

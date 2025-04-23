@@ -633,7 +633,6 @@ impl Contract {
             if turn.host_turn.initialized {
                 turn.host_events = req.events.clone();
                 turn.host_events_hash = req.events_hash.clone();
-
             }
             else
             {

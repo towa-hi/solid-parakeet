@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Contract;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class FakeServer : MonoBehaviour
 {
@@ -167,6 +168,54 @@ public class FakeServer : MonoBehaviour
         return 0; // Success
     }
 
+    public int QueueMove(QueuedMove queuedMove)
+    {
+        Turn currentTurn = fakeLobby.turns.Last();
+
+        MoveSubmitReq guestReq = GuestMoveSubmitReq(fakeGuest, fakeLobby);
+        int guestResult = SubmitMove(fakeGuest.index, guestReq);
+        if (guestResult != 0)
+        {
+            Debug.LogError($"Guest commit failed with error code {guestResult}");
+            return guestResult;
+        }
+        MoveSubmitReq hostReq = new()
+        {
+            lobby = fakeLobby.index,
+            move_pos = new Pos(queuedMove.pos),
+            pawn_id = queuedMove.pawnId.ToString(),
+            turn = currentTurn.host_turn.turn,
+            user_address = fakeHost.index,
+        };
+        int hostResult = SubmitMove(fakeHost.index, hostReq);
+        if (hostResult != 0)
+        {
+            Debug.LogError($"Host commit failed with error code {hostResult}");
+        }
+        return 0;
+    }
+
+    public int SubmitMoveHash()
+    {
+        MoveResolveReq guestReq = Globals.ResolveTurn(fakeLobby);
+        guestReq.user_address = fakeGuest.index;
+        int guestResult = ResolveMove(fakeGuest.index, guestReq);
+        if (guestResult != 0)
+        {
+            Debug.LogError($"Guest commit failed with error code {guestResult}");
+            return guestResult;
+        }
+        MoveResolveReq hostReq = Globals.ResolveTurn(fakeLobby);
+        hostReq.user_address = fakeHost.index;
+        int hostResult = ResolveMove(fakeHost.index, hostReq);
+        if (hostResult != 0)
+        {
+            Debug.LogError($"Host commit failed with error code {hostResult}");
+            return hostResult;
+        }
+        return 0;
+    }
+    
     SetupCommitReq GuestSetupCommitReq(User guest, Lobby lobby)
     {
         // Get the guest's user state and commitments
@@ -215,6 +264,76 @@ public class FakeServer : MonoBehaviour
         return req;
     }
 
+    MoveSubmitReq GuestMoveSubmitReq(User guest, Lobby lobby)
+    {
+        // pick a move
+        Dictionary<Contract.Pawn, HashSet<Vector2Int>> validMoves = new();
+        foreach (var pawn in lobby.pawns)
+        {
+            if (pawn.is_alive && pawn.team == lobby.guest_state.team)
+            {
+                HashSet<Vector2Int> movablePositions = GetMovablePositions(pawn, lobby, boardDef);
+                if (movablePositions.Count > 0)
+                {
+                    validMoves.Add(pawn, movablePositions);
+                }
+            }
+        }
+
+        if (validMoves.Count == 0)
+        {
+            throw new Exception("No valid moves for guest");
+        }
+        Contract.Pawn randomPawn = validMoves.Keys.ElementAt(Random.Range(0, validMoves.Count));
+        Vector2Int randomMove = validMoves[randomPawn].ElementAt(Random.Range(0, validMoves[randomPawn].Count));
+        MoveSubmitReq req = new()
+        {
+            lobby = lobby.index,
+            move_pos = new Pos(randomMove),
+            pawn_id = randomPawn.pawn_id,
+            turn = lobby.GetLatestTurn().turn,
+            user_address = guest.index,
+        };
+        return req;
+    }
+
+    static HashSet<Vector2Int> GetMovablePositions(Contract.Pawn pawn, Lobby lobby, BoardDef boardDef)
+    {
+        List<Tile> movableTiles = new();
+        HashSet<Vector2Int> movablePositions = new();
+        PawnDef def = Globals.FakeHashToPawnDef(pawn.pawn_def_hash);
+        if (!pawn.is_alive || def.movementRange == 0)
+        {
+            return movablePositions;
+        }
+        Vector2Int pawnPos = pawn.pos.ToVector2Int();
+        Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, boardDef.isHex);
+        for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
+        {
+            Vector2Int currentPos = pawnPos;
+            int walkedTiles = 0;
+            while (walkedTiles < def.movementRange)
+            {
+                Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
+                currentPos += currentDirections[dirIndex];
+                Tile tile = boardDef.GetTileByPos(currentPos);
+                if (tile == null || !tile.isPassable) break;
+                Contract.Pawn? maybePawn = lobby.GetPawnByPosition(currentPos);
+                if (maybePawn.HasValue)
+                {
+                    if (maybePawn.Value.team == pawn.team)
+                    {
+                        break;
+                    }
+                    movablePositions.Add(currentPos);
+                }
+                movablePositions.Add(currentPos);
+                walkedTiles++;
+            }
+        }
+        return movablePositions;
+    }
+    
     int CommitSetup(string address, SetupCommitReq req)
     {
         Lobby updatedLobby = fakeLobby;
@@ -318,17 +437,226 @@ public class FakeServer : MonoBehaviour
             updatedLobby.phase = (uint)Phase.Movement;
         }
         fakeLobby = updatedLobby;
-        GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
+        if (address == fakeHost.index)
+        {
+            GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
+        }
         return 0; // Success
     }
 
-    void SubmitMove(MoveSubmitReq req)
+    int SubmitMove(string address, MoveSubmitReq req)
     {
-        
+        Lobby updatedLobby = fakeLobby;
+        Turn turn = updatedLobby.GetLatestTurn();
+        if (req.user_address == turn.host_turn.user_address)
+        {
+            if (turn.host_turn.initialized)
+            {
+                return (int)ErrorCode.TurnAlreadyInitialized;
+            }
+            turn.host_turn.initialized = true;
+            turn.host_turn.pos = req.move_pos;
+            turn.host_turn.pawn_id = req.pawn_id;
+            updatedLobby.turns[^1] = turn;
+        } else if (req.user_address == turn.guest_turn.user_address)
+        {
+            if (turn.guest_turn.initialized)
+            {
+                return (int)ErrorCode.TurnAlreadyInitialized;
+            }
+            turn.guest_turn.initialized = true;
+            turn.guest_turn.pos = req.move_pos;
+            turn.guest_turn.pawn_id = req.pawn_id;
+            updatedLobby.turns[^1] = turn;
+        }
+        else
+        {
+            return (int)ErrorCode.InvalidArgs;
+        }
+        fakeLobby = updatedLobby;
+        if (address == fakeHost.index)
+        {
+            GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
+        }
+        return 0;
     }
 
-    void ResolveMove(MoveResolveReq req)
+    int ResolveMove(string address, MoveResolveReq req)
     {
-        
+        Lobby updatedLobby = fakeLobby;
+        Turn turn = updatedLobby.GetLatestTurn();
+        if (req.user_address == turn.host_turn.user_address)
+        {
+            if (turn.host_turn.initialized)
+            {
+                turn.host_events = req.events;
+                turn.host_events_hash = req.events_hash;
+            }
+            else
+            {
+                return (int)ErrorCode.InvalidArgs;
+            }
+        }
+        else if (req.user_address == turn.guest_turn.user_address)
+        {
+            if (turn.guest_turn.initialized)
+            {
+                turn.guest_events = req.events;
+                turn.guest_events_hash = req.events_hash;
+            }
+            else
+            {
+                return (int)ErrorCode.InvalidArgs;
+            }
+        }
+        else
+        {
+            return (int)ErrorCode.InvalidArgs;
+        }
+        updatedLobby.turns[^1] = turn;
+        if (!string.IsNullOrEmpty(turn.host_events_hash) && !string.IsNullOrEmpty(turn.guest_events_hash))
+        {
+            if (turn.host_events_hash == turn.guest_events_hash)
+            {
+                Pos purgatory = new Pos(Globals.Purgatory);
+                foreach (var resolveEvent in req.events)
+                {
+                    switch (resolveEvent.event_type)
+                    {
+                        case 0: // move
+                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
+                            {
+                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+                                if (updatedPawn.pawn_id == resolveEvent.pawn_id)
+                                {
+                                    updatedPawn.pos = resolveEvent.target_pos;
+                                    updatedPawn.is_moved = true;
+                                    updatedLobby.pawns[i] = updatedPawn;
+                                    break;
+                                }
+                            }
+                            break;
+                        case 1: // conflict
+                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
+                            {
+                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+                                int processedCount = 0;
+                                if (updatedPawn.pawn_id == resolveEvent.pawn_id || updatedPawn.pawn_id == resolveEvent.defender_pawn_id)
+                                {
+                                    updatedPawn.pos = resolveEvent.target_pos;
+                                    updatedPawn.is_revealed = true;
+                                    updatedLobby.pawns[i] = updatedPawn;
+                                    processedCount++;
+                                }
+                                if (processedCount >= 2)
+                                {
+                                    break;
+                                }
+                            }
+                            break;
+                        case 2: // swapConflict
+                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
+                            {
+                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+                                int processedCount = 0;
+                                if (updatedPawn.pawn_id == resolveEvent.pawn_id || updatedPawn.pawn_id == resolveEvent.defender_pawn_id)
+                                {
+                                    updatedPawn.pos = resolveEvent.target_pos;
+                                    updatedPawn.is_revealed = true;
+                                    updatedLobby.pawns[i] = updatedPawn;
+                                    processedCount++;
+                                }
+                                if (processedCount >= 2)
+                                {
+                                    break;
+                                }
+                            }
+                            break;
+                        case 3: // death
+                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
+                            {
+                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+                                if (updatedPawn.pawn_id == resolveEvent.pawn_id)
+                                {
+                                    updatedPawn.is_alive = false;
+                                    updatedPawn.pos = purgatory;
+                                    updatedLobby.pawns[i] = updatedPawn;
+                                    break;
+                                }
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                bool redThroneAlive = false;
+                bool blueThroneAlive = false;
+                for (int i = 0; i < updatedLobby.pawns.Length; i++)
+                {
+                    Contract.Pawn pawn = updatedLobby.pawns[i];
+                    if (pawn.pawn_def_hash == "Throne" && pawn.is_alive)
+                    {
+                        if ((Team)pawn.team == Team.RED)
+                        {
+                            redThroneAlive = true;
+                        }
+                        if ((Team)pawn.team == Team.BLUE)
+                        {
+                            blueThroneAlive = true;
+                        }
+                    }
+                }
+                if (!redThroneAlive)
+                {
+                    updatedLobby.game_end_state = 2;
+                }
+
+                if (!blueThroneAlive)
+                {
+                    updatedLobby.game_end_state = 1;
+                }
+                if (!redThroneAlive && !blueThroneAlive)
+                {
+                    updatedLobby.game_end_state = 0;
+                }
+                Turn nextTurn = new Turn
+                {
+                    guest_events = Array.Empty<Contract.ResolveEvent>(),
+                    guest_events_hash = string.Empty,
+                    guest_turn = new TurnMove
+                    {
+                        initialized = false,
+                        pawn_id = string.Empty,
+                        pos = new Pos { x = -666, y = -666 },
+                        turn = 0,
+                        user_address = updatedLobby.guest_address,
+                    },
+                    host_events = Array.Empty<Contract.ResolveEvent>(),
+                    host_events_hash = string.Empty,
+                    host_turn = new TurnMove
+                    {
+                        initialized = false,
+                        pawn_id = string.Empty,
+                        pos = new Pos { x = -666, y = -666 },
+                        turn = 0,
+                        user_address = updatedLobby.host_address,
+                    },
+                    turn = updatedLobby.turns.Length,
+                };
+                List<Turn> turnsList = updatedLobby.turns.ToList();
+                turnsList.Add(nextTurn);
+                updatedLobby.turns = turnsList.ToArray();
+            }
+            else
+            {
+                return (int)ErrorCode.TurnHashConflict;
+            }
+        }
+        fakeLobby = updatedLobby;
+        if (address == fakeHost.index)
+        {
+            GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
+        }
+        return 0;
     }
 }
