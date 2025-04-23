@@ -65,10 +65,6 @@ public class TestPawnView : MonoBehaviour
                     Debug.Log("Moving pawn to pos normally...");
                     SetViewPos(currentPawn.pos.ToVector2Int());
                 }
-                bool selected = movementTestPhase.clientState.selectedPawnView == this;
-                renderEffect.SetEffect(EffectType.SELECTOUTLINE, selected);
-                bool queued = movementTestPhase.clientState.queuedMove?.pawnId == pawnId;
-                renderEffect.SetEffect(EffectType.FILL, queued);
                 break;
             case SetupTestPhase setupTestPhase:
                 if (phaseChanged)

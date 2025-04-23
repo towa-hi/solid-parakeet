@@ -157,14 +157,16 @@ public static class Globals
         for (int i = 0; i < receipt.events.Length; i++)
         {
             SEventState evt = receipt.events[i];
+            string pawnId = evt.pawnId != Guid.Empty ? evt.pawnId.ToString() : "";
+            string defenderPawnId = evt.defenderPawnId != Guid.Empty ? evt.defenderPawnId.ToString() : "";
             events[i] = new Contract.ResolveEvent
             {
                 team = (uint)evt.team,
                 event_type = (uint)evt.eventType,
-                pawn_id = evt.pawnId.ToString(),
-                defender_pawn_id = evt.defenderPawnId.ToString(),
+                pawn_id = pawnId,
+                defender_pawn_id = defenderPawnId,
                 original_pos = new Pos(evt.originalPos),
-                target_pos = new Pos(evt.targetPos)
+                target_pos = new Pos(evt.targetPos),
             };
         }
 

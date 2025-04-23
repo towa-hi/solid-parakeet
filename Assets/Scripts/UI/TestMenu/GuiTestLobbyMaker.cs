@@ -13,16 +13,20 @@ public class GuiTestLobbyMaker : TestGuiElement
     public TMP_InputField hostAddressField;
     public TextMeshProUGUI statusText;
     public Button backButton;
+    public Button singlePlayerButton;
     public Button makeLobbyButton;
+    
     BoardDef[] boardDefs;
 
     public event Action OnBackButton;
     public event Action<Contract.LobbyParameters> OnSubmitLobbyButton;
+    public event Action<Contract.LobbyParameters> OnSinglePlayerButton;
 
     void Start()
     {
         backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
         makeLobbyButton.onClick.AddListener(() => { OnSubmitLobbyButton?.Invoke(GetLobbyParameters()); });
+        singlePlayerButton.onClick.AddListener(() => { OnSinglePlayerButton?.Invoke(GetLobbyParameters()); });
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 

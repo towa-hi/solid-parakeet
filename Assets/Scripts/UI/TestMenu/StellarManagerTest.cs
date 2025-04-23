@@ -16,7 +16,7 @@ public class StellarManagerTest
     
     public static string testContract = "CCDHAINND3MCHQLZZP7FBV2I2TZWTRKJJVJSCGLY4KVHZE3HOH7RQP5E";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
-    //public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
+    public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
     public static string testGuestSneed = "SBHR4URT5RHIK4U4N45ZNUNEKLYEJYVFQSLSTR4A4RVNFHLIERGVZSIE";
     public static event Action OnNetworkStateUpdated;
@@ -184,8 +184,6 @@ public class StellarManagerTest
 
     public static async Task<int> CommitSetupRequest(Dictionary<string, PawnCommitment> commitments)
     {
-        Assert.IsTrue(currentLobby.HasValue);
-        
         PawnCommitment[] setupCommitments = new PawnCommitment[commitments.Count];
         for (int i = 0; i < commitments.Count; i++)
         {

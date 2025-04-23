@@ -43,24 +43,42 @@ public class TestBoardManager : MonoBehaviour
     }
 
     bool firstTime;
+
+    public static bool singlePlayer;
     
     public void StartBoardManager(bool networkUpdated)
     {
+        clickInputManager.Initialize(this);
         if (!networkUpdated)
         {
-            throw new NotImplementedException();
+            singlePlayer = true;
+            FakeServer.ins.StartFakeLobby();
+            Initialize(FakeServer.ins.fakeHost, FakeServer.ins.fakeLobby);
+            initialized = true;
+            firstTime = true;
+            cachedLobby = FakeServer.ins.fakeLobby;
+            OnNetworkStateUpdated(); //only invoke this directly once on start
         }
-        clickInputManager.Initialize(this);
-        Assert.IsTrue(StellarManagerTest.currentUser.HasValue);
-        Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
-        Lobby lobby = StellarManagerTest.currentLobby.Value;
-        Initialize(StellarManagerTest.currentUser.Value, lobby);
-        initialized = true;
-        firstTime = true;
-        cachedLobby = lobby;
-        OnNetworkStateUpdated(); //only invoke this directly once on start
+        else
+        {
+            Assert.IsTrue(StellarManagerTest.currentUser.HasValue);
+            Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
+            Lobby lobby = StellarManagerTest.currentLobby.Value;
+            Initialize(StellarManagerTest.currentUser.Value, lobby);
+            initialized = true;
+            firstTime = true;
+            cachedLobby = lobby;
+            OnNetworkStateUpdated(); //only invoke this directly once on start
+        }
+        
     }
 
+    public void FakeOnNetworkStateUpdated()
+    {
+        Debug.Log("FakeOnNetworkStateUpdated");
+        OnNetworkStateUpdated();
+    }
+    
     void OnNetworkStateUpdated()
     {
         Debug.Log("TestBoardManager::OnNetworkStateUpdated");
@@ -68,8 +86,7 @@ public class TestBoardManager : MonoBehaviour
         {
             return;
         }
-        Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
-        Lobby lobby = StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
+        Lobby lobby = singlePlayer ? FakeServer.ins.fakeLobby : StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
         if (firstTime || lobby.phase != cachedLobby.phase || cachedLobby.turns.Length != lobby.turns.Length)
         {
             firstTime = false;
@@ -151,18 +168,6 @@ public class TestBoardManager : MonoBehaviour
         return pawnViews.Where(pv => pv.team == userTeam).ToList();
     }
     
-    // public Pawn GetPawnAtPos(Vector2Int pos)
-    // {
-    //     TestPawnView pawnView = pawnViews.FirstOrDefault(p => p.pawn.pos == pos);
-    //     return pawnView?.pawn;
-    // }
-    //
-    // public TestPawnView GetPawnViewAtPos(Vector2Int pos)
-    // {
-    //     TestPawnView pawnView = pawnViews.FirstOrDefault(p => p.pawn.pos == pos);
-    //     return pawnView;
-    // }
-
     public Tile GetTileAtPos(Vector2Int pos)
     {
         TestTileView tileView = tileViews.GetValueOrDefault(pos);
@@ -179,16 +184,6 @@ public class TestBoardManager : MonoBehaviour
     {
         return pawnViews.FirstOrDefault(pv => pv.displayedPos == pos);
     }
-    
-    // public List<Pawn> GetMyPawns()
-    // {
-    //     return pawnViews
-    //         .Where(pv => pv.pawn.team == userTeam)
-    //         .Select(pv => pv.pawn)
-    //         .ToList();
-    // }
-    //
-    
     
     void SetPhase(ITestPhase newPhase)
     {
@@ -210,55 +205,6 @@ public class TestBoardManager : MonoBehaviour
         TestPawnView pawnView = GetPawnViewAtPos(pos);
         currentPhase?.OnHover();
     }
-
-    public Contract.Pawn? GetCachedPawnState(Guid pawnId)
-    {
-        foreach (Contract.Pawn p in cachedLobby.pawns)
-        {
-            if (p.pawn_id == pawnId.ToString())
-            {
-                return p;
-            }
-        }
-        return null;
-    }
-
-    public Contract.Pawn GetCachedPawnStateUnchecked(Guid pawnId)
-    {
-        foreach (Contract.Pawn p in cachedLobby.pawns)
-        {
-            if (p.pawn_id == pawnId.ToString())
-            {
-                return p;
-            }
-        }
-        throw new ArgumentOutOfRangeException();
-    }
-    
-    public Contract.Pawn? GetCachedPawnState(Vector2Int pos)
-    {
-        foreach (Contract.Pawn p in cachedLobby.pawns)
-        {
-            if (p.pos.ToVector2Int() == pos)
-            {
-                return p;
-            }
-        }
-        return null;
-    }
-    
-    public Contract.Pawn GetCachedPawnStateUnchecked(Vector2Int pos)
-    {
-        foreach (Contract.Pawn p in cachedLobby.pawns)
-        {
-            if (p.pos.ToVector2Int() == pos)
-            {
-                return p;
-            }
-        }
-        throw new ArgumentOutOfRangeException();
-    }
-    
 }
 
 public interface ITestPhase
@@ -512,11 +458,13 @@ public class SetupTestPhase : ITestPhase
                 // Pick a random tile from available tiles
                 int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
                 Tile selectedTile = availableTiles[randomIndex];
-                usedTiles.Add(selectedTile);
                 // Find a pawn of this rank in purgatory
-                
                 bool success = clientState.SetCommitment((Rank)maxPawns.rank, selectedTile.pos);
-                if (!success)
+                if (success)
+                {
+                    usedTiles.Add(selectedTile);
+                }
+                else
                 {
                     Debug.LogError($"No available pawns of rank {maxPawns.rank} to place");
                 }
@@ -540,60 +488,65 @@ public class SetupTestPhase : ITestPhase
                 return;
             }
         }
-        _ = StellarManagerTest.CommitSetupRequest(clientState.commitments);
+
+        if (TestBoardManager.singlePlayer)
+        {
+            FakeServer.ins.CommitSetupRequest(clientState.commitments);
+        }
+        else
+        {
+            _ = StellarManagerTest.CommitSetupRequest(clientState.commitments);
+        }
     }
 }
 
-public enum MovementClientStateStatus
-{
-    AWAITING_SELECTION,
-    AWAITING_POSITION,
-    AWAITING_USER_HASH,
-    AWAITING_OPPONENT_MOVE,
-    AWAITING_OPPONENT_HASH,
-    RESOLVING,
-}
-
-public class MovementClientSubState
-{
-    
-}
+public abstract class MovementClientSubState { }
 
 public class SelectingPawnMovementClientSubState : MovementClientSubState
 {
+    public Vector2Int? selectedPos;
+    public Guid? selectedPawnId;
 
+    public SelectingPawnMovementClientSubState(Guid? inSelectedPawnId = null, Vector2Int? inSelectedPos = null)
+    {
+        selectedPawnId = inSelectedPawnId;
+        selectedPos = inSelectedPos;
+        if (MovementClientState.autoSubmit)
+        {
+            SubmitMove();
+        }
+    }
+
+    public void SubmitMove()
+    {
+        if (!selectedPawnId.HasValue || !selectedPos.HasValue) return;
+        _ = StellarManagerTest.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
+    }
 }
 
 public class SelectingPosMovementClientSubState : MovementClientSubState
 {
-    [CanBeNull] string selectedPawnId;
-    public HashSet<TestTileView> highlightedTiles;
-    [CanBeNull] Vector2Int selectedPos;
+    public Guid selectedPawnId;
+    public HashSet<Vector2Int> highlightedTiles;
+
+    public SelectingPosMovementClientSubState(Guid inPawnId, HashSet<Vector2Int> inHighlightedTiles)
+    {
+        selectedPawnId = inPawnId;
+        highlightedTiles = inHighlightedTiles;
+    }
 }
 
-public class WaitingUserHashMovementClientSubState : MovementClientSubState
-{
-    
-}
+public class WaitingUserHashMovementClientSubState : MovementClientSubState { }
 
-public class WaitingOpponentHashMovementClientSubState : MovementClientSubState
-{
-    
-}
+public class WaitingOpponentMoveMovementClientSubState : MovementClientSubState { }
 
-public class ResolvingMovementClientSubState : MovementClientSubState
-{
-    
-}
+public class WaitingOpponentHashMovementClientSubState : MovementClientSubState { }
+
+public class ResolvingMovementClientSubState : MovementClientSubState { }
 
 public class MovementClientState
 {
     public bool dirty = true;
-    // filled by client
-    public TestPawnView selectedPawnView;
-    public QueuedMove queuedMove;
-    public HashSet<TestTileView> highlightedTiles;
-    // filled by server
     public Team team;
     public Contract.ResolveEvent[] myEvents;
     public string myEventsHash;
@@ -604,23 +557,15 @@ public class MovementClientState
     public int turn;
     public static bool autoSubmit;
 
-    public void SetSelectedPawnView(TestPawnView inSelectedPawnView, HashSet<TestTileView> inHighlightedTiles)
-    {
-        selectedPawnView = inSelectedPawnView;
-        highlightedTiles = inHighlightedTiles ?? new();
-        dirty = true;
-    }
+    public MovementClientSubState subState;
+    readonly BoardDef boardDef;
+    readonly Dictionary<Vector2Int, Contract.Pawn> pawnPositions;
 
-    public MovementClientState(Lobby lobby, TestBoardManager bm)
+    public MovementClientState(Lobby lobby, bool isHost, Team myTeam, BoardDef boardDef)
     {
-        bool isHost = bm.isHost;
-        Team myTeam = bm.userTeam;
+        this.boardDef = boardDef;
         Turn currentTurn = lobby.GetLatestTurn();
         dirty = true;
-        selectedPawnView = null;
-        queuedMove = null;
-        highlightedTiles = new();
-        // fill in network state stuff
         team = myTeam;
         myEvents = isHost ? currentTurn.host_events : currentTurn.guest_events;
         myEventsHash = isHost ? currentTurn.host_events_hash : currentTurn.guest_events_hash;
@@ -629,131 +574,97 @@ public class MovementClientState
         otherEventsHash = isHost ? currentTurn.guest_events_hash : currentTurn.host_events_hash;
         otherTurnMove = isHost ? currentTurn.guest_turn : currentTurn.host_turn;
         turn = currentTurn.turn;
-    }
-
-    public MovementClientSubState subState;
-    void SetSubState(MovementClientSubState newState)
-    {
-        subState = newState;
-    }
-    
-    
-    public MovementClientStateStatus GetMovementPhase()
-    {
-        MovementClientStateStatus movementPhase = MovementClientStateStatus.AWAITING_SELECTION;
+        // Build pawn position lookup
+        pawnPositions = new Dictionary<Vector2Int, Contract.Pawn>();
+        foreach (Contract.Pawn pawn in lobby.pawns)
+        {
+            pawnPositions[pawn.pos.ToVector2Int()] = pawn;
+        }
+        // Initialize state based on current conditions
         if (myTurnMove.initialized)
         {
-            // already submitted
             if (otherTurnMove.initialized)
             {
-                // both players submitted moves
                 if (!string.IsNullOrEmpty(myEventsHash))
                 {
                     if (!string.IsNullOrEmpty(otherEventsHash))
                     {
-                        movementPhase = MovementClientStateStatus.RESOLVING;
-                        throw new Exception("This state shouldn't ever happen");
+                        Assert.IsTrue(myEvents == otherEvents);
+                        subState = new ResolvingMovementClientSubState();
                     }
                     else
                     {
-                        movementPhase = MovementClientStateStatus.AWAITING_OPPONENT_HASH;
+                        subState = new WaitingOpponentHashMovementClientSubState();
                     }
                 }
                 else
                 {
-                    movementPhase = MovementClientStateStatus.AWAITING_USER_HASH;
+                    subState = new WaitingUserHashMovementClientSubState();
                 }
             }
             else
             {
-                // waiting for other player
-                movementPhase = MovementClientStateStatus.AWAITING_OPPONENT_MOVE;
+                subState = new WaitingOpponentMoveMovementClientSubState();
             }
         }
         else
         {
-            if (selectedPawnView)
-            {
-                // pawn is selected so highlighted should also be filled
-                movementPhase = MovementClientStateStatus.AWAITING_POSITION;
-            }
-            else
-            {
-                movementPhase = MovementClientStateStatus.AWAITING_SELECTION;
-            }
-        }
-        Debug.Log("Returned " + movementPhase);
-        return movementPhase;
-    }
-
-    public void TrySelectPawn(TestPawnView pawnView, TestBoardManager bm)
-    {
-        selectedPawnView = null;
-        highlightedTiles = new();
-        queuedMove = null;
-        Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_SELECTION);
-        Contract.Pawn pawn = bm.GetCachedPawnStateUnchecked(pawnView.pawnId);
-        bool selectionIsValid = (Team)pawn.team == team;
-        if (selectionIsValid)
-        {
-            selectedPawnView = pawnView;
-            highlightedTiles = GetMovableTileViews(pawn, bm);
-            Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_POSITION);
-        }
-    }
-    
-    public void TryQueueMove(Vector2Int pos)
-    {
-        Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_POSITION);
-        bool isPosValid = highlightedTiles.Any(tile => tile.tile.pos == pos);
-        if (isPosValid)
-        {
-            queuedMove = new QueuedMove()
-            {
-                pawnId = selectedPawnView.pawnId,
-                pos = pos,
-            };
-            selectedPawnView = null;
-            highlightedTiles.Clear();
-            dirty = true;
-            Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_SELECTION);
-        }
-        else
-        {
-            queuedMove = null;
-            selectedPawnView = null;
-            highlightedTiles = new();
-            dirty = true;
-            Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_SELECTION);
+            subState = new SelectingPawnMovementClientSubState();
         }
     }
 
-    public void ClearQueueMove()
+    void SetSubState(MovementClientSubState newState)
     {
-        queuedMove = null;
-        selectedPawnView = null;
-        highlightedTiles = new();
+        subState = newState;
         dirty = true;
     }
 
-    public void SetAutoSubmit(bool inAutoSubmit)
+    void TransitionToSelectingPos(Guid pawnId)
     {
-        MovementClientState.autoSubmit = inAutoSubmit;
+        SetSubState(new SelectingPosMovementClientSubState(pawnId, GetMovableTilePositions(pawnId, boardDef, pawnPositions)));
+    }
+
+    void TransitionToSelectingPawn(Guid? selectedPawnId = null, Vector2Int? selectedPos = null)
+    {
+        SetSubState(new SelectingPawnMovementClientSubState(selectedPawnId, selectedPos));
+    }
+
+    public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
+    {
+        switch (subState)
+        {
+            case SelectingPawnMovementClientSubState:
+                if (pawnView && pawnView.team == team)
+                {
+                    TransitionToSelectingPos(pawnView.pawnId);
+                }
+                else
+                {
+                    TransitionToSelectingPawn();
+                }
+                break;
+
+            case SelectingPosMovementClientSubState selectingPosSubState:
+                if (tileView && selectingPosSubState.highlightedTiles.Contains(clickedPos))
+                {
+                    TransitionToSelectingPawn(selectingPosSubState.selectedPawnId, clickedPos);
+                }
+                else
+                {
+                    TransitionToSelectingPawn();
+                }
+                break;
+        }
     }
     
-    HashSet<TestTileView> GetMovableTileViews(Contract.Pawn pawn, TestBoardManager bm)
+    static HashSet<Vector2Int> GetMovableTilePositions(Guid pawnId, BoardDef boardDef, Dictionary<Vector2Int, Contract.Pawn> pawnPositions)
     {
-        // TODO: remove this jank
-        BoardDef boardDef = bm.boardDef;
-        HashSet<TestTileView> movableTileViews = new();
+        Contract.Pawn pawn = pawnPositions.Values.First(p => p.pawn_id == pawnId.ToString());
+        HashSet<Vector2Int> movableTilePositions = new();
         PawnDef def = Globals.FakeHashToPawnDef(pawn.pawn_def_hash);
-        if (!pawn.is_alive)
+        if (!pawn.is_alive || def.movementRange == 0)
         {
-            return movableTileViews;
-        }
-        if (def.movementRange == 0)
-        {
-            return movableTileViews;
+            return movableTilePositions;
         }
         Vector2Int pawnPos = pawn.pos.ToVector2Int();
         Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, boardDef.isHex);
@@ -765,57 +676,45 @@ public class MovementClientState
             {
                 Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
                 currentPos += currentDirections[dirIndex];
-                TestTileView tileView = bm.GetTileViewAtPos(currentPos);
-                if (!tileView) break;
-                if (!tileView.tile.isPassable) break;
-                Contract.Pawn? maybePawnOnPos = bm.GetCachedPawnState(currentPos);
-                if (maybePawnOnPos.HasValue)
+                Tile tile = boardDef.GetTileByPos(currentPos);
+                if (tile == null || !tile.isPassable) break;
+                if (pawnPositions.TryGetValue(currentPos, out Contract.Pawn value))
                 {
-                    if (maybePawnOnPos.Value.team == pawn.team) break;
-                    movableTileViews.Add(tileView);
+                    if (value.team == pawn.team) break;
+                    movableTilePositions.Add(currentPos);
                     break;
                 }
-                movableTileViews.Add(tileView);
+                movableTilePositions.Add(currentPos);
                 walkedTiles++;
             }
         }
-        return movableTileViews;
+        return movableTilePositions;
     }
 }
 
 public class MovementTestPhase : ITestPhase
 {
     TestBoardManager bm;
-    // public TestPawnView selectedPawnView;
-    // public QueuedMove queuedMove;
-    // public HashSet<TestTileView> highlightedTiles;
-    
     GuiTestMovement movementGui;
     
-    // public Turn cachedTurn;
-    // public TurnMove committedMove;
     public MovementClientState clientState;
-    
     
     public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, Lobby lobby)
     {
         bm = inBm;
         movementGui = inMovementGui;
         ResetClientState(lobby);
-        // TODO: figure out a better way to tell gui to do stuff
         bm.guiTestGame.SetCurrentElement(movementGui, lobby);
     }
 
     void ResetClientState(Lobby lobby)
     {
         Debug.Log("ResetClientState");
-        MovementClientState newClientState = new MovementClientState(lobby, bm);
-        clientState = newClientState;
+        clientState = new MovementClientState(lobby, bm.isHost, bm.userTeam, bm.boardDef);
     }
 
     void ClientStateChanged()
     {
-        movementGui.Refresh(clientState);
         bm.OnlyClientGameStateChanged();
     }
     
@@ -830,6 +729,7 @@ public class MovementTestPhase : ITestPhase
     {
         movementGui.OnSubmitMoveButton -= SubmitMove;
         movementGui.OnRefreshButton -= RefreshState;
+        movementGui.OnAutoSubmitToggle -= SetAutoSubmit;
     }
 
     public void Update() {}
@@ -839,39 +739,16 @@ public class MovementTestPhase : ITestPhase
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {
         if (bm.currentPhase != this) return;
-        MovementClientStateStatus status = clientState.GetMovementPhase();
-        switch (status)
+        clientState.OnClick(clickedPos, tileView, pawnView);
+        if (clientState.dirty)
         {
-            case MovementClientStateStatus.AWAITING_SELECTION:
-                clientState.TrySelectPawn(pawnView, bm);
-                ClientStateChanged();
-                break;
-            case MovementClientStateStatus.AWAITING_POSITION:
-                clientState.TryQueueMove(tileView.tile.pos);
-                ClientStateChanged();
-                break;
-            case MovementClientStateStatus.AWAITING_USER_HASH:
-                // do nothing
-                break;
-            case MovementClientStateStatus.AWAITING_OPPONENT_MOVE:
-                // do nothing
-                break;
-            case MovementClientStateStatus.AWAITING_OPPONENT_HASH:
-                // do nothing
-                break;
-            case MovementClientStateStatus.RESOLVING:
-                // do nothing
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            ClientStateChanged();
         }
-        
     }
 
     public void OnNetworkGameStateChanged(Lobby lobby)
     {
         ResetClientState(lobby);
-        ClientStateChanged();
         Turn latestTurn = lobby.GetLatestTurn();
         if (latestTurn.host_turn.initialized && latestTurn.guest_turn.initialized)
         {
@@ -891,57 +768,16 @@ public class MovementTestPhase : ITestPhase
                     StellarManagerTest.SubmitMoveHash();
                 }
             }
-            
         }
-    }
-    
-    HashSet<TestTileView> GetMovableTileViews(Contract.Pawn pawn)
-    {
-        BoardDef boardDef = bm.boardDef;
-        HashSet<TestTileView> movableTileViews = new();
-        PawnDef def = Globals.FakeHashToPawnDef(pawn.pawn_def_hash);
-        if (!pawn.is_alive)
-        {
-            return movableTileViews;
-        }
-        if (def.movementRange == 0)
-        {
-            return movableTileViews;
-        }
-        Vector2Int pawnPos = pawn.pos.ToVector2Int();
-        Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, boardDef.isHex);
-        for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
-        {
-            Vector2Int currentPos = pawnPos;
-            int walkedTiles = 0;
-            while (walkedTiles < def.movementRange)
-            {
-                Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
-                currentPos += currentDirections[dirIndex];
-                TestTileView tileView = bm.GetTileViewAtPos(currentPos);
-                if (!tileView) break;
-                if (!tileView.tile.isPassable) break;
-                Contract.Pawn? maybePawnOnPos = bm.GetCachedPawnState(currentPos);
-                if (maybePawnOnPos.HasValue)
-                {
-                    if (maybePawnOnPos.Value.team == pawn.team) break;
-                    movableTileViews.Add(tileView);
-                    break;
-                }
-                movableTileViews.Add(tileView);
-                walkedTiles++;
-            }
-        }
-        return movableTileViews;
+        ClientStateChanged();
     }
 
     void SubmitMove()
     {
-        if (clientState.queuedMove == null) return;
-        _ = StellarManagerTest.QueueMove(clientState.queuedMove);
-        clientState.ClearQueueMove();
-        ClientStateChanged();
-        bm.OnlyClientGameStateChanged();
+        if (clientState.subState is SelectingPawnMovementClientSubState selectingState)
+        {
+            selectingState.SubmitMove();
+        }
     }
 
     void RefreshState()
@@ -951,7 +787,7 @@ public class MovementTestPhase : ITestPhase
 
     void SetAutoSubmit(bool autoSubmit)
     {
-        clientState.SetAutoSubmit(autoSubmit);
+        MovementClientState.autoSubmit = autoSubmit;
     }
 }
 

@@ -108,42 +108,55 @@ public class TestTileView : MonoBehaviour
                 StopPulse();
                 tileModel.renderEffect.SetEffect(EffectType.FILL, false);
                 SetTopEmission(Color.clear);
-                // we need to know what state the movementTestPhase is actually in
-                if (movementTestPhase.clientState.queuedMove != null)
+
+                switch (movementTestPhase.clientState.subState)
                 {
-                    bool isTarget = movementTestPhase.clientState.queuedMove.pos == tile.pos;
-                    Contract.Pawn p = lobby.GetPawnById(movementTestPhase.clientState.queuedMove.pawnId);
-                    bool isOrigin = p.pos.ToVector2Int() == tile.pos;
-                    if (isTarget)
-                    {
-                        SetTopEmission(Color.green);
-                    }
-                    else if (isOrigin)
-                    {
-                        SetTopEmission(Color.red);
-                    }
-                }
-                else
-                {
-                    if (movementTestPhase.clientState.selectedPawnView)
-                    {
-                        Contract.Pawn p = lobby.GetPawnById(movementTestPhase.clientState.selectedPawnView.pawnId);
-                        bool isOrigin = p.pos.ToVector2Int() == tile.pos;
-                        if (isOrigin)
+                    case SelectingPawnMovementClientSubState selectingPawnSubState:
+                        if (selectingPawnSubState.selectedPawnId.HasValue)
+                        {
+                            Contract.Pawn queuedPawn = lobby.GetPawnById(selectingPawnSubState.selectedPawnId.Value);
+                            bool isOriginSelectingPawn = queuedPawn.pos.ToVector2Int() == tile.pos;
+                            if (isOriginSelectingPawn)
+                            {
+                                SetTopEmission(Color.red);
+                            }
+                            if (selectingPawnSubState.selectedPos == tile.pos)
+                            {
+                                SetTopEmission(Color.green);
+                            }
+                        }
+                        break;
+                    case SelectingPosMovementClientSubState selectingPosSubState:
+                        // If we have a selected pawn, highlight its position and possible moves
+                        Contract.Pawn selectedPawn = lobby.GetPawnById(selectingPosSubState.selectedPawnId);
+                        bool isOriginSelectingPos = selectedPawn.pos.ToVector2Int() == tile.pos;
+                        if (isOriginSelectingPos)
                         {
                             SetTopEmission(Color.red);
                             StartPulse();
                         }
-                        bool isHighlighted = movementTestPhase.clientState.highlightedTiles.Contains(this);
-                        if (isHighlighted)
+                        if (selectingPosSubState.highlightedTiles.Contains(tile.pos))
                         {
                             SetTopEmission(Color.green);
                             StartPulse();
                         }
-                    }
+                        break;
+                    case WaitingUserHashMovementClientSubState:
+                        bool isTarget = movementTestPhase.clientState.myTurnMove.pos.ToVector2Int() == tile.pos;
+                        Contract.Pawn pawn = lobby.GetPawnById(movementTestPhase.clientState.myTurnMove.pawn_id);
+                        bool isOrigin = pawn.pos.ToVector2Int() == tile.pos;
+                        if (isOrigin)
+                        {
+                            SetTopEmission(Color.red);
+                        }
+                        if (isTarget)
+                        {
+                            SetTopEmission(Color.green);
+                        }
+                        break;
                 }
-                
                 break;
+                
             case SetupTestPhase setupTestPhase:
                 if (phaseChanged)
                 {

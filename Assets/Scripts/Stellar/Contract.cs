@@ -255,6 +255,7 @@ namespace Contract
         }
     }
     
+    [System.Serializable]
     public struct Pos: IScvMapCompatable, IEquatable<Pos>
     {
         public int x;
@@ -317,6 +318,7 @@ namespace Contract
         
     }
     
+    [System.Serializable]
     public struct UserState: IScvMapCompatable
     {
         public bool committed;
@@ -374,7 +376,8 @@ namespace Contract
             };
         }
     }
-
+    
+    [System.Serializable]
     public struct MaxPawns : IScvMapCompatable
     {
         public int max;
@@ -399,7 +402,8 @@ namespace Contract
             return scvMap;
         }
     }
-
+    
+    [System.Serializable]
     public struct ResolveEvent : IScvMapCompatable
     {
         public string defender_pawn_id;
@@ -456,6 +460,7 @@ namespace Contract
         }
     }
     
+    [System.Serializable]
     public struct PawnCommitment : IScvMapCompatable
     {
         public string pawn_def_hash;
@@ -476,6 +481,7 @@ namespace Contract
         }
     }
     
+    [System.Serializable]
     public struct Pawn : IScvMapCompatable
     {
         public bool is_alive;
@@ -544,6 +550,7 @@ namespace Contract
             };
         }
     }
+    [System.Serializable]
     public struct LobbyParameters : IScvMapCompatable
     {
         public string board_def_name;
@@ -568,6 +575,7 @@ namespace Contract
         }
     }
     
+    [System.Serializable]
     public struct TurnMove : IScvMapCompatable
     {
         public bool initialized;
@@ -597,6 +605,7 @@ namespace Contract
         }
     }
     
+    [System.Serializable]
     public struct Turn : IScvMapCompatable
     {
         public ResolveEvent[] guest_events;
@@ -651,6 +660,7 @@ namespace Contract
         }
     }
     
+    [System.Serializable]
     public struct Lobby : IScvMapCompatable
     {
         public uint game_end_state;
@@ -781,6 +791,22 @@ namespace Contract
             else
             {
                 return guest_state;
+            }
+        }
+
+        public Team GetTeam(string address)
+        {
+            if (host_state.user_address == address)
+            {
+                return (Team)host_state.team;
+            }
+            else if (guest_state.user_address == address)
+            {
+                return (Team)guest_state.team;
+            }
+            else
+            {
+                throw new IndexOutOfRangeException();
             }
         }
     }
@@ -982,6 +1008,8 @@ namespace Contract
         HostAlreadyInLobby = 10,
         GuestAlreadyInLobby = 11,
         LobbyNotJoinable = 12,
+        TurnAlreadyInitialized = 13,
+        TurnHashConflict = 14,
     }
 
     public enum Phase

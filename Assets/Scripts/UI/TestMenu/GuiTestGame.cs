@@ -25,7 +25,7 @@ public class GuiTestGame : TestGuiElement
     {
         base.SetIsEnabled(inIsEnabled, networkUpdated);
         // TODO: make this not jank
-        if (isEnabled && networkUpdated)
+        if (isEnabled)
         {
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
             bm = GameManager.instance.testBoardManager;

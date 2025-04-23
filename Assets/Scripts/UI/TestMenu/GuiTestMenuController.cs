@@ -38,6 +38,7 @@ public class GuiTestMenuController : MenuElement
         startMenuElement.OnWalletButton += GotoWallet;
         
         lobbyMakerElement.OnBackButton += GotoStartMenu;
+        lobbyMakerElement.OnSinglePlayerButton += StartSingleplayer;
         lobbyMakerElement.OnSubmitLobbyButton += OnSubmitLobbyButton;
         
         lobbyViewerElement.OnBackButton += GotoStartMenu;
@@ -150,6 +151,12 @@ public class GuiTestMenuController : MenuElement
         }
     }
 
+    
+    void StartSingleplayer(Contract.LobbyParameters parameters)
+    {
+        FakeServer.ins.SetFakeParameters(parameters);
+        ShowMenuElement(gameElement, false);
+    }
     async void DeleteLobby()
     {
         int code = await StellarManagerTest.LeaveLobbyRequest();
