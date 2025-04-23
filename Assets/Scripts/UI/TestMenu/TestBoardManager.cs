@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Contract;
+using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -257,6 +258,7 @@ public class TestBoardManager : MonoBehaviour
         }
         throw new ArgumentOutOfRangeException();
     }
+    
 }
 
 public interface ITestPhase
@@ -542,14 +544,56 @@ public class SetupTestPhase : ITestPhase
     }
 }
 
+public enum MovementClientStateStatus
+{
+    AWAITING_SELECTION,
+    AWAITING_POSITION,
+    AWAITING_USER_HASH,
+    AWAITING_OPPONENT_MOVE,
+    AWAITING_OPPONENT_HASH,
+    RESOLVING,
+}
+
+public class MovementClientSubState
+{
+    
+}
+
+public class SelectingPawnMovementClientSubState : MovementClientSubState
+{
+
+}
+
+public class SelectingPosMovementClientSubState : MovementClientSubState
+{
+    [CanBeNull] string selectedPawnId;
+    public HashSet<TestTileView> highlightedTiles;
+    [CanBeNull] Vector2Int selectedPos;
+}
+
+public class WaitingUserHashMovementClientSubState : MovementClientSubState
+{
+    
+}
+
+public class WaitingOpponentHashMovementClientSubState : MovementClientSubState
+{
+    
+}
+
+public class ResolvingMovementClientSubState : MovementClientSubState
+{
+    
+}
+
 public class MovementClientState
 {
     public bool dirty = true;
-    
+    // filled by client
     public TestPawnView selectedPawnView;
     public QueuedMove queuedMove;
     public HashSet<TestTileView> highlightedTiles;
-    
+    // filled by server
     public Team team;
     public Contract.ResolveEvent[] myEvents;
     public string myEventsHash;
@@ -558,6 +602,7 @@ public class MovementClientState
     public string otherEventsHash;
     public TurnMove otherTurnMove;
     public int turn;
+    public static bool autoSubmit;
 
     public void SetSelectedPawnView(TestPawnView inSelectedPawnView, HashSet<TestTileView> inHighlightedTiles)
     {
@@ -565,18 +610,122 @@ public class MovementClientState
         highlightedTiles = inHighlightedTiles ?? new();
         dirty = true;
     }
-    
-    public void QueueMove(Vector2Int pos)
+
+    public MovementClientState(Lobby lobby, TestBoardManager bm)
     {
-        Assert.IsTrue(selectedPawnView);
-        queuedMove = new QueuedMove()
+        bool isHost = bm.isHost;
+        Team myTeam = bm.userTeam;
+        Turn currentTurn = lobby.GetLatestTurn();
+        dirty = true;
+        selectedPawnView = null;
+        queuedMove = null;
+        highlightedTiles = new();
+        // fill in network state stuff
+        team = myTeam;
+        myEvents = isHost ? currentTurn.host_events : currentTurn.guest_events;
+        myEventsHash = isHost ? currentTurn.host_events_hash : currentTurn.guest_events_hash;
+        myTurnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
+        otherEvents = isHost ? currentTurn.guest_events : currentTurn.host_events;
+        otherEventsHash = isHost ? currentTurn.guest_events_hash : currentTurn.host_events_hash;
+        otherTurnMove = isHost ? currentTurn.guest_turn : currentTurn.host_turn;
+        turn = currentTurn.turn;
+    }
+
+    public MovementClientSubState subState;
+    void SetSubState(MovementClientSubState newState)
+    {
+        subState = newState;
+    }
+    
+    
+    public MovementClientStateStatus GetMovementPhase()
+    {
+        MovementClientStateStatus movementPhase = MovementClientStateStatus.AWAITING_SELECTION;
+        if (myTurnMove.initialized)
         {
-            pawnId = selectedPawnView.pawnId,
-            pos = pos,
-        };
+            // already submitted
+            if (otherTurnMove.initialized)
+            {
+                // both players submitted moves
+                if (!string.IsNullOrEmpty(myEventsHash))
+                {
+                    if (!string.IsNullOrEmpty(otherEventsHash))
+                    {
+                        movementPhase = MovementClientStateStatus.RESOLVING;
+                        throw new Exception("This state shouldn't ever happen");
+                    }
+                    else
+                    {
+                        movementPhase = MovementClientStateStatus.AWAITING_OPPONENT_HASH;
+                    }
+                }
+                else
+                {
+                    movementPhase = MovementClientStateStatus.AWAITING_USER_HASH;
+                }
+            }
+            else
+            {
+                // waiting for other player
+                movementPhase = MovementClientStateStatus.AWAITING_OPPONENT_MOVE;
+            }
+        }
+        else
+        {
+            if (selectedPawnView)
+            {
+                // pawn is selected so highlighted should also be filled
+                movementPhase = MovementClientStateStatus.AWAITING_POSITION;
+            }
+            else
+            {
+                movementPhase = MovementClientStateStatus.AWAITING_SELECTION;
+            }
+        }
+        Debug.Log("Returned " + movementPhase);
+        return movementPhase;
+    }
+
+    public void TrySelectPawn(TestPawnView pawnView, TestBoardManager bm)
+    {
         selectedPawnView = null;
         highlightedTiles = new();
-        dirty = true;
+        queuedMove = null;
+        Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_SELECTION);
+        Contract.Pawn pawn = bm.GetCachedPawnStateUnchecked(pawnView.pawnId);
+        bool selectionIsValid = (Team)pawn.team == team;
+        if (selectionIsValid)
+        {
+            selectedPawnView = pawnView;
+            highlightedTiles = GetMovableTileViews(pawn, bm);
+            Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_POSITION);
+        }
+    }
+    
+    public void TryQueueMove(Vector2Int pos)
+    {
+        Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_POSITION);
+        bool isPosValid = highlightedTiles.Any(tile => tile.tile.pos == pos);
+        if (isPosValid)
+        {
+            queuedMove = new QueuedMove()
+            {
+                pawnId = selectedPawnView.pawnId,
+                pos = pos,
+            };
+            selectedPawnView = null;
+            highlightedTiles.Clear();
+            dirty = true;
+            Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_SELECTION);
+        }
+        else
+        {
+            queuedMove = null;
+            selectedPawnView = null;
+            highlightedTiles = new();
+            dirty = true;
+            Assert.IsTrue(GetMovementPhase() == MovementClientStateStatus.AWAITING_SELECTION);
+        }
     }
 
     public void ClearQueueMove()
@@ -586,7 +735,52 @@ public class MovementClientState
         highlightedTiles = new();
         dirty = true;
     }
+
+    public void SetAutoSubmit(bool inAutoSubmit)
+    {
+        MovementClientState.autoSubmit = inAutoSubmit;
+    }
     
+    HashSet<TestTileView> GetMovableTileViews(Contract.Pawn pawn, TestBoardManager bm)
+    {
+        // TODO: remove this jank
+        BoardDef boardDef = bm.boardDef;
+        HashSet<TestTileView> movableTileViews = new();
+        PawnDef def = Globals.FakeHashToPawnDef(pawn.pawn_def_hash);
+        if (!pawn.is_alive)
+        {
+            return movableTileViews;
+        }
+        if (def.movementRange == 0)
+        {
+            return movableTileViews;
+        }
+        Vector2Int pawnPos = pawn.pos.ToVector2Int();
+        Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, boardDef.isHex);
+        for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
+        {
+            Vector2Int currentPos = pawnPos;
+            int walkedTiles = 0;
+            while (walkedTiles < def.movementRange)
+            {
+                Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
+                currentPos += currentDirections[dirIndex];
+                TestTileView tileView = bm.GetTileViewAtPos(currentPos);
+                if (!tileView) break;
+                if (!tileView.tile.isPassable) break;
+                Contract.Pawn? maybePawnOnPos = bm.GetCachedPawnState(currentPos);
+                if (maybePawnOnPos.HasValue)
+                {
+                    if (maybePawnOnPos.Value.team == pawn.team) break;
+                    movableTileViews.Add(tileView);
+                    break;
+                }
+                movableTileViews.Add(tileView);
+                walkedTiles++;
+            }
+        }
+        return movableTileViews;
+    }
 }
 
 public class MovementTestPhase : ITestPhase
@@ -615,24 +809,10 @@ public class MovementTestPhase : ITestPhase
     void ResetClientState(Lobby lobby)
     {
         Debug.Log("ResetClientState");
-        Turn currentTurn = lobby.GetLatestTurn();
-        MovementClientState newClientState = new MovementClientState()
-        {
-            dirty = true,
-            selectedPawnView = null,
-            queuedMove = null,
-            highlightedTiles = new HashSet<TestTileView>(),
-            team = bm.userTeam,
-            myEvents = bm.isHost ? currentTurn.host_events : currentTurn.guest_events,
-            myEventsHash = bm.isHost ? currentTurn.host_events_hash : currentTurn.guest_events_hash,
-            myTurnMove = bm.isHost ? currentTurn.host_turn : currentTurn.guest_turn,
-            otherEvents = bm.isHost ? currentTurn.guest_events : currentTurn.host_events,
-            otherEventsHash = bm.isHost ? currentTurn.guest_events_hash : currentTurn.host_events_hash,
-            otherTurnMove = bm.isHost ? currentTurn.guest_turn : currentTurn.host_turn,
-            turn = currentTurn.turn,
-        };
+        MovementClientState newClientState = new MovementClientState(lobby, bm);
         clientState = newClientState;
     }
+
     void ClientStateChanged()
     {
         movementGui.Refresh(clientState);
@@ -643,6 +823,7 @@ public class MovementTestPhase : ITestPhase
     {
         movementGui.OnSubmitMoveButton += SubmitMove;
         movementGui.OnRefreshButton += RefreshState;
+        movementGui.OnAutoSubmitToggle += SetAutoSubmit;
     }
 
     public void ExitState()
@@ -658,29 +839,33 @@ public class MovementTestPhase : ITestPhase
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {
         if (bm.currentPhase != this) return;
-        if (clientState.myTurnMove.initialized)
+        MovementClientStateStatus status = clientState.GetMovementPhase();
+        switch (status)
         {
-            // if we already submitted a turn there's no clicking
-            return;
+            case MovementClientStateStatus.AWAITING_SELECTION:
+                clientState.TrySelectPawn(pawnView, bm);
+                ClientStateChanged();
+                break;
+            case MovementClientStateStatus.AWAITING_POSITION:
+                clientState.TryQueueMove(tileView.tile.pos);
+                ClientStateChanged();
+                break;
+            case MovementClientStateStatus.AWAITING_USER_HASH:
+                // do nothing
+                break;
+            case MovementClientStateStatus.AWAITING_OPPONENT_MOVE:
+                // do nothing
+                break;
+            case MovementClientStateStatus.AWAITING_OPPONENT_HASH:
+                // do nothing
+                break;
+            case MovementClientStateStatus.RESOLVING:
+                // do nothing
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-        if (pawnView && pawnView.isMyTeam)
-        {
-            clientState.ClearQueueMove();
-            Contract.Pawn pawn = bm.GetCachedPawnStateUnchecked(pawnView.pawnId);
-            clientState.SetSelectedPawnView(pawnView, GetMovableTileViews(pawn));
-        }
-        else
-        {
-            if (clientState.selectedPawnView && clientState.highlightedTiles.Contains(tileView))
-            {
-                clientState.QueueMove(tileView.tile.pos);
-            }
-            else
-            {
-                clientState.ClearQueueMove();
-            }
-        }
-        ClientStateChanged();
+        
     }
 
     public void OnNetworkGameStateChanged(Lobby lobby)
@@ -762,6 +947,11 @@ public class MovementTestPhase : ITestPhase
     void RefreshState()
     {
         _ = StellarManagerTest.UpdateState();
+    }
+
+    void SetAutoSubmit(bool autoSubmit)
+    {
+        clientState.SetAutoSubmit(autoSubmit);
     }
 }
 

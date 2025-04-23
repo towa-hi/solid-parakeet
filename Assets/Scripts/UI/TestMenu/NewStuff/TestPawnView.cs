@@ -56,7 +56,7 @@ public class TestPawnView : MonoBehaviour
                 Contract.Pawn currentPawn = lobby.GetPawnById(pawnId);
                 if (phaseChanged)
                 {
-                    Debug.Log("going to movement phase for the first time");
+                    //Debug.Log("going to movement phase for the first time");
                     SetPawn(currentPawn);
                 }
 

@@ -108,6 +108,7 @@ public class TestTileView : MonoBehaviour
                 StopPulse();
                 tileModel.renderEffect.SetEffect(EffectType.FILL, false);
                 SetTopEmission(Color.clear);
+                // we need to know what state the movementTestPhase is actually in
                 if (movementTestPhase.clientState.queuedMove != null)
                 {
                     bool isTarget = movementTestPhase.clientState.queuedMove.pos == tile.pos;

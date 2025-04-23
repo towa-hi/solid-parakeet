@@ -287,10 +287,16 @@ namespace Contract
         {
             return x == other.x && y == other.y;
         }
+        
+        public bool Equals(Vector2Int other)
+        {
+            return x == other.x && y == other.y;
+        }
 
         public override bool Equals(object obj)
         {
-            return obj is Pos other && Equals(other);
+            return obj is Pos other && Equals(other) || 
+                   obj is Vector2Int vector && Equals(vector);
         }
 
         public override int GetHashCode()
@@ -307,6 +313,8 @@ namespace Contract
         {
             return !left.Equals(right);
         }
+        
+        
     }
     
     public struct UserState: IScvMapCompatable

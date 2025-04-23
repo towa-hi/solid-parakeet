@@ -16,12 +16,15 @@ public class GuiTestMovement : GameElement
     public Button refreshButton;
     public Image redCheck;
     public Image blueCheck;
+    public Toggle autoSubmitToggle;
     
     public event Action OnMenuButton;
     public event Action OnExtraButton;
     public event Action OnSubmitMoveButton;
     public event Action OnGraveyardButton;
     public event Action OnRefreshButton;
+
+    public event Action<bool> OnAutoSubmitToggle;
 
     void Start()
     {
@@ -30,10 +33,13 @@ public class GuiTestMovement : GameElement
         submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
         graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
         refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
+        autoSubmitToggle.onValueChanged.AddListener((autoSubmit) =>  OnAutoSubmitToggle?.Invoke(autoSubmit));
+        autoSubmitToggle.SetIsOnWithoutNotify(MovementClientState.autoSubmit);
     }
-    
+
     public void Refresh(MovementClientState state)
     {
+        autoSubmitToggle.SetIsOnWithoutNotify(MovementClientState.autoSubmit);
         bool canSubmit = state.queuedMove != null && !state.myTurnMove.initialized;
         submitMoveButton.interactable = canSubmit;
         string status = "please designate a move and click submit";
