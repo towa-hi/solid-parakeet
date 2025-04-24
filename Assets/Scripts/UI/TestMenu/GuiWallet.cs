@@ -24,9 +24,21 @@ public class GuiWallet : TestGuiElement
     public AccountEntry accountEntry = null;
     void Start()
     {
-        backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
-        connectWalletButton.onClick.AddListener(HandleOnConnectWalletButton);
-        refreshButton.onClick.AddListener(HandleRefreshButton);
+        backButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnBackButton?.Invoke();
+        });
+        connectWalletButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            HandleOnConnectWalletButton();
+        });
+        refreshButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            HandleRefreshButton();
+        });
         StellarManagerTest.OnAssetsUpdated += OnAssetsUpdated;
         accountEntry = null;
     }

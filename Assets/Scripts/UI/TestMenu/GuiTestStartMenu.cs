@@ -41,17 +41,57 @@ public class GuiTestStartMenu : TestGuiElement
     void Start()
     {
         contractField.onValueChanged.AddListener(OnContractFieldChanged);
-        setContractButton.onClick.AddListener(OnSetContract);
+        setContractButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnSetContract();
+        });
         sneedField.onValueChanged.AddListener(OnSneedFieldChanged);
-        setSneedButton.onClick.AddListener(OnSetSneed);
-        fillGuestSneedButton.onClick.AddListener(OnFillGuestSneed);
-        fillHostSneedButton.onClick.AddListener(OnFillHostSneed);
-        joinLobbyButton.onClick.AddListener(() => OnJoinLobbyButton?.Invoke());
-        makeLobbyButton.onClick.AddListener(() => OnMakeLobbyButton?.Invoke());
-        cancelButton.onClick.AddListener(() => OnOptionsButton?.Invoke());
-        viewLobbyButton.onClick.AddListener(() => OnViewLobbyButton?.Invoke());
-        walletButton.onClick.AddListener(() => OnWalletButton?.Invoke());
-        assetsButton.onClick.AddListener(() => OnAssetButton?.Invoke());
+        setSneedButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnSetSneed();
+        });
+        fillGuestSneedButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnFillGuestSneed();
+        });
+        fillHostSneedButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnFillHostSneed();
+        });
+        joinLobbyButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnJoinLobbyButton?.Invoke();
+        });
+        makeLobbyButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnMakeLobbyButton?.Invoke();
+        });
+        cancelButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnOptionsButton?.Invoke();
+        });
+        viewLobbyButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnViewLobbyButton?.Invoke();
+        });
+        walletButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnWalletButton?.Invoke();
+        });
+        assetsButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnAssetButton?.Invoke();
+        });
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
         StellarManagerTest.OnAssetsUpdated += OnAssetsUpdated;
     }
@@ -148,13 +188,11 @@ public class GuiTestStartMenu : TestGuiElement
 
     void OnFillGuestSneed()
     {
-        AudioManager.instance.PlaySmallButtonClick();
         sneedField.text = StellarManagerTest.testGuestSneed;
     }
 
     void OnFillHostSneed()
     {
-        AudioManager.instance.PlaySmallButtonClick();
         sneedField.text = StellarManagerTest.testHostSneed;
     }
     
@@ -162,7 +200,6 @@ public class GuiTestStartMenu : TestGuiElement
     {
         string input = sneedField.text;
         sneedField.text = string.Empty;
-        AudioManager.instance.PlaySmallButtonClick();
         _ = StellarManagerTest.SetSneed(input);
     }
     

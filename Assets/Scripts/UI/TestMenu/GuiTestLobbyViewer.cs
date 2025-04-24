@@ -22,10 +22,26 @@ public class GuiTestLobbyViewer : TestGuiElement
     
     void Start()
     {
-        backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
-        deleteButton.onClick.AddListener(() => { OnDeleteButton?.Invoke(); });
-        refreshButton.onClick.AddListener(() => { OnRefreshButton?.Invoke(); });
-        startButton.onClick.AddListener(() => { OnStartButton?.Invoke(); });
+        backButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnBackButton?.Invoke();
+        });
+        deleteButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnDeleteButton?.Invoke();
+        });
+        refreshButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnRefreshButton?.Invoke();
+        });
+        startButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnStartButton?.Invoke();
+        });
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 

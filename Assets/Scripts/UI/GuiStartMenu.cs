@@ -21,6 +21,10 @@ public class GuiStartMenu : MenuElement
         base.ShowElement(enable);
         connectButton.interactable = enable;
         offlineButton.interactable = enable;
+        if (enable)
+        {
+            AudioManager.instance.PlayMusic(MusicTrack.START_MUSIC);
+        }
     }
     
     void HandleConnectButton()

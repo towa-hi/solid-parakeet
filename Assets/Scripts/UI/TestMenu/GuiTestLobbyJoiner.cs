@@ -20,8 +20,16 @@ public class GuiTestLobbyJoiner : TestGuiElement
 
     void Start()
     {
-        backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
-        joinButton.onClick.AddListener(() => { OnJoinButton?.Invoke(lobbyIdInputField.text); });
+        backButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnBackButton?.Invoke();
+        });
+        joinButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnJoinButton?.Invoke(lobbyIdInputField.text);
+        });
         lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdInputFieldChanged);
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }

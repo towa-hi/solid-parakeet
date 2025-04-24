@@ -29,6 +29,7 @@ public class GuiTestGame : TestGuiElement
         // TODO: make this not jank
         if (isEnabled)
         {
+            AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
             GameManager.instance.cameraManager.enableCameraMovement = true;
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
             bm = GameManager.instance.testBoardManager;

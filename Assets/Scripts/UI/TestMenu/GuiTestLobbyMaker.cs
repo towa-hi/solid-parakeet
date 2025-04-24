@@ -24,9 +24,21 @@ public class GuiTestLobbyMaker : TestGuiElement
 
     void Start()
     {
-        backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
-        makeLobbyButton.onClick.AddListener(() => { OnSubmitLobbyButton?.Invoke(GetLobbyParameters()); });
-        singlePlayerButton.onClick.AddListener(() => { OnSinglePlayerButton?.Invoke(GetLobbyParameters()); });
+        backButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnBackButton?.Invoke();
+        });
+        makeLobbyButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnSubmitLobbyButton?.Invoke(GetLobbyParameters());
+        });
+        singlePlayerButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnSinglePlayerButton?.Invoke(GetLobbyParameters());
+        });
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 

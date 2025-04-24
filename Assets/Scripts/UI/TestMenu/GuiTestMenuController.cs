@@ -71,6 +71,7 @@ public class GuiTestMenuController : MenuElement
         if (show)
         {
             GotoStartMenu();
+            AudioManager.instance.PlayMusic(MusicTrack.MAIN_MENU_MUSIC);
         }
     }
     
