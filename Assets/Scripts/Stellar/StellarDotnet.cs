@@ -361,6 +361,23 @@ public class StellarDotnet
         GetTransactionResult transactionAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         return transactionAsync;
     }
+
+    public async Task<LedgerEntry.dataUnion.Trustline> GetAssets(MuxedAccount.KeyTypeEd25519 account)
+    {
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
+        {
+            Keys = new [] {EncodedTrustlineKey(account)},
+        });
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            return null;
+        }
+        else
+        {
+            LedgerEntry.dataUnion.Trustline entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Trustline;
+            return entry;
+        }
+    }
     
     async Task<string> SendJsonRequest(string json)
     {
@@ -389,6 +406,32 @@ public class StellarDotnet
             account = new LedgerKey.accountStruct()
             {
                 accountID = account.XdrPublicKey,
+            },
+        });
+    }
+
+    public string EncodedTrustlineKey(MuxedAccount.KeyTypeEd25519 account)
+    {
+        string code = "SCRY";
+        string issuerAccountId = "GAAPZLAZJ5SL4IL63WHFWRUWPK2UV4SREUOWM2DZTTQR7FJPFQAHDSNG";
+        AccountID issuerAccount = MuxedAccount.FromAccountId(issuerAccountId).XdrPublicKey;
+        byte[] codeBytes = System.Text.Encoding.ASCII.GetBytes(code);
+        return LedgerKeyXdr.EncodeToBase64(new LedgerKey.Trustline
+        {
+            trustLine = new LedgerKey.trustLineStruct
+            {
+                accountID = account.XdrPublicKey,
+                asset = new TrustLineAsset.AssetTypeCreditAlphanum4
+                {
+                    alphaNum4 = new AlphaNum4
+                    {
+                        assetCode = new AssetCode4
+                        {
+                            InnerValue = codeBytes,
+                        },
+                        issuer = issuerAccount,
+                    },
+                },
             },
         });
     }

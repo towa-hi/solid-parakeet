@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Stellar;
 using TMPro;
 using UnityEngine;
@@ -10,7 +11,7 @@ public class GuiWallet : TestGuiElement
     public TextMeshProUGUI networkText;
     public TextMeshProUGUI balanceText;
     public TextMeshProUGUI assetsText;
-
+    public TextMeshProUGUI statusText;
     public Button backButton;
     public Button connectWalletButton;
     public Button refreshButton;
@@ -26,6 +27,25 @@ public class GuiWallet : TestGuiElement
         backButton.onClick.AddListener(() => { OnBackButton?.Invoke(); });
         connectWalletButton.onClick.AddListener(HandleOnConnectWalletButton);
         refreshButton.onClick.AddListener(HandleRefreshButton);
+        StellarManagerTest.OnAssetsUpdated += OnAssetsUpdated;
+        accountEntry = null;
+    }
+
+    void OnAssetsUpdated(TrustLineEntry entry)
+    {
+        if (!isEnabled) return;
+        if (entry == null)
+        {
+            string message = $"No SCRY could be found for account {WalletManager.address}";
+            assetsText.text = message;
+        }
+        else if (entry.asset is TrustLineAsset.AssetTypeCreditAlphanum4 asset)
+        {
+            long balance = entry.balance.InnerValue;
+            string assetCode = Encoding.ASCII.GetString(asset.alphaNum4.assetCode.InnerValue).TrimEnd('\0');
+            string message = $"{assetCode}: balance: {balance}";
+            assetsText.text = message;
+        }
     }
 
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -46,17 +66,41 @@ public class GuiWallet : TestGuiElement
         {
             balanceText.text = accountEntry.balance.InnerValue.ToString() + " XLM";
         }
-        // refreshButton.interactable = WalletManager.webGL;
+        refreshButton.interactable = WalletManager.webGL;
+        connectWalletButton.interactable = WalletManager.webGL;
+        if (accountEntry != null)
+        {
+            statusText.text = "Freighter wallet not connected. Click connect wallet to continue";
+        }
+        else
+        {
+            statusText.text = "Freighter wallet connected!";
+        }
     }
     
     async void HandleOnConnectWalletButton()
     {
-        accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
-        Refresh();
+        bool success = await WalletManager.ConnectWallet();
+        if (success)
+        {
+            accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
+            _ = await StellarManagerTest.GetAssets(WalletManager.address);
+            Refresh();
+        }
     }
 
-    void HandleRefreshButton()
+    async void HandleRefreshButton()
     {
+        bool success = await WalletManager.ConnectWallet();
+        if (success)
+        {
+            accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
+            _ = await StellarManagerTest.GetAssets(WalletManager.address);
+        }
+        else
+        {
+            accountEntry = null;
+        }
         Refresh();
     }
 

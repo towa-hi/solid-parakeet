@@ -1,5 +1,7 @@
 using System;
+using System.Text;
 using Contract;
+using Stellar;
 using Stellar.Utilities;
 using TMPro;
 using UnityEngine;
@@ -18,6 +20,9 @@ public class GuiTestStartMenu : TestGuiElement
     public TextMeshProUGUI currentSneedText;
     public TextMeshProUGUI currentAddressText;
     public TextMeshProUGUI currentLobbyText;
+    public TextMeshProUGUI assetsText;
+    public Button assetsButton;
+    
     public Button joinLobbyButton;
     public Button makeLobbyButton;
     public Button viewLobbyButton;
@@ -31,6 +36,7 @@ public class GuiTestStartMenu : TestGuiElement
     public event Action OnViewLobbyButton;
     public event Action OnWalletButton;
 
+    public event Action OnAssetButton;
     
     void Start()
     {
@@ -45,7 +51,9 @@ public class GuiTestStartMenu : TestGuiElement
         cancelButton.onClick.AddListener(() => OnCancelButton?.Invoke());
         viewLobbyButton.onClick.AddListener(() => OnViewLobbyButton?.Invoke());
         walletButton.onClick.AddListener(() => OnWalletButton?.Invoke());
+        assetsButton.onClick.AddListener(() => OnAssetButton?.Invoke());
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        StellarManagerTest.OnAssetsUpdated += OnAssetsUpdated;
     }
     
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -62,6 +70,24 @@ public class GuiTestStartMenu : TestGuiElement
     void OnNetworkStateUpdated()
     {
         if (!isEnabled) return;
+        Refresh();
+    }
+
+    void OnAssetsUpdated(TrustLineEntry entry)
+    {
+        if (!isEnabled) return;
+        if (entry == null)
+        {
+            string message = $"No SCRY could be found for account {StellarManagerTest.GetUserAddress()}";
+            assetsText.text = message;
+        }
+        else if (entry.asset is TrustLineAsset.AssetTypeCreditAlphanum4 asset)
+        {
+            long balance = entry.balance.InnerValue;
+            string assetCode = Encoding.ASCII.GetString(asset.alphaNum4.assetCode.InnerValue).TrimEnd('\0');
+            string message = $"{assetCode}: balance: {balance}";
+            assetsText.text = message;
+        }
         Refresh();
     }
     

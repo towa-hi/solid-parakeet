@@ -6,6 +6,7 @@ using Stellar.Utilities;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.UI;
 
 public class GuiTestMenuController : MenuElement
 {
@@ -18,6 +19,7 @@ public class GuiTestMenuController : MenuElement
     public GameObject blockerObject;
     public TextMeshProUGUI blockerText;
     static GameObject blocker;
+    static Image blockerImage;
     
     // state
     public TestGuiElement currentElement;
@@ -26,6 +28,7 @@ public class GuiTestMenuController : MenuElement
     void Start()
     {
         blocker = blockerObject;
+        blockerImage = blockerObject.GetComponent<Image>();
         StellarManagerTest.Initialize();
 
         StellarManagerTest.OnTaskStarted += EnableBlocker;
@@ -36,6 +39,7 @@ public class GuiTestMenuController : MenuElement
         startMenuElement.OnCancelButton += CloseMenu;
         startMenuElement.OnViewLobbyButton += ViewLobby;
         startMenuElement.OnWalletButton += GotoWallet;
+        startMenuElement.OnAssetButton += CheckAssets;
         
         lobbyMakerElement.OnBackButton += GotoStartMenu;
         lobbyMakerElement.OnSinglePlayerButton += StartSingleplayer;
@@ -113,6 +117,11 @@ public class GuiTestMenuController : MenuElement
     {
         ShowMenuElement(walletElement, false);
     }
+
+    void CheckAssets()
+    {
+        _ = StellarManagerTest.GetAssets(StellarManagerTest.GetUserAddress());
+    }
     
     async void ViewLobby()
     {
@@ -175,6 +184,25 @@ public class GuiTestMenuController : MenuElement
     {
         blocker.SetActive(true);
         blockerText.text = task.taskMessage;
+        string address = StellarManagerTest.GetUserAddress();
+        if (address == StellarManagerTest.testHost)
+        {
+            Color color = Color.red;
+            color.a = 0.5f;
+            blockerImage.color = color;
+        }
+        else if (address == StellarManagerTest.testGuest)
+        {
+            Color color = Color.blue;
+            color.a = 0.5f;
+            blockerImage.color = color;
+        }
+        else
+        {
+            Color color = Color.white;
+            color.a = 0.5f;
+            blockerImage.color = color;
+        }
     }
     
     void DisableBlocker(TaskInfo task)
@@ -199,6 +227,7 @@ public class GameElement: MonoBehaviour
 {
     bool isEnabled;
     TestBoardManager bm;
+    
     public void SetIsEnabled(bool inIsEnabled)
     {
         isEnabled = inIsEnabled;

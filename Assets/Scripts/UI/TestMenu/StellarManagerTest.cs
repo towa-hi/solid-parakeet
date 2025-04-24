@@ -10,17 +10,17 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using Random = UnityEngine.Random;
 
-public class StellarManagerTest
+public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
     public static string testContract = "CCDHAINND3MCHQLZZP7FBV2I2TZWTRKJJVJSCGLY4KVHZE3HOH7RQP5E";
-    public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
+    public static string testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
     public static string testGuestSneed = "SBHR4URT5RHIK4U4N45ZNUNEKLYEJYVFQSLSTR4A4RVNFHLIERGVZSIE";
     public static event Action OnNetworkStateUpdated;
-    
+    public static event Action<TrustLineEntry> OnAssetsUpdated;
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
     public static TaskInfo currentTask;
@@ -277,7 +277,16 @@ public class StellarManagerTest
         return result;
     }
 
-    
+    public static async Task<TrustLineEntry> GetAssets(string userId)
+    {
+        TaskInfo task = SetCurrentTask("ReqAccountEntry");
+        MuxedAccount.KeyTypeEd25519 userAccount = MuxedAccount.FromAccountId(userId);
+
+        LedgerEntry.dataUnion.Trustline result = await stellar.GetAssets(userAccount);
+        EndTask(task);
+        OnAssetsUpdated?.Invoke(result.trustLine);
+        return result.trustLine;
+    }
 }
 
 public class TaskInfo
