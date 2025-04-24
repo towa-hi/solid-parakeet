@@ -45,6 +45,12 @@ public class GuiTestLobbyJoiner : TestGuiElement
     {
         contractAddressText.text = StellarManagerTest.GetContractAddress();
         joinButton.interactable = Guid.TryParse(lobbyIdInputField.text, out _);
+        string status = "Enter a valid lobby ID";
+        if (joinButton.interactable)
+        {
+            status = "click Join Lobby";
+        }
+        statusText.text = status;
     }
 
     void OnLobbyIdInputFieldChanged(string input)

@@ -78,18 +78,22 @@ pub enum ResolveEventType {
     Death =3,
 }
 
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MailType {
+    Taunt = 0,
+    Message = 1,
+}
 // endregion
 // region level 0 structs
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LobbyRecord {
-    pub end_ledger: u32,
-    pub guest_address: UserAddress,
-    pub host_address: UserAddress,
-    pub index: String,
-    pub lobby_id: LobbyGuid,
-    pub start_ledger: u32,
-    pub winner: UserAddress,
+pub struct Mail {
+    pub mail_type: MailType,
+    pub message: String,
+    pub sender: UserAddress,
+    pub sent_ledger: u32,
 }
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
     pub current_lobby: LobbyGuid,
@@ -127,6 +131,13 @@ pub struct MaxPawns {
 
 // endregion
 // region level 1 structs
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Mailbox {
+    pub lobby: LobbyGuid,
+    pub mail: Vec<Mail>,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResolveEvent {
     pub defender_pawn_id: PawnGuid,
@@ -270,6 +281,11 @@ pub struct MoveResolveReq {
     pub turn: i32,
     pub user_address: UserAddress,
 }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SendMailReq {
+    pub lobby: LobbyGuid,
+    pub mail: Mail,
+}
 
 // endregion
 // region keys
@@ -280,7 +296,9 @@ pub enum DataKey {
     User(UserAddress),
     Record(String),
     Lobby(LobbyGuid), // lobby specific data
+    Mail(LobbyGuid),
 }
+
 // endregion
 // region contract
 #[contract]
@@ -299,6 +317,28 @@ impl Contract {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         env.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    pub fn send_mail(env: Env, address: Address, req: SendMailReq) -> Result<bool, Error> {
+        address.require_auth();
+        if address.to_string() != req.mail.sender {
+            return Err(Error::InvalidArgs)
+        }
+        let persistent = &env.storage().persistent();
+        let key = DataKey::Mail(req.lobby.clone());
+        let mut mailbox : Mailbox = persistent.get(&key).unwrap_or_else(||
+            Mailbox {
+                lobby: req.lobby.clone(),
+                mail: Vec::new(&env),
+            }
+        );
+        mailbox.mail.push_back(req.mail);
+        if mailbox.mail.len() > 5
+        {
+            mailbox.mail.pop_front_unchecked();
+        }
+        persistent.set(&key, &mailbox);
+        Ok(true)
     }
 
     pub fn make_lobby(env: Env, address: Address, req: MakeLobbyReq) -> Result<LobbyGuid, Error> {

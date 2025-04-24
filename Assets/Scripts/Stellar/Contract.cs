@@ -231,7 +231,28 @@ namespace Contract
     }
     
     // ReSharper disable InconsistentNaming
-    
+
+    public struct Mail : IScvMapCompatable
+    {
+        public uint mail_type;
+        public string message;
+        public string sender;
+        public uint sent_ledger;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("mail_type", mail_type),
+                    SCUtility.FieldToSCMapEntry("message", message),
+                    SCUtility.FieldToSCMapEntry("sender", sender),
+                    SCUtility.FieldToSCMapEntry("sent_ledger", sent_ledger),
+                }),
+            };
+        }
+    }
     
     public struct User: IScvMapCompatable
     {
@@ -397,6 +418,25 @@ namespace Contract
                 {
                     SCUtility.FieldToSCMapEntry("max", max),
                     SCUtility.FieldToSCMapEntry("rank", rank),
+                }),
+            };
+            return scvMap;
+        }
+    }
+
+    public struct Mailbox : IScvMapCompatable
+    {
+        public string lobby;
+        public Mail[] mail;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            SCVal.ScvMap scvMap = new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby", lobby),
+                    SCUtility.FieldToSCMapEntry("mail", mail),
                 }),
             };
             return scvMap;
@@ -849,61 +889,6 @@ namespace Contract
         }
     }
     
-    public struct SendInviteReq : IScvMapCompatable
-    {
-        public string guest_address;
-        public string host_address;
-        public int ledgers_until_expiration;
-        public LobbyParameters parameters;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
-                    SCUtility.FieldToSCMapEntry("host_address", host_address),
-                    SCUtility.FieldToSCMapEntry("ledgers_until_expiration", ledgers_until_expiration),
-                    SCUtility.FieldToSCMapEntry("parameters", parameters),
-                }),
-            };
-        }
-    }
-    
-    public struct AcceptInviteReq : IScvMapCompatable
-    {
-        public string host_address;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("host_address", host_address),
-                }),
-            };
-        }
-    }
-    
-    public struct LeaveLobbyReq : IScvMapCompatable
-    {
-        public string guest_address;
-        public string host_address;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
-                    SCUtility.FieldToSCMapEntry("host_address", host_address),
-                }),
-            };
-        }
-    }
     
     public struct SetupCommitReq : IScvMapCompatable
     {
@@ -990,6 +975,24 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("lobby", lobby),
                     SCUtility.FieldToSCMapEntry("turn", turn),
                     SCUtility.FieldToSCMapEntry("user_address", user_address),
+                }),
+            };
+        }
+    }
+
+    public struct SendMailReq : IScvMapCompatable
+    {
+        public string lobby;
+        public Mail mail;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby", lobby),
+                    SCUtility.FieldToSCMapEntry("mail", mail),
                 }),
             };
         }

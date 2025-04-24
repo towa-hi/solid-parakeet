@@ -14,7 +14,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CCDHAINND3MCHQLZZP7FBV2I2TZWTRKJJVJSCGLY4KVHZE3HOH7RQP5E";
+    public static string testContract = "CDGFMMBQDOYKZ7Q7G2L72LFZ3VWWEDC73XY2ZE5KICTFD6ZCHFDDV5E2";
     public static string testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -25,11 +25,14 @@ public static class StellarManagerTest
     public static event Action<TaskInfo> OnTaskEnded;
     public static TaskInfo currentTask;
     
-    public static User? currentUser = null;
-    public static Lobby? currentLobby = null;
+    public static User? currentUser;
+    public static Lobby? currentLobby;
     
     public static void Initialize()
     {
+        currentTask = null;
+        currentUser = null;
+        currentLobby = null;
         stellar = new StellarDotnet(testHostSneed, testContract);
         Debug.Log("Initialized sneed and contract address");
         Debug.Log("sneed" + stellar.sneed);
@@ -248,6 +251,7 @@ public static class StellarManagerTest
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
+    
     public static async Task<int> JoinLobbyRequest(string lobbyId)
     {
         JoinLobbyReq req = new()
@@ -259,6 +263,26 @@ public static class StellarManagerTest
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("join_lobby", req);
         EndTask(task);
         return ProcessTransactionResult(result, simResult);
+    }
+
+    public static async Task<int> SendMail(Mail mail)
+    {
+        Assert.IsTrue(currentLobby.HasValue);
+        SendMailReq req = new()
+        {
+            lobby = currentLobby.Value.index,
+            mail = mail,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("send_mail", req);
+        EndTask(task);
+        return ProcessTransactionResult(result, simResult);
+    }
+
+    public static async Task<Mailbox?> GetMail(string lobbyId)
+    {
+        Mailbox? result = await stellar.ReqMailData(lobbyId);
+        return result;
     }
     
     public static async Task<Lobby?> GetLobby(string key)

@@ -182,6 +182,23 @@ public class StellarDotnet
         Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
         return lobby;
     }
+
+    public async Task<Mailbox?> ReqMailData(string lobbyId)
+    {
+        Debug.Log("ReqMailData on " + lobbyId + " contract " + contractAddress);
+        LedgerKey ledgerKey = MakeLedgerKey("Mail", lobbyId, ContractDataDurability.PERSISTENT);
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
+        {
+            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
+        });
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            return null;
+        }
+        LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+        Mailbox mailbox = SCUtility.SCValToNative<Mailbox>(data.contractData.val);
+        return mailbox;
+    }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
     {

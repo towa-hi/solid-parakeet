@@ -467,6 +467,8 @@ MonoBehaviour:
   hiddenPosition: {x: 0, y: 0}
   activePosition: {x: 0, y: 0}
   isShow: 0
+  cameraAnchor: {fileID: 0}
+  cameraRotationEnabled: 0
   connectButton: {fileID: 689282109592639809}
   offlineButton: {fileID: 7676312137178774914}
 --- !u!1 &8797764793942910203
