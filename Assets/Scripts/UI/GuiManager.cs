@@ -124,6 +124,7 @@ public class GuiManager : MonoBehaviour
     void OnConnectButton()
     {
         Debug.Log("OnConnectButton");
+        GameManager.instance.Lightning();
         ShowMenu(testMenuController);
     }
     

@@ -36,7 +36,7 @@ public class GuiTestMenuController : MenuElement
         
         startMenuElement.OnJoinLobbyButton += GotoJoinLobby;
         startMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
-        startMenuElement.OnCancelButton += CloseMenu;
+        startMenuElement.OnOptionsButton += OptionsModal;
         startMenuElement.OnViewLobbyButton += ViewLobby;
         startMenuElement.OnWalletButton += GotoWallet;
         startMenuElement.OnAssetButton += CheckAssets;
@@ -98,6 +98,11 @@ public class GuiTestMenuController : MenuElement
         }
     }
 
+    void OptionsModal()
+    {
+        
+    }
+    
     async void GotoStartMenu()
     {
         await StellarManagerTest.UpdateState();

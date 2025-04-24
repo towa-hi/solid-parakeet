@@ -32,7 +32,7 @@ public class GuiTestStartMenu : TestGuiElement
 
     public event Action OnJoinLobbyButton;
     public event Action OnMakeLobbyButton;
-    public event Action OnCancelButton;
+    public event Action OnOptionsButton;
     public event Action OnViewLobbyButton;
     public event Action OnWalletButton;
 
@@ -48,7 +48,7 @@ public class GuiTestStartMenu : TestGuiElement
         fillHostSneedButton.onClick.AddListener(OnFillHostSneed);
         joinLobbyButton.onClick.AddListener(() => OnJoinLobbyButton?.Invoke());
         makeLobbyButton.onClick.AddListener(() => OnMakeLobbyButton?.Invoke());
-        cancelButton.onClick.AddListener(() => OnCancelButton?.Invoke());
+        cancelButton.onClick.AddListener(() => OnOptionsButton?.Invoke());
         viewLobbyButton.onClick.AddListener(() => OnViewLobbyButton?.Invoke());
         walletButton.onClick.AddListener(() => OnWalletButton?.Invoke());
         assetsButton.onClick.AddListener(() => OnAssetButton?.Invoke());
