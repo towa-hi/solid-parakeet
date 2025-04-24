@@ -148,11 +148,13 @@ public class GuiTestStartMenu : TestGuiElement
 
     void OnFillGuestSneed()
     {
+        AudioManager.instance.PlaySmallButtonClick();
         sneedField.text = StellarManagerTest.testGuestSneed;
     }
 
     void OnFillHostSneed()
     {
+        AudioManager.instance.PlaySmallButtonClick();
         sneedField.text = StellarManagerTest.testHostSneed;
     }
     
@@ -160,6 +162,7 @@ public class GuiTestStartMenu : TestGuiElement
     {
         string input = sneedField.text;
         sneedField.text = string.Empty;
+        AudioManager.instance.PlaySmallButtonClick();
         _ = StellarManagerTest.SetSneed(input);
     }
     

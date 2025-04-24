@@ -2,6 +2,7 @@ using System;
 using System.Text.RegularExpressions;
 using PrimeTween;
 using UnityEngine;
+using UnityEngine.Animations;
 
 public class CameraManager : MonoBehaviour
 {
@@ -15,6 +16,7 @@ public class CameraManager : MonoBehaviour
     public CameraAnchor galleryAnchor;
     public Camera mainCamera;
     public float baseTransitionDuration = 1.5f;
+    public ParentConstraint parentConstraint;
     
     [SerializeField] TweenSettings<Vector3> moveSettings;
     [SerializeField] TweenSettings<Vector3> rotationSettings;
@@ -59,6 +61,7 @@ public class CameraManager : MonoBehaviour
 
     Sequence currentSequence;
     CameraAnchor currentTarget;
+    public bool enableCameraMovement;
     
     public void MoveCameraTo(CameraAnchor target, bool inRotateOnMouse)
     {
@@ -107,6 +110,11 @@ public class CameraManager : MonoBehaviour
         if (currentTarget != null && currentTarget == boardAnchor)
         {
             GameManager.instance.boardManager.OnGameStartTransitionFinished();
+            if (enableCameraMovement)
+            {
+                parentConstraint.constraintActive = true;
+                SetRotateOnMouse(true);
+            }
         }
     }
 

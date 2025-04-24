@@ -176,12 +176,20 @@ public class TestBoardManager : MonoBehaviour
 
     public TestTileView GetTileViewAtPos(Vector2Int pos)
     {
+        if (pos == Globals.Purgatory)
+        {
+            return null;
+        }
         TestTileView tileView = tileViews.GetValueOrDefault(pos);
         return tileView;
     }
 
     public TestPawnView GetPawnViewAtPos(Vector2Int pos)
     {
+        if (pos == Globals.Purgatory)
+        {
+            return null;
+        }
         return pawnViews.FirstOrDefault(pv => pv.displayedPos == pos);
     }
     

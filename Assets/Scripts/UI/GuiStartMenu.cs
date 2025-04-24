@@ -25,13 +25,13 @@ public class GuiStartMenu : MenuElement
     
     void HandleConnectButton()
     {
-        GameManager.instance.audioManager.PlayButtonClick();
+        AudioManager.instance.PlayButtonClick();
         OnConnectButton?.Invoke();
     }
 
     void HandleOfflineButton()
     {
-        GameManager.instance.audioManager.PlayButtonClick();
+        AudioManager.instance.PlayButtonClick();
         OnOfflineButton?.Invoke();
     }
 }
