@@ -12,6 +12,7 @@ public class BoardDef : ScriptableObject
     public Tile[] tiles;
     public bool isHex;
     public SMaxPawnsPerRank[] maxPawns;
+    public Vector3 center;
     
     public Tile GetTileByPos(Vector2Int pos)
     {

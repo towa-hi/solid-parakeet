@@ -32,6 +32,8 @@ public class TestBoardManager : MonoBehaviour
     public Lobby cachedLobby;
     
     public ITestPhase currentPhase;
+    public Transform cameraBounds;
+    
     
     //public event Action<Lobby> OnPhaseChanged;
     public event Action<Lobby, ITestPhase> OnClientGameStateChanged;
@@ -136,6 +138,7 @@ public class TestBoardManager : MonoBehaviour
         {
             userTeam = (Team)lobby.guest_state.team;
         }
+        cameraBounds.position = transform.position + boardDef.center + new Vector3(0, 7, -6.5f);
         // Clear existing tileviews and replace
         foreach (TestTileView tile in tileViews.Values)
         {

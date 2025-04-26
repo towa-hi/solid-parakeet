@@ -176,7 +176,7 @@ public class TestTileView : MonoBehaviour
             switch (tile.setupTeam)
             {
                 case Team.NONE:
-                    SetTopEmission(baseColor);
+                    SetTopEmission(Color.clear);
                     break;
                 case Team.RED:
                     SetTopEmission(redTeamColor);

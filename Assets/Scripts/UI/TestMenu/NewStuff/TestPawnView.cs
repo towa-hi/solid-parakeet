@@ -72,16 +72,8 @@ public class TestPawnView : MonoBehaviour
     void Revealed(Contract.Pawn p)
     {
         bool changed = false;
-        if (!p.is_revealed && !isMyTeam)
-        {
-            PawnDef def = Globals.FakeHashToPawnDef("Unknown");
-            if (animator.runtimeAnimatorController != def.redAnimatorOverrideController)
-            {
-                animator.runtimeAnimatorController = def.redAnimatorOverrideController;
-                changed = true;
-            }
-        }
-        else
+        
+        if (isMyTeam || p.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1)
         {
             PawnDef def = Globals.FakeHashToPawnDef(p.pawn_def_hash);
             switch (team)
@@ -102,6 +94,15 @@ public class TestPawnView : MonoBehaviour
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
+            }
+        }
+        else
+        {
+            PawnDef def = Globals.FakeHashToPawnDef("Unknown");
+            if (animator.runtimeAnimatorController != def.redAnimatorOverrideController)
+            {
+                animator.runtimeAnimatorController = def.redAnimatorOverrideController;
+                changed = true;
             }
         }
         if (changed)
