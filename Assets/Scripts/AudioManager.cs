@@ -22,6 +22,7 @@ public class AudioManager : MonoBehaviour
     public AudioClip mainMenuMusicClip;
     public AudioClip startMusicClip;
     public AudioClip battleMusicClip;
+    public float musicVolume;
     
     void Awake()
     {
@@ -60,13 +61,13 @@ public class AudioManager : MonoBehaviour
         while (time < duration)
         {
             float t = time / duration;
-            activeSource.volume = Mathf.Lerp(1f, 0f, t);
-            inactiveSource.volume = Mathf.Lerp(0f, 1f, t);
+            activeSource.volume = Mathf.Lerp(musicVolume, 0f, t);
+            inactiveSource.volume = Mathf.Lerp(0f, musicVolume, t);
             time += Time.deltaTime;
             yield return null;
         }
         activeSource.Stop();
-        activeSource.volume = 1f;
+        activeSource.volume = musicVolume;
         (activeSource, inactiveSource) = (inactiveSource, activeSource);
     }
     

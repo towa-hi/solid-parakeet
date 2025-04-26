@@ -20,3 +20,5 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: 563a053c6707f494d83c6c5a077f9a8c, type: 3}
   redSprite: {fileID: 21300000, guid: 0ea318c90fa364f499f7fb423eeb780e, type: 3}
   blueSprite: {fileID: 21300000, guid: 2b59044d941467643b8347b059b5e134, type: 3}
+  redAnimatorOverrideController: {fileID: 0}
+  blueAnimatorOverrideController: {fileID: 22100000, guid: 029d64da7483e0a48a866f47718ce9a3, type: 2}

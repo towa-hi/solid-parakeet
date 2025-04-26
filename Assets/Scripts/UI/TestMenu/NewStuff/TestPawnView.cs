@@ -27,6 +27,13 @@ public class TestPawnView : MonoBehaviour
     
     uint oldPhase = 999;
     
+    int idleAnimationIndex;
+
+    void Start()
+    {
+        idleAnimationIndex = Animator.StringToHash("Idle");
+    }
+    
     public void Initialize(Contract.Pawn p, TestBoardManager inBoardManager)
     {
         oldPhase = 999;
@@ -45,31 +52,35 @@ public class TestPawnView : MonoBehaviour
         
         // Optionally force an immediate update so you don't see a 1‑frame glitch:
         //animator.Update(0f);
-        SetIdle();
     }
 
-    int idleAnimation;
     
     void SetIdle()
     {
         if (string.IsNullOrEmpty(pawnDefHash))
         {
-            switch (team)
-            {
-                case Team.RED:
-                    idleAnimation = Animator.StringToHash("99a Idle");
-                    break;
-                case Team.BLUE:
-                    idleAnimation = Animator.StringToHash("99b Idle");
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
             
         }
         else
         {
             PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
+            switch (team)
+            {
+                case Team.RED:
+                    if (def.redAnimatorOverrideController)
+                    {
+                        animator.runtimeAnimatorController = def.redAnimatorOverrideController;
+                    }
+                    break;
+                case Team.BLUE:
+                    if (def.blueAnimatorOverrideController)
+                    {
+                        animator.runtimeAnimatorController = def.blueAnimatorOverrideController;
+                    }
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
             
         }
         
@@ -120,6 +131,7 @@ public class TestPawnView : MonoBehaviour
         setupPos = commitment.starting_pos.ToVector2Int();
         badge.InitializeSetup(commitment, team, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
         pawnDefHash = commitment.pawn_def_hash;
+        SetIdle();
         SetViewPos(setupPos);
     }
 
@@ -133,6 +145,7 @@ public class TestPawnView : MonoBehaviour
             PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
             badge.symbolRenderer.sprite = def.icon;
         }
+        SetIdle();
         gameObject.name = $"Pawn {p.team} {p.pawn_id}";
         SetViewPos(p.pos.ToVector2Int());
     }

@@ -20,10 +20,8 @@ public class PawnDef : ScriptableObject
     public Sprite redSprite;
     public Sprite blueSprite;
 
-    public List<Sprite> sprites;
-
-    public AnimationClip idle;
-    
+    public AnimatorOverrideController redAnimatorOverrideController;
+    public AnimatorOverrideController blueAnimatorOverrideController;
     // sounds
     
     public Rank GetRank()

@@ -9790,6 +9790,7 @@ MonoBehaviour:
   mainMenuMusicClip: {fileID: 8300000, guid: fd479f7323e6bd147af4117a014cf245, type: 3}
   startMusicClip: {fileID: 8300000, guid: 3436e57d77ce93d4bae3838d46ebc083, type: 3}
   battleMusicClip: {fileID: 8300000, guid: f85a814b763a4e24d99e06a28776fbfd, type: 3}
+  musicVolume: 0.1
 --- !u!114 &1527594350
 MonoBehaviour:
   m_ObjectHideFlags: 0
