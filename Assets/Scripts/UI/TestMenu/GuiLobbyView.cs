@@ -22,6 +22,46 @@ public class GuiLobbyView : MonoBehaviour
     HashSet<GuiMaxPawnListEntry> entries = new HashSet<GuiMaxPawnListEntry>();
     public GameObject maxPawnEntryPrefab;
 
+    void Start()
+    {
+        copyContractAddressButton.onClick.AddListener(() => CopyContractAddress());
+        copyLobbyIdButton.onClick.AddListener(() => CopyLobbyId());
+        copyHostAddressButton.onClick.AddListener(() => CopyHostAddress());
+        copyGuestAddressButton.onClick.AddListener(() => CopyGuestAddress());
+    }
+
+    void CopyLobbyId()
+    {
+        if (!string.IsNullOrEmpty(lobbyIdText.text))
+        {
+            GUIUtility.systemCopyBuffer = lobbyIdText.text;
+        }
+    }
+
+    void CopyContractAddress()
+    {
+        if (!string.IsNullOrEmpty(contractAddressText.text))
+        {
+            GUIUtility.systemCopyBuffer = contractAddressText.text;
+        }
+    }
+
+    void CopyHostAddress()
+    {
+        if (!string.IsNullOrEmpty(hostAddressText.text))
+        {
+            GUIUtility.systemCopyBuffer = hostAddressText.text;
+        }
+    }
+
+    void CopyGuestAddress()
+    {
+        if (!string.IsNullOrEmpty(guestAddressText.text))
+        {
+            GUIUtility.systemCopyBuffer = guestAddressText.text;
+        }
+    }
+    
     public void Refresh(Lobby? lob)
     {
         foreach (GuiMaxPawnListEntry entry in entries)

@@ -244,7 +244,7 @@ public static class StellarManagerTest
         currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
         EndTask(getLobbyTask);
         Assert.IsTrue(currentLobby.HasValue);
-        MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value);
+        MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value, currentUser.Value.index);
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("resolve_move", req);
         EndTask(task);

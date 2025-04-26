@@ -38,14 +38,12 @@ public class GuiTestMovement : GameElement
     public override void Initialize(TestBoardManager boardManager, Lobby lobby)
     {
         base.Initialize(boardManager, lobby);
-        boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
+        //boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
         autoSubmitToggle.SetIsOnWithoutNotify(MovementClientState.autoSubmit);
     }
 
-    void OnClientGameStateChanged(Lobby lobby, ITestPhase phase)
+    public void Refresh(MovementClientState state)
     {
-        if (phase is not MovementTestPhase movementPhase) return;
-        MovementClientState state = movementPhase.clientState;
         autoSubmitToggle.SetIsOnWithoutNotify(MovementClientState.autoSubmit);
         switch (state.team)
         {

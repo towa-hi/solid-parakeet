@@ -62,6 +62,7 @@ public class Chatbox : MonoBehaviour
     {
         if (!updating) return;
         if (checkingMail) return;
+        if (collapsed) return;
         if (StellarManagerTest.currentTask != null) return;
         time += Time.deltaTime;
         if (time > 5f)

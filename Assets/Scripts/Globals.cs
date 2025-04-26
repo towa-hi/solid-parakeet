@@ -76,7 +76,7 @@ public static class Globals
         throw new KeyNotFoundException($"Could not find pawnDef {rank}");
     }
 
-    public static MoveResolveReq ResolveTurn(Lobby lobby)
+    public static MoveResolveReq ResolveTurn(Lobby lobby, string address)
     {
         // Get the latest turn
         Turn turn = lobby.GetLatestTurn();
@@ -177,7 +177,7 @@ public static class Globals
             events_hash = HashEvents(events), // TODO: Implement this
             lobby = lobby.index,
             turn = turn.turn,
-            user_address = StellarManagerTest.currentUser.Value.index, // TODO: Need to determine which user is resolving
+            user_address = address,
         };
     }
 

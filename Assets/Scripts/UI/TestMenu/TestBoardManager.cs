@@ -56,7 +56,6 @@ public class TestBoardManager : MonoBehaviour
             Initialize(FakeServer.ins.fakeHost, FakeServer.ins.fakeLobby);
             initialized = true;
             firstTime = true;
-            cachedLobby = FakeServer.ins.fakeLobby;
             OnNetworkStateUpdated(); //only invoke this directly once on start
         }
         else
@@ -67,14 +66,13 @@ public class TestBoardManager : MonoBehaviour
             Initialize(StellarManagerTest.currentUser.Value, lobby);
             initialized = true;
             firstTime = true;
-            cachedLobby = lobby;
             OnNetworkStateUpdated(); //only invoke this directly once on start
         }
-        
     }
 
     public void FakeOnNetworkStateUpdated()
     {
+        // only called by FakeServer in singleplayer mode
         Debug.Log("FakeOnNetworkStateUpdated");
         OnNetworkStateUpdated();
     }
@@ -87,7 +85,7 @@ public class TestBoardManager : MonoBehaviour
             return;
         }
         Lobby lobby = singlePlayer ? FakeServer.ins.fakeLobby : StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
-        if (firstTime || lobby.phase != cachedLobby.phase || cachedLobby.turns.Length != lobby.turns.Length)
+        if (firstTime || lobby.phase != cachedLobby.phase)
         {
             firstTime = false;
             switch (lobby.phase)
@@ -104,13 +102,21 @@ public class TestBoardManager : MonoBehaviour
                     throw new ArgumentOutOfRangeException();
             }
         }
-        cachedLobby = lobby;
+        // if this is the first time, currentPhase gets it's state changed here
         currentPhase?.OnNetworkGameStateChanged(lobby);
+        // refreshGui happens first
+        currentPhase?.RefreshGui();
+        Debug.Log("OnClientGameStateChanged invoked by OnNetworkStateUpdated");
+        OnClientGameStateChanged?.Invoke(lobby, currentPhase);
+        cachedLobby = lobby;
     }
 
     public void OnlyClientGameStateChanged()
     {
-        Debug.Log("TestBoardManager::OnlyClientGameStateChanged");
+        // this function is only called from within currentState
+        // when the phase is running and user input changed something
+        Debug.Log("OnClientGameStateChanged invoked by OnlyClientGameStateChanged");
+        currentPhase?.RefreshGui();
         OnClientGameStateChanged?.Invoke(cachedLobby, currentPhase);
     }
     
@@ -184,7 +190,7 @@ public class TestBoardManager : MonoBehaviour
         return tileView;
     }
 
-    public TestPawnView GetPawnViewAtPos(Vector2Int pos)
+    TestPawnView GetPawnViewAtPos(Vector2Int pos)
     {
         if (pos == Globals.Purgatory)
         {
@@ -224,7 +230,9 @@ public interface ITestPhase
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
 
     public void OnNetworkGameStateChanged(Lobby lobby);
-    
+
+    public void RefreshGui();
+
 }
 
 public class SetupClientState
@@ -316,11 +324,15 @@ public class SetupTestPhase : ITestPhase
     {
         bm = inBm;
         setupGui = inSetupGui;
-        ResetClientState(lobby);
         // TODO: figure out a better way to tell gui to do stuff
         bm.guiTestGame.SetCurrentElement(setupGui, lobby);
     }
 
+    public void RefreshGui()
+    {
+        setupGui.Refresh(clientState);
+    }
+    
     void ResetClientState(Lobby lobby)
     {
         Debug.Log("SetupTestPhase.ResetClientState");
@@ -418,13 +430,11 @@ public class SetupTestPhase : ITestPhase
     public void OnNetworkGameStateChanged(Lobby lobby)
     {
         ResetClientState(lobby);
-        ClientStateChanged();
     }
 
     void ClientStateChanged()
     {
         Debug.Log("SetupClientState.ClientStateChanged");
-        setupGui.Refresh(clientState);
         bm.OnlyClientGameStateChanged();
     }
     
@@ -719,10 +729,14 @@ public class MovementTestPhase : ITestPhase
     {
         bm = inBm;
         movementGui = inMovementGui;
-        ResetClientState(lobby);
         bm.guiTestGame.SetCurrentElement(movementGui, lobby);
     }
 
+    public void RefreshGui()
+    {
+        movementGui.Refresh(clientState);
+    }
+    
     void ResetClientState(Lobby lobby)
     {
         Debug.Log("ResetClientState");
@@ -801,7 +815,6 @@ public class MovementTestPhase : ITestPhase
                 }
             }
         }
-        ClientStateChanged();
     }
 
     void SubmitMove()

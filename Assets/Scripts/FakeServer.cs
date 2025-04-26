@@ -197,7 +197,7 @@ public class FakeServer : MonoBehaviour
 
     public int SubmitMoveHash()
     {
-        MoveResolveReq guestReq = Globals.ResolveTurn(fakeLobby);
+        MoveResolveReq guestReq = Globals.ResolveTurn(fakeLobby, fakeGuest.index);
         guestReq.user_address = fakeGuest.index;
         int guestResult = ResolveMove(fakeGuest.index, guestReq);
         if (guestResult != 0)
@@ -205,7 +205,7 @@ public class FakeServer : MonoBehaviour
             Debug.LogError($"Guest commit failed with error code {guestResult}");
             return guestResult;
         }
-        MoveResolveReq hostReq = Globals.ResolveTurn(fakeLobby);
+        MoveResolveReq hostReq = Globals.ResolveTurn(fakeLobby, fakeHost.index);
         hostReq.user_address = fakeHost.index;
         int hostResult = ResolveMove(fakeHost.index, hostReq);
         if (hostResult != 0)
