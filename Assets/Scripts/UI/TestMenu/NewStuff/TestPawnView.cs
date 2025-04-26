@@ -38,15 +38,43 @@ public class TestPawnView : MonoBehaviour
         SetPawn(p);
         isMyTeam = team == inBoardManager.userTeam;
         // Pick a random normalized time [0…1)
-        float randNormTime = Random.Range(0f, 1f);
+        // float randNormTime = Random.Range(0f, 1f);
         // Immediately jump the Idle state to that time
         //   layer 0, and use the normalizedTime offset
-        animator.Play("Idle", 0, randNormTime);
+        // animator.Play("Idle", 0, randNormTime);
         
         // Optionally force an immediate update so you don't see a 1‑frame glitch:
-        animator.Update(0f);
+        //animator.Update(0f);
+        SetIdle();
     }
 
+    int idleAnimation;
+    
+    void SetIdle()
+    {
+        if (string.IsNullOrEmpty(pawnDefHash))
+        {
+            switch (team)
+            {
+                case Team.RED:
+                    idleAnimation = Animator.StringToHash("99a Idle");
+                    break;
+                case Team.BLUE:
+                    idleAnimation = Animator.StringToHash("99b Idle");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            
+        }
+        else
+        {
+            PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
+            
+        }
+        
+    }
+    
     void OnClientGameStateChanged(Lobby lobby, ITestPhase phase)
     {
         bool phaseChanged = lobby.phase != oldPhase;
