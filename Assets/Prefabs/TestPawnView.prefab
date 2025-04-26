@@ -393,7 +393,7 @@ SpriteRenderer:
   m_Size: {x: 0.16, y: 0.16}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!64 &3213091230932298403
@@ -672,17 +672,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   badge: {fileID: 6941801488250841614}
   parentConstraint: {fileID: 6554624529676426233}
-  pawn:
-    def: {fileID: 0}
-    team: 0
-    pos: {x: 0, y: 0}
-    isSetup: 0
-    isAlive: 0
-    hasMoved: 0
-    isVisibleToOpponent: 0
-    dirty: 0
+  team: 0
+  isMyTeam: 0
+  displayedPos: {x: 0, y: 0}
+  pawnDefHash: 
   animator: {fileID: 236010443059273928}
   renderEffect: {fileID: 5543228733878367094}
+  setupPos: {x: 0, y: 0}
 --- !u!1773428102 &6554624529676426233
 ParentConstraint:
   m_ObjectHideFlags: 0
