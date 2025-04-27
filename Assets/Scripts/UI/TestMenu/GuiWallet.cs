@@ -82,11 +82,11 @@ public class GuiWallet : TestGuiElement
         connectWalletButton.interactable = WalletManager.webGL;
         if (accountEntry != null)
         {
-            statusText.text = "Freighter wallet not connected. Click connect wallet to continue";
+            statusText.text = "Freighter wallet connected!";
         }
         else
         {
-            statusText.text = "Freighter wallet connected!";
+            statusText.text = "Freighter wallet not connected. Click connect wallet to continue";
         }
     }
     
@@ -96,9 +96,12 @@ public class GuiWallet : TestGuiElement
         if (success)
         {
             accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
-            _ = await StellarManagerTest.GetAssets(WalletManager.address);
-            Refresh();
+            if (accountEntry != null)
+            {
+                await StellarManagerTest.GetAssets(WalletManager.address);
+            }
         }
+        Refresh();
     }
 
     async void HandleRefreshButton()

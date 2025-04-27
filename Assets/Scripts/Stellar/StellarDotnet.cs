@@ -97,6 +97,10 @@ public class StellarDotnet
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(new SimulateTransactionParams()
         {
             Transaction = EncodeTransaction(invokeContractTransaction),
+            ResourceConfig = new()
+            {
+                
+            }
         });
         if (simulateTransactionResult.Error != null)
         {
@@ -117,8 +121,15 @@ public class StellarDotnet
         {
             Keys = new [] {EncodedAccountKey(account)},
         });
-        LedgerEntry.dataUnion.Account entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
-        return entry?.account;
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            return null;
+        }
+        else
+        {
+            LedgerEntry.dataUnion.Account entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
+            return entry?.account;
+        }
     }
 
     LedgerKey MakeLedgerKey(string sym, object key, ContractDataDurability durability)
@@ -161,9 +172,12 @@ public class StellarDotnet
         {
             return null;
         }
-        LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-        User user = SCUtility.SCValToNative<User>(data.contractData.val);
-        return user;
+        else
+        {
+            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+            User user = SCUtility.SCValToNative<User>(data.contractData.val);
+            return user;
+        }
     }
 
     public async Task<Lobby?> ReqLobbyData(string key)
@@ -178,9 +192,13 @@ public class StellarDotnet
         {
             return null;
         }
-        LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-        Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
-        return lobby;
+        else
+        {
+            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+            Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
+            return lobby;
+        }
+        
     }
 
     public async Task<Mailbox?> ReqMailData(string lobbyId)
@@ -195,9 +213,12 @@ public class StellarDotnet
         {
             return null;
         }
-        LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-        Mailbox mailbox = SCUtility.SCValToNative<Mailbox>(data.contractData.val);
-        return mailbox;
+        else
+        {
+            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+            Mailbox mailbox = SCUtility.SCValToNative<Mailbox>(data.contractData.val);
+            return mailbox;
+        }
     }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)

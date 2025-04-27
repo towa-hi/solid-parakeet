@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using Contract;
 using UnityEngine;
 using UnityEngine.Animations;
@@ -127,7 +128,10 @@ public class TestPawnView : MonoBehaviour
                 if (displayedPos != currentPawn.pos.ToVector2Int())
                 {
                     Debug.Log("Moving pawn to pos normally...");
+                    Transform target = !currentPawn.is_alive ? bm.purgatory : bm.GetTileViewAtPos(currentPawn.pos.ToVector2Int()).tileModel.tileOrigin;
                     SetViewPos(currentPawn.pos.ToVector2Int());
+                    StopAllCoroutines();
+                    StartCoroutine(ArcToPosition(target, Globals.PawnMoveDuration, 0.2f));
                 }
                 bool showBadge = isMyTeam || currentPawn.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1;
                 if (PlayerPrefs.GetInt("DISPLAYBADGE") == 0)
@@ -209,5 +213,37 @@ public class TestPawnView : MonoBehaviour
     {
         
     }
+
+    bool isMoving = false;
     
+    public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
+    {
+        parentConstraint.constraintActive = false;
+        isMoving = true;
+        Vector3 startPosition = transform.position;
+        float elapsedTime = 0f;
+
+        while (elapsedTime < duration)
+        {
+            // Calculate the normalized time (0 to 1)
+            float t = elapsedTime / duration;
+            t = Shared.EaseOutQuad(t);
+            
+            // Interpolate position horizontally
+            Vector3 horizontalPosition = Vector3.Lerp(startPosition, target.position, t);
+
+            // Calculate vertical arc using a parabolic equation
+            float verticalOffset = arcHeight * (1 - Mathf.Pow(2 * t - 1, 2)); // Parabolic equation: a(1 - (2t - 1)^2)
+            horizontalPosition.y += verticalOffset;
+
+            // Apply the calculated position
+            transform.position = horizontalPosition;
+
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+        // Ensure the final position is set
+        isMoving = false;
+        parentConstraint.constraintActive = true;
+    }
 }
