@@ -120,8 +120,11 @@ public class TestTileView : MonoBehaviour
                         {
                             if (pawnOnTile.HasValue)
                             {
-                                elevateTile = true;
-                                drawOutline = true;
+                                if ((Team)pawnOnTile.Value.team == movementTestPhase.clientState.team)
+                                {
+                                    elevateTile = true;
+                                    drawOutline = true;
+                                }
                             }
                         }
                         break;
@@ -135,10 +138,13 @@ public class TestTileView : MonoBehaviour
                         }
                         if (isHovered)
                         {
-                            if (pawnView && pawnView.isMyTeam)
+                            if (pawnOnTile.HasValue)
                             {
-                                elevateTile = true;
-                                drawOutline = true;
+                                if ((Team)pawnOnTile.Value.team == movementTestPhase.clientState.team)
+                                {
+                                    elevateTile = true;
+                                    drawOutline = true;
+                                }
                             }
                             if (selectingPosMovementClientSubState.highlightedTiles.Contains(tile.pos))
                             {

@@ -129,13 +129,10 @@ public class TestPawnView : MonoBehaviour
                     Debug.Log("Moving pawn to pos normally...");
                     SetViewPos(currentPawn.pos.ToVector2Int());
                 }
-                bool showBadge = PlayerPrefs.GetInt("DISPLAYBADGE") == 1;
-                if (showBadge)
+                bool showBadge = isMyTeam || currentPawn.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1;
+                if (PlayerPrefs.GetInt("DISPLAYBADGE") == 0)
                 {
-                    if (!isMyTeam && !currentPawn.is_revealed)
-                    {
-                        showBadge = false;
-                    }
+                    showBadge = false;
                 }
                 badge.Initialize(currentPawn, showBadge);
                 Revealed(currentPawn);
@@ -143,7 +140,7 @@ public class TestPawnView : MonoBehaviour
             case SetupTestPhase setupTestPhase:
                 if (phaseChanged)
                 {
-                    Debug.Log("going to setup phase for the first time");
+                    //Debug.Log("going to setup phase for the first time");
                     if (!isMyTeam)
                     {
                         SetViewPos(lobby.GetPawnById(pawnId).pos.ToVector2Int());
