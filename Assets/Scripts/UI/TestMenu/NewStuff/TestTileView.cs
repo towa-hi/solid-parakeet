@@ -97,10 +97,10 @@ public class TestTileView : MonoBehaviour
         bool drawOutline = false;
         Transform elevator = tileModel.elevator;
         tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
-        Contract.Pawn? pawnOnTile = bm.cachedLobby.GetPawnByPosition(tile.pos);
         switch (phase)
         {
             case MovementTestPhase movementTestPhase:
+                Contract.Pawn? pawnOnTile = bm.cachedLobby.GetPawnByPosition(tile.pos);
                 switch (movementTestPhase.clientState.subState)
                 {
                     case ResolvingMovementClientSubState resolvingMovementClientSubState:
@@ -118,7 +118,7 @@ public class TestTileView : MonoBehaviour
                         }
                         if (isHovered)
                         {
-                            if (pawnView && pawnView.isMyTeam)
+                            if (pawnOnTile.HasValue)
                             {
                                 elevateTile = true;
                                 drawOutline = true;
@@ -212,6 +212,7 @@ public class TestTileView : MonoBehaviour
         switch (phase)
         {
             case MovementTestPhase movementTestPhase:
+                Contract.Pawn? pawnOnTile = lobby.GetPawnByPosition(tile.pos);
                 if (phaseChanged)
                 {
                     SetSetupEmissionHighlight(false);
@@ -220,7 +221,18 @@ public class TestTileView : MonoBehaviour
                 StopPulse();
                 tileModel.renderEffect.SetEffect(EffectType.FILL, false);
                 SetTopEmission(Color.clear);
-
+                if (pawnOnTile.HasValue)
+                {
+                    Contract.Pawn p = pawnOnTile.Value;
+                    if (PlayerPrefs.GetInt("CHEATMODE") == 1 || (Team)p.team == movementTestPhase.clientState.team || p.is_revealed)
+                    {
+                        PawnDef def = Globals.FakeHashToPawnDef(pawnOnTile.Value.pawn_def_hash);
+                        if (def.movementRange == 0)
+                        {
+                            SetTopEmission(new Color(0, 0, 0, 100f));
+                        }
+                    }
+                }
                 switch (movementTestPhase.clientState.subState)
                 {
                     case SelectingPawnMovementClientSubState selectingPawnSubState:

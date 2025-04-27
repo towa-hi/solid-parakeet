@@ -26,7 +26,6 @@ public class TestPawnView : MonoBehaviour
     public Vector2Int setupPos;
     
     uint oldPhase = 999;
-
     
     public void Initialize(Contract.Pawn p, TestBoardManager inBoardManager)
     {
