@@ -11,6 +11,10 @@ public class GuiTestMovement : GameElement
     public TextMeshProUGUI statusText;
     public Button menuButton;
     public Button extraButton;
+    public Button cheatButton;
+    public TextMeshProUGUI cheatButtonText;
+    public Button badgeButton;
+    public TextMeshProUGUI badgeButtonText;
     public Button submitMoveButton;
     public Button graveyardButton;
     public Button refreshButton;
@@ -20,6 +24,9 @@ public class GuiTestMovement : GameElement
     public TextMeshProUGUI turnText;
     public event Action OnMenuButton;
     public event Action OnExtraButton;
+    
+    public event Action OnCheatButton;
+    public event Action OnBadgeButton;
     public event Action OnSubmitMoveButton;
     public event Action OnGraveyardButton;
     public event Action OnRefreshButton;
@@ -32,6 +39,8 @@ public class GuiTestMovement : GameElement
         submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
         graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
         refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
+        cheatButton.onClick.AddListener(() => OnCheatButton?.Invoke());
+        badgeButton.onClick.AddListener(() => OnBadgeButton?.Invoke());
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
 
@@ -58,6 +67,8 @@ public class GuiTestMovement : GameElement
                 break;
         }
         turnText.text = "Turn: " + state.myTurnMove.turn;
+        cheatButtonText.text = PlayerPrefs.GetInt("CHEATMODE") == 1 ? "Hide Enemy Pieces" : "Reveal Enemy Pieces";
+        badgeButtonText.text = PlayerPrefs.GetInt("DISPLAYBADGE") == 1 ? "Hide Display Rank Badges" : "Display Rank Badges";
         // Update UI based on current substate
         switch (state.subState)
         {

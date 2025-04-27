@@ -7,5 +7,6 @@ public class TileModel : MonoBehaviour
     public Renderer hitboxRenderer;
     public RenderEffect renderEffect;
     public Renderer flatRenderer;
-
+    public Transform tileOrigin;
+    public Transform elevator;
 }

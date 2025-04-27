@@ -17,7 +17,7 @@ MonoBehaviour:
   pawnName: Throne
   power: 0
   movementRange: 0
-  icon: {fileID: 21300000, guid: c770c813792773647827426d5ef899d5, type: 3}
+  icon: {fileID: 21300000, guid: 64e802c6fc9db384585248ee887e95df, type: 3}
   redSprite: {fileID: 21300000, guid: 325d9b8249889fc41a2a671ed2051a74, type: 3}
   blueSprite: {fileID: 21300000, guid: 866bb7ecc80ea2c47a66a8ddae5823d0, type: 3}
   redAnimatorOverrideController: {fileID: 22100000, guid: 3648f260772576f4d81239b2e2d34aed, type: 2}

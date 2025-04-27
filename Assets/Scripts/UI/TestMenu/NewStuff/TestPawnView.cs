@@ -35,11 +35,11 @@ public class TestPawnView : MonoBehaviour
         bm = inBoardManager;
         //bm.OnNetworkGameStateChanged += OnNetworkGameStateChanged;
         bm.OnClientGameStateChanged += OnClientGameStateChanged;
-        badge.Initialize(p, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
+        //badge.Initialize(p, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
         SetPawn(p);
         isMyTeam = team == inBoardManager.userTeam;
     }
-
+    
     void Revealed(Contract.PawnCommitment c)
     {
         if (!string.IsNullOrEmpty(c.pawn_def_hash))
@@ -130,7 +130,15 @@ public class TestPawnView : MonoBehaviour
                     Debug.Log("Moving pawn to pos normally...");
                     SetViewPos(currentPawn.pos.ToVector2Int());
                 }
-
+                bool showBadge = PlayerPrefs.GetInt("DISPLAYBADGE") == 1;
+                if (showBadge)
+                {
+                    if (!isMyTeam && !currentPawn.is_revealed)
+                    {
+                        showBadge = false;
+                    }
+                }
+                badge.Initialize(currentPawn, showBadge);
                 Revealed(currentPawn);
                 break;
             case SetupTestPhase setupTestPhase:
@@ -144,7 +152,11 @@ public class TestPawnView : MonoBehaviour
                 }
                 if (isMyTeam)
                 {
-                    SetCommitment(setupTestPhase.clientState.commitments[pawnId.ToString()]);
+                    Contract.PawnCommitment c = setupTestPhase.clientState.commitments[pawnId.ToString()];
+                    SetCommitment(c);
+                    Revealed(c);
+                    SetViewPos(setupPos);
+                    badge.Initialize(c, team,true);
                 }
                 break;
             default:
@@ -155,12 +167,8 @@ public class TestPawnView : MonoBehaviour
     
     void SetCommitment(PawnCommitment commitment)
     {
-        if (commitment.pawn_id != pawnId.ToString()) throw new InvalidOperationException();
         setupPos = commitment.starting_pos.ToVector2Int();
-        badge.InitializeSetup(commitment, team, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
         pawnDefHash = commitment.pawn_def_hash;
-        Revealed(commitment);
-        SetViewPos(setupPos);
     }
 
     void SetPawn(Contract.Pawn p)
@@ -179,7 +187,25 @@ public class TestPawnView : MonoBehaviour
     
     void SetViewPos(Vector2Int pos)
     {
-        transform.position = pos == Globals.Purgatory ? GameManager.instance.purgatory.position : bm.GetTileViewAtPos(pos).origin.position;
+        if (pos == Globals.Purgatory)
+        {
+            
+            parentConstraint.SetSource(0, new ConstraintSource
+            {
+                sourceTransform = bm.purgatory,
+                weight = 1,
+            });
+        }
+        else
+        {
+            TestTileView tileView = bm.GetTileViewAtPos(pos);
+            parentConstraint.SetSource(0, new ConstraintSource
+            {
+                sourceTransform = tileView.tileModel.tileOrigin.transform,
+                weight = 1,
+            });
+        }
+        parentConstraint.constraintActive = true;
         displayedPos = pos;
     }
     

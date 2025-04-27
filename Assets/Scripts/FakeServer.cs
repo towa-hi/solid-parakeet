@@ -224,6 +224,7 @@ public class FakeServer : MonoBehaviour
         // We need to generate valid positions for each pawn commitment
         // Similar to SetupTestPhase.OnAutoSetup
         HashSet<Tile> usedTiles = new();
+        // sort maxPawns by def
         foreach (MaxPawns maxPawns in lobby.parameters.max_pawns)
         {
             for (int i = 0; i < maxPawns.max; i++)

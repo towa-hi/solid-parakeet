@@ -17,7 +17,7 @@ MonoBehaviour:
   pawnName: Warlord
   power: 10
   movementRange: 1
-  icon: {fileID: 21300000, guid: dece5bfbcef863346a355b419014c670, type: 3}
+  icon: {fileID: 21300000, guid: f97611c3004afd04dbce2f09a441d3f1, type: 3}
   redSprite: {fileID: 21300000, guid: a6f6a7debd702d94587e0fa31deed6e6, type: 3}
   blueSprite: {fileID: 21300000, guid: a9ff71a97e3cf1941b86ec2b962ce832, type: 3}
   redAnimatorOverrideController: {fileID: 22100000, guid: 4a38fcfd78e6deb4d98fc2508d2d2560, type: 2}

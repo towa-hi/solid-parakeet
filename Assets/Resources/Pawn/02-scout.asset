@@ -17,7 +17,7 @@ MonoBehaviour:
   pawnName: Scout
   power: 2
   movementRange: 11
-  icon: {fileID: 21300000, guid: ad9ef61c9d1052c44928a6871ac688ce, type: 3}
+  icon: {fileID: 21300000, guid: d76e51d8b1658cb4d9ecc64fcaf6289b, type: 3}
   redSprite: {fileID: 21300000, guid: 6180093d71ffd0f4d82695c4b841eb6d, type: 3}
   blueSprite: {fileID: 21300000, guid: f5483565cb90bde41a32fa499c7467f6, type: 3}
   redAnimatorOverrideController: {fileID: 22100000, guid: c725351fac5f3af4680ab6ff50fd7946, type: 2}

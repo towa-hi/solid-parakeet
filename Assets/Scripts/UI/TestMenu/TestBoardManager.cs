@@ -33,7 +33,9 @@ public class TestBoardManager : MonoBehaviour
     
     public ITestPhase currentPhase;
     public Transform cameraBounds;
-    
+
+    public Transform waveOrigin1;
+    public Transform waveOrigin2;
     
     //public event Action<Lobby> OnPhaseChanged;
     public event Action<Lobby, ITestPhase> OnClientGameStateChanged;
@@ -138,7 +140,7 @@ public class TestBoardManager : MonoBehaviour
         {
             userTeam = (Team)lobby.guest_state.team;
         }
-        cameraBounds.position = transform.position + boardDef.center + new Vector3(0, 7, -6.5f);
+        cameraBounds.position = cameraBounds.position + transform.position + boardDef.center;
         // Clear existing tileviews and replace
         foreach (TestTileView tile in tileViews.Values)
         {
@@ -756,6 +758,8 @@ public class MovementTestPhase : ITestPhase
         movementGui.OnSubmitMoveButton += SubmitMove;
         movementGui.OnRefreshButton += RefreshState;
         movementGui.OnAutoSubmitToggle += SetAutoSubmit;
+        movementGui.OnCheatButton += SetCheatMode;
+        movementGui.OnBadgeButton += SetBadgeVisibility;
     }
 
     public void ExitState()
@@ -763,6 +767,8 @@ public class MovementTestPhase : ITestPhase
         movementGui.OnSubmitMoveButton -= SubmitMove;
         movementGui.OnRefreshButton -= RefreshState;
         movementGui.OnAutoSubmitToggle -= SetAutoSubmit;
+        movementGui.OnCheatButton -= SetCheatMode;
+        movementGui.OnBadgeButton -= SetBadgeVisibility;
     }
 
     public void Update() {}
@@ -836,6 +842,34 @@ public class MovementTestPhase : ITestPhase
     void SetAutoSubmit(bool autoSubmit)
     {
         MovementClientState.autoSubmit = autoSubmit;
+    }
+
+    void SetCheatMode()
+    {
+        int cheatMode = PlayerPrefs.GetInt("CHEATMODE");
+        if (cheatMode == 0)
+        {
+            PlayerPrefs.SetInt("CHEATMODE", 1);
+        }
+        else
+        {
+            PlayerPrefs.SetInt("CHEATMODE", 0);
+        }
+        ClientStateChanged();
+    }
+
+    void SetBadgeVisibility()
+    {
+        int displayBadge = PlayerPrefs.GetInt("DISPLAYBADGE");
+        if (displayBadge == 0)
+        {
+            PlayerPrefs.SetInt("DISPLAYBADGE", 1);
+        }
+        else
+        {
+            PlayerPrefs.SetInt("DISPLAYBADGE", 0);
+        }
+        ClientStateChanged();
     }
 }
 

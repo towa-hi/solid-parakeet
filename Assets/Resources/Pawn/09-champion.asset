@@ -17,7 +17,7 @@ MonoBehaviour:
   pawnName: Champion
   power: 9
   movementRange: 1
-  icon: {fileID: 21300000, guid: 28d06776f41c4134ab32ad6e0b368eb9, type: 3}
+  icon: {fileID: 21300000, guid: d71b7db0f89b18e41a12a85fb17ef8fb, type: 3}
   redSprite: {fileID: 21300000, guid: cc927c4b138357a42a215dca16cc6172, type: 3}
   blueSprite: {fileID: 21300000, guid: af4e6a6243233f14387e4e8f4ad61739, type: 3}
   redAnimatorOverrideController: {fileID: 22100000, guid: cd032f75608b1fe4e81c4dc12b6c1716, type: 2}

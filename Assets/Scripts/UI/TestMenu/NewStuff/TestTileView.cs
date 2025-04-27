@@ -21,6 +21,13 @@ public class TestTileView : MonoBehaviour
     static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
     static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
     Tween pulseTween;
+    public TweenSettings<Vector3> startTweenSettings;
+    public Sequence startSequence;
+    public Tween currentTween;
+    Vector3 initialElevatorLocalPos;
+    
+    static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
+    static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
 
     TestBoardManager bm;
     
@@ -37,6 +44,7 @@ public class TestTileView : MonoBehaviour
         tileModel = bm.boardDef.isHex ? hexTileModel : squareTileModel;
         tileModel.gameObject.SetActive(true);
         ShowTile(tile.isPassable);
+        initialElevatorLocalPos = tileModel.elevator.localPosition;
     }
 
     void OnDestroy()
@@ -80,14 +88,34 @@ public class TestTileView : MonoBehaviour
         mat.SetColor(BaseColorProperty, Color.clear);
     }
 
+    public Vector3 targetElevatorLocalPosition;
     void OnHover(Vector2Int pos)
     {
         switch (bm.currentPhase)
         {
             case MovementTestPhase movementTestPhase:
                 tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, tile.pos == pos);
+                currentTween.Stop();
+                
                 break;
             case SetupTestPhase setupTestPhase:
+                Transform elevator = tileModel.elevator;
+                if (pos == tile.pos)
+                {
+                    targetElevatorLocalPosition = hoveredElevatorLocalPos;
+                }
+                else
+                {
+                    targetElevatorLocalPosition = initialElevatorLocalPos;
+                }
+                if (elevator.localPosition != targetElevatorLocalPosition)
+                {
+                    Debug.Log($"{tile.pos} elevator: {elevator.localPosition} target: {targetElevatorLocalPosition}");
+                    currentTween = Tween.LocalPositionAtSpeed(elevator, targetElevatorLocalPosition, 0.3f, Ease.OutCubic).OnComplete(() =>
+                        {
+                            elevator.localPosition = targetElevatorLocalPosition;
+                        });
+                }
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -98,7 +126,7 @@ public class TestTileView : MonoBehaviour
     void OnClientGameStateChanged(Lobby lobby, ITestPhase phase)
     {
         bool phaseChanged = lobby.phase != oldPhase;
-        switch (bm.currentPhase)
+        switch (phase)
         {
             case MovementTestPhase movementTestPhase:
                 if (phaseChanged)
@@ -161,6 +189,7 @@ public class TestTileView : MonoBehaviour
                 if (phaseChanged)
                 {
                     SetSetupEmissionHighlight(true);
+                    PlayStartAnimation();
                 }
                 break;
             default:
@@ -169,6 +198,39 @@ public class TestTileView : MonoBehaviour
         oldPhase = lobby.phase;
     }
 
+    public float delayFactor = 0.1f;
+    float delay = 0.001f;
+    void PlayStartAnimation()
+    {
+        if (!tileModel.isActiveAndEnabled) return;
+        if (startSequence.isAlive) return;
+        if (!bm) return;
+        // get the delay
+        // get distance to closest waveOrigin
+        float distanceToWave1 = Vector3.Distance(origin.position, bm.waveOrigin1.position);
+        float distanceToWave2 = Vector3.Distance(origin.position, bm.waveOrigin2.position);
+        float minDistance = Mathf.Min(distanceToWave1, distanceToWave2);
+        delay = minDistance;
+        delay = delay - 8f;
+        if (delay <= 0f)
+        {
+            delay = 0.01f;
+        }
+        Vector3 destination = tileModel.transform.localPosition;
+        startTweenSettings.endValue = destination;
+        startSequence = Sequence.Create()
+            .ChainCallback(() =>
+            {
+                ShowTile(false);
+            })
+            .ChainDelay(delay)
+            .ChainCallback(() =>
+            {
+                ShowTile(true);
+            })
+            .Chain(Tween.LocalPosition(tileModel.transform, startTweenSettings));
+    }
+    
     void SetSetupEmissionHighlight(bool highlight)
     {
         if (highlight)
