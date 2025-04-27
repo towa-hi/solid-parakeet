@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Contract;
 using UnityEngine;
 using PrimeTween;
@@ -37,7 +38,7 @@ public class TestTileView : MonoBehaviour
         bm = inBoardManager;
         //bm.clickInputManager.OnPositionHovered += OnHover;
         bm.OnClientGameStateChanged += OnClientGameStateChanged;
-        bm.clickInputManager.OnPositionHovered += OnHover;
+        bm.OnGameHover += OnGameHover;
         gameObject.name = $"Tile ({tile.pos.x}, {tile.pos.y})";
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
@@ -89,36 +90,118 @@ public class TestTileView : MonoBehaviour
     }
 
     public Vector3 targetElevatorLocalPosition;
-    void OnHover(Vector2Int pos)
+    void OnGameHover(Vector2Int hoveredPos, TestTileView tileView, TestPawnView pawnView, ITestPhase phase)
     {
-        switch (bm.currentPhase)
+        bool isHovered = tile.pos == hoveredPos;
+        bool elevateTile = false;
+        bool drawOutline = false;
+        Transform elevator = tileModel.elevator;
+        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
+        Contract.Pawn? pawnOnTile = bm.cachedLobby.GetPawnByPosition(tile.pos);
+        switch (phase)
         {
             case MovementTestPhase movementTestPhase:
-                tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, tile.pos == pos);
-                currentTween.Stop();
+                switch (movementTestPhase.clientState.subState)
+                {
+                    case ResolvingMovementClientSubState resolvingMovementClientSubState:
+                        break;
+                    case SelectingPawnMovementClientSubState selectingPawnMovementClientSubState:
+                        if (pawnOnTile.HasValue)
+                        {
+                            if (selectingPawnMovementClientSubState.selectedPawnId.HasValue)
+                            {
+                                if (selectingPawnMovementClientSubState.selectedPawnId.Value.ToString() == pawnOnTile.Value.pawn_id)
+                                {
+                                    elevateTile = true;
+                                }
+                            }
+                        }
+                        if (isHovered)
+                        {
+                            if (pawnView && pawnView.isMyTeam)
+                            {
+                                elevateTile = true;
+                                drawOutline = true;
+                            }
+                        }
+                        break;
+                    case SelectingPosMovementClientSubState selectingPosMovementClientSubState:
+                        if (pawnOnTile.HasValue)
+                        {
+                            if (selectingPosMovementClientSubState.selectedPawnId.ToString() == pawnOnTile.Value.pawn_id)
+                            {
+                                elevateTile = true;
+                            }
+                        }
+                        if (isHovered)
+                        {
+                            if (pawnView && pawnView.isMyTeam)
+                            {
+                                elevateTile = true;
+                                drawOutline = true;
+                            }
+                            if (selectingPosMovementClientSubState.highlightedTiles.Contains(tile.pos))
+                            {
+                                drawOutline = true;
+                            }
+                        }
+                        break;
+                    case WaitingOpponentHashMovementClientSubState waitingOpponentHashMovementClientSubState:
+                        break;
+                    case WaitingOpponentMoveMovementClientSubState waitingOpponentMoveMovementClientSubState:
+                        break;
+                    case WaitingUserHashMovementClientSubState waitingUserHashMovementClientSubState:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
                 
                 break;
             case SetupTestPhase setupTestPhase:
-                Transform elevator = tileModel.elevator;
-                if (pos == tile.pos)
+                if (isHovered)
                 {
-                    targetElevatorLocalPosition = hoveredElevatorLocalPos;
-                }
-                else
-                {
-                    targetElevatorLocalPosition = initialElevatorLocalPos;
-                }
-                if (elevator.localPosition != targetElevatorLocalPosition)
-                {
-                    Debug.Log($"{tile.pos} elevator: {elevator.localPosition} target: {targetElevatorLocalPosition}");
-                    currentTween = Tween.LocalPositionAtSpeed(elevator, targetElevatorLocalPosition, 0.3f, Ease.OutCubic).OnComplete(() =>
+                    bool isOccupied = setupTestPhase.clientState.commitments.Values.Any(commitment => commitment.starting_pos.ToVector2Int() == tile.pos);
+                    if (isOccupied)
+                    {
+                        drawOutline = true;
+                    }
+                    else
+                    {
+                        if (setupTestPhase.clientState.selectedRank.HasValue)
                         {
-                            elevator.localPosition = targetElevatorLocalPosition;
-                        });
+                            if (setupTestPhase.clientState.GetUnusedCommitment(setupTestPhase.clientState.selectedRank.Value).HasValue)
+                            {
+                                if (tile.IsTileSetupAllowed(setupTestPhase.clientState.team))
+                                {
+                                    drawOutline = true;
+                                }
+                            }
+                        }
+                    }
                 }
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
+        }
+        if (drawOutline)
+        {
+            tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, true);
+        }
+        if (elevateTile)
+        {
+            targetElevatorLocalPosition = hoveredElevatorLocalPos;
+        }
+        else
+        {
+            targetElevatorLocalPosition = initialElevatorLocalPos;
+        }
+        if (elevator.localPosition != targetElevatorLocalPosition)
+        {
+            //Debug.Log($"{tile.pos} elevator: {elevator.localPosition} target: {targetElevatorLocalPosition}");
+            currentTween = Tween.LocalPositionAtSpeed(elevator, targetElevatorLocalPosition, 0.3f, Ease.OutCubic).OnComplete(() =>
+            {
+                elevator.localPosition = targetElevatorLocalPosition;
+            });
         }
     }
     
@@ -133,6 +216,7 @@ public class TestTileView : MonoBehaviour
                 {
                     SetSetupEmissionHighlight(false);
                 }
+                currentTween.Stop();
                 StopPulse();
                 tileModel.renderEffect.SetEffect(EffectType.FILL, false);
                 SetTopEmission(Color.clear);

@@ -39,10 +39,12 @@ public class TestBoardManager : MonoBehaviour
     
     //public event Action<Lobby> OnPhaseChanged;
     public event Action<Lobby, ITestPhase> OnClientGameStateChanged;
+    public event Action<Vector2Int, TestTileView, TestPawnView, ITestPhase> OnGameHover;
     
     void Start()
     {
         clickInputManager.OnClick += OnClick;
+        clickInputManager.OnPositionHovered += OnHover;
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
@@ -113,6 +115,7 @@ public class TestBoardManager : MonoBehaviour
         Debug.Log("OnClientGameStateChanged invoked by OnNetworkStateUpdated");
         OnClientGameStateChanged?.Invoke(lobby, currentPhase);
         cachedLobby = lobby;
+        clickInputManager.ForceInvokeOnPositionHovered();
     }
 
     public void OnlyClientGameStateChanged()
@@ -122,6 +125,7 @@ public class TestBoardManager : MonoBehaviour
         Debug.Log("OnClientGameStateChanged invoked by OnlyClientGameStateChanged");
         currentPhase?.RefreshGui();
         OnClientGameStateChanged?.Invoke(cachedLobby, currentPhase);
+        clickInputManager.ForceInvokeOnPositionHovered();
     }
     
     void Initialize(User user, Lobby lobby)
@@ -222,7 +226,8 @@ public class TestBoardManager : MonoBehaviour
     {
         TestTileView tileView = GetTileViewAtPos(pos);
         TestPawnView pawnView = GetPawnViewAtPos(pos);
-        currentPhase?.OnHover();
+        currentPhase?.OnHover(pos, tileView, pawnView);
+        OnGameHover?.Invoke(pos, tileView, pawnView, currentPhase);
     }
 }
 
@@ -231,7 +236,7 @@ public interface ITestPhase
     public void EnterState();
     public void ExitState();
     public void Update();
-    public void OnHover();
+    public void OnHover(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
 
     public void OnNetworkGameStateChanged(Lobby lobby);
@@ -306,7 +311,7 @@ public class SetupClientState
         dirty = true;
     }
 
-    PawnCommitment? GetUnusedCommitment(Rank rank)
+    public PawnCommitment? GetUnusedCommitment(Rank rank)
     {
         foreach (PawnCommitment commitment in commitments.Values
                      .Where(commitment => commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
@@ -392,7 +397,7 @@ public class SetupTestPhase : ITestPhase
         
     }
 
-    public void OnHover()
+    public void OnHover(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {
         
     }
@@ -467,7 +472,9 @@ public class SetupTestPhase : ITestPhase
         clientState.ClearAllCommitments();
         // Generate valid setup positions for each pawn
         HashSet<Tile> usedTiles = new();
-        foreach (MaxPawns maxPawns in bm.parameters.max_pawns)
+        Contract.MaxPawns[] sortedMaxPawns = bm.parameters.max_pawns;
+        Array.Sort(sortedMaxPawns, (maxPawns1, maxPawns2) => Rules.GetSetupZone((Rank)maxPawns1.rank) < Rules.GetSetupZone((Rank)maxPawns2.rank) ? 1 : -1);
+        foreach (MaxPawns maxPawns in sortedMaxPawns)
         {
             for (int i = 0; i < maxPawns.max; i++)
             {
@@ -676,13 +683,20 @@ public class MovementClientState
                 break;
 
             case SelectingPosMovementClientSubState selectingPosSubState:
-                if (tileView && selectingPosSubState.highlightedTiles.Contains(clickedPos))
+                if (selectingPosSubState.highlightedTiles.Contains(clickedPos))
                 {
                     TransitionToSelectingPawn(selectingPosSubState.selectedPawnId, clickedPos);
                 }
                 else
                 {
-                    TransitionToSelectingPawn();
+                    if (pawnView && pawnView.team == team)
+                    {
+                        TransitionToSelectingPos(pawnView.pawnId);
+                    }
+                    else
+                    {
+                        TransitionToSelectingPawn();
+                    }
                 }
                 break;
         }
@@ -772,8 +786,11 @@ public class MovementTestPhase : ITestPhase
     }
 
     public void Update() {}
-    
-    public void OnHover() {}
+
+    public void OnHover(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
+    {
+        
+    }
     
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {

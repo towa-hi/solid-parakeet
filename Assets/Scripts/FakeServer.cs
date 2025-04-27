@@ -225,7 +225,9 @@ public class FakeServer : MonoBehaviour
         // Similar to SetupTestPhase.OnAutoSetup
         HashSet<Tile> usedTiles = new();
         // sort maxPawns by def
-        foreach (MaxPawns maxPawns in lobby.parameters.max_pawns)
+        Contract.MaxPawns[] sortedMaxPawns = lobby.parameters.max_pawns;
+        Array.Sort(sortedMaxPawns, (maxPawns1, maxPawns2) => Rules.GetSetupZone((Rank)maxPawns1.rank) < Rules.GetSetupZone((Rank)maxPawns2.rank) ? 1 : -1);
+        foreach (MaxPawns maxPawns in sortedMaxPawns)
         {
             for (int i = 0; i < maxPawns.max; i++)
             {

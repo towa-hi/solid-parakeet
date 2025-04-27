@@ -77,24 +77,35 @@ public class TestClickInputManager : MonoBehaviour
             {
                 hitUI = true;
             }
-            if (!hitPawnView && hitLayer == LayerMask.NameToLayer("PawnView"))
+            if (hitUI)
             {
-                hitPawnView = true;
-                currentHoveredPawnView = hitObject.GetComponentInParent<TestPawnView>();
+                
             }
-            if (!hitTileView && hitLayer == LayerMask.NameToLayer("TileView"))
+            else
             {
-                hitTileView = true;
-                currentHoveredTileView = hitObject.GetComponentInParent<TestTileView>();
-            }
-            if (!hitBoardMakerTile && hitLayer == LayerMask.NameToLayer("BoardMakerTile"))
-            {
-                hitBoardMakerTile = true;
-                currentHoveredBoardMakerTile = hitObject.GetComponentInParent<BoardMakerTile>();
+                if (!hitPawnView && hitLayer == LayerMask.NameToLayer("PawnView"))
+                {
+                    hitPawnView = true;
+                    currentHoveredPawnView = hitObject.GetComponentInParent<TestPawnView>();
+                }
+                if (!hitTileView && hitLayer == LayerMask.NameToLayer("TileView"))
+                {
+                    hitTileView = true;
+                    currentHoveredTileView = hitObject.GetComponentInParent<TestTileView>();
+                }
+                if (!hitBoardMakerTile && hitLayer == LayerMask.NameToLayer("BoardMakerTile"))
+                {
+                    hitBoardMakerTile = true;
+                    currentHoveredBoardMakerTile = hitObject.GetComponentInParent<BoardMakerTile>();
+                }
             }
         }
         Vector2Int currentHoveredPosition;
-        if (currentHoveredPawnView)
+        if (hitUI)
+        {
+            currentHoveredPosition = Globals.Purgatory;
+        }
+        else if (currentHoveredPawnView)
         {
             currentHoveredPosition = currentHoveredPawnView.displayedPos;
         }
@@ -111,8 +122,8 @@ public class TestClickInputManager : MonoBehaviour
             currentHoveredPosition = Globals.Purgatory;
         }
         isOverUI = hitUI;
-        hoveredPawnView = isOverUI ? null : currentHoveredPawnView;
-        hoveredTileView = isOverUI ? null : currentHoveredTileView;
+        hoveredPawnView = hitUI ? null : currentHoveredPawnView;
+        hoveredTileView = hitUI ? null : currentHoveredTileView;
         // Check if the hovered position or object has changed
         // NOTE: this used to be if (currentHoveredPosition != hoveredPosition || currentHoveredObject != hoveredObject)
         if (currentHoveredPosition != hoveredPosition)
@@ -130,7 +141,7 @@ public class TestClickInputManager : MonoBehaviour
         
         hoveredBoardMakerTile = currentHoveredBoardMakerTile;
         
-        if (!isOverUI && Globals.InputActions.Game.Click.triggered)
+        if (!hitUI && Globals.InputActions.Game.Click.triggered)
         {
             OnClick?.Invoke(hoveredPosition);
         }
