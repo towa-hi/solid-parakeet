@@ -151,7 +151,16 @@ public static class Globals
 
         // Call old resolution function
         SResolveReceipt receipt = SGameState.Resolve(gameState, redMove, blueMove);
-
+        if (address == FakeServer.ins.fakeHost.index)
+        {
+            Debug.Log($"XXX Turn: {turn.turn} printing original events -----");
+            foreach (SEventState thing in receipt.events)
+            {
+                Debug.Log("XXX " + thing);
+            }
+            Debug.Log($"XXX Turn: {turn.turn} end -----");
+        }
+        
         // Convert SEventState[] to Contract.ResolveEvent[]
         Contract.ResolveEvent[] events = new Contract.ResolveEvent[receipt.events.Length];
         for (int i = 0; i < receipt.events.Length; i++)
