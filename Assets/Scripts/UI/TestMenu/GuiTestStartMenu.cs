@@ -178,12 +178,12 @@ public class GuiTestStartMenu : TestGuiElement
 
     void OnContractFieldChanged(string input)
     {
-        Refresh();
+        setContractButton.interactable = StellarManagerTest.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
     }
     
     void OnSneedFieldChanged(string input)
     {
-        Refresh();
+        setSneedButton.interactable = StellarManagerTest.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
     }
 
     void OnFillGuestSneed()

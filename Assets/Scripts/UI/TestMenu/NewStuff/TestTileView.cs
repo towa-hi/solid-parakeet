@@ -158,6 +158,8 @@ public class TestTileView : MonoBehaviour
                         break;
                     case WaitingUserHashMovementClientSubState waitingUserHashMovementClientSubState:
                         break;
+                    case GameOverMovementClientSubState gameOverMovementClientSubState:
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }

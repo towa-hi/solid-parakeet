@@ -74,6 +74,10 @@ public class GuiTestLobbyMaker : TestGuiElement
             options.Add(board.name);
         }
         boardDropdown.AddOptions(options);
+        if (options.Count > 4)
+        {
+            boardDropdown.SetValueWithoutNotify(4);
+        }
         boardDropdown.RefreshShownValue();
     }
 

@@ -22,6 +22,8 @@ public class GuiTestMovement : GameElement
     public Image blueCheck;
     public Toggle autoSubmitToggle;
     public TextMeshProUGUI turnText;
+    public GuiGameOverModal gameOverModal;
+    
     public event Action OnMenuButton;
     public event Action OnExtraButton;
     
@@ -101,6 +103,11 @@ public class GuiTestMovement : GameElement
             case ResolvingMovementClientSubState:
                 submitMoveButton.interactable = false;
                 statusText.text = "Turn is not valid. you shouldn't be seeing this";
+                break;
+            case GameOverMovementClientSubState gameOverSubState:
+                statusText.text = gameOverSubState.EndStateMessage();
+                gameOverModal.Initialize(gameOverSubState.endState, state.team);
+                gameOverModal.gameObject.SetActive(true);
                 break;
         }
     }

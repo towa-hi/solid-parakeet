@@ -536,7 +536,7 @@ public class SelectingPawnMovementClientSubState : MovementClientSubState
 {
     public Vector2Int? selectedPos;
     public Guid? selectedPawnId;
-
+    
     public SelectingPawnMovementClientSubState(Guid? inSelectedPawnId = null, Vector2Int? inSelectedPos = null)
     {
         selectedPawnId = inSelectedPawnId;
@@ -582,6 +582,40 @@ public class WaitingOpponentHashMovementClientSubState : MovementClientSubState 
 
 public class ResolvingMovementClientSubState : MovementClientSubState { }
 
+public class GameOverMovementClientSubState : MovementClientSubState
+{
+    public uint endState;
+
+    public GameOverMovementClientSubState(uint inEndState)
+    {
+        endState = inEndState;
+    }
+
+    public string EndStateMessage()
+    {
+        switch (endState)
+        {
+            case 0:
+                return "Game tied";
+                break;
+            case 1:
+                return "Red team won";
+                break;
+            case 2:
+                return "Blue team won";
+                break;
+            case 3:
+                return "Game in session";
+                break;
+            case 4:
+                return "Game ended inconclusively";
+                break;
+            default:
+                return "Game over";
+        }
+    }
+}
+
 public class MovementClientState
 {
     public bool dirty = true;
@@ -619,36 +653,44 @@ public class MovementClientState
             pawnPositions[pawn.pos.ToVector2Int()] = pawn;
         }
         // Initialize state based on current conditions
-        if (myTurnMove.initialized)
+        if (lobby.game_end_state == 3)
         {
-            if (otherTurnMove.initialized)
+            if (myTurnMove.initialized)
             {
-                if (!string.IsNullOrEmpty(myEventsHash))
+                if (otherTurnMove.initialized)
                 {
-                    if (!string.IsNullOrEmpty(otherEventsHash))
+                    if (!string.IsNullOrEmpty(myEventsHash))
                     {
-                        Assert.IsTrue(myEvents == otherEvents);
-                        subState = new ResolvingMovementClientSubState();
+                        if (!string.IsNullOrEmpty(otherEventsHash))
+                        {
+                            Assert.IsTrue(myEvents == otherEvents);
+                            subState = new ResolvingMovementClientSubState();
+                        }
+                        else
+                        {
+                            subState = new WaitingOpponentHashMovementClientSubState();
+                        }
                     }
                     else
                     {
-                        subState = new WaitingOpponentHashMovementClientSubState();
+                        subState = new WaitingUserHashMovementClientSubState();
                     }
                 }
                 else
                 {
-                    subState = new WaitingUserHashMovementClientSubState();
+                    subState = new WaitingOpponentMoveMovementClientSubState();
                 }
             }
             else
             {
-                subState = new WaitingOpponentMoveMovementClientSubState();
+                subState = new SelectingPawnMovementClientSubState();
             }
         }
         else
         {
-            subState = new SelectingPawnMovementClientSubState();
+            subState = new GameOverMovementClientSubState(lobby.game_end_state);
         }
+        
     }
 
     void SetSubState(MovementClientSubState newState)
