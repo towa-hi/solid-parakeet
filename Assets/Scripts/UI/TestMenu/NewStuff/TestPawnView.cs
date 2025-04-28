@@ -131,6 +131,7 @@ public class TestPawnView : MonoBehaviour
                     Transform target = !currentPawn.is_alive ? bm.purgatory : bm.GetTileViewAtPos(currentPawn.pos.ToVector2Int()).tileModel.tileOrigin;
                     SetViewPos(currentPawn.pos.ToVector2Int());
                     StopAllCoroutines();
+                    bm.vortex.StartVortex();
                     StartCoroutine(ArcToPosition(target, Globals.PawnMoveDuration, 0.2f));
                 }
                 bool showBadge = isMyTeam || currentPawn.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1;
@@ -245,5 +246,6 @@ public class TestPawnView : MonoBehaviour
         // Ensure the final position is set
         isMoving = false;
         parentConstraint.constraintActive = true;
+        bm.vortex.EndVortex();
     }
 }

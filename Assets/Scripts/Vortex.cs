@@ -14,9 +14,12 @@ public class Vortex : MonoBehaviour
     static readonly int breathePowerID = Shader.PropertyToID("_BreathePower");
     static readonly int twistednessID = Shader.PropertyToID("_Twistedness");
     Coroutine currentVortexLerp;
+    bool vortexOn;
     
     public void StartVortex()
     {
+        if (vortexOn) return;
+        vortexOn = true;
         MaterialPropertyBlock block = new MaterialPropertyBlock();
         vortexRenderer.GetPropertyBlock(block);
         float currentTimeScale = block.GetFloat(timeScaleID);
@@ -30,6 +33,8 @@ public class Vortex : MonoBehaviour
     
     public void EndVortex()
     {
+        if (!vortexOn) return;
+        vortexOn = false;
         MaterialPropertyBlock block = new MaterialPropertyBlock();
         vortexRenderer.GetPropertyBlock(block);
         float currentTimeScale = block.GetFloat(timeScaleID);
