@@ -1,0 +1,17 @@
+<component name="libraryTable">
+  <library name="js-stellar-sdk" type="javaScript">
+    <properties>
+      <sourceFilesUrls>
+        <item url="file://$PROJECT_DIR$/Assets/WebGLTemplates/CustomTemplate/Scripts/stellar-sdk.js" />
+      </sourceFilesUrls>
+    </properties>
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/Assets/WebGLTemplates/CustomTemplate/Scripts/stellar-sdk.js" />
+    </CLASSES>
+    <DOCUMENTATION>
+      <root url="https://stellar.github.io/js-stellar-sdk/index.html" />
+    </DOCUMENTATION>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
