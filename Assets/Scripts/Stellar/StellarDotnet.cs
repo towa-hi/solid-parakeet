@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Contract;
@@ -47,6 +49,11 @@ public class StellarDotnet
     public void SetSneed(string inSneed)
     {
         sneed = inSneed;
+        SetupCommitReq req = new SetupCommitReq();
+        MemoryStream memoryStream = new MemoryStream();
+        SCValXdr.Encode(new XdrWriter(memoryStream), req.ToScvMap());
+        byte[] bytes = memoryStream.ToArray();
+        SHA256.Create().ComputeHash(bytes);
     }
     
     public void SetContractId(string inContractAddress)

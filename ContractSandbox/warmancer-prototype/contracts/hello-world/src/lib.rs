@@ -256,7 +256,7 @@ impl Contract {
             None => return Err(Error::UserNotFound),
         };
         let lobby_info_key = DataKey::LobbyInfo(user.current_lobby.clone());
-        let mut lobby_info = match persistent.get(&lobby_info_key) {
+        let mut lobby_info: LobbyInfo = match persistent.get(&lobby_info_key) {
             Some(thing) => thing,
             None => return Err(Error::LobbyNotFound),
         };
@@ -290,7 +290,7 @@ impl Contract {
             None => return Err(Error::UserNotFound),
         };
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
-        let mut lobby_info = match persistent.get(&lobby_info_key) {
+        let mut lobby_info: LobbyInfo = match persistent.get(&lobby_info_key) {
             Some(thing) => thing,
             None => return Err(Error::LobbyNotFound),
         };
@@ -351,7 +351,7 @@ impl Contract {
         };
         let other_address = Self::get_other_address(&user_address, &lobby_info);
         let other_user_state_key = DataKey::UserState(req.lobby_id.clone(), other_address.clone());
-        let other_user_state = match persistent.get(&other_user_state_key) {
+        let other_user_state: UserState = match persistent.get(&other_user_state_key) {
             Some(thing) => thing,
             None => return Err(Error::UserNotFound),
         };
@@ -374,8 +374,8 @@ impl Contract {
                 message: String::from_str(e, ""),
                 mail_type: MailType::ProveSetupCommit,
             };
-            Self::insert_mail(e, &user_address, &mail);
-            Self::insert_mail(e, &other_address, &mail);
+            let _ = Self::insert_mail(e, &user_address, &mail);
+            let _ = Self::insert_mail(e, &other_address, &mail);
         }
         Ok(())
     }
@@ -396,7 +396,7 @@ impl Contract {
         };
         let other_address = Self::get_other_address(&user_address, &lobby_info);
         let other_user_state_key = DataKey::UserState(req.lobby_id.clone(), other_address.clone());
-        let other_user_state = match persistent.get(&other_user_state_key) {
+        let other_user_state: UserState = match persistent.get(&other_user_state_key) {
             Some(thing) => thing,
             None => return Err(Error::UserNotFound),
         };
