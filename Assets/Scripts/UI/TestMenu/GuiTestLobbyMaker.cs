@@ -24,22 +24,22 @@ public class GuiTestLobbyMaker : TestGuiElement
 
     void Start()
     {
-        backButton.onClick.AddListener(() =>
-        {
-            AudioManager.instance.PlaySmallButtonClick();
-            OnBackButton?.Invoke();
-        });
-        makeLobbyButton.onClick.AddListener(() =>
-        {
-            AudioManager.instance.PlayMidButtonClick();
-            OnSubmitLobbyButton?.Invoke(GetLobbyParameters());
-        });
-        singlePlayerButton.onClick.AddListener(() =>
-        {
-            AudioManager.instance.PlayMidButtonClick();
-            OnSinglePlayerButton?.Invoke(GetLobbyParameters());
-        });
-        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        // backButton.onClick.AddListener(() =>
+        // {
+        //     AudioManager.instance.PlaySmallButtonClick();
+        //     OnBackButton?.Invoke();
+        // });
+        // makeLobbyButton.onClick.AddListener(() =>
+        // {
+        //     AudioManager.instance.PlayMidButtonClick();
+        //     OnSubmitLobbyButton?.Invoke(GetLobbyParameters());
+        // });
+        // singlePlayerButton.onClick.AddListener(() =>
+        // {
+        //     AudioManager.instance.PlayMidButtonClick();
+        //     OnSinglePlayerButton?.Invoke(GetLobbyParameters());
+        // });
+        // StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -83,14 +83,15 @@ public class GuiTestLobbyMaker : TestGuiElement
 
     Contract.LobbyParameters GetLobbyParameters()
     {
-        Contract.BoardDef selectedBoard = new Contract.BoardDef(boardDefs[boardDropdown.value]);
-        return new Contract.LobbyParameters
-        {
-            board_def_name = selectedBoard.name,
-            dev_mode = false,
-            max_pawns = selectedBoard.default_max_pawns,
-            must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
-            security_mode = securityModeToggle.isOn,
-        };
+        // Contract.BoardDef selectedBoard = new Contract.BoardDef(boardDefs[boardDropdown.value]);
+        // return new Contract.LobbyParameters
+        // {
+        //     board_def_name = selectedBoard.name,
+        //     dev_mode = false,
+        //     max_pawns = selectedBoard.default_max_pawns,
+        //     must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
+        //     security_mode = securityModeToggle.isOn,
+        // };
+        return new Contract.LobbyParameters() { };
     }
 }

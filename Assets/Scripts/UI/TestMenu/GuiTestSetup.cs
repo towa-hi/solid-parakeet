@@ -36,17 +36,17 @@ public class GuiTestSetup : GameElement
     {
         base.Initialize(inBoardManager, lobby);
         // Clear existing entries
-        foreach (Transform child in rankEntryListRoot.transform) { Destroy(child.gameObject); }
-        entries = new Dictionary<Rank, GuiRankListEntry>();
-        
-        MaxPawns[] maxPawns = lobby.parameters.max_pawns;
-        foreach (MaxPawns maxPawn in maxPawns)
-        {
-            GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
-            entries.Add((Rank)maxPawn.rank, rankListEntry);
-            rankListEntry.Initialize(maxPawn);
-            rankListEntry.SetButtonOnClick(OnEntryClicked);
-        }
+        // foreach (Transform child in rankEntryListRoot.transform) { Destroy(child.gameObject); }
+        // entries = new Dictionary<Rank, GuiRankListEntry>();
+        //
+        // MaxPawns[] maxPawns = lobby.parameters.max_pawns;
+        // foreach (MaxPawns maxPawn in maxPawns)
+        // {
+        //     GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
+        //     entries.Add((Rank)maxPawn.rank, rankListEntry);
+        //     rankListEntry.Initialize(maxPawn);
+        //     rankListEntry.SetButtonOnClick(OnEntryClicked);
+        // }
     }
     
     public void Refresh(SetupClientState state)

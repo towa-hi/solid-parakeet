@@ -155,7 +155,7 @@ public class GuiTestStartMenu : TestGuiElement
         if (currentUser.HasValue)
         {
             User user = currentUser.Value;
-            if (string.IsNullOrEmpty(user.current_lobby))
+            if (user.current_lobby == 0)
             {
                 currentLobbyText.text = "No lobby";
                 viewLobbyButton.interactable = false;
@@ -163,7 +163,7 @@ public class GuiTestStartMenu : TestGuiElement
             else
             {
                 // user is in a lobby
-                currentLobbyText.text = user.current_lobby;
+                currentLobbyText.text = user.current_lobby.ToString();
                 joinLobbyButton.interactable = false;
                 makeLobbyButton.interactable = false;
                 viewLobbyButton.interactable = true;

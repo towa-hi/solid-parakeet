@@ -14,7 +14,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CDGFMMBQDOYKZ7Q7G2L72LFZ3VWWEDC73XY2ZE5KICTFD6ZCHFDDV5E2";
+    public static string testContract = "CBDCF5GH5R6SO6A6VBJ76RL7LFDGYAG222M5LTAMFGMRVMUBKDLXYQ4H";
     public static string testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -80,7 +80,7 @@ public static class StellarManagerTest
         EndTask(getUserTask);
         if (currentUser.HasValue)
         {
-            if (!string.IsNullOrEmpty(currentUser.Value.current_lobby))
+            if (currentUser.Value.current_lobby != 0)
             {
                 TaskInfo getLobbyTask = SetCurrentTask("ReqLobbyData");
                 currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
@@ -158,21 +158,31 @@ public static class StellarManagerTest
         }
         return 0;
     }
+
+    static uint GenerateRandomUint()
+    {
+        uint value;
+        do
+        {
+            // range is [0, UInt32.MaxValue]
+            value = (uint)UnityEngine.Random.Range(1, int.MaxValue)      // first half
+                    << 16
+                    | (uint)UnityEngine.Random.Range(0, ushort.MaxValue); // second half
+        } while (value == 0);
+        return value;
+    }
     
     public static async Task<int> MakeLobbyRequest(Contract.LobbyParameters parameters)
     {
-        
-        uint salt = (uint)Random.Range(0, 4000000);
         MakeLobbyReq req = new MakeLobbyReq
         {
-            host_address = GetUserAddress(),
+            lobby_id = GenerateRandomUint(),
             parameters = parameters,
-            salt = salt,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req);
         EndTask(task);
-        await UpdateState();
+        //await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
 
@@ -285,7 +295,7 @@ public static class StellarManagerTest
         return result;
     }
     
-    public static async Task<Lobby?> GetLobby(string key)
+    public static async Task<Lobby?> GetLobby(uint key)
     {
         TaskInfo task = SetCurrentTask("ReqLobbyData");
         Lobby? result = await stellar.ReqLobbyData(key);

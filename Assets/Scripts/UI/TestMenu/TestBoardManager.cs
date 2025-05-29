@@ -131,52 +131,52 @@ public class TestBoardManager : MonoBehaviour
     
     void Initialize(User user, Lobby lobby)
     {
-        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
-        if (!boardDef)
-        {
-            throw new NullReferenceException();
-        }
-        if (user.index == lobby.host_address)
-        {
-            userTeam = (Team)lobby.host_state.team;
-        }
-        else
-        {
-            userTeam = (Team)lobby.guest_state.team;
-        }
-        cameraBounds.position = cameraBounds.position + transform.position + boardDef.center;
-        // Clear existing tileviews and replace
-        foreach (TestTileView tile in tileViews.Values)
-        {
-            Destroy(tile.gameObject);
-        }
-        tileViews.Clear();
-        grid.SetBoard(new SBoardDef(boardDef));
-        foreach (Tile tile in boardDef.tiles)
-        {
-            Vector3 worldPosition = grid.CellToWorld(tile.pos);
-            GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
-            TestTileView tileView = tileObject.GetComponent<TestTileView>();
-            tileView.Initialize(tile, this);
-            tileViews.Add(tile.pos, tileView);
-        }
-        // Clear any existing pawnviews and replace
-        foreach (TestPawnView pawnView in pawnViews)
-        {
-            Destroy(pawnView.gameObject);
-        }
-        pawnViews.Clear();
-        foreach (Contract.Pawn p in lobby.pawns)
-        {
-            GameObject pawnObject = Instantiate(pawnPrefab, transform);
-            TestPawnView pawnView = pawnObject.GetComponent<TestPawnView>();
-            pawnView.Initialize(p, this);
-            pawnViews.Add(pawnView);
-        }
-        lobbyId = lobby.index;
-        isHost = lobby.host_address == user.index;
-        parameters = lobby.parameters;
+        // BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
+        // boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
+        // if (!boardDef)
+        // {
+        //     throw new NullReferenceException();
+        // }
+        // if (user.index == lobby.host_address)
+        // {
+        //     userTeam = (Team)lobby.host_state.team;
+        // }
+        // else
+        // {
+        //     userTeam = (Team)lobby.guest_state.team;
+        // }
+        // cameraBounds.position = cameraBounds.position + transform.position + boardDef.center;
+        // // Clear existing tileviews and replace
+        // foreach (TestTileView tile in tileViews.Values)
+        // {
+        //     Destroy(tile.gameObject);
+        // }
+        // tileViews.Clear();
+        // grid.SetBoard(new SBoardDef(boardDef));
+        // foreach (Tile tile in boardDef.tiles)
+        // {
+        //     Vector3 worldPosition = grid.CellToWorld(tile.pos);
+        //     GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
+        //     TestTileView tileView = tileObject.GetComponent<TestTileView>();
+        //     tileView.Initialize(tile, this);
+        //     tileViews.Add(tile.pos, tileView);
+        // }
+        // // Clear any existing pawnviews and replace
+        // foreach (TestPawnView pawnView in pawnViews)
+        // {
+        //     Destroy(pawnView.gameObject);
+        // }
+        // pawnViews.Clear();
+        // foreach (Contract.Pawn p in lobby.pawns)
+        // {
+        //     GameObject pawnObject = Instantiate(pawnPrefab, transform);
+        //     TestPawnView pawnView = pawnObject.GetComponent<TestPawnView>();
+        //     pawnView.Initialize(p, this);
+        //     pawnViews.Add(pawnView);
+        // }
+        // lobbyId = lobby.index;
+        // isHost = lobby.host_address == user.index;
+        // parameters = lobby.parameters;
     }
     
     public List<TestPawnView> GetMyPawnViews()
@@ -346,33 +346,33 @@ public class SetupTestPhase : ITestPhase
     
     void ResetClientState(Lobby lobby)
     {
-        Debug.Log("SetupTestPhase.ResetClientState");
-        UserState userState = lobby.GetUserStateByTeam(bm.userTeam);
-        SetupClientState newSetupClientState = new SetupClientState()
-        {
-            selectedRank = null,
-            commitments = new Dictionary<string, PawnCommitment>(),
-            committed = userState.committed,
-            team = (Team)userState.team,
-        };
-        // we can assume every max in maxRanks sums to commitIndex - 1;
-        int commitIndex = 0;
-        foreach (MaxPawns maxRanks in lobby.parameters.max_pawns)
-        {
-            for (int i = 0; i < maxRanks.max; i++)
-            {
-                string pawnDefHash = userState.committed ? userState.setup_commitments[commitIndex].pawn_def_hash : Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank));
-                PawnCommitment commitment = new PawnCommitment()
-                {
-                    pawn_def_hash = pawnDefHash, // this is the only original data we fill in
-                    pawn_id = userState.setup_commitments[commitIndex].pawn_id,
-                    starting_pos = userState.setup_commitments[commitIndex].starting_pos,
-                };
-                newSetupClientState.commitments[commitment.pawn_id] = commitment;
-                commitIndex += 1;
-            }
-        }
-        clientState = newSetupClientState;
+        // Debug.Log("SetupTestPhase.ResetClientState");
+        // UserState userState = lobby.GetUserStateByTeam(bm.userTeam);
+        // SetupClientState newSetupClientState = new SetupClientState()
+        // {
+        //     selectedRank = null,
+        //     commitments = new Dictionary<string, PawnCommitment>(),
+        //     committed = userState.committed,
+        //     team = (Team)userState.team,
+        // };
+        // // we can assume every max in maxRanks sums to commitIndex - 1;
+        // int commitIndex = 0;
+        // foreach (MaxPawns maxRanks in lobby.parameters.max_pawns)
+        // {
+        //     for (int i = 0; i < maxRanks.max; i++)
+        //     {
+        //         string pawnDefHash = userState.committed ? userState.setup_commitments[commitIndex].pawn_def_hash : Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank));
+        //         PawnCommitment commitment = new PawnCommitment()
+        //         {
+        //             pawn_def_hash = pawnDefHash, // this is the only original data we fill in
+        //             pawn_id = userState.setup_commitments[commitIndex].pawn_id,
+        //             starting_pos = userState.setup_commitments[commitIndex].starting_pos,
+        //         };
+        //         newSetupClientState.commitments[commitment.pawn_id] = commitment;
+        //         commitIndex += 1;
+        //     }
+        // }
+        // clientState = newSetupClientState;
     }
     
     public void EnterState()
@@ -470,38 +470,38 @@ public class SetupTestPhase : ITestPhase
 
     void OnAutoSetup()
     {
-        clientState.ClearAllCommitments();
-        // Generate valid setup positions for each pawn
-        HashSet<Tile> usedTiles = new();
-        Contract.MaxPawns[] sortedMaxPawns = bm.parameters.max_pawns;
-        Array.Sort(sortedMaxPawns, (maxPawns1, maxPawns2) => Rules.GetSetupZone((Rank)maxPawns1.rank) < Rules.GetSetupZone((Rank)maxPawns2.rank) ? 1 : -1);
-        foreach (MaxPawns maxPawns in sortedMaxPawns)
-        {
-            for (int i = 0; i < maxPawns.max; i++)
-            {
-                // Get available tiles for this rank
-                List<Tile> availableTiles = bm.boardDef.GetEmptySetupTiles(bm.userTeam, (Rank)maxPawns.rank, usedTiles);
-                if (availableTiles.Count == 0)
-                {
-                    Debug.LogError($"No available tiles for rank {maxPawns.rank}");
-                    continue;
-                }
-                // Pick a random tile from available tiles
-                int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
-                Tile selectedTile = availableTiles[randomIndex];
-                // Find a pawn of this rank in purgatory
-                bool success = clientState.SetCommitment((Rank)maxPawns.rank, selectedTile.pos);
-                if (success)
-                {
-                    usedTiles.Add(selectedTile);
-                }
-                else
-                {
-                    Debug.LogError($"No available pawns of rank {maxPawns.rank} to place");
-                }
-            }
-        }
-        ClientStateChanged();
+        // clientState.ClearAllCommitments();
+        // // Generate valid setup positions for each pawn
+        // HashSet<Tile> usedTiles = new();
+        // Contract.MaxPawns[] sortedMaxPawns = bm.parameters.max_pawns;
+        // Array.Sort(sortedMaxPawns, (maxPawns1, maxPawns2) => Rules.GetSetupZone((Rank)maxPawns1.rank) < Rules.GetSetupZone((Rank)maxPawns2.rank) ? 1 : -1);
+        // foreach (MaxPawns maxPawns in sortedMaxPawns)
+        // {
+        //     for (int i = 0; i < maxPawns.max; i++)
+        //     {
+        //         // Get available tiles for this rank
+        //         List<Tile> availableTiles = bm.boardDef.GetEmptySetupTiles(bm.userTeam, (Rank)maxPawns.rank, usedTiles);
+        //         if (availableTiles.Count == 0)
+        //         {
+        //             Debug.LogError($"No available tiles for rank {maxPawns.rank}");
+        //             continue;
+        //         }
+        //         // Pick a random tile from available tiles
+        //         int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
+        //         Tile selectedTile = availableTiles[randomIndex];
+        //         // Find a pawn of this rank in purgatory
+        //         bool success = clientState.SetCommitment((Rank)maxPawns.rank, selectedTile.pos);
+        //         if (success)
+        //         {
+        //             usedTiles.Add(selectedTile);
+        //         }
+        //         else
+        //         {
+        //             Debug.LogError($"No available pawns of rank {maxPawns.rank} to place");
+        //         }
+        //     }
+        // }
+        // ClientStateChanged();
     }
     
     void OnRefresh()

@@ -1,9 +1,10 @@
 #![no_std]
 use soroban_sdk::*;
 use soroban_sdk::xdr::*;
+
 // region global state defs
 pub type UserAddress = String;
-pub type LobbyGuid = String;
+pub type LobbyGuid = u32;
 pub type PawnGuid = String;
 pub type PawnGuidHash = String;
 pub type PawnDefHash = String;
@@ -12,7 +13,7 @@ pub type BoardHash = String;
 pub type SetupHash = String;
 pub type Rank = u32;
 pub type Turn = u32;
-
+pub type PackedUser = BytesN<8>;
 // endregion
 // region enums errors
 #[contracterror]
@@ -85,8 +86,8 @@ pub struct User {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MaxRank {
-    pub rank: Rank,
     pub max: u32,
+    pub rank: Rank,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pos {
@@ -159,8 +160,8 @@ pub const EVENT_USER_LEFT: &str = "EVENT_USER_LEFT";
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MakeLobbyReq {
-    pub parameters: LobbyParameters,
     pub lobby_id: LobbyGuid,
+    pub parameters: LobbyParameters,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JoinLobbyReq {
@@ -203,7 +204,7 @@ pub struct MoveSubmitReq {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     Admin, // Address
-    User(UserAddress),
+    PackedUser(UserAddress),
     LobbyInfo(LobbyGuid), // lobby specific data
     LobbyParameters(LobbyGuid),
     UserState(LobbyGuid, UserAddress),
@@ -222,7 +223,7 @@ impl Contract {
         let persistent = e.storage().persistent();
         let mut host_user = Self::get_or_make_user(e, &user_address);
         // validation
-        if !host_user.current_lobby.is_empty() {
+        if host_user.current_lobby != 0 {
             return Err(Error::HostAlreadyInLobby)
         }
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
@@ -238,11 +239,13 @@ impl Contract {
             phase: Phase::Uninitialized,
         };
         // write
-        persistent.set(&lobby_info_key, &lobby_info);
+        //persistent.set(&lobby_info_key, &lobby_info);
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id.clone());
-        persistent.set(&lobby_parameters_key, &req.parameters);
-        let user_key = DataKey::User(user_address.clone());
-        persistent.set(&user_key, &host_user);
+        //persistent.set(&lobby_parameters_key, &req.parameters);
+        let user_key = DataKey::PackedUser(user_address.clone());
+        let packed_user = Self::pack_user(e, host_user);
+        persistent.set(&user_key, &packed_user);
+
         Ok(())
     }
 
@@ -250,11 +253,8 @@ impl Contract {
         address.require_auth();
         let user_address: UserAddress = address.to_string();
         let persistent = e.storage().persistent();
-        let user_key = DataKey::User(user_address.clone());
-        let mut user: User = match persistent.get(&user_key) {
-            Some(thing) => thing,
-            None => return Err(Error::UserNotFound),
-        };
+        let user_key = DataKey::PackedUser(user_address.clone());
+        let mut user = Self::get_or_make_user(e, &user_address);
         let lobby_info_key = DataKey::LobbyInfo(user.current_lobby.clone());
         let mut lobby_info: LobbyInfo = match persistent.get(&lobby_info_key) {
             Some(thing) => thing,
@@ -273,8 +273,9 @@ impl Contract {
         }
         //TODO: handle detecting if the game is in progress to award victory/defeat
         lobby_info.phase = Phase::Aborted;
-        user.current_lobby = String::from_str(e, "");
+        user.current_lobby = 0;
         // write
+
         persistent.set(&user_key, &user);
         persistent.set(&lobby_info_key, &lobby_info);
         Ok(())
@@ -284,11 +285,8 @@ impl Contract {
         address.require_auth();
         let user_address: UserAddress = address.to_string();
         let persistent = e.storage().persistent();
-        let user_key = DataKey::User(user_address.clone());
-        let mut user: User = match persistent.get(&user_key) {
-            Some(thing) => thing,
-            None => return Err(Error::UserNotFound),
-        };
+        let user_key = DataKey::PackedUser(user_address.clone());
+        let mut user = Self::get_or_make_user(e, &user_address);
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
         let mut lobby_info: LobbyInfo = match persistent.get(&lobby_info_key) {
             Some(thing) => thing,
@@ -298,7 +296,7 @@ impl Contract {
         if lobby_info.phase != Phase::Uninitialized {
             return Err(Error::AlreadyInitialized)
         }
-        if !user.current_lobby.is_empty() {
+        if user.current_lobby != 0 {
             return Err(Error::GuestAlreadyInLobby);
         }
         if lobby_info.host_address.is_empty() {
@@ -427,18 +425,40 @@ impl Contract {
         Ok(())
     }
 
+    pub(crate) fn pack_user(e: &Env, user: User) -> PackedUser {
+        let mut buf = [0u8; 8];
+        buf[0..4].copy_from_slice(&user.current_lobby.to_be_bytes());
+        // 2) pack full u32 (big-endian) into bytes 16..20
+        buf[4..8].copy_from_slice(&user.games_completed.to_be_bytes());
+        BytesN::from_array(e, &buf)
+    }
+
+    pub(crate) fn unpack_user(e: &Env, packed_user: PackedUser, index: UserAddress) -> User {
+        let arr: [u8; 8] = packed_user.to_array();
+        let current_lobby    = u32::from_be_bytes(arr[0..4].try_into().unwrap());
+        let games_completed  = u32::from_be_bytes(arr[4..8].try_into().unwrap());
+        User {
+            current_lobby: current_lobby,
+            games_completed: games_completed,
+            index: index,
+        }
+    }
+
     pub(crate) fn get_or_make_user(e: &Env, user_address: &UserAddress) -> User {
         let storage = e.storage().persistent();
-        let key = DataKey::User(user_address.clone());
-        storage.get(&key).unwrap_or_else(|| {
-            let new_user = User {
-                current_lobby: String::from_str(e, ""),
-                games_completed: 0,
-                index: user_address.clone(),
-            };
-            storage.set(&key, &new_user);
-            new_user
-        })
+        let key = DataKey::PackedUser(user_address.clone());
+        // 1) Try to load an existing packed user
+        if let Some(packed) = storage.get(&key) {
+            // Found one → immediately unpack and return it
+            return Self::unpack_user(e, packed, user_address.clone());
+        }
+        // 2) Not found → create a brand new User
+        let new_user = User {
+            current_lobby: 0,
+            games_completed: 0,
+            index: user_address.clone(),
+        };
+        new_user
     }
     pub(crate) fn get_index(user_address: &UserAddress, lobby_info: &LobbyInfo) -> Result<u32, Error> {
         if user_address.clone() == lobby_info.host_address.clone() {

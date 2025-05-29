@@ -49,11 +49,6 @@ public class StellarDotnet
     public void SetSneed(string inSneed)
     {
         sneed = inSneed;
-        SetupCommitReq req = new SetupCommitReq();
-        MemoryStream memoryStream = new MemoryStream();
-        SCValXdr.Encode(new XdrWriter(memoryStream), req.ToScvMap());
-        byte[] bytes = memoryStream.ToArray();
-        SHA256.Create().ComputeHash(bytes);
     }
     
     public void SetContractId(string inContractAddress)
@@ -187,7 +182,7 @@ public class StellarDotnet
         }
     }
 
-    public async Task<Lobby?> ReqLobbyData(string key)
+    public async Task<Lobby?> ReqLobbyData(uint key)
     {
         Debug.Log("ReqLobbyData on " + key + " contract " + contractAddress);
         LedgerKey ledgerKey = MakeLedgerKey("Lobby", key, ContractDataDurability.PERSISTENT);

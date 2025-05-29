@@ -62,7 +62,7 @@ public class StellarManager : MonoBehaviour
     public event Action<bool> OnInviteSent;
     public event Action<List<Invite>> OnInviteCheck;
 
-    public static string testContract = "CDBKPWZKQDBWR437CNCIYYJNBUXKSTBFIVRNFV4WTBVIXYOYBSUCYEXN";
+    public static string testContract = "CDGP3JUJDNHW6ZA7KQSEWHQBYBTY4HAQ7ZHNQDXOGEYIJUI5YFXYVKKN";
     public static string testGuest = "GD6APTUYGQJUR2Q5QQGKCZNBWE7BVLTZQAJ4LRX5ZU55ODB65FMJBGGO";
     public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -109,7 +109,7 @@ public class StellarManager : MonoBehaviour
         string currentAddress = getAddressResult.data;
         currentUser = new User
         {
-            current_lobby = "",
+            current_lobby = 0,
             index = currentAddress,
             name = "uninitialized",
             games_completed = 0,

@@ -14,7 +14,7 @@ namespace Contract
     
     public static class SCUtility
     {
-        public static bool log = false;
+        public static bool log = true;
         
         public static void DebugLog(string msg) { if (log) { Debug.Log(msg); } }
         
@@ -231,7 +231,25 @@ namespace Contract
     }
     
     // ReSharper disable InconsistentNaming
-
+    [System.Serializable]
+    public struct MaxRank : IScvMapCompatable
+    {
+        public uint max;
+        public uint rank;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("max", max),
+                    SCUtility.FieldToSCMapEntry("rank", rank),
+                }),
+            };
+        }
+    }
+    [System.Serializable]
     public struct Mail : IScvMapCompatable
     {
         public uint mail_type;
@@ -253,10 +271,10 @@ namespace Contract
             };
         }
     }
-    
+    [System.Serializable]
     public struct User: IScvMapCompatable
     {
-        public string current_lobby;
+        public uint current_lobby;
         public int games_completed;
         public string index;
         public string name;
@@ -373,7 +391,7 @@ namespace Contract
             return GetPawnCommitmentById(guid.ToString());
         }
     }
-    
+    [System.Serializable]
     public struct PawnDef: IScvMapCompatable
     {
         public int id;
@@ -423,7 +441,7 @@ namespace Contract
             return scvMap;
         }
     }
-
+    [System.Serializable]
     public struct Mailbox : IScvMapCompatable
     {
         public string lobby;
@@ -469,7 +487,7 @@ namespace Contract
             };
         }
     }
-    
+    [System.Serializable]
     public struct Tile: IScvMapCompatable
     {
         public int auto_setup_zone;
@@ -549,7 +567,7 @@ namespace Contract
             };
         }
     }
-    
+    [System.Serializable]
     public struct BoardDef : IScvMapCompatable
     {
         public MaxPawns[] default_max_pawns;
@@ -593,9 +611,10 @@ namespace Contract
     [System.Serializable]
     public struct LobbyParameters : IScvMapCompatable
     {
-        public string board_def_name;
+        public string board_hash;
         public bool dev_mode;
-        public MaxPawns[] max_pawns;
+        public uint host_team;
+        public MaxRank[] max_ranks;
         public bool must_fill_all_tiles;
         public bool security_mode;
 
@@ -605,9 +624,10 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
-                    SCUtility.FieldToSCMapEntry("board_def_name", board_def_name),
+                    SCUtility.FieldToSCMapEntry("board_hash", board_hash),
                     SCUtility.FieldToSCMapEntry("dev_mode", dev_mode),
-                    SCUtility.FieldToSCMapEntry("max_pawns", max_pawns),
+                    SCUtility.FieldToSCMapEntry("host_team", host_team),
+                    SCUtility.FieldToSCMapEntry("max_ranks", max_ranks),
                     SCUtility.FieldToSCMapEntry("must_fill_all_tiles", must_fill_all_tiles),
                     SCUtility.FieldToSCMapEntry("security_mode", security_mode),
                 }),
@@ -853,9 +873,8 @@ namespace Contract
 
     public struct MakeLobbyReq : IScvMapCompatable
     {
-        public string host_address;
+        public uint lobby_id;
         public LobbyParameters parameters;
-        public uint salt;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -863,9 +882,8 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
-                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                    SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                     SCUtility.FieldToSCMapEntry("parameters", parameters),
-                    SCUtility.FieldToSCMapEntry("salt", salt),
                 }),
             };
         }

@@ -12,7 +12,7 @@ public class FakeServer : MonoBehaviour
     public Contract.Lobby fakeLobby;
     public Contract.User fakeHost;
     public Contract.User fakeGuest;
-    public string fakeLobbyId = Guid.Empty.ToString();
+    public uint fakeLobbyId = 1;
 
     public static FakeServer ins;
     public BoardDef boardDef;
@@ -38,95 +38,95 @@ public class FakeServer : MonoBehaviour
 
     public void SetFakeParameters(Contract.LobbyParameters parameters)
     {
-        fakeParameters = parameters;
-        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        boardDef = boardDefs.FirstOrDefault(def => def.name == fakeParameters.board_def_name);
+        // fakeParameters = parameters;
+        // BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
+        // boardDef = boardDefs.FirstOrDefault(def => def.name == fakeParameters.board_def_name);
     }
     
     
     public void StartFakeLobby()
     {
-        List<Contract.Pawn> pawnsList = new List<Contract.Pawn>();
-        List<PawnCommitment> hostCommitments = new List<PawnCommitment>();
-        List<PawnCommitment> guestCommitments = new List<PawnCommitment>();
-        
-        foreach (MaxPawns maxPawn in fakeParameters.max_pawns)
-        {
-            PawnDef def = Globals.RankToPawnDef((Rank)maxPawn.rank);
-            for (int i = 0; i < maxPawn.max; i++)
-            {
-                Contract.Pawn pawn = new Contract.Pawn
-                {
-                    is_alive = false,
-                    is_moved = false,
-                    is_revealed = false,
-                    pawn_def_hash = Globals.PawnDefToFakeHash(def),
-                    pawn_id = Guid.NewGuid().ToString(),
-                    pos = new Pos(Globals.Purgatory),
-                    team = 1,
-                };
-                PawnCommitment commitment = new PawnCommitment
-                {
-                    pawn_def_hash = pawn.pawn_def_hash,
-                    pawn_id = pawn.pawn_id,
-                    starting_pos = pawn.pos,
-                };
-                pawnsList.Add(pawn);
-                hostCommitments.Add(commitment);
-            }
-        }
-        foreach (MaxPawns maxPawn in fakeParameters.max_pawns)
-        {
-            PawnDef def = Globals.RankToPawnDef((Rank)maxPawn.rank);
-            for (int i = 0; i < maxPawn.max; i++)
-            {
-                Contract.Pawn pawn = new Contract.Pawn
-                {
-                    is_alive = false,
-                    is_moved = false,
-                    is_revealed = false,
-                    pawn_def_hash = Globals.PawnDefToFakeHash(def),
-                    pawn_id = Guid.NewGuid().ToString(),
-                    pos = new Pos(Globals.Purgatory),
-                    team = 2,
-                };
-                PawnCommitment commitment = new PawnCommitment
-                {
-                    pawn_def_hash = pawn.pawn_def_hash,
-                    pawn_id = pawn.pawn_id,
-                    starting_pos = pawn.pos,
-                };
-                pawnsList.Add(pawn);
-                guestCommitments.Add(commitment);
-            }
-        }
-        fakeLobby = new Lobby
-        {
-            game_end_state = 3,
-            guest_address = fakeGuest.index,
-            guest_state = new UserState
-            {
-                committed = false,
-                lobby_state = 2,
-                setup_commitments = guestCommitments.ToArray(),
-                team = 2,
-                user_address = fakeGuest.index,
-            },
-            host_address = fakeHost.index,
-            host_state = new UserState
-            {
-                committed = false,
-                lobby_state = 2,
-                setup_commitments = hostCommitments.ToArray(),
-                team = 1,
-                user_address = fakeHost.index,
-            },
-            index = fakeLobbyId,
-            parameters = fakeParameters,
-            pawns = pawnsList.ToArray(),
-            phase = 1,
-            turns = new Turn[] {},
-        };
+        // List<Contract.Pawn> pawnsList = new List<Contract.Pawn>();
+        // List<PawnCommitment> hostCommitments = new List<PawnCommitment>();
+        // List<PawnCommitment> guestCommitments = new List<PawnCommitment>();
+        //
+        // foreach (MaxPawns maxPawn in fakeParameters.max_pawns)
+        // {
+        //     PawnDef def = Globals.RankToPawnDef((Rank)maxPawn.rank);
+        //     for (int i = 0; i < maxPawn.max; i++)
+        //     {
+        //         Contract.Pawn pawn = new Contract.Pawn
+        //         {
+        //             is_alive = false,
+        //             is_moved = false,
+        //             is_revealed = false,
+        //             pawn_def_hash = Globals.PawnDefToFakeHash(def),
+        //             pawn_id = Guid.NewGuid().ToString(),
+        //             pos = new Pos(Globals.Purgatory),
+        //             team = 1,
+        //         };
+        //         PawnCommitment commitment = new PawnCommitment
+        //         {
+        //             pawn_def_hash = pawn.pawn_def_hash,
+        //             pawn_id = pawn.pawn_id,
+        //             starting_pos = pawn.pos,
+        //         };
+        //         pawnsList.Add(pawn);
+        //         hostCommitments.Add(commitment);
+        //     }
+        // }
+        // foreach (MaxPawns maxPawn in fakeParameters.max_pawns)
+        // {
+        //     PawnDef def = Globals.RankToPawnDef((Rank)maxPawn.rank);
+        //     for (int i = 0; i < maxPawn.max; i++)
+        //     {
+        //         Contract.Pawn pawn = new Contract.Pawn
+        //         {
+        //             is_alive = false,
+        //             is_moved = false,
+        //             is_revealed = false,
+        //             pawn_def_hash = Globals.PawnDefToFakeHash(def),
+        //             pawn_id = Guid.NewGuid().ToString(),
+        //             pos = new Pos(Globals.Purgatory),
+        //             team = 2,
+        //         };
+        //         PawnCommitment commitment = new PawnCommitment
+        //         {
+        //             pawn_def_hash = pawn.pawn_def_hash,
+        //             pawn_id = pawn.pawn_id,
+        //             starting_pos = pawn.pos,
+        //         };
+        //         pawnsList.Add(pawn);
+        //         guestCommitments.Add(commitment);
+        //     }
+        // }
+        // fakeLobby = new Lobby
+        // {
+        //     game_end_state = 3,
+        //     guest_address = fakeGuest.index,
+        //     guest_state = new UserState
+        //     {
+        //         committed = false,
+        //         lobby_state = 2,
+        //         setup_commitments = guestCommitments.ToArray(),
+        //         team = 2,
+        //         user_address = fakeGuest.index,
+        //     },
+        //     host_address = fakeHost.index,
+        //     host_state = new UserState
+        //     {
+        //         committed = false,
+        //         lobby_state = 2,
+        //         setup_commitments = hostCommitments.ToArray(),
+        //         team = 1,
+        //         user_address = fakeHost.index,
+        //     },
+        //     index = fakeLobbyId,
+        //     parameters = fakeParameters,
+        //     pawns = pawnsList.ToArray(),
+        //     phase = 1,
+        //     turns = new Turn[] {},
+        // };
         // fakeLobby is updated to the result of these functions
         // host -> make_lobby
         // guest -> join_lobby
@@ -218,53 +218,57 @@ public class FakeServer : MonoBehaviour
     
     SetupCommitReq GuestSetupCommitReq(User guest, Lobby lobby)
     {
-        // Get the guest's user state and commitments
-        UserState guestState = lobby.guest_state;
-        Dictionary<string, PawnCommitment> commitments = guestState.setup_commitments.ToDictionary(commitment => commitment.pawn_id);
-        // We need to generate valid positions for each pawn commitment
-        // Similar to SetupTestPhase.OnAutoSetup
-        HashSet<Tile> usedTiles = new();
-        // sort maxPawns by def
-        Contract.MaxPawns[] sortedMaxPawns = lobby.parameters.max_pawns;
-        Array.Sort(sortedMaxPawns, (maxPawns1, maxPawns2) => Rules.GetSetupZone((Rank)maxPawns1.rank) < Rules.GetSetupZone((Rank)maxPawns2.rank) ? 1 : -1);
-        foreach (MaxPawns maxPawns in sortedMaxPawns)
+        // // Get the guest's user state and commitments
+        // UserState guestState = lobby.guest_state;
+        // Dictionary<string, PawnCommitment> commitments = guestState.setup_commitments.ToDictionary(commitment => commitment.pawn_id);
+        // // We need to generate valid positions for each pawn commitment
+        // // Similar to SetupTestPhase.OnAutoSetup
+        // HashSet<Tile> usedTiles = new();
+        // // sort maxPawns by def
+        // Contract.MaxPawns[] sortedMaxPawns = lobby.parameters.max_pawns;
+        // Array.Sort(sortedMaxPawns, (maxPawns1, maxPawns2) => Rules.GetSetupZone((Rank)maxPawns1.rank) < Rules.GetSetupZone((Rank)maxPawns2.rank) ? 1 : -1);
+        // foreach (MaxPawns maxPawns in sortedMaxPawns)
+        // {
+        //     for (int i = 0; i < maxPawns.max; i++)
+        //     {
+        //         // Get available tiles for this rank
+        //         List<Tile> availableTiles = boardDef.GetEmptySetupTiles(lobby.GetTeam(guest.index), (Rank)maxPawns.rank, usedTiles);
+        //         if (availableTiles.Count == 0)
+        //         {
+        //             Debug.LogError($"No available tiles for rank {maxPawns.rank}");
+        //             continue;
+        //         }
+        //         // Pick a random tile from available tiles
+        //         int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
+        //         Tile selectedTile = availableTiles[randomIndex];
+        //         // Find a pawn of this rank in purgatory
+        //         List<PawnCommitment> vals = commitments.Values.ToList();
+        //         foreach (PawnCommitment commitment in vals
+        //                      .Where(commitment => commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
+        //                      .Where(commitment => Globals.FakeHashToPawnDef(commitment.pawn_def_hash).rank == (Rank)maxPawns.rank))
+        //         {
+        //             PawnCommitment updatedCommitment = new()
+        //             {
+        //                 pawn_def_hash = commitment.pawn_def_hash,
+        //                 pawn_id = commitment.pawn_id,
+        //                 starting_pos = new Pos(selectedTile.pos),
+        //             };
+        //             commitments[commitment.pawn_id] = updatedCommitment;
+        //             usedTiles.Add(selectedTile);
+        //             break;
+        //         }
+        //     }
+        // }
+        // SetupCommitReq req = new SetupCommitReq
+        // {
+        //     lobby_id = lobby.index,
+        //     setup_commitments = commitments.Values.ToArray(),
+        // };
+        // return req;
+        return new SetupCommitReq()
         {
-            for (int i = 0; i < maxPawns.max; i++)
-            {
-                // Get available tiles for this rank
-                List<Tile> availableTiles = boardDef.GetEmptySetupTiles(lobby.GetTeam(guest.index), (Rank)maxPawns.rank, usedTiles);
-                if (availableTiles.Count == 0)
-                {
-                    Debug.LogError($"No available tiles for rank {maxPawns.rank}");
-                    continue;
-                }
-                // Pick a random tile from available tiles
-                int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
-                Tile selectedTile = availableTiles[randomIndex];
-                // Find a pawn of this rank in purgatory
-                List<PawnCommitment> vals = commitments.Values.ToList();
-                foreach (PawnCommitment commitment in vals
-                             .Where(commitment => commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
-                             .Where(commitment => Globals.FakeHashToPawnDef(commitment.pawn_def_hash).rank == (Rank)maxPawns.rank))
-                {
-                    PawnCommitment updatedCommitment = new()
-                    {
-                        pawn_def_hash = commitment.pawn_def_hash,
-                        pawn_id = commitment.pawn_id,
-                        starting_pos = new Pos(selectedTile.pos),
-                    };
-                    commitments[commitment.pawn_id] = updatedCommitment;
-                    usedTiles.Add(selectedTile);
-                    break;
-                }
-            }
-        }
-        SetupCommitReq req = new SetupCommitReq
-        {
-            lobby_id = lobby.index,
-            setup_commitments = commitments.Values.ToArray(),
+
         };
-        return req;
     }
 
     MoveSubmitReq GuestMoveSubmitReq(User guest, Lobby lobby)
