@@ -26,24 +26,36 @@ namespace Contract
                 throw new ArgumentNullException(nameof(input));
             }
             Type type = input.GetType();
+            if (input is byte[] byteArray)
+            {
+                return new SCVal.ScvBytes() { bytes = byteArray, };
+            }
+            if (input is StellarAccountAddress address)
+            {
+                return address.ToScvAddress();
+            }
             if (type == typeof(uint))
             {
                 return new SCVal.ScvU32() { u32 = new uint32((uint)input) };
+            }
+            if (type == typeof(ulong))
+            {
+                return new SCVal.ScvU64() { u64 = new uint64((ulong)input) };
             }
             // For native int always convert to SCVal.ScvI32.
             if (type == typeof(int))
             {
                 return new SCVal.ScvI32 { i32 = new int32((int)input) };
             }
-            else if (type == typeof(string))
+            if (type == typeof(string))
             {
                 return new SCVal.ScvString { str = new SCString((string)input) };
             }
-            else if (type == typeof(bool))
+            if (type == typeof(bool))
             {
                 return new SCVal.ScvBool { b = (bool)input };
             }
-            else if (input is Array inputArray)
+            if (input is Array inputArray)
             {
                 SCVal[] scValArray = new SCVal[inputArray.Length];
                 for (int i = 0; i < inputArray.Length; i++)
@@ -52,7 +64,7 @@ namespace Contract
                 }
                 return new SCVal.ScvVec() { vec = new SCVec(scValArray) };
             }
-            else if (input is IScvMapCompatable inputStruct)
+            if (input is IScvMapCompatable inputStruct)
             {
                 return inputStruct.ToScvMap();
                 // List<SCMapEntry> entries = new();
@@ -77,8 +89,18 @@ namespace Contract
 
         public static object SCValToNative(SCVal scVal, Type targetType)
         {
+            if (scVal == null)
+            {
+                Debug.LogError("input is null!!!!");
+                throw new ArgumentNullException();
+            }
             DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
-            if (targetType == typeof(uint))
+            if (scVal is SCVal.ScvBytes scvBytes)
+            {
+                DebugLog($"SCValToNative: Getting bytes with length '{scvBytes.bytes.InnerValue.Length}'.");
+                return scvBytes.bytes.InnerValue;
+            }
+            else if (targetType == typeof(uint))
             {
                 DebugLog("SCValToNative: Target type is uint.");
                 if (scVal is SCVal.ScvU32 u32Val)
@@ -133,6 +155,14 @@ namespace Contract
                 {
                     Debug.LogError("SCValToNative: Failed bool conversion. SCVal is not SCvBool.");
                     throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
+                }
+            }
+            else if (targetType == typeof(StellarAccountAddress))
+            {
+                DebugLog($"SCValToNative: Found SCVal.ScvAddress");
+                if (scVal is SCVal.ScvAddress scvAddress)
+                {
+                    return new StellarAccountAddress(scvAddress);
                 }
             }
             else if (scVal is SCVal.ScvVec scvVec)
@@ -272,28 +302,35 @@ namespace Contract
         }
     }
     [System.Serializable]
-    public struct User: IScvMapCompatable
+    public struct User
     {
         public uint current_lobby;
-        public int games_completed;
-        public string index;
-        public string name;
-        
-        public SCVal.ScvMap ToScvMap()
+        public uint games_completed;
+        public StellarAccountAddress index;
+
+        public User(byte[] bytes, StellarAccountAddress key)
         {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("current_lobby", current_lobby),
-                    SCUtility.FieldToSCMapEntry("games_completed", games_completed),
-                    SCUtility.FieldToSCMapEntry("index", index),
-                    SCUtility.FieldToSCMapEntry("name", name),
-                }),
-            };
+            if (bytes is null)
+                throw new ArgumentNullException(nameof(bytes));
+            if (bytes.Length != 8)
+                throw new ArgumentException("Packed user must be exactly 8 bytes", nameof(bytes));
+            // big-endian decode
+            current_lobby = (uint)(
+                (bytes[0] << 24) |
+                (bytes[1] << 16) |
+                (bytes[2] << 8)  |
+                bytes[3]
+            );
+            games_completed = (uint)(
+                (bytes[4] << 24) |
+                (bytes[5] << 16) |
+                (bytes[6] << 8)  |
+                bytes[7]
+            );
+            index = key;
         }
     }
-    
+
     [System.Serializable]
     public struct Pos: IScvMapCompatable, IEquatable<Pos>
     {
@@ -611,7 +648,7 @@ namespace Contract
     [System.Serializable]
     public struct LobbyParameters : IScvMapCompatable
     {
-        public string board_hash;
+        public byte[] board_hash;
         public bool dev_mode;
         public uint host_team;
         public MaxRank[] max_ranks;

@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+using System.Security.Cryptography;
 using Contract;
 using Stellar;
 using TMPro;
@@ -10,7 +13,7 @@ public class ContractTester : MonoBehaviour
     public TextMeshProUGUI swapAddressText;
     
     public Button makeLobbyButton;
-
+    public Button getUserButton;
     public Button joinLobbyButton;
 
     public Button leaveLobbyButton;
@@ -20,6 +23,7 @@ public class ContractTester : MonoBehaviour
     {
         swapAddressButton.onClick.AddListener(OnSwapAddress);
         makeLobbyButton.onClick.AddListener(OnMakeLobby);
+        getUserButton.onClick.AddListener(OnGetUser);
         joinLobbyButton.onClick.AddListener(OnJoinLobby);
         leaveLobbyButton.onClick.AddListener(OnLeaveLobby);
     }
@@ -41,9 +45,16 @@ public class ContractTester : MonoBehaviour
     }
     async void OnMakeLobby()
     {
+        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
+        BoardDef boardDef = boardDefs.FirstOrDefault();
+        if (boardDef == null)
+        {
+            throw new Exception();
+        }
+        byte[] boardHash = boardDef.GetHash();
         Contract.LobbyParameters lobbyParameters = new Contract.LobbyParameters
         {
-            board_hash = "hash",
+            board_hash = boardHash,
             dev_mode = false,
             host_team = 0,
             max_ranks = new MaxRank[]
@@ -59,8 +70,14 @@ public class ContractTester : MonoBehaviour
         };
         int result = await StellarManagerTest.MakeLobbyRequest(lobbyParameters);
         Debug.Log(result);
+        
     }
 
+    async void OnGetUser()
+    {
+        User? result = await StellarManagerTest.stellar.ReqUserData(StellarManagerTest.stellar.userAccountAddress);
+        Debug.Log(result.Value);
+    }
     void OnJoinLobby()
     {
         

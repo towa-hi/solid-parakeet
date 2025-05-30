@@ -14,9 +14,9 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CBDCF5GH5R6SO6A6VBJ76RL7LFDGYAG222M5LTAMFGMRVMUBKDLXYQ4H";
-    public static string testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
-    public static string testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
+    public static string testContract = "CDZTF76LQVE3W5TXXEW3Q6AC57AKFBZMBAUL3TRMXOH2675QV3RR6EPE";
+    public static StellarAccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
+    public static StellarAccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
     public static string testGuestSneed = "SBHR4URT5RHIK4U4N45ZNUNEKLYEJYVFQSLSTR4A4RVNFHLIERGVZSIE";
     public static event Action OnNetworkStateUpdated;
@@ -76,7 +76,7 @@ public static class StellarManagerTest
         currentUser = null;
         currentLobby = null;
         TaskInfo getUserTask = SetCurrentTask("ReqUserData");
-        currentUser = await stellar.ReqUserData(stellar.userAddress);
+        currentUser = await stellar.ReqUserData(stellar.userAccountAddress);
         EndTask(getUserTask);
         if (currentUser.HasValue)
         {
@@ -165,9 +165,9 @@ public static class StellarManagerTest
         do
         {
             // range is [0, UInt32.MaxValue]
-            value = (uint)UnityEngine.Random.Range(1, int.MaxValue)      // first half
+            value = (uint)Random.Range(1, int.MaxValue)      // first half
                     << 16
-                    | (uint)UnityEngine.Random.Range(0, ushort.MaxValue); // second half
+                    | (uint)Random.Range(0, ushort.MaxValue); // second half
         } while (value == 0);
         return value;
     }

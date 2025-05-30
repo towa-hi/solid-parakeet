@@ -25,14 +25,12 @@ public class FakeServer : MonoBehaviour
             current_lobby = fakeLobbyId,
             games_completed = 0,
             index = StellarManagerTest.testGuest,
-            name = "guest",
         };
         fakeHost = new User
         {
             current_lobby = fakeLobbyId,
             games_completed = 0,
             index = StellarManagerTest.testHost,
-            name = "host",
         };
     }
 

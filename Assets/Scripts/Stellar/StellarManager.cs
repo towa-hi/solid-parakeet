@@ -111,7 +111,6 @@ public class StellarManager : MonoBehaviour
         {
             current_lobby = 0,
             index = currentAddress,
-            name = "uninitialized",
             games_completed = 0,
         };
         OnCurrentUserChanged?.Invoke();

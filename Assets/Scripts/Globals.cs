@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Contract;
+using Stellar;
+using Stellar.Utilities;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -1503,4 +1506,118 @@ public struct SSetupPawn
         pos = pawn.pos;
         deployed = pawn.isAlive;
     }
+}
+
+public readonly struct StellarAccountAddress : IEquatable<StellarAccountAddress>
+{
+    private readonly string ed25519PublicKey;
+    
+    public StellarAccountAddress(string accountId)
+    {
+        if (accountId == null)
+        {
+            throw new ArgumentNullException(nameof(accountId));
+        }
+
+        if (!StrKey.IsValidEd25519PublicKey(accountId))
+        {
+            throw new ArgumentException($"Invalid account id: {accountId}");
+        }
+        ed25519PublicKey = accountId;
+    }
+    
+    public StellarAccountAddress(byte[] rawBytes)
+    {
+        if (rawBytes is null)
+            throw new ArgumentNullException(nameof(rawBytes));
+        if (rawBytes.Length != 32)
+            throw new ArgumentException("StellarAccountId rawBytes must be exactly 32 bytes.", nameof(rawBytes));
+        // copy to guard against external mutation
+        ed25519PublicKey = StrKey.EncodeStellarAccountId(rawBytes);
+    }
+
+    public StellarAccountAddress(SCVal.ScvAddress scvAddress)
+    {
+        if (scvAddress.address is SCAddress.ScAddressTypeAccount account)
+        {
+            if (account.accountId.InnerValue is PublicKey.PublicKeyTypeEd25519 ed25519)
+            {
+                ed25519PublicKey = StrKey.EncodeStellarAccountId(ed25519.ed25519);
+            }
+            else { throw new ArgumentException($"Invalid account id: {account.accountId}"); }
+        }
+        else { throw new ArgumentException($"Invalid account id: {scvAddress.address}"); }
+    }
+
+    public SCVal.ScvAddress ToScvAddress()
+    {
+        return new SCVal.ScvAddress()
+        {
+            address = new SCAddress.ScAddressTypeAccount()
+            {
+                accountId = new AccountID( new PublicKey.PublicKeyTypeEd25519()
+                {
+                    ed25519 = StrKey.DecodeStellarAccountId(ed25519PublicKey),
+                }),
+            },
+        };
+    }
+    
+    /// <summary>
+    /// Non-throwing parse.
+    /// </summary>
+    public static bool TryParse(string s, out StellarAccountAddress result)
+    {
+        if (StrKey.IsValidEd25519PublicKey(s))
+        {
+            result = new StellarAccountAddress(s);
+            return true;
+        }
+        result = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Throws if invalid.
+    /// </summary>
+    public static StellarAccountAddress Parse(string s)
+        => new StellarAccountAddress(s);
+
+    /// <summary>
+    /// Get the raw 32-byte public key.
+    /// </summary>
+    public byte[] ToBytes()
+        => StrKey.DecodeStellarAccountId(ed25519PublicKey);
+
+    public override string ToString()
+        => ed25519PublicKey;
+
+    #region Equality members
+    public bool Equals(StellarAccountAddress other)
+        => string.Equals(ed25519PublicKey, other.ed25519PublicKey, StringComparison.Ordinal);
+
+    public override bool Equals(object obj)
+        => obj is StellarAccountAddress other && Equals(other);
+
+    public override int GetHashCode()
+        => ed25519PublicKey?.GetHashCode() ?? 0;
+
+    public static bool operator ==(StellarAccountAddress left, StellarAccountAddress right)
+        => left.Equals(right);
+
+    public static bool operator !=(StellarAccountAddress left, StellarAccountAddress right)
+        => !(left == right);
+    #endregion
+
+    /// <summary>
+    /// Allow: StellarAccount acct = "G…";
+    /// </summary>
+    public static implicit operator StellarAccountAddress(string accountId)
+        => new StellarAccountAddress(accountId);
+
+    /// <summary>
+    /// Allow: string s = acct;
+    /// </summary>
+    public static implicit operator string(StellarAccountAddress acct)
+        => acct.ed25519PublicKey;
 }

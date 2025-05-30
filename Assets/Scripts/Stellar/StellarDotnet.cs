@@ -24,6 +24,7 @@ public class StellarDotnet
     public string sneed = null;
     MuxedAccount.KeyTypeEd25519 userAccount => MuxedAccount.FromSecretSeed(sneed);
     public string userAddress => StrKey.EncodeStellarAccountId(userAccount.PublicKey);
+    public StellarAccountAddress userAccountAddress => new StellarAccountAddress(userAccount.PublicKey);
     
     // contract address and derived properties
     public string contractAddress = null;
@@ -162,9 +163,9 @@ public class StellarDotnet
         };
     }
     
-    public async Task<User?> ReqUserData(string key)
+    public async Task<User?> ReqUserData(StellarAccountAddress key)
     {
-        LedgerKey ledgerKey = MakeLedgerKey("User", key, ContractDataDurability.PERSISTENT);
+        LedgerKey ledgerKey = MakeLedgerKey("PackedUser", key, ContractDataDurability.PERSISTENT);
         Debug.Log("ReqUserData on " + key + " contract " + contractAddress);
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
@@ -177,8 +178,8 @@ public class StellarDotnet
         else
         {
             LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            User user = SCUtility.SCValToNative<User>(data.contractData.val);
-            return user;
+            byte[] bytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
+            return new User(bytes, key);
         }
     }
 
