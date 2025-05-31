@@ -14,9 +14,9 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CDZTF76LQVE3W5TXXEW3Q6AC57AKFBZMBAUL3TRMXOH2675QV3RR6EPE";
-    public static StellarAccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
-    public static StellarAccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
+    public static string testContract = "CBAXZOM72YC6O6YAKFKV5NKT73YTFVLSHQPG67M2LMK5GIS5K6LUXWVF";
+    public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
+    public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
     public static string testGuestSneed = "SBHR4URT5RHIK4U4N45ZNUNEKLYEJYVFQSLSTR4A4RVNFHLIERGVZSIE";
     public static event Action OnNetworkStateUpdated;
@@ -76,7 +76,7 @@ public static class StellarManagerTest
         currentUser = null;
         currentLobby = null;
         TaskInfo getUserTask = SetCurrentTask("ReqUserData");
-        currentUser = await stellar.ReqUserData(stellar.userAccountAddress);
+        currentUser = await stellar.ReqUserData(stellar.userAddress);
         EndTask(getUserTask);
         if (currentUser.HasValue)
         {
@@ -224,7 +224,7 @@ public static class StellarManagerTest
         User user = currentUser.Value;
         Assert.IsNotNull(queuedMove);
         Turn currentTurn = lobby.turns.Last();
-        bool isHost = false || currentTurn.host_turn.user_address == user.index;
+        bool isHost = false || currentTurn.host_turn.user_address == stellar.userAddress;
         TurnMove turnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
         if (turnMove.initialized)
         {
@@ -254,7 +254,7 @@ public static class StellarManagerTest
         currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
         EndTask(getLobbyTask);
         Assert.IsTrue(currentLobby.HasValue);
-        MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value, currentUser.Value.index);
+        MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value, stellar.userAddress);
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("resolve_move", req);
         EndTask(task);

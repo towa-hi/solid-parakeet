@@ -2,70 +2,34 @@
 extern crate std;
 extern crate alloc;
 
-use super::*;
-use soroban_sdk::testutils::{Address, Events, Ledger};
 use alloc::string::ToString;
+use super::*;
+use soroban_sdk::testutils::{Address, Ledger, Logs};
+use soroban_sdk::testutils::arbitrary::std::println;
 
 #[test]
-fn test_generate_uuid() {
-    let env = &get_test_env();
-    log!(env, "test_generate_uuid() started");
-    let test_salt: u32 = 0;
-    let contract_id = env.register(Contract, ());
-    let uuid: String = env.as_contract(&contract_id, || {
-        Contract::generate_uuid(&env, test_salt)
-    });
-    assert_eq!(uuid.len(), 36);
-    let uuid_str = uuid.to_string();
-    for c in uuid_str.chars() {
-        if c == '-' {
-            continue;
-        }
-        assert!(c.is_ascii_hexdigit(), "UUID should only contain hex characters");
-    }
-    log!(env, "UUID: ", uuid_str);
-    log!(env, "test_generate_uuid() ended");
-}
-
-#[test]
-fn test_send_invite() {
-    let env = &get_test_env();
-    log!(env, "test_send_invite() started");
-    let contract_id = env.register(Contract, ());
-    let client = ContractClient::new(&env, &contract_id);
-    let host = soroban_sdk::Address::generate(&env);
-    let guest = soroban_sdk::Address::generate(&env);
-    let lobby_parameters = LobbyParameters {
-        board_def: BoardDef {
-            name: String::from_str(&env, "test board"),
-            size: Pos { x: 10, y: 10 },
-            tiles: Vec::new(&env),
-            is_hex: false,
-            default_max_pawns: Vec::new(&env),
-        },
-        must_fill_all_tiles: false,
-        max_pawns: Vec::new(&env),
-        dev_mode: false,
-        security_mode: false,
+fn pack_lobby_info() {
+    let e = &get_test_env();
+    let lobby_info = LobbyInfo{
+        index: 123,
+        guest_address: soroban_sdk::Address::from_str(e,"GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56"),
+        host_address: soroban_sdk::Address::from_str(e,"GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD"),
+        phase: Phase::Uninitialized,
     };
-    let req = SendInviteReq {
-        host_address: host.to_string(),
-        guest_address: guest.to_string(),
-        ledgers_until_expiration: 100,
-        parameters: lobby_parameters,
-    };
-
-    let result = client.send_invite(&host, &req);
-    let events = env.events().all();
-    assert!(!events.is_empty());
-    // TODO: test events better
-
-
-
-
+    let guest_xdr = lobby_info.guest_address.clone().to_xdr(e);
+    log!(e, "guest xdr", guest_xdr);
+    let guest_string : &str = &lobby_info.clone().guest_address.to_string().to_string();
+    log!(e, "guest string", guest_string);
+    assert_eq!(
+        guest_xdr.len(),
+        44,
+        "guest_address.to_xdr(e).len() was {}, expected 36",
+        guest_xdr.len()
+    );
+    let packed = Contract::pack_lobby_info(e, &lobby_info);
+    let unpacked = Contract::unpack_lobby_info(e, &packed);
+    assert_eq!(lobby_info, unpacked)
 }
-
-
 
 fn get_test_env() -> Env {
     let env = Env::default();

@@ -106,11 +106,9 @@ public class StellarManager : MonoBehaviour
         {
             return false;
         };
-        string currentAddress = getAddressResult.data;
         currentUser = new User
         {
             current_lobby = 0,
-            index = currentAddress,
             games_completed = 0,
         };
         OnCurrentUserChanged?.Invoke();

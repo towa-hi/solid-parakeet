@@ -24,13 +24,11 @@ public class FakeServer : MonoBehaviour
         {
             current_lobby = fakeLobbyId,
             games_completed = 0,
-            index = StellarManagerTest.testGuest,
         };
         fakeHost = new User
         {
             current_lobby = fakeLobbyId,
             games_completed = 0,
-            index = StellarManagerTest.testHost,
         };
     }
 
@@ -133,84 +131,84 @@ public class FakeServer : MonoBehaviour
     
     public int CommitSetupRequest(Dictionary<string, PawnCommitment> commitments)
     {
-        // Convert dictionary to array for the host's setup commitment request
-        PawnCommitment[] setupCommitments = new PawnCommitment[commitments.Count];
-        for (int i = 0; i < commitments.Count; i++)
-        {
-            KeyValuePair<string, PawnCommitment> kvp = commitments.ElementAt(i);
-            PawnCommitment commitment = kvp.Value;
-            setupCommitments[i] = commitment;
-        }
-        
-        // Create the host's setup commit request
-        SetupCommitReq hostReq = new()
-        {
-            lobby_id = fakeLobby.index,
-            setup_commitments = setupCommitments,
-        };
-        // Generate and process the guest's request
-        SetupCommitReq guestReq = GuestSetupCommitReq(fakeGuest, fakeLobby);
-        int guestResult = CommitSetup(fakeGuest.index, guestReq);
-        if (guestResult != 0)
-        {
-            Debug.LogError($"Guest commit failed with error code {guestResult}");
-            return guestResult;
-        }
-        // Process the host's request
-        int hostResult = CommitSetup(fakeHost.index, hostReq);
-        if (hostResult != 0)
-        {
-            Debug.LogError($"Host commit failed with error code {hostResult}");
-            return hostResult;
-        }
+        // // Convert dictionary to array for the host's setup commitment request
+        // PawnCommitment[] setupCommitments = new PawnCommitment[commitments.Count];
+        // for (int i = 0; i < commitments.Count; i++)
+        // {
+        //     KeyValuePair<string, PawnCommitment> kvp = commitments.ElementAt(i);
+        //     PawnCommitment commitment = kvp.Value;
+        //     setupCommitments[i] = commitment;
+        // }
+        //
+        // // Create the host's setup commit request
+        // SetupCommitReq hostReq = new()
+        // {
+        //     lobby_id = fakeLobby.index,
+        //     setup_commitments = setupCommitments,
+        // };
+        // // Generate and process the guest's request
+        // SetupCommitReq guestReq = GuestSetupCommitReq(fakeGuest, fakeLobby);
+        // int guestResult = CommitSetup(fakeGuest.index, guestReq);
+        // if (guestResult != 0)
+        // {
+        //     Debug.LogError($"Guest commit failed with error code {guestResult}");
+        //     return guestResult;
+        // }
+        // // Process the host's request
+        // int hostResult = CommitSetup(fakeHost.index, hostReq);
+        // if (hostResult != 0)
+        // {
+        //     Debug.LogError($"Host commit failed with error code {hostResult}");
+        //     return hostResult;
+        // }
         return 0; // Success
     }
 
     public int QueueMove(QueuedMove queuedMove)
     {
-        Turn currentTurn = fakeLobby.turns.Last();
-
-        MoveSubmitReq guestReq = GuestMoveSubmitReq(fakeGuest, fakeLobby);
-        int guestResult = SubmitMove(fakeGuest.index, guestReq);
-        if (guestResult != 0)
-        {
-            Debug.LogError($"Guest commit failed with error code {guestResult}");
-            return guestResult;
-        }
-        MoveSubmitReq hostReq = new()
-        {
-            lobby = fakeLobby.index,
-            move_pos = new Pos(queuedMove.pos),
-            pawn_id = queuedMove.pawnId.ToString(),
-            turn = currentTurn.host_turn.turn,
-            user_address = fakeHost.index,
-        };
-        int hostResult = SubmitMove(fakeHost.index, hostReq);
-        if (hostResult != 0)
-        {
-            Debug.LogError($"Host commit failed with error code {hostResult}");
-        }
+        // Turn currentTurn = fakeLobby.turns.Last();
+        //
+        // MoveSubmitReq guestReq = GuestMoveSubmitReq(fakeGuest, fakeLobby);
+        // int guestResult = SubmitMove(fakeGuest.index, guestReq);
+        // if (guestResult != 0)
+        // {
+        //     Debug.LogError($"Guest commit failed with error code {guestResult}");
+        //     return guestResult;
+        // }
+        // MoveSubmitReq hostReq = new()
+        // {
+        //     lobby = fakeLobby.index,
+        //     move_pos = new Pos(queuedMove.pos),
+        //     pawn_id = queuedMove.pawnId.ToString(),
+        //     turn = currentTurn.host_turn.turn,
+        //     user_address = fakeHost.index,
+        // };
+        // int hostResult = SubmitMove(fakeHost.index, hostReq);
+        // if (hostResult != 0)
+        // {
+        //     Debug.LogError($"Host commit failed with error code {hostResult}");
+        // }
         return 0;
     }
 
     public int SubmitMoveHash()
     {
-        MoveResolveReq guestReq = Globals.ResolveTurn(fakeLobby, fakeGuest.index);
-        guestReq.user_address = fakeGuest.index;
-        int guestResult = ResolveMove(fakeGuest.index, guestReq);
-        if (guestResult != 0)
-        {
-            Debug.LogError($"Guest commit failed with error code {guestResult}");
-            return guestResult;
-        }
-        MoveResolveReq hostReq = Globals.ResolveTurn(fakeLobby, fakeHost.index);
-        hostReq.user_address = fakeHost.index;
-        int hostResult = ResolveMove(fakeHost.index, hostReq);
-        if (hostResult != 0)
-        {
-            Debug.LogError($"Host commit failed with error code {hostResult}");
-            return hostResult;
-        }
+        // MoveResolveReq guestReq = Globals.ResolveTurn(fakeLobby, fakeGuest.index);
+        // guestReq.user_address = fakeGuest.index;
+        // int guestResult = ResolveMove(fakeGuest.index, guestReq);
+        // if (guestResult != 0)
+        // {
+        //     Debug.LogError($"Guest commit failed with error code {guestResult}");
+        //     return guestResult;
+        // }
+        // MoveResolveReq hostReq = Globals.ResolveTurn(fakeLobby, fakeHost.index);
+        // hostReq.user_address = fakeHost.index;
+        // int hostResult = ResolveMove(fakeHost.index, hostReq);
+        // if (hostResult != 0)
+        // {
+        //     Debug.LogError($"Host commit failed with error code {hostResult}");
+        //     return hostResult;
+        // }
         return 0;
     }
     
@@ -297,7 +295,7 @@ public class FakeServer : MonoBehaviour
             move_pos = new Pos(randomMove),
             pawn_id = randomPawn.pawn_id,
             turn = lobby.GetLatestTurn().turn,
-            user_address = guest.index,
+            user_address = "",
         };
         return req;
     }
@@ -442,7 +440,7 @@ public class FakeServer : MonoBehaviour
             updatedLobby.phase = (uint)Phase.Movement;
         }
         fakeLobby = updatedLobby;
-        if (address == fakeHost.index)
+        if (address == "")
         {
             GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
         }
@@ -479,7 +477,7 @@ public class FakeServer : MonoBehaviour
             return (int)ErrorCode.InvalidArgs;
         }
         fakeLobby = updatedLobby;
-        if (address == fakeHost.index)
+        if (address == "")
         {
             GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
         }
@@ -658,7 +656,7 @@ public class FakeServer : MonoBehaviour
             }
         }
         fakeLobby = updatedLobby;
-        if (address == fakeHost.index)
+        if (address == "")
         {
             GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
         }

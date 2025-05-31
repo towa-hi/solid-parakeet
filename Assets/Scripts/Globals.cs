@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -1508,11 +1509,11 @@ public struct SSetupPawn
     }
 }
 
-public readonly struct StellarAccountAddress : IEquatable<StellarAccountAddress>
+public readonly struct AccountAddress : IEquatable<AccountAddress>
 {
     private readonly string ed25519PublicKey;
     
-    public StellarAccountAddress(string accountId)
+    public AccountAddress(string accountId)
     {
         if (accountId == null)
         {
@@ -1526,17 +1527,18 @@ public readonly struct StellarAccountAddress : IEquatable<StellarAccountAddress>
         ed25519PublicKey = accountId;
     }
     
-    public StellarAccountAddress(byte[] rawBytes)
+    public AccountAddress(byte[] rawBytes)
     {
         if (rawBytes is null)
             throw new ArgumentNullException(nameof(rawBytes));
-        if (rawBytes.Length != 32)
-            throw new ArgumentException("StellarAccountId rawBytes must be exactly 32 bytes.", nameof(rawBytes));
+        if (rawBytes.Length != 44)
+            throw new ArgumentException("StellarAccountId rawBytes must be exactly 44 bytes.", nameof(rawBytes));
         // copy to guard against external mutation
+        
         ed25519PublicKey = StrKey.EncodeStellarAccountId(rawBytes);
     }
 
-    public StellarAccountAddress(SCVal.ScvAddress scvAddress)
+    public AccountAddress(SCVal.ScvAddress scvAddress)
     {
         if (scvAddress.address is SCAddress.ScAddressTypeAccount account)
         {
@@ -1566,11 +1568,11 @@ public readonly struct StellarAccountAddress : IEquatable<StellarAccountAddress>
     /// <summary>
     /// Non-throwing parse.
     /// </summary>
-    public static bool TryParse(string s, out StellarAccountAddress result)
+    public static bool TryParse(string s, out AccountAddress result)
     {
         if (StrKey.IsValidEd25519PublicKey(s))
         {
-            result = new StellarAccountAddress(s);
+            result = new AccountAddress(s);
             return true;
         }
         result = default;
@@ -1580,8 +1582,8 @@ public readonly struct StellarAccountAddress : IEquatable<StellarAccountAddress>
     /// <summary>
     /// Throws if invalid.
     /// </summary>
-    public static StellarAccountAddress Parse(string s)
-        => new StellarAccountAddress(s);
+    public static AccountAddress Parse(string s)
+        => new AccountAddress(s);
 
     /// <summary>
     /// Get the raw 32-byte public key.
@@ -1593,31 +1595,65 @@ public readonly struct StellarAccountAddress : IEquatable<StellarAccountAddress>
         => ed25519PublicKey;
 
     #region Equality members
-    public bool Equals(StellarAccountAddress other)
+    public bool Equals(AccountAddress other)
         => string.Equals(ed25519PublicKey, other.ed25519PublicKey, StringComparison.Ordinal);
 
     public override bool Equals(object obj)
-        => obj is StellarAccountAddress other && Equals(other);
+        => obj is AccountAddress other && Equals(other);
 
     public override int GetHashCode()
         => ed25519PublicKey?.GetHashCode() ?? 0;
 
-    public static bool operator ==(StellarAccountAddress left, StellarAccountAddress right)
+    public static bool operator ==(AccountAddress left, AccountAddress right)
         => left.Equals(right);
 
-    public static bool operator !=(StellarAccountAddress left, StellarAccountAddress right)
+    public static bool operator !=(AccountAddress left, AccountAddress right)
         => !(left == right);
     #endregion
 
     /// <summary>
     /// Allow: StellarAccount acct = "G…";
     /// </summary>
-    public static implicit operator StellarAccountAddress(string accountId)
-        => new StellarAccountAddress(accountId);
+    public static implicit operator AccountAddress(string accountId)
+        => new AccountAddress(accountId);
 
     /// <summary>
     /// Allow: string s = acct;
     /// </summary>
-    public static implicit operator string(StellarAccountAddress acct)
+    public static implicit operator string(AccountAddress acct)
         => acct.ed25519PublicKey;
+}
+
+public readonly struct LobbyId : IEquatable<LobbyId>
+{
+    private readonly uint val;
+    public uint Value => val;
+
+    public LobbyId(uint value)
+    {
+        val = value;
+    }
+
+    // Allow easy conversion to/from raw uint:
+    public static implicit operator uint(LobbyId id)   => id.val;
+    public static explicit operator LobbyId(uint raw)  => new LobbyId(raw);
+
+    // IEquatable<T> implementation:
+    public bool Equals(LobbyId other) 
+        => val == other.val;
+
+    public override bool Equals(object? obj) 
+        => obj is LobbyId other && Equals(other);
+
+    public override int GetHashCode() 
+        => val.GetHashCode();
+
+    // == and != operators:
+    public static bool operator ==(LobbyId left, LobbyId right) 
+        => left.Equals(right);
+    public static bool operator !=(LobbyId left, LobbyId right) 
+        => !left.Equals(right);
+
+    public override string ToString() 
+        => val.ToString();
 }

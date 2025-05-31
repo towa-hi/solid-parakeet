@@ -3,6 +3,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using Contract;
 using Stellar;
+using Stellar.Utilities;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,6 +15,7 @@ public class ContractTester : MonoBehaviour
     
     public Button makeLobbyButton;
     public Button getUserButton;
+    public Button getLobbyInfoButton;
     public Button joinLobbyButton;
 
     public Button leaveLobbyButton;
@@ -24,6 +26,7 @@ public class ContractTester : MonoBehaviour
         swapAddressButton.onClick.AddListener(OnSwapAddress);
         makeLobbyButton.onClick.AddListener(OnMakeLobby);
         getUserButton.onClick.AddListener(OnGetUser);
+        getLobbyInfoButton.onClick.AddListener(OnGetLobbyInfo);
         joinLobbyButton.onClick.AddListener(OnJoinLobby);
         leaveLobbyButton.onClick.AddListener(OnLeaveLobby);
     }
@@ -75,8 +78,17 @@ public class ContractTester : MonoBehaviour
 
     async void OnGetUser()
     {
-        User? result = await StellarManagerTest.stellar.ReqUserData(StellarManagerTest.stellar.userAccountAddress);
+        User? result = await StellarManagerTest.stellar.ReqUserData(StellarManagerTest.stellar.userAddress);
         Debug.Log(result.Value);
+    }
+
+    async void OnGetLobbyInfo()
+    {
+        LobbyInfo? lobbyInfo = await StellarManagerTest.stellar.ReqLobbyInfo(new LobbyId(3676860869));
+        var account = lobbyInfo.Value.host_address.address as SCAddress.ScAddressTypeAccount;
+        var pk = account.accountId.InnerValue as PublicKey.PublicKeyTypeEd25519;
+        Debug.Log(StrKey.EncodeStellarAccountId(pk.ed25519));
+        Debug.Log(lobbyInfo.Value);
     }
     void OnJoinLobby()
     {

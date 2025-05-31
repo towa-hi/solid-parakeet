@@ -24,7 +24,6 @@ public class StellarDotnet
     public string sneed = null;
     MuxedAccount.KeyTypeEd25519 userAccount => MuxedAccount.FromSecretSeed(sneed);
     public string userAddress => StrKey.EncodeStellarAccountId(userAccount.PublicKey);
-    public StellarAccountAddress userAccountAddress => new StellarAccountAddress(userAccount.PublicKey);
     
     // contract address and derived properties
     public string contractAddress = null;
@@ -163,7 +162,7 @@ public class StellarDotnet
         };
     }
     
-    public async Task<User?> ReqUserData(StellarAccountAddress key)
+    public async Task<User?> ReqUserData(AccountAddress key)
     {
         LedgerKey ledgerKey = MakeLedgerKey("PackedUser", key, ContractDataDurability.PERSISTENT);
         Debug.Log("ReqUserData on " + key + " contract " + contractAddress);
@@ -179,10 +178,29 @@ public class StellarDotnet
         {
             LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
             byte[] bytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
-            return new User(bytes, key);
+            return new User(bytes);
         }
     }
 
+    public async Task<LobbyInfo?> ReqLobbyInfo(uint key)
+    {
+        Debug.Log($"ReqLobbyInfo on {key} contract {contractAddress}");
+        LedgerKey ledgerKey = MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY);
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
+        {
+            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
+        });
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            return null;
+        }
+        else
+        {
+            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+            byte[] bytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
+            return new LobbyInfo(bytes);
+        }
+    }
     public async Task<Lobby?> ReqLobbyData(uint key)
     {
         Debug.Log("ReqLobbyData on " + key + " contract " + contractAddress);

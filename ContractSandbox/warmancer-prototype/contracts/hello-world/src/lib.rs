@@ -14,6 +14,7 @@ pub type SetupHash = String;
 pub type Rank = u32;
 pub type Turn = u32;
 pub type PackedUser = BytesN<8>;
+pub type PackedLobbyInfo = BytesN<93>;
 pub type ShortAddress = u64;
 // endregion
 // region enums errors
@@ -41,6 +42,7 @@ pub enum Error {
     IsUserHostError = 19,
     AlreadyCommittedSetup = 20,
 }
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Phase {
     Uninitialized = 0,
@@ -221,29 +223,31 @@ impl Contract {
     pub fn make_lobby(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
+        let temporary = e.storage().temporary();
         let mut host_user = Self::get_or_make_user(e, &address);
         // validation
         if host_user.current_lobby != 0 {
             return Err(Error::HostAlreadyInLobby)
         }
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
-        if persistent.has(&lobby_info_key) {
+        if temporary.has(&lobby_info_key) {
             return Err(Error::LobbyAlreadyExists)
         }
         // update
         host_user.current_lobby = req.lobby_id.clone();
         let lobby_info = LobbyInfo {
             index: req.lobby_id.clone(),
-            host_address: address.clone(),
             guest_address: Self::empty_address(e),
+            host_address: address.clone(),
             phase: Phase::Uninitialized,
         };
         // write
-        persistent.set(&lobby_info_key, &lobby_info);
+        let packed_lobby_info = Self::pack_lobby_info(e, &lobby_info);
+        temporary.set(&lobby_info_key, &packed_lobby_info);
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id.clone());
-        persistent.set(&lobby_parameters_key, &req.parameters);
+        temporary.set(&lobby_parameters_key, &req.parameters);
         let user_key = DataKey::PackedUser(address);
-        let packed_user = Self::pack_user(e, host_user);
+        let packed_user = Self::pack_user(e, &host_user);
         persistent.set(&user_key, &packed_user);
 
         Ok(())
@@ -429,22 +433,47 @@ impl Contract {
         address.eq(&Self::empty_address(e))
     }
 
-    pub(crate) fn pack_user(e: &Env, user: User) -> PackedUser {
+    pub(crate) fn pack_user(e: &Env, user: &User) -> PackedUser {
         let mut buf = [0u8; 8];
         buf[0..4].copy_from_slice(&user.current_lobby.to_be_bytes());
-        // 2) pack full u32 (big-endian) into bytes 16..20
         buf[4..8].copy_from_slice(&user.games_completed.to_be_bytes());
         BytesN::from_array(e, &buf)
     }
 
     pub(crate) fn unpack_user(e: &Env, packed_user: PackedUser, address: &Address) -> User {
         let arr: [u8; 8] = packed_user.to_array();
-        let current_lobby    = u32::from_be_bytes(arr[0..4].try_into().unwrap());
-        let games_completed  = u32::from_be_bytes(arr[4..8].try_into().unwrap());
         User {
-            current_lobby: current_lobby,
-            games_completed: games_completed,
+            current_lobby: u32::from_be_bytes(arr[0..4].try_into().unwrap()),
+            games_completed: u32::from_be_bytes(arr[4..8].try_into().unwrap()),
             index: address.clone(),
+        }
+    }
+
+    pub(crate) fn pack_lobby_info(e: &Env, lobby_info: &LobbyInfo) -> PackedLobbyInfo {
+        let mut buf = [0u8; 93];
+        buf[0..4].copy_from_slice(&lobby_info.index.to_be_bytes());
+        lobby_info.guest_address.clone().to_xdr(e).copy_into_slice(&mut buf[4..48]);
+        lobby_info.host_address.clone().to_xdr(e).copy_into_slice(&mut buf[48..92]);
+        buf[92] = lobby_info.phase.clone() as u8;
+        BytesN::from_array(e, &buf)
+    }
+
+    pub(crate) fn unpack_lobby_info(e: &Env, packed_lobby_info: &BytesN<93>) -> LobbyInfo {
+        let arr: [u8; 93] = packed_lobby_info.to_array();
+        LobbyInfo {
+            index: u32::from_be_bytes(arr[0..4].try_into().unwrap()),
+            guest_address: Address::from_xdr(e, &Bytes::from_slice(e, &arr[4..48])).unwrap(),
+            host_address: Address::from_xdr(e, &Bytes::from_slice(e, &arr[48..92])).unwrap(),
+            phase: match arr[92] {
+                0 => Phase::Uninitialized,
+                1 => Phase::Setup,
+                2 => Phase::Movement,
+                3 => Phase::Commitment,
+                4 => Phase::Resolve,
+                5 => Phase::Ending,
+                6 => Phase::Aborted,
+                _ => {panic!()}
+            },
         }
     }
 

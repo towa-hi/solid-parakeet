@@ -1,8 +1,11 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Stellar;
+using Stellar.Utilities;
 using UnityEngine;
 
 namespace Contract
@@ -26,13 +29,18 @@ namespace Contract
                 throw new ArgumentNullException(nameof(input));
             }
             Type type = input.GetType();
+            if (type.IsEnum)
+            {
+                uint raw = Convert.ToUInt32(input);
+                return new SCVal.ScvU32() { u32 = new uint32(raw) };
+            }
             if (input is byte[] byteArray)
             {
                 return new SCVal.ScvBytes() { bytes = byteArray, };
             }
-            if (input is StellarAccountAddress address)
+            if (input is SCVal.ScvAddress address)
             {
-                return address.ToScvAddress();
+                return address;
             }
             if (type == typeof(uint))
             {
@@ -54,6 +62,10 @@ namespace Contract
             if (type == typeof(bool))
             {
                 return new SCVal.ScvBool { b = (bool)input };
+            }
+            if (input is AccountAddress accountAddress)
+            {
+                return accountAddress.ToScvAddress();
             }
             if (input is Array inputArray)
             {
@@ -95,7 +107,15 @@ namespace Contract
                 throw new ArgumentNullException();
             }
             DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
-            if (scVal is SCVal.ScvBytes scvBytes)
+            if (targetType.IsEnum)
+            {
+                if (scVal is SCVal.ScvU32 scvU32)
+                {
+                    DebugLog($"SCValToNative: Attempting to convert {scvU32.u32.InnerValue} to {targetType}.");
+                    return Enum.ToObject(targetType, scvU32.u32.InnerValue);
+                }
+            }
+            else if (scVal is SCVal.ScvBytes scvBytes)
             {
                 DebugLog($"SCValToNative: Getting bytes with length '{scvBytes.bytes.InnerValue.Length}'.");
                 return scvBytes.bytes.InnerValue;
@@ -157,13 +177,9 @@ namespace Contract
                     throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
                 }
             }
-            else if (targetType == typeof(StellarAccountAddress))
+            else if (scVal is SCVal.ScvAddress scvAddress)
             {
-                DebugLog($"SCValToNative: Found SCVal.ScvAddress");
-                if (scVal is SCVal.ScvAddress scvAddress)
-                {
-                    return new StellarAccountAddress(scvAddress);
-                }
+                return scvAddress;
             }
             else if (scVal is SCVal.ScvVec scvVec)
             {
@@ -306,31 +322,45 @@ namespace Contract
     {
         public uint current_lobby;
         public uint games_completed;
-        public StellarAccountAddress index;
 
-        public User(byte[] bytes, StellarAccountAddress key)
+        public User(byte[] bytes)
         {
             if (bytes is null)
                 throw new ArgumentNullException(nameof(bytes));
             if (bytes.Length != 8)
                 throw new ArgumentException("Packed user must be exactly 8 bytes", nameof(bytes));
-            // big-endian decode
-            current_lobby = (uint)(
-                (bytes[0] << 24) |
-                (bytes[1] << 16) |
-                (bytes[2] << 8)  |
-                bytes[3]
-            );
-            games_completed = (uint)(
-                (bytes[4] << 24) |
-                (bytes[5] << 16) |
-                (bytes[6] << 8)  |
-                bytes[7]
-            );
-            index = key;
+            ReadOnlySpan<byte> span = bytes;
+            current_lobby = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(0, 4));
+            games_completed = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
         }
     }
 
+    [System.Serializable]
+    public struct LobbyInfo
+    {
+        public uint index;
+        public SCVal.ScvAddress guest_address;
+        public SCVal.ScvAddress host_address;
+        public Phase phase;
+
+        public LobbyInfo(byte[] bytes)
+        {
+            if (bytes is not { Length: 93 })
+                throw new ArgumentException("Byte array must be exactly 93 bytes long", nameof(bytes));
+            ReadOnlySpan<byte> span = bytes;
+            index = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(0, 4));
+            var guestMs = new MemoryStream(bytes, 4, 44, writable: false);
+            var guestXdrIn = new XdrReader(guestMs);
+            var guestSCAddress = SCValXdr.Decode(guestXdrIn);
+            guest_address = guestSCAddress as SCVal.ScvAddress;
+            var hostMs = new MemoryStream(bytes, 48, 44, writable: false);
+            var hostXdrIn = new XdrReader(hostMs);
+            var hostSCAddress = SCValXdr.Decode(hostXdrIn);
+            host_address = hostSCAddress as SCVal.ScvAddress;
+            phase = (Phase)span[92];
+        }
+    }
+    
     [System.Serializable]
     public struct Pos: IScvMapCompatable, IEquatable<Pos>
     {
@@ -1070,7 +1100,7 @@ namespace Contract
         TurnHashConflict = 14,
     }
 
-    public enum Phase
+    public enum Phase : uint
     {
         Uninitialized = 0,
         Setup = 1,
