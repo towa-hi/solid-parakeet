@@ -25,9 +25,9 @@ public class WalletManager : MonoBehaviour
     
     
     // wrapper tasks
-    static TaskCompletionSource<StellarResponseData> checkWalletTaskSource;
-    static TaskCompletionSource<StellarResponseData> getAddressTaskSource;
-    static TaskCompletionSource<StellarResponseData> getNetworkDetailsTaskSource;
+    static TaskCompletionSource<JSResponse> checkWalletTaskSource;
+    static TaskCompletionSource<JSResponse> getAddressTaskSource;
+    static TaskCompletionSource<JSResponse> getNetworkDetailsTaskSource;
     
     static JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
     {
@@ -101,9 +101,9 @@ public class WalletManager : MonoBehaviour
         {
             throw new Exception("CheckWallet() is already in progress");
         }
-        checkWalletTaskSource = new TaskCompletionSource<StellarResponseData>();
+        checkWalletTaskSource = new TaskCompletionSource<JSResponse>();
         JSCheckWallet();
-        StellarResponseData checkWalletRes = await checkWalletTaskSource.Task;
+        JSResponse checkWalletRes = await checkWalletTaskSource.Task;
         checkWalletTaskSource = null;
         if (checkWalletRes.code != 1)
         {
@@ -120,9 +120,9 @@ public class WalletManager : MonoBehaviour
         {
             throw new Exception("GetAddressFromFreighter() is already in progress");
         }
-        getAddressTaskSource = new TaskCompletionSource<StellarResponseData>();
+        getAddressTaskSource = new TaskCompletionSource<JSResponse>();
         JSGetFreighterAddress();
-        StellarResponseData getAddressRes = await getAddressTaskSource.Task;
+        JSResponse getAddressRes = await getAddressTaskSource.Task;
         getAddressTaskSource = null;
         if (getAddressRes.code != 1)
         {
@@ -139,9 +139,9 @@ public class WalletManager : MonoBehaviour
         {
             throw new Exception("GetNetworkDetails() is already in progress");
         }
-        getNetworkDetailsTaskSource = new TaskCompletionSource<StellarResponseData>();
+        getNetworkDetailsTaskSource = new TaskCompletionSource<JSResponse>();
         JSGetNetworkDetails();
-        StellarResponseData getNetworkDetailsRes = await getNetworkDetailsTaskSource.Task;
+        JSResponse getNetworkDetailsRes = await getNetworkDetailsTaskSource.Task;
         getNetworkDetailsTaskSource = null;
         if (getNetworkDetailsRes.code != 1)
         {
@@ -156,12 +156,12 @@ public class WalletManager : MonoBehaviour
     {
         try
         {
-            StellarResponseData response = JsonUtility.FromJson<StellarResponseData>(json);
+            JSResponse response = JsonUtility.FromJson<JSResponse>(json);
             if (response.code == -666)
             {
                 throw new Exception($"StellarResponse() got unspecified error: {response}");
             }
-            TaskCompletionSource<StellarResponseData> task = response.function switch
+            TaskCompletionSource<JSResponse> task = response.function switch
             {
                 "_JSCheckWallet" => checkWalletTaskSource,
                 "_JSGetFreighterAddress" => getAddressTaskSource,
@@ -188,4 +188,12 @@ public class NetworkDetails
     public string networkUrl { get; set; }
     public string networkPassphrase { get; set; }
     public string sorobanRpcUrl { get; set; }
+}
+
+[Serializable]
+public class JSResponse
+{
+    public string function;
+    public int code;
+    public string data;
 }
