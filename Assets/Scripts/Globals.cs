@@ -1642,7 +1642,7 @@ public readonly struct LobbyId : IEquatable<LobbyId>
     public bool Equals(LobbyId other) 
         => val == other.val;
 
-    public override bool Equals(object? obj) 
+    public override bool Equals(object obj) 
         => obj is LobbyId other && Equals(other);
 
     public override int GetHashCode() 

@@ -6,11 +6,12 @@ using Stellar.Utilities;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class GuiTestMenuController: MonoBehaviour
 {
-    public GuiTestStartMenu startMenuElement;
+    public GuiMainMenu mainMenuElement;
     public GuiTestLobbyMaker lobbyMakerElement;
     public GuiTestLobbyViewer lobbyViewerElement;
     public GuiTestLobbyJoiner lobbyJoinerElement;
@@ -34,12 +35,12 @@ public class GuiTestMenuController: MonoBehaviour
         StellarManagerTest.OnTaskStarted += EnableBlocker;
         StellarManagerTest.OnTaskEnded += DisableBlocker;
         
-        startMenuElement.OnJoinLobbyButton += GotoJoinLobby;
-        startMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
-        startMenuElement.OnOptionsButton += OptionsModal;
-        startMenuElement.OnViewLobbyButton += ViewLobby;
-        startMenuElement.OnWalletButton += GotoWallet;
-        startMenuElement.OnAssetButton += CheckAssets;
+        mainMenuElement.OnJoinLobbyButton += GotoJoinLobby;
+        mainMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
+        mainMenuElement.OnOptionsButton += OptionsModal;
+        mainMenuElement.OnViewLobbyButton += ViewLobby;
+        mainMenuElement.OnWalletButton += GotoWallet;
+        mainMenuElement.OnAssetButton += CheckAssets;
         
         lobbyMakerElement.OnBackButton += GotoStartMenu;
         lobbyMakerElement.OnSinglePlayerButton += StartSingleplayer;
@@ -59,7 +60,7 @@ public class GuiTestMenuController: MonoBehaviour
     
     public void Initialize()
     {
-        startMenuElement.SetIsEnabled(false, false);
+        mainMenuElement.SetIsEnabled(false, false);
         lobbyMakerElement.SetIsEnabled(false, false);
         lobbyJoinerElement.SetIsEnabled(false, false);
         lobbyViewerElement.SetIsEnabled(false, false);
@@ -95,7 +96,7 @@ public class GuiTestMenuController: MonoBehaviour
     void GotoStartMenu()
     {
         //await StellarManagerTest.UpdateState();
-        ShowMenuElement(startMenuElement, false);
+        ShowMenuElement(mainMenuElement, false);
     }
 
     async void GotoJoinLobby()
@@ -165,7 +166,7 @@ public class GuiTestMenuController: MonoBehaviour
         int code = await StellarManagerTest.LeaveLobbyRequest();
         if (code == 0)
         {
-            ShowMenuElement(startMenuElement, true);
+            ShowMenuElement(mainMenuElement, true);
         }
     }
     

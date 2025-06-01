@@ -7,9 +7,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiTestStartMenu : TestGuiElement
+public class GuiMainMenu : TestGuiElement
 {
-
     public TMP_InputField contractField;
     public Button setContractButton;
     public TextMeshProUGUI currentContractText;
