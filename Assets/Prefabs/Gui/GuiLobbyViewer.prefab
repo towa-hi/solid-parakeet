@@ -1386,7 +1386,7 @@ GameObject:
   - component: {fileID: 422156690362632642}
   - component: {fileID: 2365935577894278302}
   m_Layer: 5
-  m_Name: LobbyViewer
+  m_Name: GuiLobbyViewer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

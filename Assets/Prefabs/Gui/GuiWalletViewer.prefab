@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4029867067252619344}
   - component: {fileID: 4393429837804577597}
   m_Layer: 5
-  m_Name: WalletViewer
+  m_Name: GuiWalletViewer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

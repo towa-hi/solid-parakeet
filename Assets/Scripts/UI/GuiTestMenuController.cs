@@ -11,6 +11,7 @@ using UnityEngine.UI;
 
 public class GuiTestMenuController: MonoBehaviour
 {
+    public GuiStartMenu startMenuElement;
     public GuiMainMenu mainMenuElement;
     public GuiTestLobbyMaker lobbyMakerElement;
     public GuiTestLobbyViewer lobbyViewerElement;
@@ -34,6 +35,8 @@ public class GuiTestMenuController: MonoBehaviour
 
         StellarManagerTest.OnTaskStarted += EnableBlocker;
         StellarManagerTest.OnTaskEnded += DisableBlocker;
+
+        startMenuElement.OnStartButton += GotoMainMenu;
         
         mainMenuElement.OnJoinLobbyButton += GotoJoinLobby;
         mainMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
@@ -42,24 +45,25 @@ public class GuiTestMenuController: MonoBehaviour
         mainMenuElement.OnWalletButton += GotoWallet;
         mainMenuElement.OnAssetButton += CheckAssets;
         
-        lobbyMakerElement.OnBackButton += GotoStartMenu;
+        lobbyMakerElement.OnBackButton += GotoMainMenu;
         lobbyMakerElement.OnSinglePlayerButton += StartSingleplayer;
         lobbyMakerElement.OnSubmitLobbyButton += OnSubmitLobbyButton;
         
-        lobbyViewerElement.OnBackButton += GotoStartMenu;
+        lobbyViewerElement.OnBackButton += GotoMainMenu;
         lobbyViewerElement.OnDeleteButton += DeleteLobby;
         lobbyViewerElement.OnRefreshButton += RefreshNetworkState;
         lobbyViewerElement.OnStartButton += OnStartGame;
         
-        lobbyJoinerElement.OnBackButton += GotoStartMenu;
+        lobbyJoinerElement.OnBackButton += GotoMainMenu;
         lobbyJoinerElement.OnJoinButton += JoinLobby;
         
-        walletElement.OnBackButton += GotoStartMenu;
+        walletElement.OnBackButton += GotoMainMenu;
 
     }
     
     public void Initialize()
     {
+        startMenuElement.SetIsEnabled(false, false);
         mainMenuElement.SetIsEnabled(false, false);
         lobbyMakerElement.SetIsEnabled(false, false);
         lobbyJoinerElement.SetIsEnabled(false, false);
@@ -92,8 +96,13 @@ public class GuiTestMenuController: MonoBehaviour
     {
         
     }
-    
+
     void GotoStartMenu()
+    {
+        ShowMenuElement(startMenuElement, false);
+    }
+    
+    void GotoMainMenu()
     {
         //await StellarManagerTest.UpdateState();
         ShowMenuElement(mainMenuElement, false);

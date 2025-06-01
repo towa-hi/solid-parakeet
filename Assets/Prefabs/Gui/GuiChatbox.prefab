@@ -108,7 +108,7 @@ GameObject:
   - component: {fileID: 8585764867874129564}
   - component: {fileID: 1648662838541566184}
   m_Layer: 5
-  m_Name: Chatbox
+  m_Name: GuiChatbox
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

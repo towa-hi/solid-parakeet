@@ -1373,7 +1373,7 @@ GameObject:
   - component: {fileID: 3873494825450585746}
   - component: {fileID: 3590590147092697687}
   m_Layer: 5
-  m_Name: LobbyMaker
+  m_Name: GuiLobbyMaker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
