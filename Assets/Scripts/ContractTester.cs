@@ -84,11 +84,15 @@ public class ContractTester : MonoBehaviour
 
     async void OnGetLobbyInfo()
     {
-        LobbyInfo? lobbyInfo = await StellarManagerTest.stellar.ReqLobbyInfo(new LobbyId(3676860869));
-        var account = lobbyInfo.Value.host_address.address as SCAddress.ScAddressTypeAccount;
-        var pk = account.accountId.InnerValue as PublicKey.PublicKeyTypeEd25519;
-        Debug.Log(StrKey.EncodeStellarAccountId(pk.ed25519));
-        Debug.Log(lobbyInfo.Value);
+        LobbyInfo? lobbyInfo = await StellarManagerTest.stellar.ReqLobbyInfo(new LobbyId(1442605868));
+        if (lobbyInfo.HasValue)
+        {
+            var account = lobbyInfo.Value.guest_address.address as SCAddress.ScAddressTypeAccount;
+            var pk = account.accountId.InnerValue as PublicKey.PublicKeyTypeEd25519;
+            Debug.Log(StrKey.EncodeStellarAccountId(pk.ed25519));
+            Debug.Log(lobbyInfo.Value);
+        }
+        
     }
     void OnJoinLobby()
     {

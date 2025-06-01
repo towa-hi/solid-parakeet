@@ -401,6 +401,15 @@ public class StellarDotnet
         string content = await SendJsonRequest(requestJson);
         JsonRpcResponse<GetLedgerEntriesResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetLedgerEntriesResult>>(content);
         GetLedgerEntriesResult ledgerEntriesAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
+        long currentLedger = ledgerEntriesAsync.LatestLedger;
+        Debug.Log($"GetLedgerEntriesAsync: currentLedger = {currentLedger}");
+        foreach (var entry in ledgerEntriesAsync.Entries)
+        {
+            var ledgerLeft = entry.LiveUntilLedgerSeq - currentLedger;
+            var timeLeft = ledgerLeft * 5;
+            var timeString = TimeSpan.FromSeconds(timeLeft).ToString(@"hh\:mm\:ss");
+            Debug.Log($"GetLedgerEntriesAsync: ledger key: {entry.Key} live until: {entry.LiveUntilLedgerSeq} ledgers left: {ledgerLeft} time left: {timeString}");
+        }
         return ledgerEntriesAsync;
     }
     
