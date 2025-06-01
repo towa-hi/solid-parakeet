@@ -29,7 +29,6 @@ public class GuiGameOverModal : MonoBehaviour
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
-                break;
         }
         text.text = message;
     }

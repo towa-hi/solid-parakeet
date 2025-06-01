@@ -50,13 +50,6 @@ public class CameraManager : MonoBehaviour
             return baseTransitionDuration;
         }
     }
-    
-    MenuElement currentElement;
-    void OnShowMenu(MenuElement menu)
-    {
-        MoveCameraTo(menu.cameraAnchor, menu.cameraRotationEnabled);
-        currentElement = menu;
-    }
 
     Sequence currentSequence;
     CameraAnchor currentTarget;

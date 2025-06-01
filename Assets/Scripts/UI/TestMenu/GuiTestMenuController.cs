@@ -92,7 +92,7 @@ public class GuiTestMenuController: MonoBehaviour
         
     }
     
-    async void GotoStartMenu()
+    void GotoStartMenu()
     {
         //await StellarManagerTest.UpdateState();
         ShowMenuElement(startMenuElement, false);

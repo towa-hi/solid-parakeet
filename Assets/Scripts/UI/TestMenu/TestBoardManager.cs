@@ -598,19 +598,14 @@ public class GameOverMovementClientSubState : MovementClientSubState
         {
             case 0:
                 return "Game tied";
-                break;
             case 1:
                 return "Red team won";
-                break;
             case 2:
                 return "Blue team won";
-                break;
             case 3:
                 return "Game in session";
-                break;
             case 4:
                 return "Game ended inconclusively";
-                break;
             default:
                 return "Game over";
         }
