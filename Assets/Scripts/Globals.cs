@@ -17,7 +17,54 @@ public static class Globals
     public const float HoveredHeight = 0.1f;
     public const float SelectedHoveredHeight = 0.1f;
     public static readonly InputSystem_Actions InputActions = new();
+
+    public static bool AddressIsEmpty(SCVal.ScvAddress address)
+    {
+        return AddressToString(address) == "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+    }
     
+    public static string AddressToString(SCVal.ScvAddress address)
+    {
+        switch (address.address)
+        {
+            case SCAddress.ScAddressTypeAccount scAddressTypeAccount:
+                var accountKey = (PublicKey.PublicKeyTypeEd25519)scAddressTypeAccount.accountId.InnerValue;
+                return StrKey.EncodeStellarAccountId(accountKey.ed25519);
+            case SCAddress.ScAddressTypeContract scAddressTypeContract:
+                var contractKey = (Hash)scAddressTypeContract.contractId.InnerValue;
+                return StrKey.EncodeContractId(contractKey);
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    public static SCVal.ScvAddress StringToAddress(StrKey.VersionByte version, string addressString)
+    {
+        byte[] bytes = StrKey.DecodeCheck(version, addressString);
+        switch (version)
+        {
+            case StrKey.VersionByte.ACCOUNT_ID:
+                var pk = new PublicKey.PublicKeyTypeEd25519() { ed25519 = bytes };
+                var accountId = new AccountID(pk);
+                var scAddress = new SCAddress.ScAddressTypeAccount() {accountId = accountId};
+                return new SCVal.ScvAddress() { address = scAddress };
+            case StrKey.VersionByte.MUXED_ACCOUNT:
+                throw new NotImplementedException();
+            case StrKey.VersionByte.SEED:
+                throw new NotImplementedException();
+            case StrKey.VersionByte.PRE_AUTH_TX:
+                throw new NotImplementedException();
+            case StrKey.VersionByte.SHA256_HASH:
+                throw new NotImplementedException();
+            case StrKey.VersionByte.SIGNED_PAYLOAD:
+                throw new NotImplementedException();
+            case StrKey.VersionByte.CONTRACT:
+                var cAddress = new SCAddress.ScAddressTypeContract() { contractId = bytes };
+                return new SCVal.ScvAddress() { address = cAddress };
+            default:
+                throw new ArgumentOutOfRangeException(nameof(version), version, null);
+        }
+    }
     public static Guid LoadOrGenerateClientId()
     {
         if (PlayerPrefs.HasKey("ClientId"))

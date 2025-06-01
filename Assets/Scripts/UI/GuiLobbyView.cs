@@ -62,32 +62,32 @@ public class GuiLobbyView : MonoBehaviour
         }
     }
     
-    public void Refresh(Lobby? lob)
+    public void Refresh(LobbyInfo? mLobbyInfo)
     {
-        // foreach (GuiMaxPawnListEntry entry in entries)
-        // {
-        //     Destroy(entry.gameObject);
-        // }
-        // entries.Clear();
-        // if (!lob.HasValue)
-        // {
-        //     contractAddressText.text = "No lobby";
-        //     lobbyIdText.text = "No lobby";
-        //     hostAddressText.text = "No lobby";
-        //     guestAddressText.text = "No lobby";
-        //     boardNameText.text = "No lobby";
-        //     mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(false);
-        //     securityModeToggle.SetIsOnWithoutNotify(false);
-        //     return;
-        // }
-        // Lobby lobby = lob.Value;
-        // contractAddressText.text = StellarManagerTest.GetContractAddress();
-        // lobbyIdText.text = lobby.index;
-        // hostAddressText.text = lobby.host_address;
-        // guestAddressText.text = lobby.guest_address;
-        // boardNameText.text = lobby.parameters.board_def_name;
-        // mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(lobby.parameters.must_fill_all_tiles);
-        // securityModeToggle.SetIsOnWithoutNotify(lobby.parameters.security_mode);
+        foreach (GuiMaxPawnListEntry entry in entries)
+        {
+            Destroy(entry.gameObject);
+        }
+        entries.Clear();
+        contractAddressText.text = StellarManagerTest.GetContractAddress();
+        if (!mLobbyInfo.HasValue)
+        {
+            contractAddressText.text = "No lobby";
+            lobbyIdText.text = "No lobby";
+            hostAddressText.text = "No lobby";
+            guestAddressText.text = "No lobby";
+            boardNameText.text = "No lobby";
+            mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(false);
+            securityModeToggle.SetIsOnWithoutNotify(false);
+            return;
+        }
+        LobbyInfo lobbyInfo = mLobbyInfo.Value;
+        lobbyIdText.text = lobbyInfo.index.ToString();
+        hostAddressText.text = Globals.AddressToString(lobbyInfo.host_address);
+        guestAddressText.text = Globals.AddressToString(lobbyInfo.guest_address);
+        //boardNameText.text = lobby.parameters.board_def_name;
+        //mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(lobby.parameters.must_fill_all_tiles);
+        //securityModeToggle.SetIsOnWithoutNotify(lobby.parameters.security_mode);
         //
         // foreach (MaxPawns maxPawn in lobby.parameters.max_pawns)
         // {

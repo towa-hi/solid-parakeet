@@ -84,13 +84,15 @@ public class ContractTester : MonoBehaviour
 
     async void OnGetLobbyInfo()
     {
-        LobbyInfo? lobbyInfo = await StellarManagerTest.stellar.ReqLobbyInfo(new LobbyId(1442605868));
-        if (lobbyInfo.HasValue)
+        var tuple = await StellarManagerTest.stellar.ReqLobbyInfo(new LobbyId(1442605868));
+        if (tuple.Item1.HasValue)
         {
-            var account = lobbyInfo.Value.guest_address.address as SCAddress.ScAddressTypeAccount;
-            var pk = account.accountId.InnerValue as PublicKey.PublicKeyTypeEd25519;
-            Debug.Log(StrKey.EncodeStellarAccountId(pk.ed25519));
-            Debug.Log(lobbyInfo.Value);
+            Debug.Log($"lobbyInfo index: {tuple.Item1.Value.index}");
+        }
+
+        if (tuple.Item2.HasValue)
+        {
+            Debug.Log($"lobbyParameter host team: {tuple.Item2.Value.host_team}");
         }
         
     }

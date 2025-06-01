@@ -182,23 +182,42 @@ public class StellarDotnet
         }
     }
 
-    public async Task<LobbyInfo?> ReqLobbyInfo(uint key)
+    public async Task<(LobbyInfo?, Contract.LobbyParameters?)> ReqLobbyInfo(uint key)
     {
         Debug.Log($"ReqLobbyInfo on {key} contract {contractAddress}");
-        LedgerKey ledgerKey = MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY);
+        var lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
+        var lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyParameters", key, ContractDataDurability.TEMPORARY));
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
-            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
+            Keys = new string[]
+            {
+                lobbyInfoKey,
+                lobbyParametersKey,
+            },
         });
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
-            return null;
+            return (null,null);
         }
         else
         {
-            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            byte[] bytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
-            return new LobbyInfo(bytes);
+            (LobbyInfo?, Contract.LobbyParameters?) tuple = (null, null);
+            foreach (var entry in getLedgerEntriesResult.Entries)
+            {
+                var data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+                if (entry.Key == lobbyInfoKey)
+                {
+                    byte[] lobbyInfoBytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
+                    tuple.Item1 = new LobbyInfo(lobbyInfoBytes);
+                }
+
+                if (entry.Key == lobbyParametersKey)
+                {
+                    Contract.LobbyParameters lobbyParameters = SCUtility.SCValToNative<Contract.LobbyParameters>(data.contractData.val);
+                    tuple.Item2 = lobbyParameters;
+                }
+            }
+            return tuple;
         }
     }
     public async Task<Lobby?> ReqLobbyData(uint key)

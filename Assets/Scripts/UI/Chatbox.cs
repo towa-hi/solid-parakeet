@@ -90,16 +90,16 @@ public class Chatbox : MonoBehaviour
         }
         if (mailbox.HasValue)
         {
-            Lobby? currentLobby = StellarManagerTest.currentLobby;
-            if (currentLobby != null)
-            {
-                for (int i = 0; i < mailbox.Value.mail.Length; i++)
-                {
-                
-                    entries[i].Initialize(mailbox.Value.mail[i], currentLobby.Value);
-                    entries[i].Display(true);
-                }
-            }
+            // Lobby? currentLobby = StellarManagerTest.currentLobby;
+            // if (currentLobby != null)
+            // {
+            //     for (int i = 0; i < mailbox.Value.mail.Length; i++)
+            //     {
+            //     
+            //         entries[i].Initialize(mailbox.Value.mail[i], currentLobby.Value);
+            //         entries[i].Display(true);
+            //     }
+            // }
             
         }
     }

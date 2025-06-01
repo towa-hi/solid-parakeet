@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 using Contract;
+using Stellar;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -83,15 +86,28 @@ public class GuiTestLobbyMaker : TestGuiElement
 
     Contract.LobbyParameters GetLobbyParameters()
     {
-        // Contract.BoardDef selectedBoard = new Contract.BoardDef(boardDefs[boardDropdown.value]);
-        // return new Contract.LobbyParameters
-        // {
-        //     board_def_name = selectedBoard.name,
-        //     dev_mode = false,
-        //     max_pawns = selectedBoard.default_max_pawns,
-        //     must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
-        //     security_mode = securityModeToggle.isOn,
-        // };
-        return new Contract.LobbyParameters() { };
+        // TODO: more secure hash later
+        BoardDef boardDef = boardDefs[boardDropdown.value];
+        string boardName = boardDef.boardName;
+        SHA256 sha256 = SHA256.Create();
+        byte[] boardHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(boardName));
+        MaxRank[] maxRanks = new MaxRank[boardDef.maxPawns.Length];
+        for (int i = 0; i < boardDef.maxPawns.Length; i++)
+        {
+            maxRanks[i] = new MaxRank()
+            {
+                max = (uint)boardDef.maxPawns[i].max,
+                rank = (uint)boardDef.maxPawns[i].rank,
+            };
+        }
+        return new Contract.LobbyParameters
+        {
+            board_hash = boardHash,
+            dev_mode = true,
+            host_team = 0,
+            max_ranks = maxRanks,
+            must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
+            security_mode = securityModeToggle.isOn,
+        };
     }
 }

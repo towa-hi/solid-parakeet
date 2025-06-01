@@ -63,31 +63,32 @@ public class GuiTestLobbyViewer : TestGuiElement
     
     void Refresh()
     {
-        User? maybeUser = StellarManagerTest.currentUser;
-        Lobby? maybeLobby = StellarManagerTest.currentLobby;
-        lobbyView.Refresh(maybeLobby);
+        User? mUser = StellarManagerTest.currentUser;
+        LobbyInfo? mLobbyInfo = StellarManagerTest.currentLobbyInfo;
+        Contract.LobbyParameters? mLobbyParameters = StellarManagerTest.currentLobbyParameters;
+        lobbyView.Refresh(mLobbyInfo);
         startButton.interactable = false;
         List<string> problems = new List<string>();
         bool lobbyStartable = true;
-        if (maybeLobby.HasValue)
+        if (mLobbyInfo.HasValue)
         {
-            Lobby lobby = maybeLobby.Value;
-            if (string.IsNullOrEmpty(lobby.host_address))
+            LobbyInfo lobbyInfo = mLobbyInfo.Value;
+            if (Globals.AddressIsEmpty(lobbyInfo.host_address))
             {
                 problems.Add("lobby.host_address is empty");
                 lobbyStartable = false;
             }
-            if (string.IsNullOrEmpty(lobby.guest_address))
+            if (Globals.AddressIsEmpty(lobbyInfo.guest_address))
             {
                 problems.Add("lobby.guest_address is empty");
                 lobbyStartable = false;
             }
 
-            if (lobby.game_end_state != 3)
-            {
-                problems.Add($"lobby.game_end_state is {lobby.game_end_state}");
-                lobbyStartable = false;
-            }
+            // if (lobby.game_end_state != 3)
+            // {
+            //     problems.Add($"lobby.game_end_state is {lobby.game_end_state}");
+            //     lobbyStartable = false;
+            // }
         }
         else
         {

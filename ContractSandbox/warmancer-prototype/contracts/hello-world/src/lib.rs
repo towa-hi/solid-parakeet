@@ -250,7 +250,7 @@ impl Contract {
         let packed_user = Self::pack_user(e, &host_user);
         persistent.set(&user_key, &packed_user);
 
-        persistent.extend_ttl(&user_key, 8640, 8640);
+        persistent.extend_ttl(&user_key, 259200, 518400);
         Ok(())
     }
 
@@ -259,7 +259,6 @@ impl Contract {
         let persistent = e.storage().persistent();
         let temporary = e.storage().temporary();
         let packed_user_key = DataKey::PackedUser(address.clone());
-        //let mut user = Self::get_or_make_user(e, &address);
         let mut user = match persistent.get(&packed_user_key) {
             Some(packed_user) => Self::unpack_user(e, packed_user, &address),
             None => return Err(Error::UserNotFound),

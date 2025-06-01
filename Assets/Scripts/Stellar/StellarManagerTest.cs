@@ -14,7 +14,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CDY2F5OF64DSI4VWW7VBEHBKD7ASNJEKF5EQWBTMSEJAWMJPWDMG2IJJ";
+    public static string testContract = "CC5TS5NR2SHRVCWJPE5DZN2L2TKDK7CRBXHCTDOFHFMFBRHCDNGSH5LX";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -26,13 +26,15 @@ public static class StellarManagerTest
     public static TaskInfo currentTask;
     
     public static User? currentUser;
-    public static Lobby? currentLobby;
+    //public static Lobby? currentLobby;
+    public static LobbyInfo? currentLobbyInfo;
+    public static Contract.LobbyParameters? currentLobbyParameters;
     
     public static void Initialize()
     {
         currentTask = null;
         currentUser = null;
-        currentLobby = null;
+        //currentLobby = null;
         stellar = new StellarDotnet(testHostSneed, testContract);
         Debug.Log("Initialized sneed and contract address");
         Debug.Log("sneed" + stellar.sneed);
@@ -74,18 +76,17 @@ public static class StellarManagerTest
     public static async Task<bool> UpdateState()
     {
         currentUser = null;
-        currentLobby = null;
+        //currentLobby = null;
         TaskInfo getUserTask = SetCurrentTask("ReqUserData");
         currentUser = await stellar.ReqUserData(stellar.userAddress);
         EndTask(getUserTask);
-        if (currentUser.HasValue)
+        if (currentUser is { current_lobby: not 0 })
         {
-            if (currentUser.Value.current_lobby != 0)
-            {
-                TaskInfo getLobbyTask = SetCurrentTask("ReqLobbyData");
-                currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
-                EndTask(getLobbyTask);
-            }
+            TaskInfo getLobbyInfoTask = SetCurrentTask("ReqLobbyInfo");
+            (LobbyInfo?, Contract.LobbyParameters?) tuple = await stellar.ReqLobbyInfo(currentUser.Value.current_lobby);
+            currentLobbyInfo = tuple.Item1;
+            currentLobbyParameters = tuple.Item2;
+            EndTask(getLobbyInfoTask);
         }
         OnNetworkStateUpdated?.Invoke();
         return true;
@@ -182,7 +183,7 @@ public static class StellarManagerTest
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req);
         EndTask(task);
-        //await UpdateState();
+        await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
 
@@ -206,7 +207,7 @@ public static class StellarManagerTest
         }
         SetupCommitReq req = new()
         {
-            lobby_id = currentLobby.Value.index,
+            lobby_id = currentUser.Value.current_lobby,
             setup_commitments = setupCommitments,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
@@ -218,48 +219,50 @@ public static class StellarManagerTest
 
     public static async Task<int> QueueMove(QueuedMove queuedMove)
     {
-        Assert.IsTrue(currentLobby.HasValue);
-        Assert.IsTrue(currentUser.HasValue);
-        Lobby lobby = currentLobby.Value;
-        User user = currentUser.Value;
-        Assert.IsNotNull(queuedMove);
-        Turn currentTurn = lobby.turns.Last();
-        bool isHost = false || currentTurn.host_turn.user_address == stellar.userAddress;
-        TurnMove turnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
-        if (turnMove.initialized)
-        {
-            Debug.LogError("user already moved");
-            return -666;
-        }
-        MoveSubmitReq req = new()
-        {
-            lobby = lobby.index,
-            move_pos = new Pos(queuedMove.pos),
-            pawn_id = queuedMove.pawnId.ToString(),
-            turn = turnMove.turn,
-            user_address = turnMove.user_address,
-        };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("submit_move", req);
-        EndTask(task);
-        await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        // Assert.IsTrue(currentLobbyInfo.HasValue);
+        // Assert.IsTrue(currentUser.HasValue);
+        // Lobby lobby = currentLobby.Value;
+        // User user = currentUser.Value;
+        // Assert.IsNotNull(queuedMove);
+        // Turn currentTurn = lobby.turns.Last();
+        // bool isHost = false || currentTurn.host_turn.user_address == stellar.userAddress;
+        // TurnMove turnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
+        // if (turnMove.initialized)
+        // {
+        //     Debug.LogError("user already moved");
+        //     return -666;
+        // }
+        // MoveSubmitReq req = new()
+        // {
+        //     lobby = lobby.index,
+        //     move_pos = new Pos(queuedMove.pos),
+        //     pawn_id = queuedMove.pawnId.ToString(),
+        //     turn = turnMove.turn,
+        //     user_address = turnMove.user_address,
+        // };
+        // TaskInfo task = SetCurrentTask("CallVoidFunction");
+        // (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("submit_move", req);
+        // EndTask(task);
+        // await UpdateState();
+        // return ProcessTransactionResult(result, simResult);
+        return -1;
     }
 
     public static async Task<int> SubmitMoveHash()
     {
-        // silently update lobby
-        Assert.IsTrue(currentUser.HasValue);
-        TaskInfo getLobbyTask = SetCurrentTask("ReqLobbyData");
-        currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
-        EndTask(getLobbyTask);
-        Assert.IsTrue(currentLobby.HasValue);
-        MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value, stellar.userAddress);
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("resolve_move", req);
-        EndTask(task);
-        await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        // // silently update lobby
+        // Assert.IsTrue(currentUser.HasValue);
+        // TaskInfo getLobbyTask = SetCurrentTask("ReqLobbyData");
+        // currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
+        // EndTask(getLobbyTask);
+        // Assert.IsTrue(currentLobby.HasValue);
+        // MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value, stellar.userAddress);
+        // TaskInfo task = SetCurrentTask("CallVoidFunction");
+        // (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("resolve_move", req);
+        // EndTask(task);
+        // await UpdateState();
+        // return ProcessTransactionResult(result, simResult);
+        return -1;
     }
     
     public static async Task<int> JoinLobbyRequest(string lobbyId)
@@ -277,16 +280,17 @@ public static class StellarManagerTest
 
     public static async Task<int> SendMail(Mail mail)
     {
-        Assert.IsTrue(currentLobby.HasValue);
-        SendMailReq req = new()
-        {
-            lobby = currentLobby.Value.index,
-            mail = mail,
-        };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("send_mail", req);
-        EndTask(task);
-        return ProcessTransactionResult(result, simResult);
+        // Assert.IsTrue(currentLobby.HasValue);
+        // SendMailReq req = new()
+        // {
+        //     lobby = currentLobby.Value.index,
+        //     mail = mail,
+        // };
+        // TaskInfo task = SetCurrentTask("CallVoidFunction");
+        // (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("send_mail", req);
+        // EndTask(task);
+        // return ProcessTransactionResult(result, simResult);
+        return -1;
     }
 
     public static async Task<Mailbox?> GetMail(string lobbyId)

@@ -68,8 +68,9 @@ public class TestBoardManager : MonoBehaviour
         else
         {
             Assert.IsTrue(StellarManagerTest.currentUser.HasValue);
-            Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
-            Lobby lobby = StellarManagerTest.currentLobby.Value;
+            //Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
+            //Lobby lobby = StellarManagerTest.currentLobby.Value;
+            Lobby lobby = new Lobby();
             Initialize(StellarManagerTest.currentUser.Value, lobby);
             initialized = true;
             firstTime = true;
@@ -91,7 +92,8 @@ public class TestBoardManager : MonoBehaviour
         {
             return;
         }
-        Lobby lobby = singlePlayer ? FakeServer.ins.fakeLobby : StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
+        //Lobby lobby = singlePlayer ? FakeServer.ins.fakeLobby : StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
+        Lobby lobby = new Lobby();
         if (firstTime || lobby.phase != cachedLobby.phase)
         {
             firstTime = false;

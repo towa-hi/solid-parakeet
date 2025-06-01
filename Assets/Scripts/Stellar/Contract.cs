@@ -348,7 +348,7 @@ namespace Contract
             if (bytes is not { Length: 93 })
                 throw new ArgumentException("Byte array must be exactly 93 bytes long", nameof(bytes));
             ReadOnlySpan<byte> span = bytes;
-            index = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(0, 4));
+            index = BinaryPrimitives.ReadUInt32BigEndian(span[..4]);
             var guestMs = new MemoryStream(bytes, 4, 44, writable: false);
             var guestXdrIn = new XdrReader(guestMs);
             var guestSCAddress = SCValXdr.Decode(guestXdrIn);
@@ -977,7 +977,7 @@ namespace Contract
     
     public struct SetupCommitReq : IScvMapCompatable
     {
-        public string lobby_id;
+        public uint lobby_id;
         public PawnCommitment[] setup_commitments;
 
         public SCVal.ScvMap ToScvMap()

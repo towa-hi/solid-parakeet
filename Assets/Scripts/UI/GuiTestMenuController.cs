@@ -86,7 +86,7 @@ public class GuiTestMenuController: MonoBehaviour
     async void GotoLobbyMaker()
     {
         await StellarManagerTest.UpdateState();
-        if (!StellarManagerTest.currentLobby.HasValue)
+        if (!StellarManagerTest.currentLobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyMakerElement, true);
         }
@@ -102,16 +102,16 @@ public class GuiTestMenuController: MonoBehaviour
         ShowMenuElement(startMenuElement, false);
     }
     
-    void GotoMainMenu()
+    async void GotoMainMenu()
     {
-        //await StellarManagerTest.UpdateState();
-        ShowMenuElement(mainMenuElement, false);
+        await StellarManagerTest.UpdateState();
+        ShowMenuElement(mainMenuElement, true);
     }
 
     async void GotoJoinLobby()
     {
         await StellarManagerTest.UpdateState();
-        if (!StellarManagerTest.currentLobby.HasValue)
+        if (!StellarManagerTest.currentLobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyJoinerElement, true);
         }
@@ -130,7 +130,7 @@ public class GuiTestMenuController: MonoBehaviour
     async void ViewLobby()
     {
         await StellarManagerTest.UpdateState();
-        if (StellarManagerTest.currentLobby.HasValue)
+        if (StellarManagerTest.currentLobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyViewerElement, true);
         }
@@ -148,11 +148,11 @@ public class GuiTestMenuController: MonoBehaviour
 
     async void OnStartGame()
     {
-        await StellarManagerTest.UpdateState();
-        if (StellarManagerTest.currentLobby.HasValue)
-        {
-            ShowMenuElement(gameElement, true);
-        }
+        // await StellarManagerTest.UpdateState();
+        // if (StellarManagerTest.currentLobby.HasValue)
+        // {
+        //     ShowMenuElement(gameElement, true);
+        // }
     }
     
     async void OnSubmitLobbyButton(Contract.LobbyParameters parameters)
