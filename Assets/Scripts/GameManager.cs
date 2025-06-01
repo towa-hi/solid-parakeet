@@ -16,20 +16,18 @@ public class GameManager : MonoBehaviour
     public Transform purgatory;
     
     public Volume globalVolume;
-    public BoardManager boardManager;
     public TestBoardManager testBoardManager;
-    public GuiManager guiManager;
+    //public GuiManager guiManager;
+    public GuiTestMenuController guiTestMenuController;
     public CameraManager cameraManager;
     public AudioManager audioManager;
     public PoolManager poolManager;
     public SettingsManager settingsManager;
     //public StellarManager stellarManager;
     public IGameClient client;
-    public bool offlineMode;
 
     public List<PawnDef> orderedPawnDefList;
 
-    public event Action<bool> OnRunWithEvents;
     void Awake()
     {
         Debug.developerConsoleVisible = true;
@@ -62,27 +60,12 @@ public class GameManager : MonoBehaviour
     
     void Start()
     {
-        guiManager.Initialize();
         cameraManager.Initialize();
+        guiTestMenuController.Initialize();
         Debug.Log("Enable input action");
         Globals.InputActions.Game.Enable();
     }
 
-
-    public void StartGame(Lobby lobby)
-    {
-        guiManager.OnDemoStartedResponse(null);
-    }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     public Dictionary<Rank, PawnDef> GetPawnDefFromRank()
     {
         // NOTE: this is a nasty hack that wont work on the server side. we need to keep a lookup table for this later instead of loading from unity
@@ -150,7 +133,6 @@ public class GameManager : MonoBehaviour
         }
     }
     
-    
     void SetDefaultPlayerPrefs()
     {
         if (!PlayerPrefs.HasKey("CHEATMODE"))
@@ -169,96 +151,6 @@ public class GameManager : MonoBehaviour
         {
             settingsManager.SetRotateCamera(false);
         }
-    }
-
-    public async Task<T> RunWithEvents<T>(Func<Task<T>> asyncFunction)
-    {
-        OnRunWithEvents?.Invoke(true);
-        T result = await asyncFunction();
-        OnRunWithEvents?.Invoke(false);
-        return result;
-    }
-    
-    public void SetOfflineMode()
-    {
-        offlineMode = true;
-        client = new FakeClient();
-        client.OnRegisterClientResponse += OnRegisterClientResponse;
-        client.OnDisconnect += OnDisconnect;
-        client.OnErrorResponse += OnErrorResponse;
-        client.OnRegisterNicknameResponse += OnRegisterNicknameResponse;
-        client.OnGameLobbyResponse += OnGameLobbyResponse;
-        client.OnLeaveGameLobbyResponse += OnLeaveGameLobbyResponse;
-        client.OnReadyLobbyResponse += OnReadyLobbyResponse;
-        client.OnDemoStartedResponse += OnDemoStartedResponse;
-        client.OnSetupSubmittedResponse += OnSetupSubmittedResponse;
-        client.OnSetupFinishedResponse += OnSetupFinishedResponse;
-        client.OnMoveResponse += OnMoveResponse;
-        client.OnResolveResponse += OnResolveResponse;
-        Debug.Log("GameManager: Initialized FakeClient for offline mode.");
-        client.ConnectToServer();
-    }
-    
-    void OnRegisterClientResponse(Response<string> response)
-    {
-        guiManager.OnRegisterClientResponse(response);
-        client.SendRegisterNickname(Globals.GetNickname());
-    }
-    
-    void OnDisconnect(Response<string> response)
-    {
-        guiManager.OnDisconnect(response);
-    }
-    
-    void OnErrorResponse(ResponseBase response)
-    {
-        Debug.LogError(response.message);
-        guiManager.OnErrorResponse(response);
-    }
-    
-    void OnRegisterNicknameResponse(Response<string> response)
-    {
-        guiManager.OnRegisterNicknameResponse(response);
-    }
-    
-    void OnGameLobbyResponse(Response<SLobby> response)
-    {
-        guiManager.OnGameLobbyResponse(response);
-    }
-    
-    void OnLeaveGameLobbyResponse(Response<string> response)
-    {
-        guiManager.OnLeaveGameLobbyResponse(response);
-    }
-    void OnReadyLobbyResponse(Response<SLobby> response)
-    {
-        guiManager.OnReadyLobbyResponse(response);
-    }
-
-    void OnDemoStartedResponse(Response<SLobbyParameters> response)
-    {
-        boardManager.OnDemoStartedResponse(response);
-        guiManager.OnDemoStartedResponse(response);
-    }
-    
-    void OnSetupSubmittedResponse(Response<bool> response)
-    {
-        boardManager.OnSetupSubmittedResponse(response);
-    }
-    
-    void OnSetupFinishedResponse(Response<SGameState> response)
-    {
-        boardManager.OnSetupFinishedResponse(response);
-    }
-
-    void OnMoveResponse(Response<bool> response)
-    {
-        boardManager.OnMoveResponse(response);
-    }
-    
-    void OnResolveResponse(Response<SResolveReceipt> response)
-    {
-        boardManager.OnResolveResponse(response);
     }
     
     public void QuitGame()

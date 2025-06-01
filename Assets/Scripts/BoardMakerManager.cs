@@ -13,7 +13,7 @@ public class BoardMakerManager : MonoBehaviour
     public BoardDef loadThisBoard;
     
     public BoardMakerTool currentTool;
-    public ClickInputManager clickInputManager;
+    //public TestClickInputManager clickInputManager;
     public BoardGrid grid;
     public BoardDef currentlyLoadedBoardDef;
     public GuiBoardMaker gui;
@@ -29,7 +29,7 @@ public class BoardMakerManager : MonoBehaviour
         currentTool = BoardMakerTool.NONE;
         tiles = new List<BoardMakerTile>();
         Globals.InputActions.Game.Enable();
-        clickInputManager.OnClick += OnClick;
+        //clickInputManager.OnClick += OnClick;
     }
 
     void SetCounter()

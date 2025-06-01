@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UI;
 
-public class GuiTestMenuController : MenuElement
+public class GuiTestMenuController: MonoBehaviour
 {
     public GuiTestStartMenu startMenuElement;
     public GuiTestLobbyMaker lobbyMakerElement;
@@ -55,24 +55,17 @@ public class GuiTestMenuController : MenuElement
         
         walletElement.OnBackButton += GotoStartMenu;
 
-
-
+    }
+    
+    public void Initialize()
+    {
         startMenuElement.SetIsEnabled(false, false);
         lobbyMakerElement.SetIsEnabled(false, false);
         lobbyJoinerElement.SetIsEnabled(false, false);
         lobbyViewerElement.SetIsEnabled(false, false);
         gameElement.SetIsEnabled(false, false);
         walletElement.SetIsEnabled(false, false);
-    }
-    
-    public override void ShowElement(bool show)
-    {
-        base.ShowElement(show);
-        if (show)
-        {
-            GotoStartMenu();
-            AudioManager.instance.PlayMusic(MusicTrack.MAIN_MENU_MUSIC);
-        }
+        GotoStartMenu();
     }
     
     void ShowMenuElement(TestGuiElement element, bool networkUpdated)
@@ -83,11 +76,6 @@ public class GuiTestMenuController : MenuElement
         }
         currentElement = element;
         currentElement.SetIsEnabled(true, networkUpdated);
-    }
-
-    void CloseMenu()
-    {
-        // TODO: do this later
     }
     
     async void GotoLobbyMaker()
@@ -106,8 +94,8 @@ public class GuiTestMenuController : MenuElement
     
     async void GotoStartMenu()
     {
-        await StellarManagerTest.UpdateState();
-        ShowMenuElement(startMenuElement, true);
+        //await StellarManagerTest.UpdateState();
+        ShowMenuElement(startMenuElement, false);
     }
 
     async void GotoJoinLobby()

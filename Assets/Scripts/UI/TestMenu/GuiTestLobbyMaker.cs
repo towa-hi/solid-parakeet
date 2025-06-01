@@ -24,22 +24,22 @@ public class GuiTestLobbyMaker : TestGuiElement
 
     void Start()
     {
-        // backButton.onClick.AddListener(() =>
-        // {
-        //     AudioManager.instance.PlaySmallButtonClick();
-        //     OnBackButton?.Invoke();
-        // });
-        // makeLobbyButton.onClick.AddListener(() =>
-        // {
-        //     AudioManager.instance.PlayMidButtonClick();
-        //     OnSubmitLobbyButton?.Invoke(GetLobbyParameters());
-        // });
-        // singlePlayerButton.onClick.AddListener(() =>
-        // {
-        //     AudioManager.instance.PlayMidButtonClick();
-        //     OnSinglePlayerButton?.Invoke(GetLobbyParameters());
-        // });
-        // StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        backButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlaySmallButtonClick();
+            OnBackButton?.Invoke();
+        });
+        makeLobbyButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnSubmitLobbyButton?.Invoke(GetLobbyParameters());
+        });
+        singlePlayerButton.onClick.AddListener(() =>
+        {
+            AudioManager.instance.PlayMidButtonClick();
+            OnSinglePlayerButton?.Invoke(GetLobbyParameters());
+        });
+        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)

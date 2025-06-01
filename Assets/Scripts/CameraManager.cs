@@ -30,7 +30,6 @@ public class CameraManager : MonoBehaviour
     
     public void Initialize()
     {
-        GameManager.instance.guiManager.OnShowMenu += OnShowMenu;
         mainCamera.transform.position = startAnchor.GetPosition();
         mainCamera.transform.rotation = startAnchor.GetQuaternion();
         mainCamera.fieldOfView = startAnchor.fov;
@@ -106,10 +105,10 @@ public class CameraManager : MonoBehaviour
 
     void OnTransitionFinished()
     {
-        GameManager.instance.guiManager.OnTransitionFinished();
+        //GameManager.instance.guiManager.OnTransitionFinished();
         if (currentTarget != null && currentTarget == boardAnchor)
         {
-            GameManager.instance.boardManager.OnGameStartTransitionFinished();
+            //GameManager.instance.boardManager.OnGameStartTransitionFinished();
             if (enableCameraMovement)
             {
                 parentConstraint.constraintActive = true;
