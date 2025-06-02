@@ -14,7 +14,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CC5TS5NR2SHRVCWJPE5DZN2L2TKDK7CRBXHCTDOFHFMFBRHCDNGSH5LX";
+    public static string testContract = "CBT26FGMA3VOE5DHS4LMA7IRJOKY3SD4UG4J23RFLWC4NV6QVTPXORI4";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -24,16 +24,17 @@ public static class StellarManagerTest
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
     public static TaskInfo currentTask;
-    
-    public static User? currentUser;
-    //public static Lobby? currentLobby;
-    public static LobbyInfo? currentLobbyInfo;
-    public static Contract.LobbyParameters? currentLobbyParameters;
+
+    public static NetworkState networkState;
+    // public static User? currentUser;
+    // public static LobbyInfo? currentLobbyInfo;
+    // public static LobbyParameters? currentLobbyParameters;
     
     public static void Initialize()
     {
         currentTask = null;
-        currentUser = null;
+        networkState = new NetworkState();
+        //currentUser = null;
         //currentLobby = null;
         stellar = new StellarDotnet(testHostSneed, testContract);
         Debug.Log("Initialized sneed and contract address");
@@ -75,19 +76,9 @@ public static class StellarManagerTest
     
     public static async Task<bool> UpdateState()
     {
-        currentUser = null;
-        //currentLobby = null;
-        TaskInfo getUserTask = SetCurrentTask("ReqUserData");
-        currentUser = await stellar.ReqUserData(stellar.userAddress);
-        EndTask(getUserTask);
-        if (currentUser is { current_lobby: not 0 })
-        {
-            TaskInfo getLobbyInfoTask = SetCurrentTask("ReqLobbyInfo");
-            (LobbyInfo?, Contract.LobbyParameters?) tuple = await stellar.ReqLobbyInfo(currentUser.Value.current_lobby);
-            currentLobbyInfo = tuple.Item1;
-            currentLobbyParameters = tuple.Item2;
-            EndTask(getLobbyInfoTask);
-        }
+        TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
+        networkState = await stellar.ReqNetworkState(networkState.user);
+        EndTask(getNetworkStateTask);
         OnNetworkStateUpdated?.Invoke();
         return true;
     }
@@ -207,7 +198,7 @@ public static class StellarManagerTest
         }
         SetupCommitReq req = new()
         {
-            lobby_id = currentUser.Value.current_lobby,
+            lobby_id = networkState.user.Value.current_lobby,
             setup_commitments = setupCommitments,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Contract;
+using Newtonsoft.Json;
 using Stellar;
 using Stellar.Utilities;
 using UnityEngine;
@@ -289,14 +290,14 @@ public class SLobby
     }
 }
 
-public class LobbyParameters
-{
-    public int hostTeam;
-    public int guestTeam;
-    public BoardDef board;
-    public SMaxPawnsPerRank[] maxPawns;
-    public bool mustFillAllTiles;
-}
+// public class LobbyParameters
+// {
+//     public int hostTeam;
+//     public int guestTeam;
+//     public BoardDef board;
+//     public SMaxPawnsPerRank[] maxPawns;
+//     public bool mustFillAllTiles;
+// }
 public struct SLobbyParameters
 {
     public int hostTeam;
@@ -305,14 +306,14 @@ public struct SLobbyParameters
     public SMaxPawnsPerRank[] maxPawns;
     public bool mustFillAllTiles;
 
-    public SLobbyParameters(LobbyParameters lobbyParameters)
-    {
-        hostTeam = lobbyParameters.hostTeam;
-        guestTeam = lobbyParameters.guestTeam;
-        board = new SBoardDef(lobbyParameters.board);
-        maxPawns = lobbyParameters.maxPawns;
-        mustFillAllTiles = lobbyParameters.mustFillAllTiles;
-    }
+    // public SLobbyParameters(LobbyParameters lobbyParameters)
+    // {
+    //     hostTeam = lobbyParameters.hostTeam;
+    //     guestTeam = lobbyParameters.guestTeam;
+    //     board = new SBoardDef(lobbyParameters.board);
+    //     maxPawns = lobbyParameters.maxPawns;
+    //     mustFillAllTiles = lobbyParameters.mustFillAllTiles;
+    // }
 }
 
 public interface IGameClient
@@ -1703,4 +1704,22 @@ public readonly struct LobbyId : IEquatable<LobbyId>
 
     public override string ToString() 
         => val.ToString();
+}
+
+public struct NetworkState
+{
+    public User? user;
+    public LobbyInfo? lobbyInfo;
+    public LobbyParameters? lobbyParameters;
+    
+    public override string ToString()
+    {
+        var simplified = new
+        {
+            user = user?.ToString(),
+            lobbyInfo = lobbyInfo?.ToString(),
+            lobbyParameters = lobbyParameters?.ToString()
+        };
+        return JsonConvert.SerializeObject(simplified, Formatting.Indented);
+    }
 }

@@ -147,7 +147,7 @@ public class GuiMainMenu : TestGuiElement
             currentSneedText.text += " (Guest sneed)";
         }
         currentAddressText.text = StellarManagerTest.GetUserAddress();
-        User? currentUser = StellarManagerTest.currentUser;
+        User? currentUser = StellarManagerTest.networkState.user;
         joinLobbyButton.interactable = true;
         makeLobbyButton.interactable = true;
         viewLobbyButton.interactable = false;

@@ -161,8 +161,60 @@ public class StellarDotnet
             },
         };
     }
+
+    async Task<NetworkState> ReqNetworkState()
+    {
+        NetworkState networkState = new NetworkState();
+        User? mUser = await ReqUserData(userAddress);
+        networkState.user = mUser;
+        if (mUser is { current_lobby: not 0 })
+        {
+            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters) = await ReqLobbyInfoAndLobbyParameters(mUser.Value.current_lobby);
+            networkState.lobbyInfo = mLobbyInfo;
+            networkState.lobbyParameters = mLobbyParameters;
+        }
+        return networkState;
+    }
+
+    public async Task<NetworkState> ReqNetworkState(User? user)
+    {
+        NetworkState networkState = new NetworkState();
+        User? mUser = user;
+        // if user doesnt exist yet
+        if (!mUser.HasValue)
+        {
+            Debug.Log("ReqNetworkState: User is null so getting ReqUserData");
+            // try get a user for mUser
+            mUser = await ReqUserData(userAddress);
+        }
+        networkState.user = mUser;
+        if (mUser is { current_lobby: not 0 })
+        {
+            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters) = await ReqLobbyInfoAndLobbyParameters(mUser.Value.current_lobby);
+            networkState.lobbyInfo = mLobbyInfo;
+            networkState.lobbyParameters = mLobbyParameters;
+            if (!mLobbyInfo.HasValue || !mLobbyParameters.HasValue)
+            {
+                throw new Exception($"ReqNetworkState: Unable to get lobby entries for id {mUser.Value.current_lobby}");
+            }
+            // we got the entries for the current lobby according to the user but we have to check if we need to update the user
+            bool userInLobby = false 
+                               || Globals.AddressToString(mLobbyInfo?.host_address) == userAddress 
+                               || Globals.AddressToString(mLobbyInfo?.guest_address) == userAddress;
+            if (!userInLobby)
+            {
+                Debug.LogWarning("ReqNetworkState outdated user, retrying with user refresh");
+                return await ReqNetworkState();
+            }
+        }
+        else
+        {
+            Debug.Log("ReqNetworkState: User is either null or not in a lobby");
+        }
+        return networkState;
+    }
     
-    public async Task<User?> ReqUserData(AccountAddress key)
+    async Task<User?> ReqUserData(AccountAddress key)
     {
         LedgerKey ledgerKey = MakeLedgerKey("PackedUser", key, ContractDataDurability.PERSISTENT);
         Debug.Log("ReqUserData on " + key + " contract " + contractAddress);
@@ -182,7 +234,7 @@ public class StellarDotnet
         }
     }
 
-    public async Task<(LobbyInfo?, Contract.LobbyParameters?)> ReqLobbyInfo(uint key)
+    async Task<(LobbyInfo?, LobbyParameters?)> ReqLobbyInfoAndLobbyParameters(uint key)
     {
         Debug.Log($"ReqLobbyInfo on {key} contract {contractAddress}");
         var lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
@@ -201,7 +253,7 @@ public class StellarDotnet
         }
         else
         {
-            (LobbyInfo?, Contract.LobbyParameters?) tuple = (null, null);
+            (LobbyInfo?, LobbyParameters?) tuple = (null, null);
             foreach (var entry in getLedgerEntriesResult.Entries)
             {
                 var data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
@@ -210,10 +262,9 @@ public class StellarDotnet
                     byte[] lobbyInfoBytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
                     tuple.Item1 = new LobbyInfo(lobbyInfoBytes);
                 }
-
                 if (entry.Key == lobbyParametersKey)
                 {
-                    Contract.LobbyParameters lobbyParameters = SCUtility.SCValToNative<Contract.LobbyParameters>(data.contractData.val);
+                    LobbyParameters lobbyParameters = SCUtility.SCValToNative<Contract.LobbyParameters>(data.contractData.val);
                     tuple.Item2 = lobbyParameters;
                 }
             }

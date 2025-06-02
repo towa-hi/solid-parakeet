@@ -67,11 +67,11 @@ public class TestBoardManager : MonoBehaviour
         }
         else
         {
-            Assert.IsTrue(StellarManagerTest.currentUser.HasValue);
+            Assert.IsTrue(StellarManagerTest.networkState.user.HasValue);
             //Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
             //Lobby lobby = StellarManagerTest.currentLobby.Value;
             Lobby lobby = new Lobby();
-            Initialize(StellarManagerTest.currentUser.Value, lobby);
+            Initialize(StellarManagerTest.networkState.user.Value, lobby);
             initialized = true;
             firstTime = true;
             OnNetworkStateUpdated(); //only invoke this directly once on start

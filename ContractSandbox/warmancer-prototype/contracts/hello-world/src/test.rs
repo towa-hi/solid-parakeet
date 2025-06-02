@@ -6,6 +6,7 @@ use alloc::string::ToString;
 use super::*;
 use soroban_sdk::testutils::{Address, Ledger, Logs};
 use soroban_sdk::testutils::arbitrary::std::println;
+use soroban_sdk::testutils::*;
 
 #[test]
 fn pack_lobby_info() {
@@ -27,8 +28,30 @@ fn pack_lobby_info() {
         guest_xdr.len()
     );
     let packed = Contract::pack_lobby_info(e, &lobby_info);
-    let unpacked = Contract::unpack_lobby_info(e, &packed);
+    let unpacked = Contract::unpack_lobby_info(e, packed);
     assert_eq!(lobby_info, unpacked)
+}
+
+#[test]
+fn pack_user() {
+    let e = &get_test_env();
+    let user = User{
+        current_lobby: 123,
+        games_completed: 456,
+        index: soroban_sdk::Address::from_str(e,"GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD"),
+    };
+    let user_packed = Contract::pack_user(e, &user);
+    let unpacked = Contract::unpack_user(e, user_packed, &user.index);
+    assert_eq!(user, unpacked)
+}
+#[test]
+fn make_delete_lobby() {
+    let e = &get_test_env();
+    let mut arr = [0u8; 32];
+    for i in 0..32 {
+        arr[i] = 0;
+    }
+    e.mock_all_auths();
 }
 
 fn get_test_env() -> Env {

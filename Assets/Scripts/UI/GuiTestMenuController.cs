@@ -86,7 +86,7 @@ public class GuiTestMenuController: MonoBehaviour
     async void GotoLobbyMaker()
     {
         await StellarManagerTest.UpdateState();
-        if (!StellarManagerTest.currentLobbyInfo.HasValue)
+        if (!StellarManagerTest.networkState.lobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyMakerElement, true);
         }
@@ -111,7 +111,7 @@ public class GuiTestMenuController: MonoBehaviour
     async void GotoJoinLobby()
     {
         await StellarManagerTest.UpdateState();
-        if (!StellarManagerTest.currentLobbyInfo.HasValue)
+        if (!StellarManagerTest.networkState.lobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyJoinerElement, true);
         }
@@ -130,7 +130,7 @@ public class GuiTestMenuController: MonoBehaviour
     async void ViewLobby()
     {
         await StellarManagerTest.UpdateState();
-        if (StellarManagerTest.currentLobbyInfo.HasValue)
+        if (StellarManagerTest.networkState.lobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyViewerElement, true);
         }

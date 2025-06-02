@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Newtonsoft.Json;
 using Stellar;
 using Stellar.Utilities;
 using UnityEngine;
@@ -17,7 +18,7 @@ namespace Contract
     
     public static class SCUtility
     {
-        public static bool log = true;
+        public static bool log = false;
         
         public static void DebugLog(string msg) { if (log) { Debug.Log(msg); } }
         
@@ -333,6 +334,11 @@ namespace Contract
             current_lobby = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(0, 4));
             games_completed = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
         }
+        
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this, Formatting.Indented);
+        }
     }
 
     [System.Serializable]
@@ -358,6 +364,18 @@ namespace Contract
             var hostSCAddress = SCValXdr.Decode(hostXdrIn);
             host_address = hostSCAddress as SCVal.ScvAddress;
             phase = (Phase)span[92];
+        }
+        
+        public override string ToString()
+        {
+            var simplified = new
+            {
+                index,
+                guest_address = Globals.AddressToString(guest_address),
+                host_address = Globals.AddressToString(host_address),
+                phase = phase.ToString(),
+            };
+            return JsonConvert.SerializeObject(simplified, Formatting.Indented);
         }
     }
     
@@ -699,6 +717,20 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("security_mode", security_mode),
                 }),
             };
+        }
+        
+        public override string ToString()
+        {
+            var simplified = new
+            {
+                board_hash = BitConverter.ToString(board_hash).Replace("-", "").ToLowerInvariant(),
+                dev_mode = dev_mode,
+                host_team = host_team,
+                max_ranks = max_ranks, // assumes MaxRank[] has a clean ToString() or JSON-friendly format
+                must_fill_all_tiles = must_fill_all_tiles,
+                security_mode = security_mode
+            };
+            return JsonConvert.SerializeObject(simplified, Formatting.Indented);
         }
     }
     

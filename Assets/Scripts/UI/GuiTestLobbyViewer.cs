@@ -63,16 +63,13 @@ public class GuiTestLobbyViewer : TestGuiElement
     
     void Refresh()
     {
-        User? mUser = StellarManagerTest.currentUser;
-        LobbyInfo? mLobbyInfo = StellarManagerTest.currentLobbyInfo;
-        Contract.LobbyParameters? mLobbyParameters = StellarManagerTest.currentLobbyParameters;
-        lobbyView.Refresh(mLobbyInfo);
+        lobbyView.Refresh(StellarManagerTest.networkState.lobbyInfo);
         startButton.interactable = false;
         List<string> problems = new List<string>();
         bool lobbyStartable = true;
-        if (mLobbyInfo.HasValue)
+        if (StellarManagerTest.networkState.lobbyInfo.HasValue)
         {
-            LobbyInfo lobbyInfo = mLobbyInfo.Value;
+            LobbyInfo lobbyInfo = StellarManagerTest.networkState.lobbyInfo.Value;
             if (Globals.AddressIsEmpty(lobbyInfo.host_address))
             {
                 problems.Add("lobby.host_address is empty");

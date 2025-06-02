@@ -78,22 +78,14 @@ public class ContractTester : MonoBehaviour
 
     async void OnGetUser()
     {
-        User? result = await StellarManagerTest.stellar.ReqUserData(StellarManagerTest.stellar.userAddress);
-        Debug.Log(result.Value);
+        //User? result = await StellarManagerTest.stellar.ReqUserData(StellarManagerTest.stellar.userAddress);
+        //Debug.Log(result.Value);
     }
 
     async void OnGetLobbyInfo()
     {
-        var tuple = await StellarManagerTest.stellar.ReqLobbyInfo(new LobbyId(1442605868));
-        if (tuple.Item1.HasValue)
-        {
-            Debug.Log($"lobbyInfo index: {tuple.Item1.Value.index}");
-        }
-
-        if (tuple.Item2.HasValue)
-        {
-            Debug.Log($"lobbyParameter host team: {tuple.Item2.Value.host_team}");
-        }
+        //NetworkState networkState = await StellarManagerTest.stellar.ReqNetworkState();
+        //Debug.Log(networkState.ToString());
         
     }
     void OnJoinLobby()
