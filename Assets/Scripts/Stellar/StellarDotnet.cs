@@ -27,7 +27,8 @@ public class StellarDotnet
     
     // contract address and derived properties
     public string contractAddress = null;
-    
+
+    public bool packed = false;
     
 
     Uri networkUri;
@@ -80,7 +81,7 @@ public class StellarDotnet
         {
             return (null, simResult);
         }
-        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 2000);
+        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000);
         if (getResult == null)
         {
             Debug.LogError("CallVoidFunction timed out or failed to connect");
@@ -162,7 +163,7 @@ public class StellarDotnet
         };
     }
 
-    async Task<NetworkState> ReqNetworkState()
+    public async Task<NetworkState> ReqNetworkState()
     {
         NetworkState networkState = new NetworkState();
         User? mUser = await ReqUserData(userAddress);
@@ -229,8 +230,15 @@ public class StellarDotnet
         else
         {
             LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            byte[] bytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
-            return new User(bytes);
+            if (packed)
+            {
+                byte[] bytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
+                return new User(bytes);
+            }
+            else
+            {
+                return SCUtility.SCValToNative<User>(data.contractData.val);
+            }
         }
     }
 
@@ -259,8 +267,15 @@ public class StellarDotnet
                 var data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
                 if (entry.Key == lobbyInfoKey)
                 {
-                    byte[] lobbyInfoBytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
-                    tuple.Item1 = new LobbyInfo(lobbyInfoBytes);
+                    if (packed)
+                    {
+                        byte[] lobbyInfoBytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
+                        tuple.Item1 = new LobbyInfo(lobbyInfoBytes);
+                    }
+                    else
+                    {
+                        tuple.Item1 = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
+                    }
                 }
                 if (entry.Key == lobbyParametersKey)
                 {

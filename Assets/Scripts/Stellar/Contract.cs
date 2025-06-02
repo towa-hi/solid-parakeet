@@ -342,7 +342,7 @@ namespace Contract
     }
 
     [System.Serializable]
-    public struct LobbyInfo
+    public struct LobbyInfo : IScvMapCompatable
     {
         public uint index;
         public SCVal.ScvAddress guest_address;
@@ -376,6 +376,20 @@ namespace Contract
                 phase = phase.ToString(),
             };
             return JsonConvert.SerializeObject(simplified, Formatting.Indented);
+        }
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("index", index),
+                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
+                    SCUtility.FieldToSCMapEntry("host_address", host_address),
+                    SCUtility.FieldToSCMapEntry("phase", phase),
+                }),
+            };
         }
     }
     

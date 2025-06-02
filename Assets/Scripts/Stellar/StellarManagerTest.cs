@@ -14,7 +14,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CBT26FGMA3VOE5DHS4LMA7IRJOKY3SD4UG4J23RFLWC4NV6QVTPXORI4";
+    public static string testContract = "CAVMQ6ZZUX36WIINE6VYJCA6SAMDS5AWNR4G4TLEA53LSOSYEPMVFQP5";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -77,7 +77,7 @@ public static class StellarManagerTest
     public static async Task<bool> UpdateState()
     {
         TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
-        networkState = await stellar.ReqNetworkState(networkState.user);
+        networkState = await stellar.ReqNetworkState();
         EndTask(getNetworkStateTask);
         OnNetworkStateUpdated?.Invoke();
         return true;

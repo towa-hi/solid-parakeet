@@ -10,12 +10,13 @@ pub type PawnGuidHash = String;
 pub type PawnDefHash = String;
 pub type PosHash = String;
 pub type BoardHash = BytesN<32>;
-pub type SetupHash = String;
 pub type Rank = u32;
 pub type Turn = u32;
 pub type PackedUser = BytesN<8>;
 pub type PackedLobbyInfo = BytesN<93>;
 pub type ShortAddress = u64;
+pub type SetupHash = BytesN<32>;
+
 // endregion
 // region enums errors
 #[contracterror]
@@ -41,6 +42,10 @@ pub enum Error {
     SetupStateNotFound = 18,
     IsUserHostError = 19,
     AlreadyCommittedSetup = 20,
+    NotInLobby = 21,
+    NoSetupCommitment = 22,
+    NoOpponentSetupCommitment = 23,
+    SetupHashFail = 24,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -141,7 +146,7 @@ pub struct LobbyInfo {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserState {
-    pub setup: Bytes,
+    pub setup: Vec<PawnCommit>,
     pub setup_hash: SetupHash,
     pub setup_hash_salt: u32,
 }
@@ -242,13 +247,14 @@ impl Contract {
             phase: Phase::Uninitialized,
         };
         // write
-        let packed_lobby_info = Self::pack_lobby_info(e, &lobby_info);
-        temporary.set(&lobby_info_key, &packed_lobby_info);
+        // let packed_lobby_info = Self::pack_lobby_info(e, &lobby_info);
+        // temporary.set(&lobby_info_key, &packed_lobby_info);
+        temporary.set(&lobby_info_key, &lobby_info);
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id.clone());
         temporary.set(&lobby_parameters_key, &req.parameters);
         let user_key = DataKey::PackedUser(address);
-        let packed_user = Self::pack_user(e, &host_user);
-        persistent.set(&user_key, &packed_user);
+        // let packed_user = Self::pack_user(e, &host_user);
+        persistent.set(&user_key, &host_user);
 
         persistent.extend_ttl(&user_key, 259200, 518400);
         Ok(())
@@ -259,16 +265,24 @@ impl Contract {
         let persistent = e.storage().persistent();
         let temporary = e.storage().temporary();
         let packed_user_key = DataKey::PackedUser(address.clone());
-        let mut user = match persistent.get(&packed_user_key) {
-            Some(packed_user) => Self::unpack_user(e, packed_user, &address),
-            None => return Err(Error::UserNotFound),
+        let mut user: User = match persistent.get(&packed_user_key) {
+            // Some(packed_user) => Self::unpack_user(e, packed_user, &address),
+            Some(user) => user,
+            None => return Err(Error::UserNotFound), // TODO: make a version of this function that sends a lobbyId
         };
-        let lobby_info_key = DataKey::LobbyInfo(user.current_lobby.clone());
+        let left_lobby = user.current_lobby.clone();
+        // write user
+        user.current_lobby = 0;
+        // persistent.set(&packed_user_key, &Self::pack_user(e, &user));
+        persistent.set(&packed_user_key, &user);
+        // NOTE: we won't deal with extending user TTL here
+        // persistent.extend_ttl(&packed_user_key, 8640, 8640);
+        let lobby_info_key = DataKey::LobbyInfo(left_lobby);
         let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
-            Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
-            None => return Err(Error::LobbyNotFound),
+            // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
+            Some(lobby_info) => lobby_info,
+            None => return Ok(()), // just write user and return if the lobby cant be found anymore
         };
-        // validation unneeded past this point
         // update
         if address == lobby_info.host_address {
             lobby_info.host_address = Self::empty_address(e);
@@ -277,30 +291,28 @@ impl Contract {
             lobby_info.guest_address = Self::empty_address(e);
         }
         else {
-            return Err(Error::LobbyNotFound)
+            return Ok(()) // if the user wasn't in this lobby then return
         }
         //TODO: handle detecting if the game is in progress to award victory/defeat
         lobby_info.phase = Phase::Aborted;
-        user.current_lobby = 0;
 
-        // write
-        persistent.set(&packed_user_key, &Self::pack_user(e, &user));
-        temporary.set(&lobby_info_key, &Self::pack_lobby_info(e, &lobby_info));
-
-        persistent.extend_ttl(&packed_user_key, 8640, 8640);
+        // temporary.set(&lobby_info_key, &Self::pack_lobby_info(e, &lobby_info));
+        temporary.set(&lobby_info_key, &lobby_info);
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
         Ok(())
     }
 
     pub fn join_lobby(e: &Env, address: Address, req: JoinLobbyReq) -> Result<(), Error> {
         address.require_auth();
+        let empty_hash = BytesN::from_array(e, &[0u8; 32]);
         let persistent = e.storage().persistent();
         let temporary = e.storage().temporary();
         let user_key = DataKey::PackedUser(address.clone());
         let mut user = Self::get_or_make_user(e, &address);
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
         let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
-            Some(thing) => thing,
+            // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
+            Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
         // validation
@@ -310,7 +322,7 @@ impl Contract {
         if user.current_lobby != 0 {
             return Err(Error::GuestAlreadyInLobby);
         }
-        if !Self::is_address_empty(e, &lobby_info.host_address) {
+        if Self::is_address_empty(e, &lobby_info.host_address) {
             return Err(Error::LobbyHasNoHost)
         }
         if !Self::is_address_empty(e, &lobby_info.guest_address) {
@@ -325,13 +337,13 @@ impl Contract {
         lobby_info.phase = Phase::Setup;
         // make new UserStates
         let host_user_state = UserState {
-            setup: Bytes::new(e),
-            setup_hash: String::from_str(e, ""),
+            setup: Vec::new(e),
+            setup_hash: empty_hash.clone(),
             setup_hash_salt: 0,
         };
         let guest_user_state = UserState {
-            setup: Bytes::new(e),
-            setup_hash: String::from_str(e, ""),
+            setup: Vec::new(e),
+            setup_hash: empty_hash.clone(),
             setup_hash_salt: 0,
         };
         // write
@@ -349,10 +361,64 @@ impl Contract {
 
     pub fn commit_setup(e: &Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
         address.require_auth();
+        let empty_hash = BytesN::from_array(e, &[0u8; 32]);
         let temporary = e.storage().temporary();
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
-        let lobby_info = match temporary.get(&lobby_info_key) {
+        let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+            // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
+            Some(lobby_info) => lobby_info,
+            None => return Err(Error::LobbyNotFound),
+        };
+        let user_state_key = DataKey::UserState(req.lobby_id.clone(), address.clone());
+        let mut user_state: UserState = match temporary.get(&user_state_key) {
             Some(thing) => thing,
+            None => return Err(Error::SetupStateNotFound),
+        };
+        let other_address = Self::get_other_address(&address, &lobby_info);
+        let other_user_state_key = DataKey::UserState(req.lobby_id.clone(), other_address.clone());
+        let other_user_state: UserState = match temporary.get(&other_user_state_key) {
+            Some(thing) => thing,
+            None => return Err(Error::SetupStateNotFound),
+        };
+        // validation
+        if lobby_info.phase != Phase::Setup {
+            return Err(Error::WrongPhase)
+        }
+        if lobby_info.host_address != address || lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
+        if user_state.setup_hash != empty_hash {
+            return Err(Error::AlreadyCommittedSetup)
+        }
+        // update
+        user_state.setup_hash = req.setup_hash;
+        // write
+        temporary.set(&user_state, &user_state_key);
+        // mail if both players submitted
+        if other_user_state.setup_hash != empty_hash {
+            // mail both players
+            let mail = Mail {
+                ledger: e.ledger().sequence(),
+                message: String::from_str(e, ""),
+                mail_type: MailType::ProveSetupCommit,
+            };
+            let _ = Self::insert_mail(e, &address, &mail);
+            let _ = Self::insert_mail(e, &other_address, &mail);
+        }
+        temporary.extend_ttl(&lobby_info_key, 8640, 8640);
+        temporary.extend_ttl(&user_state_key, 8640, 8640);
+        temporary.extend_ttl(&other_user_state_key, 8640, 8640);
+        Ok(())
+    }
+
+    pub fn prove_setup(e: &Env, address: Address, req: ProveSetupReq) -> Result<(), Error> {
+        address.require_auth();
+        let empty_hash = BytesN::from_array(e, &[0u8; 32]);
+        let temporary = e.storage().temporary();
+        let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
+        let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+            // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
+            Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
         let user_state_key = DataKey::UserState(req.lobby_id.clone(), address.clone());
@@ -370,56 +436,25 @@ impl Contract {
         if lobby_info.phase != Phase::Setup {
             return Err(Error::WrongPhase)
         }
-        if !user_state.setup_hash.is_empty() {
-            return Err(Error::AlreadyCommittedSetup)
+        if lobby_info.host_address != address || lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
         }
-        // update
-        user_state.setup_hash = req.setup_hash;
-        // write
-        temporary.set(&user_state, &user_state_key);
-        // mail if both players submitted
-        if !other_user_state.setup_hash.is_empty() {
-            // mail both players
-            let mail = Mail {
-                ledger: e.ledger().sequence(),
-                message: String::from_str(e, ""),
-                mail_type: MailType::ProveSetupCommit,
-            };
-            let _ = Self::insert_mail(e, &address, &mail);
-            let _ = Self::insert_mail(e, &other_address, &mail);
+        if user_state.setup_hash == empty_hash {
+            return Err(Error::NoSetupCommitment)
+        }
+        let serialized = req.setup.clone().to_xdr(e);
+        let setup_hash = e.crypto().sha256(&serialized).to_bytes();
+        if setup_hash != user_state.setup_hash {
+            return Err(Error::SetupHashFail)
+        }
+        user_state.setup = req.setup.clone();
+        temporary.set(&user_state_key, &user_state);
+        // if other user already proved their setup
+        if other_user_state.setup.len() != 0 {
+            lobby_info.phase = Phase::Movement;
+            temporary.set(&lobby_info_key, &lobby_info);
         }
 
-        temporary.extend_ttl(&lobby_info_key, 8640, 8640);
-        temporary.extend_ttl(&user_state_key, 8640, 8640);
-        temporary.extend_ttl(&other_user_state_key, 8640, 8640);
-        Ok(())
-    }
-
-    pub fn prove_setup(e: &Env, address: Address, req: ProveSetupReq) -> Result<(), Error> {
-        address.require_auth();
-        let temporary = e.storage().temporary();
-        let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
-        let lobby_info = match temporary.get(&lobby_info_key) {
-            Some(thing) => thing,
-            None => return Err(Error::LobbyNotFound),
-        };
-        let user_state_key = DataKey::UserState(req.lobby_id.clone(), address.clone());
-        let user_state: UserState = match temporary.get(&user_state_key) {
-            Some(thing) => thing,
-            None => return Err(Error::SetupStateNotFound),
-        };
-        let other_address = Self::get_other_address(&address, &lobby_info);
-        let other_user_state_key = DataKey::UserState(req.lobby_id.clone(), other_address.clone());
-        let other_user_state: UserState = match temporary.get(&other_user_state_key) {
-            Some(thing) => thing,
-            None => return Err(Error::UserNotFound),
-        };
-        let serialized = req.setup.to_xdr(e);
-        let hash = e.crypto().sha256(&serialized);
-        // validation
-        if lobby_info.phase != Phase::Setup {
-            return Err(Error::WrongPhase)
-        }
 
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
         temporary.extend_ttl(&user_state_key, 8640, 8640);
@@ -459,7 +494,7 @@ impl Contract {
         BytesN::from_array(e, &buf)
     }
 
-    pub(crate) fn unpack_user(e: &Env, packed_user: PackedUser, address: &Address) -> User {
+    pub(crate) fn unpack_user(_e: &Env, packed_user: PackedUser, address: &Address) -> User {
         let arr: [u8; 8] = packed_user.to_array();
         User {
             current_lobby: u32::from_be_bytes(arr[0..4].try_into().unwrap()),
@@ -502,7 +537,8 @@ impl Contract {
         // 1) Try to load an existing packed user
         if let Some(packed) = storage.get(&key) {
             // Found one → immediately unpack and return it
-            return Self::unpack_user(e, packed, &address);
+            // return Self::unpack_user(e, packed, &address);
+            return packed
         }
         // 2) Not found → create a new User
         let new_user = User {
