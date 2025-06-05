@@ -393,6 +393,18 @@ namespace Contract
                 }),
             };
         }
+        
+        public UserState GetUserState(bool isClientHost)
+        {
+            int index = isClientHost ? 0 : 1;
+            return user_states[index];
+        }
+
+        public UserState GetOpponentUserState(bool isClientHost)
+        {
+            int index = isClientHost ? 1 : 0;
+            return user_states[index];
+        }
     }
     
     [System.Serializable]

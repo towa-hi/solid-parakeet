@@ -46,7 +46,7 @@ public class GuiTestMovement : GameElement
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
 
-    public override void Initialize(TestBoardManager boardManager, NetworkState networkState)
+    public override void Initialize(TestBoardManager boardManager, GameNetworkState networkState)
     {
         base.Initialize(boardManager, networkState);
         //boardManager.OnClientGameStateChanged += OnClientGameStateChanged;

@@ -214,7 +214,7 @@ public class TestTileView : MonoBehaviour
     }
     
     uint oldPhase = 999;
-    void OnClientGameStateChanged(NetworkState networkState, ITestPhase phase)
+    void OnClientGameStateChanged(GameNetworkState networkState, ITestPhase phase)
     {
         // bool phaseChanged = lobby.phase != oldPhase;
         // switch (phase)

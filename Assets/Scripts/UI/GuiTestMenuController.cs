@@ -238,7 +238,7 @@ public class GameElement: MonoBehaviour
         gameObject.SetActive(inIsEnabled);
     }
 
-    public virtual void Initialize(TestBoardManager boardManager, NetworkState networkState)
+    public virtual void Initialize(TestBoardManager boardManager, GameNetworkState networkState)
     {
         bm = boardManager;
     }

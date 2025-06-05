@@ -1706,6 +1706,82 @@ public readonly struct LobbyId : IEquatable<LobbyId>
         => val.ToString();
 }
 
+public struct GameNetworkState
+{
+    public AccountAddress address;
+    public bool isHost;
+    public Team clientTeam;
+    public Team opponentTeam;
+    public User user;
+    public LobbyInfo lobbyInfo;
+    public LobbyParameters lobbyParameters;
+    public GameState gameState;
+    
+    public GameNetworkState(NetworkState networkState)
+    {
+        address = networkState.address;
+        System.Diagnostics.Debug.Assert(networkState.user != null, "networkState.user != null");
+        user = networkState.user.Value;
+        System.Diagnostics.Debug.Assert(networkState.lobbyInfo != null, "networkState.lobbyInfo != null");
+        lobbyInfo = networkState.lobbyInfo.Value;
+        System.Diagnostics.Debug.Assert(networkState.lobbyParameters != null, "networkState.lobbyParameters != null");
+        lobbyParameters = networkState.lobbyParameters.Value;
+        System.Diagnostics.Debug.Assert(networkState.gameState != null, "networkState.gameState != null");
+        gameState = networkState.gameState.Value;
+        // do some checks
+        if (new AccountAddress(lobbyInfo.host_address) == address)
+        {
+            isHost = true;
+        }
+        else if (new AccountAddress(lobbyInfo.guest_address) == address)
+        {
+            isHost = false;
+        }
+        else
+        {
+            throw new ArgumentException($"address not in state: {address}");
+        }
+
+        if (isHost)
+        {
+            if (lobbyParameters.host_team == 1)
+            {
+                clientTeam = Team.RED;
+                opponentTeam = Team.BLUE;
+            }
+            else
+            {
+                clientTeam = Team.BLUE;
+                opponentTeam = Team.RED;
+            }
+        }
+        else
+        {
+            if (lobbyParameters.host_team == 1)
+            {
+                clientTeam = Team.BLUE;
+                opponentTeam = Team.RED;
+            }
+            else
+            {
+                clientTeam = Team.RED;
+                opponentTeam = Team.BLUE;
+            }
+        }
+    }
+
+    public UserState GetUserState()
+    {
+        return gameState.GetUserState(isHost);
+    }
+
+    public UserState GetOpponentUserState()
+    {
+        return gameState.GetOpponentUserState(isHost);
+    }
+    
+}
+
 public struct NetworkState
 {
     public AccountAddress address;
@@ -1735,68 +1811,5 @@ public struct NetworkState
             lobbyParameters = lobbyParameters?.ToString(),
         };
         return JsonConvert.SerializeObject(simplified, Formatting.Indented);
-    }
-
-    public UserState GetClientUserState()
-    {
-        if (!inLobby)
-        {
-            throw new Exception("inLobby cant be false");
-        }
-
-        if (gameState == null)
-        {
-            throw new Exception("GameState cant be null");
-        }
-        int index = -1;
-        if (Globals.AddressToString(lobbyInfo?.host_address) == address)
-        {
-            index = 0;
-        }
-        if (Globals.AddressToString(lobbyInfo?.guest_address) == address)
-        {
-            index = 1;
-        }
-        return gameState.Value.user_states[index];
-    }
-
-    public Team GetClientTeam()
-    {
-        if (!inLobby)
-        {
-            throw new Exception("inLobby cant be false");
-        }
-        if (lobbyParameters.Value.host_team == 0)
-        {
-            if (IsClientHost())
-            {
-                return Team.RED;
-            }
-            else
-            {
-                return Team.BLUE;
-            }
-        }
-        else
-        {
-            if (IsClientHost())
-            {
-                return Team.BLUE;
-            }
-            else
-            {
-                return Team.RED;
-            }
-        }
-    }
-
-    public bool IsClientHost()
-    {
-        if (!inLobby)
-        {
-            throw new Exception("inLobby cant be false");
-        }
-        bool isHost = Globals.AddressToString(lobbyInfo?.host_address) == address;
-        return isHost;
     }
 }

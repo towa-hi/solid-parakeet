@@ -32,7 +32,7 @@ public class GuiTestSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
     
-    public override void Initialize(TestBoardManager inBoardManager, NetworkState networkState)
+    public override void Initialize(TestBoardManager inBoardManager, GameNetworkState networkState)
     {
         base.Initialize(inBoardManager, networkState);
         // Clear existing entries

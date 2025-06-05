@@ -31,8 +31,8 @@ public class TestBoardManager : MonoBehaviour
     public List<TestPawnView> pawnViews = new();
     // last known lobby
     //public Lobby cachedLobby;
-    public NetworkState cachedNetworkState;
-    
+    public GameNetworkState cachedNetworkState;
+    public Phase lastPhase;
     public ITestPhase currentPhase;
     public Transform cameraBounds;
 
@@ -41,7 +41,7 @@ public class TestBoardManager : MonoBehaviour
 
     
     //public event Action<Lobby> OnPhaseChanged;
-    public event Action<NetworkState, ITestPhase> OnClientGameStateChanged;
+    public event Action<GameNetworkState, ITestPhase> OnClientGameStateChanged;
     public event Action<Vector2Int, TestTileView, TestPawnView, ITestPhase> OnGameHover;
     
     void Start()
@@ -86,7 +86,6 @@ public class TestBoardManager : MonoBehaviour
         OnNetworkStateUpdated();
     }
     
-    [SuppressMessage("ReSharper", "PossibleInvalidOperationException")]
     void OnNetworkStateUpdated()
     {
         Debug.Log("TestBoardManager::OnNetworkStateUpdated");
@@ -94,19 +93,11 @@ public class TestBoardManager : MonoBehaviour
         {
             return;
         }
-        NetworkState networkState = StellarManagerTest.networkState;
-        if (!networkState.inLobby)
-        {
-            return;
-        }
-        LobbyInfo lobbyInfo = networkState.lobbyInfo.Value;
-        LobbyParameters lobbyParameters = networkState.lobbyParameters.Value;
-        GameState gameState = networkState.gameState.Value;
-        //Lobby lobby = singlePlayer ? FakeServer.ins.fakeLobby : StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
-        if (firstTime || gameState.phase != cachedNetworkState.gameState?.phase)
+        GameNetworkState networkState = new GameNetworkState(StellarManagerTest.networkState);
+        if (firstTime || networkState.gameState.phase != lastPhase)
         {
             firstTime = false;
-            switch (gameState.phase)
+            switch (networkState.gameState.phase)
             {
                 case Phase.Setup:
                     Debug.Log("SetPhase setup");
@@ -116,6 +107,8 @@ public class TestBoardManager : MonoBehaviour
                     Debug.Log("SetPhase movement");
                     SetPhase(new MovementTestPhase(this, guiTestGame.movement, networkState));
                     break;
+                case Phase.Completed:
+                    throw new NotImplementedException();
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -127,6 +120,7 @@ public class TestBoardManager : MonoBehaviour
         Debug.Log("OnClientGameStateChanged invoked by OnNetworkStateUpdated");
         OnClientGameStateChanged?.Invoke(networkState, currentPhase);
         cachedNetworkState = networkState;
+        lastPhase = networkState.gameState.phase;
         clickInputManager.ForceInvokeOnPositionHovered();
     }
 
@@ -251,7 +245,7 @@ public interface ITestPhase
     public void OnHover(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
 
-    public void OnNetworkGameStateChanged(NetworkState networkState);
+    public void OnNetworkGameStateChanged(GameNetworkState networkState);
 
     public void RefreshGui();
 
@@ -342,7 +336,7 @@ public class SetupTestPhase : ITestPhase
 
     public SetupClientState clientState;
     
-    public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, NetworkState networkState)
+    public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, GameNetworkState networkState)
     {
         bm = inBm;
         setupGui = inSetupGui;
@@ -355,20 +349,20 @@ public class SetupTestPhase : ITestPhase
         setupGui.Refresh(clientState);
     }
     
-    void ResetClientState(NetworkState networkState)
+    void ResetClientState(GameNetworkState networkState)
     {
         Debug.Log("SetupTestPhase.ResetClientState");
-        UserState userState = networkState.GetClientUserState();
+        UserState userState = networkState.GetUserState();
         SetupClientState newSetupClientState = new SetupClientState()
         {
             selectedRank = null,
             commitments = new Dictionary<string, PawnCommit>(),
             committed = userState.setup_hash.Length > 0,
-            team = networkState.GetClientTeam(),
+            team = networkState.clientTeam,
         };
         // we can assume every max in maxRanks sums to commitIndex - 1;
         int commitIndex = 0;
-        foreach (MaxRank maxRanks in networkState.lobbyParameters.Value.max_ranks)
+        foreach (MaxRank maxRanks in networkState.lobbyParameters.max_ranks)
         {
             for (int i = 0; i < maxRanks.max; i++)
             {
@@ -449,7 +443,7 @@ public class SetupTestPhase : ITestPhase
         ClientStateChanged();
     }
 
-    public void OnNetworkGameStateChanged(NetworkState networkState)
+    public void OnNetworkGameStateChanged(GameNetworkState networkState)
     {
         ResetClientState(networkState);
     }
@@ -640,7 +634,7 @@ public class MovementClientState
     readonly BoardDef boardDef;
     readonly Dictionary<Vector2Int, Contract.Pawn> pawnPositions;
 
-    public MovementClientState(NetworkState networkState, bool isHost, Team myTeam, BoardDef boardDef)
+    public MovementClientState(GameNetworkState networkState, bool isHost, Team myTeam, BoardDef boardDef)
     {
         // this.boardDef = boardDef;
         // Turn currentTurn = lobby.GetLatestTurn();
@@ -793,7 +787,7 @@ public class MovementTestPhase : ITestPhase
     
     public MovementClientState clientState;
     
-    public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, NetworkState networkState)
+    public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, GameNetworkState networkState)
     {
         bm = inBm;
         movementGui = inMovementGui;
@@ -805,7 +799,7 @@ public class MovementTestPhase : ITestPhase
         movementGui.Refresh(clientState);
     }
     
-    void ResetClientState(NetworkState networkState)
+    void ResetClientState(GameNetworkState networkState)
     {
         Debug.Log("ResetClientState");
         clientState = new MovementClientState(networkState, bm.isHost, bm.userTeam, bm.boardDef);
@@ -851,7 +845,7 @@ public class MovementTestPhase : ITestPhase
         }
     }
 
-    public void OnNetworkGameStateChanged(NetworkState networkState)
+    public void OnNetworkGameStateChanged(GameNetworkState networkState)
     {
         // ResetClientState(lobby);
         // Turn latestTurn = lobby.GetLatestTurn();

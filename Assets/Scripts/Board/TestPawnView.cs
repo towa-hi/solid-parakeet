@@ -113,9 +113,9 @@ public class TestPawnView : MonoBehaviour
         }
     }
     
-    void OnClientGameStateChanged(NetworkState networkState, ITestPhase phase)
+    void OnClientGameStateChanged(GameNetworkState networkState, ITestPhase phase)
     {
-        bool phaseChanged = (uint)networkState.gameState?.phase != oldPhase;
+        bool phaseChanged = (uint)networkState.gameState.phase != oldPhase;
         // switch (phase)
         // {
         //     case MovementTestPhase movementTestPhase:

@@ -47,7 +47,7 @@ public class GuiTestGame : TestGuiElement
         
     }
     
-    public void SetCurrentElement(GameElement element, NetworkState networkState)
+    public void SetCurrentElement(GameElement element, GameNetworkState networkState)
     {
         currentElement?.SetIsEnabled(false);
         currentElement = element;
