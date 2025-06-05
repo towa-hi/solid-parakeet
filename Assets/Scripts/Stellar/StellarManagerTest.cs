@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using Contract;
 using Stellar;
@@ -14,7 +16,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CAVMQ6ZZUX36WIINE6VYJCA6SAMDS5AWNR4G4TLEA53LSOSYEPMVFQP5";
+    public static string testContract = "CBE4XJ4HMAW7AGUWQQRUOKHLH7W35AXUEPENGDEO6W6SYSXUQRHT5PZB";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -187,19 +189,25 @@ public static class StellarManagerTest
         return ProcessTransactionResult(result, simResult);
     }
 
-    public static async Task<int> CommitSetupRequest(Dictionary<string, PawnCommitment> commitments)
+    public static async Task<int> CommitSetupRequest(Dictionary<string, PawnCommit> commitments)
     {
-        PawnCommitment[] setupCommitments = new PawnCommitment[commitments.Count];
-        for (int i = 0; i < commitments.Count; i++)
+        if (!networkState.user.HasValue)
         {
-            KeyValuePair<string, PawnCommitment> kvp = commitments.ElementAt(i);
-            PawnCommitment commitment = kvp.Value;
-            setupCommitments[i] = commitment;
+            throw new Exception($"NetworkState not in lobby");
         }
+        // PawnCommit[] setupCommitments = new PawnCommit[commitments.Count];
+        // for (int i = 0; i < commitments.Count; i++)
+        // {
+        //     KeyValuePair<string, PawnCommit> kvp = commitments.ElementAt(i);
+        //     PawnCommit commitment = kvp.Value;
+        //     setupCommitments[i] = commitment;
+        // }
+        // SHA256 sha256 = SHA256.Create();
+        string fakeHash = "fakeHash";
         SetupCommitReq req = new()
         {
             lobby_id = networkState.user.Value.current_lobby,
-            setup_commitments = setupCommitments,
+            setup_hash = Encoding.UTF8.GetBytes(fakeHash),
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
@@ -256,11 +264,10 @@ public static class StellarManagerTest
         return -1;
     }
     
-    public static async Task<int> JoinLobbyRequest(string lobbyId)
+    public static async Task<int> JoinLobbyRequest(uint lobbyId)
     {
         JoinLobbyReq req = new()
         {
-            guest_address = GetUserAddress(),
             lobby_id = lobbyId,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
@@ -290,14 +297,6 @@ public static class StellarManagerTest
         return result;
     }
     
-    public static async Task<Lobby?> GetLobby(uint key)
-    {
-        TaskInfo task = SetCurrentTask("ReqLobbyData");
-        Lobby? result = await stellar.ReqLobbyData(key);
-        EndTask(task);
-        return result;
-    }
-
     public static async Task<AccountEntry> GetAccount(string key)
     {
         TaskInfo task = SetCurrentTask("ReqAccountEntry");

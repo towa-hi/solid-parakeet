@@ -15,7 +15,7 @@ public class GuiTestLobbyJoiner : TestGuiElement
     public Button backButton;
     public Button joinButton;
 
-    public event Action<string> OnJoinButton;
+    public event Action<uint> OnJoinButton;
     public event Action OnBackButton;
 
     void Start()
@@ -28,7 +28,7 @@ public class GuiTestLobbyJoiner : TestGuiElement
         joinButton.onClick.AddListener(() =>
         {
             AudioManager.instance.PlayMidButtonClick();
-            OnJoinButton?.Invoke(lobbyIdInputField.text);
+            OnJoinButton?.Invoke(uint.Parse(lobbyIdInputField.text));
         });
         lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdInputFieldChanged);
         StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
@@ -52,7 +52,7 @@ public class GuiTestLobbyJoiner : TestGuiElement
     void Refresh()
     {
         contractAddressText.text = StellarManagerTest.GetContractAddress();
-        joinButton.interactable = Guid.TryParse(lobbyIdInputField.text, out _);
+        joinButton.interactable = lobbyIdInputField.text.Length > 0;
         string status = "Enter a valid lobby ID";
         if (joinButton.interactable)
         {

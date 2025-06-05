@@ -128,41 +128,41 @@ public class FakeServer : MonoBehaviour
         // guest -> join_lobby
     }
 
-    
-    public int CommitSetupRequest(Dictionary<string, PawnCommitment> commitments)
-    {
-        // // Convert dictionary to array for the host's setup commitment request
-        // PawnCommitment[] setupCommitments = new PawnCommitment[commitments.Count];
-        // for (int i = 0; i < commitments.Count; i++)
-        // {
-        //     KeyValuePair<string, PawnCommitment> kvp = commitments.ElementAt(i);
-        //     PawnCommitment commitment = kvp.Value;
-        //     setupCommitments[i] = commitment;
-        // }
-        //
-        // // Create the host's setup commit request
-        // SetupCommitReq hostReq = new()
-        // {
-        //     lobby_id = fakeLobby.index,
-        //     setup_commitments = setupCommitments,
-        // };
-        // // Generate and process the guest's request
-        // SetupCommitReq guestReq = GuestSetupCommitReq(fakeGuest, fakeLobby);
-        // int guestResult = CommitSetup(fakeGuest.index, guestReq);
-        // if (guestResult != 0)
-        // {
-        //     Debug.LogError($"Guest commit failed with error code {guestResult}");
-        //     return guestResult;
-        // }
-        // // Process the host's request
-        // int hostResult = CommitSetup(fakeHost.index, hostReq);
-        // if (hostResult != 0)
-        // {
-        //     Debug.LogError($"Host commit failed with error code {hostResult}");
-        //     return hostResult;
-        // }
-        return 0; // Success
-    }
+    //
+    // public int CommitSetupRequest(Dictionary<string, PawnCommitment> commitments)
+    // {
+    //     // Convert dictionary to array for the host's setup commitment request
+    //     PawnCommitment[] setupCommitments = new PawnCommitment[commitments.Count];
+    //     for (int i = 0; i < commitments.Count; i++)
+    //     {
+    //         KeyValuePair<string, PawnCommitment> kvp = commitments.ElementAt(i);
+    //         PawnCommitment commitment = kvp.Value;
+    //         setupCommitments[i] = commitment;
+    //     }
+    //     
+    //     // Create the host's setup commit request
+    //     SetupCommitReq hostReq = new()
+    //     {
+    //         lobby_id = fakeLobby.index,
+    //         setup_commitments = setupCommitments,
+    //     };
+    //     // Generate and process the guest's request
+    //     SetupCommitReq guestReq = GuestSetupCommitReq(fakeGuest, fakeLobby);
+    //     int guestResult = CommitSetup(fakeGuest.index, guestReq);
+    //     if (guestResult != 0)
+    //     {
+    //         Debug.LogError($"Guest commit failed with error code {guestResult}");
+    //         return guestResult;
+    //     }
+    //     // Process the host's request
+    //     int hostResult = CommitSetup(fakeHost.index, hostReq);
+    //     if (hostResult != 0)
+    //     {
+    //         Debug.LogError($"Host commit failed with error code {hostResult}");
+    //         return hostResult;
+    //     }
+    //     return 0; // Success
+    // }
 
     public int QueueMove(QueuedMove queuedMove)
     {
@@ -267,38 +267,38 @@ public class FakeServer : MonoBehaviour
         };
     }
 
-    MoveSubmitReq GuestMoveSubmitReq(User guest, Lobby lobby)
-    {
-        // pick a move
-        Dictionary<Contract.Pawn, HashSet<Vector2Int>> validMoves = new();
-        foreach (var pawn in lobby.pawns)
-        {
-            if (pawn.is_alive && pawn.team == lobby.guest_state.team)
-            {
-                HashSet<Vector2Int> movablePositions = GetMovablePositions(pawn, lobby, boardDef);
-                if (movablePositions.Count > 0)
-                {
-                    validMoves.Add(pawn, movablePositions);
-                }
-            }
-        }
-
-        if (validMoves.Count == 0)
-        {
-            throw new Exception("No valid moves for guest");
-        }
-        Contract.Pawn randomPawn = validMoves.Keys.ElementAt(Random.Range(0, validMoves.Count));
-        Vector2Int randomMove = validMoves[randomPawn].ElementAt(Random.Range(0, validMoves[randomPawn].Count));
-        MoveSubmitReq req = new()
-        {
-            lobby = lobby.index,
-            move_pos = new Pos(randomMove),
-            pawn_id = randomPawn.pawn_id,
-            turn = lobby.GetLatestTurn().turn,
-            user_address = "",
-        };
-        return req;
-    }
+    // MoveSubmitReq GuestMoveSubmitReq(User guest, Lobby lobby)
+    // {
+    //     // pick a move
+    //     Dictionary<Contract.Pawn, HashSet<Vector2Int>> validMoves = new();
+    //     foreach (var pawn in lobby.pawns)
+    //     {
+    //         if (pawn.is_alive && pawn.team == lobby.guest_state.team)
+    //         {
+    //             HashSet<Vector2Int> movablePositions = GetMovablePositions(pawn, lobby, boardDef);
+    //             if (movablePositions.Count > 0)
+    //             {
+    //                 validMoves.Add(pawn, movablePositions);
+    //             }
+    //         }
+    //     }
+    //
+    //     if (validMoves.Count == 0)
+    //     {
+    //         throw new Exception("No valid moves for guest");
+    //     }
+    //     Contract.Pawn randomPawn = validMoves.Keys.ElementAt(Random.Range(0, validMoves.Count));
+    //     Vector2Int randomMove = validMoves[randomPawn].ElementAt(Random.Range(0, validMoves[randomPawn].Count));
+    //     MoveSubmitReq req = new()
+    //     {
+    //         lobby = lobby.index,
+    //         move_pos = new Pos(randomMove),
+    //         pawn_id = randomPawn.pawn_id,
+    //         turn = lobby.GetLatestTurn().turn,
+    //         user_address = "",
+    //     };
+    //     return req;
+    // }
 
     static HashSet<Vector2Int> GetMovablePositions(Contract.Pawn pawn, Lobby lobby, BoardDef boardDef)
     {
@@ -336,116 +336,116 @@ public class FakeServer : MonoBehaviour
         }
         return movablePositions;
     }
-    
-    int CommitSetup(string address, SetupCommitReq req)
-    {
-        Lobby updatedLobby = fakeLobby;
-        // Check if we're in the right phase (Setup phase)
-        if (updatedLobby.phase != (uint)Phase.Setup)
-        {
-            Debug.LogError("Wrong phase for commit_setup");
-            return (int)ErrorCode.WrongPhase;
-        }
-        // Get the appropriate user state based on the address
-        UserState userState;
-        UserState otherUserState;
-        if (address == updatedLobby.host_address)
-        {
-            userState = updatedLobby.host_state;
-            otherUserState = updatedLobby.guest_state;
-        }
-        else if (address == updatedLobby.guest_address)
-        {
-            userState = updatedLobby.guest_state;
-            otherUserState = updatedLobby.host_state;
-        }
-        else
-        {
-            Debug.LogError($"Invalid user address: {address}");
-            return (int)ErrorCode.InvalidArgs;
-        }
-        // Validate commitment count
-        if (userState.setup_commitments.Length != req.setup_commitments.Length)
-        {
-            Debug.LogError("Invalid setup commitment count");
-            return (int)ErrorCode.InvalidArgs;
-        }
-        // Update the user's setup commitments
-        userState.setup_commitments = req.setup_commitments;
-        userState.committed = true;
-        if (updatedLobby.host_address == address)
-        {
-            updatedLobby.host_state = userState;
-            updatedLobby.guest_state = otherUserState;
-        }
-        else
-        {
-            updatedLobby.guest_state = userState;
-            updatedLobby.host_state = otherUserState;
-        }
-        // If both players have committed, advance to movement phase
-        if (otherUserState.committed)
-        {
-            // Create a map of all commitments keyed by pawn_id
-            Dictionary<string, PawnCommitment> commitmentMap = new Dictionary<string, PawnCommitment>();
-            foreach (PawnCommitment commit in updatedLobby.host_state.setup_commitments)
-            {
-                commitmentMap[commit.pawn_id] = commit;
-            }
-            foreach (PawnCommitment commit in updatedLobby.guest_state.setup_commitments)
-            {
-                commitmentMap[commit.pawn_id] = commit;
-            }
-            // Update the pawns with the committed positions
-            for (int i = 0; i < updatedLobby.pawns.Length; i++)
-            {
-                Contract.Pawn pawn = updatedLobby.pawns[i];
-                if (commitmentMap.TryGetValue(pawn.pawn_id, out PawnCommitment commit))
-                {
-                    pawn.pos = commit.starting_pos;
-                    pawn.pawn_def_hash = commit.pawn_def_hash;
-                    pawn.is_alive = true;
-                    updatedLobby.pawns[i] = pawn; // Update the pawn in the array
-                }
-            }
-            // Initialize the first turn
-            Turn firstTurn = new Turn
-            {
-                guest_events = Array.Empty<Contract.ResolveEvent>(),
-                guest_events_hash = string.Empty,
-                guest_turn = new TurnMove
-                {
-                    initialized = false,
-                    pawn_id = string.Empty,
-                    pos = new Pos { x = -666, y = -666 },
-                    turn = 0,
-                    user_address = updatedLobby.guest_address,
-                },
-                host_events = Array.Empty<Contract.ResolveEvent>(),
-                host_events_hash = string.Empty,
-                host_turn = new TurnMove
-                {
-                    initialized = false,
-                    pawn_id = string.Empty,
-                    pos = new Pos { x = -666, y = -666 },
-                    turn = 0,
-                    user_address = updatedLobby.host_address,
-                },
-                turn = 0,
-            };
-            // Add the first turn and change phase to Movement
-            List<Turn> turns = new List<Turn>();
-            turns.Add(firstTurn);
-            updatedLobby.turns = turns.ToArray();
-            updatedLobby.phase = (uint)Phase.Movement;
-        }
-        fakeLobby = updatedLobby;
-        if (address == "")
-        {
-            GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
-        }
-        return 0; // Success
-    }
+    //
+    // int CommitSetup(string address, SetupCommitReq req)
+    // {
+    //     Lobby updatedLobby = fakeLobby;
+    //     // Check if we're in the right phase (Setup phase)
+    //     if (updatedLobby.phase != (uint)Phase.Setup)
+    //     {
+    //         Debug.LogError("Wrong phase for commit_setup");
+    //         return (int)ErrorCode.WrongPhase;
+    //     }
+    //     // Get the appropriate user state based on the address
+    //     UserState userState;
+    //     UserState otherUserState;
+    //     if (address == updatedLobby.host_address)
+    //     {
+    //         userState = updatedLobby.host_state;
+    //         otherUserState = updatedLobby.guest_state;
+    //     }
+    //     else if (address == updatedLobby.guest_address)
+    //     {
+    //         userState = updatedLobby.guest_state;
+    //         otherUserState = updatedLobby.host_state;
+    //     }
+    //     else
+    //     {
+    //         Debug.LogError($"Invalid user address: {address}");
+    //         return (int)ErrorCode.InvalidArgs;
+    //     }
+    //     // Validate commitment count
+    //     if (userState.setup_commitments.Length != req.setup_commitments.Length)
+    //     {
+    //         Debug.LogError("Invalid setup commitment count");
+    //         return (int)ErrorCode.InvalidArgs;
+    //     }
+    //     // Update the user's setup commitments
+    //     userState.setup_commitments = req.setup_commitments;
+    //     userState.committed = true;
+    //     if (updatedLobby.host_address == address)
+    //     {
+    //         updatedLobby.host_state = userState;
+    //         updatedLobby.guest_state = otherUserState;
+    //     }
+    //     else
+    //     {
+    //         updatedLobby.guest_state = userState;
+    //         updatedLobby.host_state = otherUserState;
+    //     }
+    //     // If both players have committed, advance to movement phase
+    //     if (otherUserState.committed)
+    //     {
+    //         // Create a map of all commitments keyed by pawn_id
+    //         Dictionary<string, PawnCommitment> commitmentMap = new Dictionary<string, PawnCommitment>();
+    //         foreach (PawnCommitment commit in updatedLobby.host_state.setup_commitments)
+    //         {
+    //             commitmentMap[commit.pawn_id] = commit;
+    //         }
+    //         foreach (PawnCommitment commit in updatedLobby.guest_state.setup_commitments)
+    //         {
+    //             commitmentMap[commit.pawn_id] = commit;
+    //         }
+    //         // Update the pawns with the committed positions
+    //         for (int i = 0; i < updatedLobby.pawns.Length; i++)
+    //         {
+    //             Contract.Pawn pawn = updatedLobby.pawns[i];
+    //             if (commitmentMap.TryGetValue(pawn.pawn_id, out PawnCommitment commit))
+    //             {
+    //                 pawn.pos = commit.starting_pos;
+    //                 pawn.pawn_def_hash = commit.pawn_def_hash;
+    //                 pawn.is_alive = true;
+    //                 updatedLobby.pawns[i] = pawn; // Update the pawn in the array
+    //             }
+    //         }
+    //         // Initialize the first turn
+    //         Turn firstTurn = new Turn
+    //         {
+    //             guest_events = Array.Empty<Contract.ResolveEvent>(),
+    //             guest_events_hash = string.Empty,
+    //             guest_turn = new TurnMove
+    //             {
+    //                 initialized = false,
+    //                 pawn_id = string.Empty,
+    //                 pos = new Pos { x = -666, y = -666 },
+    //                 turn = 0,
+    //                 user_address = updatedLobby.guest_address,
+    //             },
+    //             host_events = Array.Empty<Contract.ResolveEvent>(),
+    //             host_events_hash = string.Empty,
+    //             host_turn = new TurnMove
+    //             {
+    //                 initialized = false,
+    //                 pawn_id = string.Empty,
+    //                 pos = new Pos { x = -666, y = -666 },
+    //                 turn = 0,
+    //                 user_address = updatedLobby.host_address,
+    //             },
+    //             turn = 0,
+    //         };
+    //         // Add the first turn and change phase to Movement
+    //         List<Turn> turns = new List<Turn>();
+    //         turns.Add(firstTurn);
+    //         updatedLobby.turns = turns.ToArray();
+    //         updatedLobby.phase = (uint)Phase.Movement;
+    //     }
+    //     fakeLobby = updatedLobby;
+    //     if (address == "")
+    //     {
+    //         GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
+    //     }
+    //     return 0; // Success
+    // }
 
     int SubmitMove(string address, MoveSubmitReq req)
     {

@@ -136,7 +136,7 @@ public class GuiTestMenuController: MonoBehaviour
         }
     }
 
-    async void JoinLobby(string lobbyId)
+    async void JoinLobby(uint lobbyId)
     {
         int code = await StellarManagerTest.JoinLobbyRequest(lobbyId);
         await StellarManagerTest.UpdateState();
@@ -148,11 +148,11 @@ public class GuiTestMenuController: MonoBehaviour
 
     async void OnStartGame()
     {
-        // await StellarManagerTest.UpdateState();
-        // if (StellarManagerTest.currentLobby.HasValue)
-        // {
-        //     ShowMenuElement(gameElement, true);
-        // }
+        await StellarManagerTest.UpdateState();
+        if (StellarManagerTest.networkState.inLobby)
+        {
+            ShowMenuElement(gameElement, true);
+        }
     }
     
     async void OnSubmitLobbyButton(Contract.LobbyParameters parameters)
@@ -238,7 +238,7 @@ public class GameElement: MonoBehaviour
         gameObject.SetActive(inIsEnabled);
     }
 
-    public virtual void Initialize(TestBoardManager boardManager, Lobby lobby)
+    public virtual void Initialize(TestBoardManager boardManager, NetworkState networkState)
     {
         bm = boardManager;
     }

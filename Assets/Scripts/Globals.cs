@@ -1708,18 +1708,95 @@ public readonly struct LobbyId : IEquatable<LobbyId>
 
 public struct NetworkState
 {
+    public AccountAddress address;
     public User? user;
     public LobbyInfo? lobbyInfo;
     public LobbyParameters? lobbyParameters;
+    public GameState? gameState;
+    
+    public bool inLobby => lobbyInfo != null && lobbyParameters != null;
+
+    public NetworkState(AccountAddress inAddress)
+    {
+        address = inAddress;
+        user = null;
+        lobbyInfo = null;
+        lobbyParameters = null;
+        gameState = null;
+    }
     
     public override string ToString()
     {
         var simplified = new
         {
+            address = address,
             user = user?.ToString(),
             lobbyInfo = lobbyInfo?.ToString(),
-            lobbyParameters = lobbyParameters?.ToString()
+            lobbyParameters = lobbyParameters?.ToString(),
         };
         return JsonConvert.SerializeObject(simplified, Formatting.Indented);
+    }
+
+    public UserState GetClientUserState()
+    {
+        if (!inLobby)
+        {
+            throw new Exception("inLobby cant be false");
+        }
+
+        if (gameState == null)
+        {
+            throw new Exception("GameState cant be null");
+        }
+        int index = -1;
+        if (Globals.AddressToString(lobbyInfo?.host_address) == address)
+        {
+            index = 0;
+        }
+        if (Globals.AddressToString(lobbyInfo?.guest_address) == address)
+        {
+            index = 1;
+        }
+        return gameState.Value.user_states[index];
+    }
+
+    public Team GetClientTeam()
+    {
+        if (!inLobby)
+        {
+            throw new Exception("inLobby cant be false");
+        }
+        if (lobbyParameters.Value.host_team == 0)
+        {
+            if (IsClientHost())
+            {
+                return Team.RED;
+            }
+            else
+            {
+                return Team.BLUE;
+            }
+        }
+        else
+        {
+            if (IsClientHost())
+            {
+                return Team.BLUE;
+            }
+            else
+            {
+                return Team.RED;
+            }
+        }
+    }
+
+    public bool IsClientHost()
+    {
+        if (!inLobby)
+        {
+            throw new Exception("inLobby cant be false");
+        }
+        bool isHost = Globals.AddressToString(lobbyInfo?.host_address) == address;
+        return isHost;
     }
 }

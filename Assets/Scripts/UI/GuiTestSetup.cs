@@ -32,9 +32,9 @@ public class GuiTestSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
     
-    public override void Initialize(TestBoardManager inBoardManager, Lobby lobby)
+    public override void Initialize(TestBoardManager inBoardManager, NetworkState networkState)
     {
-        base.Initialize(inBoardManager, lobby);
+        base.Initialize(inBoardManager, networkState);
         // Clear existing entries
         // foreach (Transform child in rankEntryListRoot.transform) { Destroy(child.gameObject); }
         // entries = new Dictionary<Rank, GuiRankListEntry>();
@@ -52,12 +52,12 @@ public class GuiTestSetup : GameElement
     public void Refresh(SetupClientState state)
     {
         Debug.Log("GuiTestSetup Refresh");
-        Dictionary<Rank, List<PawnCommitment>> orderedCommitments = new();
+        Dictionary<Rank, List<PawnCommit>> orderedCommitments = new();
         foreach (Rank rank in Enum.GetValues(typeof(Rank)))
         {
-            orderedCommitments.Add(rank, new List<PawnCommitment>());
+            orderedCommitments.Add(rank, new List<PawnCommit>());
         }
-        foreach (PawnCommitment commitment in state.commitments.Values)
+        foreach (PawnCommit commitment in state.commitments.Values)
         {
             PawnDef def = Globals.FakeHashToPawnDef(commitment.pawn_def_hash);
             Rank rank = def.rank;
@@ -69,7 +69,7 @@ public class GuiTestSetup : GameElement
         {
             int max = 0;
             int usedCount = 0;
-            foreach (PawnCommitment commitment in orderedCommitments[rank])
+            foreach (PawnCommit commitment in orderedCommitments[rank])
             {
                 if (commitment.starting_pos.ToVector2Int() != Globals.Purgatory)
                 {

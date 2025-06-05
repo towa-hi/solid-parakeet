@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Contract;
@@ -29,7 +30,8 @@ public class TestBoardManager : MonoBehaviour
     public Dictionary<Vector2Int, TestTileView> tileViews = new();
     public List<TestPawnView> pawnViews = new();
     // last known lobby
-    public Lobby cachedLobby;
+    //public Lobby cachedLobby;
+    public NetworkState cachedNetworkState;
     
     public ITestPhase currentPhase;
     public Transform cameraBounds;
@@ -39,7 +41,7 @@ public class TestBoardManager : MonoBehaviour
 
     
     //public event Action<Lobby> OnPhaseChanged;
-    public event Action<Lobby, ITestPhase> OnClientGameStateChanged;
+    public event Action<NetworkState, ITestPhase> OnClientGameStateChanged;
     public event Action<Vector2Int, TestTileView, TestPawnView, ITestPhase> OnGameHover;
     
     void Start()
@@ -61,9 +63,7 @@ public class TestBoardManager : MonoBehaviour
             singlePlayer = true;
             FakeServer.ins.StartFakeLobby();
             Initialize(FakeServer.ins.fakeHost, FakeServer.ins.fakeLobby);
-            initialized = true;
-            firstTime = true;
-            OnNetworkStateUpdated(); //only invoke this directly once on start
+            //only invoke this directly once on start
         }
         else
         {
@@ -72,10 +72,11 @@ public class TestBoardManager : MonoBehaviour
             //Lobby lobby = StellarManagerTest.currentLobby.Value;
             Lobby lobby = new Lobby();
             Initialize(StellarManagerTest.networkState.user.Value, lobby);
-            initialized = true;
-            firstTime = true;
-            OnNetworkStateUpdated(); //only invoke this directly once on start
+            //only invoke this directly once on start
         }
+        initialized = true;
+        firstTime = true;
+        OnNetworkStateUpdated(); //only invoke this directly once on start
     }
 
     public void FakeOnNetworkStateUpdated()
@@ -85,6 +86,7 @@ public class TestBoardManager : MonoBehaviour
         OnNetworkStateUpdated();
     }
     
+    [SuppressMessage("ReSharper", "PossibleInvalidOperationException")]
     void OnNetworkStateUpdated()
     {
         Debug.Log("TestBoardManager::OnNetworkStateUpdated");
@@ -92,32 +94,39 @@ public class TestBoardManager : MonoBehaviour
         {
             return;
         }
+        NetworkState networkState = StellarManagerTest.networkState;
+        if (!networkState.inLobby)
+        {
+            return;
+        }
+        LobbyInfo lobbyInfo = networkState.lobbyInfo.Value;
+        LobbyParameters lobbyParameters = networkState.lobbyParameters.Value;
+        GameState gameState = networkState.gameState.Value;
         //Lobby lobby = singlePlayer ? FakeServer.ins.fakeLobby : StellarManagerTest.currentLobby.Value; // this should be the only time we ever reach into SMT for lobby
-        Lobby lobby = new Lobby();
-        if (firstTime || lobby.phase != cachedLobby.phase)
+        if (firstTime || gameState.phase != cachedNetworkState.gameState?.phase)
         {
             firstTime = false;
-            switch (lobby.phase)
+            switch (gameState.phase)
             {
-                case 1:
+                case Phase.Setup:
                     Debug.Log("SetPhase setup");
-                    SetPhase(new SetupTestPhase(this, guiTestGame.setup, lobby));
+                    SetPhase(new SetupTestPhase(this, guiTestGame.setup, networkState));
                     break;
-                case 2:
+                case Phase.Movement:
                     Debug.Log("SetPhase movement");
-                    SetPhase(new MovementTestPhase(this, guiTestGame.movement, lobby));
+                    SetPhase(new MovementTestPhase(this, guiTestGame.movement, networkState));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
         // if this is the first time, currentPhase gets it's state changed here
-        currentPhase?.OnNetworkGameStateChanged(lobby);
+        currentPhase?.OnNetworkGameStateChanged(networkState);
         // refreshGui happens first
         currentPhase?.RefreshGui();
         Debug.Log("OnClientGameStateChanged invoked by OnNetworkStateUpdated");
-        OnClientGameStateChanged?.Invoke(lobby, currentPhase);
-        cachedLobby = lobby;
+        OnClientGameStateChanged?.Invoke(networkState, currentPhase);
+        cachedNetworkState = networkState;
         clickInputManager.ForceInvokeOnPositionHovered();
     }
 
@@ -127,7 +136,7 @@ public class TestBoardManager : MonoBehaviour
         // when the phase is running and user input changed something
         Debug.Log("OnClientGameStateChanged invoked by OnlyClientGameStateChanged");
         currentPhase?.RefreshGui();
-        OnClientGameStateChanged?.Invoke(cachedLobby, currentPhase);
+        OnClientGameStateChanged?.Invoke(cachedNetworkState, currentPhase);
         clickInputManager.ForceInvokeOnPositionHovered();
     }
     
@@ -242,7 +251,7 @@ public interface ITestPhase
     public void OnHover(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
 
-    public void OnNetworkGameStateChanged(Lobby lobby);
+    public void OnNetworkGameStateChanged(NetworkState networkState);
 
     public void RefreshGui();
 
@@ -251,7 +260,7 @@ public interface ITestPhase
 public class SetupClientState
 {
     public bool dirty = true;
-    public Dictionary<string, PawnCommitment> commitments;
+    public Dictionary<string, PawnCommit> commitments;
     public Rank? selectedRank;
     public bool committed;
     public Team team;
@@ -264,7 +273,7 @@ public class SetupClientState
 
     public bool SetCommitment(Rank rank, Vector2Int pos)
     {
-        PawnCommitment? maybeCommitment = GetUnusedCommitment(rank);
+        PawnCommit? maybeCommitment = GetUnusedCommitment(rank);
         if (!maybeCommitment.HasValue)
         {
             return false;
@@ -283,7 +292,7 @@ public class SetupClientState
         {
             throw new Exception();
         }
-        PawnCommitment? maybeCommitment = GetUnusedCommitment(selectedRank.Value);
+        PawnCommit? maybeCommitment = GetUnusedCommitment(selectedRank.Value);
         if (!maybeCommitment.HasValue)
         {
             return false;
@@ -308,15 +317,15 @@ public class SetupClientState
     
     void ChangeCommitment(string id, Vector2Int pos)
     {
-        PawnCommitment commitment = commitments[id];
+        PawnCommit commitment = commitments[id];
         commitment.starting_pos = new Pos(pos);
         commitments[id] = commitment;
         dirty = true;
     }
 
-    public PawnCommitment? GetUnusedCommitment(Rank rank)
+    public PawnCommit? GetUnusedCommitment(Rank rank)
     {
-        foreach (PawnCommitment commitment in commitments.Values
+        foreach (PawnCommit commitment in commitments.Values
                      .Where(commitment => commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
                      .Where(commitment => Globals.FakeHashToPawnDef(commitment.pawn_def_hash).rank == rank))
         {
@@ -333,12 +342,12 @@ public class SetupTestPhase : ITestPhase
 
     public SetupClientState clientState;
     
-    public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, Lobby lobby)
+    public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, NetworkState networkState)
     {
         bm = inBm;
         setupGui = inSetupGui;
         // TODO: figure out a better way to tell gui to do stuff
-        bm.guiTestGame.SetCurrentElement(setupGui, lobby);
+        bm.guiTestGame.SetCurrentElement(setupGui, networkState);
     }
 
     public void RefreshGui()
@@ -346,35 +355,35 @@ public class SetupTestPhase : ITestPhase
         setupGui.Refresh(clientState);
     }
     
-    void ResetClientState(Lobby lobby)
+    void ResetClientState(NetworkState networkState)
     {
-        // Debug.Log("SetupTestPhase.ResetClientState");
-        // UserState userState = lobby.GetUserStateByTeam(bm.userTeam);
-        // SetupClientState newSetupClientState = new SetupClientState()
-        // {
-        //     selectedRank = null,
-        //     commitments = new Dictionary<string, PawnCommitment>(),
-        //     committed = userState.committed,
-        //     team = (Team)userState.team,
-        // };
-        // // we can assume every max in maxRanks sums to commitIndex - 1;
-        // int commitIndex = 0;
-        // foreach (MaxPawns maxRanks in lobby.parameters.max_pawns)
-        // {
-        //     for (int i = 0; i < maxRanks.max; i++)
-        //     {
-        //         string pawnDefHash = userState.committed ? userState.setup_commitments[commitIndex].pawn_def_hash : Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank));
-        //         PawnCommitment commitment = new PawnCommitment()
-        //         {
-        //             pawn_def_hash = pawnDefHash, // this is the only original data we fill in
-        //             pawn_id = userState.setup_commitments[commitIndex].pawn_id,
-        //             starting_pos = userState.setup_commitments[commitIndex].starting_pos,
-        //         };
-        //         newSetupClientState.commitments[commitment.pawn_id] = commitment;
-        //         commitIndex += 1;
-        //     }
-        // }
-        // clientState = newSetupClientState;
+        Debug.Log("SetupTestPhase.ResetClientState");
+        UserState userState = networkState.GetClientUserState();
+        SetupClientState newSetupClientState = new SetupClientState()
+        {
+            selectedRank = null,
+            commitments = new Dictionary<string, PawnCommit>(),
+            committed = userState.setup_hash.Length > 0,
+            team = networkState.GetClientTeam(),
+        };
+        // we can assume every max in maxRanks sums to commitIndex - 1;
+        int commitIndex = 0;
+        foreach (MaxRank maxRanks in networkState.lobbyParameters.Value.max_ranks)
+        {
+            for (int i = 0; i < maxRanks.max; i++)
+            {
+                // string pawnDefHash = userState.committed ? userState.setup_commitments[commitIndex].pawn_def_hash : Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank));
+                // PawnCommit commitment = new PawnCommit()
+                // {
+                //     pawn_def_hash = pawnDefHash, // this is the only original data we fill in
+                //     pawn_id = userState.setup[commitIndex].pawn_id,
+                //     starting_pos = userState.setup[commitIndex].starting_pos,
+                // };
+                // newSetupClientState.commitments[commitment.pawn_id] = commitment;
+                // commitIndex += 1;
+            }
+        }
+        clientState = newSetupClientState;
     }
     
     public void EnterState()
@@ -440,9 +449,9 @@ public class SetupTestPhase : ITestPhase
         ClientStateChanged();
     }
 
-    public void OnNetworkGameStateChanged(Lobby lobby)
+    public void OnNetworkGameStateChanged(NetworkState networkState)
     {
-        ResetClientState(lobby);
+        ResetClientState(networkState);
     }
 
     void ClientStateChanged()
@@ -524,7 +533,7 @@ public class SetupTestPhase : ITestPhase
 
         if (TestBoardManager.singlePlayer)
         {
-            FakeServer.ins.CommitSetupRequest(clientState.commitments);
+            //FakeServer.ins.CommitSetupRequest(clientState.commitments);
         }
         else
         {
@@ -631,63 +640,63 @@ public class MovementClientState
     readonly BoardDef boardDef;
     readonly Dictionary<Vector2Int, Contract.Pawn> pawnPositions;
 
-    public MovementClientState(Lobby lobby, bool isHost, Team myTeam, BoardDef boardDef)
+    public MovementClientState(NetworkState networkState, bool isHost, Team myTeam, BoardDef boardDef)
     {
-        this.boardDef = boardDef;
-        Turn currentTurn = lobby.GetLatestTurn();
-        dirty = true;
-        team = myTeam;
-        myEvents = isHost ? currentTurn.host_events : currentTurn.guest_events;
-        myEventsHash = isHost ? currentTurn.host_events_hash : currentTurn.guest_events_hash;
-        myTurnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
-        otherEvents = isHost ? currentTurn.guest_events : currentTurn.host_events;
-        otherEventsHash = isHost ? currentTurn.guest_events_hash : currentTurn.host_events_hash;
-        otherTurnMove = isHost ? currentTurn.guest_turn : currentTurn.host_turn;
-        turn = currentTurn.turn;
-        // Build pawn position lookup
-        pawnPositions = new Dictionary<Vector2Int, Contract.Pawn>();
-        foreach (Contract.Pawn pawn in lobby.pawns)
-        {
-            pawnPositions[pawn.pos.ToVector2Int()] = pawn;
-        }
-        // Initialize state based on current conditions
-        if (lobby.game_end_state == 3)
-        {
-            if (myTurnMove.initialized)
-            {
-                if (otherTurnMove.initialized)
-                {
-                    if (!string.IsNullOrEmpty(myEventsHash))
-                    {
-                        if (!string.IsNullOrEmpty(otherEventsHash))
-                        {
-                            Assert.IsTrue(myEvents == otherEvents);
-                            subState = new ResolvingMovementClientSubState();
-                        }
-                        else
-                        {
-                            subState = new WaitingOpponentHashMovementClientSubState();
-                        }
-                    }
-                    else
-                    {
-                        subState = new WaitingUserHashMovementClientSubState();
-                    }
-                }
-                else
-                {
-                    subState = new WaitingOpponentMoveMovementClientSubState();
-                }
-            }
-            else
-            {
-                subState = new SelectingPawnMovementClientSubState();
-            }
-        }
-        else
-        {
-            subState = new GameOverMovementClientSubState(lobby.game_end_state);
-        }
+        // this.boardDef = boardDef;
+        // Turn currentTurn = lobby.GetLatestTurn();
+        // dirty = true;
+        // team = myTeam;
+        // myEvents = isHost ? currentTurn.host_events : currentTurn.guest_events;
+        // myEventsHash = isHost ? currentTurn.host_events_hash : currentTurn.guest_events_hash;
+        // myTurnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
+        // otherEvents = isHost ? currentTurn.guest_events : currentTurn.host_events;
+        // otherEventsHash = isHost ? currentTurn.guest_events_hash : currentTurn.host_events_hash;
+        // otherTurnMove = isHost ? currentTurn.guest_turn : currentTurn.host_turn;
+        // turn = currentTurn.turn;
+        // // Build pawn position lookup
+        // pawnPositions = new Dictionary<Vector2Int, Contract.Pawn>();
+        // foreach (Contract.Pawn pawn in lobby.pawns)
+        // {
+        //     pawnPositions[pawn.pos.ToVector2Int()] = pawn;
+        // }
+        // // Initialize state based on current conditions
+        // if (lobby.game_end_state == 3)
+        // {
+        //     if (myTurnMove.initialized)
+        //     {
+        //         if (otherTurnMove.initialized)
+        //         {
+        //             if (!string.IsNullOrEmpty(myEventsHash))
+        //             {
+        //                 if (!string.IsNullOrEmpty(otherEventsHash))
+        //                 {
+        //                     Assert.IsTrue(myEvents == otherEvents);
+        //                     subState = new ResolvingMovementClientSubState();
+        //                 }
+        //                 else
+        //                 {
+        //                     subState = new WaitingOpponentHashMovementClientSubState();
+        //                 }
+        //             }
+        //             else
+        //             {
+        //                 subState = new WaitingUserHashMovementClientSubState();
+        //             }
+        //         }
+        //         else
+        //         {
+        //             subState = new WaitingOpponentMoveMovementClientSubState();
+        //         }
+        //     }
+        //     else
+        //     {
+        //         subState = new SelectingPawnMovementClientSubState();
+        //     }
+        // }
+        // else
+        // {
+        //     subState = new GameOverMovementClientSubState(lobby.game_end_state);
+        // }
         
     }
 
@@ -784,11 +793,11 @@ public class MovementTestPhase : ITestPhase
     
     public MovementClientState clientState;
     
-    public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, Lobby lobby)
+    public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, NetworkState networkState)
     {
         bm = inBm;
         movementGui = inMovementGui;
-        bm.guiTestGame.SetCurrentElement(movementGui, lobby);
+        bm.guiTestGame.SetCurrentElement(movementGui, networkState);
     }
 
     public void RefreshGui()
@@ -796,10 +805,10 @@ public class MovementTestPhase : ITestPhase
         movementGui.Refresh(clientState);
     }
     
-    void ResetClientState(Lobby lobby)
+    void ResetClientState(NetworkState networkState)
     {
         Debug.Log("ResetClientState");
-        clientState = new MovementClientState(lobby, bm.isHost, bm.userTeam, bm.boardDef);
+        clientState = new MovementClientState(networkState, bm.isHost, bm.userTeam, bm.boardDef);
     }
 
     void ClientStateChanged()
@@ -842,45 +851,45 @@ public class MovementTestPhase : ITestPhase
         }
     }
 
-    public void OnNetworkGameStateChanged(Lobby lobby)
+    public void OnNetworkGameStateChanged(NetworkState networkState)
     {
-        ResetClientState(lobby);
-        Turn latestTurn = lobby.GetLatestTurn();
-        // TODO: make this stateful
-        if (latestTurn.host_turn.initialized && latestTurn.guest_turn.initialized)
-        {
-            if (bm.isHost)
-            {
-                if (string.IsNullOrEmpty(latestTurn.host_events_hash))
-                {
-                    Debug.Log("Submitting move hash for host because both players have initialized their turns");
-                    if (TestBoardManager.singlePlayer)
-                    {
-                        FakeServer.ins.SubmitMoveHash();
-                    }
-                    else
-                    {
-                        _ = StellarManagerTest.SubmitMoveHash();
-                    }
-                    
-                }
-            }
-            else
-            {
-                if (string.IsNullOrEmpty(latestTurn.guest_events_hash))
-                {
-                    Debug.Log("Submitting move hash for guest because both players have initialized their turns");
-                    if (TestBoardManager.singlePlayer)
-                    {
-                        FakeServer.ins.SubmitMoveHash();
-                    }
-                    else
-                    {
-                        _ = StellarManagerTest.SubmitMoveHash();
-                    }
-                }
-            }
-        }
+        // ResetClientState(lobby);
+        // Turn latestTurn = lobby.GetLatestTurn();
+        // // TODO: make this stateful
+        // if (latestTurn.host_turn.initialized && latestTurn.guest_turn.initialized)
+        // {
+        //     if (bm.isHost)
+        //     {
+        //         if (string.IsNullOrEmpty(latestTurn.host_events_hash))
+        //         {
+        //             Debug.Log("Submitting move hash for host because both players have initialized their turns");
+        //             if (TestBoardManager.singlePlayer)
+        //             {
+        //                 FakeServer.ins.SubmitMoveHash();
+        //             }
+        //             else
+        //             {
+        //                 _ = StellarManagerTest.SubmitMoveHash();
+        //             }
+        //             
+        //         }
+        //     }
+        //     else
+        //     {
+        //         if (string.IsNullOrEmpty(latestTurn.guest_events_hash))
+        //         {
+        //             Debug.Log("Submitting move hash for guest because both players have initialized their turns");
+        //             if (TestBoardManager.singlePlayer)
+        //             {
+        //                 FakeServer.ins.SubmitMoveHash();
+        //             }
+        //             else
+        //             {
+        //                 _ = StellarManagerTest.SubmitMoveHash();
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     void SubmitMove()

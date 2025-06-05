@@ -40,7 +40,7 @@ public class TestPawnView : MonoBehaviour
         isMyTeam = team == inBoardManager.userTeam;
     }
     
-    void Revealed(Contract.PawnCommitment c)
+    void Revealed(Contract.PawnCommit c)
     {
         if (!string.IsNullOrEmpty(c.pawn_def_hash))
         {
@@ -113,60 +113,60 @@ public class TestPawnView : MonoBehaviour
         }
     }
     
-    void OnClientGameStateChanged(Lobby lobby, ITestPhase phase)
+    void OnClientGameStateChanged(NetworkState networkState, ITestPhase phase)
     {
-        bool phaseChanged = lobby.phase != oldPhase;
-        switch (phase)
-        {
-            case MovementTestPhase movementTestPhase:
-                Contract.Pawn currentPawn = lobby.GetPawnById(pawnId);
-                if (phaseChanged)
-                {
-                    //Debug.Log("going to movement phase for the first time");
-                    SetPawn(currentPawn);
-                }
-                if (displayedPos != currentPawn.pos.ToVector2Int())
-                {
-                    Debug.Log("Moving pawn to pos normally...");
-                    Transform target = !currentPawn.is_alive ? bm.purgatory : bm.GetTileViewAtPos(currentPawn.pos.ToVector2Int()).tileModel.tileOrigin;
-                    SetViewPos(currentPawn.pos.ToVector2Int());
-                    StopAllCoroutines();
-                    bm.vortex.StartVortex();
-                    StartCoroutine(ArcToPosition(target, Globals.PawnMoveDuration, 0.2f));
-                }
-                bool showBadge = isMyTeam || currentPawn.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1;
-                if (PlayerPrefs.GetInt("DISPLAYBADGE") == 0)
-                {
-                    showBadge = false;
-                }
-                badge.Initialize(currentPawn, showBadge);
-                Revealed(currentPawn);
-                break;
-            case SetupTestPhase setupTestPhase:
-                if (phaseChanged)
-                {
-                    //Debug.Log("going to setup phase for the first time");
-                    if (!isMyTeam)
-                    {
-                        SetViewPos(lobby.GetPawnById(pawnId).pos.ToVector2Int());
-                    }
-                }
-                if (isMyTeam)
-                {
-                    Contract.PawnCommitment c = setupTestPhase.clientState.commitments[pawnId.ToString()];
-                    SetCommitment(c);
-                    Revealed(c);
-                    SetViewPos(setupPos);
-                    badge.Initialize(c, team,true);
-                }
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        oldPhase = lobby.phase;
+        bool phaseChanged = (uint)networkState.gameState?.phase != oldPhase;
+        // switch (phase)
+        // {
+        //     case MovementTestPhase movementTestPhase:
+        //         Contract.Pawn currentPawn = lobby.GetPawnById(pawnId);
+        //         if (phaseChanged)
+        //         {
+        //             //Debug.Log("going to movement phase for the first time");
+        //             SetPawn(currentPawn);
+        //         }
+        //         if (displayedPos != currentPawn.pos.ToVector2Int())
+        //         {
+        //             Debug.Log("Moving pawn to pos normally...");
+        //             Transform target = !currentPawn.is_alive ? bm.purgatory : bm.GetTileViewAtPos(currentPawn.pos.ToVector2Int()).tileModel.tileOrigin;
+        //             SetViewPos(currentPawn.pos.ToVector2Int());
+        //             StopAllCoroutines();
+        //             bm.vortex.StartVortex();
+        //             StartCoroutine(ArcToPosition(target, Globals.PawnMoveDuration, 0.2f));
+        //         }
+        //         bool showBadge = isMyTeam || currentPawn.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1;
+        //         if (PlayerPrefs.GetInt("DISPLAYBADGE") == 0)
+        //         {
+        //             showBadge = false;
+        //         }
+        //         badge.Initialize(currentPawn, showBadge);
+        //         Revealed(currentPawn);
+        //         break;
+        //     case SetupTestPhase setupTestPhase:
+        //         if (phaseChanged)
+        //         {
+        //             //Debug.Log("going to setup phase for the first time");
+        //             if (!isMyTeam)
+        //             {
+        //                 SetViewPos(lobby.GetPawnById(pawnId).pos.ToVector2Int());
+        //             }
+        //         }
+        //         if (isMyTeam)
+        //         {
+        //             PawnCommit c = setupTestPhase.clientState.commitments[pawnId.ToString()];
+        //             SetCommitment(c);
+        //             Revealed(c);
+        //             SetViewPos(setupPos);
+        //             badge.Initialize(c, team,true);
+        //         }
+        //         break;
+        //     default:
+        //         throw new ArgumentOutOfRangeException();
+        // }
+        // oldPhase = lobby.phase;
     }
     
-    void SetCommitment(PawnCommitment commitment)
+    void SetCommitment(PawnCommit commitment)
     {
         setupPos = commitment.starting_pos.ToVector2Int();
         pawnDefHash = commitment.pawn_def_hash;

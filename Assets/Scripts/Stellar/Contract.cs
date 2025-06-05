@@ -347,24 +347,7 @@ namespace Contract
         public uint index;
         public SCVal.ScvAddress guest_address;
         public SCVal.ScvAddress host_address;
-        public Phase phase;
-
-        public LobbyInfo(byte[] bytes)
-        {
-            if (bytes is not { Length: 93 })
-                throw new ArgumentException("Byte array must be exactly 93 bytes long", nameof(bytes));
-            ReadOnlySpan<byte> span = bytes;
-            index = BinaryPrimitives.ReadUInt32BigEndian(span[..4]);
-            var guestMs = new MemoryStream(bytes, 4, 44, writable: false);
-            var guestXdrIn = new XdrReader(guestMs);
-            var guestSCAddress = SCValXdr.Decode(guestXdrIn);
-            guest_address = guestSCAddress as SCVal.ScvAddress;
-            var hostMs = new MemoryStream(bytes, 48, 44, writable: false);
-            var hostXdrIn = new XdrReader(hostMs);
-            var hostSCAddress = SCValXdr.Decode(hostXdrIn);
-            host_address = hostSCAddress as SCVal.ScvAddress;
-            phase = (Phase)span[92];
-        }
+        public LobbyStatus status;
         
         public override string ToString()
         {
@@ -373,7 +356,7 @@ namespace Contract
                 index,
                 guest_address = Globals.AddressToString(guest_address),
                 host_address = Globals.AddressToString(host_address),
-                phase = phase.ToString(),
+                status = status.ToString(),
             };
             return JsonConvert.SerializeObject(simplified, Formatting.Indented);
         }
@@ -387,7 +370,26 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("index", index),
                     SCUtility.FieldToSCMapEntry("guest_address", guest_address),
                     SCUtility.FieldToSCMapEntry("host_address", host_address),
+                    SCUtility.FieldToSCMapEntry("status", status),
+                }),
+            };
+        }
+    }
+
+    [System.Serializable]
+    public struct GameState : IScvMapCompatable
+    {
+        public Phase phase;
+        public UserState[] user_states;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
                     SCUtility.FieldToSCMapEntry("phase", phase),
+                    SCUtility.FieldToSCMapEntry("user_states", user_states),
                 }),
             };
         }
@@ -459,11 +461,9 @@ namespace Contract
     [System.Serializable]
     public struct UserState: IScvMapCompatable
     {
-        public bool committed;
-        public uint lobby_state;
-        public PawnCommitment[] setup_commitments;
-        public uint team;
-        public string user_address;
+        public PawnCommit[] setup;
+        public byte[] setup_hash;
+        public uint setup_hash_salt;
         
         public SCVal.ScvMap ToScvMap()
         {
@@ -471,25 +471,14 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
-                    SCUtility.FieldToSCMapEntry("committed", committed),
-                    SCUtility.FieldToSCMapEntry("lobby_state", lobby_state),
-                    SCUtility.FieldToSCMapEntry("setup_commitments", setup_commitments),
-                    SCUtility.FieldToSCMapEntry("team", team),
-                    SCUtility.FieldToSCMapEntry("user_address", user_address),
+                    SCUtility.FieldToSCMapEntry("setup", setup),
+                    SCUtility.FieldToSCMapEntry("setup_hash", setup_hash),
+                    SCUtility.FieldToSCMapEntry("setup_hash_salt", setup_hash_salt),
                 }),
             };
         }
-
-        public PawnCommitment GetPawnCommitmentById(string id)
-        {
-            return setup_commitments.FirstOrDefault(c => c.pawn_id == id);
-        }
-
-        public PawnCommitment GetPawnCommitmentById(Guid guid)
-        {
-            return GetPawnCommitmentById(guid.ToString());
-        }
     }
+    
     [System.Serializable]
     public struct PawnDef: IScvMapCompatable
     {
@@ -618,7 +607,7 @@ namespace Contract
     }
     
     [System.Serializable]
-    public struct PawnCommitment : IScvMapCompatable
+    public struct PawnCommit : IScvMapCompatable
     {
         public string pawn_def_hash;
         public string pawn_id;
@@ -870,67 +859,7 @@ namespace Contract
         {
             return turns.Last();
         }
-
-        public TurnMove GetLatestTurnMove(Team team)
-        {
-            string user_address;
-            if ((uint)team == guest_state.team)
-            {
-                user_address = guest_state.user_address;
-            }
-            else if ((uint)team == host_state.team)
-            {
-                user_address = host_state.user_address;
-            }
-            else
-            {
-                throw new IndexOutOfRangeException();
-            }
-            Turn turn = turns.Last();
-            if (turn.host_turn.user_address == user_address)
-            {
-                return turn.host_turn;
-            }
-            else if (turn.guest_turn.user_address == user_address)
-            {
-                return turn.guest_turn;
-            }
-            else
-            {
-                throw new IndexOutOfRangeException();
-            }
-        }
         
-        public bool IsLobbyStartable()
-        {
-            
-            if (string.IsNullOrEmpty(host_address))
-            {
-                return false;
-            }
-            if (string.IsNullOrEmpty(guest_address))
-            {
-                return false;
-            }
-            if (game_end_state != 3)
-            {
-                return false;
-            }
-            if (host_state.lobby_state == 3)
-            {
-                return false;
-            }
-            if (guest_state.lobby_state == 3)
-            {
-                return false;
-            }
-            if (phase == 0)
-            {
-                return false;
-            }
-
-            return true;
-        }
 
         public Pawn GetPawnById(string pawn_id)
         {
@@ -954,34 +883,6 @@ namespace Contract
             }
             return null;
         }
-        
-        public UserState GetUserStateByTeam(Team team)
-        {
-            if (host_state.team == (uint)team)
-            {
-                return host_state;
-            }
-            else
-            {
-                return guest_state;
-            }
-        }
-
-        public Team GetTeam(string address)
-        {
-            if (host_state.user_address == address)
-            {
-                return (Team)host_state.team;
-            }
-            else if (guest_state.user_address == address)
-            {
-                return (Team)guest_state.team;
-            }
-            else
-            {
-                throw new IndexOutOfRangeException();
-            }
-        }
     }
 
     public struct MakeLobbyReq : IScvMapCompatable
@@ -1004,8 +905,7 @@ namespace Contract
 
     public struct JoinLobbyReq : IScvMapCompatable
     {
-        public string guest_address;
-        public string lobby_id;
+        public uint lobby_id;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -1013,7 +913,6 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
-                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                 }),
             };
@@ -1024,7 +923,7 @@ namespace Contract
     public struct SetupCommitReq : IScvMapCompatable
     {
         public uint lobby_id;
-        public PawnCommitment[] setup_commitments;
+        public byte[] setup_hash;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -1033,7 +932,7 @@ namespace Contract
                 map = new SCMap(new SCMapEntry[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
-                    SCUtility.FieldToSCMapEntry("setup_commitments", setup_commitments),
+                    SCUtility.FieldToSCMapEntry("setup_hash", setup_hash),
                 }),
             };
         }
@@ -1148,12 +1047,18 @@ namespace Contract
 
     public enum Phase : uint
     {
-        Uninitialized = 0,
-        Setup = 1,
-        Movement = 2,
-        Commitment = 3,
-        Resolve = 4,
-        Ending = 5,
-        Aborted = 6,
+        Setup = 0,
+        Movement = 1,
+        Completed = 2,
+    }
+
+    public enum LobbyStatus : uint
+    {
+        WaitingForPlayers = 0,
+        GameInProgress = 1,
+        HostWin = 2,
+        GuestWin = 3,
+        Draw = 4,
+        Aborted = 5,
     }
 }

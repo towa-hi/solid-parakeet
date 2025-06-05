@@ -97,209 +97,209 @@ public class TestTileView : MonoBehaviour
         bool drawOutline = false;
         Transform elevator = tileModel.elevator;
         tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
-        switch (phase)
-        {
-            case MovementTestPhase movementTestPhase:
-                Contract.Pawn? pawnOnTile = bm.cachedLobby.GetPawnByPosition(tile.pos);
-                switch (movementTestPhase.clientState.subState)
-                {
-                    case ResolvingMovementClientSubState resolvingMovementClientSubState:
-                        break;
-                    case SelectingPawnMovementClientSubState selectingPawnMovementClientSubState:
-                        if (pawnOnTile.HasValue)
-                        {
-                            if (selectingPawnMovementClientSubState.selectedPawnId.HasValue)
-                            {
-                                if (selectingPawnMovementClientSubState.selectedPawnId.Value.ToString() == pawnOnTile.Value.pawn_id)
-                                {
-                                    elevateTile = true;
-                                }
-                            }
-                        }
-                        if (isHovered)
-                        {
-                            if (pawnOnTile.HasValue)
-                            {
-                                if ((Team)pawnOnTile.Value.team == movementTestPhase.clientState.team)
-                                {
-                                    elevateTile = true;
-                                    drawOutline = true;
-                                }
-                            }
-                        }
-                        break;
-                    case SelectingPosMovementClientSubState selectingPosMovementClientSubState:
-                        if (pawnOnTile.HasValue)
-                        {
-                            if (selectingPosMovementClientSubState.selectedPawnId.ToString() == pawnOnTile.Value.pawn_id)
-                            {
-                                elevateTile = true;
-                            }
-                        }
-                        if (isHovered)
-                        {
-                            if (pawnOnTile.HasValue)
-                            {
-                                if ((Team)pawnOnTile.Value.team == movementTestPhase.clientState.team)
-                                {
-                                    elevateTile = true;
-                                    drawOutline = true;
-                                }
-                            }
-                            if (selectingPosMovementClientSubState.highlightedTiles.Contains(tile.pos))
-                            {
-                                drawOutline = true;
-                            }
-                        }
-                        break;
-                    case WaitingOpponentHashMovementClientSubState waitingOpponentHashMovementClientSubState:
-                        break;
-                    case WaitingOpponentMoveMovementClientSubState waitingOpponentMoveMovementClientSubState:
-                        break;
-                    case WaitingUserHashMovementClientSubState waitingUserHashMovementClientSubState:
-                        break;
-                    case GameOverMovementClientSubState gameOverMovementClientSubState:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-                
-                break;
-            case SetupTestPhase setupTestPhase:
-                if (isHovered)
-                {
-                    bool isOccupied = setupTestPhase.clientState.commitments.Values.Any(commitment => commitment.starting_pos.ToVector2Int() == tile.pos);
-                    if (isOccupied)
-                    {
-                        drawOutline = true;
-                    }
-                    else
-                    {
-                        if (setupTestPhase.clientState.selectedRank.HasValue)
-                        {
-                            if (setupTestPhase.clientState.GetUnusedCommitment(setupTestPhase.clientState.selectedRank.Value).HasValue)
-                            {
-                                if (tile.IsTileSetupAllowed(setupTestPhase.clientState.team))
-                                {
-                                    drawOutline = true;
-                                }
-                            }
-                        }
-                    }
-                }
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        if (drawOutline)
-        {
-            tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, true);
-        }
-        if (elevateTile)
-        {
-            targetElevatorLocalPosition = hoveredElevatorLocalPos;
-        }
-        else
-        {
-            targetElevatorLocalPosition = initialElevatorLocalPos;
-        }
-        if (elevator.localPosition != targetElevatorLocalPosition)
-        {
-            //Debug.Log($"{tile.pos} elevator: {elevator.localPosition} target: {targetElevatorLocalPosition}");
-            currentTween = Tween.LocalPositionAtSpeed(elevator, targetElevatorLocalPosition, 0.3f, Ease.OutCubic).OnComplete(() =>
-            {
-                elevator.localPosition = targetElevatorLocalPosition;
-            });
-        }
+        // switch (phase)
+        // {
+        //     case MovementTestPhase movementTestPhase:
+        //         Contract.Pawn? pawnOnTile = bm.cachedLobby.GetPawnByPosition(tile.pos);
+        //         switch (movementTestPhase.clientState.subState)
+        //         {
+        //             case ResolvingMovementClientSubState resolvingMovementClientSubState:
+        //                 break;
+        //             case SelectingPawnMovementClientSubState selectingPawnMovementClientSubState:
+        //                 if (pawnOnTile.HasValue)
+        //                 {
+        //                     if (selectingPawnMovementClientSubState.selectedPawnId.HasValue)
+        //                     {
+        //                         if (selectingPawnMovementClientSubState.selectedPawnId.Value.ToString() == pawnOnTile.Value.pawn_id)
+        //                         {
+        //                             elevateTile = true;
+        //                         }
+        //                     }
+        //                 }
+        //                 if (isHovered)
+        //                 {
+        //                     if (pawnOnTile.HasValue)
+        //                     {
+        //                         if ((Team)pawnOnTile.Value.team == movementTestPhase.clientState.team)
+        //                         {
+        //                             elevateTile = true;
+        //                             drawOutline = true;
+        //                         }
+        //                     }
+        //                 }
+        //                 break;
+        //             case SelectingPosMovementClientSubState selectingPosMovementClientSubState:
+        //                 if (pawnOnTile.HasValue)
+        //                 {
+        //                     if (selectingPosMovementClientSubState.selectedPawnId.ToString() == pawnOnTile.Value.pawn_id)
+        //                     {
+        //                         elevateTile = true;
+        //                     }
+        //                 }
+        //                 if (isHovered)
+        //                 {
+        //                     if (pawnOnTile.HasValue)
+        //                     {
+        //                         if ((Team)pawnOnTile.Value.team == movementTestPhase.clientState.team)
+        //                         {
+        //                             elevateTile = true;
+        //                             drawOutline = true;
+        //                         }
+        //                     }
+        //                     if (selectingPosMovementClientSubState.highlightedTiles.Contains(tile.pos))
+        //                     {
+        //                         drawOutline = true;
+        //                     }
+        //                 }
+        //                 break;
+        //             case WaitingOpponentHashMovementClientSubState waitingOpponentHashMovementClientSubState:
+        //                 break;
+        //             case WaitingOpponentMoveMovementClientSubState waitingOpponentMoveMovementClientSubState:
+        //                 break;
+        //             case WaitingUserHashMovementClientSubState waitingUserHashMovementClientSubState:
+        //                 break;
+        //             case GameOverMovementClientSubState gameOverMovementClientSubState:
+        //                 break;
+        //             default:
+        //                 throw new ArgumentOutOfRangeException();
+        //         }
+        //         
+        //         break;
+        //     case SetupTestPhase setupTestPhase:
+        //         if (isHovered)
+        //         {
+        //             bool isOccupied = setupTestPhase.clientState.commitments.Values.Any(commitment => commitment.starting_pos.ToVector2Int() == tile.pos);
+        //             if (isOccupied)
+        //             {
+        //                 drawOutline = true;
+        //             }
+        //             else
+        //             {
+        //                 if (setupTestPhase.clientState.selectedRank.HasValue)
+        //                 {
+        //                     if (setupTestPhase.clientState.GetUnusedCommitment(setupTestPhase.clientState.selectedRank.Value).HasValue)
+        //                     {
+        //                         if (tile.IsTileSetupAllowed(setupTestPhase.clientState.team))
+        //                         {
+        //                             drawOutline = true;
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //         break;
+        //     default:
+        //         throw new ArgumentOutOfRangeException();
+        // }
+        // if (drawOutline)
+        // {
+        //     tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, true);
+        // }
+        // if (elevateTile)
+        // {
+        //     targetElevatorLocalPosition = hoveredElevatorLocalPos;
+        // }
+        // else
+        // {
+        //     targetElevatorLocalPosition = initialElevatorLocalPos;
+        // }
+        // if (elevator.localPosition != targetElevatorLocalPosition)
+        // {
+        //     //Debug.Log($"{tile.pos} elevator: {elevator.localPosition} target: {targetElevatorLocalPosition}");
+        //     currentTween = Tween.LocalPositionAtSpeed(elevator, targetElevatorLocalPosition, 0.3f, Ease.OutCubic).OnComplete(() =>
+        //     {
+        //         elevator.localPosition = targetElevatorLocalPosition;
+        //     });
+        // }
     }
     
     uint oldPhase = 999;
-    void OnClientGameStateChanged(Lobby lobby, ITestPhase phase)
+    void OnClientGameStateChanged(NetworkState networkState, ITestPhase phase)
     {
-        bool phaseChanged = lobby.phase != oldPhase;
-        switch (phase)
-        {
-            case MovementTestPhase movementTestPhase:
-                Contract.Pawn? pawnOnTile = lobby.GetPawnByPosition(tile.pos);
-                if (phaseChanged)
-                {
-                    SetSetupEmissionHighlight(false);
-                }
-                currentTween.Stop();
-                StopPulse();
-                tileModel.renderEffect.SetEffect(EffectType.FILL, false);
-                SetTopEmission(Color.clear);
-                if (pawnOnTile.HasValue)
-                {
-                    Contract.Pawn p = pawnOnTile.Value;
-                    if (PlayerPrefs.GetInt("CHEATMODE") == 1 || (Team)p.team == movementTestPhase.clientState.team || p.is_revealed)
-                    {
-                        PawnDef def = Globals.FakeHashToPawnDef(pawnOnTile.Value.pawn_def_hash);
-                        if (def.movementRange == 0)
-                        {
-                            SetTopEmission(new Color(0, 0, 0, 100f));
-                        }
-                    }
-                }
-                switch (movementTestPhase.clientState.subState)
-                {
-                    case SelectingPawnMovementClientSubState selectingPawnSubState:
-                        if (selectingPawnSubState.selectedPawnId.HasValue)
-                        {
-                            Contract.Pawn queuedPawn = lobby.GetPawnById(selectingPawnSubState.selectedPawnId.Value);
-                            bool isOriginSelectingPawn = queuedPawn.pos.ToVector2Int() == tile.pos;
-                            if (isOriginSelectingPawn)
-                            {
-                                SetTopEmission(Color.red);
-                            }
-                            if (selectingPawnSubState.selectedPos == tile.pos)
-                            {
-                                SetTopEmission(Color.green);
-                            }
-                        }
-                        break;
-                    case SelectingPosMovementClientSubState selectingPosSubState:
-                        // If we have a selected pawn, highlight its position and possible moves
-                        Contract.Pawn selectedPawn = lobby.GetPawnById(selectingPosSubState.selectedPawnId);
-                        bool isOriginSelectingPos = selectedPawn.pos.ToVector2Int() == tile.pos;
-                        if (isOriginSelectingPos)
-                        {
-                            SetTopEmission(Color.red);
-                            StartPulse();
-                        }
-                        if (selectingPosSubState.highlightedTiles.Contains(tile.pos))
-                        {
-                            SetTopEmission(Color.green);
-                            StartPulse();
-                        }
-                        break;
-                    case WaitingUserHashMovementClientSubState:
-                        bool isTarget = movementTestPhase.clientState.myTurnMove.pos.ToVector2Int() == tile.pos;
-                        Contract.Pawn pawn = lobby.GetPawnById(movementTestPhase.clientState.myTurnMove.pawn_id);
-                        bool isOrigin = pawn.pos.ToVector2Int() == tile.pos;
-                        if (isOrigin)
-                        {
-                            SetTopEmission(Color.red);
-                        }
-                        if (isTarget)
-                        {
-                            SetTopEmission(Color.green);
-                        }
-                        break;
-                }
-                break;
-                
-            case SetupTestPhase setupTestPhase:
-                if (phaseChanged)
-                {
-                    SetSetupEmissionHighlight(true);
-                    PlayStartAnimation();
-                }
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        oldPhase = lobby.phase;
+        // bool phaseChanged = lobby.phase != oldPhase;
+        // switch (phase)
+        // {
+        //     case MovementTestPhase movementTestPhase:
+        //         Contract.Pawn? pawnOnTile = lobby.GetPawnByPosition(tile.pos);
+        //         if (phaseChanged)
+        //         {
+        //             SetSetupEmissionHighlight(false);
+        //         }
+        //         currentTween.Stop();
+        //         StopPulse();
+        //         tileModel.renderEffect.SetEffect(EffectType.FILL, false);
+        //         SetTopEmission(Color.clear);
+        //         if (pawnOnTile.HasValue)
+        //         {
+        //             Contract.Pawn p = pawnOnTile.Value;
+        //             if (PlayerPrefs.GetInt("CHEATMODE") == 1 || (Team)p.team == movementTestPhase.clientState.team || p.is_revealed)
+        //             {
+        //                 PawnDef def = Globals.FakeHashToPawnDef(pawnOnTile.Value.pawn_def_hash);
+        //                 if (def.movementRange == 0)
+        //                 {
+        //                     SetTopEmission(new Color(0, 0, 0, 100f));
+        //                 }
+        //             }
+        //         }
+        //         switch (movementTestPhase.clientState.subState)
+        //         {
+        //             case SelectingPawnMovementClientSubState selectingPawnSubState:
+        //                 if (selectingPawnSubState.selectedPawnId.HasValue)
+        //                 {
+        //                     Contract.Pawn queuedPawn = lobby.GetPawnById(selectingPawnSubState.selectedPawnId.Value);
+        //                     bool isOriginSelectingPawn = queuedPawn.pos.ToVector2Int() == tile.pos;
+        //                     if (isOriginSelectingPawn)
+        //                     {
+        //                         SetTopEmission(Color.red);
+        //                     }
+        //                     if (selectingPawnSubState.selectedPos == tile.pos)
+        //                     {
+        //                         SetTopEmission(Color.green);
+        //                     }
+        //                 }
+        //                 break;
+        //             case SelectingPosMovementClientSubState selectingPosSubState:
+        //                 // If we have a selected pawn, highlight its position and possible moves
+        //                 Contract.Pawn selectedPawn = lobby.GetPawnById(selectingPosSubState.selectedPawnId);
+        //                 bool isOriginSelectingPos = selectedPawn.pos.ToVector2Int() == tile.pos;
+        //                 if (isOriginSelectingPos)
+        //                 {
+        //                     SetTopEmission(Color.red);
+        //                     StartPulse();
+        //                 }
+        //                 if (selectingPosSubState.highlightedTiles.Contains(tile.pos))
+        //                 {
+        //                     SetTopEmission(Color.green);
+        //                     StartPulse();
+        //                 }
+        //                 break;
+        //             case WaitingUserHashMovementClientSubState:
+        //                 bool isTarget = movementTestPhase.clientState.myTurnMove.pos.ToVector2Int() == tile.pos;
+        //                 Contract.Pawn pawn = lobby.GetPawnById(movementTestPhase.clientState.myTurnMove.pawn_id);
+        //                 bool isOrigin = pawn.pos.ToVector2Int() == tile.pos;
+        //                 if (isOrigin)
+        //                 {
+        //                     SetTopEmission(Color.red);
+        //                 }
+        //                 if (isTarget)
+        //                 {
+        //                     SetTopEmission(Color.green);
+        //                 }
+        //                 break;
+        //         }
+        //         break;
+        //         
+        //     case SetupTestPhase setupTestPhase:
+        //         if (phaseChanged)
+        //         {
+        //             SetSetupEmissionHighlight(true);
+        //             PlayStartAnimation();
+        //         }
+        //         break;
+        //     default:
+        //         throw new ArgumentOutOfRangeException();
+        // }
+        // oldPhase = lobby.phase;
     }
 
     public float delayFactor = 0.1f;

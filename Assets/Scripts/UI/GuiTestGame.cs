@@ -47,12 +47,12 @@ public class GuiTestGame : TestGuiElement
         
     }
     
-    public void SetCurrentElement(GameElement element, Lobby lobby)
+    public void SetCurrentElement(GameElement element, NetworkState networkState)
     {
         currentElement?.SetIsEnabled(false);
         currentElement = element;
         currentElement.SetIsEnabled(true);
-        currentElement.Initialize(GameManager.instance.testBoardManager, lobby);
+        currentElement.Initialize(GameManager.instance.testBoardManager, networkState);
     }
 
 }

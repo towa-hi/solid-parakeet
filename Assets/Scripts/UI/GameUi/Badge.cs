@@ -34,7 +34,7 @@ public class Badge : MonoBehaviour
         gameObject.SetActive(active);
     }
 
-    public void Initialize(PawnCommitment p, Team team, bool active)
+    public void Initialize(PawnCommit p, Team team, bool active)
     {
         PawnDef def = Globals.FakeHashToPawnDef(p.pawn_def_hash);
         symbolRenderer.sprite = def.icon;

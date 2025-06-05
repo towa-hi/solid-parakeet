@@ -40,24 +40,33 @@ pub enum Error {
     LobbyHasNoHost = 16,
     JoinerIsHost = 17,
     SetupStateNotFound = 18,
-    IsUserHostError = 19,
+    GetPlayerIndexError = 19,
     AlreadyCommittedSetup = 20,
     NotInLobby = 21,
     NoSetupCommitment = 22,
     NoOpponentSetupCommitment = 23,
     SetupHashFail = 24,
+    GameStateNotFound = 25,
+    GameNotInProgress = 26,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Phase {
-    Uninitialized = 0,
-    Setup = 1,
-    Movement = 2,
-    Commitment = 3,
-    Resolve = 4,
-    Ending = 5,
-    Aborted = 6,
+    Setup = 0,
+    Movement = 1,
+    Completed = 2,
 }
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LobbyStatus {
+    WaitingForPlayers = 0,
+    GameInProgress = 1,
+    HostWin = 2,
+    GuestWin = 3,
+    Draw = 4,
+    Aborted = 5,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Team {
     None = 0,
@@ -142,8 +151,15 @@ pub struct LobbyInfo {
     pub index: LobbyId,
     pub guest_address: Address,
     pub host_address: Address,
-    pub phase: Phase,
+    pub status: LobbyStatus,
 }
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GameState {
+    pub phase: Phase,
+    pub user_states: Vec<UserState>,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserState {
     pub setup: Vec<PawnCommit>,
@@ -179,7 +195,6 @@ pub struct JoinLobbyReq {
 pub struct LeaveLobbyReq {
     pub lobby_id: LobbyId,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommitReq {
     pub lobby_id: LobbyId,
@@ -214,8 +229,8 @@ pub enum DataKey {
     Admin, // Address
     PackedUser(Address),
     LobbyInfo(LobbyId), // lobby specific data
-    LobbyParameters(LobbyId),
-    UserState(LobbyId, Address),
+    LobbyParameters(LobbyId), // immutable lobby data
+    GameState(LobbyId),
     Mailbox(Address),
 }
 
@@ -230,6 +245,8 @@ impl Contract {
         let persistent = e.storage().persistent();
         let temporary = e.storage().temporary();
         let mut host_user = Self::get_or_make_user(e, &address);
+        let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id.clone());
+        let user_key = DataKey::PackedUser(address.clone());
         // validation
         if host_user.current_lobby != 0 {
             return Err(Error::HostAlreadyInLobby)
@@ -238,22 +255,18 @@ impl Contract {
         if temporary.has(&lobby_info_key) {
             return Err(Error::LobbyAlreadyExists)
         }
-        // update
-        host_user.current_lobby = req.lobby_id.clone();
+        // make
         let lobby_info = LobbyInfo {
             index: req.lobby_id.clone(),
             guest_address: Self::empty_address(e),
-            host_address: address.clone(),
-            phase: Phase::Uninitialized,
+            host_address: address,
+            status: LobbyStatus::WaitingForPlayers,
         };
+        // update
+        host_user.current_lobby = req.lobby_id.clone();
         // write
-        // let packed_lobby_info = Self::pack_lobby_info(e, &lobby_info);
-        // temporary.set(&lobby_info_key, &packed_lobby_info);
         temporary.set(&lobby_info_key, &lobby_info);
-        let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id.clone());
         temporary.set(&lobby_parameters_key, &req.parameters);
-        let user_key = DataKey::PackedUser(address);
-        // let packed_user = Self::pack_user(e, &host_user);
         persistent.set(&user_key, &host_user);
 
         persistent.extend_ttl(&user_key, 259200, 518400);
@@ -266,24 +279,19 @@ impl Contract {
         let temporary = e.storage().temporary();
         let packed_user_key = DataKey::PackedUser(address.clone());
         let mut user: User = match persistent.get(&packed_user_key) {
-            // Some(packed_user) => Self::unpack_user(e, packed_user, &address),
             Some(user) => user,
             None => return Err(Error::UserNotFound), // TODO: make a version of this function that sends a lobbyId
         };
-        let left_lobby = user.current_lobby.clone();
-        // write user
-        user.current_lobby = 0;
-        // persistent.set(&packed_user_key, &Self::pack_user(e, &user));
-        persistent.set(&packed_user_key, &user);
-        // NOTE: we won't deal with extending user TTL here
-        // persistent.extend_ttl(&packed_user_key, 8640, 8640);
-        let lobby_info_key = DataKey::LobbyInfo(left_lobby);
+        let left_lobby_id = user.current_lobby.clone();
+        let lobby_info_key = DataKey::LobbyInfo(left_lobby_id);
         let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
             // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
             Some(lobby_info) => lobby_info,
             None => return Ok(()), // just write user and return if the lobby cant be found anymore
         };
+        // make
         // update
+        user.current_lobby = 0;
         if address == lobby_info.host_address {
             lobby_info.host_address = Self::empty_address(e);
         }
@@ -291,13 +299,14 @@ impl Contract {
             lobby_info.guest_address = Self::empty_address(e);
         }
         else {
+            persistent.set(&packed_user_key, &user); // set user anyways
             return Ok(()) // if the user wasn't in this lobby then return
         }
-        //TODO: handle detecting if the game is in progress to award victory/defeat
-        lobby_info.phase = Phase::Aborted;
-
-        // temporary.set(&lobby_info_key, &Self::pack_lobby_info(e, &lobby_info));
+        lobby_info.status = LobbyStatus::Aborted; // TODO: handle detecting if the game is in progress to award victory/defeat
+        // write
+        persistent.set(&packed_user_key, &user);
         temporary.set(&lobby_info_key, &lobby_info);
+
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
         Ok(())
     }
@@ -310,13 +319,14 @@ impl Contract {
         let user_key = DataKey::PackedUser(address.clone());
         let mut user = Self::get_or_make_user(e, &address);
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
         let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
             // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
         // validation
-        if lobby_info.phase != Phase::Uninitialized {
+        if lobby_info.status != LobbyStatus::WaitingForPlayers {
             return Err(Error::AlreadyInitialized)
         }
         if user.current_lobby != 0 {
@@ -331,28 +341,30 @@ impl Contract {
         if address == lobby_info.host_address {
             return Err(Error::JoinerIsHost)
         }
+        // make
+        let game_state = GameState {
+            phase: Phase::Setup,
+            user_states: Vec::from_array(e, [
+                UserState {
+                    setup: Vec::new(e),
+                    setup_hash: empty_hash.clone(),
+                    setup_hash_salt: 0,
+                },
+                UserState {
+                    setup: Vec::new(e),
+                    setup_hash: empty_hash.clone(),
+                    setup_hash_salt: 0,
+                }
+            ]),
+        };
         // update
         user.current_lobby = req.lobby_id.clone();
         lobby_info.guest_address = address.clone();
-        lobby_info.phase = Phase::Setup;
-        // make new UserStates
-        let host_user_state = UserState {
-            setup: Vec::new(e),
-            setup_hash: empty_hash.clone(),
-            setup_hash_salt: 0,
-        };
-        let guest_user_state = UserState {
-            setup: Vec::new(e),
-            setup_hash: empty_hash.clone(),
-            setup_hash_salt: 0,
-        };
+        lobby_info.status = LobbyStatus::GameInProgress;
         // write
         persistent.set(&user_key, &user);
         temporary.set(&lobby_info_key, &lobby_info);
-        let host_user_state_key = DataKey::UserState(req.lobby_id.clone(), lobby_info.host_address.clone());
-        temporary.set(&host_user_state_key, &host_user_state);
-        let guest_user_state_key = DataKey::UserState(req.lobby_id.clone(), lobby_info.guest_address.clone());
-        temporary.set(&guest_user_state_key, &guest_user_state);
+        temporary.set(&game_state_key, &game_state);
 
         persistent.extend_ttl(&user_key, 8640, 8640);
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
@@ -365,49 +377,38 @@ impl Contract {
         let temporary = e.storage().temporary();
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
         let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
-            // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
-        let user_state_key = DataKey::UserState(req.lobby_id.clone(), address.clone());
-        let mut user_state: UserState = match temporary.get(&user_state_key) {
-            Some(thing) => thing,
-            None => return Err(Error::SetupStateNotFound),
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
+        let mut game_state: GameState = match temporary.get(&game_state_key) {
+            Some(game_state) => game_state,
+            None => return Err(Error::GameStateNotFound),
         };
-        let other_address = Self::get_other_address(&address, &lobby_info);
-        let other_user_state_key = DataKey::UserState(req.lobby_id.clone(), other_address.clone());
-        let other_user_state: UserState = match temporary.get(&other_user_state_key) {
-            Some(thing) => thing,
-            None => return Err(Error::SetupStateNotFound),
-        };
+        let player_index = Self::get_player_index(e, &address, &lobby_info);
+        let mut user_state = game_state.user_states.get_unchecked(player_index);
         // validation
-        if lobby_info.phase != Phase::Setup {
-            return Err(Error::WrongPhase)
+        if lobby_info.status != LobbyStatus::GameInProgress {
+            return Err(Error::GameNotInProgress)
         }
         if lobby_info.host_address != address || lobby_info.guest_address != address {
             return Err(Error::NotInLobby)
         }
+        if game_state.phase != Phase::Setup {
+            return Err(Error::WrongPhase)
+        }
         if user_state.setup_hash != empty_hash {
             return Err(Error::AlreadyCommittedSetup)
         }
+        // make
         // update
         user_state.setup_hash = req.setup_hash;
+        game_state.user_states.set(player_index, user_state);
         // write
-        temporary.set(&user_state, &user_state_key);
-        // mail if both players submitted
-        if other_user_state.setup_hash != empty_hash {
-            // mail both players
-            let mail = Mail {
-                ledger: e.ledger().sequence(),
-                message: String::from_str(e, ""),
-                mail_type: MailType::ProveSetupCommit,
-            };
-            let _ = Self::insert_mail(e, &address, &mail);
-            let _ = Self::insert_mail(e, &other_address, &mail);
-        }
+        temporary.set(&game_state_key, &game_state);
+
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
-        temporary.extend_ttl(&user_state_key, 8640, 8640);
-        temporary.extend_ttl(&other_user_state_key, 8640, 8640);
+        temporary.extend_ttl(&game_state_key, 8640, 8640);
         Ok(())
     }
 
@@ -416,28 +417,29 @@ impl Contract {
         let empty_hash = BytesN::from_array(e, &[0u8; 32]);
         let temporary = e.storage().temporary();
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
-        let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+        let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
             // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
-        let user_state_key = DataKey::UserState(req.lobby_id.clone(), address.clone());
-        let mut user_state: UserState = match temporary.get(&user_state_key) {
-            Some(thing) => thing,
-            None => return Err(Error::SetupStateNotFound),
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
+        let mut game_state: GameState = match temporary.get(&game_state_key) {
+            Some(game_state) => game_state,
+            None => return Err(Error::GameStateNotFound),
         };
-        let other_address = Self::get_other_address(&address, &lobby_info);
-        let other_user_state_key = DataKey::UserState(req.lobby_id.clone(), other_address.clone());
-        let other_user_state: UserState = match temporary.get(&other_user_state_key) {
-            Some(thing) => thing,
-            None => return Err(Error::UserNotFound),
-        };
+        let player_index = Self::get_player_index(e, &address, &lobby_info);
+        let mut user_state = game_state.user_states.get_unchecked(player_index);
+        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let opponent_state = game_state.user_states.get_unchecked(opponent_index);
         // validation
-        if lobby_info.phase != Phase::Setup {
-            return Err(Error::WrongPhase)
+        if lobby_info.status != LobbyStatus::GameInProgress {
+            return Err(Error::GameNotInProgress)
         }
         if lobby_info.host_address != address || lobby_info.guest_address != address {
             return Err(Error::NotInLobby)
+        }
+        if game_state.phase != Phase::Setup {
+            return Err(Error::WrongPhase)
         }
         if user_state.setup_hash == empty_hash {
             return Err(Error::NoSetupCommitment)
@@ -447,18 +449,17 @@ impl Contract {
         if setup_hash != user_state.setup_hash {
             return Err(Error::SetupHashFail)
         }
+        // make
+        // update
         user_state.setup = req.setup.clone();
-        temporary.set(&user_state_key, &user_state);
-        // if other user already proved their setup
-        if other_user_state.setup.len() != 0 {
-            lobby_info.phase = Phase::Movement;
-            temporary.set(&lobby_info_key, &lobby_info);
+        game_state.user_states.set(player_index, user_state);
+        // write
+        if opponent_state.setup.len() != 0 { // if other user already proved their setup
+            game_state.phase = Phase::Movement;
         }
-
+        temporary.set(&game_state_key, &game_state);
 
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
-        temporary.extend_ttl(&user_state_key, 8640, 8640);
-        temporary.extend_ttl(&other_user_state_key, 8640, 8640);
         Ok(())
     }
 
@@ -502,34 +503,34 @@ impl Contract {
             index: address.clone(),
         }
     }
-
-    pub(crate) fn pack_lobby_info(e: &Env, lobby_info: &LobbyInfo) -> PackedLobbyInfo {
-        let mut buf = [0u8; 93];
-        buf[0..4].copy_from_slice(&lobby_info.index.to_be_bytes());
-        lobby_info.guest_address.clone().to_xdr(e).copy_into_slice(&mut buf[4..48]);
-        lobby_info.host_address.clone().to_xdr(e).copy_into_slice(&mut buf[48..92]);
-        buf[92] = lobby_info.phase.clone() as u8;
-        BytesN::from_array(e, &buf)
-    }
-
-    pub(crate) fn unpack_lobby_info(e: &Env, packed_lobby_info: PackedLobbyInfo) -> LobbyInfo {
-        let arr: [u8; 93] = packed_lobby_info.to_array();
-        LobbyInfo {
-            index: u32::from_be_bytes(arr[0..4].try_into().unwrap()),
-            guest_address: Address::from_xdr(e, &Bytes::from_slice(e, &arr[4..48])).unwrap(),
-            host_address: Address::from_xdr(e, &Bytes::from_slice(e, &arr[48..92])).unwrap(),
-            phase: match arr[92] {
-                0 => Phase::Uninitialized,
-                1 => Phase::Setup,
-                2 => Phase::Movement,
-                3 => Phase::Commitment,
-                4 => Phase::Resolve,
-                5 => Phase::Ending,
-                6 => Phase::Aborted,
-                _ => {panic!()}
-            },
-        }
-    }
+    //
+    // pub(crate) fn pack_lobby_info(e: &Env, lobby_info: &LobbyInfo) -> PackedLobbyInfo {
+    //     let mut buf = [0u8; 93];
+    //     buf[0..4].copy_from_slice(&lobby_info.index.to_be_bytes());
+    //     lobby_info.guest_address.clone().to_xdr(e).copy_into_slice(&mut buf[4..48]);
+    //     lobby_info.host_address.clone().to_xdr(e).copy_into_slice(&mut buf[48..92]);
+    //     buf[92] = lobby_info.phase.clone() as u8;
+    //     BytesN::from_array(e, &buf)
+    // }
+    //
+    // pub(crate) fn unpack_lobby_info(e: &Env, packed_lobby_info: PackedLobbyInfo) -> LobbyInfo {
+    //     let arr: [u8; 93] = packed_lobby_info.to_array();
+    //     LobbyInfo {
+    //         index: u32::from_be_bytes(arr[0..4].try_into().unwrap()),
+    //         guest_address: Address::from_xdr(e, &Bytes::from_slice(e, &arr[4..48])).unwrap(),
+    //         host_address: Address::from_xdr(e, &Bytes::from_slice(e, &arr[48..92])).unwrap(),
+    //         phase: match arr[92] {
+    //             0 => Phase::Uninitialized,
+    //             1 => Phase::Setup,
+    //             2 => Phase::Movement,
+    //             3 => Phase::Commitment,
+    //             4 => Phase::Resolve,
+    //             5 => Phase::Ending,
+    //             6 => Phase::Aborted,
+    //             _ => {panic!()}
+    //         },
+    //     }
+    // }
 
     pub(crate) fn get_or_make_user(e: &Env, address: &Address) -> User {
         let storage = e.storage().persistent();
@@ -549,25 +550,32 @@ impl Contract {
         new_user
     }
 
-    pub(crate) fn is_user_host(e: &Env, address: &Address, lobby_info: &LobbyInfo) -> Result<bool, Error> {
+    pub(crate) fn get_player_index(e: &Env, address: &Address, lobby_info: &LobbyInfo) -> u32 {
         if Self::is_address_empty(e, address) {
-            return Err(Error::IsUserHostError)
+            return 99
         }
-        if Self::is_address_empty(e, &lobby_info.host_address) {
-            return Err(Error::IsUserHostError)
+        if address.clone() == lobby_info.host_address.clone() {
+            return 0
         }
-        Ok(address.clone() == lobby_info.host_address.clone())
+        if address.clone() == lobby_info.guest_address.clone() {
+            return 1
+        }
+        return 99
     }
 
-    pub(crate) fn get_other_address(address: &Address, lobby_info: &LobbyInfo) -> Address {
+    pub(crate) fn get_opponent_index(e: &Env, address: &Address, lobby_info: &LobbyInfo) -> u32 {
+        if Self::is_address_empty(e, address) {
+            return 99
+        }
         if address.clone() == lobby_info.host_address.clone() {
-            lobby_info.guest_address.clone()
+            return 1
         }
-        else
-        {
-            lobby_info.host_address.clone()
+        if address.clone() == lobby_info.guest_address.clone() {
+            return 0
         }
+        return 99
     }
+
 }
 // endregion
 

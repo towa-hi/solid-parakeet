@@ -27,8 +27,6 @@ public class StellarDotnet
     
     // contract address and derived properties
     public string contractAddress = null;
-
-    public bool packed = false;
     
 
     Uri networkUri;
@@ -165,21 +163,22 @@ public class StellarDotnet
 
     public async Task<NetworkState> ReqNetworkState()
     {
-        NetworkState networkState = new NetworkState();
+        NetworkState networkState = new NetworkState(userAddress);
         User? mUser = await ReqUserData(userAddress);
         networkState.user = mUser;
         if (mUser is { current_lobby: not 0 })
         {
-            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters) = await ReqLobbyInfoAndLobbyParameters(mUser.Value.current_lobby);
+            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(mUser.Value.current_lobby);
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
+            networkState.gameState = mGameState;
         }
         return networkState;
     }
 
     public async Task<NetworkState> ReqNetworkState(User? user)
     {
-        NetworkState networkState = new NetworkState();
+        NetworkState networkState = new NetworkState(userAddress);
         User? mUser = user;
         // if user doesnt exist yet
         if (!mUser.HasValue)
@@ -191,10 +190,11 @@ public class StellarDotnet
         networkState.user = mUser;
         if (mUser is { current_lobby: not 0 })
         {
-            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters) = await ReqLobbyInfoAndLobbyParameters(mUser.Value.current_lobby);
+            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(mUser.Value.current_lobby);
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
-            if (!mLobbyInfo.HasValue || !mLobbyParameters.HasValue)
+            networkState.gameState = mGameState;
+            if (!mLobbyInfo.HasValue || !mLobbyParameters.HasValue || !mGameState.HasValue)
             {
                 throw new Exception($"ReqNetworkState: Unable to get lobby entries for id {mUser.Value.current_lobby}");
             }
@@ -230,83 +230,53 @@ public class StellarDotnet
         else
         {
             LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            if (packed)
+            if (data == null)
             {
-                byte[] bytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
-                return new User(bytes);
+                throw new Exception($"ReqUserData on {key} failed because data was not ContractData");
             }
-            else
-            {
-                return SCUtility.SCValToNative<User>(data.contractData.val);
-            }
+            return SCUtility.SCValToNative<User>(data.contractData.val);
         }
     }
 
-    async Task<(LobbyInfo?, LobbyParameters?)> ReqLobbyInfoAndLobbyParameters(uint key)
+    async Task<(LobbyInfo?, LobbyParameters?, GameState?)> ReqLobbyStuff(uint key)
     {
         Debug.Log($"ReqLobbyInfo on {key} contract {contractAddress}");
-        var lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
-        var lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyParameters", key, ContractDataDurability.TEMPORARY));
+        string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
+        string lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyParameters", key, ContractDataDurability.TEMPORARY));
+        string gameStateKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("GameState", key, ContractDataDurability.TEMPORARY));
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
             Keys = new string[]
             {
                 lobbyInfoKey,
                 lobbyParametersKey,
+                gameStateKey,
             },
         });
-        if (getLedgerEntriesResult.Entries.Count == 0)
+        (LobbyInfo?, LobbyParameters?, GameState?) tuple = (null, null, null);
+        foreach (Entries entry in getLedgerEntriesResult.Entries)
         {
-            return (null,null);
-        }
-        else
-        {
-            (LobbyInfo?, LobbyParameters?) tuple = (null, null);
-            foreach (var entry in getLedgerEntriesResult.Entries)
+            LedgerEntry.dataUnion.ContractData data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
+            if (data == null)
             {
-                var data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-                if (entry.Key == lobbyInfoKey)
-                {
-                    if (packed)
-                    {
-                        byte[] lobbyInfoBytes = SCUtility.SCValToNative<byte[]>(data.contractData.val);
-                        tuple.Item1 = new LobbyInfo(lobbyInfoBytes);
-                    }
-                    else
-                    {
-                        tuple.Item1 = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
-                    }
-                }
-                if (entry.Key == lobbyParametersKey)
-                {
-                    LobbyParameters lobbyParameters = SCUtility.SCValToNative<Contract.LobbyParameters>(data.contractData.val);
-                    tuple.Item2 = lobbyParameters;
-                }
+                throw new Exception($"ReqLobbyStuff on {key} failed because data was not ContractData");
             }
-            return tuple;
+            if (entry.Key == lobbyInfoKey)
+            {
+                tuple.Item1 = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
+            }
+            if (entry.Key == lobbyParametersKey)
+            {
+                tuple.Item2 = SCUtility.SCValToNative<LobbyParameters>(data.contractData.val);
+            }
+            if (entry.Key == gameStateKey)
+            {
+                tuple.Item3 = SCUtility.SCValToNative<GameState>(data.contractData.val);
+            }
         }
+        return tuple;
     }
-    public async Task<Lobby?> ReqLobbyData(uint key)
-    {
-        Debug.Log("ReqLobbyData on " + key + " contract " + contractAddress);
-        LedgerKey ledgerKey = MakeLedgerKey("Lobby", key, ContractDataDurability.PERSISTENT);
-        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
-        {
-            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
-        });
-        if (getLedgerEntriesResult.Entries.Count == 0)
-        {
-            return null;
-        }
-        else
-        {
-            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            Lobby lobby = SCUtility.SCValToNative<Lobby>(data.contractData.val);
-            return lobby;
-        }
-        
-    }
-
+    
     public async Task<Mailbox?> ReqMailData(string lobbyId)
     {
         Debug.Log("ReqMailData on " + lobbyId + " contract " + contractAddress);

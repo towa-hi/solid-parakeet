@@ -27,7 +27,7 @@ public class DebugNetworkInspector : MonoBehaviour
             index = 0,
             guest_address = null,
             host_address = null,
-            phase = Phase.Uninitialized
+            status = LobbyStatus.Aborted,
         };
         lobbyParameters = new LobbyParameters
         {
@@ -69,7 +69,7 @@ public class DebugNetworkInspector : MonoBehaviour
                 index = 0,
                 guest_address = null,
                 host_address = null,
-                phase = Phase.Uninitialized
+                status = LobbyStatus.WaitingForPlayers,
             };
         }
         if (state.lobbyParameters.HasValue)
