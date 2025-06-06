@@ -282,7 +282,7 @@ namespace Contract
     public struct MaxRank : IScvMapCompatable
     {
         public uint max;
-        public uint rank;
+        public Rank rank;
         
         public SCVal.ScvMap ToScvMap()
         {
@@ -622,7 +622,7 @@ namespace Contract
     public struct PawnCommit : IScvMapCompatable
     {
         public string pawn_def_hash;
-        public string pawn_id;
+        public uint pawn_id;
         public Pos starting_pos;
 
         public SCVal.ScvMap ToScvMap()
@@ -646,7 +646,7 @@ namespace Contract
         public bool is_moved;
         public bool is_revealed;
         public string pawn_def_hash;
-        public string pawn_id;
+        public uint pawn_id;
         public Pos pos;
         public uint team; // Team enum
 
@@ -873,15 +873,9 @@ namespace Contract
         }
         
 
-        public Pawn GetPawnById(string pawn_id)
+        public Pawn GetPawnById(uint pawn_id)
         {
             return pawns.First(x => x.pawn_id == pawn_id);
-        }
-
-        public Pawn GetPawnById(Guid pawn_guid)
-        {
-            string pawn_id = pawn_guid.ToString();
-            return GetPawnById(pawn_id);
         }
 
         public Pawn? GetPawnByPosition(Vector2Int pos)
@@ -896,7 +890,41 @@ namespace Contract
             return null;
         }
     }
+    
+    [System.Serializable]
+    public struct ProveSetupReq : IScvMapCompatable
+    {
+        // TODO: add salt
+        public uint lobby_id;
+        public PawnCommit[] setup;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
+                    SCUtility.FieldToSCMapEntry("setup", setup),
+                }),
+            };
+        }
 
+        public string ToXdrString()
+        {
+            SCVal val = SCUtility.NativeToSCVal(this);
+            return SCValXdr.EncodeToBase64(val);
+        }
+
+        public static ProveSetupReq FromXdrString(string xdr)
+        {
+            MemoryStream memoryStream = new MemoryStream(Convert.FromBase64String(xdr));
+            SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
+            return SCUtility.SCValToNative<ProveSetupReq>(val);
+        }
+    }
+    
+    [System.Serializable]
     public struct MakeLobbyReq : IScvMapCompatable
     {
         public uint lobby_id;
@@ -914,7 +942,8 @@ namespace Contract
             };
         }
     }
-
+    
+    [System.Serializable]
     public struct JoinLobbyReq : IScvMapCompatable
     {
         public uint lobby_id;
@@ -931,7 +960,7 @@ namespace Contract
         }
     }
     
-    
+    [System.Serializable]
     public struct SetupCommitReq : IScvMapCompatable
     {
         public uint lobby_id;

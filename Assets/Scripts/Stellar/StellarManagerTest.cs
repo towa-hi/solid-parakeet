@@ -16,7 +16,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CBE4XJ4HMAW7AGUWQQRUOKHLH7W35AXUEPENGDEO6W6SYSXUQRHT5PZB";
+    public static string testContract = "CBCSWYMMEPXPGR2VB3COFCFMRGX2X4FWMMOFCUOIIGVSLNZGULFWXSJH";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -189,25 +189,24 @@ public static class StellarManagerTest
         return ProcessTransactionResult(result, simResult);
     }
 
-    public static async Task<int> CommitSetupRequest(Dictionary<string, PawnCommit> commitments)
+    public static async Task<int> CommitSetupRequest(PawnCommit[] commitments)
     {
-        if (!networkState.user.HasValue)
+        GameNetworkState gameNetworkState = new GameNetworkState(networkState);
+        // create and store a future request
+        ProveSetupReq proveSetupReq = new ProveSetupReq()
         {
-            throw new Exception($"NetworkState not in lobby");
-        }
-        // PawnCommit[] setupCommitments = new PawnCommit[commitments.Count];
-        // for (int i = 0; i < commitments.Count; i++)
-        // {
-        //     KeyValuePair<string, PawnCommit> kvp = commitments.ElementAt(i);
-        //     PawnCommit commitment = kvp.Value;
-        //     setupCommitments[i] = commitment;
-        // }
-        // SHA256 sha256 = SHA256.Create();
-        string fakeHash = "fakeHash";
+            lobby_id = gameNetworkState.user.current_lobby,
+            setup = commitments,
+        };
+        string proveSetupValXdr = proveSetupReq.ToXdrString();
+        PlayerPrefs.SetString(gameNetworkState.GetProveSetupReqPlayerPrefsKey(), proveSetupValXdr);
+        // hash the request and send it
+        SHA256 sha256 = SHA256.Create();
+        byte[] proveSetupValXdrHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(proveSetupValXdr));
         SetupCommitReq req = new()
         {
-            lobby_id = networkState.user.Value.current_lobby,
-            setup_hash = Encoding.UTF8.GetBytes(fakeHash),
+            lobby_id = gameNetworkState.user.current_lobby,
+            setup_hash = proveSetupValXdrHash,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);

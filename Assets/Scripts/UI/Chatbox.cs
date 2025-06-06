@@ -60,16 +60,16 @@ public class Chatbox : MonoBehaviour
     bool checkingMail = false;
     void Update()
     {
-        if (!updating) return;
-        if (checkingMail) return;
-        if (collapsed) return;
-        if (StellarManagerTest.currentTask != null) return;
-        time += Time.deltaTime;
-        if (time > 5f)
-        {
-            time = 0f;
-            CheckMail();
-        }
+        // if (!updating) return;
+        // if (checkingMail) return;
+        // if (collapsed) return;
+        // if (StellarManagerTest.currentTask != null) return;
+        // time += Time.deltaTime;
+        // if (time > 5f)
+        // {
+        //     time = 0f;
+        //     CheckMail();
+        // }
     }
 
     async void CheckMail()

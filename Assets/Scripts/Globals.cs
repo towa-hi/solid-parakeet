@@ -1779,7 +1779,12 @@ public struct GameNetworkState
     {
         return gameState.GetOpponentUserState(isHost);
     }
-    
+
+    public string GetProveSetupReqPlayerPrefsKey()
+    {
+        string key = $"{address}, {user.current_lobby}";
+        return key;
+    }
 }
 
 public struct NetworkState

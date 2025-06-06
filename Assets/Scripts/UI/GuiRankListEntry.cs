@@ -15,10 +15,10 @@ public class GuiRankListEntry : MonoBehaviour
     public int remaining;
     public bool selected;
 
-    public void Initialize(MaxPawns maxPawn)
+    public void Initialize(MaxRank maxRank)
     {
-        rank = (Rank)maxPawn.rank;
-        remaining = maxPawn.max;
+        rank = maxRank.rank;
+        remaining = (int)maxRank.max;
     }
     
     public void Refresh(Rank inRank, int inRemaining, bool clicked)

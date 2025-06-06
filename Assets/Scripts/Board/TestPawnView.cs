@@ -14,7 +14,7 @@ public class TestPawnView : MonoBehaviour
     public ParentConstraint parentConstraint;
     ConstraintSource parentSource;
     //public Pawn pawn;
-    public Guid pawnId;
+    public uint pawnId;
     public Team team;
     public bool isMyTeam;
     public Vector2Int displayedPos;
@@ -174,7 +174,7 @@ public class TestPawnView : MonoBehaviour
 
     void SetPawn(Contract.Pawn p)
     {
-        pawnId = Guid.Parse(p.pawn_id);
+        pawnId = p.pawn_id;
         team = (Team)p.team;
         pawnDefHash = p.pawn_def_hash;
         if (!string.IsNullOrEmpty(pawnDefHash))

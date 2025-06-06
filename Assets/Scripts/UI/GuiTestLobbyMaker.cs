@@ -97,7 +97,7 @@ public class GuiTestLobbyMaker : TestGuiElement
             maxRanks[i] = new MaxRank()
             {
                 max = (uint)boardDef.maxPawns[i].max,
-                rank = (uint)boardDef.maxPawns[i].rank,
+                rank = boardDef.maxPawns[i].rank,
             };
         }
         return new Contract.LobbyParameters

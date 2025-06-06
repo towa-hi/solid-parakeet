@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using Contract;
 using JetBrains.Annotations;
+using Stellar;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -15,6 +18,7 @@ public class TestBoardManager : MonoBehaviour
     public Transform purgatory;
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
+    public GameObject setupPawnPrefab;
     public BoardGrid grid;
     public TestClickInputManager clickInputManager;
     public Vortex vortex;
@@ -29,6 +33,7 @@ public class TestBoardManager : MonoBehaviour
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
     public Dictionary<Vector2Int, TestTileView> tileViews = new();
     public List<TestPawnView> pawnViews = new();
+    public List<SetupPawnView> setupPawnViews = new();
     // last known lobby
     //public Lobby cachedLobby;
     public GameNetworkState cachedNetworkState;
@@ -61,17 +66,15 @@ public class TestBoardManager : MonoBehaviour
         if (!networkUpdated)
         {
             singlePlayer = true;
-            FakeServer.ins.StartFakeLobby();
-            Initialize(FakeServer.ins.fakeHost, FakeServer.ins.fakeLobby);
+            //FakeServer.ins.StartFakeLobby();
+            //Initialize(FakeServer.ins.fakeHost, FakeServer.ins.fakeLobby);
             //only invoke this directly once on start
         }
         else
         {
             Assert.IsTrue(StellarManagerTest.networkState.user.HasValue);
-            //Assert.IsTrue(StellarManagerTest.currentLobby.HasValue);
-            //Lobby lobby = StellarManagerTest.currentLobby.Value;
-            Lobby lobby = new Lobby();
-            Initialize(StellarManagerTest.networkState.user.Value, lobby);
+            GameNetworkState networkState = new GameNetworkState(StellarManagerTest.networkState);
+            Initialize(networkState);
             //only invoke this directly once on start
         }
         initialized = true;
@@ -134,44 +137,40 @@ public class TestBoardManager : MonoBehaviour
         clickInputManager.ForceInvokeOnPositionHovered();
     }
     
-    void Initialize(User user, Lobby lobby)
+    void Initialize(GameNetworkState networkState)
     {
-        // BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        // boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
-        // if (!boardDef)
-        // {
-        //     throw new NullReferenceException();
-        // }
-        // if (user.index == lobby.host_address)
-        // {
-        //     userTeam = (Team)lobby.host_state.team;
-        // }
-        // else
-        // {
-        //     userTeam = (Team)lobby.guest_state.team;
-        // }
-        // cameraBounds.position = cameraBounds.position + transform.position + boardDef.center;
-        // // Clear existing tileviews and replace
-        // foreach (TestTileView tile in tileViews.Values)
-        // {
-        //     Destroy(tile.gameObject);
-        // }
-        // tileViews.Clear();
-        // grid.SetBoard(new SBoardDef(boardDef));
-        // foreach (Tile tile in boardDef.tiles)
-        // {
-        //     Vector3 worldPosition = grid.CellToWorld(tile.pos);
-        //     GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
-        //     TestTileView tileView = tileObject.GetComponent<TestTileView>();
-        //     tileView.Initialize(tile, this);
-        //     tileViews.Add(tile.pos, tileView);
-        // }
-        // // Clear any existing pawnviews and replace
-        // foreach (TestPawnView pawnView in pawnViews)
-        // {
-        //     Destroy(pawnView.gameObject);
-        // }
-        // pawnViews.Clear();
+        // get boarddef from hash
+        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
+        SHA256 sha256 = SHA256.Create();
+        boardDef = boardDefs.First(def => 
+            sha256.ComputeHash(Encoding.UTF8.GetBytes(def.boardName)).SequenceEqual(networkState.lobbyParameters.board_hash)
+        );
+        if (!boardDef)
+        {
+            throw new NullReferenceException();
+        }
+        cameraBounds.position = cameraBounds.position + transform.position + boardDef.center;
+        // Clear existing tileviews and replace
+        foreach (TestTileView tile in tileViews.Values)
+        {
+            Destroy(tile.gameObject);
+        }
+        tileViews.Clear();
+        grid.SetBoard(new SBoardDef(boardDef));
+        foreach (Tile tile in boardDef.tiles)
+        {
+            Vector3 worldPosition = grid.CellToWorld(tile.pos);
+            GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
+            TestTileView tileView = tileObject.GetComponent<TestTileView>();
+            tileView.Initialize(tile, this);
+            tileViews.Add(tile.pos, tileView);
+        }
+        // Clear any existing pawnviews and replace
+        foreach (TestPawnView pawnView in pawnViews)
+        {
+            Destroy(pawnView.gameObject);
+        }
+        pawnViews.Clear();
         // foreach (Contract.Pawn p in lobby.pawns)
         // {
         //     GameObject pawnObject = Instantiate(pawnPrefab, transform);
@@ -181,7 +180,6 @@ public class TestBoardManager : MonoBehaviour
         // }
         // lobbyId = lobby.index;
         // isHost = lobby.host_address == user.index;
-        // parameters = lobby.parameters;
     }
     
     public List<TestPawnView> GetMyPawnViews()
@@ -254,7 +252,9 @@ public interface ITestPhase
 public class SetupClientState
 {
     public bool dirty = true;
-    public Dictionary<string, PawnCommit> commitments;
+    //public Dictionary<uint, PawnCommit> commitments;
+    public PawnCommit[] lockedCommits;
+    public List<SetupPawnView> setupPawns;
     public Rank? selectedRank;
     public bool committed;
     public Team team;
@@ -267,8 +267,8 @@ public class SetupClientState
 
     public bool SetCommitment(Rank rank, Vector2Int pos)
     {
-        PawnCommit? maybeCommitment = GetUnusedCommitment(rank);
-        if (!maybeCommitment.HasValue)
+        SetupPawnView setupPawnView = GetUnusedSetupPawnView(rank);
+        if (!setupPawnView)
         {
             return false;
         }
@@ -295,21 +295,21 @@ public class SetupClientState
         return true;
     }
 
-    public void ClearCommitment(Guid guid)
+    public void ClearCommitment(uint id)
     {
-        ChangeCommitment(guid.ToString(), Globals.Purgatory);
+        ChangeCommitment(id, Globals.Purgatory);
     }
     
     public void ClearAllCommitments()
     {
-        List<string> keys = commitments.Keys.ToList();
-        foreach (string key in keys)
+        List<uint> keys = commitments.Keys.ToList();
+        foreach (uint key in keys)
         {
             ChangeCommitment(key, Globals.Purgatory);
         }
     }
     
-    void ChangeCommitment(string id, Vector2Int pos)
+    void ChangeCommitment(uint id, Vector2Int pos)
     {
         PawnCommit commitment = commitments[id];
         commitment.starting_pos = new Pos(pos);
@@ -317,13 +317,14 @@ public class SetupClientState
         dirty = true;
     }
 
-    public PawnCommit? GetUnusedCommitment(Rank rank)
+    public SetupPawnView GetUnusedSetupPawnView(Rank rank)
     {
-        foreach (PawnCommit commitment in commitments.Values
-                     .Where(commitment => commitment.starting_pos.ToVector2Int() == Globals.Purgatory)
-                     .Where(commitment => Globals.FakeHashToPawnDef(commitment.pawn_def_hash).rank == rank))
+        foreach (SetupPawnView setupPawnView in setupPawns)
         {
-            return commitment;
+            if (setupPawnView.pos == Globals.Purgatory && setupPawnView.rank == rank)
+            {
+                return setupPawnView;
+            }
         }
         return null;
     }
@@ -356,27 +357,57 @@ public class SetupTestPhase : ITestPhase
         SetupClientState newSetupClientState = new SetupClientState()
         {
             selectedRank = null,
-            commitments = new Dictionary<string, PawnCommit>(),
-            committed = userState.setup_hash.Length > 0,
+            commitments = new Dictionary<uint, PawnCommit>(),
+            committed = userState.setup_hash.All(b => b == 0),
             team = networkState.clientTeam,
         };
         // we can assume every max in maxRanks sums to commitIndex - 1;
         int commitIndex = 0;
-        foreach (MaxRank maxRanks in networkState.lobbyParameters.max_ranks)
+        // userState.setup is going to be empty in setup phase
+        // if already committed, set commitments to stored values
+        if (newSetupClientState.committed)
         {
-            for (int i = 0; i < maxRanks.max; i++)
+            string proveSetupReqXdr = PlayerPrefs.GetString(networkState.GetProveSetupReqPlayerPrefsKey());
+            ProveSetupReq req = ProveSetupReq.FromXdrString(proveSetupReqXdr);
+            // TODO: get commitments here
+            foreach (var commit in req.setup)
             {
-                // string pawnDefHash = userState.committed ? userState.setup_commitments[commitIndex].pawn_def_hash : Globals.PawnDefToFakeHash(Globals.RankToPawnDef((Rank)maxRanks.rank));
-                // PawnCommit commitment = new PawnCommit()
-                // {
-                //     pawn_def_hash = pawnDefHash, // this is the only original data we fill in
-                //     pawn_id = userState.setup[commitIndex].pawn_id,
-                //     starting_pos = userState.setup[commitIndex].starting_pos,
-                // };
-                // newSetupClientState.commitments[commitment.pawn_id] = commitment;
-                // commitIndex += 1;
+                newSetupClientState.commitments.Add(commit.pawn_id, new PawnCommit());
             }
         }
+        else
+        {
+            
+        }
+        // foreach (Tile tile in bm.boardDef.tiles)
+        // {
+        //     if (tile.setupTeam == networkState.clientTeam)
+        //     {
+        //         uint id = (uint)tile.pos.x * 101 + (uint)tile.pos.y;
+        //         commits[tile.pos] = new PawnCommit
+        //         {
+        //             pawn_def_hash = null,
+        //             pawn_id = id,
+        //             starting_pos = new Pos(tile.pos),
+        //         };
+        //     }
+        // }
+        // TODO: figure out how to fill up newSetupClientState.commitments
+        // foreach (MaxRank maxRanks in networkState.lobbyParameters.max_ranks)
+        // {
+        //     for (int i = 0; i < maxRanks.max; i++)
+        //     {
+        //         string pawnDefHash = Globals.PawnDefToFakeHash(Globals.RankToPawnDef(maxRanks.rank));
+        //         PawnCommit commitment = new PawnCommit()
+        //         {
+        //             pawn_def_hash = pawnDefHash, // this is the only original data we fill in
+        //             pawn_id = userState.setup[commitIndex].pawn_id,
+        //             starting_pos = userState.setup[commitIndex].starting_pos,
+        //         };
+        //         newSetupClientState.commitments[commitment.pawn_id] = commitment;
+        //         commitIndex += 1;
+        //     }
+        // }
         clientState = newSetupClientState;
     }
     
@@ -531,7 +562,7 @@ public class SetupTestPhase : ITestPhase
         }
         else
         {
-            _ = StellarManagerTest.CommitSetupRequest(clientState.commitments);
+            _ = StellarManagerTest.CommitSetupRequest(clientState.commitments.Values.ToArray());
         }
     }
 }
@@ -541,9 +572,9 @@ public abstract class MovementClientSubState { }
 public class SelectingPawnMovementClientSubState : MovementClientSubState
 {
     public Vector2Int? selectedPos;
-    public Guid? selectedPawnId;
+    public uint? selectedPawnId;
     
-    public SelectingPawnMovementClientSubState(Guid? inSelectedPawnId = null, Vector2Int? inSelectedPos = null)
+    public SelectingPawnMovementClientSubState(uint? inSelectedPawnId = null, Vector2Int? inSelectedPos = null)
     {
         selectedPawnId = inSelectedPawnId;
         selectedPos = inSelectedPos;
@@ -570,10 +601,10 @@ public class SelectingPawnMovementClientSubState : MovementClientSubState
 
 public class SelectingPosMovementClientSubState : MovementClientSubState
 {
-    public Guid selectedPawnId;
+    public uint selectedPawnId;
     public HashSet<Vector2Int> highlightedTiles;
 
-    public SelectingPosMovementClientSubState(Guid inPawnId, HashSet<Vector2Int> inHighlightedTiles)
+    public SelectingPosMovementClientSubState(uint inPawnId, HashSet<Vector2Int> inHighlightedTiles)
     {
         selectedPawnId = inPawnId;
         highlightedTiles = inHighlightedTiles;
@@ -700,12 +731,12 @@ public class MovementClientState
         dirty = true;
     }
 
-    void TransitionToSelectingPos(Guid pawnId)
+    void TransitionToSelectingPos(uint pawnId)
     {
         SetSubState(new SelectingPosMovementClientSubState(pawnId, GetMovableTilePositions(pawnId, boardDef, pawnPositions)));
     }
 
-    void TransitionToSelectingPawn(Guid? selectedPawnId = null, Vector2Int? selectedPos = null)
+    void TransitionToSelectingPawn(uint? selectedPawnId = null, Vector2Int? selectedPos = null)
     {
         SetSubState(new SelectingPawnMovementClientSubState(selectedPawnId, selectedPos));
     }
@@ -745,9 +776,9 @@ public class MovementClientState
         }
     }
     
-    static HashSet<Vector2Int> GetMovableTilePositions(Guid pawnId, BoardDef boardDef, Dictionary<Vector2Int, Contract.Pawn> pawnPositions)
+    static HashSet<Vector2Int> GetMovableTilePositions(uint pawnId, BoardDef boardDef, Dictionary<Vector2Int, Contract.Pawn> pawnPositions)
     {
-        Contract.Pawn pawn = pawnPositions.Values.First(p => p.pawn_id == pawnId.ToString());
+        Contract.Pawn pawn = pawnPositions.Values.First(p => p.pawn_id == pawnId);
         HashSet<Vector2Int> movableTilePositions = new();
         PawnDef def = Globals.FakeHashToPawnDef(pawn.pawn_def_hash);
         if (!pawn.is_alive || def.movementRange == 0)
@@ -935,6 +966,6 @@ public class MovementTestPhase : ITestPhase
 
 public class QueuedMove
 {
-    public Guid pawnId;
+    public uint pawnId;
     public Vector2Int pos;
 }

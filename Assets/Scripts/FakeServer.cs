@@ -486,180 +486,180 @@ public class FakeServer : MonoBehaviour
 
     int ResolveMove(string address, MoveResolveReq req)
     {
-        Lobby updatedLobby = fakeLobby;
-        Turn turn = updatedLobby.GetLatestTurn();
-        if (req.user_address == turn.host_turn.user_address)
-        {
-            if (turn.host_turn.initialized)
-            {
-                turn.host_events = req.events;
-                turn.host_events_hash = req.events_hash;
-            }
-            else
-            {
-                return (int)ErrorCode.InvalidArgs;
-            }
-        }
-        else if (req.user_address == turn.guest_turn.user_address)
-        {
-            if (turn.guest_turn.initialized)
-            {
-                turn.guest_events = req.events;
-                turn.guest_events_hash = req.events_hash;
-            }
-            else
-            {
-                return (int)ErrorCode.InvalidArgs;
-            }
-        }
-        else
-        {
-            return (int)ErrorCode.InvalidArgs;
-        }
-        updatedLobby.turns[^1] = turn;
-        if (!string.IsNullOrEmpty(turn.host_events_hash) && !string.IsNullOrEmpty(turn.guest_events_hash))
-        {
-            if (turn.host_events_hash == turn.guest_events_hash)
-            {
-                Pos purgatory = new Pos(Globals.Purgatory);
-                foreach (var resolveEvent in req.events)
-                {
-                    switch (resolveEvent.event_type)
-                    {
-                        case 0: // move
-                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
-                            {
-                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
-                                if (updatedPawn.pawn_id == resolveEvent.pawn_id)
-                                {
-                                    updatedPawn.pos = resolveEvent.target_pos;
-                                    updatedPawn.is_moved = true;
-                                    updatedLobby.pawns[i] = updatedPawn;
-                                    break;
-                                }
-                            }
-                            break;
-                        case 1: // conflict
-                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
-                            {
-                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
-                                int processedCount = 0;
-                                if (updatedPawn.pawn_id == resolveEvent.pawn_id || updatedPawn.pawn_id == resolveEvent.defender_pawn_id)
-                                {
-                                    updatedPawn.pos = resolveEvent.target_pos;
-                                    updatedPawn.is_revealed = true;
-                                    updatedLobby.pawns[i] = updatedPawn;
-                                    processedCount++;
-                                }
-                                if (processedCount >= 2)
-                                {
-                                    break;
-                                }
-                            }
-                            break;
-                        case 2: // swapConflict
-                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
-                            {
-                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
-                                int processedCount = 0;
-                                if (updatedPawn.pawn_id == resolveEvent.pawn_id || updatedPawn.pawn_id == resolveEvent.defender_pawn_id)
-                                {
-                                    updatedPawn.pos = resolveEvent.target_pos;
-                                    updatedPawn.is_revealed = true;
-                                    updatedLobby.pawns[i] = updatedPawn;
-                                    processedCount++;
-                                }
-                                if (processedCount >= 2)
-                                {
-                                    break;
-                                }
-                            }
-                            break;
-                        case 3: // death
-                            for (int i = 0; i < updatedLobby.pawns.Length; i++)
-                            {
-                                Contract.Pawn updatedPawn = updatedLobby.pawns[i];
-                                if (updatedPawn.pawn_id == resolveEvent.pawn_id)
-                                {
-                                    updatedPawn.is_alive = false;
-                                    updatedPawn.pos = purgatory;
-                                    updatedLobby.pawns[i] = updatedPawn;
-                                    break;
-                                }
-                            }
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                bool redThroneAlive = false;
-                bool blueThroneAlive = false;
-                for (int i = 0; i < updatedLobby.pawns.Length; i++)
-                {
-                    Contract.Pawn pawn = updatedLobby.pawns[i];
-                    if (pawn.pawn_def_hash == "Throne" && pawn.is_alive)
-                    {
-                        if ((Team)pawn.team == Team.RED)
-                        {
-                            redThroneAlive = true;
-                        }
-                        if ((Team)pawn.team == Team.BLUE)
-                        {
-                            blueThroneAlive = true;
-                        }
-                    }
-                }
-                if (!redThroneAlive)
-                {
-                    updatedLobby.game_end_state = 2;
-                }
-
-                if (!blueThroneAlive)
-                {
-                    updatedLobby.game_end_state = 1;
-                }
-                if (!redThroneAlive && !blueThroneAlive)
-                {
-                    updatedLobby.game_end_state = 0;
-                }
-                Turn nextTurn = new Turn
-                {
-                    guest_events = Array.Empty<Contract.ResolveEvent>(),
-                    guest_events_hash = string.Empty,
-                    guest_turn = new TurnMove
-                    {
-                        initialized = false,
-                        pawn_id = string.Empty,
-                        pos = new Pos { x = -666, y = -666 },
-                        turn = updatedLobby.turns.Length,
-                        user_address = updatedLobby.guest_address,
-                    },
-                    host_events = Array.Empty<Contract.ResolveEvent>(),
-                    host_events_hash = string.Empty,
-                    host_turn = new TurnMove
-                    {
-                        initialized = false,
-                        pawn_id = string.Empty,
-                        pos = new Pos { x = -666, y = -666 },
-                        turn = updatedLobby.turns.Length,
-                        user_address = updatedLobby.host_address,
-                    },
-                    turn = updatedLobby.turns.Length,
-                };
-                List<Turn> turnsList = updatedLobby.turns.ToList();
-                turnsList.Add(nextTurn);
-                updatedLobby.turns = turnsList.ToArray();
-            }
-            else
-            {
-                return (int)ErrorCode.TurnHashConflict;
-            }
-        }
-        fakeLobby = updatedLobby;
-        if (address == "")
-        {
-            GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
-        }
+        // Lobby updatedLobby = fakeLobby;
+        // Turn turn = updatedLobby.GetLatestTurn();
+        // if (req.user_address == turn.host_turn.user_address)
+        // {
+        //     if (turn.host_turn.initialized)
+        //     {
+        //         turn.host_events = req.events;
+        //         turn.host_events_hash = req.events_hash;
+        //     }
+        //     else
+        //     {
+        //         return (int)ErrorCode.InvalidArgs;
+        //     }
+        // }
+        // else if (req.user_address == turn.guest_turn.user_address)
+        // {
+        //     if (turn.guest_turn.initialized)
+        //     {
+        //         turn.guest_events = req.events;
+        //         turn.guest_events_hash = req.events_hash;
+        //     }
+        //     else
+        //     {
+        //         return (int)ErrorCode.InvalidArgs;
+        //     }
+        // }
+        // else
+        // {
+        //     return (int)ErrorCode.InvalidArgs;
+        // }
+        // updatedLobby.turns[^1] = turn;
+        // if (!string.IsNullOrEmpty(turn.host_events_hash) && !string.IsNullOrEmpty(turn.guest_events_hash))
+        // {
+        //     if (turn.host_events_hash == turn.guest_events_hash)
+        //     {
+        //         Pos purgatory = new Pos(Globals.Purgatory);
+        //         foreach (var resolveEvent in req.events)
+        //         {
+        //             switch (resolveEvent.event_type)
+        //             {
+        //                 case 0: // move
+        //                     for (int i = 0; i < updatedLobby.pawns.Length; i++)
+        //                     {
+        //                         Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+        //                         if (updatedPawn.pawn_id == resolveEvent.pawn_id)
+        //                         {
+        //                             updatedPawn.pos = resolveEvent.target_pos;
+        //                             updatedPawn.is_moved = true;
+        //                             updatedLobby.pawns[i] = updatedPawn;
+        //                             break;
+        //                         }
+        //                     }
+        //                     break;
+        //                 case 1: // conflict
+        //                     for (int i = 0; i < updatedLobby.pawns.Length; i++)
+        //                     {
+        //                         Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+        //                         int processedCount = 0;
+        //                         if (updatedPawn.pawn_id == resolveEvent.pawn_id || updatedPawn.pawn_id == resolveEvent.defender_pawn_id)
+        //                         {
+        //                             updatedPawn.pos = resolveEvent.target_pos;
+        //                             updatedPawn.is_revealed = true;
+        //                             updatedLobby.pawns[i] = updatedPawn;
+        //                             processedCount++;
+        //                         }
+        //                         if (processedCount >= 2)
+        //                         {
+        //                             break;
+        //                         }
+        //                     }
+        //                     break;
+        //                 case 2: // swapConflict
+        //                     for (int i = 0; i < updatedLobby.pawns.Length; i++)
+        //                     {
+        //                         Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+        //                         int processedCount = 0;
+        //                         if (updatedPawn.pawn_id == resolveEvent.pawn_id || updatedPawn.pawn_id == resolveEvent.defender_pawn_id)
+        //                         {
+        //                             updatedPawn.pos = resolveEvent.target_pos;
+        //                             updatedPawn.is_revealed = true;
+        //                             updatedLobby.pawns[i] = updatedPawn;
+        //                             processedCount++;
+        //                         }
+        //                         if (processedCount >= 2)
+        //                         {
+        //                             break;
+        //                         }
+        //                     }
+        //                     break;
+        //                 case 3: // death
+        //                     for (int i = 0; i < updatedLobby.pawns.Length; i++)
+        //                     {
+        //                         Contract.Pawn updatedPawn = updatedLobby.pawns[i];
+        //                         if (updatedPawn.pawn_id == resolveEvent.pawn_id)
+        //                         {
+        //                             updatedPawn.is_alive = false;
+        //                             updatedPawn.pos = purgatory;
+        //                             updatedLobby.pawns[i] = updatedPawn;
+        //                             break;
+        //                         }
+        //                     }
+        //                     break;
+        //                 default:
+        //                     break;
+        //             }
+        //         }
+        //         bool redThroneAlive = false;
+        //         bool blueThroneAlive = false;
+        //         for (int i = 0; i < updatedLobby.pawns.Length; i++)
+        //         {
+        //             Contract.Pawn pawn = updatedLobby.pawns[i];
+        //             if (pawn.pawn_def_hash == "Throne" && pawn.is_alive)
+        //             {
+        //                 if ((Team)pawn.team == Team.RED)
+        //                 {
+        //                     redThroneAlive = true;
+        //                 }
+        //                 if ((Team)pawn.team == Team.BLUE)
+        //                 {
+        //                     blueThroneAlive = true;
+        //                 }
+        //             }
+        //         }
+        //         if (!redThroneAlive)
+        //         {
+        //             updatedLobby.game_end_state = 2;
+        //         }
+        //
+        //         if (!blueThroneAlive)
+        //         {
+        //             updatedLobby.game_end_state = 1;
+        //         }
+        //         if (!redThroneAlive && !blueThroneAlive)
+        //         {
+        //             updatedLobby.game_end_state = 0;
+        //         }
+        //         Turn nextTurn = new Turn
+        //         {
+        //             guest_events = Array.Empty<Contract.ResolveEvent>(),
+        //             guest_events_hash = string.Empty,
+        //             guest_turn = new TurnMove
+        //             {
+        //                 initialized = false,
+        //                 pawn_id = string.Empty,
+        //                 pos = new Pos { x = -666, y = -666 },
+        //                 turn = updatedLobby.turns.Length,
+        //                 user_address = updatedLobby.guest_address,
+        //             },
+        //             host_events = Array.Empty<Contract.ResolveEvent>(),
+        //             host_events_hash = string.Empty,
+        //             host_turn = new TurnMove
+        //             {
+        //                 initialized = false,
+        //                 pawn_id = string.Empty,
+        //                 pos = new Pos { x = -666, y = -666 },
+        //                 turn = updatedLobby.turns.Length,
+        //                 user_address = updatedLobby.host_address,
+        //             },
+        //             turn = updatedLobby.turns.Length,
+        //         };
+        //         List<Turn> turnsList = updatedLobby.turns.ToList();
+        //         turnsList.Add(nextTurn);
+        //         updatedLobby.turns = turnsList.ToArray();
+        //     }
+        //     else
+        //     {
+        //         return (int)ErrorCode.TurnHashConflict;
+        //     }
+        // }
+        // fakeLobby = updatedLobby;
+        // if (address == "")
+        // {
+        //     GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
+        // }
         return 0;
     }
 }
