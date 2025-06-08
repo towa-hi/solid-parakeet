@@ -40,78 +40,77 @@ public class TestPawnView : MonoBehaviour
         isMyTeam = team == inBoardManager.userTeam;
     }
     
-    void Revealed(Contract.PawnCommit c)
+    void Revealed(PawnCommit c)
     {
-        if (!string.IsNullOrEmpty(c.pawn_def_hash))
+        Rank rank = c.GetRankTemp();
+        PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rank);
+        switch (team)
         {
-            PawnDef def = Globals.FakeHashToPawnDef(c.pawn_def_hash);
-            switch (team)
-            {
-                case Team.RED:
-                    if (def.redAnimatorOverrideController)
-                    {
-                        animator.runtimeAnimatorController = def.redAnimatorOverrideController;
-                    }
-                    break;
-                case Team.BLUE:
-                    if (def.blueAnimatorOverrideController)
-                    {
-                        animator.runtimeAnimatorController = def.blueAnimatorOverrideController;
-                    }
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-            float randNormTime = Random.Range(0f, 1f);
-            animator.Play("Idle", 0, randNormTime);
-            animator.Update(0f);
+            case Team.RED:
+                if (pawnDef.redAnimatorOverrideController)
+                {
+                    animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
+                }
+
+                break;
+            case Team.BLUE:
+                if (pawnDef.blueAnimatorOverrideController)
+                {
+                    animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
+                }
+
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-        
+        float randNormTime = Random.Range(0f, 1f);
+        animator.Play("Idle", 0, randNormTime);
+        animator.Update(0f);
     }
     
-    void Revealed(Contract.Pawn p)
-    {
-        bool changed = false;
-        
-        if (isMyTeam || p.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1)
-        {
-            PawnDef def = Globals.FakeHashToPawnDef(p.pawn_def_hash);
-            switch (team)
-            {
-                case Team.RED:
-                    if (animator.runtimeAnimatorController != def.redAnimatorOverrideController)
-                    {
-                        animator.runtimeAnimatorController = def.redAnimatorOverrideController;
-                        changed = true;
-                    }
-                    break;
-                case Team.BLUE:
-                    if (animator.runtimeAnimatorController != def.blueAnimatorOverrideController)
-                    {
-                        animator.runtimeAnimatorController = def.blueAnimatorOverrideController;
-                        changed = true;
-                    }
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-        else
-        {
-            PawnDef def = Globals.FakeHashToPawnDef("Unknown");
-            if (animator.runtimeAnimatorController != def.redAnimatorOverrideController)
-            {
-                animator.runtimeAnimatorController = def.redAnimatorOverrideController;
-                changed = true;
-            }
-        }
-        if (changed)
-        {
-            float randNormTime = Random.Range(0f, 1f);
-            animator.Play("Idle", 0, randNormTime);
-            animator.Update(0f);
-        }
-    }
+    // void Revealed(Contract.Pawn p)
+    // {
+    //     bool changed = false;
+    //     
+    //     if (isMyTeam || p.is_revealed || PlayerPrefs.GetInt("CHEATMODE") == 1)
+    //     {
+    //         PawnDef def = Globals.FakeHashToPawnDef(p.pawn_def_hash);
+    //         switch (team)
+    //         {
+    //             case Team.RED:
+    //                 if (animator.runtimeAnimatorController != def.redAnimatorOverrideController)
+    //                 {
+    //                     animator.runtimeAnimatorController = def.redAnimatorOverrideController;
+    //                     changed = true;
+    //                 }
+    //                 break;
+    //             case Team.BLUE:
+    //                 if (animator.runtimeAnimatorController != def.blueAnimatorOverrideController)
+    //                 {
+    //                     animator.runtimeAnimatorController = def.blueAnimatorOverrideController;
+    //                     changed = true;
+    //                 }
+    //                 break;
+    //             default:
+    //                 throw new ArgumentOutOfRangeException();
+    //         }
+    //     }
+    //     else
+    //     {
+    //         PawnDef def = Globals.FakeHashToPawnDef("Unknown");
+    //         if (animator.runtimeAnimatorController != def.redAnimatorOverrideController)
+    //         {
+    //             animator.runtimeAnimatorController = def.redAnimatorOverrideController;
+    //             changed = true;
+    //         }
+    //     }
+    //     if (changed)
+    //     {
+    //         float randNormTime = Random.Range(0f, 1f);
+    //         animator.Play("Idle", 0, randNormTime);
+    //         animator.Update(0f);
+    //     }
+    // }
     
     void OnClientGameStateChanged(GameNetworkState networkState, ITestPhase phase)
     {
@@ -166,24 +165,18 @@ public class TestPawnView : MonoBehaviour
         // oldPhase = lobby.phase;
     }
     
-    void SetCommitment(PawnCommit commitment)
-    {
-        setupPos = commitment.starting_pos.ToVector2Int();
-        pawnDefHash = commitment.pawn_def_hash;
-    }
-
     void SetPawn(Contract.Pawn p)
     {
-        pawnId = p.pawn_id;
-        team = (Team)p.team;
-        pawnDefHash = p.pawn_def_hash;
-        if (!string.IsNullOrEmpty(pawnDefHash))
-        {
-            PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
-            badge.symbolRenderer.sprite = def.icon;
-        }
-        gameObject.name = $"Pawn {p.team} {p.pawn_id}";
-        SetViewPos(p.pos.ToVector2Int());
+        // pawnId = p.pawn_id;
+        // team = (Team)p.team;
+        // pawnDefHash = p.pawn_def_hash;
+        // if (!string.IsNullOrEmpty(pawnDefHash))
+        // {
+        //     PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
+        //     badge.symbolRenderer.sprite = def.icon;
+        // }
+        // gameObject.name = $"Pawn {p.team} {p.pawn_id}";
+        // SetViewPos(p.pos.ToVector2Int());
     }
     
     void SetViewPos(Vector2Int pos)

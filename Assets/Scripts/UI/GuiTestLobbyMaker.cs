@@ -100,11 +100,11 @@ public class GuiTestLobbyMaker : TestGuiElement
                 rank = boardDef.maxPawns[i].rank,
             };
         }
-        return new Contract.LobbyParameters
+        return new LobbyParameters
         {
             board_hash = boardHash,
             dev_mode = true,
-            host_team = 0,
+            host_team = 1,
             max_ranks = maxRanks,
             must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
             security_mode = securityModeToggle.isOn,

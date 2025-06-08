@@ -5,9 +5,9 @@ use soroban_sdk::xdr::*;
 // region global state defs
 
 pub type LobbyId = u32;
-pub type PawnGuid = String;
+pub type PawnGuid = u32;
 pub type PawnGuidHash = String;
-pub type PawnDefHash = String;
+pub type HiddenRankHash = BytesN<32>;
 pub type PosHash = String;
 pub type BoardHash = BytesN<32>;
 pub type Rank = u32;
@@ -81,20 +81,8 @@ pub enum EndState {
     Playing = 3,
     Aborted = 4,
 }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum MailType {
-    Taunt = 0,
-    Message = 1,
-    ProveSetupCommit = 2,
-}
 // endregion
 // region level 0 structs
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Mail {
-    pub mail_type: MailType,
-    pub message: String,
-    pub ledger: u32,
-}
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
     pub current_lobby: LobbyId,
@@ -113,28 +101,10 @@ pub struct Pos {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommit {
-    pub pawn_def_hash: PawnDefHash,
+    pub hidden_rank_hash: HiddenRankHash,
     pub pawn_id: PawnGuid,
-    pub starting_pos: Pos,
 }
 
-// endregion
-// region level 1 structs
-
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Mailbox {
-    pub mail: Vec<Mail>,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Pawn {
-    pub is_alive: bool,
-    pub is_moved: bool,
-    pub is_revealed: bool,
-    pub pawn_def_hash: PawnDefHash,
-    pub pawn_id: PawnGuid,
-    pub pos: Pos,
-    pub team: Team,
-}
 // endregion
 // region level 2 structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -166,20 +136,8 @@ pub struct UserState {
     pub setup_hash: SetupHash,
     pub setup_hash_salt: u32,
 }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MoveState {
-    pub turns: Vec<u32>
-}
 
 // endregion
-// region events
-pub const EVENT_UPDATE_USER: &str = "EVENT_UPDATE_USER";
-pub const EVENT_INVITE_ACCEPT: &str = "EVENT_INVITE_ACCEPT";
-pub const EVENT_SETUP_START: &str = "EVENT_SETUP_START";
-pub const EVENT_SETUP_END: &str = "EVENT_SETUP_END";
-pub const EVENT_USER_LEFT: &str = "EVENT_USER_LEFT";
-//endregion
-
 // region requests
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -203,6 +161,7 @@ pub struct SetupCommitReq {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProveSetupReq {
     pub lobby_id: LobbyId,
+    pub salt: u32,
     pub setup: Vec<PawnCommit>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -391,7 +350,7 @@ impl Contract {
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
         }
-        if lobby_info.host_address != address || lobby_info.guest_address != address {
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
             return Err(Error::NotInLobby)
         }
         if game_state.phase != Phase::Setup {
@@ -435,7 +394,7 @@ impl Contract {
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
         }
-        if lobby_info.host_address != address || lobby_info.guest_address != address {
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
             return Err(Error::NotInLobby)
         }
         if game_state.phase != Phase::Setup {
@@ -460,23 +419,6 @@ impl Contract {
         temporary.set(&game_state_key, &game_state);
 
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
-        Ok(())
-    }
-
-    pub(crate) fn insert_mail(e: &Env, address: &Address, mail: &Mail) -> Result<(), Error>  {
-        let persistent = e.storage().persistent();
-        let key = DataKey::Mailbox(address.clone());
-        let mut mailbox : Mailbox = persistent.get(&key).unwrap_or_else(||
-            Mailbox {
-                mail: Vec::new(e),
-            }
-        );
-        mailbox.mail.push_back(mail.clone());
-        if mailbox.mail.len() > 5
-        {
-            mailbox.mail.pop_front_unchecked();
-        }
-        persistent.set(&key, &mailbox);
         Ok(())
     }
 

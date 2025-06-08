@@ -16,7 +16,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CBCSWYMMEPXPGR2VB3COFCFMRGX2X4FWMMOFCUOIIGVSLNZGULFWXSJH";
+    public static string testContract = "CBO5IIZOIXYHERYLC4V7HXXPDYVIR7KW47YU4C5ACF6C3CRBE3VBM6SQ";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -122,7 +122,7 @@ public static class StellarManagerTest
             List<int> errorCodes = new();
             foreach (DiagnosticEvent diag in simResult.DiagnosticEvents.Where(diag => !diag.inSuccessfulContractCall))
             {
-                Debug.Log(diag); 
+                Debug.LogError(diag); 
                 ContractEvent.bodyUnion.case_0 body = (ContractEvent.bodyUnion.case_0)diag._event.body;
                 foreach (SCVal topic in body.v0.topics)
                 {
@@ -196,6 +196,7 @@ public static class StellarManagerTest
         ProveSetupReq proveSetupReq = new ProveSetupReq()
         {
             lobby_id = gameNetworkState.user.current_lobby,
+            salt = Globals.TestSalt,
             setup = commitments,
         };
         string proveSetupValXdr = proveSetupReq.ToXdrString();

@@ -567,12 +567,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   parentConstraint: {fileID: 4448825288645100157}
-  tempId: 0
-  rank: 0
   pos: {x: 0, y: 0}
   team: 0
   animator: {fileID: 7772033365723492594}
   badge: {fileID: 3442770213529951967}
+  model: {fileID: 6646587265278983863}
 --- !u!1773428102 &4448825288645100157
 ParentConstraint:
   m_ObjectHideFlags: 0

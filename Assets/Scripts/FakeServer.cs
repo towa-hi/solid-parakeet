@@ -300,42 +300,42 @@ public class FakeServer : MonoBehaviour
     //     return req;
     // }
 
-    static HashSet<Vector2Int> GetMovablePositions(Contract.Pawn pawn, Lobby lobby, BoardDef boardDef)
-    {
-        List<Tile> movableTiles = new();
-        HashSet<Vector2Int> movablePositions = new();
-        PawnDef def = Globals.FakeHashToPawnDef(pawn.pawn_def_hash);
-        if (!pawn.is_alive || def.movementRange == 0)
-        {
-            return movablePositions;
-        }
-        Vector2Int pawnPos = pawn.pos.ToVector2Int();
-        Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, boardDef.isHex);
-        for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
-        {
-            Vector2Int currentPos = pawnPos;
-            int walkedTiles = 0;
-            while (walkedTiles < def.movementRange)
-            {
-                Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
-                currentPos += currentDirections[dirIndex];
-                Tile tile = boardDef.GetTileByPos(currentPos);
-                if (tile == null || !tile.isPassable) break;
-                Contract.Pawn? maybePawn = lobby.GetPawnByPosition(currentPos);
-                if (maybePawn.HasValue)
-                {
-                    if (maybePawn.Value.team == pawn.team)
-                    {
-                        break;
-                    }
-                    movablePositions.Add(currentPos);
-                }
-                movablePositions.Add(currentPos);
-                walkedTiles++;
-            }
-        }
-        return movablePositions;
-    }
+    // static HashSet<Vector2Int> GetMovablePositions(Contract.Pawn pawn, Lobby lobby, BoardDef boardDef)
+    // {
+    //     List<Tile> movableTiles = new();
+    //     HashSet<Vector2Int> movablePositions = new();
+    //     PawnDef def = Globals.FakeHashToPawnDef(pawn.pawn_def_hash);
+    //     if (!pawn.is_alive || def.movementRange == 0)
+    //     {
+    //         return movablePositions;
+    //     }
+    //     Vector2Int pawnPos = pawn.pos.ToVector2Int();
+    //     Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, boardDef.isHex);
+    //     for (int dirIndex = 0; dirIndex < initialDirections.Length; dirIndex++)
+    //     {
+    //         Vector2Int currentPos = pawnPos;
+    //         int walkedTiles = 0;
+    //         while (walkedTiles < def.movementRange)
+    //         {
+    //             Vector2Int[] currentDirections = Shared.GetDirections(currentPos, boardDef.isHex);
+    //             currentPos += currentDirections[dirIndex];
+    //             Tile tile = boardDef.GetTileByPos(currentPos);
+    //             if (tile == null || !tile.isPassable) break;
+    //             Contract.Pawn? maybePawn = lobby.GetPawnByPosition(currentPos);
+    //             if (maybePawn.HasValue)
+    //             {
+    //                 if (maybePawn.Value.team == pawn.team)
+    //                 {
+    //                     break;
+    //                 }
+    //                 movablePositions.Add(currentPos);
+    //             }
+    //             movablePositions.Add(currentPos);
+    //             walkedTiles++;
+    //         }
+    //     }
+    //     return movablePositions;
+    // }
     //
     // int CommitSetup(string address, SetupCommitReq req)
     // {

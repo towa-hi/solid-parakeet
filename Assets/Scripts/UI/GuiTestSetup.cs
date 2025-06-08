@@ -52,38 +52,22 @@ public class GuiTestSetup : GameElement
     public void Refresh(SetupClientState state)
     {
         Debug.Log("GuiTestSetup Refresh");
-        Dictionary<Rank, List<PawnCommit>> orderedCommitments = new();
-        foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+        foreach (KeyValuePair<Rank, uint> kvp in state.maxRanks)
         {
-            orderedCommitments.Add(rank, new List<PawnCommit>());
+            
         }
-        foreach (PawnCommit commitment in state.commitments.Values)
-        {
-            PawnDef def = Globals.FakeHashToPawnDef(commitment.pawn_def_hash);
-            Rank rank = def.rank;
-            orderedCommitments[rank].Add(commitment);
-        }
-
         bool pawnsRemaining = false;
-        foreach (Rank rank in orderedCommitments.Keys)
+        foreach (GuiRankListEntry entry in entries.Values)
         {
-            int max = 0;
-            int usedCount = 0;
-            foreach (PawnCommit commitment in orderedCommitments[rank])
-            {
-                if (commitment.starting_pos.ToVector2Int() != Globals.Purgatory)
-                {
-                    usedCount++;
-                }
-                max++;
-            }
-            int remainingCount = max - usedCount;
-            if (remainingCount > 0)
+            int remaining = state.GetPendingRemainingCount(entry.rank);
+            int lockedCommitsOfThisRank = state.lockedCommits.Count(c => c.GetRankTemp() == entry.rank);
+            int remainingUncommitted = remaining - lockedCommitsOfThisRank;
+            bool isSelected = state.selectedRank.HasValue && state.selectedRank.Value == entry.rank;
+            entry.Refresh(entry.rank, remainingUncommitted, isSelected);
+            if (remainingUncommitted > 0)
             {
                 pawnsRemaining = true;
             }
-            bool isSelected = state.selectedRank.HasValue && state.selectedRank.Value == rank;
-            entries[rank].Refresh(rank, remainingCount, isSelected);
         }
         submitButton.interactable = !state.committed && !pawnsRemaining;
         autoSetupButton.interactable = !state.committed;

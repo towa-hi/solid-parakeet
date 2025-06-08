@@ -18,7 +18,20 @@ public static class Globals
     public const float HoveredHeight = 0.1f;
     public const float SelectedHoveredHeight = 0.1f;
     public static readonly InputSystem_Actions InputActions = new();
+    public const uint TestSalt = 42069;
 
+    public static uint GeneratePawnIdFromStartingPos(Vector2Int startingPos)
+    {
+        return (uint)startingPos.x * 101 + (uint)startingPos.y;
+    }
+
+    public static Vector2Int DecodeStartingPos(uint pawnId)
+    {
+        int x = (int)(pawnId / 101);
+        int y = (int)(pawnId % 101);
+        return new Vector2Int(x, y);
+    }
+    
     public static bool AddressIsEmpty(SCVal.ScvAddress address)
     {
         return AddressToString(address) == "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
@@ -103,15 +116,6 @@ public static class Globals
             PlayerPrefs.SetString("nickname", "defaultnick");
         }
         return PlayerPrefs.GetString("nickname");
-    }
-    
-    public static PawnDef FakeHashToPawnDef(string pawnDefHash)
-    {
-        foreach (PawnDef def in GameManager.instance.orderedPawnDefList.Where(def => def.pawnName == pawnDefHash))
-        {
-            return def;
-        }
-        throw new KeyNotFoundException($"Could not find pawnDef {pawnDefHash}");
     }
 
     public static string PawnDefToFakeHash(PawnDef pawnDef)
@@ -1817,4 +1821,11 @@ public struct NetworkState
         };
         return JsonConvert.SerializeObject(simplified, Formatting.Indented);
     }
+}
+
+public enum SetupInputTool
+{
+    NONE,
+    ADD,
+    REMOVE,
 }

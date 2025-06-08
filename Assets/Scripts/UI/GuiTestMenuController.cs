@@ -155,7 +155,7 @@ public class GuiTestMenuController: MonoBehaviour
         }
     }
     
-    async void OnSubmitLobbyButton(Contract.LobbyParameters parameters)
+    async void OnSubmitLobbyButton(LobbyParameters parameters)
     {
         int code = await StellarManagerTest.MakeLobbyRequest(parameters);
         if (code == 0)
@@ -165,7 +165,7 @@ public class GuiTestMenuController: MonoBehaviour
     }
 
     
-    void StartSingleplayer(Contract.LobbyParameters parameters)
+    void StartSingleplayer(LobbyParameters parameters)
     {
         FakeServer.ins.SetFakeParameters(parameters);
         ShowMenuElement(gameElement, false);

@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using Newtonsoft.Json;
 using Stellar;
 using Stellar.Utilities;
@@ -491,30 +493,30 @@ namespace Contract
         }
     }
     
-    [System.Serializable]
-    public struct PawnDef: IScvMapCompatable
-    {
-        public int id;
-        public int movement_range;
-        public string name;
-        public int power;
-        public int rank;
-        
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("id", id),
-                    SCUtility.FieldToSCMapEntry("movement_range", movement_range),
-                    SCUtility.FieldToSCMapEntry("name", name),
-                    SCUtility.FieldToSCMapEntry("power", power),
-                    SCUtility.FieldToSCMapEntry("rank", rank),
-                }),
-            };
-        }
-    }
+    // [System.Serializable]
+    // public struct PawnDef: IScvMapCompatable
+    // {
+    //     public uint id;
+    //     public uint movement_range;
+    //     public uint power;
+    //     public Rank rank;
+    //     public uint salt;
+    //     
+    //     public SCVal.ScvMap ToScvMap()
+    //     {
+    //         return new SCVal.ScvMap()
+    //         {
+    //             map = new SCMap(new SCMapEntry[]
+    //             {
+    //                 SCUtility.FieldToSCMapEntry("id", id),
+    //                 SCUtility.FieldToSCMapEntry("movement_range", movement_range),
+    //                 SCUtility.FieldToSCMapEntry("power", power),
+    //                 SCUtility.FieldToSCMapEntry("rank", rank),
+    //                 SCUtility.FieldToSCMapEntry("salt", salt),
+    //             }),
+    //         };
+    //     }
+    // }
     
     [System.Serializable]
     public struct MaxPawns : IScvMapCompatable
@@ -617,13 +619,62 @@ namespace Contract
             };
         }
     }
+
+    [System.Serializable]
+    public struct HiddenRank : IScvMapCompatable
+    {
+        public Rank rank;
+        public uint salt;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new SCMapEntry[]
+                {
+                    SCUtility.FieldToSCMapEntry("rank", rank),
+                    SCUtility.FieldToSCMapEntry("salt", salt),
+                }),
+            };
+        }
+        
+        public string ToXdrString()
+        {
+            SCVal val = SCUtility.NativeToSCVal(this);
+            return SCValXdr.EncodeToBase64(val);
+        }
+
+        public static byte[] GetHash(Rank rank, uint salt)
+        {
+            HiddenRank hiddenRank = new HiddenRank()
+            {
+                rank = rank,
+                salt = salt,
+            };
+            SHA256 sha256 = SHA256.Create();
+            string commitValXdr = hiddenRank.ToXdrString();
+            return sha256.ComputeHash(Encoding.UTF8.GetBytes(commitValXdr));
+        }
+        
+        public static Rank FromHash(byte[] hash, uint salt)
+        {
+            foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+            {
+                byte[] hiddenRankHash = GetHash(rank, salt);
+                if (hash.SequenceEqual(hiddenRankHash))
+                {
+                    return rank;
+                }
+            }
+            throw new KeyNotFoundException();
+        }
+    }
     
     [System.Serializable]
     public struct PawnCommit : IScvMapCompatable
     {
-        public string pawn_def_hash;
+        public byte[] hidden_rank_hash;
         public uint pawn_id;
-        public Pos starting_pos;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -631,11 +682,21 @@ namespace Contract
             {
                 map = new SCMap(new SCMapEntry[]
                 {
-                    SCUtility.FieldToSCMapEntry("pawn_def_hash", pawn_def_hash),
+                    SCUtility.FieldToSCMapEntry("hidden_rank_hash", hidden_rank_hash),
                     SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
-                    SCUtility.FieldToSCMapEntry("starting_pos", starting_pos),
                 }),
             };
+        }
+
+        public string ToXdrString()
+        {
+            SCVal val = SCUtility.NativeToSCVal(this);
+            return SCValXdr.EncodeToBase64(val);
+        }
+
+        public Rank GetRankTemp()
+        {
+            return HiddenRank.FromHash(hidden_rank_hash, Globals.TestSalt);
         }
     }
     
@@ -894,8 +955,9 @@ namespace Contract
     [System.Serializable]
     public struct ProveSetupReq : IScvMapCompatable
     {
-        // TODO: add salt
+        
         public uint lobby_id;
+        public uint salt;
         public PawnCommit[] setup;
         
         public SCVal.ScvMap ToScvMap()
@@ -905,6 +967,7 @@ namespace Contract
                 map = new SCMap(new SCMapEntry[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
+                    SCUtility.FieldToSCMapEntry("salt", salt),
                     SCUtility.FieldToSCMapEntry("setup", setup),
                 }),
             };
@@ -918,7 +981,7 @@ namespace Contract
 
         public static ProveSetupReq FromXdrString(string xdr)
         {
-            MemoryStream memoryStream = new MemoryStream(Convert.FromBase64String(xdr));
+            using MemoryStream memoryStream = new MemoryStream(Convert.FromBase64String(xdr));
             SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
             return SCUtility.SCValToNative<ProveSetupReq>(val);
         }

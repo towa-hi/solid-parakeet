@@ -8,76 +8,109 @@ using Random = UnityEngine.Random;
 
 public class SetupPawnView: MonoBehaviour
 {
-    
     public ParentConstraint parentConstraint;
     ConstraintSource parentSource;
-    public uint tempId;
-    public Rank rank;
+    public Rank? rank;
     public Vector2Int pos;
     public Team team;
     public Animator animator;
     public Badge badge;
+    public GameObject model;
     
+    Phase oldPhase = Phase.Completed;
     TestBoardManager bm;
     
-    public void Initialize(uint inTempId, Rank inRank, Vector2Int inPos, Team inTeam, TestBoardManager inBm)
+    public void Initialize(TestTileView tileView, Team inTeam, TestBoardManager inBm)
     {
         bm = inBm;
-        tempId = inTempId;
-        rank = inRank;
+        bm.OnClientGameStateChanged += OnClientGameStateChanged;
+        rank = null;
         team = inTeam;
-        pos = inPos;
-        PawnDef def = GameManager.instance.orderedPawnDefList.First(def => def.rank == rank);
-        gameObject.name = $"Pawn {tempId} {rank}";
-        badge.symbolRenderer.sprite = def.icon;
-
-        switch (team)
+        pos = tileView.tile.pos;
+        gameObject.name = $"SetupPawn {pos}";
+        model.SetActive(false);
+        parentConstraint.SetSource(0, new ConstraintSource()
         {
-            case Team.RED:
-                if (def.redAnimatorOverrideController)
-                {
-                    animator.runtimeAnimatorController = def.redAnimatorOverrideController;
-                }
-                break;
-            case Team.BLUE:
-                if (def.blueAnimatorOverrideController)
-                {
-                    animator.runtimeAnimatorController = def.blueAnimatorOverrideController;
-                }
-                break;
-            case Team.NONE:
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        float randNormTime = Random.Range(0f, 1f);
-        animator.Play("Idle", 0, randNormTime);
-        animator.Update(0f);
-        SetViewPos();
+            sourceTransform = tileView.tileModel.tileOrigin.transform,
+            weight = 1,
+        });
+        parentConstraint.constraintActive = true;
     }
-    
-    void SetViewPos()
+
+    void OnClientGameStateChanged(GameNetworkState networkState, ITestPhase phase)
     {
-        if (pos == Globals.Purgatory)
+        switch (phase)
         {
-            parentConstraint.SetSource(0, new ConstraintSource
-            {
-                sourceTransform = bm.purgatory,
-                weight = 1,
-            });
+            case MovementTestPhase movementTestPhase:
+                break;
+            case SetupTestPhase setupTestPhase:
+                if (setupTestPhase.clientState.committed)
+                {
+                    foreach (PawnCommit commit in setupTestPhase.clientState.lockedCommits)
+                    {
+                        if (Globals.DecodeStartingPos(commit.pawn_id) == pos)
+                        {
+                            Rank newRank = commit.GetRankTemp();
+                            if (rank != newRank)
+                            {
+                                SetPendingCommit(newRank);
+                            }
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    Rank? newRank = setupTestPhase.clientState.pendingCommits[pos];
+                    if (rank != newRank)
+                    {
+                        SetPendingCommit(newRank);
+                    }
+                }
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(phase));
+
+        }
+    }
+
+    void SetPendingCommit(Rank? inRank)
+    {
+        rank = inRank;
+        if (rank == null)
+        {
+            model.SetActive(false);
         }
         else
         {
-            TestTileView tileView = bm.GetTileViewAtPos(pos);
-            parentConstraint.SetSource(0, new ConstraintSource
+            PawnDef pawnDef = GameManager.instance.orderedPawnDefList.First(def => def.rank == rank);
+            badge.SetBadge(team, pawnDef);
+            model.SetActive(true);
+            switch (team)
             {
-                sourceTransform = tileView.tileModel.tileOrigin.transform,
-                weight = 1,
-            });
+                case Team.RED:
+                    if (pawnDef.redAnimatorOverrideController)
+                    {
+                        animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
+                    }
+                    break;
+                case Team.BLUE:
+                    if (pawnDef.blueAnimatorOverrideController)
+                    {
+                        animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
+                    }
+                    break;
+                case Team.NONE:
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            float randNormTime = Random.Range(0f, 1f);
+            animator.Play("Idle", 0, randNormTime);
+            animator.Update(0f);
         }
-        parentConstraint.constraintActive = true;
     }
-    
 
+    
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
     {
         parentConstraint.constraintActive = false;
@@ -104,6 +137,12 @@ public class SetupPawnView: MonoBehaviour
         }
         // Ensure the final position is set
         parentConstraint.constraintActive = true;
-        bm.vortex.EndVortex();
     }
+}
+
+public struct SetupPawn
+{
+    public uint pawnViewId;
+    public Rank rank;
+    public Vector2Int pos;
 }

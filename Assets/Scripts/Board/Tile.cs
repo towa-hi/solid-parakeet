@@ -12,11 +12,6 @@ public class Tile
     public Team setupTeam;
     public int autoSetupZone;
     
-    public bool IsTileEligibleForPlayer(Team team)
-    {
-        return isPassable && setupTeam == team;
-    }
-    
     public bool IsTileSetupAllowed(Team team)
     {
         return isPassable && setupTeam == team;

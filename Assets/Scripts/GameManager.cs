@@ -66,6 +66,12 @@ public class GameManager : MonoBehaviour
         Globals.InputActions.Game.Enable();
     }
 
+    public PawnDef GetPawnDefFromRankTemp(Rank rank)
+    {
+        // NOTE: this is a nasty hack that wont work on the server side. we need to keep a lookup table for this later instead of loading from unity
+        return orderedPawnDefList.FirstOrDefault(def => def.rank == rank);
+    }
+    
     public Dictionary<Rank, PawnDef> GetPawnDefFromRank()
     {
         // NOTE: this is a nasty hack that wont work on the server side. we need to keep a lookup table for this later instead of loading from unity
