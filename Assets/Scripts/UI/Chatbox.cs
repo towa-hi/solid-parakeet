@@ -74,11 +74,11 @@ public class Chatbox : MonoBehaviour
 
     async void CheckMail()
     {
-        Debug.Log("Checking mail");
-        checkingMail = true;
-        Mailbox? mailbox = await StellarManagerTest.GetMail(lobby);
-        checkingMail = false;
-        UpdateMail(mailbox);
+        // Debug.Log("Checking mail");
+        // checkingMail = true;
+        // Mailbox? mailbox = await StellarManagerTest.GetMail(lobby);
+        // checkingMail = false;
+        // UpdateMail(mailbox);
     }
     
     void UpdateMail(Mailbox? mailbox)

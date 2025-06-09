@@ -21,19 +21,28 @@ using UnityEngine.Networking;
 public class StellarDotnet
 {
     // sneed and derived properties
-    public string sneed = null;
+    public string sneed;
     MuxedAccount.KeyTypeEd25519 userAccount => MuxedAccount.FromSecretSeed(sneed);
     public string userAddress => StrKey.EncodeStellarAccountId(userAccount.PublicKey);
+    SCVal.ScvAddress userAddressSCVal => new()
+    {
+        address = new SCAddress.ScAddressTypeAccount()
+        {
+            accountId = new AccountID(userAccount.XdrPublicKey),
+        },
+    };
+
+    long latestLedger;
     
     // contract address and derived properties
-    public string contractAddress = null;
+    public string contractAddress;
+    const int maxAttempts = 10;
     
-
     Uri networkUri;
     // ReSharper disable once InconsistentNaming
-    JsonSerializerSettings _jsonSettings = new JsonSerializerSettings()
+    JsonSerializerSettings jsonSettings = new()
     {
-        ContractResolver = (IContractResolver) new CamelCasePropertyNamesContractResolver(),
+        ContractResolver =  new CamelCasePropertyNamesContractResolver(),
         NullValueHandling = NullValueHandling.Ignore,
     };
     
@@ -57,17 +66,9 @@ public class StellarDotnet
 
     public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable obj)
     {
-        Debug.Log("CallVoidFunction called on " + functionName);
         AccountEntry accountEntry = await ReqAccountEntry(userAccount);
         // make structs
-        SCVal.ScvAddress addressArg = new SCVal.ScvAddress
-        {
-            address = new SCAddress.ScAddressTypeAccount()
-            {
-                accountId = new AccountID(userAccount.XdrPublicKey),
-            },
-        };
-        List<SCVal> argsList = new List<SCVal>() { addressArg };
+        List<SCVal> argsList = new() { userAddressSCVal };
         if (obj != null)
         {
             SCVal data = obj.ToScvMap();
@@ -82,17 +83,16 @@ public class StellarDotnet
         GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000);
         if (getResult == null)
         {
-            Debug.LogError("CallVoidFunction timed out or failed to connect");
+            Debug.LogError("CallVoidFunction: timed out or failed to connect");
         }
         else if (getResult.Status != GetTransactionResultStatus.SUCCESS)
         {
-            Debug.LogWarning("CallVoidFunction got " + getResult.Status);
+            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
         }
-        // TODO: fix delay not working
         return (getResult, simResult);
     }
     
-    public async Task<(SendTransactionResult, SimulateTransactionResult)> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
+    async Task<(SendTransactionResult, SimulateTransactionResult)> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
     {
         Transaction invokeContractTransaction = InvokeContractTransaction(functionName, accountEntry, args);
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(new SimulateTransactionParams()
@@ -100,7 +100,7 @@ public class StellarDotnet
             Transaction = EncodeTransaction(invokeContractTransaction),
             ResourceConfig = new()
             {
-                
+                // TODO: setup resource config
             }
         });
         if (simulateTransactionResult.Error != null)
@@ -136,9 +136,9 @@ public class StellarDotnet
     LedgerKey MakeLedgerKey(string sym, object key, ContractDataDurability durability)
     {
         SCVal scKey = SCUtility.NativeToSCVal(key);
-        SCVal.ScvVec enumKey = new SCVal.ScvVec
+        SCVal.ScvVec enumKey = new()
         {
-            vec = new SCVec(new SCVal[]
+            vec = new SCVec(new[]
             {
                 new SCVal.ScvSymbol
                 {
@@ -163,8 +163,8 @@ public class StellarDotnet
 
     public async Task<NetworkState> ReqNetworkState()
     {
-        NetworkState networkState = new NetworkState(userAddress);
-        User? mUser = await ReqUserData(userAddress);
+        NetworkState networkState = new(userAddress);
+        User? mUser = await ReqUser(userAddress);
         networkState.user = mUser;
         if (mUser is { current_lobby: not 0 })
         {
@@ -172,56 +172,16 @@ public class StellarDotnet
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
             networkState.gameState = mGameState;
-        }
-        return networkState;
-    }
-
-    public async Task<NetworkState> ReqNetworkState(User? user)
-    {
-        NetworkState networkState = new NetworkState(userAddress);
-        User? mUser = user;
-        // if user doesnt exist yet
-        if (!mUser.HasValue)
-        {
-            Debug.Log("ReqNetworkState: User is null so getting ReqUserData");
-            // try get a user for mUser
-            mUser = await ReqUserData(userAddress);
-        }
-        networkState.user = mUser;
-        if (mUser is { current_lobby: not 0 })
-        {
-            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(mUser.Value.current_lobby);
-            networkState.lobbyInfo = mLobbyInfo;
-            networkState.lobbyParameters = mLobbyParameters;
-            networkState.gameState = mGameState;
-            if (!mLobbyInfo.HasValue || !mLobbyParameters.HasValue || !mGameState.HasValue)
-            {
-                throw new Exception($"ReqNetworkState: Unable to get lobby entries for id {mUser.Value.current_lobby}");
-            }
-            // we got the entries for the current lobby according to the user but we have to check if we need to update the user
-            bool userInLobby = false 
-                               || Globals.AddressToString(mLobbyInfo?.host_address) == userAddress 
-                               || Globals.AddressToString(mLobbyInfo?.guest_address) == userAddress;
-            if (!userInLobby)
-            {
-                Debug.LogWarning("ReqNetworkState outdated user, retrying with user refresh");
-                return await ReqNetworkState();
-            }
-        }
-        else
-        {
-            Debug.Log("ReqNetworkState: User is either null or not in a lobby");
         }
         return networkState;
     }
     
-    async Task<User?> ReqUserData(AccountAddress key)
+    async Task<User?> ReqUser(AccountAddress key)
     {
         LedgerKey ledgerKey = MakeLedgerKey("PackedUser", key, ContractDataDurability.PERSISTENT);
-        Debug.Log("ReqUserData on " + key + " contract " + contractAddress);
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
-            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
+            Keys = new[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
         });
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
@@ -229,24 +189,25 @@ public class StellarDotnet
         }
         else
         {
-            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            if (data == null)
+            Entries entries = getLedgerEntriesResult.Entries.First();
+            if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
             {
                 throw new Exception($"ReqUserData on {key} failed because data was not ContractData");
             }
-            return SCUtility.SCValToNative<User>(data.contractData.val);
+            User user = SCUtility.SCValToNative<User>(data.contractData.val);
+            user.liveUntilLedgerSeq = entries.LiveUntilLedgerSeq;
+            return user;
         }
     }
 
     async Task<(LobbyInfo?, LobbyParameters?, GameState?)> ReqLobbyStuff(uint key)
     {
-        Debug.Log($"ReqLobbyInfo on {key} contract {contractAddress}");
         string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
         string lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyParameters", key, ContractDataDurability.TEMPORARY));
         string gameStateKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("GameState", key, ContractDataDurability.TEMPORARY));
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
-            Keys = new string[]
+            Keys = new[]
             {
                 lobbyInfoKey,
                 lobbyParametersKey,
@@ -256,50 +217,35 @@ public class StellarDotnet
         (LobbyInfo?, LobbyParameters?, GameState?) tuple = (null, null, null);
         foreach (Entries entry in getLedgerEntriesResult.Entries)
         {
-            LedgerEntry.dataUnion.ContractData data = entry.LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            if (data == null)
+            if (entry.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
             {
                 throw new Exception($"ReqLobbyStuff on {key} failed because data was not ContractData");
             }
             if (entry.Key == lobbyInfoKey)
             {
-                tuple.Item1 = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
+                LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
+                lobbyInfo.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
+                tuple.Item1 = lobbyInfo;
             }
-            if (entry.Key == lobbyParametersKey)
+            else if (entry.Key == lobbyParametersKey)
             {
-                tuple.Item2 = SCUtility.SCValToNative<LobbyParameters>(data.contractData.val);
+                LobbyParameters lobbyParameters = SCUtility.SCValToNative<LobbyParameters>(data.contractData.val);
+                lobbyParameters.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
+                tuple.Item2 = lobbyParameters;
             }
-            if (entry.Key == gameStateKey)
+            else if (entry.Key == gameStateKey)
             {
-                tuple.Item3 = SCUtility.SCValToNative<GameState>(data.contractData.val);
+                GameState gameState = SCUtility.SCValToNative<GameState>(data.contractData.val);
+                gameState.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
+                tuple.Item3 = gameState;
             }
         }
         return tuple;
     }
     
-    public async Task<Mailbox?> ReqMailData(string lobbyId)
-    {
-        Debug.Log("ReqMailData on " + lobbyId + " contract " + contractAddress);
-        LedgerKey ledgerKey = MakeLedgerKey("Mail", lobbyId, ContractDataDurability.PERSISTENT);
-        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
-        {
-            Keys = new string[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
-        });
-        if (getLedgerEntriesResult.Entries.Count == 0)
-        {
-            return null;
-        }
-        else
-        {
-            LedgerEntry.dataUnion.ContractData data = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.ContractData;
-            Mailbox mailbox = SCUtility.SCValToNative<Mailbox>(data.contractData.val);
-            return mailbox;
-        }
-    }
-    
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
     {
-        Operation operation = new Operation()
+        Operation operation = new()
         {
             sourceAccount = userAccount,
             body = new Operation.bodyUnion.InvokeHostFunction()
@@ -336,7 +282,7 @@ public class StellarDotnet
 
     string EncodeTransaction(Transaction transaction)
     {
-        TransactionEnvelope.EnvelopeTypeTx envelope = new TransactionEnvelope.EnvelopeTypeTx()
+        TransactionEnvelope.EnvelopeTypeTx envelope = new()
         {
             v1 = new TransactionV1Envelope()
             {
@@ -350,7 +296,7 @@ public class StellarDotnet
     string SignAndEncodeTransaction(Transaction transaction)
     {
         DecoratedSignature signature = transaction.Sign(userAccount);
-        TransactionEnvelope.EnvelopeTypeTx envelope = new TransactionEnvelope.EnvelopeTypeTx()
+        TransactionEnvelope.EnvelopeTypeTx envelope = new()
         {
             v1 = new TransactionV1Envelope()
             {
@@ -363,7 +309,7 @@ public class StellarDotnet
 
     async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
     {
-        int maxAttempts = 10;
+        
         int attempts = 0;
         await AsyncDelay.Delay(delayMS);
         while (attempts < maxAttempts)
@@ -394,20 +340,19 @@ public class StellarDotnet
     // variant of StellarRPCClient.SimulateTransactionAsync()
     async Task<SimulateTransactionResult> SimulateTransactionAsync(SimulateTransactionParams parameters = null)
     {
-        JsonRpcRequest request = new JsonRpcRequest()
+        JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
             Method = "simulateTransaction",
-            Params = (object) parameters,
+            Params = parameters,
             Id = 1,
         };
-        string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
+        string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
         string content = await SendJsonRequest(requestJson);
         JObject jsonObject = JObject.Parse(content);
         // NOTE: Remove "stateChanges" entirely to avoid deserialization issues
         JObject resultObj = (JObject)jsonObject["result"];
         resultObj.Remove("stateChanges");
-
         try
         {
             JsonRpcResponse<SimulateTransactionResult> rpcResponse = jsonObject.ToObject<JsonRpcResponse<SimulateTransactionResult>>();
@@ -417,7 +362,7 @@ public class StellarDotnet
         catch (Exception e)
         {
             Debug.LogError(e);
-            throw e;
+            throw;
         }
 
     }
@@ -425,16 +370,16 @@ public class StellarDotnet
     // variant of StellarRPCClient.SendTransactionAsync()
     async Task<SendTransactionResult> SendTransactionAsync(SendTransactionParams parameters = null)
     {
-        JsonRpcRequest request = new JsonRpcRequest()
+        JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
             Method = "sendTransaction",
-            Params = (object) parameters,
-            Id = 1
+            Params = parameters,
+            Id = 1,
         };
-        string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
+        string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
         string content = await SendJsonRequest(requestJson);
-        JsonRpcResponse<SendTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<SendTransactionResult>>(content, this._jsonSettings);
+        JsonRpcResponse<SendTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<SendTransactionResult>>(content, this.jsonSettings);
         SendTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         return transactionResult;
     }
@@ -442,43 +387,34 @@ public class StellarDotnet
     // variant of StellarRPCClient.GetLedgerEntriesAsync()
     async Task<GetLedgerEntriesResult> GetLedgerEntriesAsync(GetLedgerEntriesParams parameters = null)
     {
-        JsonRpcRequest request = new JsonRpcRequest()
+        JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
             Method = "getLedgerEntries",
-            Params = (object) parameters,
+            Params = parameters,
             Id = 1
         };
-        string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
+        string requestJson = JsonConvert.SerializeObject(request, this.jsonSettings);
         string content = await SendJsonRequest(requestJson);
         JsonRpcResponse<GetLedgerEntriesResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetLedgerEntriesResult>>(content);
         GetLedgerEntriesResult ledgerEntriesAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
-        long currentLedger = ledgerEntriesAsync.LatestLedger;
-        Debug.Log($"GetLedgerEntriesAsync: currentLedger = {currentLedger}");
-        foreach (var entry in ledgerEntriesAsync.Entries)
-        {
-            // if entry is a account address, LiveUntilLedgerSeq will be zero
-            var ledgerLeft = entry.LiveUntilLedgerSeq - currentLedger;
-            var timeLeft = ledgerLeft * 5;
-            var timeString = TimeSpan.FromSeconds(timeLeft).ToString(@"hh\:mm\:ss");
-            Debug.Log($"GetLedgerEntriesAsync: ledger key: {entry.Key} live until: {entry.LiveUntilLedgerSeq} ledgers left: {ledgerLeft} time left: {timeString}");
-        }
+        latestLedger = ledgerEntriesAsync.LatestLedger;
         return ledgerEntriesAsync;
     }
     
     // variant of StellarRPCClient.GetTransactionAsync()
     async Task<GetTransactionResult> GetTransactionAsync(GetTransactionParams parameters = null)
     {
-        JsonRpcRequest request = new JsonRpcRequest()
+        JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
             Method = "getTransaction",
-            Params = (object) parameters,
+            Params = parameters,
             Id = 1
         };
-        string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
+        string requestJson = JsonConvert.SerializeObject(request, this.jsonSettings);
         string content = await SendJsonRequest(requestJson);
-        JsonRpcResponse<GetTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetTransactionResult>>(content, this._jsonSettings);
+        JsonRpcResponse<GetTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetTransactionResult>>(content, this.jsonSettings);
         GetTransactionResult transactionAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         return transactionAsync;
     }
@@ -502,7 +438,7 @@ public class StellarDotnet
     
     async Task<string> SendJsonRequest(string json)
     {
-        UnityWebRequest request = new UnityWebRequest(networkUri, "POST");
+        UnityWebRequest request = new(networkUri, "POST");
         byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
         request.uploadHandler = new UploadHandlerRaw(bodyRaw);
         request.downloadHandler = new DownloadHandlerBuffer();
@@ -536,7 +472,7 @@ public class StellarDotnet
         string code = "SCRY";
         string issuerAccountId = "GAAPZLAZJ5SL4IL63WHFWRUWPK2UV4SREUOWM2DZTTQR7FJPFQAHDSNG";
         AccountID issuerAccount = MuxedAccount.FromAccountId(issuerAccountId).XdrPublicKey;
-        byte[] codeBytes = System.Text.Encoding.ASCII.GetBytes(code);
+        byte[] codeBytes = Encoding.ASCII.GetBytes(code);
         return LedgerKeyXdr.EncodeToBase64(new LedgerKey.Trustline
         {
             trustLine = new LedgerKey.trustLineStruct
@@ -569,7 +505,7 @@ public static class AsyncDelay
     static Task WaitForSecondsAsync(float seconds)
     {
         TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-        CoroutineRunner.Instance.StartCoroutine(WaitForSecondsCoroutine(seconds, tcs));
+        CoroutineRunner.instance.StartCoroutine(WaitForSecondsCoroutine(seconds, tcs));
         return tcs.Task;
     }
 
@@ -582,19 +518,19 @@ public static class AsyncDelay
 
 public class CoroutineRunner : MonoBehaviour
 {
-    private static CoroutineRunner _instance;
-    public static CoroutineRunner Instance
+    private static CoroutineRunner ins;
+    public static CoroutineRunner instance
     {
         get
         {
-            if (_instance == null)
+            if (!ins)
             {
                 // Create a new GameObject to attach the runner
-                var go = new GameObject("CoroutineRunner");
-                _instance = go.AddComponent<CoroutineRunner>();
+                GameObject go = new("CoroutineRunner");
+                ins = go.AddComponent<CoroutineRunner>();
                 DontDestroyOnLoad(go);
             }
-            return _instance;
+            return ins;
         }
     }
 }

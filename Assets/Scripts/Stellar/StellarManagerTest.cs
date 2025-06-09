@@ -311,12 +311,6 @@ public static class StellarManagerTest
         return -1;
     }
 
-    public static async Task<Mailbox?> GetMail(string lobbyId)
-    {
-        Mailbox? result = await stellar.ReqMailData(lobbyId);
-        return result;
-    }
-    
     public static async Task<AccountEntry> GetAccount(string key)
     {
         TaskInfo task = SetCurrentTask("ReqAccountEntry");

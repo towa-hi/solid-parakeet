@@ -247,7 +247,10 @@ namespace Contract
                         }
                         else
                         {
-                            Debug.LogWarning($"SCValToNative: Field '{field.Name}' not found in SCVal map.");
+                            if (field.Name != "liveUntilLedgerSeq")
+                            {
+                                Debug.LogWarning($"SCValToNative: Field '{field.Name}' not found in SCVal map.");
+                            }
                         }
                     }
                     return instance;
@@ -325,8 +328,9 @@ namespace Contract
     {
         public uint current_lobby;
         public uint games_completed;
-
-        public User(byte[] bytes)
+        public long liveUntilLedgerSeq;
+        
+        public User(byte[] bytes, long nLiveUntilLedgerSeq)
         {
             if (bytes is null)
                 throw new ArgumentNullException(nameof(bytes));
@@ -335,6 +339,7 @@ namespace Contract
             ReadOnlySpan<byte> span = bytes;
             current_lobby = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(0, 4));
             games_completed = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
+            liveUntilLedgerSeq = nLiveUntilLedgerSeq;
         }
         
         public override string ToString()
@@ -344,12 +349,13 @@ namespace Contract
     }
 
     [System.Serializable]
-    public struct LobbyInfo : IScvMapCompatable
+    public struct LobbyInfo
     {
         public uint index;
         public SCVal.ScvAddress guest_address;
         public SCVal.ScvAddress host_address;
         public LobbyStatus status;
+        public long liveUntilLedgerSeq; // not serialized
         
         public override string ToString()
         {
@@ -383,7 +389,8 @@ namespace Contract
     {
         public Phase phase;
         public UserState[] user_states;
-
+        public long liveUntilLedgerSeq; // not serialized
+        
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap()
@@ -778,7 +785,8 @@ namespace Contract
         public MaxRank[] max_ranks;
         public bool must_fill_all_tiles;
         public bool security_mode;
-
+        public long liveUntilLedgerSeq; // not serialized
+        
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap()
