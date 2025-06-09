@@ -1809,7 +1809,23 @@ public struct NetworkState
         lobbyParameters = null;
         gameState = null;
     }
-    
+    public bool CurrentLobbyOutdated()
+    {
+        if (!user.HasValue)
+        {
+            return false;
+        }
+
+        if (user?.current_lobby == 0)
+        {
+            return false;
+        }
+        if (!lobbyInfo.HasValue || !lobbyParameters.HasValue)
+        {
+            return true;
+        }
+        return false;
+    }
     public override string ToString()
     {
         var simplified = new

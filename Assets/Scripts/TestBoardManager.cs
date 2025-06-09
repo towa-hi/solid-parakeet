@@ -274,6 +274,9 @@ public class SetupClientState
     public Dictionary<Vector2Int, Rank?> pendingCommits;
     public Rank? selectedRank;
     public bool committed;
+    public bool opponentCommitted;
+    public bool submitted;
+    public bool opponentSubmitted;
     public Team team;
     
     public void SetSelectedRank(Rank? rank)
@@ -301,6 +304,7 @@ public class SetupTestPhase : ITestPhase
     SetupInputTool tool;
     
     public SetupClientState clientState;
+    bool attemptedProveSetup;
     
     public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, GameNetworkState networkState)
     {
@@ -326,6 +330,9 @@ public class SetupTestPhase : ITestPhase
             maxRankDictionary[maxRank.rank] = maxRank.max;
         }
         bool committed = userState.setup_hash.Any(b => b != 0);
+        bool opponentCommitted = networkState.GetOpponentUserState().setup_hash.Any(b => b != 0);
+        bool submitted = userState.setup.Length > 1;
+        bool opponentSubmitted = userState.setup.Length > 1;
         PawnCommit[] lockedCommits = Array.Empty<PawnCommit>();
         if (committed)
         {
@@ -343,9 +350,11 @@ public class SetupTestPhase : ITestPhase
             lockedCommits = lockedCommits,
             pendingCommits = pendingCommits,
             committed = committed,
+            opponentCommitted = opponentCommitted,
+            submitted = submitted,
+            opponentSubmitted = opponentSubmitted,
             team = networkState.clientTeam,
         };
-        
         clientState = newSetupClientState;
     }
     
@@ -465,6 +474,11 @@ public class SetupTestPhase : ITestPhase
     public void OnNetworkGameStateChanged(GameNetworkState networkState)
     {
         ResetClientState(networkState);
+        if (clientState.committed && clientState.opponentCommitted && !clientState.submitted && !attemptedProveSetup)
+        {
+            attemptedProveSetup = true;
+            _ = StellarManagerTest.ProveSetupRequest();
+        }
     }
 
     void ClientStateChanged()
@@ -562,6 +576,14 @@ public class SetupTestPhase : ITestPhase
         else
         {
             _ = StellarManagerTest.CommitSetupRequest(commits.ToArray());
+        }
+    }
+
+    void ProveSetup()
+    {
+        if (clientState.committed && clientState.opponentCommitted && !clientState.submitted)
+        {
+            _ = StellarManagerTest.ProveSetupRequest();
         }
     }
 }

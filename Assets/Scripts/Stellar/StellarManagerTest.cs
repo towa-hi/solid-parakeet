@@ -16,7 +16,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CBO5IIZOIXYHERYLC4V7HXXPDYVIR7KW47YU4C5ACF6C3CRBE3VBM6SQ";
+    public static string testContract = "CCS6TSD52NY3JS4SXAAUEIQ2S62YJOV4DHHMJL5EDB4SQEEOJERF5OL2";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -81,6 +81,14 @@ public static class StellarManagerTest
         TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
         networkState = await stellar.ReqNetworkState();
         EndTask(getNetworkStateTask);
+        if (networkState.CurrentLobbyOutdated())
+        {
+            Debug.LogWarning($"UpdateState(): user.current_lobby is set to {networkState.user?.current_lobby} but unretrievable");
+            await LeaveLobbyRequest();
+            TaskInfo getNetworkStateTask2 = SetCurrentTask("ReqNetworkState2");
+            networkState = await stellar.ReqNetworkState();
+            EndTask(getNetworkStateTask2);
+        }
         OnNetworkStateUpdated?.Invoke();
         return true;
     }
@@ -216,6 +224,18 @@ public static class StellarManagerTest
         return ProcessTransactionResult(result, simResult);
     }
 
+    public static async Task<int> ProveSetupRequest()
+    {
+        GameNetworkState gameNetworkState = new GameNetworkState(networkState);
+        string proveSetupReqXdr = PlayerPrefs.GetString(gameNetworkState.GetProveSetupReqPlayerPrefsKey());
+        ProveSetupReq req = ProveSetupReq.FromXdrString(proveSetupReqXdr);
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
+    
     public static async Task<int> QueueMove(QueuedMove queuedMove)
     {
         // Assert.IsTrue(currentLobbyInfo.HasValue);

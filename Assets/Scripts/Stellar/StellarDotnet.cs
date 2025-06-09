@@ -363,13 +363,12 @@ public class StellarDotnet
 
     async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
     {
-        Debug.Log("WaitForTransaction started for txhash " + txHash);
-        int max_attempts = 10;
+        int maxAttempts = 10;
         int attempts = 0;
         await AsyncDelay.Delay(delayMS);
-        while (attempts < max_attempts)
+        while (attempts < maxAttempts)
         {
-            Debug.Log("WaitForTransaction attempt " + attempts);
+            attempts++;
             GetTransactionResult completion = await GetTransactionAsync(new GetTransactionParams()
             {
                 Hash = txHash
@@ -377,19 +376,17 @@ public class StellarDotnet
             switch (completion.Status)
             {
                 case GetTransactionResultStatus.FAILED:
-                    Debug.Log("WaitForTransaction FAILED");
+                    Debug.Log("WaitForTransaction: FAILED");
                     return completion;
                 case GetTransactionResultStatus.NOT_FOUND:
-                    Debug.Log("WaitForTransaction waiting a bit");
                     await AsyncDelay.Delay(delayMS);
                     continue;
                 case GetTransactionResultStatus.SUCCESS:
-                    Debug.Log("WaitForTransaction SUCCESS");
+                    Debug.Log("WaitForTransaction: SUCCESS");
                     return completion;
             }
-            attempts++;
         }
-        Debug.Log("WaitForTransaction timed out");
+        Debug.Log("WaitForTransaction: timed out");
         return null;
     }
     
@@ -407,7 +404,7 @@ public class StellarDotnet
         string requestJson = JsonConvert.SerializeObject((object) request, this._jsonSettings);
         string content = await SendJsonRequest(requestJson);
         JObject jsonObject = JObject.Parse(content);
-        // Remove "stateChanges" entirely to avoid deserialization issues
+        // NOTE: Remove "stateChanges" entirely to avoid deserialization issues
         JObject resultObj = (JObject)jsonObject["result"];
         resultObj.Remove("stateChanges");
 
@@ -460,6 +457,7 @@ public class StellarDotnet
         Debug.Log($"GetLedgerEntriesAsync: currentLedger = {currentLedger}");
         foreach (var entry in ledgerEntriesAsync.Entries)
         {
+            // if entry is a account address, LiveUntilLedgerSeq will be zero
             var ledgerLeft = entry.LiveUntilLedgerSeq - currentLedger;
             var timeLeft = ledgerLeft * 5;
             var timeString = TimeSpan.FromSeconds(timeLeft).ToString(@"hh\:mm\:ss");
@@ -509,15 +507,15 @@ public class StellarDotnet
         request.uploadHandler = new UploadHandlerRaw(bodyRaw);
         request.downloadHandler = new DownloadHandlerBuffer();
         request.SetRequestHeader("Content-Type", "application/json");
-        Debug.Log("SendJsonRequest sending off: " + json);
+        Debug.Log($"SendJsonRequest: request: {json}");
         await request.SendWebRequest();
         if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
         {
-            Debug.LogError("Error: " + request.error);
+            Debug.LogError($"SendJsonRequest: error: {request.error}");
         }
         else
         {
-            Debug.Log("Response: " + request.downloadHandler.text);
+            Debug.Log($"SendJsonRequest: response: {request.downloadHandler.text}");
         }
         return request.downloadHandler.text;
     }
@@ -533,7 +531,7 @@ public class StellarDotnet
         });
     }
 
-    public string EncodedTrustlineKey(MuxedAccount.KeyTypeEd25519 account)
+    string EncodedTrustlineKey(MuxedAccount.KeyTypeEd25519 account)
     {
         string code = "SCRY";
         string issuerAccountId = "GAAPZLAZJ5SL4IL63WHFWRUWPK2UV4SREUOWM2DZTTQR7FJPFQAHDSNG";
@@ -558,105 +556,6 @@ public class StellarDotnet
             },
         });
     }
-    
-    public static bool IsValidStellarAddress(string address)
-    {
-        // Check if the address is null, empty, or whitespace.
-        if (string.IsNullOrWhiteSpace(address))
-            return false;
-
-        // Check that the address starts with "G" (as expected for Stellar public keys).
-        if (!address.StartsWith("G"))
-            return false;
-
-        // The address should be exactly 56 characters in its Base32-encoded form.
-        if (address.Length != 56)
-            return false;
-
-        try
-        {
-            // Decode the Base32 encoded string to get the underlying binary data.
-            byte[] decoded = Base32Decode(address);
-            
-            // The decoded binary should be exactly 35 bytes:
-            // 1-byte version + 32-byte public key + 2-byte checksum.
-            if (decoded.Length != 35)
-                return false;
-
-            // Check the version byte (for public keys, it should be 6 << 3 which is 48).
-            if (decoded[0] != 48)
-                return false;
-
-            // Verify the checksum:
-            // Extract the checksum from the last two bytes.
-            ushort checksum = BitConverter.ToUInt16(decoded, decoded.Length - 2);
-
-            // Compute the CRC16-XModem checksum for the first 33 bytes (version byte + key).
-            ushort computedChecksum = CalculateCRC16(decoded.Take(33).ToArray());
-            
-            // Return true only if the checksums match.
-            return checksum == computedChecksum;
-        }
-        catch (Exception)
-        {
-            // If any exception occurs (for example, during decoding), the address is invalid.
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Decodes a Base32 encoded string using the alphabet "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".
-    /// Stellar’s StrKey encoding uses this alphabet (without padding).
-    /// </summary>
-    private static byte[] Base32Decode(string input)
-    {
-        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-
-        // Remove any padding if present (typically Stellar addresses do not include '=' padding).
-        input = input.TrimEnd('=');
-        int byteCount = input.Length * 5 / 8;
-        byte[] output = new byte[byteCount];
-
-        int bitBuffer = 0;
-        int bitsLeft = 0;
-        int index = 0;
-        foreach (char c in input)
-        {
-            int value = alphabet.IndexOf(c);
-            if (value < 0)
-                throw new ArgumentException("Invalid character encountered in the address.");
-
-            bitBuffer = (bitBuffer << 5) | value;
-            bitsLeft += 5;
-            if (bitsLeft >= 8)
-            {
-                // Take the top 8 bits out of the buffer.
-                output[index++] = (byte)((bitBuffer >> (bitsLeft - 8)) & 0xFF);
-                bitsLeft -= 8;
-            }
-        }
-        return output;
-    }
-
-    /// <summary>
-    /// Calculates the CRC16-XModem checksum for the provided data.
-    /// </summary>
-    private static ushort CalculateCRC16(byte[] data)
-    {
-        ushort crc = 0;
-        foreach (byte b in data)
-        {
-            crc ^= (ushort)(b << 8);
-            for (int i = 0; i < 8; i++)
-            {
-                if ((crc & 0x8000) != 0)
-                    crc = (ushort)((crc << 1) ^ 0x1021);
-                else
-                    crc <<= 1;
-            }
-        }
-        return crc;
-    }
 }
 
 public static class AsyncDelay
@@ -667,15 +566,14 @@ public static class AsyncDelay
         return WaitForSecondsAsync(millisecondsDelay / 1000f);
     }
 
-    private static Task WaitForSecondsAsync(float seconds)
+    static Task WaitForSecondsAsync(float seconds)
     {
-        var tcs = new TaskCompletionSource<bool>();
-        // CoroutineRunner is a MonoBehaviour that can run coroutines.
+        TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
         CoroutineRunner.Instance.StartCoroutine(WaitForSecondsCoroutine(seconds, tcs));
         return tcs.Task;
     }
 
-    private static IEnumerator WaitForSecondsCoroutine(float seconds, TaskCompletionSource<bool> tcs)
+    static IEnumerator WaitForSecondsCoroutine(float seconds, TaskCompletionSource<bool> tcs)
     {
         yield return new WaitForSeconds(seconds);
         tcs.SetResult(true);

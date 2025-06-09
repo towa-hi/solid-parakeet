@@ -242,30 +242,27 @@ impl Contract {
             None => return Err(Error::UserNotFound), // TODO: make a version of this function that sends a lobbyId
         };
         let left_lobby_id = user.current_lobby.clone();
+        // update write user early
+        user.current_lobby = 0;
+        persistent.set(&packed_user_key, &user);
+
         let lobby_info_key = DataKey::LobbyInfo(left_lobby_id);
         let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
             // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
             Some(lobby_info) => lobby_info,
-            None => return Ok(()), // just write user and return if the lobby cant be found anymore
+            None => return Ok(()),
         };
         // make
         // update
-        user.current_lobby = 0;
         if address == lobby_info.host_address {
             lobby_info.host_address = Self::empty_address(e);
         }
         else if address == lobby_info.guest_address {
             lobby_info.guest_address = Self::empty_address(e);
         }
-        else {
-            persistent.set(&packed_user_key, &user); // set user anyways
-            return Ok(()) // if the user wasn't in this lobby then return
-        }
         lobby_info.status = LobbyStatus::Aborted; // TODO: handle detecting if the game is in progress to award victory/defeat
         // write
-        persistent.set(&packed_user_key, &user);
         temporary.set(&lobby_info_key, &lobby_info);
-
         temporary.extend_ttl(&lobby_info_key, 8640, 8640);
         Ok(())
     }
@@ -403,8 +400,8 @@ impl Contract {
         if user_state.setup_hash == empty_hash {
             return Err(Error::NoSetupCommitment)
         }
-        let serialized = req.setup.clone().to_xdr(e);
-        let setup_hash = e.crypto().sha256(&serialized).to_bytes();
+        let serialized = req.clone().to_xdr(e);
+        let setup_hash: SetupHash = e.crypto().sha256(&serialized).to_bytes();
         if setup_hash != user_state.setup_hash {
             return Err(Error::SetupHashFail)
         }
