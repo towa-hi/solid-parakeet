@@ -993,6 +993,42 @@ namespace Contract
             SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
             return SCUtility.SCValToNative<ProveSetupReq>(val);
         }
+
+        public byte[] GetHashBytes()
+        {
+            string xdrString = ToXdrString();
+            byte[] xdrBytes = Convert.FromBase64String(xdrString);
+            using SHA256 sha256 = SHA256.Create();
+            byte[] clientHashBytes = sha256.ComputeHash(xdrBytes);
+            return clientHashBytes;
+        }
+
+        public string GetHashString()
+        {
+            byte[] bytes = GetHashBytes();
+            return Convert.ToBase64String(bytes);
+        }
+
+        public bool HashMatches(byte[] hashBytes)
+        {
+            return GetHashBytes().SequenceEqual(hashBytes);
+        }
+
+        public void SaveToPlayerPrefs()
+        {
+            PlayerPrefs.SetString(GetHashString(), ToXdrString());
+        }
+
+        public static ProveSetupReq GetFromPlayerPrefs(byte[] setupHash)
+        {
+            if (setupHash.All(b => b == 0))
+            {
+                throw new ArgumentNullException();
+            }
+            string key = Convert.ToBase64String(setupHash);
+            string proveSetupReqXdr = PlayerPrefs.GetString(key);
+            return FromXdrString(proveSetupReqXdr);
+        }
     }
     
     [System.Serializable]

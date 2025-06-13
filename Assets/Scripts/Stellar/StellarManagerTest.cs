@@ -41,7 +41,6 @@ public static class StellarManagerTest
 
     public static async Task<bool> UpdateState()
     {
-        await TestHashRequest();
         TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
         networkState = await stellar.ReqNetworkState();
         EndTask(getNetworkStateTask);
@@ -192,17 +191,12 @@ public static class StellarManagerTest
             salt = Globals.TestSalt,
             setup = commitments,
         };
-        string proveSetupValXdr = proveSetupReq.ToXdrString();
-        PlayerPrefs.SetString(gameNetworkState.GetProveSetupReqPlayerPrefsKey(), proveSetupValXdr);
-        using MemoryStream memoryStream = new MemoryStream();
-        SCValXdr.Encode(new XdrWriter(memoryStream), proveSetupReq.ToScvMap());
-        // hash the request and send it
-        SHA256 sha256 = SHA256.Create();
-        byte[] proveSetupValXdrHash = sha256.ComputeHash(memoryStream);
+        // serialize into playerPrefs as a xdrstring
+        proveSetupReq.SaveToPlayerPrefs();
         SetupCommitReq req = new()
         {
             lobby_id = gameNetworkState.user.current_lobby,
-            setup_hash = proveSetupValXdrHash,
+            setup_hash = proveSetupReq.GetHashBytes(),
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
@@ -214,8 +208,7 @@ public static class StellarManagerTest
     public static async Task<int> ProveSetupRequest()
     {
         GameNetworkState gameNetworkState = new(networkState);
-        string proveSetupReqXdr = PlayerPrefs.GetString(gameNetworkState.GetProveSetupReqPlayerPrefsKey());
-        ProveSetupReq req = ProveSetupReq.FromXdrString(proveSetupReqXdr);
+        ProveSetupReq req = ProveSetupReq.GetFromPlayerPrefs(gameNetworkState.GetUserState().setup_hash);
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup", req);
         EndTask(task);

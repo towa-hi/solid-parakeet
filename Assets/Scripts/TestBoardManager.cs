@@ -337,7 +337,8 @@ public class SetupTestPhase : ITestPhase
         PawnCommit[] lockedCommits = Array.Empty<PawnCommit>();
         if (committed)
         {
-            string proveSetupReqXdr = PlayerPrefs.GetString(networkState.GetProveSetupReqPlayerPrefsKey());
+            string key = Convert.ToBase64String(userState.setup_hash);
+            string proveSetupReqXdr = PlayerPrefs.GetString(key);
             ProveSetupReq proveSetupReq = ProveSetupReq.FromXdrString(proveSetupReqXdr);
             lockedCommits = proveSetupReq.setup;
         }
