@@ -449,38 +449,38 @@ public class FakeServer : MonoBehaviour
 
     int SubmitMove(string address, MoveSubmitReq req)
     {
-        Lobby updatedLobby = fakeLobby;
-        Turn turn = updatedLobby.GetLatestTurn();
-        if (req.user_address == turn.host_turn.user_address)
-        {
-            if (turn.host_turn.initialized)
-            {
-                return (int)ErrorCode.TurnAlreadyInitialized;
-            }
-            turn.host_turn.initialized = true;
-            turn.host_turn.pos = req.move_pos;
-            turn.host_turn.pawn_id = req.pawn_id;
-            updatedLobby.turns[^1] = turn;
-        } else if (req.user_address == turn.guest_turn.user_address)
-        {
-            if (turn.guest_turn.initialized)
-            {
-                return (int)ErrorCode.TurnAlreadyInitialized;
-            }
-            turn.guest_turn.initialized = true;
-            turn.guest_turn.pos = req.move_pos;
-            turn.guest_turn.pawn_id = req.pawn_id;
-            updatedLobby.turns[^1] = turn;
-        }
-        else
-        {
-            return (int)ErrorCode.InvalidArgs;
-        }
-        fakeLobby = updatedLobby;
-        if (address == "")
-        {
-            GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
-        }
+        // Lobby updatedLobby = fakeLobby;
+        // Turn turn = updatedLobby.GetLatestTurn();
+        // if (req.user_address == turn.host_turn.user_address)
+        // {
+        //     if (turn.host_turn.initialized)
+        //     {
+        //         return (int)ErrorCode.TurnAlreadyInitialized;
+        //     }
+        //     turn.host_turn.initialized = true;
+        //     turn.host_turn.pos = req.move_pos;
+        //     turn.host_turn.pawn_id = req.pawn_id;
+        //     updatedLobby.turns[^1] = turn;
+        // } else if (req.user_address == turn.guest_turn.user_address)
+        // {
+        //     if (turn.guest_turn.initialized)
+        //     {
+        //         return (int)ErrorCode.TurnAlreadyInitialized;
+        //     }
+        //     turn.guest_turn.initialized = true;
+        //     turn.guest_turn.pos = req.move_pos;
+        //     turn.guest_turn.pawn_id = req.pawn_id;
+        //     updatedLobby.turns[^1] = turn;
+        // }
+        // else
+        // {
+        //     return (int)ErrorCode.InvalidArgs;
+        // }
+        // fakeLobby = updatedLobby;
+        // if (address == "")
+        // {
+        //     GameManager.instance.testBoardManager.FakeOnNetworkStateUpdated();
+        // }
         return 0;
     }
 

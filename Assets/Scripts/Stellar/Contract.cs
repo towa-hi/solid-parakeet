@@ -274,6 +274,26 @@ namespace Contract
             };
         }
         
+        public static T FromXdrString<T>(string xdrString)
+        {
+            using MemoryStream memoryStream = new MemoryStream(Convert.FromBase64String(xdrString));
+            SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
+            return SCValToNative<T>(val);
+        }
+        
+        public static byte[] GetHash(SCVal scVal)
+        {
+            string xdrString = SCValXdr.EncodeToBase64(scVal);
+            using SHA256 sha256 = SHA256.Create();
+            return sha256.ComputeHash(Convert.FromBase64String(xdrString));
+        }
+
+        public static byte[] GetHash(IScvMapCompatable obj)
+        {
+            SCVal scVal = obj.ToScvMap();
+            return GetHash(scVal);
+        }
+        
         public static bool HashEqual(SCVal a, SCVal b)
         {
             string encodedA = SCValXdr.EncodeToBase64(a);
@@ -283,7 +303,7 @@ namespace Contract
     }
     
     // ReSharper disable InconsistentNaming
-    [System.Serializable]
+    [Serializable]
     public struct MaxRank : IScvMapCompatable
     {
         public uint max;
@@ -293,7 +313,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("max", max),
                     SCUtility.FieldToSCMapEntry("rank", rank),
@@ -301,7 +321,7 @@ namespace Contract
             };
         }
     }
-    [System.Serializable]
+    [Serializable]
     public struct Mail : IScvMapCompatable
     {
         public uint mail_type;
@@ -313,7 +333,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("mail_type", mail_type),
                     SCUtility.FieldToSCMapEntry("message", message),
@@ -323,7 +343,7 @@ namespace Contract
             };
         }
     }
-    [System.Serializable]
+    [Serializable]
     public struct User
     {
         public uint current_lobby;
@@ -347,8 +367,7 @@ namespace Contract
             return JsonConvert.SerializeObject(this, Formatting.Indented);
         }
     }
-
-    [System.Serializable]
+    [Serializable]
     public struct LobbyInfo
     {
         public uint index;
@@ -373,7 +392,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("index", index),
                     SCUtility.FieldToSCMapEntry("guest_address", guest_address),
@@ -383,8 +402,7 @@ namespace Contract
             };
         }
     }
-
-    [System.Serializable]
+    [Serializable]
     public struct GameState : IScvMapCompatable
     {
         public Phase phase;
@@ -395,7 +413,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("phase", phase),
                     SCUtility.FieldToSCMapEntry("user_states", user_states),
@@ -416,13 +434,13 @@ namespace Contract
         }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct Pos: IScvMapCompatable, IEquatable<Pos>
     {
         public int x;
         public int y;
 
-        public Pos(UnityEngine.Vector2Int vector)
+        public Pos(Vector2Int vector)
         {
             x = vector.x;
             y = vector.y;
@@ -432,7 +450,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("x", x),
                     SCUtility.FieldToSCMapEntry("y", y),
@@ -479,7 +497,7 @@ namespace Contract
         
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct UserState: IScvMapCompatable
     {
         public PawnCommit[] setup;
@@ -490,7 +508,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("setup", setup),
                     SCUtility.FieldToSCMapEntry("setup_hash", setup_hash),
@@ -500,32 +518,7 @@ namespace Contract
         }
     }
     
-    // [System.Serializable]
-    // public struct PawnDef: IScvMapCompatable
-    // {
-    //     public uint id;
-    //     public uint movement_range;
-    //     public uint power;
-    //     public Rank rank;
-    //     public uint salt;
-    //     
-    //     public SCVal.ScvMap ToScvMap()
-    //     {
-    //         return new SCVal.ScvMap()
-    //         {
-    //             map = new SCMap(new SCMapEntry[]
-    //             {
-    //                 SCUtility.FieldToSCMapEntry("id", id),
-    //                 SCUtility.FieldToSCMapEntry("movement_range", movement_range),
-    //                 SCUtility.FieldToSCMapEntry("power", power),
-    //                 SCUtility.FieldToSCMapEntry("rank", rank),
-    //                 SCUtility.FieldToSCMapEntry("salt", salt),
-    //             }),
-    //         };
-    //     }
-    // }
-    
-    [System.Serializable]
+    [Serializable]
     public struct MaxPawns : IScvMapCompatable
     {
         public int max;
@@ -541,7 +534,7 @@ namespace Contract
         {
             SCVal.ScvMap scvMap = new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("max", max),
                     SCUtility.FieldToSCMapEntry("rank", rank),
@@ -550,7 +543,8 @@ namespace Contract
             return scvMap;
         }
     }
-    [System.Serializable]
+    
+    [Serializable]
     public struct Mailbox : IScvMapCompatable
     {
         public string lobby;
@@ -560,7 +554,7 @@ namespace Contract
         {
             SCVal.ScvMap scvMap = new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby", lobby),
                     SCUtility.FieldToSCMapEntry("mail", mail),
@@ -570,7 +564,7 @@ namespace Contract
         }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct ResolveEvent : IScvMapCompatable
     {
         public string defender_pawn_id;
@@ -584,7 +578,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("defender_pawn_id", defender_pawn_id),
                     SCUtility.FieldToSCMapEntry("event_type", event_type),
@@ -596,7 +590,7 @@ namespace Contract
             };
         }
     }
-    [System.Serializable]
+    [Serializable]
     public struct Tile: IScvMapCompatable
     {
         public int auto_setup_zone;
@@ -616,7 +610,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("auto_setup_zone", auto_setup_zone),
                     SCUtility.FieldToSCMapEntry("is_passable", is_passable),
@@ -627,7 +621,7 @@ namespace Contract
         }
     }
 
-    [System.Serializable]
+    [Serializable]
     public struct HiddenRank : IScvMapCompatable
     {
         public Rank rank;
@@ -637,47 +631,16 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("rank", rank),
                     SCUtility.FieldToSCMapEntry("salt", salt),
                 }),
             };
         }
-        
-        public string ToXdrString()
-        {
-            SCVal val = SCUtility.NativeToSCVal(this);
-            return SCValXdr.EncodeToBase64(val);
-        }
-
-        public static byte[] GetHash(Rank rank, uint salt)
-        {
-            HiddenRank hiddenRank = new HiddenRank()
-            {
-                rank = rank,
-                salt = salt,
-            };
-            SHA256 sha256 = SHA256.Create();
-            string commitValXdr = hiddenRank.ToXdrString();
-            return sha256.ComputeHash(Encoding.UTF8.GetBytes(commitValXdr));
-        }
-        
-        public static Rank FromHash(byte[] hash, uint salt)
-        {
-            foreach (Rank rank in Enum.GetValues(typeof(Rank)))
-            {
-                byte[] hiddenRankHash = GetHash(rank, salt);
-                if (hash.SequenceEqual(hiddenRankHash))
-                {
-                    return rank;
-                }
-            }
-            throw new KeyNotFoundException();
-        }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct PawnCommit : IScvMapCompatable
     {
         public byte[] hidden_rank_hash;
@@ -687,27 +650,16 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("hidden_rank_hash", hidden_rank_hash),
                     SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
                 }),
             };
         }
-
-        public string ToXdrString()
-        {
-            SCVal val = SCUtility.NativeToSCVal(this);
-            return SCValXdr.EncodeToBase64(val);
-        }
-
-        public Rank GetRankTemp()
-        {
-            return HiddenRank.FromHash(hidden_rank_hash, Globals.TestSalt);
-        }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct Pawn : IScvMapCompatable
     {
         public bool is_alive;
@@ -722,7 +674,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("is_alive", is_alive),
                     SCUtility.FieldToSCMapEntry("is_moved", is_moved),
@@ -735,48 +687,7 @@ namespace Contract
             };
         }
     }
-    [System.Serializable]
-    public struct BoardDef : IScvMapCompatable
-    {
-        public MaxPawns[] default_max_pawns;
-        public bool is_hex;
-        public string name;
-        public Pos size;
-        public Tile[] tiles;
-
-        public BoardDef(global::BoardDef def)
-        {
-            default_max_pawns = new MaxPawns[def.maxPawns.Length];
-            for (int i = 0; i < def.maxPawns.Length; i++)
-            {
-                default_max_pawns[i] = new MaxPawns(def.maxPawns[i]);
-            }
-            is_hex = def.isHex;
-            name = def.name;
-            size = new Pos(def.boardSize);
-            tiles = new Contract.Tile[def.tiles.Length];
-            for (int i = 0; i < def.tiles.Length; i++)
-            {
-                tiles[i] = new Contract.Tile(def.tiles[i]);
-            }
-        }
-        
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("default_max_pawns", default_max_pawns),
-                    SCUtility.FieldToSCMapEntry("is_hex", is_hex),
-                    SCUtility.FieldToSCMapEntry("name", name),
-                    SCUtility.FieldToSCMapEntry("size", size),
-                    SCUtility.FieldToSCMapEntry("tiles", tiles),
-                }),
-            };
-        }
-    }
-    [System.Serializable]
+    [Serializable]
     public struct LobbyParameters : IScvMapCompatable
     {
         public byte[] board_hash;
@@ -791,7 +702,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("board_hash", board_hash),
                     SCUtility.FieldToSCMapEntry("dev_mode", dev_mode),
@@ -817,8 +728,7 @@ namespace Contract
             return JsonConvert.SerializeObject(simplified, Formatting.Indented);
         }
     }
-    
-    [System.Serializable]
+    [Serializable]
     public struct TurnMove : IScvMapCompatable
     {
         public bool initialized;
@@ -831,7 +741,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("initialized", initialized),
                     SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
@@ -847,8 +757,7 @@ namespace Contract
             return JsonUtility.ToJson(this).ToString();
         }
     }
-    
-    [System.Serializable]
+    [Serializable]
     public struct Turn : IScvMapCompatable
     {
         public ResolveEvent[] guest_events;
@@ -863,7 +772,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("guest_events", guest_events),
                     SCUtility.FieldToSCMapEntry("guest_events_hash", guest_events_hash),
@@ -876,34 +785,7 @@ namespace Contract
             };
         }
     }
-    
-    public struct Invite : IScvMapCompatable
-    {
-        public int expiration_ledger;
-        public string guest_address;
-        public string host_address;
-        public int ledgers_until_expiration;
-        public LobbyParameters parameters;
-        public int sent_ledger;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new SCMapEntry[]
-                {
-                    SCUtility.FieldToSCMapEntry("expiration_ledger", expiration_ledger),
-                    SCUtility.FieldToSCMapEntry("guest_address", guest_address),
-                    SCUtility.FieldToSCMapEntry("host_address", host_address),
-                    SCUtility.FieldToSCMapEntry("ledgers_until_expiration", ledgers_until_expiration),
-                    SCUtility.FieldToSCMapEntry("parameters", parameters),
-                    SCUtility.FieldToSCMapEntry("sent_ledger", sent_ledger),
-                }),
-            };
-        }
-    }
-    
-    [System.Serializable]
+    [Serializable]
     public struct Lobby : IScvMapCompatable
     {
         public uint game_end_state;
@@ -921,7 +803,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("game_end_state", game_end_state),
                     SCUtility.FieldToSCMapEntry("guest_address", guest_address),
@@ -941,7 +823,6 @@ namespace Contract
             return turns.Last();
         }
         
-
         public Pawn GetPawnById(uint pawn_id)
         {
             return pawns.First(x => x.pawn_id == pawn_id);
@@ -960,7 +841,7 @@ namespace Contract
         }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct ProveSetupReq : IScvMapCompatable
     {
         
@@ -972,7 +853,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                     SCUtility.FieldToSCMapEntry("salt", salt),
@@ -980,58 +861,9 @@ namespace Contract
                 }),
             };
         }
-
-        public string ToXdrString()
-        {
-            SCVal val = SCUtility.NativeToSCVal(this);
-            return SCValXdr.EncodeToBase64(val);
-        }
-
-        public static ProveSetupReq FromXdrString(string xdr)
-        {
-            using MemoryStream memoryStream = new MemoryStream(Convert.FromBase64String(xdr));
-            SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
-            return SCUtility.SCValToNative<ProveSetupReq>(val);
-        }
-
-        public byte[] GetHashBytes()
-        {
-            string xdrString = ToXdrString();
-            byte[] xdrBytes = Convert.FromBase64String(xdrString);
-            using SHA256 sha256 = SHA256.Create();
-            byte[] clientHashBytes = sha256.ComputeHash(xdrBytes);
-            return clientHashBytes;
-        }
-
-        public string GetHashString()
-        {
-            byte[] bytes = GetHashBytes();
-            return Convert.ToBase64String(bytes);
-        }
-
-        public bool HashMatches(byte[] hashBytes)
-        {
-            return GetHashBytes().SequenceEqual(hashBytes);
-        }
-
-        public void SaveToPlayerPrefs()
-        {
-            PlayerPrefs.SetString(GetHashString(), ToXdrString());
-        }
-
-        public static ProveSetupReq GetFromPlayerPrefs(byte[] setupHash)
-        {
-            if (setupHash.All(b => b == 0))
-            {
-                throw new ArgumentNullException();
-            }
-            string key = Convert.ToBase64String(setupHash);
-            string proveSetupReqXdr = PlayerPrefs.GetString(key);
-            return FromXdrString(proveSetupReqXdr);
-        }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct MakeLobbyReq : IScvMapCompatable
     {
         public uint lobby_id;
@@ -1041,7 +873,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                     SCUtility.FieldToSCMapEntry("parameters", parameters),
@@ -1050,7 +882,7 @@ namespace Contract
         }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct JoinLobbyReq : IScvMapCompatable
     {
         public uint lobby_id;
@@ -1059,7 +891,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                 }),
@@ -1067,7 +899,7 @@ namespace Contract
         }
     }
     
-    [System.Serializable]
+    [Serializable]
     public struct SetupCommitReq : IScvMapCompatable
     {
         public uint lobby_id;
@@ -1077,7 +909,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                     SCUtility.FieldToSCMapEntry("setup_hash", setup_hash),
@@ -1098,7 +930,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby", lobby),
                     SCUtility.FieldToSCMapEntry("move_pos_hash", move_pos_hash),
@@ -1122,7 +954,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby", lobby),
                     SCUtility.FieldToSCMapEntry("move_pos", move_pos),
@@ -1146,7 +978,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("events", events),
                     SCUtility.FieldToSCMapEntry("events_hash", events_hash),
@@ -1167,7 +999,7 @@ namespace Contract
         {
             return new SCVal.ScvMap()
             {
-                map = new SCMap(new SCMapEntry[]
+                map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby", lobby),
                     SCUtility.FieldToSCMapEntry("mail", mail),

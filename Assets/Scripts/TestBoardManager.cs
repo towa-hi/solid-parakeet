@@ -332,14 +332,16 @@ public class SetupTestPhase : ITestPhase
         }
         bool committed = userState.setup_hash.Any(b => b != 0);
         bool opponentCommitted = networkState.GetOpponentUserState().setup_hash.Any(b => b != 0);
-        bool submitted = userState.setup.Length > 1;
+        bool submitted = userState.setup.Length >= 1;
         bool opponentSubmitted = userState.setup.Length > 1;
         PawnCommit[] lockedCommits = Array.Empty<PawnCommit>();
-        if (committed)
+        if (submitted) // if submitted then we can just get what we submitted
         {
-            string key = Convert.ToBase64String(userState.setup_hash);
-            string proveSetupReqXdr = PlayerPrefs.GetString(key);
-            ProveSetupReq proveSetupReq = ProveSetupReq.FromXdrString(proveSetupReqXdr);
+            lockedCommits = userState.setup;
+        }
+        else if (committed) // if committed but not submitted we get from cache
+        {
+            ProveSetupReq proveSetupReq = CacheManager.LoadProveSetupReq(userState.setup_hash);
             lockedCommits = proveSetupReq.setup;
         }
         Dictionary<Vector2Int, Rank?> pendingCommits = bm.boardDef.tiles
@@ -549,9 +551,15 @@ public class SetupTestPhase : ITestPhase
         {
             if (commitment.Value != null)
             {
+                HiddenRank hiddenRank = new HiddenRank
+                {
+                    rank = commitment.Value.Value,
+                    salt = Globals.RandomSalt(),
+                };
+                byte[] hiddenRankHash = CacheManager.SaveHiddenRank(hiddenRank);
                 commits.Add(new PawnCommit
                 {
-                    hidden_rank_hash = HiddenRank.GetHash(commitment.Value.Value, Globals.TestSalt),
+                    hidden_rank_hash = hiddenRankHash,
                     pawn_id = Globals.GeneratePawnIdFromStartingPos(commitment.Key),
                 });
             }

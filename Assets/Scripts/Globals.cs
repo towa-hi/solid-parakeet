@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Contract;
@@ -20,6 +21,20 @@ public static class Globals
     public static readonly InputSystem_Actions InputActions = new();
     public const uint TestSalt = 42069;
 
+    public static uint RandomSalt()
+    {
+        uint value;
+        using RandomNumberGenerator rng = RandomNumberGenerator.Create();
+        byte[] bytes = new byte[4];
+        do
+        {
+            rng.GetBytes(bytes);
+            value = BitConverter.ToUInt32(bytes, 0);
+        } 
+        while (value == 0); // retry if zero
+        return value;
+    }
+    
     public static uint GeneratePawnIdFromStartingPos(Vector2Int startingPos)
     {
         return (uint)startingPos.x * 101 + (uint)startingPos.y;

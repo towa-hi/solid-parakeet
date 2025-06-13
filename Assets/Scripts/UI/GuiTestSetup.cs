@@ -60,7 +60,7 @@ public class GuiTestSetup : GameElement
         foreach (GuiRankListEntry entry in entries.Values)
         {
             int remaining = state.GetPendingRemainingCount(entry.rank);
-            int lockedCommitsOfThisRank = state.lockedCommits.Count(c => c.GetRankTemp() == entry.rank);
+            int lockedCommitsOfThisRank = state.lockedCommits.Count(c => CacheManager.LoadHiddenRank(c.hidden_rank_hash).rank == entry.rank);
             int remainingUncommitted = remaining - lockedCommitsOfThisRank;
             bool isSelected = state.selectedRank.HasValue && state.selectedRank.Value == entry.rank;
             entry.Refresh(entry.rank, remainingUncommitted, isSelected);

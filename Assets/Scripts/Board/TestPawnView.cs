@@ -40,9 +40,9 @@ public class TestPawnView : MonoBehaviour
         //isMyTeam = team == inBoardManager.userTeam;
     }
     
-    void Revealed(PawnCommit c)
+    void Revealed(PawnCommit pawnCommit)
     {
-        Rank rank = c.GetRankTemp();
+        Rank rank = CacheManager.LoadHiddenRank(pawnCommit.hidden_rank_hash).rank;
         PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rank);
         switch (team)
         {

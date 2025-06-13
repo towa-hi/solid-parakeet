@@ -99,6 +99,14 @@ pub struct Pos {
     pub x: i32,
     pub y: i32,
 }
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HiddenPos {
+    pub pos: Pos,
+    pub salt: u32,
+}
+
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommit {
     pub hidden_rank_hash: HiddenRankHash,
@@ -178,6 +186,11 @@ pub struct MoveSubmitReq {
     pub pawn_id: PawnGuid,
     pub turn: u32,
     pub user_address: Address,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReportReq {
+    pub report_type: u32,
 }
 
 // endregion

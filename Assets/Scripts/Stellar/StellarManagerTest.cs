@@ -125,39 +125,6 @@ public static class StellarManagerTest
         return 0;
     }
 
-    public static async Task<int> TestHashRequest()
-    {
-        PawnCommit[] fakeCommit = new[]
-        {
-            new PawnCommit
-            {
-                hidden_rank_hash = new byte[]
-                {
-                },
-                pawn_id = 1,
-            }
-        };
-        ProveSetupReq req = new()
-        {
-            lobby_id = 123,
-            salt = Globals.TestSalt,
-            setup = fakeCommit,
-        };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("test_hash", req);
-        EndTask(task);
-        var meta = result.TransactionResultMeta as TransactionMeta.case_3;
-        var resultVec = meta.v3.sorobanMeta.returnValue as SCVal.ScvBytes;
-        byte[] contractHash = resultVec.bytes.InnerValue;
-        byte[] xdrBytes = Convert.FromBase64String(req.ToXdrString());
-        using var sha256 = SHA256.Create();
-        byte[] clientHash = sha256.ComputeHash(xdrBytes);
-        Debug.Log("C#  XDR   : " + BitConverter.ToString(xdrBytes).Replace("-", ""));
-        Debug.Log("C#  clientHash  : " + BitConverter.ToString(clientHash).Replace("-", ""));
-        Debug.Log("Rust contractHash : " + BitConverter.ToString(contractHash).Replace("-", ""));
-        return ProcessTransactionResult(result, simResult);
-    }
-
     public static async Task<int> MakeLobbyRequest(LobbyParameters parameters)
     {
         MakeLobbyReq req = new()
@@ -188,19 +155,20 @@ public static class StellarManagerTest
         ProveSetupReq proveSetupReq = new()
         {
             lobby_id = gameNetworkState.user.current_lobby,
-            salt = Globals.TestSalt,
+            salt = Globals.RandomSalt(),
             setup = commitments,
         };
         // serialize into playerPrefs as a xdrstring
-        proveSetupReq.SaveToPlayerPrefs();
+        CacheManager.SaveProveSetupReq(proveSetupReq);
         SetupCommitReq req = new()
         {
             lobby_id = gameNetworkState.user.current_lobby,
-            setup_hash = proveSetupReq.GetHashBytes(),
+            setup_hash = SCUtility.GetHash(proveSetupReq),
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
         EndTask(task);
+        // TODO: clear CacheManager if transaction failed
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
@@ -208,7 +176,7 @@ public static class StellarManagerTest
     public static async Task<int> ProveSetupRequest()
     {
         GameNetworkState gameNetworkState = new(networkState);
-        ProveSetupReq req = ProveSetupReq.GetFromPlayerPrefs(gameNetworkState.GetUserState().setup_hash);
+        ProveSetupReq req = CacheManager.LoadProveSetupReq(gameNetworkState.GetUserState().setup_hash);
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup", req);
         EndTask(task);

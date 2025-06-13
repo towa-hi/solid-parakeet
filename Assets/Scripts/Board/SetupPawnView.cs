@@ -46,11 +46,11 @@ public class SetupPawnView: MonoBehaviour
             case SetupTestPhase setupTestPhase:
                 if (setupTestPhase.clientState.committed)
                 {
-                    foreach (PawnCommit commit in setupTestPhase.clientState.lockedCommits)
+                    foreach (PawnCommit pawnCommit in setupTestPhase.clientState.lockedCommits)
                     {
-                        if (Globals.DecodeStartingPos(commit.pawn_id) == pos)
+                        if (Globals.DecodeStartingPos(pawnCommit.pawn_id) == pos)
                         {
-                            Rank newRank = commit.GetRankTemp();
+                            Rank newRank = CacheManager.LoadHiddenRank(pawnCommit.hidden_rank_hash).rank;
                             if (rank != newRank)
                             {
                                 SetPendingCommit(newRank);
