@@ -28,7 +28,6 @@ public class TestBoardManager : MonoBehaviour
     // generally doesn't change after lobby is set in StartGame
     public BoardDef boardDef;
     public Contract.LobbyParameters parameters;
-    public Team userTeam;
     public bool isHost;
     public string lobbyId;
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
@@ -198,11 +197,6 @@ public class TestBoardManager : MonoBehaviour
         // isHost = lobby.host_address == user.index;
     }
     
-    public List<TestPawnView> GetMyPawnViews()
-    {
-        return pawnViews.Where(pv => pv.team == userTeam).ToList();
-    }
-    
     public Tile GetTileAtPos(Vector2Int pos)
     {
         TestTileView tileView = tileViews.GetValueOrDefault(pos);
@@ -291,6 +285,13 @@ public class SetupClientState
         changedByInput = true;
     }
 
+    public void ClearPendingCommits()
+    {
+        foreach (Vector2Int key in pendingCommits.Keys.ToArray())
+        {
+            pendingCommits[key] = null;
+        }
+    }
     public int GetPendingRemainingCount(Rank rank)
     {
         return (int)maxRanks[rank] - pendingCommits.Values.Count(c => c == rank);
@@ -503,47 +504,36 @@ public class SetupTestPhase : ITestPhase
     
     void OnClear()
     {
-        foreach (Vector2Int pos in clientState.pendingCommits.Keys)
-        {
-            clientState.SetPendingCommit(pos, null);
-        }
+        clientState.ClearPendingCommits();
         ClientStateChanged();
     }
 
     void OnAutoSetup()
     {
-        // clientState.ClearAllCommitments();
-        // // Generate valid setup positions for each pawn
-        // HashSet<Tile> usedTiles = new();
-        // Contract.MaxPawns[] sortedMaxPawns = bm.parameters.max_pawns;
-        // Array.Sort(sortedMaxPawns, (maxPawns1, maxPawns2) => Rules.GetSetupZone((Rank)maxPawns1.rank) < Rules.GetSetupZone((Rank)maxPawns2.rank) ? 1 : -1);
-        // foreach (MaxPawns maxPawns in sortedMaxPawns)
-        // {
-        //     for (int i = 0; i < maxPawns.max; i++)
-        //     {
-        //         // Get available tiles for this rank
-        //         List<Tile> availableTiles = bm.boardDef.GetEmptySetupTiles(bm.userTeam, (Rank)maxPawns.rank, usedTiles);
-        //         if (availableTiles.Count == 0)
-        //         {
-        //             Debug.LogError($"No available tiles for rank {maxPawns.rank}");
-        //             continue;
-        //         }
-        //         // Pick a random tile from available tiles
-        //         int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
-        //         Tile selectedTile = availableTiles[randomIndex];
-        //         // Find a pawn of this rank in purgatory
-        //         bool success = clientState.SetCommitment((Rank)maxPawns.rank, selectedTile.pos);
-        //         if (success)
-        //         {
-        //             usedTiles.Add(selectedTile);
-        //         }
-        //         else
-        //         {
-        //             Debug.LogError($"No available pawns of rank {maxPawns.rank} to place");
-        //         }
-        //     }
-        // }
-        // ClientStateChanged();
+        clientState.ClearPendingCommits();
+        // Generate valid setup positions for each pawn
+        HashSet<Tile> usedTiles = new();
+        Rank[] sortedRanks = clientState.maxRanks.Keys.ToArray();
+        Array.Sort(sortedRanks, (rank1, rank2) => Rules.GetSetupZone((Rank)rank1) < Rules.GetSetupZone((Rank)rank2) ? 1 : -1);
+        foreach (Rank rank in sortedRanks)
+        {
+            for (int i = 0; i < clientState.maxRanks[rank]; i++)
+            {
+                // Get available tiles for this rank
+                List<Tile> availableTiles = bm.boardDef.GetEmptySetupTiles(clientState.team, rank, usedTiles);
+                if (availableTiles.Count == 0)
+                {
+                    Debug.LogError($"No available tiles for rank {rank}");
+                    continue;
+                }
+                // Pick a random tile from available tiles
+                int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
+                Tile selectedTile = availableTiles[randomIndex];
+                clientState.SetPendingCommit(selectedTile.pos, rank);
+                usedTiles.Add(selectedTile);
+            }
+        }
+        ClientStateChanged();
     }
     
     void OnRefresh()
@@ -615,7 +605,7 @@ public class SelectingPawnMovementClientSubState : MovementClientSubState
         }
         else
         {
-            _ = StellarManagerTest.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
+            //_ = StellarManagerTest.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
         }
     }
 }
@@ -686,7 +676,7 @@ public class MovementClientState
     readonly BoardDef boardDef;
     readonly Dictionary<Vector2Int, Contract.Pawn> pawnPositions;
 
-    public MovementClientState(GameNetworkState networkState, bool isHost, Team myTeam, BoardDef boardDef)
+    public MovementClientState(GameNetworkState networkState, BoardDef boardDef)
     {
         // this.boardDef = boardDef;
         // Turn currentTurn = lobby.GetLatestTurn();
@@ -854,7 +844,7 @@ public class MovementTestPhase : ITestPhase
     void ResetClientState(GameNetworkState networkState)
     {
         Debug.Log("ResetClientState");
-        clientState = new MovementClientState(networkState, bm.isHost, bm.userTeam, bm.boardDef);
+        clientState = new MovementClientState(networkState, bm.boardDef);
     }
 
     void ClientStateChanged()

@@ -1815,7 +1815,6 @@ public struct NetworkState
         {
             return false;
         }
-
         if (user?.current_lobby == 0)
         {
             return false;
@@ -1826,6 +1825,7 @@ public struct NetworkState
         }
         return false;
     }
+    
     public override string ToString()
     {
         var simplified = new

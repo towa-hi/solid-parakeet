@@ -67,7 +67,6 @@ public class StellarDotnet
     public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable obj)
     {
         AccountEntry accountEntry = await ReqAccountEntry(userAccount);
-        // make structs
         List<SCVal> argsList = new() { userAddressSCVal };
         if (obj != null)
         {
@@ -92,30 +91,6 @@ public class StellarDotnet
         return (getResult, simResult);
     }
     
-    async Task<(SendTransactionResult, SimulateTransactionResult)> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
-    {
-        Transaction invokeContractTransaction = InvokeContractTransaction(functionName, accountEntry, args);
-        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(new SimulateTransactionParams()
-        {
-            Transaction = EncodeTransaction(invokeContractTransaction),
-            ResourceConfig = new()
-            {
-                // TODO: setup resource config
-            }
-        });
-        if (simulateTransactionResult.Error != null)
-        {
-            return (null, simulateTransactionResult);
-        }
-        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
-        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
-        SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
-        {
-            Transaction = encodedSignedTransaction,
-        });
-        return (sendTransactionResult, simulateTransactionResult);
-    }
-    
     public async Task<AccountEntry> ReqAccountEntry(MuxedAccount.KeyTypeEd25519 account)
     {
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
@@ -132,35 +107,24 @@ public class StellarDotnet
             return entry?.account;
         }
     }
-
-    LedgerKey MakeLedgerKey(string sym, object key, ContractDataDurability durability)
+    
+    public async Task<LedgerEntry.dataUnion.Trustline> GetAssets(MuxedAccount.KeyTypeEd25519 account)
     {
-        SCVal scKey = SCUtility.NativeToSCVal(key);
-        SCVal.ScvVec enumKey = new()
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
-            vec = new SCVec(new[]
-            {
-                new SCVal.ScvSymbol
-                {
-                    sym = sym,
-                },
-                scKey,
-            }),
-        };
-        return new LedgerKey.ContractData
+            Keys = new [] {EncodedTrustlineKey(account)},
+        });
+        if (getLedgerEntriesResult.Entries.Count == 0)
         {
-            contractData = new LedgerKey.contractDataStruct
-            {
-                contract = new SCAddress.ScAddressTypeContract
-                {
-                    contractId = new Hash(StrKey.DecodeContractId(contractAddress)),
-                },
-                key = enumKey,
-                durability = durability,
-            },
-        };
+            return null;
+        }
+        else
+        {
+            LedgerEntry.dataUnion.Trustline entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Trustline;
+            return entry;
+        }
     }
-
+    
     public async Task<NetworkState> ReqNetworkState()
     {
         NetworkState networkState = new(userAddress);
@@ -241,6 +205,30 @@ public class StellarDotnet
             }
         }
         return tuple;
+    }
+    
+    async Task<(SendTransactionResult, SimulateTransactionResult)> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
+    {
+        Transaction invokeContractTransaction = InvokeContractTransaction(functionName, accountEntry, args);
+        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(new SimulateTransactionParams()
+        {
+            Transaction = EncodeTransaction(invokeContractTransaction),
+            ResourceConfig = new()
+            {
+                // TODO: setup resource config
+            }
+        });
+        if (simulateTransactionResult.Error != null)
+        {
+            return (null, simulateTransactionResult);
+        }
+        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
+        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+        SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
+        {
+            Transaction = encodedSignedTransaction,
+        });
+        return (sendTransactionResult, simulateTransactionResult);
     }
     
     Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
@@ -416,24 +404,8 @@ public class StellarDotnet
         string content = await SendJsonRequest(requestJson);
         JsonRpcResponse<GetTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetTransactionResult>>(content, this.jsonSettings);
         GetTransactionResult transactionAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
+        latestLedger = transactionAsync.LatestLedger;
         return transactionAsync;
-    }
-
-    public async Task<LedgerEntry.dataUnion.Trustline> GetAssets(MuxedAccount.KeyTypeEd25519 account)
-    {
-        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
-        {
-            Keys = new [] {EncodedTrustlineKey(account)},
-        });
-        if (getLedgerEntriesResult.Entries.Count == 0)
-        {
-            return null;
-        }
-        else
-        {
-            LedgerEntry.dataUnion.Trustline entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Trustline;
-            return entry;
-        }
     }
     
     async Task<string> SendJsonRequest(string json)
@@ -456,6 +428,34 @@ public class StellarDotnet
         return request.downloadHandler.text;
     }
     
+    LedgerKey MakeLedgerKey(string sym, object key, ContractDataDurability durability)
+    {
+        SCVal scKey = SCUtility.NativeToSCVal(key);
+        SCVal.ScvVec enumKey = new()
+        {
+            vec = new SCVec(new[]
+            {
+                new SCVal.ScvSymbol
+                {
+                    sym = sym,
+                },
+                scKey,
+            }),
+        };
+        return new LedgerKey.ContractData
+        {
+            contractData = new LedgerKey.contractDataStruct
+            {
+                contract = new SCAddress.ScAddressTypeContract
+                {
+                    contractId = new Hash(StrKey.DecodeContractId(contractAddress)),
+                },
+                key = enumKey,
+                durability = durability,
+            },
+        };
+    }
+
     static string EncodedAccountKey(MuxedAccount.KeyTypeEd25519 account)
     {
         return LedgerKeyXdr.EncodeToBase64(new LedgerKey.Account()

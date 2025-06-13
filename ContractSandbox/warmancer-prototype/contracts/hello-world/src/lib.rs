@@ -199,6 +199,13 @@ pub enum DataKey {
 pub struct Contract;
 #[contractimpl]
 impl Contract {
+
+    pub fn test_hash(e: &Env, address: Address, req: ProveSetupReq) -> Result<BytesN<32>, Error> {
+        let serialized = req.clone().to_xdr(e);
+        let setup_hash = e.crypto().sha256(&serialized);
+        Ok(setup_hash.to_bytes())
+    }
+
     pub fn make_lobby(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();

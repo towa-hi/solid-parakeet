@@ -20,7 +20,7 @@ public class DebugNetworkInspector : MonoBehaviour
         user = new User
         {
             current_lobby = 420,
-            games_completed = 420
+            games_completed = 420,
         };
         lobbyInfo = new LobbyInfo
         {
@@ -40,7 +40,7 @@ public class DebugNetworkInspector : MonoBehaviour
             {
             },
             must_fill_all_tiles = false,
-            security_mode = false
+            security_mode = false,
         };
     }
     void Update()
@@ -55,7 +55,7 @@ public class DebugNetworkInspector : MonoBehaviour
             user = new User
             {
                 current_lobby = 420,
-                games_completed = 420
+                games_completed = 420,
             };
         }
         if (state.lobbyInfo.HasValue)
@@ -89,7 +89,7 @@ public class DebugNetworkInspector : MonoBehaviour
                 {
                 },
                 must_fill_all_tiles = false,
-                security_mode = false
+                security_mode = false,
             };
         }
     }

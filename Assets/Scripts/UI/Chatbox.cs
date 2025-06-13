@@ -107,19 +107,19 @@ public class Chatbox : MonoBehaviour
     async void OnSendButton()
     {
         Debug.Log("Sending mail");
-        Mail mail = new Mail()
-        {
-            mail_type = 0,
-            message = inputField.text,
-            sender = StellarManagerTest.GetUserAddress(),
-            sent_ledger = 0,
-        };
-        if (inputValid)
-        {
-            inputField.text = "";
-            await StellarManagerTest.SendMail(mail);
-            CheckMail();
-        }
+        // Mail mail = new Mail()
+        // {
+        //     mail_type = 0,
+        //     message = inputField.text,
+        //     sender = StellarManagerTest.GetUserAddress(),
+        //     sent_ledger = 0,
+        // };
+        // if (inputValid)
+        // {
+        //     inputField.text = "";
+        //     await StellarManagerTest.SendMail(mail);
+        //     CheckMail();
+        // }
     }
 
     void OnHideButton()

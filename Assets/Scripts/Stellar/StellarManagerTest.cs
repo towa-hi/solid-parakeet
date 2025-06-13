@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,6 +9,7 @@ using Contract;
 using Stellar;
 using Stellar.RPC;
 using Stellar.Utilities;
+using UnityEditor.ShaderGraph.Serialization;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Random = UnityEngine.Random;
@@ -16,7 +18,7 @@ public static class StellarManagerTest
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CCS6TSD52NY3JS4SXAAUEIQ2S62YJOV4DHHMJL5EDB4SQEEOJERF5OL2";
+    public static string testContract = "CCCHAOQ6EZOPUJZWF2RNLTKXJBHBLZJLGL6V66PZIQO27K43MQNV5UYZ";
     public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
     public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
     public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
@@ -25,59 +27,21 @@ public static class StellarManagerTest
     public static event Action<TrustLineEntry> OnAssetsUpdated;
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
-    public static TaskInfo currentTask;
-
-    public static NetworkState networkState;
-    // public static User? currentUser;
-    // public static LobbyInfo? currentLobbyInfo;
-    // public static LobbyParameters? currentLobbyParameters;
     
+    public static NetworkState networkState;
+
+    static TaskInfo currentTask;
+
     public static void Initialize()
     {
         currentTask = null;
         networkState = new NetworkState();
-        //currentUser = null;
-        //currentLobby = null;
         stellar = new StellarDotnet(testHostSneed, testContract);
-        Debug.Log("Initialized sneed and contract address");
-        Debug.Log("sneed" + stellar.sneed);
-        Debug.Log("contract" + stellar.contractAddress);
     }
 
-    static TaskInfo SetCurrentTask(string message)
-    {
-        if (currentTask != null)
-        {
-            throw new Exception("Task is already set");
-        }
-        TaskInfo taskInfo = new TaskInfo();
-        taskInfo.taskId = Guid.NewGuid();
-        taskInfo.taskMessage = message;
-        currentTask = taskInfo;
-        OnTaskStarted?.Invoke(taskInfo);
-        return taskInfo;
-    }
-
-    static void EndTask(TaskInfo taskInfo)
-    {
-        if (taskInfo == null)
-        {
-            throw new Exception("Task is null");
-        }
-        if (currentTask == null)
-        {
-            throw new Exception("Task is not set");
-        }
-        if (currentTask.taskId != taskInfo.taskId)
-        {
-            throw new Exception("Task is not taskId");
-        }
-        OnTaskEnded?.Invoke(currentTask);
-        currentTask = null;
-    }
-    
     public static async Task<bool> UpdateState()
     {
+        await TestHashRequest();
         TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
         networkState = await stellar.ReqNetworkState();
         EndTask(getNetworkStateTask);
@@ -130,7 +94,8 @@ public static class StellarManagerTest
             List<int> errorCodes = new();
             foreach (DiagnosticEvent diag in simResult.DiagnosticEvents.Where(diag => !diag.inSuccessfulContractCall))
             {
-                Debug.LogError(diag); 
+                Debug.LogError(DiagnosticEventXdr.EncodeToBase64(diag)); 
+                Debug.LogError(JsonUtility.ToJson(diag));
                 ContractEvent.bodyUnion.case_0 body = (ContractEvent.bodyUnion.case_0)diag._event.body;
                 foreach (SCVal topic in body.v0.topics)
                 {
@@ -161,22 +126,42 @@ public static class StellarManagerTest
         return 0;
     }
 
-    static uint GenerateRandomUint()
+    public static async Task<int> TestHashRequest()
     {
-        uint value;
-        do
+        PawnCommit[] fakeCommit = new[]
         {
-            // range is [0, UInt32.MaxValue]
-            value = (uint)Random.Range(1, int.MaxValue)      // first half
-                    << 16
-                    | (uint)Random.Range(0, ushort.MaxValue); // second half
-        } while (value == 0);
-        return value;
+            new PawnCommit
+            {
+                hidden_rank_hash = new byte[]
+                {
+                },
+                pawn_id = 1,
+            }
+        };
+        ProveSetupReq req = new()
+        {
+            lobby_id = 123,
+            salt = Globals.TestSalt,
+            setup = fakeCommit,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("test_hash", req);
+        EndTask(task);
+        var meta = result.TransactionResultMeta as TransactionMeta.case_3;
+        var resultVec = meta.v3.sorobanMeta.returnValue as SCVal.ScvBytes;
+        byte[] contractHash = resultVec.bytes.InnerValue;
+        byte[] xdrBytes = Convert.FromBase64String(req.ToXdrString());
+        using var sha256 = SHA256.Create();
+        byte[] clientHash = sha256.ComputeHash(xdrBytes);
+        Debug.Log("C#  XDR   : " + BitConverter.ToString(xdrBytes).Replace("-", ""));
+        Debug.Log("C#  clientHash  : " + BitConverter.ToString(clientHash).Replace("-", ""));
+        Debug.Log("Rust contractHash : " + BitConverter.ToString(contractHash).Replace("-", ""));
+        return ProcessTransactionResult(result, simResult);
     }
-    
-    public static async Task<int> MakeLobbyRequest(Contract.LobbyParameters parameters)
+
+    public static async Task<int> MakeLobbyRequest(LobbyParameters parameters)
     {
-        MakeLobbyReq req = new MakeLobbyReq
+        MakeLobbyReq req = new()
         {
             lobby_id = GenerateRandomUint(),
             parameters = parameters,
@@ -199,9 +184,9 @@ public static class StellarManagerTest
 
     public static async Task<int> CommitSetupRequest(PawnCommit[] commitments)
     {
-        GameNetworkState gameNetworkState = new GameNetworkState(networkState);
+        GameNetworkState gameNetworkState = new(networkState);
         // create and store a future request
-        ProveSetupReq proveSetupReq = new ProveSetupReq()
+        ProveSetupReq proveSetupReq = new()
         {
             lobby_id = gameNetworkState.user.current_lobby,
             salt = Globals.TestSalt,
@@ -209,9 +194,11 @@ public static class StellarManagerTest
         };
         string proveSetupValXdr = proveSetupReq.ToXdrString();
         PlayerPrefs.SetString(gameNetworkState.GetProveSetupReqPlayerPrefsKey(), proveSetupValXdr);
+        using MemoryStream memoryStream = new MemoryStream();
+        SCValXdr.Encode(new XdrWriter(memoryStream), proveSetupReq.ToScvMap());
         // hash the request and send it
         SHA256 sha256 = SHA256.Create();
-        byte[] proveSetupValXdrHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(proveSetupValXdr));
+        byte[] proveSetupValXdrHash = sha256.ComputeHash(memoryStream);
         SetupCommitReq req = new()
         {
             lobby_id = gameNetworkState.user.current_lobby,
@@ -226,7 +213,7 @@ public static class StellarManagerTest
 
     public static async Task<int> ProveSetupRequest()
     {
-        GameNetworkState gameNetworkState = new GameNetworkState(networkState);
+        GameNetworkState gameNetworkState = new(networkState);
         string proveSetupReqXdr = PlayerPrefs.GetString(gameNetworkState.GetProveSetupReqPlayerPrefsKey());
         ProveSetupReq req = ProveSetupReq.FromXdrString(proveSetupReqXdr);
         TaskInfo task = SetCurrentTask("CallVoidFunction");
@@ -234,54 +221,6 @@ public static class StellarManagerTest
         EndTask(task);
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
-    }
-    
-    public static async Task<int> QueueMove(QueuedMove queuedMove)
-    {
-        // Assert.IsTrue(currentLobbyInfo.HasValue);
-        // Assert.IsTrue(currentUser.HasValue);
-        // Lobby lobby = currentLobby.Value;
-        // User user = currentUser.Value;
-        // Assert.IsNotNull(queuedMove);
-        // Turn currentTurn = lobby.turns.Last();
-        // bool isHost = false || currentTurn.host_turn.user_address == stellar.userAddress;
-        // TurnMove turnMove = isHost ? currentTurn.host_turn : currentTurn.guest_turn;
-        // if (turnMove.initialized)
-        // {
-        //     Debug.LogError("user already moved");
-        //     return -666;
-        // }
-        // MoveSubmitReq req = new()
-        // {
-        //     lobby = lobby.index,
-        //     move_pos = new Pos(queuedMove.pos),
-        //     pawn_id = queuedMove.pawnId.ToString(),
-        //     turn = turnMove.turn,
-        //     user_address = turnMove.user_address,
-        // };
-        // TaskInfo task = SetCurrentTask("CallVoidFunction");
-        // (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("submit_move", req);
-        // EndTask(task);
-        // await UpdateState();
-        // return ProcessTransactionResult(result, simResult);
-        return -1;
-    }
-
-    public static async Task<int> SubmitMoveHash()
-    {
-        // // silently update lobby
-        // Assert.IsTrue(currentUser.HasValue);
-        // TaskInfo getLobbyTask = SetCurrentTask("ReqLobbyData");
-        // currentLobby = await stellar.ReqLobbyData(currentUser.Value.current_lobby);
-        // EndTask(getLobbyTask);
-        // Assert.IsTrue(currentLobby.HasValue);
-        // MoveResolveReq req = Globals.ResolveTurn(currentLobby.Value, stellar.userAddress);
-        // TaskInfo task = SetCurrentTask("CallVoidFunction");
-        // (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("resolve_move", req);
-        // EndTask(task);
-        // await UpdateState();
-        // return ProcessTransactionResult(result, simResult);
-        return -1;
     }
     
     public static async Task<int> JoinLobbyRequest(uint lobbyId)
@@ -294,21 +233,6 @@ public static class StellarManagerTest
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("join_lobby", req);
         EndTask(task);
         return ProcessTransactionResult(result, simResult);
-    }
-
-    public static async Task<int> SendMail(Mail mail)
-    {
-        // Assert.IsTrue(currentLobby.HasValue);
-        // SendMailReq req = new()
-        // {
-        //     lobby = currentLobby.Value.index,
-        //     mail = mail,
-        // };
-        // TaskInfo task = SetCurrentTask("CallVoidFunction");
-        // (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("send_mail", req);
-        // EndTask(task);
-        // return ProcessTransactionResult(result, simResult);
-        return -1;
     }
 
     public static async Task<AccountEntry> GetAccount(string key)
@@ -328,6 +252,51 @@ public static class StellarManagerTest
         EndTask(task);
         OnAssetsUpdated?.Invoke(result.trustLine);
         return result.trustLine;
+    }
+    
+    static TaskInfo SetCurrentTask(string message)
+    {
+        if (currentTask != null)
+        {
+            throw new Exception("Task is already set");
+        }
+        TaskInfo taskInfo = new();
+        taskInfo.taskId = Guid.NewGuid();
+        taskInfo.taskMessage = message;
+        currentTask = taskInfo;
+        OnTaskStarted?.Invoke(taskInfo);
+        return taskInfo;
+    }
+
+    static void EndTask(TaskInfo taskInfo)
+    {
+        if (taskInfo == null)
+        {
+            throw new Exception("Task is null");
+        }
+        if (currentTask == null)
+        {
+            throw new Exception("Task is not set");
+        }
+        if (currentTask.taskId != taskInfo.taskId)
+        {
+            throw new Exception("Task is not taskId");
+        }
+        OnTaskEnded?.Invoke(currentTask);
+        currentTask = null;
+    }
+    
+    static uint GenerateRandomUint()
+    {
+        uint value;
+        do
+        {
+            // range is [0, UInt32.MaxValue]
+            value = (uint)Random.Range(1, int.MaxValue)      // first half
+                    << 16
+                    | (uint)Random.Range(0, ushort.MaxValue); // second half
+        } while (value == 0);
+        return value;
     }
 }
 

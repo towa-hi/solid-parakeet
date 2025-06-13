@@ -37,7 +37,7 @@ public class TestPawnView : MonoBehaviour
         bm.OnClientGameStateChanged += OnClientGameStateChanged;
         //badge.Initialize(p, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
         SetPawn(p);
-        isMyTeam = team == inBoardManager.userTeam;
+        //isMyTeam = team == inBoardManager.userTeam;
     }
     
     void Revealed(PawnCommit c)
