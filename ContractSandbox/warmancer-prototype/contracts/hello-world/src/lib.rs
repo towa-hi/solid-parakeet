@@ -164,7 +164,7 @@ pub struct PawnState {
     pub moved_scout: bool,
     pub pawn_id: PawnId,
     pub pos: Pos,
-    pub rank_revealed: bool,
+    pub revealed_rank: u32,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -499,7 +499,7 @@ impl Contract {
                     moved_scout: false,
                     pawn_id: commit.pawn_id.clone(),
                     pos: starting_pos,
-                    rank_revealed: false,
+                    revealed_rank: 42069,
                 };
                 pawns.push_back(pawn_state);
             }
@@ -618,105 +618,90 @@ impl Contract {
         // if both players have submitted moves, resolve
         if opponent_state.instruction == Instruction::WaitingOppMovePosProof {
             // from this point on, any irregularities are unforgivable and a winner must be assigned
-
-            let mut u_invalid_move = false;
-            let mut o_invalid_move = false;
-
-            // naively update a copy of pawns with the latest moves
-            let mut pawns = game_state.board_state.pawns.clone();
-            let u_pawn_index = match pawns
+            let u_move = user_state.latest_move;
+            let o_move = opponent_state.latest_move;
+            let u_pawn_index = game_state.board_state.pawns
                 .iter()
-                .position(|p| p.pawn_id == user_state.latest_move.pawn_id) {
-                Some(idx) => idx as u32,
-                None => {
-                    u_invalid_move = true;
-                    42069
-                }
-            };
-            let o_pawn_index = match pawns
+                .position(|p| p.pawn_id == u_move.pawn_id)
+                .ok_or(Error::PawnNotFound)? as u32;
+            let o_pawn_index = game_state.board_state.pawns
                 .iter()
-                .position(|p| p.pawn_id == opponent_state.latest_move.pawn_id) {
-                Some(idx) => idx as u32,
-                None => {
-                    o_invalid_move = true;
-                    42069
-                }
-            };
+                .position(|p| p.pawn_id == o_move.pawn_id)
+                .ok_or(Error::PawnNotFound)? as u32;
+            let mut u_pawn_state = game_state.board_state.pawns.get_unchecked(u_pawn_index);
+            let mut o_pawn_state = game_state.board_state.pawns.get_unchecked(o_pawn_index);
+            let u_move_start_pos = u_pawn_state.pos.clone();
+            let o_move_start_pos = o_pawn_state.pos.clone();
+            let mut u_invalid_move = !Self::valid_move(&u_move, u_index, &u_pawn_state, &game_state);
+            let mut o_invalid_move = !Self::valid_move(&o_move, o_index, &o_pawn_state, &game_state);
+            // immediate failure if a user submits a invalid move
             if let Some(winner) = Self::winner_index(u_invalid_move, u_index, o_invalid_move, o_index) {
                 return Ok(winner)
             }
-            let u_target_pos = user_state.latest_move.pos.clone();
-            let o_target_pos = opponent_state.latest_move.pos.clone();
+            'resolve: {
+                // naively update a copy of pawns with the latest moves
+                let mut pawns = game_state.board_state.pawns.clone();
+                // update both pawn states
+                if u_pawn_state.pos != u_move.pos {
+                    u_pawn_state.moved = true;
+                }
+                if o_pawn_state.pos != o_move.pos {
+                    o_pawn_state.moved = true;
+                }
+                if !u_pawn_state.moved_scout {
+                    u_pawn_state.moved_scout = Self::is_scout_move(&u_pawn_state.pos, &u_move.pos);
+                }
+                if !o_pawn_state.moved_scout {
+                    o_pawn_state.moved_scout = Self::is_scout_move(&o_pawn_state.pos, &o_move.pos);
+                }
+                u_pawn_state.pos = u_move.pos.clone();
+                o_pawn_state.pos = o_move.pos.clone();
+                pawns.set(u_pawn_index, u_pawn_state.clone());
+                pawns.set(o_pawn_index, o_pawn_state.clone());
 
-            let mut u_pawn_state = pawns.get_unchecked(u_pawn_index);
-            let mut o_pawn_state = pawns.get_unchecked(o_pawn_index);
-
-            let u_pawn_state_player_index = Self::decode_pawn_id(&u_pawn_state.pawn_id).1;
-            let o_pawn_state_player_index = Self::decode_pawn_id(&o_pawn_state.pawn_id).1;
-            // check to see if these are movable
-            if !u_pawn_state.alive {
-                u_invalid_move = true;
-            }
-            if !o_pawn_state.alive {
-                o_invalid_move = true;
-            }
-            // update both pawn states
-            if u_pawn_state.pos != u_target_pos {
-                u_pawn_state.moved = true;
-            }
-            if !u_pawn_state.moved_scout {
-                u_pawn_state.moved_scout = Self::is_scout_move(&u_pawn_state.pos, &u_target_pos);
-            }
-            u_pawn_state.pos = u_target_pos.clone();
-            if o_pawn_state.pos != o_target_pos {
-                o_pawn_state.moved = true;
-            }
-            if !o_pawn_state.moved_scout {
-                o_pawn_state.moved_scout = Self::is_scout_move(&o_pawn_state.pos, &o_target_pos);
-            }
-            o_pawn_state.pos = o_target_pos.clone();
-
-            pawns.set(u_pawn_index, u_pawn_state.clone());
-            pawns.set(o_pawn_index, o_pawn_state.clone());
-            // after pawns copy is set, check for collisions
-            let mut double_collision: Option<(&PawnState, &PawnState)> = None; // did both players move to the same square
-            let mut u_collision: Option<&PawnState> = None; // did u move to a occupied pos
-            let mut o_collision: Option<&PawnState> = None; // did o move to a occupied pos
-
-            // if both players ran into each other we dont need to check for any other collisions
-            if u_pawn_state.pos == o_pawn_state.pos {
-                double_collision = Some((&u_pawn_state, &o_pawn_state));
-            }
-            else {
-                // iterate and check collisions with unmoved pawns
-                for n_pawn_state in pawns {
-                    if u_pawn_state.pawn_id == n_pawn_state.pawn_id {
-                        continue
-                    }
-                    if o_pawn_state.pawn_id == n_pawn_state.pawn_id {
-                        continue
-                    }
-                    let n_pawn_state_player_index = Self::decode_pawn_id(&n_pawn_state.pawn_id).1;
-                    if u_pawn_state.pos == n_pawn_state.pos {
-                        u_collision = Some(&n_pawn_state);
-                        if u_pawn_state_player_index == n_pawn_state_player_index {
-                            u_invalid_move = true;
+                // after pawns copy is set, check for collisions
+                let mut double_collision: Option<(PawnState, PawnState)> = None; // both players moved to the same square
+                let mut swap_collision: Option<(PawnState, PawnState)> = None; // both players try to swap positions
+                let mut u_collision: Option<PawnState> = None; // u moved to a occupied pos
+                let mut o_collision: Option<PawnState> = None; // o moved to a occupied pos
+                // if both players ran into each other we dont need to check for any other collisions
+                if u_move.pos == o_move.pos {
+                    double_collision = Some((u_pawn_state.clone(), o_pawn_state.clone()));
+                }
+                else if u_move.pos == o_move_start_pos && o_move.pos == u_move_start_pos {
+                    swap_collision = Some((u_pawn_state.clone(), o_pawn_state.clone()));
+                }
+                else {
+                    // iterate and check collisions with unmoved pawns
+                    for n_pawn_state in pawns.iter() {
+                        if u_pawn_state.pawn_id == n_pawn_state.pawn_id {
+                            continue
                         }
-                    }
-                    if o_pawn_state.pos == n_pawn_state.pos {
-                        o_collision = Some(&n_pawn_state);
-                        if o_pawn_state_player_index == n_pawn_state_player_index {
-                            o_invalid_move = true;
+                        if o_pawn_state.pawn_id == n_pawn_state.pawn_id {
+                            continue
+                        }
+                        if u_pawn_state.pos == n_pawn_state.pos {
+                            u_collision = Some(n_pawn_state.clone());
+                        }
+                        if o_pawn_state.pos == n_pawn_state.pos {
+                            o_collision = Some(n_pawn_state.clone());
+                        }
+                        if u_collision.is_some() && o_collision.is_some() {
+                            break;
                         }
                     }
                 }
+                // resolve collisions
+                
+                // write to game_state
+                game_state.board_state.pawns = pawns.clone();
             }
 
 
 
 
-            user_state.old_moves.push_back(user_state.latest_move);
-            opponent_state.old_moves.push_back(opponent_state.latest_move.clone());
+            user_state.old_moves.push_back(u_move.clone());
+            opponent_state.old_moves.push_back(o_move.clone());
             user_state.latest_move = empty_move.clone();
             opponent_state.latest_move = empty_move.clone();
         }
@@ -728,6 +713,47 @@ impl Contract {
         Ok(winner_player_index)
     }
 
+    pub(crate) fn valid_move(mv: &HiddenMove, player_index: u32, pawn_state: &PawnState, game_state: &GameState) -> bool {
+        // cond: pawn must exist (we take this for granted if it's being fed into parameters)
+
+        // TODO: cond: target pos must exist
+        // cond: pawn must be owned by this player
+        let owner = Self::decode_pawn_id(&pawn_state.pawn_id).1;
+        if player_index != owner {
+            return false
+        }
+        // cond: pawn must be alive
+        if !pawn_state.alive {
+            return false
+        }
+        // if pawn rank is revealed
+        if pawn_state.revealed_rank != 42069 {
+            // cond: rank is not flag
+            if pawn_state.revealed_rank == 0 {
+                return false
+            }
+            // cond: rank is not trap
+            if pawn_state.revealed_rank == 11 {
+                return false
+            }
+            // TODO: cond: target pos must be in set of valid movable tiles
+        }
+        // iterate thru other pawns
+        for other_pawn_state in game_state.board_state.pawns.iter() {
+            // skip self
+            if other_pawn_state.pawn_id == pawn_state.pawn_id {
+                continue
+            }
+            if other_pawn_state.pos == mv.pos {
+                // cond: pawn on target pos cant be same team
+                let other_owner = Self::decode_pawn_id(&other_pawn_state.pawn_id).1;
+                if other_owner == player_index {
+                    return false
+                }
+            }
+        }
+        return true
+    }
     pub(crate) fn winner_index(u_invalid: bool, u_index: u32, o_invalid: bool, o_index: u32) -> Option<u32> {
         match (u_invalid, o_invalid) {
             (true,  true ) => Some(2),
