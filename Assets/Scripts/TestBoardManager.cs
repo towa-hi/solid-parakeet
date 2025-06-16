@@ -1,16 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using Contract;
-using JetBrains.Annotations;
-using Stellar;
-using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Random = UnityEngine.Random;
 
 public class TestBoardManager : MonoBehaviour
 {
@@ -27,7 +23,7 @@ public class TestBoardManager : MonoBehaviour
     public GuiTestGame guiTestGame;
     // generally doesn't change after lobby is set in StartGame
     public BoardDef boardDef;
-    public Contract.LobbyParameters parameters;
+    public LobbyParameters parameters;
     public bool isHost;
     public string lobbyId;
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
@@ -73,7 +69,7 @@ public class TestBoardManager : MonoBehaviour
         else
         {
             Assert.IsTrue(StellarManagerTest.networkState.user.HasValue);
-            GameNetworkState networkState = new GameNetworkState(StellarManagerTest.networkState);
+            GameNetworkState networkState = new(StellarManagerTest.networkState);
             Initialize(networkState);
             //only invoke this directly once on start
         }
@@ -96,7 +92,7 @@ public class TestBoardManager : MonoBehaviour
         {
             return;
         }
-        GameNetworkState networkState = new GameNetworkState(StellarManagerTest.networkState);
+        GameNetworkState networkState = new(StellarManagerTest.networkState);
         if (firstTime || networkState.gameState.phase != lastPhase)
         {
             firstTime = false;
@@ -261,7 +257,7 @@ public interface ITestPhase
 
 public class SetupClientState
 {
-    public bool changedByInput = false;
+    public bool changedByInput;
     //public Dictionary<uint, PawnCommit> commitments;
     public Dictionary<Rank, uint> maxRanks;
     public PawnCommit[] lockedCommits;
@@ -325,7 +321,7 @@ public class SetupTestPhase : ITestPhase
     {
         Debug.Log("SetupTestPhase.ResetClientState");
         UserState userState = networkState.GetUserState();
-        Dictionary<Rank, uint> maxRankDictionary = new Dictionary<Rank, uint>();
+        Dictionary<Rank, uint> maxRankDictionary = new();
         foreach (MaxRank maxRank in networkState.lobbyParameters.max_ranks)
         {
             maxRankDictionary[maxRank.rank] = maxRank.max;
@@ -347,7 +343,7 @@ public class SetupTestPhase : ITestPhase
         Dictionary<Vector2Int, Rank?> pendingCommits = bm.boardDef.tiles
             .Where(tile => tile.IsTileSetupAllowed(networkState.clientTeam))
             .ToDictionary<Tile, Vector2Int, Rank?>(tile => tile.pos, tile => null);
-        SetupClientState newSetupClientState = new SetupClientState()
+        SetupClientState newSetupClientState = new()
         {
             selectedRank = null,
             maxRanks = maxRankDictionary,
@@ -449,8 +445,6 @@ public class SetupTestPhase : ITestPhase
             }
         }
     }
-    
-    
 
     public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
     {
@@ -517,7 +511,7 @@ public class SetupTestPhase : ITestPhase
         // Generate valid setup positions for each pawn
         HashSet<Tile> usedTiles = new();
         Rank[] sortedRanks = clientState.maxRanks.Keys.ToArray();
-        Array.Sort(sortedRanks, (rank1, rank2) => Rules.GetSetupZone((Rank)rank1) < Rules.GetSetupZone((Rank)rank2) ? 1 : -1);
+        Array.Sort(sortedRanks, (rank1, rank2) => Rules.GetSetupZone(rank1) < Rules.GetSetupZone(rank2) ? 1 : -1);
         foreach (Rank rank in sortedRanks)
         {
             for (int i = 0; i < clientState.maxRanks[rank]; i++)
@@ -530,7 +524,7 @@ public class SetupTestPhase : ITestPhase
                     continue;
                 }
                 // Pick a random tile from available tiles
-                int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
+                int randomIndex = Random.Range(0, availableTiles.Count);
                 Tile selectedTile = availableTiles[randomIndex];
                 clientState.SetPendingCommit(selectedTile.pos, rank);
                 usedTiles.Add(selectedTile);
@@ -546,22 +540,12 @@ public class SetupTestPhase : ITestPhase
 
     void OnSubmit()
     {
-        List<PawnCommit> commits = new List<PawnCommit>();
+        Dictionary<Vector2Int, Rank> pendingCommits = new();
         foreach (KeyValuePair<Vector2Int, Rank?> commitment in clientState.pendingCommits)
         {
             if (commitment.Value != null)
             {
-                HiddenRank hiddenRank = new HiddenRank
-                {
-                    rank = commitment.Value.Value,
-                    salt = Globals.RandomSalt(),
-                };
-                byte[] hiddenRankHash = CacheManager.SaveHiddenRank(hiddenRank);
-                commits.Add(new PawnCommit
-                {
-                    hidden_rank_hash = hiddenRankHash,
-                    pawn_id = Globals.GeneratePawnIdFromStartingPos(commitment.Key),
-                });
+                pendingCommits[commitment.Key] = commitment.Value.Value;
             }
             else
             {
@@ -574,7 +558,7 @@ public class SetupTestPhase : ITestPhase
         }
         else
         {
-            _ = StellarManagerTest.CommitSetupRequest(commits.ToArray());
+            _ = StellarManagerTest.CommitSetupRequest(pendingCommits);
         }
     }
 
@@ -609,13 +593,10 @@ public class SelectingPawnMovementClientSubState : MovementClientSubState
         if (!selectedPawnId.HasValue || !selectedPos.HasValue) return;
         if (TestBoardManager.singlePlayer)
         {
-            FakeServer.ins.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
+            //FakeServer.ins.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
 
         }
-        else
-        {
-            //_ = StellarManagerTest.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
-        }
+        //_ = StellarManagerTest.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
     }
 }
 

@@ -5,10 +5,9 @@ use soroban_sdk::xdr::*;
 // region global state defs
 
 pub type LobbyId = u32;
-pub type PawnGuid = u32;
-pub type PawnGuidHash = String;
+pub type PawnId = u32;
 pub type HiddenRankHash = BytesN<32>;
-pub type PosHash = String;
+pub type HiddenMoveHash = BytesN<32>;
 pub type BoardHash = BytesN<32>;
 pub type Rank = u32;
 pub type Turn = u32;
@@ -48,6 +47,32 @@ pub enum Error {
     SetupHashFail = 24,
     GameStateNotFound = 25,
     GameNotInProgress = 26,
+    AlreadySubmittedSetup = 27,
+    InvalidContractState = 28,
+    WrongInstruction = 29,
+    HiddenMoveHashFail = 30,
+    PawnNotTeam = 31,
+    PawnNotFound = 32,
+    RedMoveInvalid = 33,
+    BlueMoveInvalid = 34,
+    BothMovesInvalid = 35,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Instruction {
+    None = 0,
+    Reserved = 1,
+    RequestingSetupCommit = 2,
+    WaitingOppSetupCommit = 3,
+    RequestingSetupProof = 4,
+    WaitingOppSetupProof = 5,
+    RequestingMoveCommit = 6,
+    WaitingOppMoveCommit = 7,
+    RequestingMovePosProof = 8,
+    WaitingOppMovePosProof = 9,
+    RequestingMoveRankProof = 10,
+    WaitingOppMoveRankProof = 11,
+
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -68,12 +93,6 @@ pub enum LobbyStatus {
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Team {
-    None = 0,
-    Red = 1,
-    Blue = 2,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EndState {
     Tie = 0,
     Red = 1,
@@ -88,6 +107,7 @@ pub struct User {
     pub current_lobby: LobbyId,
     pub games_completed: u32,
     pub index: Address,
+    pub instruction: u32,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MaxRank {
@@ -101,16 +121,22 @@ pub struct Pos {
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HiddenPos {
+pub struct HiddenMove {
+    pub pawn_id: PawnId,
     pub pos: Pos,
-    pub salt: u32,
+    pub salt: u64,
 }
 
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HiddenRank {
+    pub rank: Rank,
+    pub salt: u64,
+}
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnCommit {
     pub hidden_rank_hash: HiddenRankHash,
-    pub pawn_id: PawnGuid,
+    pub pawn_id: PawnId,
 }
 
 // endregion
@@ -119,7 +145,7 @@ pub struct PawnCommit {
 pub struct LobbyParameters {
     pub board_hash: BoardHash,
     pub dev_mode: bool,
-    pub host_team: Team,
+    pub host_team: u32,
     pub max_ranks: Vec<MaxRank>,
     pub must_fill_all_tiles: bool,
     pub security_mode: bool,
@@ -131,18 +157,48 @@ pub struct LobbyInfo {
     pub host_address: Address,
     pub status: LobbyStatus,
 }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PawnState {
+    pub alive: bool,
+    pub moved: bool,
+    pub moved_scout: bool,
+    pub pawn_id: PawnId,
+    pub pos: Pos,
+    pub rank_revealed: bool,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TileState {
+    pub pos: Pos,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoardState {
+    pub initialized: bool,
+    pub pawns: Vec<PawnState>,
+}
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameState {
+    pub board_state: BoardState,
     pub phase: Phase,
     pub user_states: Vec<UserState>,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserState {
+    pub instruction: Instruction,
+    pub latest_move: HiddenMove,
+    pub latest_move_hash: HiddenMoveHash,
+    pub old_moves: Vec<HiddenMove>,
     pub setup: Vec<PawnCommit>,
     pub setup_hash: SetupHash,
     pub setup_hash_salt: u32,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Snapshot {
+    pub pawns: Vec<PawnState>,
 }
 
 // endregion
@@ -162,7 +218,7 @@ pub struct LeaveLobbyReq {
     pub lobby_id: LobbyId,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SetupCommitReq {
+pub struct CommitSetupReq {
     pub lobby_id: LobbyId,
     pub setup_hash: SetupHash,
 }
@@ -173,24 +229,16 @@ pub struct ProveSetupReq {
     pub setup: Vec<PawnCommit>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MoveCommitReq {
+pub struct CommitMoveReq {
     pub lobby_id: LobbyId,
-    pub move_pos_hash: PosHash, // hash of the Pos it's moving to
-    pub pawn_id_hash: PawnGuidHash,
-    pub turn: u32,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MoveSubmitReq {
-    pub lobby: LobbyId,
-    pub move_pos: Pos,
-    pub pawn_id: PawnGuid,
-    pub turn: u32,
-    pub user_address: Address,
+    pub move_hash: HiddenMoveHash,
+    // TODO: add a state hash to check if the last movement was valid
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReportReq {
-    pub report_type: u32,
+pub struct ProveMoveReq {
+    pub hidden_move: HiddenMove,
+    pub lobby_id: LobbyId,
 }
 
 // endregion
@@ -248,7 +296,6 @@ impl Contract {
         temporary.set(&lobby_parameters_key, &req.parameters);
         persistent.set(&user_key, &host_user);
 
-        persistent.extend_ttl(&user_key, 259200, 518400);
         Ok(())
     }
 
@@ -283,13 +330,21 @@ impl Contract {
         lobby_info.status = LobbyStatus::Aborted; // TODO: handle detecting if the game is in progress to award victory/defeat
         // write
         temporary.set(&lobby_info_key, &lobby_info);
-        temporary.extend_ttl(&lobby_info_key, 8640, 8640);
+
         Ok(())
     }
 
     pub fn join_lobby(e: &Env, address: Address, req: JoinLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let empty_hash = BytesN::from_array(e, &[0u8; 32]);
+        let empty_move = HiddenMove {
+            pawn_id: 0,
+            pos: Pos {
+                x: 0,
+                y: 0,
+            },
+            salt: 0,
+        };
         let persistent = e.storage().persistent();
         let temporary = e.storage().temporary();
         let user_key = DataKey::PackedUser(address.clone());
@@ -317,20 +372,25 @@ impl Contract {
         if address == lobby_info.host_address {
             return Err(Error::JoinerIsHost)
         }
+        let empty_user_state = UserState {
+            instruction: Instruction::RequestingSetupCommit,
+            latest_move: empty_move.clone(),
+            latest_move_hash: empty_hash.clone(),
+            old_moves: Vec::new(e),
+            setup: Vec::new(e),
+            setup_hash: empty_hash.clone(),
+            setup_hash_salt: 0,
+        };
         // make
         let game_state = GameState {
+            board_state: BoardState {
+                initialized: false,
+                pawns: Vec::new(e),
+            },
             phase: Phase::Setup,
             user_states: Vec::from_array(e, [
-                UserState {
-                    setup: Vec::new(e),
-                    setup_hash: empty_hash.clone(),
-                    setup_hash_salt: 0,
-                },
-                UserState {
-                    setup: Vec::new(e),
-                    setup_hash: empty_hash.clone(),
-                    setup_hash_salt: 0,
-                }
+                empty_user_state.clone(),
+                empty_user_state.clone(),
             ]),
         };
         // update
@@ -342,14 +402,11 @@ impl Contract {
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
 
-        persistent.extend_ttl(&user_key, 8640, 8640);
-        temporary.extend_ttl(&lobby_info_key, 8640, 8640);
         Ok(())
     }
 
-    pub fn commit_setup(e: &Env, address: Address, req: SetupCommitReq) -> Result<(), Error> {
+    pub fn commit_setup(e: &Env, address: Address, req: CommitSetupReq) -> Result<(), Error> {
         address.require_auth();
-        let empty_hash = BytesN::from_array(e, &[0u8; 32]);
         let temporary = e.storage().temporary();
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
         let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
@@ -362,7 +419,9 @@ impl Contract {
             None => return Err(Error::GameStateNotFound),
         };
         let player_index = Self::get_player_index(e, &address, &lobby_info);
+        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
         let mut user_state = game_state.user_states.get_unchecked(player_index);
+        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
         // validation
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
@@ -373,24 +432,26 @@ impl Contract {
         if game_state.phase != Phase::Setup {
             return Err(Error::WrongPhase)
         }
-        if user_state.setup_hash != empty_hash {
-            return Err(Error::AlreadyCommittedSetup)
+        if user_state.instruction != Instruction::RequestingSetupCommit {
+            return Err(Error::WrongInstruction)
         }
-        // make
         // update
         user_state.setup_hash = req.setup_hash;
+        user_state.instruction = Instruction::WaitingOppSetupCommit;
+        if opponent_state.instruction == Instruction::WaitingOppSetupCommit {
+            user_state.instruction = Instruction::RequestingSetupProof;
+            opponent_state.instruction = Instruction::RequestingSetupProof;
+        }
         game_state.user_states.set(player_index, user_state);
+        game_state.user_states.set(opponent_index, opponent_state);
         // write
         temporary.set(&game_state_key, &game_state);
 
-        temporary.extend_ttl(&lobby_info_key, 8640, 8640);
-        temporary.extend_ttl(&game_state_key, 8640, 8640);
         Ok(())
     }
 
     pub fn prove_setup(e: &Env, address: Address, req: ProveSetupReq) -> Result<(), Error> {
         address.require_auth();
-        let empty_hash = BytesN::from_array(e, &[0u8; 32]);
         let temporary = e.storage().temporary();
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
         let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
@@ -406,7 +467,7 @@ impl Contract {
         let player_index = Self::get_player_index(e, &address, &lobby_info);
         let mut user_state = game_state.user_states.get_unchecked(player_index);
         let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
-        let opponent_state = game_state.user_states.get_unchecked(opponent_index);
+        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
         // validation
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
@@ -417,26 +478,263 @@ impl Contract {
         if game_state.phase != Phase::Setup {
             return Err(Error::WrongPhase)
         }
-        if user_state.setup_hash == empty_hash {
-            return Err(Error::NoSetupCommitment)
+        if user_state.instruction != Instruction::RequestingSetupProof {
+            return Err(Error::WrongInstruction)
         }
         let serialized = req.clone().to_xdr(e);
         let setup_hash: SetupHash = e.crypto().sha256(&serialized).to_bytes();
         if setup_hash != user_state.setup_hash {
             return Err(Error::SetupHashFail)
         }
-        // make
         // update
         user_state.setup = req.setup.clone();
-        game_state.user_states.set(player_index, user_state);
-        // write
-        if opponent_state.setup.len() != 0 { // if other user already proved their setup
+        user_state.instruction = Instruction::WaitingOppSetupProof;
+        if opponent_state.instruction == Instruction::WaitingOppSetupProof {
+            let mut pawns = Vec::new(e);
+            for commit in user_state.setup.iter().chain(opponent_state.setup.iter()) {
+                let starting_pos = Self::decode_pawn_id(&commit.pawn_id).0;
+                let pawn_state = PawnState {
+                    alive: true,
+                    moved: false,
+                    moved_scout: false,
+                    pawn_id: commit.pawn_id.clone(),
+                    pos: starting_pos,
+                    rank_revealed: false,
+                };
+                pawns.push_back(pawn_state);
+            }
+            game_state.board_state.pawns = pawns;
             game_state.phase = Phase::Movement;
+            user_state.instruction = Instruction::RequestingMoveCommit;
+            opponent_state.instruction = Instruction::RequestingMoveCommit;
         }
+        game_state.user_states.set(player_index, user_state);
+        game_state.user_states.set(opponent_index, opponent_state);
+        // write
         temporary.set(&game_state_key, &game_state);
 
-        temporary.extend_ttl(&lobby_info_key, 8640, 8640);
         Ok(())
+    }
+
+    pub fn commit_move(e: &Env, address: Address, req: CommitMoveReq) -> Result<(), Error> {
+        address.require_auth();
+        let temporary = e.storage().temporary();
+        let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
+        let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+            Some(lobby_info) => lobby_info,
+            None => return Err(Error::LobbyNotFound),
+        };
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
+        let mut game_state: GameState = match temporary.get(&game_state_key) {
+            Some(game_state) => game_state,
+            None => return Err(Error::GameStateNotFound),
+        };
+        let player_index = Self::get_player_index(e, &address, &lobby_info);
+        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let mut user_state = game_state.user_states.get_unchecked(player_index);
+        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
+        // validation
+        if lobby_info.status != LobbyStatus::GameInProgress {
+            return Err(Error::GameNotInProgress)
+        }
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
+        if game_state.phase != Phase::Movement {
+            return Err(Error::WrongPhase)
+        }
+        if user_state.instruction != Instruction::RequestingMoveCommit {
+            return Err(Error::WrongInstruction)
+        }
+        // update
+        user_state.latest_move_hash = req.move_hash.clone();
+        user_state.instruction = Instruction::WaitingOppMoveCommit;
+        if opponent_state.instruction == Instruction::WaitingOppMoveCommit {
+            user_state.instruction = Instruction::RequestingMovePosProof;
+            opponent_state.instruction = Instruction::RequestingMovePosProof;
+        }
+        game_state.user_states.set(player_index, user_state);
+        game_state.user_states.set(opponent_index, opponent_state);
+        // write
+        temporary.set(&game_state_key, &game_state);
+
+        Ok(())
+    }
+
+    pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<u32, Error> {
+        // the result of this function is the player index of the winner of the game if an irregularity is detected
+        // if we detect any irregularity when resolving, the game is suspended and a winner is immediately assigned
+        // 0-1 are player_indexes, 2 means both moves were invalid, 42069 is sentinel
+        let mut winner_player_index: u32 = 42069;
+        address.require_auth();
+        let temporary = e.storage().temporary();
+        let empty_move = HiddenMove {
+            pawn_id: 0,
+            pos: Pos {
+                x: 0,
+                y: 0,
+            },
+            salt: 0,
+        };
+        // this layer of validation is for forgivable offenses in the req that can be resubmitted correctly
+        let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
+        let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+            Some(lobby_info) => lobby_info,
+            None => return Err(Error::LobbyNotFound),
+        };
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
+        let mut game_state: GameState = match temporary.get(&game_state_key) {
+            Some(game_state) => game_state,
+            None => return Err(Error::GameStateNotFound),
+        };
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
+        let u_index = Self::get_player_index(e, &address, &lobby_info);
+        let o_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let mut user_state = game_state.user_states.get_unchecked(u_index);
+        let mut opponent_state = game_state.user_states.get_unchecked(o_index);
+        if lobby_info.status != LobbyStatus::GameInProgress {
+            return Err(Error::GameNotInProgress)
+        }
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
+        if game_state.phase != Phase::Movement {
+            return Err(Error::WrongPhase)
+        }
+        if user_state.instruction != Instruction::RequestingMovePosProof {
+            return Err(Error::WrongInstruction)
+        }
+        // check if req.hidden_move hash matches the commit
+        let serialized = req.hidden_move.clone().to_xdr(e);
+        let hidden_move_hash: HiddenMoveHash = e.crypto().sha256(&serialized).to_bytes();
+        if hidden_move_hash != user_state.latest_move_hash {
+            return Err(Error::HiddenMoveHashFail)
+        }
+        // update user_state
+        user_state.latest_move = req.hidden_move.clone();
+        user_state.instruction = Instruction::WaitingOppMovePosProof;
+        // if both players have submitted moves, resolve
+        if opponent_state.instruction == Instruction::WaitingOppMovePosProof {
+            // from this point on, any irregularities are unforgivable and a winner must be assigned
+
+            let mut u_invalid_move = false;
+            let mut o_invalid_move = false;
+
+            // naively update a copy of pawns with the latest moves
+            let mut pawns = game_state.board_state.pawns.clone();
+            let u_pawn_index = match pawns
+                .iter()
+                .position(|p| p.pawn_id == user_state.latest_move.pawn_id) {
+                Some(idx) => idx as u32,
+                None => {
+                    u_invalid_move = true;
+                    42069
+                }
+            };
+            let o_pawn_index = match pawns
+                .iter()
+                .position(|p| p.pawn_id == opponent_state.latest_move.pawn_id) {
+                Some(idx) => idx as u32,
+                None => {
+                    o_invalid_move = true;
+                    42069
+                }
+            };
+            if let Some(winner) = Self::winner_index(u_invalid_move, u_index, o_invalid_move, o_index) {
+                return Ok(winner)
+            }
+            let u_target_pos = user_state.latest_move.pos.clone();
+            let o_target_pos = opponent_state.latest_move.pos.clone();
+
+            let mut u_pawn_state = pawns.get_unchecked(u_pawn_index);
+            let mut o_pawn_state = pawns.get_unchecked(o_pawn_index);
+
+            let u_pawn_state_player_index = Self::decode_pawn_id(&u_pawn_state.pawn_id).1;
+            let o_pawn_state_player_index = Self::decode_pawn_id(&o_pawn_state.pawn_id).1;
+            // check to see if these are movable
+            if !u_pawn_state.alive {
+                u_invalid_move = true;
+            }
+            if !o_pawn_state.alive {
+                o_invalid_move = true;
+            }
+            // update both pawn states
+            if u_pawn_state.pos != u_target_pos {
+                u_pawn_state.moved = true;
+            }
+            if !u_pawn_state.moved_scout {
+                u_pawn_state.moved_scout = Self::is_scout_move(&u_pawn_state.pos, &u_target_pos);
+            }
+            u_pawn_state.pos = u_target_pos.clone();
+            if o_pawn_state.pos != o_target_pos {
+                o_pawn_state.moved = true;
+            }
+            if !o_pawn_state.moved_scout {
+                o_pawn_state.moved_scout = Self::is_scout_move(&o_pawn_state.pos, &o_target_pos);
+            }
+            o_pawn_state.pos = o_target_pos.clone();
+
+            pawns.set(u_pawn_index, u_pawn_state.clone());
+            pawns.set(o_pawn_index, o_pawn_state.clone());
+            // after pawns copy is set, check for collisions
+            let mut double_collision: Option<(&PawnState, &PawnState)> = None; // did both players move to the same square
+            let mut u_collision: Option<&PawnState> = None; // did u move to a occupied pos
+            let mut o_collision: Option<&PawnState> = None; // did o move to a occupied pos
+
+            // if both players ran into each other we dont need to check for any other collisions
+            if u_pawn_state.pos == o_pawn_state.pos {
+                double_collision = Some((&u_pawn_state, &o_pawn_state));
+            }
+            else {
+                // iterate and check collisions with unmoved pawns
+                for n_pawn_state in pawns {
+                    if u_pawn_state.pawn_id == n_pawn_state.pawn_id {
+                        continue
+                    }
+                    if o_pawn_state.pawn_id == n_pawn_state.pawn_id {
+                        continue
+                    }
+                    let n_pawn_state_player_index = Self::decode_pawn_id(&n_pawn_state.pawn_id).1;
+                    if u_pawn_state.pos == n_pawn_state.pos {
+                        u_collision = Some(&n_pawn_state);
+                        if u_pawn_state_player_index == n_pawn_state_player_index {
+                            u_invalid_move = true;
+                        }
+                    }
+                    if o_pawn_state.pos == n_pawn_state.pos {
+                        o_collision = Some(&n_pawn_state);
+                        if o_pawn_state_player_index == n_pawn_state_player_index {
+                            o_invalid_move = true;
+                        }
+                    }
+                }
+            }
+
+
+
+
+            user_state.old_moves.push_back(user_state.latest_move);
+            opponent_state.old_moves.push_back(opponent_state.latest_move.clone());
+            user_state.latest_move = empty_move.clone();
+            opponent_state.latest_move = empty_move.clone();
+        }
+        game_state.user_states.set(u_index, user_state);
+        game_state.user_states.set(o_index, opponent_state);
+        // write
+        temporary.set(&game_state_key, &game_state);
+
+        Ok(winner_player_index)
+    }
+
+    pub(crate) fn winner_index(u_invalid: bool, u_index: u32, o_invalid: bool, o_index: u32) -> Option<u32> {
+        match (u_invalid, o_invalid) {
+            (true,  true ) => Some(2),
+            (false, false) => Some(u_index),
+            (false, true ) => Some(o_index),
+            _             => None,
+        }
     }
 
     pub(crate) fn empty_address(e: &Env) -> Address {
@@ -445,6 +743,13 @@ impl Contract {
 
     pub(crate) fn is_address_empty(e: &Env, address: &Address) -> bool {
         address.eq(&Self::empty_address(e))
+    }
+
+    pub(crate) fn is_scout_move(start: &Pos, end: &Pos) -> bool {
+        let dx = if start.x > end.x { start.x - end.x } else { end.x - start.x };
+        let dy = if start.y > end.y { start.y - end.y } else { end.y - start.y };
+        // exactly one axis must change, and it must be at least 1
+        (dx > 0 && dy == 0) || (dy > 0 && dx == 0)
     }
 
     pub(crate) fn pack_user(e: &Env, user: &User) -> PackedUser {
@@ -460,6 +765,7 @@ impl Contract {
             current_lobby: u32::from_be_bytes(arr[0..4].try_into().unwrap()),
             games_completed: u32::from_be_bytes(arr[4..8].try_into().unwrap()),
             index: address.clone(),
+            instruction: 0,
         }
     }
     //
@@ -491,6 +797,16 @@ impl Contract {
     //     }
     // }
 
+    pub(crate) fn decode_pawn_id(pawn_id: &PawnId) -> (Pos, u32) {
+        let is_red = (pawn_id & 1) == 0;
+        let base_id = pawn_id >> 1;
+        let pos = Pos {
+            x: base_id  as i32 / 101,
+            y: base_id  as i32 % 101,
+        };
+        (pos, if is_red {0} else {1})
+    }
+
     pub(crate) fn get_or_make_user(e: &Env, address: &Address) -> User {
         let storage = e.storage().persistent();
         let key = DataKey::PackedUser(address.clone());
@@ -505,6 +821,7 @@ impl Contract {
             current_lobby: 0,
             games_completed: 0,
             index: address.clone(),
+            instruction: 0,
         };
         new_user
     }

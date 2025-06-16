@@ -19,32 +19,39 @@ public static class Globals
     public const float HoveredHeight = 0.1f;
     public const float SelectedHoveredHeight = 0.1f;
     public static readonly InputSystem_Actions InputActions = new();
-    public const uint TestSalt = 42069;
 
-    public static uint RandomSalt()
+    public static ulong RandomSalt()
     {
-        uint value;
+        ulong value;
         using RandomNumberGenerator rng = RandomNumberGenerator.Create();
-        byte[] bytes = new byte[4];
+        byte[] bytes = new byte[8];
         do
         {
             rng.GetBytes(bytes);
-            value = BitConverter.ToUInt32(bytes, 0);
+            value = BitConverter.ToUInt64(bytes, 0);
         } 
         while (value == 0); // retry if zero
         return value;
     }
     
-    public static uint GeneratePawnIdFromStartingPos(Vector2Int startingPos)
+    public static uint GeneratePawnId(Vector2Int startingPos, Team team)
     {
-        return (uint)startingPos.x * 101 + (uint)startingPos.y;
+        if (team == Team.NONE)
+        {
+            throw new ArgumentException();
+        }
+        bool isRedTeam = team == Team.RED;
+        uint baseId = (uint)startingPos.x * 101 + (uint)startingPos.y;
+        return (baseId << 1) | (isRedTeam ? 0u : 1u);
     }
 
-    public static Vector2Int DecodeStartingPos(uint pawnId)
+    public static (Vector2Int, Team) DecodeStartingPosAndTeamFromPawnId(uint pawnId)
     {
-        int x = (int)(pawnId / 101);
-        int y = (int)(pawnId % 101);
-        return new Vector2Int(x, y);
+        bool isRed = (pawnId & 1) == 0;
+        uint baseId = pawnId >> 1;
+        int x = (int)(baseId / 101);
+        int y = (int)(baseId % 101);
+        return (new Vector2Int(x, y), isRed ? Team.RED : Team.BLUE);
     }
     
     public static bool AddressIsEmpty(SCVal.ScvAddress address)
@@ -147,123 +154,123 @@ public static class Globals
         throw new KeyNotFoundException($"Could not find pawnDef {rank}");
     }
 
-    public static MoveResolveReq ResolveTurn(Lobby lobby, string address)
-    {
-        // // Get the latest turn
-        // Turn turn = lobby.GetLatestTurn();
-        //
-        // // Check if both moves are initialized
-        // if (!turn.host_turn.initialized || !turn.guest_turn.initialized)
-        // {
-        //     throw new ArgumentException("Both turns must be initialized");
-        // }
-        //
-        // // Convert TurnMoves to SQueuedMoves
-        // SQueuedMove redMove;
-        // SQueuedMove blueMove;
-        //
-        // // Determine which turn is red and which is blue based on team assignments
-        // if (lobby.host_state.team == (uint)Team.RED)
-        // {
-        //     redMove = new SQueuedMove(
-        //         (int)Team.RED,
-        //         Guid.Parse(turn.host_turn.pawn_id),
-        //         turn.host_turn.pos.ToVector2Int(),
-        //         turn.host_turn.pos.ToVector2Int()
-        //     );
-        //     blueMove = new SQueuedMove(
-        //         (int)Team.BLUE,
-        //         Guid.Parse(turn.guest_turn.pawn_id),
-        //         turn.guest_turn.pos.ToVector2Int(),
-        //         turn.guest_turn.pos.ToVector2Int()
-        //     );
-        // }
-        // else
-        // {
-        //     redMove = new SQueuedMove(
-        //         (int)Team.RED,
-        //         Guid.Parse(turn.guest_turn.pawn_id),
-        //         turn.guest_turn.pos.ToVector2Int(),
-        //         turn.guest_turn.pos.ToVector2Int()
-        //     );
-        //     blueMove = new SQueuedMove(
-        //         (int)Team.BLUE,
-        //         Guid.Parse(turn.host_turn.pawn_id),
-        //         turn.host_turn.pos.ToVector2Int(),
-        //         turn.host_turn.pos.ToVector2Int()
-        //     );
-        // }
-        //
-        // // Load board definition
-        // BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        // BoardDef boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
-        // if (boardDef == null)
-        // {
-        //     throw new ArgumentException($"Could not find board definition {lobby.parameters.board_def_name}");
-        // }
-        //
-        // // Create game state from lobby
-        // SGameState gameState = new()
-        // {
-        //     team = (int)Team.NONE, // Resolution must happen with uncensored state
-        //     boardDef = new SBoardDef(boardDef),
-        //     pawns = lobby.pawns.Select(p => new SPawn
-        //     {
-        //         pawnId = Guid.Parse(p.pawn_id),
-        //         def = new SPawnDef(FakeHashToPawnDef(p.pawn_def_hash)),
-        //         team = (int)p.team,
-        //         pos = p.pos.ToVector2Int(),
-        //         isSetup = false, // Deprecated
-        //         isAlive = p.is_alive,
-        //         hasMoved = p.is_moved,
-        //         isVisibleToOpponent = p.is_revealed
-        //     }).ToArray()
-        // };
-        //
-        // // Call old resolution function
-        // SResolveReceipt receipt = SGameState.Resolve(gameState, redMove, blueMove);
-        // if (address == FakeServer.ins.fakeHost.index)
-        // {
-        //     Debug.Log($"XXX Turn: {turn.turn} printing original events -----");
-        //     foreach (SEventState thing in receipt.events)
-        //     {
-        //         Debug.Log("XXX " + thing);
-        //     }
-        //     Debug.Log($"XXX Turn: {turn.turn} end -----");
-        // }
-        //
-        // // Convert SEventState[] to Contract.ResolveEvent[]
-        // Contract.ResolveEvent[] events = new Contract.ResolveEvent[receipt.events.Length];
-        // for (int i = 0; i < receipt.events.Length; i++)
-        // {
-        //     SEventState evt = receipt.events[i];
-        //     string pawnId = evt.pawnId != Guid.Empty ? evt.pawnId.ToString() : "";
-        //     string defenderPawnId = evt.defenderPawnId != Guid.Empty ? evt.defenderPawnId.ToString() : "";
-        //     events[i] = new Contract.ResolveEvent
-        //     {
-        //         team = (uint)evt.team,
-        //         event_type = (uint)evt.eventType,
-        //         pawn_id = pawnId,
-        //         defender_pawn_id = defenderPawnId,
-        //         original_pos = new Pos(evt.originalPos),
-        //         target_pos = new Pos(evt.targetPos),
-        //     };
-        // }
-        //
-        // // Create and return MoveResolveReq
-        // return new MoveResolveReq
-        // {
-        //     events = events,
-        //     events_hash = HashEvents(events), // TODO: Implement this
-        //     lobby = lobby.index,
-        //     turn = turn.turn,
-        //     user_address = address,
-        // };
-        return new MoveResolveReq
-        {
-            
-        };
-    }
+    // public static MoveResolveReq ResolveTurn(Lobby lobby, string address)
+    // {
+    //     // // Get the latest turn
+    //     // Turn turn = lobby.GetLatestTurn();
+    //     //
+    //     // // Check if both moves are initialized
+    //     // if (!turn.host_turn.initialized || !turn.guest_turn.initialized)
+    //     // {
+    //     //     throw new ArgumentException("Both turns must be initialized");
+    //     // }
+    //     //
+    //     // // Convert TurnMoves to SQueuedMoves
+    //     // SQueuedMove redMove;
+    //     // SQueuedMove blueMove;
+    //     //
+    //     // // Determine which turn is red and which is blue based on team assignments
+    //     // if (lobby.host_state.team == (uint)Team.RED)
+    //     // {
+    //     //     redMove = new SQueuedMove(
+    //     //         (int)Team.RED,
+    //     //         Guid.Parse(turn.host_turn.pawn_id),
+    //     //         turn.host_turn.pos.ToVector2Int(),
+    //     //         turn.host_turn.pos.ToVector2Int()
+    //     //     );
+    //     //     blueMove = new SQueuedMove(
+    //     //         (int)Team.BLUE,
+    //     //         Guid.Parse(turn.guest_turn.pawn_id),
+    //     //         turn.guest_turn.pos.ToVector2Int(),
+    //     //         turn.guest_turn.pos.ToVector2Int()
+    //     //     );
+    //     // }
+    //     // else
+    //     // {
+    //     //     redMove = new SQueuedMove(
+    //     //         (int)Team.RED,
+    //     //         Guid.Parse(turn.guest_turn.pawn_id),
+    //     //         turn.guest_turn.pos.ToVector2Int(),
+    //     //         turn.guest_turn.pos.ToVector2Int()
+    //     //     );
+    //     //     blueMove = new SQueuedMove(
+    //     //         (int)Team.BLUE,
+    //     //         Guid.Parse(turn.host_turn.pawn_id),
+    //     //         turn.host_turn.pos.ToVector2Int(),
+    //     //         turn.host_turn.pos.ToVector2Int()
+    //     //     );
+    //     // }
+    //     //
+    //     // // Load board definition
+    //     // BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
+    //     // BoardDef boardDef = boardDefs.FirstOrDefault(def => def.name == lobby.parameters.board_def_name);
+    //     // if (boardDef == null)
+    //     // {
+    //     //     throw new ArgumentException($"Could not find board definition {lobby.parameters.board_def_name}");
+    //     // }
+    //     //
+    //     // // Create game state from lobby
+    //     // SGameState gameState = new()
+    //     // {
+    //     //     team = (int)Team.NONE, // Resolution must happen with uncensored state
+    //     //     boardDef = new SBoardDef(boardDef),
+    //     //     pawns = lobby.pawns.Select(p => new SPawn
+    //     //     {
+    //     //         pawnId = Guid.Parse(p.pawn_id),
+    //     //         def = new SPawnDef(FakeHashToPawnDef(p.pawn_def_hash)),
+    //     //         team = (int)p.team,
+    //     //         pos = p.pos.ToVector2Int(),
+    //     //         isSetup = false, // Deprecated
+    //     //         isAlive = p.is_alive,
+    //     //         hasMoved = p.is_moved,
+    //     //         isVisibleToOpponent = p.is_revealed
+    //     //     }).ToArray()
+    //     // };
+    //     //
+    //     // // Call old resolution function
+    //     // SResolveReceipt receipt = SGameState.Resolve(gameState, redMove, blueMove);
+    //     // if (address == FakeServer.ins.fakeHost.index)
+    //     // {
+    //     //     Debug.Log($"XXX Turn: {turn.turn} printing original events -----");
+    //     //     foreach (SEventState thing in receipt.events)
+    //     //     {
+    //     //         Debug.Log("XXX " + thing);
+    //     //     }
+    //     //     Debug.Log($"XXX Turn: {turn.turn} end -----");
+    //     // }
+    //     //
+    //     // // Convert SEventState[] to Contract.ResolveEvent[]
+    //     // Contract.ResolveEvent[] events = new Contract.ResolveEvent[receipt.events.Length];
+    //     // for (int i = 0; i < receipt.events.Length; i++)
+    //     // {
+    //     //     SEventState evt = receipt.events[i];
+    //     //     string pawnId = evt.pawnId != Guid.Empty ? evt.pawnId.ToString() : "";
+    //     //     string defenderPawnId = evt.defenderPawnId != Guid.Empty ? evt.defenderPawnId.ToString() : "";
+    //     //     events[i] = new Contract.ResolveEvent
+    //     //     {
+    //     //         team = (uint)evt.team,
+    //     //         event_type = (uint)evt.eventType,
+    //     //         pawn_id = pawnId,
+    //     //         defender_pawn_id = defenderPawnId,
+    //     //         original_pos = new Pos(evt.originalPos),
+    //     //         target_pos = new Pos(evt.targetPos),
+    //     //     };
+    //     // }
+    //     //
+    //     // // Create and return MoveResolveReq
+    //     // return new MoveResolveReq
+    //     // {
+    //     //     events = events,
+    //     //     events_hash = HashEvents(events), // TODO: Implement this
+    //     //     lobby = lobby.index,
+    //     //     turn = turn.turn,
+    //     //     user_address = address,
+    //     // };
+    //     return new MoveResolveReq
+    //     {
+    //         
+    //     };
+    // }
 
     private static string HashEvents(Contract.ResolveEvent[] events)
     {

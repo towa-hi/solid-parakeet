@@ -321,6 +321,7 @@ namespace Contract
             };
         }
     }
+    
     [Serializable]
     public struct Mail : IScvMapCompatable
     {
@@ -343,24 +344,14 @@ namespace Contract
             };
         }
     }
+    
     [Serializable]
     public struct User
     {
         public uint current_lobby;
         public uint games_completed;
-        public long liveUntilLedgerSeq;
-        
-        public User(byte[] bytes, long nLiveUntilLedgerSeq)
-        {
-            if (bytes is null)
-                throw new ArgumentNullException(nameof(bytes));
-            if (bytes.Length != 8)
-                throw new ArgumentException("Packed user must be exactly 8 bytes", nameof(bytes));
-            ReadOnlySpan<byte> span = bytes;
-            current_lobby = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(0, 4));
-            games_completed = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
-            liveUntilLedgerSeq = nLiveUntilLedgerSeq;
-        }
+        public uint instruction;
+        public long liveUntilLedgerSeq; // not serialized
         
         public override string ToString()
         {
@@ -493,8 +484,6 @@ namespace Contract
         {
             return !left.Equals(right);
         }
-        
-        
     }
     
     [Serializable]
@@ -590,6 +579,7 @@ namespace Contract
             };
         }
     }
+    
     [Serializable]
     public struct Tile: IScvMapCompatable
     {
@@ -625,7 +615,7 @@ namespace Contract
     public struct HiddenRank : IScvMapCompatable
     {
         public Rank rank;
-        public uint salt;
+        public ulong salt;
         
         public SCVal.ScvMap ToScvMap()
         {
@@ -687,6 +677,7 @@ namespace Contract
             };
         }
     }
+    
     [Serializable]
     public struct LobbyParameters : IScvMapCompatable
     {
@@ -728,6 +719,7 @@ namespace Contract
             return JsonConvert.SerializeObject(simplified, Formatting.Indented);
         }
     }
+    
     [Serializable]
     public struct TurnMove : IScvMapCompatable
     {
@@ -757,6 +749,7 @@ namespace Contract
             return JsonUtility.ToJson(this).ToString();
         }
     }
+    
     [Serializable]
     public struct Turn : IScvMapCompatable
     {
@@ -785,6 +778,7 @@ namespace Contract
             };
         }
     }
+    
     [Serializable]
     public struct Lobby : IScvMapCompatable
     {
@@ -846,7 +840,7 @@ namespace Contract
     {
         
         public uint lobby_id;
-        public uint salt;
+        public ulong salt;
         public PawnCommit[] setup;
         
         public SCVal.ScvMap ToScvMap()
@@ -900,7 +894,7 @@ namespace Contract
     }
     
     [Serializable]
-    public struct SetupCommitReq : IScvMapCompatable
+    public struct CommitSetupReq : IScvMapCompatable
     {
         public uint lobby_id;
         public byte[] setup_hash;
@@ -918,112 +912,6 @@ namespace Contract
         }
     }
     
-    public struct MoveCommitReq : IScvMapCompatable
-    {
-        public string lobby;
-        public string move_pos_hash;
-        public string pawn_id_hash;
-        public int turn;
-        public string user_address;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new[]
-                {
-                    SCUtility.FieldToSCMapEntry("lobby", lobby),
-                    SCUtility.FieldToSCMapEntry("move_pos_hash", move_pos_hash),
-                    SCUtility.FieldToSCMapEntry("pawn_id_hash", pawn_id_hash),
-                    SCUtility.FieldToSCMapEntry("turn", turn),
-                    SCUtility.FieldToSCMapEntry("user_address", user_address),
-                }),
-            };
-        }
-    }
-    
-    public struct MoveSubmitReq : IScvMapCompatable
-    {
-        public string lobby;
-        public Pos move_pos;
-        public string pawn_id;
-        public int turn;
-        public string user_address;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new[]
-                {
-                    SCUtility.FieldToSCMapEntry("lobby", lobby),
-                    SCUtility.FieldToSCMapEntry("move_pos", move_pos),
-                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
-                    SCUtility.FieldToSCMapEntry("turn", turn),
-                    SCUtility.FieldToSCMapEntry("user_address", user_address),
-                }),
-            };
-        }
-    }
-
-    public struct MoveResolveReq : IScvMapCompatable
-    {
-        public ResolveEvent[] events;
-        public string events_hash;
-        public string lobby;
-        public int turn;
-        public string user_address;
-        
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new[]
-                {
-                    SCUtility.FieldToSCMapEntry("events", events),
-                    SCUtility.FieldToSCMapEntry("events_hash", events_hash),
-                    SCUtility.FieldToSCMapEntry("lobby", lobby),
-                    SCUtility.FieldToSCMapEntry("turn", turn),
-                    SCUtility.FieldToSCMapEntry("user_address", user_address),
-                }),
-            };
-        }
-    }
-
-    public struct SendMailReq : IScvMapCompatable
-    {
-        public string lobby;
-        public Mail mail;
-        
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap()
-            {
-                map = new SCMap(new[]
-                {
-                    SCUtility.FieldToSCMapEntry("lobby", lobby),
-                    SCUtility.FieldToSCMapEntry("mail", mail),
-                }),
-            };
-        }
-    }
-    
-    public enum ErrorCode {
-        UserNotFound = 1,
-        InvalidUsername = 2,
-        AlreadyInitialized = 3,
-        InvalidAddress = 4,
-        InvalidExpirationLedger = 5,
-        InvalidArgs = 6,
-        InviteNotFound = 7,
-        LobbyNotFound = 8,
-        WrongPhase = 9,
-        HostAlreadyInLobby = 10,
-        GuestAlreadyInLobby = 11,
-        LobbyNotJoinable = 12,
-        TurnAlreadyInitialized = 13,
-        TurnHashConflict = 14,
-    }
 
     public enum Phase : uint
     {

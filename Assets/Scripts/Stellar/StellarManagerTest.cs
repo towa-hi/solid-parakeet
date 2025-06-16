@@ -148,22 +148,37 @@ public static class StellarManagerTest
         return ProcessTransactionResult(result, simResult);
     }
 
-    public static async Task<int> CommitSetupRequest(PawnCommit[] commitments)
+    public static async Task<int> CommitSetupRequest(Dictionary<Vector2Int, Rank> pendingCommits)
     {
         GameNetworkState gameNetworkState = new(networkState);
+        List<PawnCommit> commitmentsList = new();
+        foreach (KeyValuePair<Vector2Int, Rank> commitment in pendingCommits)
+        {
+            HiddenRank hiddenRank = new()
+            {
+                rank = commitment.Value,
+                salt = Globals.RandomSalt(),
+            };
+            byte[] hiddenRankHash = CacheManager.SaveHiddenRank(hiddenRank);
+            commitmentsList.Add(new PawnCommit
+            {
+                hidden_rank_hash = hiddenRankHash,
+                pawn_id = Globals.GeneratePawnId(commitment.Key, gameNetworkState.clientTeam),
+            });
+        }
         // create and store a future request
         ProveSetupReq proveSetupReq = new()
         {
             lobby_id = gameNetworkState.user.current_lobby,
             salt = Globals.RandomSalt(),
-            setup = commitments,
+            setup = commitmentsList.ToArray(),
         };
         // serialize into playerPrefs as a xdrstring
-        CacheManager.SaveProveSetupReq(proveSetupReq);
-        SetupCommitReq req = new()
+        string hashString = CacheManager.SaveProveSetupReq(proveSetupReq);
+        CommitSetupReq req = new()
         {
             lobby_id = gameNetworkState.user.current_lobby,
-            setup_hash = SCUtility.GetHash(proveSetupReq),
+            setup_hash = Convert.FromBase64String(hashString),
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
