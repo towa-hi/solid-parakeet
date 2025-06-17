@@ -48,7 +48,7 @@ public class SetupPawnView: MonoBehaviour
                 {
                     foreach (PawnCommit pawnCommit in setupTestPhase.clientState.lockedCommits)
                     {
-                        if (Globals.DecodeStartingPos(pawnCommit.pawn_id) == pos)
+                        if (Globals.DecodeStartingPosAndTeamFromPawnId(pawnCommit.pawn_id).Item1 == pos)
                         {
                             Rank newRank = CacheManager.LoadHiddenRank(pawnCommit.hidden_rank_hash).rank;
                             if (rank != newRank)

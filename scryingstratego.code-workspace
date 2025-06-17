@@ -1,0 +1,17 @@
+{
+    "folders": [
+        {
+            "name": "Unity Project",
+            "path": "."
+        },
+        {
+            "name": "Rust Contract",
+            "path": "./ContractSandbox/warmancer-prototype"
+        }
+    ],
+    "settings": {
+        "rust-analyzer.linkedProjects": [
+            "./ContractSandbox/warmancer-prototype/Cargo.toml"
+        ]
+    }
+} 

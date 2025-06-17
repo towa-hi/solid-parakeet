@@ -59,6 +59,7 @@ pub enum Error {
     HiddenRankHashFail = 36,
     PawnCommitNotFound = 37,
     WrongPawnId = 38,
+    InvalidPawnId = 39,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -76,6 +77,7 @@ pub enum Instruction {
     RequestingMoveRankProof = 10,
     WaitingOppMoveRankProof = 11,
     EndGame = 12,
+
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -432,6 +434,13 @@ impl Contract {
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
+        // validation
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
+        if lobby_info.status != LobbyStatus::GameInProgress {
+            return Err(Error::GameNotInProgress)
+        }
         let game_state_key = DataKey::GameState(req.lobby_id.clone());
         let mut game_state: GameState = match temporary.get(&game_state_key) {
             Some(game_state) => game_state,
@@ -441,13 +450,6 @@ impl Contract {
         let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
         let mut user_state = game_state.user_states.get_unchecked(player_index);
         let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
-        // validation
-        if lobby_info.status != LobbyStatus::GameInProgress {
-            return Err(Error::GameNotInProgress)
-        }
-        if lobby_info.host_address != address && lobby_info.guest_address != address {
-            return Err(Error::NotInLobby)
-        }
         if game_state.phase != Phase::Setup {
             return Err(Error::WrongPhase)
         }
@@ -478,39 +480,64 @@ impl Contract {
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
         let game_state_key = DataKey::GameState(req.lobby_id.clone());
         let mut game_state: GameState = match temporary.get(&game_state_key) {
             Some(game_state) => game_state,
             None => return Err(Error::GameStateNotFound),
         };
-        let player_index = Self::get_player_index(e, &address, &lobby_info);
-        let mut user_state = game_state.user_states.get_unchecked(player_index);
-        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
-        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
+        let u_state_index = Self::get_player_index(e, &address, &lobby_info);
+        let o_state_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let mut u_state = game_state.user_states.get_unchecked(u_state_index);
+        let mut o_state = game_state.user_states.get_unchecked(o_state_index);
         // validation
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
         }
-        if lobby_info.host_address != address && lobby_info.guest_address != address {
-            return Err(Error::NotInLobby)
-        }
         if game_state.phase != Phase::Setup {
             return Err(Error::WrongPhase)
         }
-        if user_state.instruction != Instruction::RequestingSetupProof {
+        if u_state.instruction != Instruction::RequestingSetupProof {
             return Err(Error::WrongInstruction)
         }
         let serialized = req.clone().to_xdr(e);
         let setup_hash: SetupHash = e.crypto().sha256(&serialized).to_bytes();
-        if setup_hash != user_state.setup_hash {
+        if setup_hash != u_state.setup_hash {
             return Err(Error::SetupHashFail)
         }
+        // check uniqueness of pawn_ids and positions and check encoded team
+        let mut setup_valid = true;
+        let mut used_positions: Map<Pos, None> = Map::new(e);
+        let mut used_pawn_ids: Map<PawnId, None> = Map::new(e);
+        for commit in req.setup.iter() {
+            let (pos, team) = Self::decode_pawn_id(&commit.pawn_id);
+            if used_pawn_ids.contains_key(commit.pawn_id.clone()) {
+                setup_valid = false;
+            }
+            used_pawn_ids.set(commit.pawn_id.clone(), None);
+            if team != u_state_index {
+                setup_valid = false;
+            }
+            if used_positions.contains_key(pos.clone()) {
+                setup_valid = false;
+            }
+            used_positions.set(pos.clone(), None);
+
+        }
         // update
-        user_state.setup = req.setup.clone();
-        user_state.instruction = Instruction::WaitingOppSetupProof;
-        if opponent_state.instruction == Instruction::WaitingOppSetupProof {
+        u_state.setup = req.setup.clone();
+        u_state.instruction = Instruction::WaitingOppSetupProof;
+        if o_state.instruction == Instruction::WaitingOppSetupProof {
+            // final validation check. if a user fails this, the game is suspended but without blame
+            // because it's impossible to know who is at fault
+            for commit in u_state.setup.iter().chain(o_state.setup.iter()) {
+
+
+            }
             let mut pawns = Vec::new(e);
-            for commit in user_state.setup.iter().chain(opponent_state.setup.iter()) {
+            for commit in u_state.setup.iter().chain(o_state.setup.iter()) {
                 let starting_pos = Self::decode_pawn_id(&commit.pawn_id).0;
                 let pawn = PawnState {
                     alive: true,
@@ -524,11 +551,11 @@ impl Contract {
             }
             game_state.board_state.pawns = pawns;
             game_state.phase = Phase::Movement;
-            user_state.instruction = Instruction::RequestingMoveCommit;
-            opponent_state.instruction = Instruction::RequestingMoveCommit;
+            u_state.instruction = Instruction::RequestingMoveCommit;
+            o_state.instruction = Instruction::RequestingMoveCommit;
         }
-        game_state.user_states.set(player_index, user_state);
-        game_state.user_states.set(opponent_index, opponent_state);
+        game_state.user_states.set(u_state_index, u_state);
+        game_state.user_states.set(o_state_index, o_state);
         // save
         temporary.set(&game_state_key, &game_state);
 
@@ -543,25 +570,24 @@ impl Contract {
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
-        let game_state_key = DataKey::GameState(req.lobby_id.clone());
-        let mut game_state: GameState = match temporary.get(&game_state_key) {
-            Some(game_state) => game_state,
-            None => return Err(Error::GameStateNotFound),
-        };
-        let player_index = Self::get_player_index(e, &address, &lobby_info);
-        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
-        let mut user_state = game_state.user_states.get_unchecked(player_index);
-        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
-        // validation
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
         }
         if lobby_info.host_address != address && lobby_info.guest_address != address {
             return Err(Error::NotInLobby)
         }
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
+        let mut game_state: GameState = match temporary.get(&game_state_key) {
+            Some(game_state) => game_state,
+            None => return Err(Error::GameStateNotFound),
+        };
         if game_state.phase != Phase::Movement {
             return Err(Error::WrongPhase)
         }
+        let player_index = Self::get_player_index(e, &address, &lobby_info);
+        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let mut user_state = game_state.user_states.get_unchecked(player_index);
+        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
         if user_state.instruction != Instruction::RequestingMoveCommit {
             return Err(Error::WrongInstruction)
         }
@@ -599,27 +625,27 @@ impl Contract {
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
-        let game_state_key = DataKey::GameState(req.lobby_id.clone());
-        let mut game_state: GameState = match temporary.get(&game_state_key) {
-            Some(game_state) => game_state,
-            None => return Err(Error::GameStateNotFound),
-        };
-        if lobby_info.host_address != address && lobby_info.guest_address != address {
-            return Err(Error::NotInLobby)
-        }
-        let u_index = Self::get_player_index(e, &address, &lobby_info);
-        let o_index = Self::get_opponent_index(e, &address, &lobby_info);
-        let mut u_state = game_state.user_states.get_unchecked(u_index);
-        let mut o_state = game_state.user_states.get_unchecked(o_index);
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
         }
         if lobby_info.host_address != address && lobby_info.guest_address != address {
             return Err(Error::NotInLobby)
         }
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
+        let u_state_index = Self::get_player_index(e, &address, &lobby_info);
+        let o_state_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
+        let mut game_state: GameState = match temporary.get(&game_state_key) {
+            Some(game_state) => game_state,
+            None => return Err(Error::GameStateNotFound),
+        };
         if game_state.phase != Phase::Movement {
             return Err(Error::WrongPhase)
         }
+        let mut u_state = game_state.user_states.get_unchecked(u_state_index);
+        let mut o_state = game_state.user_states.get_unchecked(o_state_index);
         if u_state.instruction != Instruction::RequestingMovePosProof {
             return Err(Error::WrongInstruction)
         }
@@ -648,11 +674,11 @@ impl Contract {
             let u_move_start_pos = u_pawn.pos.clone();
             let o_move_start_pos = o_pawn.pos.clone();
             // check to make sure the move is valid
-            let u_valid_move = Self::valid_move(&u_move, u_index, &u_pawn, &game_state);
-            let o_valid_move = Self::valid_move(&o_move, o_index, &o_pawn, &game_state);
+            let u_valid_move = Self::valid_move(&u_move, u_state_index, &u_pawn, &game_state);
+            let o_valid_move = Self::valid_move(&o_move, o_state_index, &o_pawn, &game_state);
             // immediate failure if a user submits a invalid move
             // suspend game because a player submitted an invalid move and assign winner
-            if let Some(winner) = Self::winner_index(u_valid_move, u_index, o_valid_move, o_index) {
+            if let Some(winner) = Self::winner_index(u_valid_move, u_state_index, o_valid_move, o_state_index) {
                 if winner == 0 {
                     lobby_info.status = LobbyStatus::HostWin;
                 }
@@ -664,8 +690,8 @@ impl Contract {
                 }
                 u_state.instruction = Instruction::EndGame;
                 o_state.instruction = Instruction::EndGame;
-                game_state.user_states.set(u_index, u_state);
-                game_state.user_states.set(o_index, o_state);
+                game_state.user_states.set(u_state_index, u_state);
+                game_state.user_states.set(o_state_index, o_state);
                 temporary.set(&game_state_key, &game_state);
                 temporary.set(&lobby_info_key, &lobby_info);
                 return Ok(())
@@ -803,8 +829,8 @@ impl Contract {
 
                         u_state.instruction = Instruction::EndGame;
                         o_state.instruction = Instruction::EndGame;
-                        game_state.user_states.set(u_index, u_state.clone());
-                        game_state.user_states.set(o_index, o_state.clone());
+                        game_state.user_states.set(u_state_index, u_state.clone());
+                        game_state.user_states.set(o_state_index, o_state.clone());
                         temporary.set(&game_state_key, &game_state);
                         temporary.set(&lobby_info_key, &lobby_info);
                         return Ok(())
@@ -833,12 +859,12 @@ impl Contract {
             for (index, pawn) in pawns_map.values().iter() {
                 game_state.board_state.pawns.set(index, pawn);
             }
-            game_state.user_states.set(o_index, o_state);
+            game_state.user_states.set(o_state_index, o_state);
         }
         // if the user was the first to submit their proof and the upper block is skipped, we just mutate
         // * user_state.latest_move = req.hidden_move
         // * user_state.instruction = Instruction::WaitingOppMovePosProof
-        game_state.user_states.set(u_index, u_state);
+        game_state.user_states.set(u_state_index, u_state);
         // save
         temporary.set(&game_state_key, &game_state);
         // lobby_info.status shouldn't change unless someone has won or quit the game
@@ -849,25 +875,50 @@ impl Contract {
     pub fn prove_ranks(e: &Env, address: Address, req: ProveRankReq) -> Result<(), Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
+        let empty_move = HiddenMove {
+            pawn_id: 0,
+            pos: Pos {
+                x: 0,
+                y: 0,
+            },
+            salt: 0,
+        };
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
-        let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+        let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
             // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
+        if lobby_info.status != LobbyStatus::GameInProgress {
+            return Err(Error::GameNotInProgress)
+        }
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
+        if lobby_info.host_address != address && lobby_info.guest_address != address {
+            return Err(Error::NotInLobby)
+        }
         let game_state_key = DataKey::GameState(req.lobby_id.clone());
         let mut game_state: GameState = match temporary.get(&game_state_key) {
             Some(game_state) => game_state,
             None => return Err(Error::GameStateNotFound),
         };
-        let player_index = Self::get_player_index(e, &address, &lobby_info);
-        let mut user_state = game_state.user_states.get_unchecked(player_index);
-        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
-        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
-
+        if game_state.phase != Phase::Movement {
+            return Err(Error::WrongPhase)
+        }
+        let u_state_index = Self::get_player_index(e, &address, &lobby_info);
+        let o_state_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let mut u_state = game_state.user_states.get_unchecked(u_state_index);
+        let mut o_state = game_state.user_states.get_unchecked(o_state_index);
+        if u_state.instruction != Instruction::RequestingMoveRankProof {
+            return Err(Error::WrongInstruction);
+        }
+        if req.hidden_ranks.len() != u_state.requested_pawn_ranks.len() {
+            return Err(Error::InvalidArgs);
+        }
         // check setup to see if rank matches
         let mut commit_map: Map<HiddenRankHash, PawnCommit> = Map::new(e);
-        for pawn_commit in user_state.setup.iter() {
+        for pawn_commit in u_state.setup.iter() {
             commit_map.set(pawn_commit.hidden_rank_hash.clone(), pawn_commit);
         }
         let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
@@ -906,12 +957,40 @@ impl Contract {
                 break;
             }
         }
-        for (index, pawn) in pawns_map.values().iter() {
-            game_state.board_state.pawns.set(index, pawn);
-        }
         if let Some(e) = error {
             return Err(e);
         }
+        for (index, pawn) in pawns_map.values().iter() {
+            game_state.board_state.pawns.set(index, pawn);
+        }
+        u_state.requested_pawn_ranks = Vec::new(e);
+        u_state.instruction = Instruction::WaitingOppMoveRankProof;
+        if o_state.instruction == Instruction::WaitingOppMoveRankProof {
+            if let Some(status) = Self::is_game_over(e, &lobby_info, &game_state) {
+                // suspend game and early return
+                lobby_info.status = status;
+
+                u_state.instruction = Instruction::EndGame;
+                o_state.instruction = Instruction::EndGame;
+                game_state.user_states.set(u_state_index, u_state.clone());
+                game_state.user_states.set(o_state_index, o_state.clone());
+                temporary.set(&game_state_key, &game_state);
+                temporary.set(&lobby_info_key, &lobby_info);
+                return Ok(())
+            }
+            // transition to next turn
+            u_state.requested_pawn_ranks = Vec::new(e);
+            o_state.requested_pawn_ranks = Vec::new(e);
+            u_state.instruction = Instruction::RequestingMoveCommit;
+            o_state.instruction = Instruction::RequestingMoveCommit;
+            u_state.old_moves.push_back(u_state.latest_move.clone());
+            o_state.old_moves.push_back(o_state.latest_move.clone());
+            u_state.latest_move = empty_move.clone();
+            o_state.latest_move = empty_move.clone();
+        }
+        game_state.user_states.set(u_state_index, u_state.clone());
+        game_state.user_states.set(o_state_index, o_state.clone());
+        temporary.set(&game_state_key, &game_state);
         return Ok(())
     }
 

@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 3,
+    "address": 4,
     "nonce": 0
   },
   "auth": [
@@ -38,7 +38,7 @@
                               "symbol": "board_hash"
                             },
                             "val": {
-                              "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                              "bytes": "ef3b532a3e481f29108991ac07bfebd3bb0fc441b2a7b9e47c99c0e6ff8c8f78"
                             }
                           },
                           {
@@ -54,7 +54,7 @@
                               "symbol": "host_team"
                             },
                             "val": {
-                              "u32": 0
+                              "u32": 1
                             }
                           },
                           {
@@ -70,7 +70,27 @@
                                         "symbol": "max"
                                       },
                                       "val": {
-                                        "u32": 10
+                                        "u32": 1
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 0
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 1
                                       }
                                     },
                                     {
@@ -82,6 +102,226 @@
                                       }
                                     }
                                   ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 8
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 2
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 3
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 3
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 4
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 4
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 4
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 5
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 4
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 6
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 3
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 7
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 2
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 8
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 1
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 9
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 1
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 10
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 4
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 11
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "max"
+                                      },
+                                      "val": {
+                                        "u32": 0
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "rank"
+                                      },
+                                      "val": {
+                                        "u32": 99
+                                      }
+                                    }
+                                  ]
                                 }
                               ]
                             }
@@ -89,70 +329,6 @@
                           {
                             "key": {
                               "symbol": "must_fill_all_tiles"
-                            },
-                            "val": {
-                              "bool": false
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "security_mode"
-                            },
-                            "val": {
-                              "bool": false
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "make_lobby",
-              "args": [
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                },
-                {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "lobby_id"
-                      },
-                      "val": {
-                        "u32": 2
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "parameters"
-                      },
-                      "val": {
-                        "map": [
-                          {
-                            "key": {
-                              "symbol": "board_hash"
-                            },
-                            "val": {
-                              "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "dev_mode"
                             },
                             "val": {
                               "bool": true
@@ -160,80 +336,16 @@
                           },
                           {
                             "key": {
-                              "symbol": "host_team"
-                            },
-                            "val": {
-                              "u32": 0
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "max_ranks"
-                            },
-                            "val": {
-                              "vec": [
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "max"
-                                      },
-                                      "val": {
-                                        "u32": 10
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "rank"
-                                      },
-                                      "val": {
-                                        "u32": 1
-                                      }
-                                    }
-                                  ]
-                                }
-                              ]
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "must_fill_all_tiles"
-                            },
-                            "val": {
-                              "bool": false
-                            }
-                          },
-                          {
-                            "key": {
                               "symbol": "security_mode"
                             },
                             "val": {
-                              "bool": false
+                              "bool": true
                             }
                           }
                         ]
                       }
                     }
                   ]
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "leave_lobby",
-              "args": [
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                 }
               ]
             }
@@ -273,7 +385,6 @@
         }
       ]
     ],
-    [],
     []
   ],
   "ledger": {
@@ -679,84 +790,6 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "LobbyInfo"
-                },
-                {
-                  "u32": 2
-                }
-              ]
-            },
-            "durability": "temporary"
-          }
-        },
-        [
-          {
-            "last_modified_ledger_seq": 0,
-            "data": {
-              "contract_data": {
-                "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-                "key": {
-                  "vec": [
-                    {
-                      "symbol": "LobbyInfo"
-                    },
-                    {
-                      "u32": 2
-                    }
-                  ]
-                },
-                "durability": "temporary",
-                "val": {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "guest_address"
-                      },
-                      "val": {
-                        "address": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "host_address"
-                      },
-                      "val": {
-                        "address": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "index"
-                      },
-                      "val": {
-                        "u32": 2
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "status"
-                      },
-                      "val": {
-                        "u32": 5
-                      }
-                    }
-                  ]
-                }
-              }
-            },
-            "ext": "v0"
-          },
-          15
-        ]
-      ],
-      [
-        {
-          "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-            "key": {
-              "vec": [
-                {
                   "symbol": "LobbyParameters"
                 },
                 {
@@ -792,7 +825,7 @@
                         "symbol": "board_hash"
                       },
                       "val": {
-                        "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                        "bytes": "ef3b532a3e481f29108991ac07bfebd3bb0fc441b2a7b9e47c99c0e6ff8c8f78"
                       }
                     },
                     {
@@ -808,7 +841,7 @@
                         "symbol": "host_team"
                       },
                       "val": {
-                        "u32": 0
+                        "u32": 1
                       }
                     },
                     {
@@ -824,7 +857,27 @@
                                   "symbol": "max"
                                 },
                                 "val": {
-                                  "u32": 10
+                                  "u32": 1
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 0
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 1
                                 }
                               },
                               {
@@ -836,6 +889,226 @@
                                 }
                               }
                             ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 8
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 2
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 3
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 3
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 4
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 4
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 4
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 5
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 4
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 6
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 3
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 7
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 2
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 8
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 1
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 9
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 1
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 10
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 4
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 11
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "max"
+                                },
+                                "val": {
+                                  "u32": 0
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "u32": 99
+                                }
+                              }
+                            ]
                           }
                         ]
                       }
@@ -843,76 +1116,6 @@
                     {
                       "key": {
                         "symbol": "must_fill_all_tiles"
-                      },
-                      "val": {
-                        "bool": false
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "security_mode"
-                      },
-                      "val": {
-                        "bool": false
-                      }
-                    }
-                  ]
-                }
-              }
-            },
-            "ext": "v0"
-          },
-          15
-        ]
-      ],
-      [
-        {
-          "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-            "key": {
-              "vec": [
-                {
-                  "symbol": "LobbyParameters"
-                },
-                {
-                  "u32": 2
-                }
-              ]
-            },
-            "durability": "temporary"
-          }
-        },
-        [
-          {
-            "last_modified_ledger_seq": 0,
-            "data": {
-              "contract_data": {
-                "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-                "key": {
-                  "vec": [
-                    {
-                      "symbol": "LobbyParameters"
-                    },
-                    {
-                      "u32": 2
-                    }
-                  ]
-                },
-                "durability": "temporary",
-                "val": {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "board_hash"
-                      },
-                      "val": {
-                        "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "dev_mode"
                       },
                       "val": {
                         "bool": true
@@ -920,55 +1123,10 @@
                     },
                     {
                       "key": {
-                        "symbol": "host_team"
-                      },
-                      "val": {
-                        "u32": 0
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "max_ranks"
-                      },
-                      "val": {
-                        "vec": [
-                          {
-                            "map": [
-                              {
-                                "key": {
-                                  "symbol": "max"
-                                },
-                                "val": {
-                                  "u32": 10
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "rank"
-                                },
-                                "val": {
-                                  "u32": 1
-                                }
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "must_fill_all_tiles"
-                      },
-                      "val": {
-                        "bool": false
-                      }
-                    },
-                    {
-                      "key": {
                         "symbol": "security_mode"
                       },
                       "val": {
-                        "bool": false
+                        "bool": true
                       }
                     }
                   ]
@@ -1190,72 +1348,6 @@
                 "key": {
                   "ledger_key_nonce": {
                     "nonce": 801925984706572462
-                  }
-                },
-                "durability": "temporary",
-                "val": "void"
-              }
-            },
-            "ext": "v0"
-          },
-          6311999
-        ]
-      ],
-      [
-        {
-          "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-            "key": {
-              "ledger_key_nonce": {
-                "nonce": 1033654523790656264
-              }
-            },
-            "durability": "temporary"
-          }
-        },
-        [
-          {
-            "last_modified_ledger_seq": 0,
-            "data": {
-              "contract_data": {
-                "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-                "key": {
-                  "ledger_key_nonce": {
-                    "nonce": 1033654523790656264
-                  }
-                },
-                "durability": "temporary",
-                "val": "void"
-              }
-            },
-            "ext": "v0"
-          },
-          6311999
-        ]
-      ],
-      [
-        {
-          "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-            "key": {
-              "ledger_key_nonce": {
-                "nonce": 4837995959683129791
-              }
-            },
-            "durability": "temporary"
-          }
-        },
-        [
-          {
-            "last_modified_ledger_seq": 0,
-            "data": {
-              "contract_data": {
-                "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-                "key": {
-                  "ledger_key_nonce": {
-                    "nonce": 4837995959683129791
                   }
                 },
                 "durability": "temporary",
