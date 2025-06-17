@@ -289,7 +289,10 @@ impl Contract {
         let user_key = DataKey::PackedUser(address.clone());
         // validation
         if host_user.current_lobby != 0 {
-            return Err(Error::HostAlreadyInLobby)
+            let current_lobby_key = DataKey::LobbyInfo(host_user.current_lobby.clone());
+            if temporary.has(&current_lobby_key) {
+                return Err(Error::HostAlreadyInLobby)
+            }
         }
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
         if temporary.has(&lobby_info_key) {
@@ -346,6 +349,7 @@ impl Contract {
     }
 
     pub fn join_lobby(e: &Env, address: Address, req: JoinLobbyReq) -> Result<(), Error> {
+        // only guests can use join_lobby. if a host leaves, the lobby is not joinable and the host cant rejoin
         address.require_auth();
         let empty_hash = BytesN::from_array(e, &[0u8; 32]);
         let empty_move = HiddenMove {
@@ -372,7 +376,10 @@ impl Contract {
             return Err(Error::AlreadyInitialized)
         }
         if user.current_lobby != 0 {
-            return Err(Error::GuestAlreadyInLobby);
+            let current_lobby_key = DataKey::LobbyInfo(user.current_lobby.clone());
+            if temporary.has(&current_lobby_key) {
+                return Err(Error::GuestAlreadyInLobby)
+            }
         }
         if Self::is_address_empty(e, &lobby_info.host_address) {
             return Err(Error::LobbyHasNoHost)
