@@ -56,6 +56,9 @@ pub enum Error {
     RedMoveInvalid = 33,
     BlueMoveInvalid = 34,
     BothMovesInvalid = 35,
+    HiddenRankHashFail = 36,
+    PawnCommitNotFound = 37,
+    WrongPawnId = 38,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,7 +75,7 @@ pub enum Instruction {
     WaitingOppMovePosProof = 9,
     RequestingMoveRankProof = 10,
     WaitingOppMoveRankProof = 11,
-
+    EndGame = 12,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -90,6 +93,7 @@ pub enum LobbyStatus {
     GuestWin = 3,
     Draw = 4,
     Aborted = 5,
+    None = 6,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -171,7 +175,7 @@ pub struct PawnState {
     pub moved_scout: bool,
     pub pawn_id: PawnId,
     pub pos: Pos,
-    pub revealed_rank: u32,
+    pub revealed_rank: Rank,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -270,7 +274,7 @@ pub struct Contract;
 #[contractimpl]
 impl Contract {
 
-    pub fn test_hash(e: &Env, address: Address, req: ProveSetupReq) -> Result<BytesN<32>, Error> {
+    pub fn test_hash(e: &Env, address : Address, req: ProveSetupReq) -> Result<BytesN<32>, Error> {
         let serialized = req.clone().to_xdr(e);
         let setup_hash = e.crypto().sha256(&serialized);
         Ok(setup_hash.to_bytes())
@@ -300,7 +304,7 @@ impl Contract {
         };
         // update
         host_user.current_lobby = req.lobby_id.clone();
-        // write
+        // save
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&lobby_parameters_key, &req.parameters);
         persistent.set(&user_key, &host_user);
@@ -318,17 +322,15 @@ impl Contract {
             None => return Err(Error::UserNotFound), // TODO: make a version of this function that sends a lobbyId
         };
         let left_lobby_id = user.current_lobby.clone();
-        // update write user early
+        // save user early and early return if lobby is gone
         user.current_lobby = 0;
         persistent.set(&packed_user_key, &user);
-
         let lobby_info_key = DataKey::LobbyInfo(left_lobby_id);
         let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
             // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
             Some(lobby_info) => lobby_info,
             None => return Ok(()),
         };
-        // make
         // update
         if address == lobby_info.host_address {
             lobby_info.host_address = Self::empty_address(e);
@@ -337,7 +339,7 @@ impl Contract {
             lobby_info.guest_address = Self::empty_address(e);
         }
         lobby_info.status = LobbyStatus::Aborted; // TODO: handle detecting if the game is in progress to award victory/defeat
-        // write
+        // save
         temporary.set(&lobby_info_key, &lobby_info);
 
         Ok(())
@@ -407,7 +409,7 @@ impl Contract {
         user.current_lobby = req.lobby_id.clone();
         lobby_info.guest_address = address.clone();
         lobby_info.status = LobbyStatus::GameInProgress;
-        // write
+        // save
         persistent.set(&user_key, &user);
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
@@ -454,7 +456,7 @@ impl Contract {
         }
         game_state.user_states.set(player_index, user_state);
         game_state.user_states.set(opponent_index, opponent_state);
-        // write
+        // save
         temporary.set(&game_state_key, &game_state);
 
         Ok(())
@@ -503,7 +505,7 @@ impl Contract {
             let mut pawns = Vec::new(e);
             for commit in user_state.setup.iter().chain(opponent_state.setup.iter()) {
                 let starting_pos = Self::decode_pawn_id(&commit.pawn_id).0;
-                let pawn_state = PawnState {
+                let pawn = PawnState {
                     alive: true,
                     moved: false,
                     moved_scout: false,
@@ -511,7 +513,7 @@ impl Contract {
                     pos: starting_pos,
                     revealed_rank: 63,
                 };
-                pawns.push_back(pawn_state);
+                pawns.push_back(pawn);
             }
             game_state.board_state.pawns = pawns;
             game_state.phase = Phase::Movement;
@@ -520,7 +522,7 @@ impl Contract {
         }
         game_state.user_states.set(player_index, user_state);
         game_state.user_states.set(opponent_index, opponent_state);
-        // write
+        // save
         temporary.set(&game_state_key, &game_state);
 
         Ok(())
@@ -565,14 +567,13 @@ impl Contract {
         }
         game_state.user_states.set(player_index, user_state);
         game_state.user_states.set(opponent_index, opponent_state);
-        // write
+        // save
         temporary.set(&game_state_key, &game_state);
 
         Ok(())
     }
 
-    pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<u32, Error> {
-        // the result of this function is the player index of the winner of the game if an irregularity is detected
+    pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<(), Error> {
         // if we detect any irregularity when resolving, the game is suspended and a winner is immediately assigned
         // 0-1 are player_indexes, 2 means both moves were invalid, 63 is sentinel
         address.require_auth();
@@ -587,7 +588,7 @@ impl Contract {
         };
         // this layer of validation is for forgivable offenses in the req that can be resubmitted correctly
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
-        let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+        let mut lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
             Some(lobby_info) => lobby_info,
             None => return Err(Error::LobbyNotFound),
         };
@@ -601,8 +602,8 @@ impl Contract {
         }
         let u_index = Self::get_player_index(e, &address, &lobby_info);
         let o_index = Self::get_opponent_index(e, &address, &lobby_info);
-        let mut user_state = game_state.user_states.get_unchecked(u_index);
-        let mut opponent_state = game_state.user_states.get_unchecked(o_index);
+        let mut u_state = game_state.user_states.get_unchecked(u_index);
+        let mut o_state = game_state.user_states.get_unchecked(o_index);
         if lobby_info.status != LobbyStatus::GameInProgress {
             return Err(Error::GameNotInProgress)
         }
@@ -612,89 +613,110 @@ impl Contract {
         if game_state.phase != Phase::Movement {
             return Err(Error::WrongPhase)
         }
-        if user_state.instruction != Instruction::RequestingMovePosProof {
+        if u_state.instruction != Instruction::RequestingMovePosProof {
             return Err(Error::WrongInstruction)
         }
         // check if req.hidden_move hash matches the commit
         let serialized = req.hidden_move.clone().to_xdr(e);
         let hidden_move_hash: HiddenMoveHash = e.crypto().sha256(&serialized).to_bytes();
-        if hidden_move_hash != user_state.latest_move_hash {
+        if hidden_move_hash != u_state.latest_move_hash {
             return Err(Error::HiddenMoveHashFail)
         }
         // update user_state
-        user_state.latest_move = req.hidden_move.clone();
-        user_state.instruction = Instruction::WaitingOppMovePosProof;
-        // if both players have submitted moves, resolve
-        if opponent_state.instruction == Instruction::WaitingOppMovePosProof {
+        u_state.latest_move = req.hidden_move.clone();
+        u_state.instruction = Instruction::WaitingOppMovePosProof;
+        // index map
+        let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
+        for tuple in game_state.board_state.pawns.iter().enumerate() {
+            pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
+        }
+        let both_players_submitted = o_state.instruction == Instruction::WaitingOppMovePosProof;
+        //  both players have submitted moves, resolve
+        if both_players_submitted {
             // from this point on, any irregularities are unforgivable and a winner must be assigned
-            let u_move = user_state.latest_move.clone();
-            let o_move = opponent_state.latest_move.clone();
-            let u_pawn_index = game_state.board_state.pawns.iter().position(|p| p.pawn_id == u_move.pawn_id).ok_or(Error::PawnNotFound)? as u32;
-            let o_pawn_index = game_state.board_state.pawns.iter().position(|p| p.pawn_id == o_move.pawn_id).ok_or(Error::PawnNotFound)? as u32;
-            let mut u_pawn_state = game_state.board_state.pawns.get_unchecked(u_pawn_index);
-            let mut o_pawn_state = game_state.board_state.pawns.get_unchecked(o_pawn_index);
-            let u_move_start_pos = u_pawn_state.pos.clone();
-            let o_move_start_pos = o_pawn_state.pos.clone();
+            let u_move = u_state.latest_move.clone();
+            let o_move = o_state.latest_move.clone();
+            let (u_pawn_index, mut u_pawn) = pawns_map.get_unchecked(u_move.pawn_id.clone());
+            let (o_pawn_index, mut o_pawn) = pawns_map.get_unchecked(o_move.pawn_id.clone());
+            let u_move_start_pos = u_pawn.pos.clone();
+            let o_move_start_pos = o_pawn.pos.clone();
             // check to make sure the move is valid
-            let u_valid_move = Self::valid_move(&u_move, u_index, &u_pawn_state, &game_state);
-            let o_valid_move = Self::valid_move(&o_move, o_index, &o_pawn_state, &game_state);
+            let u_valid_move = Self::valid_move(&u_move, u_index, &u_pawn, &game_state);
+            let o_valid_move = Self::valid_move(&o_move, o_index, &o_pawn, &game_state);
             // immediate failure if a user submits a invalid move
+            // suspend game because a player submitted an invalid move and assign winner
             if let Some(winner) = Self::winner_index(u_valid_move, u_index, o_valid_move, o_index) {
-                return Ok(winner)
+                if winner == 0 {
+                    lobby_info.status = LobbyStatus::HostWin;
+                }
+                else if winner == 1 {
+                    lobby_info.status = LobbyStatus::GuestWin;
+                }
+                else if winner == 2 {
+                    lobby_info.status = LobbyStatus::Draw;
+                }
+                u_state.instruction = Instruction::EndGame;
+                o_state.instruction = Instruction::EndGame;
+                game_state.user_states.set(u_index, u_state);
+                game_state.user_states.set(o_index, o_state);
+                temporary.set(&game_state_key, &game_state);
+                temporary.set(&lobby_info_key, &lobby_info);
+                return Ok(())
             }
             // resolve
             let mut u_proof_list: Vec<PawnId> = Vec::new(e);
             let mut o_proof_list: Vec<PawnId> = Vec::new(e);
             // naively update a copy of pawns with the latest moves
-            let mut pawns = game_state.board_state.pawns.clone();
+            // TODO: remove this let mut pawns = game_state.board_state.pawns.clone();
             // update both pawn states
-            if u_pawn_state.pos != u_move.pos {
-                u_pawn_state.moved = true;
+            if u_pawn.pos != u_move.pos {
+                u_pawn.moved = true;
             }
-            if o_pawn_state.pos != o_move.pos {
-                o_pawn_state.moved = true;
+            if o_pawn.pos != o_move.pos {
+                o_pawn.moved = true;
             }
-            if !u_pawn_state.moved_scout {
-                u_pawn_state.moved_scout = Self::is_scout_move(&u_pawn_state.pos, &u_move.pos);
+            if !u_pawn.moved_scout {
+                u_pawn.moved_scout = Self::is_scout_move(&u_pawn.pos, &u_move.pos);
             }
-            if !o_pawn_state.moved_scout {
-                o_pawn_state.moved_scout = Self::is_scout_move(&o_pawn_state.pos, &o_move.pos);
+            if !o_pawn.moved_scout {
+                o_pawn.moved_scout = Self::is_scout_move(&o_pawn.pos, &o_move.pos);
             }
-            u_pawn_state.pos = u_move.pos.clone();
-            o_pawn_state.pos = o_move.pos.clone();
-            pawns.set(u_pawn_index, u_pawn_state.clone());
-            pawns.set(o_pawn_index, o_pawn_state.clone());
+            // we must always update pawns_map after setting u_pawn and o_pawn and *x_pawnsn
+            u_pawn.pos = u_move.pos.clone();
+            o_pawn.pos = o_move.pos.clone();
+            pawns_map.set(u_pawn.pawn_id, (u_pawn_index, u_pawn.clone()));
+            pawns_map.set(u_pawn.pawn_id, (o_pawn_index, o_pawn.clone()));
 
-            // after pawns copy is set, check for collisions
+            // after pawns map is set, check for collisions
 
-            let mut double_collision: Option<(PawnState, PawnState)> = None; // both players moved to the same square
-            let mut swap_collision: Option<(PawnState, PawnState)> = None; // both players try to swap positions
-            let mut u_collision: Option<(PawnState, PawnState)> = None; // u moved to a occupied pos
-            let mut o_collision: Option<(PawnState, PawnState)> = None; // o moved to a occupied pos
+            let mut double_collision: Option<(PawnId, PawnId)> = None; // both players moved to the same square
+            let mut swap_collision: Option<(PawnId, PawnId)> = None; // both players try to swap positions
+            let mut u_collision: Option<(PawnId, PawnId)> = None; // u moved to a occupied pos
+            let mut o_collision: Option<(PawnId, PawnId)> = None; // o moved to a occupied pos
             // if both players ran into each other we dont need to check for any other collisions
             if u_move.pos == o_move.pos {
-                double_collision = Some((u_pawn_state.clone(), o_pawn_state.clone()));
+                double_collision = Some((u_pawn.pawn_id.clone(), o_pawn.pawn_id.clone()));
             }
             else if u_move.pos == o_move_start_pos && o_move.pos == u_move_start_pos {
-                swap_collision = Some((u_pawn_state.clone(), o_pawn_state.clone()));
+                swap_collision = Some((u_pawn.pawn_id.clone(), o_pawn.pawn_id.clone()));
             }
             else {
                 // iterate and check collisions with other alive pawns
-                for n_pawn_state in pawns.iter() {
-                    if u_pawn_state.pawn_id == n_pawn_state.pawn_id {
+                for (x_pawn_id, (_, x_pawn)) in pawns_map.iter() {
+                    if u_pawn.pawn_id == x_pawn_id {
                         continue
                     }
-                    if o_pawn_state.pawn_id == n_pawn_state.pawn_id {
+                    if o_pawn.pawn_id == x_pawn_id {
                         continue
                     }
-                    if !n_pawn_state.alive {
+                    if !x_pawn.alive {
                         continue
                     }
-                    if u_pawn_state.pos == n_pawn_state.pos {
-                        u_collision = Some((u_pawn_state.clone(), n_pawn_state.clone()));
+                    if u_pawn.pos == x_pawn.pos {
+                        u_collision = Some((u_pawn.pawn_id.clone(), x_pawn_id.clone()));
                     }
-                    if o_pawn_state.pos == n_pawn_state.pos {
-                        o_collision = Some((o_pawn_state.clone(), n_pawn_state.clone()));
+                    if o_pawn.pos == x_pawn.pos {
+                        o_collision = Some((o_pawn.pawn_id.clone(), x_pawn_id.clone()));
                     }
                     if u_collision.is_some() && o_collision.is_some() {
                         break;
@@ -703,130 +725,216 @@ impl Contract {
             }
             // check to see if we need to ask to reveal pawns
             // double collision and swap collision cant happen at the same time
-            user_state.instruction = Instruction::WaitingOppMoveRankProof;
-            opponent_state.instruction = Instruction::WaitingOppMoveRankProof;
-
+            u_state.instruction = Instruction::WaitingOppMoveRankProof;
+            o_state.instruction = Instruction::WaitingOppMoveRankProof;
+            // handle collisions between moving u_pawn and moving o_pawn
             if double_collision.is_some() || swap_collision.is_some() {
                 let mut can_resolve_now = true;
-                if u_pawn_state.revealed_rank == 63 {
-                    u_proof_list.push_back(u_pawn_state.pawn_id.clone());
+                if u_pawn.revealed_rank == 63 {
+                    u_proof_list.push_back(u_pawn.pawn_id.clone());
                     can_resolve_now = false;
                 }
-                if o_pawn_state.revealed_rank == 63 {
-                    o_proof_list.push_back(o_pawn_state.pawn_id.clone());
+                if o_pawn.revealed_rank == 63 {
+                    o_proof_list.push_back(o_pawn.pawn_id.clone());
                     can_resolve_now = false;
                 }
                 if can_resolve_now {
                     // resolve conflict
-                    let (u_copy, o_copy) = Self::resolve_collision(&u_pawn_state, &o_pawn_state);
-                    pawns.set(u_pawn_index, u_copy);
-                    pawns.set(o_pawn_index, o_copy);
+                    // this mutates u_pawn and o_pawn!!!
+                    (u_pawn, o_pawn) = Self::resolve_collision(&u_pawn, &o_pawn);
+                    pawns_map.set(u_pawn.pawn_id, (u_pawn_index, u_pawn.clone()));
+                    pawns_map.set(u_pawn.pawn_id, (o_pawn_index, o_pawn.clone()));
                 }
-
             }
             else {
-                if let Some((u_attacking_pawn, n_target_pawn)) = u_collision {
+                // handle collision between a u_pawn and a stationary opponent pawn
+                if let Some((_, ox_pawn_id)) = u_collision {
                     let mut can_resolve_now = true;
-                    if u_attacking_pawn.revealed_rank == 63 {
-                        u_proof_list.push_back(u_attacking_pawn.pawn_id.clone());
+                    let (ox_pawn_index, mut ox_pawn) = pawns_map.get_unchecked(ox_pawn_id);
+                    if u_pawn.revealed_rank == 63 {
+                        u_proof_list.push_back(u_pawn.pawn_id.clone());
                         can_resolve_now = false;
                     }
-                    if n_target_pawn.revealed_rank == 63 {
-                        o_proof_list.push_back(n_target_pawn.pawn_id.clone());
+                    if ox_pawn.revealed_rank == 63 {
+                        o_proof_list.push_back(ox_pawn_id.clone());
                         can_resolve_now = false;
                     }
                     if can_resolve_now {
                         // resolve conflict
-                        let (u_copy, n_copy) = Self::resolve_collision(&u_pawn_state, &n_target_pawn);
-                        let n_pawn_index = game_state.board_state.pawns.iter().position(|p| p.pawn_id == n_copy.pawn_id).ok_or(Error::PawnNotFound)? as u32;
-                        pawns.set(u_pawn_index, u_copy);
-                        pawns.set(n_pawn_index, n_copy);
+                        // this mutates u_pawn and n_pawn!!!
+                        (u_pawn, ox_pawn) = Self::resolve_collision(&u_pawn, &ox_pawn);
+                        pawns_map.set(u_pawn.pawn_id, (u_pawn_index, u_pawn.clone()));
+                        pawns_map.set(u_pawn.pawn_id, (ox_pawn_index, ox_pawn.clone()));
                     }
                 }
-                if let Some((o_attacking_pawn, n_target_pawn)) = o_collision {
+                // handle collision between o_pawn and a stationary user pawn
+                if let Some((_, ux_pawn_id)) = o_collision {
                     let mut can_resolve_now = true;
-                    if o_attacking_pawn.revealed_rank == 63 {
-                        o_proof_list.push_back(o_attacking_pawn.pawn_id.clone());
+                    let (ux_pawn_index, mut ux_pawn) = pawns_map.get_unchecked(ux_pawn_id);
+                    if o_pawn.revealed_rank == 63 {
+                        o_proof_list.push_back(o_pawn.pawn_id.clone());
                         can_resolve_now = false;
                     }
-                    if n_target_pawn.revealed_rank == 63 {
-                        u_proof_list.push_back(n_target_pawn.pawn_id.clone());
+                    if ux_pawn.revealed_rank == 63 {
+                        u_proof_list.push_back(ux_pawn_id.clone());
                         can_resolve_now = false;
                     }
                     if can_resolve_now {
                         // resolve conflict
-                        let (o_copy, n_copy) = Self::resolve_collision(&u_pawn_state, &n_target_pawn);
-                        let n_pawn_index = game_state.board_state.pawns.iter().position(|p| p.pawn_id == n_copy.pawn_id).ok_or(Error::PawnNotFound)? as u32;
-                        pawns.set(o_pawn_index, o_copy);
-                        pawns.set(n_pawn_index, n_copy);
+                        (o_pawn, ux_pawn) = Self::resolve_collision(&o_pawn, &ux_pawn);
+                        pawns_map.set(o_pawn.pawn_id, (o_pawn_index, o_pawn.clone()));
+                        pawns_map.set(ux_pawn.pawn_id, (ux_pawn_index, ux_pawn.clone()));
                     }
                 }
             }
+            match (u_proof_list.is_empty(), o_proof_list.is_empty()) {
+                (true, true) => {
+                    // TODO: check if state is won
+                    if let Some(status) = Self::is_game_over(e, &lobby_info, &game_state) {
+                        // suspend game and early return
+                        lobby_info.status = status;
 
-            if u_proof_list.is_empty() && o_proof_list.is_empty() {
+                        u_state.instruction = Instruction::EndGame;
+                        o_state.instruction = Instruction::EndGame;
+                        game_state.user_states.set(u_index, u_state.clone());
+                        game_state.user_states.set(o_index, o_state.clone());
+                        temporary.set(&game_state_key, &game_state);
+                        temporary.set(&lobby_info_key, &lobby_info);
+                        return Ok(())
+                    }
+                    // transition to next turn
+                    u_state.requested_pawn_ranks = Vec::new(e);
+                    o_state.requested_pawn_ranks = Vec::new(e);
+                    u_state.instruction = Instruction::RequestingMoveCommit;
+                    o_state.instruction = Instruction::RequestingMoveCommit;
+                    u_state.old_moves.push_back(u_state.latest_move.clone());
+                    o_state.old_moves.push_back(o_state.latest_move.clone());
+                    u_state.latest_move = empty_move.clone();
+                    o_state.latest_move = empty_move.clone();
+                }
+                (_, false) => {
+                    o_state.requested_pawn_ranks = o_proof_list.clone();
+                    o_state.instruction = Instruction::RequestingMoveRankProof;
 
-                // transition to next turn
-                user_state.instruction = Instruction::RequestingMoveCommit;
-                opponent_state.instruction = Instruction::RequestingMoveCommit;
-                user_state.old_moves.push_back(user_state.latest_move.clone());
-                opponent_state.old_moves.push_back(opponent_state.latest_move.clone());
-                user_state.latest_move = empty_move.clone();
-                opponent_state.latest_move = empty_move.clone();
-
+                }
+                (false, _) => {
+                    u_state.requested_pawn_ranks = u_proof_list.clone();
+                    u_state.instruction = Instruction::RequestingMoveRankProof;
+                }
             }
-            if !u_proof_list.is_empty() {
-                user_state.instruction = Instruction::RequestingMoveRankProof;
+            // we're done writing pawns
+            for (index, pawn) in pawns_map.values().iter() {
+                game_state.board_state.pawns.set(index, pawn);
             }
-            if !o_proof_list.is_empty() {
-                opponent_state.instruction = Instruction::RequestingMoveRankProof;
-            }
-
-            // write to game_state
-            game_state.board_state.pawns = pawns.clone();
-
-            user_state.requested_pawn_ranks = u_proof_list.clone();
-            opponent_state.requested_pawn_ranks = o_proof_list.clone();
-
-
-
-
+            game_state.user_states.set(o_index, o_state);
         }
-        game_state.user_states.set(u_index, user_state);
-        game_state.user_states.set(o_index, opponent_state);
-        // write
+        // if the user was the first to submit their proof and the upper block is skipped, we just mutate
+        // * user_state.latest_move = req.hidden_move
+        // * user_state.instruction = Instruction::WaitingOppMovePosProof
+        game_state.user_states.set(u_index, u_state);
+        // save
         temporary.set(&game_state_key, &game_state);
-
-        Ok(63)
-    }
-
-    pub fn prove_ranks(e: &Env, address: Address, req: ProveMoveReq) -> Result<(), Error> {
-
-
+        // lobby_info.status shouldn't change unless someone has won or quit the game
+        // temporary.set(&lobby_info_key, &lobby_info);
         Ok(())
     }
 
-    pub(crate) fn resolve_collision(a_pawn_state: &PawnState, b_pawn_state: &PawnState) -> (PawnState, PawnState) {
-        let mut a_pawn = a_pawn_state.clone();
-        let mut b_pawn = b_pawn_state.clone();
+    pub fn prove_ranks(e: &Env, address: Address, req: ProveRankReq) -> Result<(), Error> {
+        address.require_auth();
+        let temporary = e.storage().temporary();
+        let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
+        let lobby_info: LobbyInfo = match temporary.get(&lobby_info_key) {
+            // Some(packed_lobby_info) => Self::unpack_lobby_info(e, packed_lobby_info),
+            Some(lobby_info) => lobby_info,
+            None => return Err(Error::LobbyNotFound),
+        };
+        let game_state_key = DataKey::GameState(req.lobby_id.clone());
+        let mut game_state: GameState = match temporary.get(&game_state_key) {
+            Some(game_state) => game_state,
+            None => return Err(Error::GameStateNotFound),
+        };
+        let player_index = Self::get_player_index(e, &address, &lobby_info);
+        let mut user_state = game_state.user_states.get_unchecked(player_index);
+        let opponent_index = Self::get_opponent_index(e, &address, &lobby_info);
+        let mut opponent_state = game_state.user_states.get_unchecked(opponent_index);
+
+        // check setup to see if rank matches
+        let mut commit_map: Map<HiddenRankHash, PawnCommit> = Map::new(e);
+        for pawn_commit in user_state.setup.iter() {
+            commit_map.set(pawn_commit.hidden_rank_hash.clone(), pawn_commit);
+        }
+        let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
+        for tuple in game_state.board_state.pawns.iter().enumerate() {
+            pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
+        }
+        let mut error: Option<Error> = None;
+        for hidden_rank in req.hidden_ranks.iter() {
+            let serialized = hidden_rank.clone().to_xdr(e);
+            let rank_hash: HiddenRankHash = e.crypto().sha256(&serialized).to_bytes();
+            if let Some(pawn_commit) = commit_map.get(rank_hash.clone()) {
+                if let Some((mut pawn_index, mut pawn)) = pawns_map.get(pawn_commit.pawn_id) {
+                    if pawn.pawn_id == pawn_commit.pawn_id {
+                        if rank_hash == pawn_commit.hidden_rank_hash {
+                            // write
+                            pawn.revealed_rank = hidden_rank.rank;
+                            pawns_map.set(pawn.pawn_id, (pawn_index, pawn));
+                        }
+                        else {
+                            error = Some(Error::HiddenRankHashFail);
+                            break;
+                        }
+                    }
+                    else {
+                        error = Some(Error::WrongPawnId);
+                        break;
+                    }
+                }
+                else {
+                    error = Some(Error::PawnNotFound);
+                    break;
+                }
+            }
+            else {
+                error = Some(Error::WrongPawnId);
+                break;
+            }
+        }
+        for (index, pawn) in pawns_map.values().iter() {
+            game_state.board_state.pawns.set(index, pawn);
+        }
+        if let Some(e) = error {
+            return Err(e);
+        }
+        return Ok(())
+    }
+
+    pub(crate) fn is_game_over(e: &Env, lobby_info: &LobbyInfo, game_state: &GameState) -> Option<LobbyStatus> {
+        // TODO: check game over state
+        return None
+    }
+
+    pub(crate) fn resolve_collision(a_pawn: &PawnState, b_pawn: &PawnState) -> (PawnState, PawnState) {
+        let mut a_pawn = a_pawn.clone();
+        let mut b_pawn = b_pawn.clone();
         // special case for trap vs seer (seer wins)
-        if a_pawn_state.revealed_rank == 11 && b_pawn_state.revealed_rank == 3 {
+        if a_pawn.revealed_rank == 11 && b_pawn.revealed_rank == 3 {
             a_pawn.alive = false;
         }
-        else if a_pawn_state.revealed_rank == 3 && b_pawn_state.revealed_rank == 11 {
+        else if a_pawn.revealed_rank == 3 && b_pawn.revealed_rank == 11 {
             b_pawn.alive = false;
         }
         // special case for warlord vs assassin (assassin wins)
-        else if a_pawn_state.revealed_rank == 10 && b_pawn_state.revealed_rank == 1 {
+        else if a_pawn.revealed_rank == 10 && b_pawn.revealed_rank == 1 {
             a_pawn.alive = false;
         }
-        else if a_pawn_state.revealed_rank == 1 && b_pawn_state.revealed_rank == 10 {
+        else if a_pawn.revealed_rank == 1 && b_pawn.revealed_rank == 10 {
             b_pawn.alive = false;
         }
         // all other cases
-        else if a_pawn_state.revealed_rank < b_pawn_state.revealed_rank {
+        else if a_pawn.revealed_rank < b_pawn.revealed_rank {
             a_pawn.alive = false;
         }
-        else if a_pawn_state.revealed_rank > b_pawn_state.revealed_rank {
+        else if a_pawn.revealed_rank > b_pawn.revealed_rank {
             b_pawn.alive = false;
         }
         else {
@@ -836,43 +944,44 @@ impl Contract {
         }
         return (a_pawn, b_pawn)
     }
-    pub(crate) fn valid_move(mv: &HiddenMove, player_index: u32, pawn_state: &PawnState, game_state: &GameState) -> bool {
+
+    pub(crate) fn valid_move(mv: &HiddenMove, player_index: u32, pawn: &PawnState, game_state: &GameState) -> bool {
         // cond: pawn must exist (we take this for granted if it's being fed into parameters)
 
         // TODO: cond: target pos must exist
         // cond: pawn must be owned by this player
-        let owner = Self::decode_pawn_id(&pawn_state.pawn_id).1;
+        let owner = Self::decode_pawn_id(&pawn.pawn_id).1;
         if player_index != owner {
             return false
         }
         // cond: pawn must be alive
-        if !pawn_state.alive {
+        if !pawn.alive {
             return false
         }
         // if pawn rank is revealed
-        if pawn_state.revealed_rank != 63 {
+        if pawn.revealed_rank != 63 {
             // cond: rank is not flag
-            if pawn_state.revealed_rank == 0 {
+            if pawn.revealed_rank == 0 {
                 return false
             }
             // cond: rank is not trap
-            if pawn_state.revealed_rank == 11 {
+            if pawn.revealed_rank == 11 {
                 return false
             }
             // TODO: cond: target pos must be in set of valid movable tiles
         }
         // iterate thru other alive pawns
-        for n_pawn_state in game_state.board_state.pawns.iter() {
+        for n_pawn in game_state.board_state.pawns.iter() {
             // skip self
-            if n_pawn_state.pawn_id == pawn_state.pawn_id {
+            if n_pawn.pawn_id == pawn.pawn_id {
                 continue
             }
-            if !n_pawn_state.alive {
+            if !n_pawn.alive {
                 continue
             }
-            if n_pawn_state.pos == mv.pos {
+            if n_pawn.pos == mv.pos {
                 // cond: pawn on target pos cant be same team
-                let other_owner = Self::decode_pawn_id(&n_pawn_state.pawn_id).1;
+                let other_owner = Self::decode_pawn_id(&n_pawn.pawn_id).1;
                 if other_owner == player_index {
                     return false
                 }
@@ -979,6 +1088,7 @@ impl Contract {
     }
 
     pub(crate) fn get_player_index(e: &Env, address: &Address, lobby_info: &LobbyInfo) -> u32 {
+        // player index is also an identifier encoded into PawnId
         if Self::is_address_empty(e, address) {
             return 99
         }
