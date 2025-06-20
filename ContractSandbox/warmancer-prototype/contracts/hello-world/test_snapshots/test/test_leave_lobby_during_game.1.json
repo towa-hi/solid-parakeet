@@ -882,6 +882,56 @@
         }
       ]
     ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "join_lobby",
+              "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "lobby_id"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "leave_lobby",
+              "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
     []
   ],
   "ledger": {
@@ -894,6 +944,1058 @@
     "min_temp_entry_ttl": 16,
     "max_entry_ttl": 6312000,
     "ledger_entries": [
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "GameState"
+                },
+                {
+                  "u32": 1
+                }
+              ]
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "GameState"
+                    },
+                    {
+                      "u32": 1
+                    }
+                  ]
+                },
+                "durability": "temporary",
+                "val": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "moves"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "pawns"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 0
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 0
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 0
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 101
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 1
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 0
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 202
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 2
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 0
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 303
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 3
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 0
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 1
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 0
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 1
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 102
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 1
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 1
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 5
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 0
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 3
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 106
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 1
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 3
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 207
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 2
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 3
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 308
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 3
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 3
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 205
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 2
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 1
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "alive"
+                                },
+                                "val": {
+                                  "bool": true
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "hidden_rank_hash"
+                                },
+                                "val": {
+                                  "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "moved_scout"
+                                },
+                                "val": {
+                                  "bool": false
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pawn_id"
+                                },
+                                "val": {
+                                  "u32": 306
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pos"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "x"
+                                      },
+                                      "val": {
+                                        "i32": 3
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "y"
+                                      },
+                                      "val": {
+                                        "i32": 1
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "rank"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "setups"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "rank_proofs"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "setup_hash"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "setup_proof"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "rank_proofs"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "setup_hash"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "setup_proof"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          15
+        ]
+      ],
       [
         {
           "contract_data": {
@@ -936,7 +2038,11 @@
                         "symbol": "guest_address"
                       },
                       "val": {
-                        "vec": []
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
                       }
                     },
                     {
@@ -944,11 +2050,7 @@
                         "symbol": "host_address"
                       },
                       "val": {
-                        "vec": [
-                          {
-                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                          }
-                        ]
+                        "vec": []
                       }
                     },
                     {
@@ -964,7 +2066,7 @@
                         "symbol": "phase"
                       },
                       "val": {
-                        "u32": 0
+                        "u32": 6
                       }
                     },
                     {
@@ -972,7 +2074,7 @@
                         "symbol": "subphase"
                       },
                       "val": {
-                        "u32": 3
+                        "u32": 1
                       }
                     }
                   ]
@@ -1909,6 +3011,76 @@
                         "symbol": "current_lobby"
                       },
                       "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "games_completed"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "index"
+                      },
+                      "val": {
+                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "User"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "User"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "current_lobby"
+                      },
+                      "val": {
                         "vec": [
                           {
                             "u32": 1
@@ -1929,7 +3101,7 @@
                         "symbol": "index"
                       },
                       "val": {
-                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                       }
                     }
                   ]
@@ -1995,6 +3167,72 @@
                 "key": {
                   "ledger_key_nonce": {
                     "nonce": 801925984706572462
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 1033654523790656264
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 1033654523790656264
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 5541220902715666415
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 5541220902715666415
                   }
                 },
                 "durability": "temporary",
