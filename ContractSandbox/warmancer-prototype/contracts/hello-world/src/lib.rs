@@ -62,21 +62,40 @@ pub enum Error {
     InvalidPawnId = 39,
 }
 
+// the blame system determines who is at fault when the game is suspended due to a time-out
+// or a proof is an illegal action that makes the game impossible to continue
+// once movement phase starts, leaving will blame the user
+// user is the person invoking the contract
+// blame is based on instruction at the time of invocation
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Instruction {
     None = 0,
     Reserved = 1,
     RequestingSetupCommit = 2,
+    // blame none
     WaitingOppSetupCommit = 3,
+    // blame none
     RequestingSetupProof = 4,
+    // blame user for not submitting or submitting a illegal setup
     WaitingOppSetupProof = 5,
+    // blame opponent for not submitting or submitting a illegal setup
+    // blame none if both proofs are illegal
     RequestingMoveCommit = 6,
+    // blame user for not submitting
     WaitingOppMoveCommit = 7,
+    // blame opponent for not submitting
     RequestingMovePosProof = 8,
+    // blame user for not submitting or submitting a illegal move
+    // blame none if both proofs are illegal
     WaitingOppMovePosProof = 9,
+    // blame opponent for not submitting
     RequestingMoveRankProof = 10,
+    // blame user for not submitting or submitting a illegal rank proof
+    // blame none if both proofs are illegal
     WaitingOppMoveRankProof = 11,
+    // blame opponent for not submitting
     EndGame = 12,
+    // blame none
 
 }
 
@@ -343,6 +362,8 @@ impl Contract {
         else if address == lobby_info.guest_address {
             lobby_info.guest_address = Self::empty_address(e);
         }
+        // assign blame
+
         lobby_info.status = LobbyStatus::Aborted; // TODO: handle detecting if the game is in progress to award victory/defeat
         // save
         temporary.set(&lobby_info_key, &lobby_info);
@@ -509,21 +530,21 @@ impl Contract {
         }
         // check uniqueness of pawn_ids and positions and check encoded team
         let mut setup_valid = true;
-        let mut used_positions: Map<Pos, None> = Map::new(e);
-        let mut used_pawn_ids: Map<PawnId, None> = Map::new(e);
+        let mut used_positions: Map<Pos, bool> = Map::new(e);
+        let mut used_pawn_ids: Map<PawnId, bool> = Map::new(e);
         for commit in req.setup.iter() {
             let (pos, team) = Self::decode_pawn_id(&commit.pawn_id);
             if used_pawn_ids.contains_key(commit.pawn_id.clone()) {
                 setup_valid = false;
             }
-            used_pawn_ids.set(commit.pawn_id.clone(), None);
+            used_pawn_ids.set(commit.pawn_id.clone(), true);
             if team != u_state_index {
                 setup_valid = false;
             }
             if used_positions.contains_key(pos.clone()) {
                 setup_valid = false;
             }
-            used_positions.set(pos.clone(), None);
+            used_positions.set(pos.clone(), true);
 
         }
         // update
