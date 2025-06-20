@@ -339,17 +339,16 @@ fn test_leave_lobby_no_current_lobby() {
     let setup = TestSetup::new();
     let user_address = setup.generate_address();
     
-    // Create a user but don't put them in any lobby
-    setup.env.as_contract(&setup.contract_id, || {
-        let user_key = DataKey::User(user_address.clone());
-        let user = User {
-            current_lobby: Vec::new(&setup.env),
-            games_completed: 0,
-            index: user_address.clone(),
-        };
-        setup.env.storage().persistent().set(&user_key, &user);
-    });
+    // Create a lobby and have user join and leave to create a user record
+    let lobby_parameters = create_test_lobby_parameters(&setup.env);
+    let make_req = MakeLobbyReq {
+        lobby_id: 1,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&user_address, &make_req);
+    setup.client.leave_lobby(&user_address);
     
+    // Now user exists but has no current lobby
     let result = setup.client.try_leave_lobby(&user_address);
     assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
 }
@@ -446,10 +445,11 @@ fn test_join_lobby_not_found() {
 fn test_join_lobby_not_joinable_wrong_phase() {
     let setup = TestSetup::new();
     let host_address = setup.generate_address();
-    let guest_address = setup.generate_address();
+    let guest_address_1 = setup.generate_address();
+    let guest_address_2 = setup.generate_address();
     let lobby_id = 1u32;
     
-    // Create lobby and manually set it to non-joinable phase
+    // Create lobby and have a guest join to advance it to SetupCommit phase
     let lobby_parameters = create_test_lobby_parameters(&setup.env);
     let make_req = MakeLobbyReq {
         lobby_id,
@@ -457,19 +457,13 @@ fn test_join_lobby_not_joinable_wrong_phase() {
     };
     setup.client.make_lobby(&host_address, &make_req);
     
-    // Manually change phase to make it not joinable
-    setup.env.as_contract(&setup.contract_id, || {
-        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
-        let mut lobby_info: LobbyInfo = setup.env.storage()
-            .temporary()
-            .get(&lobby_info_key)
-            .unwrap();
-        lobby_info.phase = Phase::SetupCommit;
-        setup.env.storage().temporary().set(&lobby_info_key, &lobby_info);
-    });
+    // First guest joins, which advances the lobby to SetupCommit phase
+    let join_req_1 = JoinLobbyReq { lobby_id };
+    setup.client.join_lobby(&guest_address_1, &join_req_1);
     
-    let join_req = JoinLobbyReq { lobby_id };
-    let result = setup.client.try_join_lobby(&guest_address, &join_req);
+    // Second guest tries to join - should fail because lobby is no longer in Lobby phase
+    let join_req_2 = JoinLobbyReq { lobby_id };
+    let result = setup.client.try_join_lobby(&guest_address_2, &join_req_2);
     assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotJoinable);
 }
 
@@ -561,3 +555,409 @@ fn test_join_lobby_guest_already_in_another_lobby() {
 }
 
 //#endregion
+
+// Helper function to create test setup data
+fn create_test_setup_data_from_game_state(setup: &TestSetup, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, SetupProof, u64) {
+    setup.env.as_contract(&setup.contract_id, || {
+        let game_state_key = DataKey::GameState(lobby_id);
+        let game_state: GameState = setup.env.storage()
+            .temporary()
+            .get(&game_state_key)
+            .expect("Game state should exist");
+        
+        let mut setup_commits = Vec::new(&setup.env);
+        
+        // Find all pawns that belong to this team
+        for pawn in game_state.pawns.iter() {
+            let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+            if pawn_team == team {
+                // Create a simple hash for testing (without format! macro)
+                let mut hash_data = [0u8; 32];
+                hash_data[0] = (setup_commits.len() as u8) + 1;  // rank index
+                hash_data[1] = team as u8;     // team
+                hash_data[2] = pawn.pos.x as u8;        // x position
+                hash_data[3] = pawn.pos.y as u8;        // y position
+                hash_data[4] = lobby_id as u8; // lobby id
+                
+                let hidden_rank_hash = BytesN::from_array(&setup.env, &hash_data);
+                
+                let commit = SetupCommit {
+                    pawn_id: pawn.pawn_id,
+                    hidden_rank_hash,
+                };
+                setup_commits.push_back(commit);
+            }
+        }
+        
+        let salt = 12345u64 + team as u64 * 1000 + lobby_id as u64;
+        let setup_proof = SetupProof {
+            setup_commits: setup_commits.clone(),
+            salt,
+        };
+        
+        (setup_commits, setup_proof, salt)
+    })
+}
+
+// Helper function to create and advance lobby through setup to MoveCommit phase
+fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (Address, Address) {
+    let host_address = setup.generate_address();
+    let guest_address = setup.generate_address();
+    
+    // Create and join lobby
+    let lobby_parameters = create_test_lobby_parameters(&setup.env);
+    let make_req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&host_address, &make_req);
+    
+    let join_req = JoinLobbyReq { lobby_id };
+    setup.client.join_lobby(&guest_address, &join_req);
+    
+    // Create setup data for both players
+    let (_, host_setup_proof, _) = create_test_setup_data_from_game_state(&setup, lobby_id, 0); // Host is team 0
+    let (_, guest_setup_proof, _) = create_test_setup_data_from_game_state(&setup, lobby_id, 1); // Guest is team 1
+    
+    // Hash both setups
+    let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
+    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    
+    let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
+    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    
+    // Commit both setups
+    let host_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: host_setup_hash,
+    };
+    let guest_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: guest_setup_hash,
+    };
+    
+    setup.client.commit_setup(&host_address, &host_commit_req);
+    setup.client.commit_setup(&guest_address, &guest_commit_req);
+    
+    // Prove both setups to advance to MoveCommit phase
+    let host_prove_req = ProveSetupReq {
+        lobby_id,
+        setup: host_setup_proof,
+    };
+    let guest_prove_req = ProveSetupReq {
+        lobby_id,
+        setup: guest_setup_proof,
+    };
+    
+    setup.client.prove_setup(&host_address, &host_prove_req);
+    setup.client.prove_setup(&guest_address, &guest_prove_req);
+    
+    // Verify we're in MoveCommit phase
+    setup.env.as_contract(&setup.contract_id, || {
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+        let lobby_info: LobbyInfo = setup.env.storage()
+            .temporary()
+            .get(&lobby_info_key)
+            .expect("Lobby info should exist");
+        
+        assert_eq!(lobby_info.phase, Phase::MoveCommit);
+        assert_eq!(lobby_info.subphase, Subphase::Both);
+    });
+    
+    (host_address, guest_address)
+}
+
+// Helper function to create test move hash
+fn create_test_move_hash(env: &Env, pawn_id: PawnId, pos: Pos, salt: u64) -> HiddenMoveHash {
+    let move_proof = HiddenMoveProof {
+        pawn_id,
+        pos,
+        salt,
+    };
+    let serialized = move_proof.to_xdr(env);
+    env.crypto().sha256(&serialized).to_bytes()
+}
+
+//#region commit_move tests
+
+#[test]
+fn test_commit_move_success_host() {
+    let setup = TestSetup::new();
+    let lobby_id = 1u32;
+    
+    let (host_address, _guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
+    
+    // Create a test move hash
+    let pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 0 }, 0); // Host's pawn
+    let new_pos = Pos { x: 0, y: 1 }; // Move up one space
+    let move_hash = create_test_move_hash(&setup.env, pawn_id, new_pos, 12345);
+    
+    let commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash: move_hash.clone(),
+    };
+    
+    setup.client.commit_move(&host_address, &commit_req);
+    
+    // Verify move was committed and subphase changed
+    setup.env.as_contract(&setup.contract_id, || {
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+        let lobby_info: LobbyInfo = setup.env.storage()
+            .temporary()
+            .get(&lobby_info_key)
+            .expect("Lobby info should exist");
+        
+        assert_eq!(lobby_info.phase, Phase::MoveCommit);
+        assert_eq!(lobby_info.subphase, Subphase::Guest); // Now waiting for guest
+        
+        // Verify move hash was stored
+        let game_state_key = DataKey::GameState(lobby_id);
+        let game_state: GameState = setup.env.storage()
+            .temporary()
+            .get(&game_state_key)
+            .expect("Game state should exist");
+        
+        let host_move = game_state.moves.get(0).unwrap();
+        assert_eq!(host_move.move_hash.len(), 1);
+        assert_eq!(host_move.move_hash.get(0).unwrap(), move_hash);
+    });
+}
+
+#[test]
+fn test_commit_move_success_both_players() {
+    let setup = TestSetup::new();
+    let lobby_id = 1u32;
+    
+    let (host_address, guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
+    
+    // Create test move hashes for both players
+    let host_pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 0 }, 0);
+    let host_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 1 }, 12345);
+    
+    let guest_pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 3 }, 1);
+    let guest_move_hash = create_test_move_hash(&setup.env, guest_pawn_id, Pos { x: 0, y: 2 }, 54321);
+    
+    // Host commits first
+    let host_commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash: host_move_hash.clone(),
+    };
+    setup.client.commit_move(&host_address, &host_commit_req);
+    
+    // Guest commits second
+    let guest_commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash: guest_move_hash.clone(),
+    };
+    setup.client.commit_move(&guest_address, &guest_commit_req);
+    
+    // Verify both moves committed and phase advanced to MoveProve
+    setup.env.as_contract(&setup.contract_id, || {
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+        let lobby_info: LobbyInfo = setup.env.storage()
+            .temporary()
+            .get(&lobby_info_key)
+            .expect("Lobby info should exist");
+        
+        assert_eq!(lobby_info.phase, Phase::MoveProve);
+        assert_eq!(lobby_info.subphase, Subphase::Both); // Both can prove
+        
+        // Verify both move hashes were stored
+        let game_state_key = DataKey::GameState(lobby_id);
+        let game_state: GameState = setup.env.storage()
+            .temporary()
+            .get(&game_state_key)
+            .expect("Game state should exist");
+        
+        let host_move = game_state.moves.get(0).unwrap();
+        let guest_move = game_state.moves.get(1).unwrap();
+        
+        assert_eq!(host_move.move_hash.get(0).unwrap(), host_move_hash);
+        assert_eq!(guest_move.move_hash.get(0).unwrap(), guest_move_hash);
+    });
+}
+
+#[test]
+fn test_commit_move_lobby_not_found() {
+    let setup = TestSetup::new();
+    let user_address = setup.generate_address();
+    
+    let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 1 }, 12345);
+    let commit_req = CommitMoveReq {
+        lobby_id: 999, // Non-existent lobby
+        move_hash,
+    };
+    
+    let result = setup.client.try_commit_move(&user_address, &commit_req);
+    assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
+}
+
+#[test]
+fn test_commit_move_not_in_lobby() {
+    let setup = TestSetup::new();
+    let lobby_id = 1u32;
+    let outsider_address = setup.generate_address();
+    
+    let (_host_address, _guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
+    
+    let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 1 }, 12345);
+    let commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash,
+    };
+    
+    let result = setup.client.try_commit_move(&outsider_address, &commit_req);
+    assert_eq!(result.unwrap_err().unwrap(), Error::NotInLobby);
+}
+
+#[test]
+fn test_commit_move_wrong_phase() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let lobby_id = 1u32;
+    
+    // Create lobby but don't advance to MoveCommit phase
+    let lobby_parameters = create_test_lobby_parameters(&setup.env);
+    let make_req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&host_address, &make_req);
+    
+    let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 1 }, 12345);
+    let commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash,
+    };
+    
+    let result = setup.client.try_commit_move(&host_address, &commit_req);
+    assert_eq!(result.unwrap_err().unwrap(), Error::WrongPhase);
+}
+
+#[test]
+fn test_commit_move_wrong_subphase() {
+    let setup = TestSetup::new();
+    let lobby_id = 1u32;
+    
+    let (host_address, _guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
+    
+    // Host commits first
+    let host_pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 0 }, 0);
+    let host_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 1 }, 12345);
+    
+    let host_commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash: host_move_hash,
+    };
+    setup.client.commit_move(&host_address, &host_commit_req);
+    
+    // Now subphase should be Guest, so host trying to commit again should fail
+    let another_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 1, y: 0 }, 67890);
+    let another_commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash: another_move_hash,
+    };
+    
+    let result = setup.client.try_commit_move(&host_address, &another_commit_req);
+    assert_eq!(result.unwrap_err().unwrap(), Error::WrongSubphase);
+}
+
+#[test]
+fn test_commit_move_after_game_finished() {
+    let setup = TestSetup::new();
+    let lobby_id = 1u32;
+    
+    let (host_address, guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
+    
+    // Have host leave the game to finish it
+    setup.client.leave_lobby(&host_address);
+    
+    // Try to commit a move after the game is finished
+    let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 1 }, 12345);
+    let commit_req = CommitMoveReq {
+        lobby_id,
+        move_hash,
+    };
+    
+    let result = setup.client.try_commit_move(&guest_address, &commit_req);
+    assert_eq!(result.unwrap_err().unwrap(), Error::WrongPhase);
+}
+
+//#endregion
+
+#[test]
+fn test_prove_setup_invalid_pawn_ownership() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let guest_address = setup.generate_address();
+    let lobby_id = 1u32;
+    
+    // Create and join lobby
+    let lobby_parameters = create_test_lobby_parameters(&setup.env);
+    let make_req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&host_address, &make_req);
+    
+    let join_req = JoinLobbyReq { lobby_id };
+    setup.client.join_lobby(&guest_address, &join_req);
+    
+    // Create setup with wrong team pawns for host (team 1 instead of 0)
+    let (_, host_setup_proof, _) = create_test_setup_data_from_game_state(&setup, lobby_id, 1); // Wrong team!
+    
+    // Create valid setup for guest (team 0 - also wrong, but different from host)
+    let (_, guest_setup_proof, _) = create_test_setup_data_from_game_state(&setup, lobby_id, 0);
+    
+    // Hash both setups
+    let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
+    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    
+    let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
+    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    
+    // Commit both setups to transition to SetupProve phase
+    let host_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: host_setup_hash,
+    };
+    let guest_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: guest_setup_hash,
+    };
+    
+    setup.client.commit_setup(&host_address, &host_commit_req);
+    setup.client.commit_setup(&guest_address, &guest_commit_req);
+    
+    // Verify we're in SetupProve phase with Both subphase
+    setup.env.as_contract(&setup.contract_id, || {
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+        let lobby_info: LobbyInfo = setup.env.storage()
+            .temporary()
+            .get(&lobby_info_key)
+            .expect("Lobby info should exist");
+        
+        assert_eq!(lobby_info.phase, Phase::SetupProve);
+        assert_eq!(lobby_info.subphase, Subphase::Both); // Both players can prove
+    });
+    
+    // Try to prove invalid setup - should end the game with host losing
+    let host_prove_req = ProveSetupReq {
+        lobby_id,
+        setup: host_setup_proof,
+    };
+    
+    setup.client.prove_setup(&host_address, &host_prove_req);
+    
+    // Verify game ended with guest winning
+    setup.env.as_contract(&setup.contract_id, || {
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+        let lobby_info: LobbyInfo = setup.env.storage()
+            .temporary()
+            .get(&lobby_info_key)
+            .expect("Lobby info should exist");
+        
+        assert_eq!(lobby_info.phase, Phase::Finished);
+        assert_eq!(lobby_info.subphase, Subphase::Guest); // Guest wins
+    });
+}

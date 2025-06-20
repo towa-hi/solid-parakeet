@@ -913,6 +913,8 @@
         }
       ]
     ],
+    [],
+    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
@@ -940,7 +942,224 @@
                         "symbol": "setup_hash"
                       },
                       "val": {
-                        "bytes": "0047a9b1b5b0d84a9817e0f03ad74f70819eec21f5643c3806d2c9e0ed7b50e9"
+                        "bytes": "f84d59f69075701d953ba8998d83ea0abd6beac6390722f8158fdc2ab67904a6"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "commit_setup",
+              "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "lobby_id"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "setup_hash"
+                      },
+                      "val": {
+                        "bytes": "0e40db100bcdea70b2a69182139093f4ae753460aa3c7f8a475520c0d0492ad1"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "prove_setup",
+              "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "lobby_id"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "setup"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "salt"
+                            },
+                            "val": {
+                              "u64": 13346
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "setup_commits"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "hidden_rank_hash"
+                                      },
+                                      "val": {
+                                        "bytes": "0101010001000000000000000000000000000000000000000000000000000000"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "pawn_id"
+                                      },
+                                      "val": {
+                                        "u32": 101
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "hidden_rank_hash"
+                                      },
+                                      "val": {
+                                        "bytes": "0201030001000000000000000000000000000000000000000000000000000000"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "pawn_id"
+                                      },
+                                      "val": {
+                                        "u32": 303
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "hidden_rank_hash"
+                                      },
+                                      "val": {
+                                        "bytes": "0301000101000000000000000000000000000000000000000000000000000000"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "pawn_id"
+                                      },
+                                      "val": {
+                                        "u32": 1
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "hidden_rank_hash"
+                                      },
+                                      "val": {
+                                        "bytes": "0401000301000000000000000000000000000000000000000000000000000000"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "pawn_id"
+                                      },
+                                      "val": {
+                                        "u32": 5
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "hidden_rank_hash"
+                                      },
+                                      "val": {
+                                        "bytes": "0501020301000000000000000000000000000000000000000000000000000000"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "pawn_id"
+                                      },
+                                      "val": {
+                                        "u32": 207
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "symbol": "hidden_rank_hash"
+                                      },
+                                      "val": {
+                                        "bytes": "0601020101000000000000000000000000000000000000000000000000000000"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "symbol": "pawn_id"
+                                      },
+                                      "val": {
+                                        "u32": 205
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          }
+                        ]
                       }
                     }
                   ]
@@ -1965,7 +2184,7 @@
                                 "val": {
                                   "vec": [
                                     {
-                                      "bytes": "0047a9b1b5b0d84a9817e0f03ad74f70819eec21f5643c3806d2c9e0ed7b50e9"
+                                      "bytes": "f84d59f69075701d953ba8998d83ea0abd6beac6390722f8158fdc2ab67904a6"
                                     }
                                   ]
                                 }
@@ -1995,7 +2214,11 @@
                                   "symbol": "setup_hash"
                                 },
                                 "val": {
-                                  "vec": []
+                                  "vec": [
+                                    {
+                                      "bytes": "0e40db100bcdea70b2a69182139093f4ae753460aa3c7f8a475520c0d0492ad1"
+                                    }
+                                  ]
                                 }
                               },
                               {
@@ -2094,7 +2317,7 @@
                         "symbol": "phase"
                       },
                       "val": {
-                        "u32": 1
+                        "u32": 6
                       }
                     },
                     {
@@ -2102,7 +2325,7 @@
                         "symbol": "subphase"
                       },
                       "val": {
-                        "u32": 0
+                        "u32": 1
                       }
                     }
                   ]
@@ -3232,6 +3455,72 @@
                 "key": {
                   "ledger_key_nonce": {
                     "nonce": 1033654523790656264
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 2032731177588607455
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 2032731177588607455
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 4837995959683129791
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 4837995959683129791
                   }
                 },
                 "durability": "temporary",
