@@ -126,7 +126,7 @@ fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
     }
 }
 
-fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, SetupProof, u64, Vec<HiddenRank>) {
+fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>) {
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()
@@ -255,7 +255,7 @@ fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, tea
         setup_commits.push_back(commit);
     }
     
-    let setup_proof = SetupProof {
+    let setup_proof = Setup {
         setup_commits: setup_commits.clone(),
         salt,
     };
@@ -507,7 +507,7 @@ fn test_join_lobby_errors() {
 // endregion
 
 // region move tests
-fn create_test_setup_data_from_game_state(setup: &TestSetup, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, SetupProof, u64) {
+fn create_test_setup_data_from_game_state(setup: &TestSetup, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Setup, u64) {
     setup.env.as_contract(&setup.contract_id, || {
         let game_state_key = DataKey::GameState(lobby_id);
         let game_state: GameState = setup.env.storage()
@@ -542,7 +542,7 @@ fn create_test_setup_data_from_game_state(setup: &TestSetup, lobby_id: u32, team
             }
         }
         
-        let setup_proof = SetupProof {
+        let setup_proof = Setup {
             setup_commits: setup_commits.clone(),
             salt,
         };
@@ -621,7 +621,7 @@ fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (Addre
 
 // Helper function to create test move hash
 fn create_test_move_hash(env: &Env, pawn_id: PawnId, start_pos: Pos, target_pos: Pos, salt: u64) -> HiddenMoveHash {
-    let move_proof = HiddenMoveProof {
+    let move_proof = HiddenMove {
         pawn_id,
         start_pos,
         target_pos,
@@ -1717,7 +1717,7 @@ fn test_full_stratego_game_with_populated_ranks() {
 /// 
 /// This ensures consistent move generation regardless of whether ranks are 
 /// populated in the game state or not.
-fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters, team: u32, team_ranks: &Vec<HiddenRank>, salt: u64) -> Option<HiddenMoveProof> {
+fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters, team: u32, team_ranks: &Vec<HiddenRank>, salt: u64) -> Option<HiddenMove> {
     // Create a map of all tile positions for quick lookup
     let mut tile_map: Map<Pos, Tile> = Map::new(env);
     for tile in lobby_parameters.board.tiles.iter() {
@@ -1851,7 +1851,7 @@ fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_parameters: 
         }
     }
     
-    Some(HiddenMoveProof {
+    Some(HiddenMove {
         pawn_id: selected_pawn.pawn_id,
         start_pos: selected_pawn.pos,
         target_pos,
@@ -2991,7 +2991,7 @@ fn compare_all_pawn_states(setup: &TestSetup, lobby_a: u32, lobby_b: u32) -> boo
     })
 }
 
-fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<SetupCommit>, SetupProof, u64, Vec<HiddenRank>) {
+fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>) {
     let mut setup_commits = Vec::new(env);
     let mut hidden_ranks = Vec::new(env);
     
@@ -3057,7 +3057,7 @@ fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<SetupComm
         setup_commits.push_back(commit);
     }
     
-    let setup_proof = SetupProof {
+    let setup_proof = Setup {
         setup_commits: setup_commits.clone(),
         salt: team as u64,
     };

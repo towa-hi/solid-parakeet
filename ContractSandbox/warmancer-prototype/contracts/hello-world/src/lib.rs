@@ -14,14 +14,10 @@ macro_rules! debug_log {
 pub type LobbyId = u32;
 pub type PawnId = u32;
 pub type HiddenRankHash = BytesN<32>; // always the hash of HiddenRank struct
-pub type HiddenMoveHash = BytesN<32>; // always the hash of HiddenMoveProof struct
+pub type HiddenMoveHash = BytesN<32>; // always the hash of HiddenMove struct
+pub type SetupHash = BytesN<32>; // always the hash of Setup struct
 pub type BoardHash = BytesN<32>; // not used at the moment
 pub type Rank = u32;
-pub type Turn = u32;
-pub type PackedUser = BytesN<8>;
-pub type PackedLobbyInfo = BytesN<93>;
-pub type ShortAddress = u64;
-pub type SetupHash = BytesN<32>;
 
 // endregion
 // region enums errors
@@ -113,18 +109,18 @@ pub struct Tile {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Board {
-    pub name: String,
-    pub tiles: Vec<Tile>,
     pub hex: bool,
+    pub name: String,
     pub size: Pos,
+    pub tiles: Vec<Tile>,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HiddenMoveProof {
+pub struct HiddenMove {
     pub pawn_id: PawnId,
+    pub salt: u64,
     pub start_pos: Pos,
     pub target_pos: Pos,
-    pub salt: u64,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HiddenRank {
@@ -138,41 +134,41 @@ pub struct SetupCommit {
     pub pawn_id: PawnId,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SetupProof {
-    pub setup_commits: Vec<SetupCommit>,
+pub struct Setup {
     pub salt: u64,
+    pub setup_commits: Vec<SetupCommit>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnState {
     pub alive: bool,
+    pub hidden_rank_hash: HiddenRankHash,
     pub moved: bool,
     pub moved_scout: bool,
     pub pawn_id: PawnId,
     pub pos: Pos,
     pub rank: Vec<Rank>,
-    pub hidden_rank_hash: HiddenRankHash,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserSetup {
+    pub setup: Vec<Setup>,
     pub setup_hash: Vec<SetupHash>,
-    pub setup_proof: Vec<SetupProof>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserMove {
     pub move_hash: Vec<HiddenMoveHash>,
-    pub move_proof: Vec<HiddenMoveProof>,
+    pub move_proof: Vec<HiddenMove>,
     pub needed_rank_proofs: Vec<PawnId>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameState {
+    pub moves: Vec<UserMove>,
     pub pawns: Vec<PawnState>,
     pub setups: Vec<UserSetup>,
-    pub moves: Vec<UserMove>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyParameters {
-    pub board_hash: BoardHash,
     pub board: Board,
+    pub board_hash: BoardHash,
     pub dev_mode: bool,
     pub host_team: u32,
     pub max_ranks: Vec<u32>,
@@ -181,9 +177,9 @@ pub struct LobbyParameters {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyInfo {
-    pub index: LobbyId,
     pub guest_address: Vec<Address>,
     pub host_address: Vec<Address>,
+    pub index: LobbyId,
     pub phase: Phase,
     pub subphase: Subphase,
 }
@@ -212,7 +208,7 @@ pub struct CommitSetupReq {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProveSetupReq {
     pub lobby_id: LobbyId,
-    pub setup: SetupProof,
+    pub setup: Setup,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitMoveReq {
@@ -222,8 +218,8 @@ pub struct CommitMoveReq {
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProveMoveReq {
-    pub move_proof: HiddenMoveProof,
     pub lobby_id: LobbyId,
+    pub move_proof: HiddenMove,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -251,11 +247,11 @@ pub struct Contract;
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CollisionDetection {
     pub has_double_collision: bool,
+    pub has_o_collision: bool,
     pub has_swap_collision: bool, 
     pub has_u_collision: bool,
-    pub has_o_collision: bool,
-    pub u_collision_target: Option<PawnId>,
     pub o_collision_target: Option<PawnId>,
+    pub u_collision_target: Option<PawnId>,
 }
 
 #[contractimpl]
@@ -370,12 +366,10 @@ impl Contract {
         });
         let maybe_old_lobby_id = user.current_lobby.get(0);
         if let Some(old_lobby_id) = maybe_old_lobby_id {
-            let temporary = e.storage().temporary();
             if temporary.has(&DataKey::LobbyInfo(old_lobby_id.clone())) {
                 return Err(Error::GuestAlreadyInLobby)
             }
         }
-        
         let (lobby_info, _, lobby_parameters, lobby_info_key, _, _) = Self::get_lobby_data(e, &req.lobby_id, true, false, true)?;
         let mut lobby_info = lobby_info.unwrap();
         let lobby_parameters = lobby_parameters.unwrap();
@@ -392,7 +386,6 @@ impl Contract {
         if !lobby_info.guest_address.is_empty() {
             return Err(Error::LobbyNotJoinable)
         }
-        let temporary = e.storage().temporary();
         // update
         user.current_lobby = Vec::from_array(e, [req.lobby_id.clone()]);
         lobby_info.guest_address = Vec::from_array(e, [address]);
@@ -407,31 +400,31 @@ impl Contract {
                 let team = tile.setup;
                 let pawn_id = Self::encode_pawn_id(&pos, &team);
                 let pawn_state = PawnState {
+                    alive: true,
+                    hidden_rank_hash: HiddenRankHash::from_array(e, &[0u8; 32]),
+                    moved: false,
+                    moved_scout: false,
                     pawn_id: pawn_id,
                     pos: pos.clone(),
                     rank: Vec::new(e),
-                    alive: true,
-                    moved: false,
-                    moved_scout: false,
-                    hidden_rank_hash: HiddenRankHash::from_array(e, &[0u8; 32]),
                 };
                 pawns.push_back(pawn_state);
             }
         }
         let setups: Vec<UserSetup> = Vec::from_array(e, [
             UserSetup {
+                setup: Vec::new(e),
                 setup_hash: Vec::new(e),
-                setup_proof: Vec::new(e),
             },
             UserSetup {
+                setup: Vec::new(e),
                 setup_hash: Vec::new(e),
-                setup_proof: Vec::new(e),
             },
         ]);
         let game_state = GameState {
+            moves: Vec::new(e),
             pawns: pawns,
             setups: setups,
-            moves: Vec::new(e),
         };
         lobby_info.phase = Phase::SetupCommit;
         lobby_info.subphase = Subphase::Both;
@@ -447,6 +440,7 @@ impl Contract {
         // lobby_info.phase must be Phase::SetupCommit
         // lobby_info.subphase must be Subphase::Both or invoker's Host/Guest
         address.require_auth();
+        let temporary = e.storage().temporary();
         let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
         let mut lobby_info = lobby_info.unwrap();
         let mut game_state = game_state.unwrap();
@@ -456,7 +450,6 @@ impl Contract {
             return Err(Error::WrongPhase)
         }
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-        let temporary = e.storage().temporary();
         let mut u_setup = game_state.setups.get_unchecked(u_index);
         u_setup.setup_hash = Vec::from_array(e, [req.setup_hash.clone()]);
         // update
@@ -479,16 +472,17 @@ impl Contract {
         // lobby_info.subphase must be Subphase::Both or invoker's Host/Guest
         // game_state.setups[u_index].setup_hash[0] must exist
         address.require_auth();
+        let temporary = e.storage().temporary();
+        
         let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
         let mut lobby_info = lobby_info.unwrap();
         let mut game_state = game_state.unwrap();
-        
         let u_index = Self::get_player_index(&address, &lobby_info)?;
+        
         if lobby_info.phase != Phase::SetupProve {
             return Err(Error::WrongPhase)
         }
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-        let temporary = e.storage().temporary();
         let u_setup: UserSetup = game_state.setups.get_unchecked(u_index);
         let setup_hash = u_setup.setup_hash.get_unchecked(0);
         let serialized_setup_proof = req.setup.clone().to_xdr(e);
@@ -498,10 +492,7 @@ impl Contract {
         }
         // validate the proof
         let mut setup_valid = true;
-        let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
-        for tuple in game_state.pawns.iter().enumerate() {
-            pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
-        }
+        let pawns_map = Self::create_pawns_map(e, &game_state);
         for commit in req.setup.setup_commits.iter() {
             let (_, x_index) = Self::decode_pawn_id(&commit.pawn_id);
             if x_index != u_index {
@@ -528,20 +519,8 @@ impl Contract {
             game_state.pawns.set(pawn_index, pawn_state);
         }
         if next_subphase == Subphase::None {
-            lobby_info.phase = Phase::MoveCommit;
-            lobby_info.subphase = Subphase::Both;
-            game_state.moves = Vec::from_array(e, [
-                UserMove {
-                    move_hash: Vec::new(e),
-                    move_proof: Vec::new(e),
-                    needed_rank_proofs: Vec::new(e),
-                },
-                UserMove {
-                    move_hash: Vec::new(e),
-                    move_proof: Vec::new(e),
-                    needed_rank_proofs: Vec::new(e),
-                },
-            ]);
+            Self::transition_to_move_commit(&mut lobby_info);
+            game_state.moves = Self::create_empty_moves(e);
         }
         else {
             lobby_info.subphase = next_subphase;
@@ -554,9 +533,11 @@ impl Contract {
 
     pub fn commit_move(e: &Env, address: Address, req: CommitMoveReq) -> Result<(), Error> {
         address.require_auth();
-        let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
+        let temporary = e.storage().temporary();
+        
+        // First, get lobby info only to check phase and player membership
+        let (lobby_info, _, _, lobby_info_key, _, _) = Self::get_lobby_data(e, &req.lobby_id, true, false, false)?;
         let mut lobby_info = lobby_info.unwrap();
-        let mut game_state = game_state.unwrap();
         let u_index = Self::get_player_index(&address, &lobby_info)?;
         
         debug_log!(e, "commit_move: lobby_id={}, player_index={}, current_phase={:?}, current_subphase={:?}", 
@@ -566,9 +547,12 @@ impl Contract {
             debug_log!(e, "commit_move: WrongPhase - expected MoveCommit, got {:?}", lobby_info.phase);
             return Err(Error::WrongPhase)
         }
+        
+        // Now get the game state since we know we're in the right phase
+        let (_, game_state, _, _, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, false, true, false)?;
+        let mut game_state = game_state.unwrap();
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
         debug_log!(e, "commit_move: next_subphase will be {:?}", next_subphase);
-        let temporary = e.storage().temporary();
         let mut u_move = game_state.moves.get_unchecked(u_index);
         // update
         u_move.move_hash = Vec::from_array(e, [req.move_hash.clone()]);
@@ -593,6 +577,8 @@ impl Contract {
         // lobby_info.subphase must be Subphase::Both or invoker's Host/Guest
         // game_state.moves[u_index].move_hash[0] must exist
         address.require_auth();
+        let temporary = e.storage().temporary();
+        
         let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
         let mut lobby_info = lobby_info.unwrap();
         let mut game_state = game_state.unwrap();
@@ -609,7 +595,6 @@ impl Contract {
         }
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
         debug_log!(e, "prove_move: next_subphase will be {:?}", next_subphase);
-        let temporary = e.storage().temporary();
         let mut u_move = game_state.moves.get_unchecked(u_index);
         let mut o_move = game_state.moves.get_unchecked(o_index);
         let serialized_move_proof = req.move_proof.clone().to_xdr(e);
@@ -637,10 +622,7 @@ impl Contract {
 
             // apply changes to pawns and prepare to transition to the next MoveCommit or RankProve
             // pawns map will be applied back to game state later
-            let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
-            for tuple in game_state.pawns.iter().enumerate() {
-                pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
-            }
+            let mut pawns_map = Self::create_pawns_map(e, &game_state);
             
             let (u_pawn_index, mut u_pawn) = pawns_map.get_unchecked(u_move.move_proof.get_unchecked(0).pawn_id.clone());
             let (o_pawn_index, mut o_pawn) = pawns_map.get_unchecked(o_move.move_proof.get_unchecked(0).pawn_id.clone());
@@ -715,8 +697,7 @@ impl Contract {
                     Self::complete_move_resolution(e, &mut game_state, u_move.clone(), o_move.clone(), &pawns_map)?;
                     
                     // Transition to next turn
-                    lobby_info.phase = Phase::MoveCommit;
-                    lobby_info.subphase = Subphase::Both;
+                    Self::transition_to_move_commit(&mut lobby_info);
                     
                     debug_log!(e, "prove_move: Transitioned to MoveCommit/Both for next turn");
                 }
@@ -725,10 +706,8 @@ impl Contract {
                     lobby_info.phase = Phase::RankProve;
                     lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
                     
-                    // Apply changes to game state only when NOT using resolve_moves
-                    for (index, pawn) in pawns_map.values().iter() {
-                        game_state.pawns.set(index, pawn);
-                    }
+                    // Apply changes to game state
+                    Self::apply_pawns_to_game_state(&mut game_state, &pawns_map);
                     
                     // Set moves for the RankProve phase
                     game_state.moves.set(u_index, u_move.clone());
@@ -739,10 +718,8 @@ impl Contract {
                     lobby_info.phase = Phase::RankProve;
                     lobby_info.subphase = Self::user_subphase_from_player_index(&u_index);
                     
-                    // Apply changes to game state only when NOT using resolve_moves
-                    for (index, pawn) in pawns_map.values().iter() {
-                        game_state.pawns.set(index, pawn);
-                    }
+                    // Apply changes to game state
+                    Self::apply_pawns_to_game_state(&mut game_state, &pawns_map);
                     
                     // Set moves for the RankProve phase
                     game_state.moves.set(u_index, u_move.clone());
@@ -753,10 +730,8 @@ impl Contract {
                     lobby_info.phase = Phase::RankProve;
                     lobby_info.subphase = Subphase::Both;
                     
-                    // Apply changes to game state only when NOT using resolve_moves
-                    for (index, pawn) in pawns_map.values().iter() {
-                        game_state.pawns.set(index, pawn);
-                    }
+                    // Apply changes to game state
+                    Self::apply_pawns_to_game_state(&mut game_state, &pawns_map);
                     
                     // Set moves for the RankProve phase
                     game_state.moves.set(u_index, u_move.clone());
@@ -775,18 +750,19 @@ impl Contract {
 
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<(), Error> {
         address.require_auth();
+        let temporary = e.storage().temporary();
+        
         let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
         let mut lobby_info = lobby_info.unwrap();
         let mut game_state = game_state.unwrap();
-        
         let u_index = Self::get_player_index(&address, &lobby_info)?;
+        
         if lobby_info.phase != Phase::RankProve {
             return Err(Error::WrongPhase)
         }
         
         // Use standard subphase pattern like other functions
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-        let temporary = e.storage().temporary();
         
         let u_move = game_state.moves.get_unchecked(u_index);
         if u_move.needed_rank_proofs.is_empty() {
@@ -798,10 +774,7 @@ impl Contract {
         }
         
         let mut valid_rank_proof = true;
-        let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
-        for tuple in game_state.pawns.iter().enumerate() {
-            pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
-        }
+        let mut pawns_map = Self::create_pawns_map(e, &game_state);
         for hidden_rank in req.hidden_ranks.iter() {
             // rehash hidden_rank
             let serialized_hidden_rank = hidden_rank.clone().to_xdr(e);
@@ -848,9 +821,7 @@ impl Contract {
         game_state.moves.set(u_index, u_move.clone());
         
         // Apply pawns to game state
-        for (index, pawn) in pawns_map.values().iter() {
-            game_state.pawns.set(index, pawn);
-        }
+        Self::apply_pawns_to_game_state(&mut game_state, &pawns_map);
         
         // Use standard subphase transition pattern like other functions
         if next_subphase == Subphase::None {
@@ -864,8 +835,7 @@ impl Contract {
                 Self::complete_move_resolution(e, &mut game_state, u_move.clone(), o_move.clone(), &pawns_map)?;
                 
                 // Transition to next turn
-                lobby_info.phase = Phase::MoveCommit;
-                lobby_info.subphase = Subphase::Both;
+                Self::transition_to_move_commit(&mut lobby_info);
             } else {
                 // Some rank proofs still needed - determine who needs to act next
                 let host_still_needs_proofs = !u_move.needed_rank_proofs.is_empty();
@@ -887,7 +857,44 @@ impl Contract {
         Ok(())
     }
 
+    // region helper functions
 
+    // Redundancy Elimination Helpers
+    pub(crate) fn create_pawns_map(e: &Env, game_state: &GameState) -> Map<PawnId, (u32, PawnState)> {
+        let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
+        for tuple in game_state.pawns.iter().enumerate() {
+            pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
+        }
+        pawns_map
+    }
+
+    pub(crate) fn apply_pawns_to_game_state(game_state: &mut GameState, pawns_map: &Map<PawnId, (u32, PawnState)>) {
+        for (index, pawn) in pawns_map.values().iter() {
+            game_state.pawns.set(index, pawn);
+        }
+    }
+
+    pub(crate) fn create_empty_moves(e: &Env) -> Vec<UserMove> {
+        Vec::from_array(e, [
+            UserMove {
+                move_hash: Vec::new(e),
+                move_proof: Vec::new(e),
+                needed_rank_proofs: Vec::new(e),
+            },
+            UserMove {
+                move_hash: Vec::new(e),
+                move_proof: Vec::new(e),
+                needed_rank_proofs: Vec::new(e),
+            },
+        ])
+    }
+
+    pub(crate) fn transition_to_move_commit(lobby_info: &mut LobbyInfo) {
+        lobby_info.phase = Phase::MoveCommit;
+        lobby_info.subphase = Subphase::Both;
+    }
+
+    // State Management Helpers
     pub(crate) fn next_subphase(current_subphase: &Subphase, u_index: &u32) -> Result<Subphase, Error> {
         let result = match current_subphase {
             Subphase::Both => Ok(Self::opponent_subphase_from_player_index(&u_index)),
@@ -906,6 +913,48 @@ impl Contract {
         if *player_index == 0 { Subphase::Guest } else { Subphase::Host }
     }
 
+    // Player and Team Helpers
+    pub(crate) fn get_player_index(address: &Address, lobby_info: &LobbyInfo) -> Result<u32, Error> {
+        // player index is also an identifier encoded into PawnId
+        if lobby_info.host_address.contains(address) {
+            return Ok(0)
+        }
+        if lobby_info.guest_address.contains(address) {
+            return Ok(1)
+        }
+        return Err(Error::NotInLobby)
+    }
+
+    pub(crate) fn get_opponent_index(address: &Address, lobby_info: &LobbyInfo) -> Result<u32, Error> {
+        if lobby_info.host_address.contains(address) {
+            return Ok(1)
+        }
+        if lobby_info.guest_address.contains(address) {
+            return Ok(0)
+        }
+        return Err(Error::NotInLobby)
+    }
+
+    pub(crate) fn encode_pawn_id(pos: &Pos, team: &u32) -> PawnId {
+        let mut id = 0;
+        id += pos.x as u32 * 101;
+        id += pos.y as u32;
+        id = id << 1;  // Shift position bits left to make room for team bit
+        id += *team;   // Team goes in the least significant bit
+        id
+    }
+
+    pub(crate) fn decode_pawn_id(pawn_id: &PawnId) -> (Pos, u32) {
+        let is_red = (pawn_id & 1) == 0;
+        let base_id = pawn_id >> 1;
+        let pos = Pos {
+            x: base_id  as i32 / 101,
+            y: base_id  as i32 % 101,
+        };
+        (pos, if is_red {0} else {1})
+    }
+
+    // Movement and Validation Helpers
     pub(crate) fn is_scout_move(start_pos: &Pos, end_pos: &Pos) -> bool {
         let dx = end_pos.x - start_pos.x;
         let dy = end_pos.y - start_pos.y;
@@ -915,15 +964,12 @@ impl Contract {
         return true
     }
 
-    pub(crate) fn validate_move_proof(e: &Env, move_proof: &HiddenMoveProof, player_index: &u32, game_state: &GameState, lobby_parameters: &LobbyParameters) -> bool {
+    pub(crate) fn validate_move_proof(e: &Env, move_proof: &HiddenMove, player_index: &u32, game_state: &GameState, lobby_parameters: &LobbyParameters) -> bool {
         debug_log!(e, "validate_move_proof: pawn_id={}, player_index={}, start_pos=({},{}), target_pos=({},{})", 
              move_proof.pawn_id, player_index, move_proof.start_pos.x, move_proof.start_pos.y, 
              move_proof.target_pos.x, move_proof.target_pos.y);
         
-        let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
-        for tuple in game_state.pawns.iter().enumerate() {
-            pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
-        }
+        let pawns_map = Self::create_pawns_map(e, game_state);
         // cond: pawn must exist in game state
         let (_index, pawn) = match pawns_map.get(move_proof.pawn_id.clone()) {
             Some(tuple) => tuple,
@@ -997,224 +1043,7 @@ impl Contract {
         return true
     }
 
-    pub(crate) fn resolve_moves(e: &Env, game_state: &mut GameState) -> Result<(), Error> {
-        let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);
-        for tuple in game_state.pawns.iter().enumerate() {
-            pawns_map.set(tuple.1.pawn_id.clone(), (tuple.0 as u32, tuple.1));
-        }
-        let u_index = 0;
-        let o_index = 1;
-        let u_move = game_state.moves.get_unchecked(u_index);
-        let o_move = game_state.moves.get_unchecked(o_index);
-        let u_move_proof = u_move.move_proof.get_unchecked(0);
-        let o_move_proof = o_move.move_proof.get_unchecked(0);
-        let (u_pawn_index, mut u_pawn) = pawns_map.get_unchecked(u_move_proof.pawn_id.clone());
-        let (o_pawn_index, mut o_pawn) = pawns_map.get_unchecked(o_move_proof.pawn_id.clone());
-        debug_log!(e, "resolve_moves: u_pawn_id={}, o_pawn_id={}", u_pawn.pawn_id, o_pawn.pawn_id);
-        debug_log!(e, "resolve_moves: u_pawn_rank={:?}, o_pawn_rank={:?}", u_pawn.rank.is_empty(), o_pawn.rank.is_empty());
-        
-        // Reconstruct collision detection logic to determine actual collisions
-        let u_target_pos = u_move_proof.target_pos;
-        let o_target_pos = o_move_proof.target_pos;
-        let u_start_pos = u_move_proof.start_pos;
-        let o_start_pos = o_move_proof.start_pos;
-        
-        // Use shared collision detection function
-        let collision_detection = Self::detect_collisions(e, &u_pawn, &o_pawn, u_start_pos, o_start_pos, u_target_pos, o_target_pos, &pawns_map);
-        
-        // Resolve each detected collision exactly once
-        if collision_detection.has_double_collision {
-            debug_log!(e, "resolve_moves: Resolving double collision");
-            Self::resolve_collision(&mut u_pawn, &mut o_pawn);
-            pawns_map.set(u_pawn.pawn_id.clone(), (u_pawn_index, u_pawn.clone()));
-            pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
-        }
-        else if collision_detection.has_swap_collision {
-            debug_log!(e, "resolve_moves: Resolving swap collision");
-            Self::resolve_collision(&mut u_pawn, &mut o_pawn);
-            pawns_map.set(u_pawn.pawn_id.clone(), (u_pawn_index, u_pawn.clone()));
-            pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
-        }
-        else {
-            if let Some(u_collision_target) = collision_detection.u_collision_target {
-                debug_log!(e, "resolve_moves: Resolving user collision with stationary pawn {}", u_collision_target);
-                let (ux_pawn_index, mut ux_pawn) = pawns_map.get_unchecked(u_collision_target);
-                Self::resolve_collision(&mut u_pawn, &mut ux_pawn);
-                pawns_map.set(u_pawn.pawn_id.clone(), (u_pawn_index, u_pawn.clone()));
-                pawns_map.set(ux_pawn.pawn_id.clone(), (ux_pawn_index, ux_pawn.clone()));
-            }
-            
-            if let Some(o_collision_target) = collision_detection.o_collision_target {
-                debug_log!(e, "resolve_moves: Resolving opponent collision with stationary pawn {}", o_collision_target);
-                let (ox_pawn_index, mut ox_pawn) = pawns_map.get_unchecked(o_collision_target);
-                Self::resolve_collision(&mut o_pawn, &mut ox_pawn);
-                pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
-                pawns_map.set(ox_pawn.pawn_id.clone(), (ox_pawn_index, ox_pawn.clone()));
-            }
-        }
-        
-        debug_log!(e, "resolve_moves: Completed collision resolution");
-        
-        // apply changes to game state
-        for (index, pawn) in pawns_map.values().iter() {
-            game_state.pawns.set(index, pawn);
-        }
-        Ok(())
-    }
-
-    pub(crate) fn get_player_index(address: &Address, lobby_info: &LobbyInfo) -> Result<u32, Error> {
-        // player index is also an identifier encoded into PawnId
-        if lobby_info.host_address.contains(address) {
-            return Ok(0)
-        }
-        if lobby_info.guest_address.contains(address) {
-            return Ok(1)
-        }
-        return Err(Error::NotInLobby)
-    }
-
-    pub(crate) fn get_opponent_index(address: &Address, lobby_info: &LobbyInfo) -> Result<u32, Error> {
-        if lobby_info.host_address.contains(address) {
-            return Ok(1)
-        }
-        if lobby_info.guest_address.contains(address) {
-            return Ok(0)
-        }
-        return Err(Error::NotInLobby)
-    }
-
-    pub(crate) fn encode_pawn_id(pos: &Pos, team: &u32) -> PawnId {
-        let mut id = 0;
-        id += pos.x as u32 * 101;
-        id += pos.y as u32;
-        id = id << 1;  // Shift position bits left to make room for team bit
-        id += *team;   // Team goes in the least significant bit
-        id
-    }
-
-    pub(crate) fn decode_pawn_id(pawn_id: &PawnId) -> (Pos, u32) {
-        let is_red = (pawn_id & 1) == 0;
-        let base_id = pawn_id >> 1;
-        let pos = Pos {
-            x: base_id  as i32 / 101,
-            y: base_id  as i32 % 101,
-        };
-        (pos, if is_red {0} else {1})
-    }
-
-    pub(crate) fn resolve_collision(a_pawn: &mut PawnState, b_pawn: &mut PawnState) -> () {
-        if a_pawn.rank.is_empty() || b_pawn.rank.is_empty() {
-            panic!("a_pawn or b_pawn has no rank");
-        }
-        if !a_pawn.alive || !b_pawn.alive {
-            panic!("a_pawn or b_pawn is not alive");
-        }
-        let a_pawn_rank = a_pawn.rank.get_unchecked(0);
-        let b_pawn_rank = b_pawn.rank.get_unchecked(0);
-        // special case for trap vs seer
-        if a_pawn_rank == 11 && b_pawn_rank == 3 {
-            a_pawn.alive = false;
-        }
-        else if b_pawn_rank == 11 && a_pawn_rank == 3 {
-            b_pawn.alive = false;
-        }
-        // special case for warlord vs assassin
-        else if a_pawn_rank == 10 && b_pawn_rank == 1 {
-            a_pawn.alive = false;
-        }
-        else if b_pawn_rank == 10 && a_pawn_rank == 1 {
-            b_pawn.alive = false;
-        }
-        // normal cases
-        else if a_pawn_rank < b_pawn_rank {
-            a_pawn.alive = false;
-        }
-        else if b_pawn_rank < a_pawn_rank {
-            b_pawn.alive = false;
-        }
-        // both die if equal rank
-        else {
-            a_pawn.alive = false;
-            b_pawn.alive = false;
-        }
-    }
-
-    pub(crate) fn get_lobby_data(
-        e: &Env, 
-        lobby_id: &LobbyId, 
-        need_lobby_info: bool, 
-        need_game_state: bool, 
-        need_lobby_parameters: bool
-    ) -> Result<(Option<LobbyInfo>, Option<GameState>, Option<LobbyParameters>, DataKey, DataKey, DataKey), Error> {
-        let temporary = e.storage().temporary();
-        
-        let lobby_info_key = DataKey::LobbyInfo(lobby_id.clone());
-        let game_state_key = DataKey::GameState(lobby_id.clone());
-        let lobby_parameters_key = DataKey::LobbyParameters(lobby_id.clone());
-        
-        let lobby_info = if need_lobby_info {
-            match temporary.get(&lobby_info_key) {
-                Some(info) => Some(info),
-                None => return Err(Error::LobbyNotFound),
-            }
-        } else {
-            None
-        };
-        
-        let game_state = if need_game_state {
-            match temporary.get(&game_state_key) {
-                Some(state) => Some(state),
-                None => return Err(Error::GameStateNotFound),
-            }
-        } else {
-            None
-        };
-        
-        let lobby_parameters = if need_lobby_parameters {
-            match temporary.get(&lobby_parameters_key) {
-                Some(params) => Some(params),
-                None => return Err(Error::LobbyNotFound),
-            }
-        } else {
-            None
-        };
-        
-        Ok((lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, lobby_parameters_key))
-    }
-
-    pub(crate) fn complete_move_resolution(e: &Env, game_state: &mut GameState, u_move: UserMove, o_move: UserMove, pawns_map: &Map<PawnId, (u32, PawnState)>) -> Result<(), Error> {
-        let u_index = 0;
-        let o_index = 1;
-        
-        // Apply pawn changes to game state
-        for (index, pawn) in pawns_map.values().iter() {
-            game_state.pawns.set(index, pawn);
-        }
-        
-        // Set current moves in game state (critical for resolve_moves to read correct data)
-        game_state.moves.set(u_index, u_move);
-        game_state.moves.set(o_index, o_move);
-        
-        // Resolve collisions
-        Self::resolve_moves(e, game_state)?;
-        
-        // Reset moves for next turn
-        game_state.moves = Vec::from_array(e, [
-            UserMove {
-                move_hash: Vec::new(e),
-                move_proof: Vec::new(e),
-                needed_rank_proofs: Vec::new(e),
-            },
-            UserMove {
-                move_hash: Vec::new(e),
-                move_proof: Vec::new(e),
-                needed_rank_proofs: Vec::new(e),
-            },
-        ]);
-        
-        Ok(())
-    }
-
+    // Collision Detection and Resolution
     pub(crate) fn detect_collisions(
         e: &Env,
         u_pawn: &PawnState, 
@@ -1264,13 +1093,159 @@ impl Contract {
         
         CollisionDetection {
             has_double_collision,
+            has_o_collision,
             has_swap_collision,
             has_u_collision,
-            has_o_collision,
-            u_collision_target,
             o_collision_target,
+            u_collision_target,
         }
     }
+
+    pub(crate) fn resolve_collision(a_pawn: &mut PawnState, b_pawn: &mut PawnState) -> () {
+        if a_pawn.rank.is_empty() || b_pawn.rank.is_empty() {
+            panic!("a_pawn or b_pawn has no rank");
+        }
+        if !a_pawn.alive || !b_pawn.alive {
+            panic!("a_pawn or b_pawn is not alive");
+        }
+        let a_pawn_rank = a_pawn.rank.get_unchecked(0);
+        let b_pawn_rank = b_pawn.rank.get_unchecked(0);
+        // special case for trap vs seer
+        if a_pawn_rank == 11 && b_pawn_rank == 3 {
+            a_pawn.alive = false;
+        }
+        else if b_pawn_rank == 11 && a_pawn_rank == 3 {
+            b_pawn.alive = false;
+        }
+        // special case for warlord vs assassin
+        else if a_pawn_rank == 10 && b_pawn_rank == 1 {
+            a_pawn.alive = false;
+        }
+        else if b_pawn_rank == 10 && a_pawn_rank == 1 {
+            b_pawn.alive = false;
+        }
+        // normal cases
+        else if a_pawn_rank < b_pawn_rank {
+            a_pawn.alive = false;
+        }
+        else if b_pawn_rank < a_pawn_rank {
+            b_pawn.alive = false;
+        }
+        // both die if equal rank
+        else {
+            a_pawn.alive = false;
+            b_pawn.alive = false;
+        }
+    }
+
+    pub(crate) fn complete_move_resolution(e: &Env, game_state: &mut GameState, u_move: UserMove, o_move: UserMove, pawns_map: &Map<PawnId, (u32, PawnState)>) -> Result<(), Error> {
+        let u_index = 0;
+        let o_index = 1;
+        
+        // Apply pawn changes to game state
+        Self::apply_pawns_to_game_state(game_state, pawns_map);
+        
+        // Set current moves in game state
+        game_state.moves.set(u_index, u_move.clone());
+        game_state.moves.set(o_index, o_move.clone());
+        
+        // Now perform collision resolution using the updated game state
+        let u_move_proof = u_move.move_proof.get_unchecked(0);
+        let o_move_proof = o_move.move_proof.get_unchecked(0);
+        
+        // Get the updated pawns from game state for collision resolution
+        let mut updated_pawns_map = Self::create_pawns_map(e, game_state);
+        
+        let (u_pawn_index, mut u_pawn) = updated_pawns_map.get_unchecked(u_move_proof.pawn_id.clone());
+        let (o_pawn_index, mut o_pawn) = updated_pawns_map.get_unchecked(o_move_proof.pawn_id.clone());
+        
+        // Detect and resolve collisions
+        let collision_detection = Self::detect_collisions(e, &u_pawn, &o_pawn, u_move_proof.start_pos, o_move_proof.start_pos, u_move_proof.target_pos, o_move_proof.target_pos, &updated_pawns_map);
+        
+        if collision_detection.has_double_collision {
+            debug_log!(e, "complete_move_resolution: Resolving double collision");
+            Self::resolve_collision(&mut u_pawn, &mut o_pawn);
+            updated_pawns_map.set(u_pawn.pawn_id.clone(), (u_pawn_index, u_pawn.clone()));
+            updated_pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
+        }
+        else if collision_detection.has_swap_collision {
+            debug_log!(e, "complete_move_resolution: Resolving swap collision");
+            Self::resolve_collision(&mut u_pawn, &mut o_pawn);
+            updated_pawns_map.set(u_pawn.pawn_id.clone(), (u_pawn_index, u_pawn.clone()));
+            updated_pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
+        }
+        else {
+            if let Some(u_collision_target) = collision_detection.u_collision_target {
+                debug_log!(e, "complete_move_resolution: Resolving user collision with stationary pawn {}", u_collision_target);
+                let (ux_pawn_index, mut ux_pawn) = updated_pawns_map.get_unchecked(u_collision_target);
+                Self::resolve_collision(&mut u_pawn, &mut ux_pawn);
+                updated_pawns_map.set(u_pawn.pawn_id.clone(), (u_pawn_index, u_pawn.clone()));
+                updated_pawns_map.set(ux_pawn.pawn_id.clone(), (ux_pawn_index, ux_pawn.clone()));
+            }
+            
+            if let Some(o_collision_target) = collision_detection.o_collision_target {
+                debug_log!(e, "complete_move_resolution: Resolving opponent collision with stationary pawn {}", o_collision_target);
+                let (ox_pawn_index, mut ox_pawn) = updated_pawns_map.get_unchecked(o_collision_target);
+                Self::resolve_collision(&mut o_pawn, &mut ox_pawn);
+                updated_pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
+                updated_pawns_map.set(ox_pawn.pawn_id.clone(), (ox_pawn_index, ox_pawn.clone()));
+            }
+        }
+        
+        // Apply collision resolution results back to game state
+        Self::apply_pawns_to_game_state(game_state, &updated_pawns_map);
+        
+        // Reset moves for next turn
+        game_state.moves = Self::create_empty_moves(e);
+        
+        Ok(())
+    }
+
+    // Data Access Helpers
+    pub(crate) fn get_lobby_data(
+        e: &Env, 
+        lobby_id: &LobbyId, 
+        need_lobby_info: bool, 
+        need_game_state: bool, 
+        need_lobby_parameters: bool
+    ) -> Result<(Option<LobbyInfo>, Option<GameState>, Option<LobbyParameters>, DataKey, DataKey, DataKey), Error> {
+        let temporary = e.storage().temporary();
+        
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id.clone());
+        let game_state_key = DataKey::GameState(lobby_id.clone());
+        let lobby_parameters_key = DataKey::LobbyParameters(lobby_id.clone());
+        
+        let lobby_info = if need_lobby_info {
+            match temporary.get(&lobby_info_key) {
+                Some(info) => Some(info),
+                None => return Err(Error::LobbyNotFound),
+            }
+        } else {
+            None
+        };
+        
+        let game_state = if need_game_state {
+            match temporary.get(&game_state_key) {
+                Some(state) => Some(state),
+                None => return Err(Error::GameStateNotFound),
+            }
+        } else {
+            None
+        };
+        
+        let lobby_parameters = if need_lobby_parameters {
+            match temporary.get(&lobby_parameters_key) {
+                Some(params) => Some(params),
+                None => return Err(Error::LobbyNotFound),
+            }
+        } else {
+            None
+        };
+        
+        Ok((lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, lobby_parameters_key))
+    }
+
+    // endregion
 
 }
 // endregion
