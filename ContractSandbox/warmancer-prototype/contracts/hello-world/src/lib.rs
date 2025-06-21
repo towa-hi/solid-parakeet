@@ -714,6 +714,9 @@ impl Contract {
             }
             // if it's possible to resolve the collision without having to ask for rank proofs, do it
             // otherwise, add involved pawns to the proof list if unknown ranks
+            debug_log!(e, "prove_move: collision detection - double: {:?}, swap: {:?}, u_collision: {:?}, o_collision: {:?}", 
+                      double_collision.is_some(), swap_collision.is_some(), u_collision.is_some(), o_collision.is_some());
+            
             if double_collision.is_some() || swap_collision.is_some() {
                 if u_pawn.rank.is_empty()  {
                     u_proof_list.push_back(u_pawn.pawn_id.clone());
@@ -744,6 +747,10 @@ impl Contract {
             }
             u_move.needed_rank_proofs = u_proof_list.clone();
             o_move.needed_rank_proofs = o_proof_list.clone();
+            
+            debug_log!(e, "prove_move: rank proofs needed - u_proof_list len: {}, o_proof_list len: {}", 
+                      u_proof_list.len(), o_proof_list.len());
+            
             match (u_proof_list.is_empty(), o_proof_list.is_empty()) {
                 (true, true) => {
                     debug_log!(e, "prove_move: No rank proofs needed, using resolve_moves for collision resolution");
@@ -755,7 +762,9 @@ impl Contract {
                     game_state.moves.set(o_index, o_move.clone());
                     
                     // Use resolve_moves to handle collision resolution
+                    debug_log!(e, "prove_move: About to call resolve_moves");
                     Self::resolve_moves(e, &mut game_state)?;
+                    debug_log!(e, "prove_move: resolve_moves completed successfully");
                     
                     // transition to next turn
                     lobby_info.phase = Phase::MoveCommit;
@@ -778,21 +787,32 @@ impl Contract {
                     debug_log!(e, "prove_move: User needs rank proofs, transitioning to RankProve/User");
                     lobby_info.phase = Phase::RankProve;
                     lobby_info.subphase = Self::user_subphase_from_player_index(&u_index);
+                    
+                    // Apply changes to game state only when NOT using resolve_moves
+                    for (index, pawn) in pawns_map.values().iter() {
+                        game_state.pawns.set(index, pawn);
+                    }
                 }
                 (false, true) => {
                     debug_log!(e, "prove_move: Opponent needs rank proofs, transitioning to RankProve/Opponent");
                     lobby_info.phase = Phase::RankProve;
                     lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
+                    
+                    // Apply changes to game state only when NOT using resolve_moves
+                    for (index, pawn) in pawns_map.values().iter() {
+                        game_state.pawns.set(index, pawn);
+                    }
                 }
                 (false, false) => {
                     debug_log!(e, "prove_move: Both need rank proofs, transitioning to RankProve/Both");
                     lobby_info.phase = Phase::RankProve;
                     lobby_info.subphase = Subphase::Both;
+                    
+                    // Apply changes to game state only when NOT using resolve_moves
+                    for (index, pawn) in pawns_map.values().iter() {
+                        game_state.pawns.set(index, pawn);
+                    }
                 }
-            }
-            // apply changes to game state
-            for (index, pawn) in pawns_map.values().iter() {
-                game_state.pawns.set(index, pawn);
             }
         } else {
             lobby_info.subphase = next_subphase;
@@ -1074,20 +1094,20 @@ impl Contract {
             pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
         }
         else {
-            if let Some((_, stationary_pawn_id)) = u_collision {
-                debug_log!(e, "resolve_moves: Resolving user collision with stationary pawn {}", stationary_pawn_id);
-                let (stationary_pawn_index, mut stationary_pawn) = pawns_map.get_unchecked(stationary_pawn_id);
-                Self::resolve_collision(&mut u_pawn, &mut stationary_pawn);
+            if let Some((_, ox_pawn_id)) = u_collision {
+                debug_log!(e, "resolve_moves: Resolving user collision with stationary pawn {}", ox_pawn_id);
+                let (ox_pawn_index, mut ox_pawn) = pawns_map.get_unchecked(ox_pawn_id);
+                Self::resolve_collision(&mut u_pawn, &mut ox_pawn);
                 pawns_map.set(u_pawn.pawn_id.clone(), (u_pawn_index, u_pawn.clone()));
-                pawns_map.set(stationary_pawn.pawn_id.clone(), (stationary_pawn_index, stationary_pawn.clone()));
+                pawns_map.set(ox_pawn.pawn_id.clone(), (ox_pawn_index, ox_pawn.clone()));
             }
             
-            if let Some((_, stationary_pawn_id)) = o_collision {
-                debug_log!(e, "resolve_moves: Resolving opponent collision with stationary pawn {}", stationary_pawn_id);
-                let (stationary_pawn_index, mut stationary_pawn) = pawns_map.get_unchecked(stationary_pawn_id);
-                Self::resolve_collision(&mut o_pawn, &mut stationary_pawn);
+            if let Some((_, ux_pawn_id)) = o_collision {
+                debug_log!(e, "resolve_moves: Resolving opponent collision with stationary pawn {}", ux_pawn_id);
+                let (ux_pawn_index, mut ux_pawn) = pawns_map.get_unchecked(ux_pawn_id);
+                Self::resolve_collision(&mut o_pawn, &mut ux_pawn);
                 pawns_map.set(o_pawn.pawn_id.clone(), (o_pawn_index, o_pawn.clone()));
-                pawns_map.set(stationary_pawn.pawn_id.clone(), (stationary_pawn_index, stationary_pawn.clone()));
+                pawns_map.set(ux_pawn.pawn_id.clone(), (ux_pawn_index, ux_pawn.clone()));
             }
         }
         
@@ -1097,8 +1117,6 @@ impl Contract {
         for (index, pawn) in pawns_map.values().iter() {
             game_state.pawns.set(index, pawn);
         }
-        game_state.moves.set(0, u_move.clone());
-        game_state.moves.set(1, o_move.clone());
         Ok(())
     }
 
