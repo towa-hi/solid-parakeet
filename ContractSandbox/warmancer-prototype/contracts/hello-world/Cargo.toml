@@ -16,3 +16,7 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [package.metadata.cargo-test-options]
 test-threads = 1
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
