@@ -1,0 +1,29 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+if you have questions, stop and ask. do not make changes out of scope. ask before making new functions, new variables or renaming existing variables.
+
+use this command to run tests:
+cargo test -- --nocapture
+
+Never edit the definitions of structs in the contract.
+Do not use std or import anything.
+Do not delete files or edit files outside of lib.rs and test.rs.
+Do not edit lib.rs when working on tests.
+
+
+Warmancer is a variant of stratego running on the Stellar blockchain with simultaneous turn resolution using commit reveal logic.
+
+"commit" means to send a salted hash for an object to the contract to be stored and "proof" or "prove" means to recieve the object and check the hash against the committed hash for equality
+
+"user" and "opponent", often abbreviated to u_ or o_ suffixes, are words referring to the invoker of the method, not guest and host. guest and host is converted to user and opponent using get_player_index and get_opponent_index helper functions.
+
+rules for valid moves:
+pawn must be owned by user
+pawn must be alive
+move pos must be a tile that is passable
+move pos must not be occupied by a pawn of the same team
+
+

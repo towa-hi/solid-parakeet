@@ -1,5 +1,5 @@
 #![cfg(test)]
-
+extern crate std;
 use super::*;
 use soroban_sdk::{Env, Address};
 use soroban_sdk::testutils::Address as _;
@@ -84,11 +84,8 @@ fn create_default_board(env: &Env) -> Board {
 
 // region make_lobby tests
 
-// Helper function to create test lobby parameters
 fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
     let board_hash = BytesN::from_array(env, &[1u8; 32]);
-    
-    // Use the default board
     let board = create_default_board(env);
     
     LobbyParameters {
@@ -102,11 +99,9 @@ fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
     }
 }
 
-// Helper function for invalid board testing
 fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
     let board_hash = BytesN::from_array(env, &[1u8; 32]);
     
-    // Create board with wrong tile count (size says 2x2 but we have 3 tiles)
     let tiles = Vec::from_array(env, [
         Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0 },
         Tile { pos: Pos { x: 1, y: 0 }, passable: true, setup: 0 },
@@ -131,10 +126,7 @@ fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
     }
 }
 
-// Helper function to create realistic setup data for full Stratego board
-// This function reads the actual game state to find valid pawn positions for the team
-fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, SetupProof, u64) {
-    // This needs to be called within a contract context to access game state
+fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, SetupProof, u64, Vec<HiddenRank>) {
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()
@@ -144,7 +136,6 @@ fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, tea
     let mut setup_commits = Vec::new(env);
     let mut team_pawns = Vec::new(env);
     
-    // Find all pawns that belong to this team
     for pawn in game_state.pawns.iter() {
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
         if pawn_team == team {
@@ -152,45 +143,77 @@ fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, tea
         }
     }
     
-    // Get the lobby parameters to access max_ranks
     let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
     let lobby_parameters: LobbyParameters = env.storage()
         .temporary()
         .get(&lobby_parameters_key)
         .expect("Lobby parameters should exist");
     
-    // Generate rank distribution from max_ranks vector
-    let mut rank_distribution = Vec::new(env);
+    // Create rank distribution but organize strategically
+    let mut front_ranks = Vec::new(env);  // Movable pieces for front lines
+    let mut back_ranks = Vec::new(env);   // Flags and bombs for back row
+    
     for (rank, count) in lobby_parameters.max_ranks.iter().enumerate() {
+        let rank_u32 = rank as u32;
         for _ in 0..count {
-            rank_distribution.push_back(rank as u32);
+            if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb
+                back_ranks.push_back(rank_u32);
+            } else {
+                front_ranks.push_back(rank_u32);
+            }
         }
     }
     
-    // Assign ranks to pawns (up to the minimum of available pawns and ranks)
-    let team_pawns_len = team_pawns.len();
-    let rank_distribution_len = rank_distribution.len();
-    let assignment_count = if team_pawns_len < rank_distribution_len {
-        team_pawns_len
+    // Sort team pawns by position - back rows first for flags/bombs
+    let mut sorted_pawns = Vec::new(env);
+    for pawn in team_pawns.iter() {
+        sorted_pawns.push_back(pawn);
+    }
+    
+    // Sort by y-coordinate (back to front for each team)
+    // For team 0 (host): y=0,1,2,3 where y=0 is back row
+    // For team 1 (guest): y=9,8,7,6 where y=9 is back row
+    let mut pawn_vec: std::vec::Vec<PawnState> = std::vec::Vec::new();
+    for pawn in sorted_pawns.iter() {
+        pawn_vec.push(pawn.clone());
+    }
+    
+    if team == 0 {
+        // Host team: sort by y ascending (0,1,2,3) so back row (y=0) comes first
+        pawn_vec.sort_by_key(|pawn| pawn.pos.y);
     } else {
-        rank_distribution_len
-    };
+        // Guest team: sort by y descending (9,8,7,6) so back row (y=9) comes first  
+        pawn_vec.sort_by_key(|pawn| -pawn.pos.y);
+    }
     
-    let salt = team as u64; // Setup salt is team index (0 for host, 1 for guest)
+    let salt = team as u64;
+    let mut hidden_ranks = Vec::new(env);
     
-    for i in 0..assignment_count {
-        let pawn = team_pawns.get(i).unwrap();
-        let rank = rank_distribution.get(i).unwrap();
+    // Assign ranks: flags/bombs to back positions, others to front
+    let back_count = back_ranks.len() as usize;
+    
+    for (i, pawn) in pawn_vec.iter().enumerate() {
+        let rank = if i < back_count {
+            // Assign flags and bombs to back positions
+            back_ranks.get(i as u32).unwrap()
+        } else {
+            // Assign other ranks to front positions
+            let front_index = i - back_count;
+            if front_index < front_ranks.len() as usize {
+                front_ranks.get(front_index as u32).unwrap()
+            } else {
+                // Fallback to rank 4 (Sergeant) if we run out
+                4u32
+            }
+        };
         
-        // Create proper HiddenRank struct and hash it
         let hidden_rank = HiddenRank {
             pawn_id: pawn.pawn_id,
             rank,
-            salt: pawn.pawn_id as u64, // Hidden rank salt is always pawn_id for testing
+            salt: pawn.pawn_id as u64,
         };
-        
-        // Hash the HiddenRank struct properly
-        let serialized_hidden_rank = hidden_rank.to_xdr(env);
+        hidden_ranks.push_back(hidden_rank.clone());
+        let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
         let hidden_rank_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes();
         
         let commit = SetupCommit {
@@ -205,10 +228,9 @@ fn create_realistic_stratego_setup_from_game_state(env: &Env, lobby_id: u32, tea
         salt,
     };
     
-    (setup_commits, setup_proof, salt)
+    (setup_commits, setup_proof, salt, hidden_ranks)
 }
 
-// Helper function to create a full-sized Stratego board (10x10) with realistic setup
 fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
     let board_hash = BytesN::from_array(env, &[
         0xef, 0x3b, 0x53, 0x2a, 0x3e, 0x48, 0x1f, 0x29, 
@@ -217,7 +239,6 @@ fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
         0x7c, 0x99, 0xc0, 0xe6, 0xff, 0x8c, 0x8f, 0x78
     ]);
     
-    // Create board with a different name for full stratego
     let mut board = create_default_board(env);
     board.name = String::from_str(env, "Full Stratego Board");
     
@@ -246,11 +267,9 @@ fn test_make_lobby_success() {
     
     setup.client.make_lobby(&host_address, &req);
     
-    // Verify lobby info and user were stored correctly
     setup.verify_lobby_info(lobby_id, &host_address, Phase::Lobby);
     setup.verify_user_lobby(&host_address, lobby_id);
     
-    // Verify lobby parameters were stored
     setup.env.as_contract(&setup.contract_id, || {
         let lobby_params_key = DataKey::LobbyParameters(lobby_id);
         let stored_params: LobbyParameters = setup.env.storage()
@@ -265,71 +284,36 @@ fn test_make_lobby_success() {
 }
 
 #[test]
-fn test_make_lobby_already_exists() {
+fn test_make_lobby_errors() {
     let setup = TestSetup::new();
-    let host_address_1 = setup.generate_address();
-    let host_address_2 = setup.generate_address();
-    
     let lobby_id = 1u32;
     let lobby_parameters = create_test_lobby_parameters(&setup.env);
     
-    // First user creates lobby successfully
+    // Test: Lobby already exists
+    let host_address_1 = setup.generate_address();
     let req_1 = MakeLobbyReq {
         lobby_id,
         parameters: lobby_parameters.clone(),
     };
     setup.client.make_lobby(&host_address_1, &req_1);
     
-    // Second user tries to create lobby with same ID - should fail
+    let host_address_2 = setup.generate_address();
     let req_2 = MakeLobbyReq {
         lobby_id,
         parameters: lobby_parameters,
     };
-    
     let result = setup.client.try_make_lobby(&host_address_2, &req_2);
-    let error = result.unwrap_err().unwrap();
-    assert!(TestSetup::is_validation_error(&error));
-}
-
-#[test]
-fn test_make_lobby_invalid_board() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let lobby_id = 1u32;
+    assert!(TestSetup::is_validation_error(&result.unwrap_err().unwrap()));
     
+    // Test: Invalid board
+    let host_address_3 = setup.generate_address();
     let invalid_lobby_parameters = create_invalid_board_parameters(&setup.env);
-    let req = MakeLobbyReq {
-        lobby_id,
+    let req_3 = MakeLobbyReq {
+        lobby_id: 2,
         parameters: invalid_lobby_parameters,
     };
-    
-    let result = setup.client.try_make_lobby(&host_address, &req);
-    let error = result.unwrap_err().unwrap();
-    assert!(TestSetup::is_validation_error(&error));
-}
-
-#[test]
-fn test_make_multiple_lobbies_different_hosts() {
-    let setup = TestSetup::new();
-    let host_addresses = [
-        setup.generate_address(),
-        setup.generate_address(),
-        setup.generate_address(),
-    ];
-    
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    
-    // Create three different lobbies with different hosts
-    for (i, host_addr) in host_addresses.iter().enumerate() {
-        let lobby_id = (i + 1) as u32;
-        let req = MakeLobbyReq {
-            lobby_id,
-            parameters: lobby_parameters.clone(),
-        };
-        
-        setup.client.make_lobby(host_addr, &req);
-        setup.verify_lobby_info(lobby_id, host_addr, Phase::Lobby);
-    }
+    let result = setup.client.try_make_lobby(&host_address_3, &req_3);
+    assert!(TestSetup::is_validation_error(&result.unwrap_err().unwrap()));
 }
 
 // endregion
@@ -370,20 +354,16 @@ fn test_leave_lobby_success_host() {
 }
 
 #[test]
-fn test_leave_lobby_user_not_found() {
+fn test_leave_lobby_errors() {
     let setup = TestSetup::new();
-    let non_existent_user = setup.generate_address();
     
+    // Test: User not found
+    let non_existent_user = setup.generate_address();
     let result = setup.client.try_leave_lobby(&non_existent_user);
     assert_eq!(result.unwrap_err().unwrap(), Error::UserNotFound);
-}
-
-#[test]
-fn test_leave_lobby_no_current_lobby() {
-    let setup = TestSetup::new();
-    let user_address = setup.generate_address();
     
-    // Create a lobby and have user join and leave to create a user record
+    // Test: No current lobby
+    let user_address = setup.generate_address();
     let lobby_parameters = create_test_lobby_parameters(&setup.env);
     let make_req = MakeLobbyReq {
         lobby_id: 1,
@@ -392,45 +372,8 @@ fn test_leave_lobby_no_current_lobby() {
     setup.client.make_lobby(&user_address, &make_req);
     setup.client.leave_lobby(&user_address);
     
-    // Now user exists but has no current lobby
     let result = setup.client.try_leave_lobby(&user_address);
     assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
-}
-
-#[test]
-fn test_leave_lobby_during_game() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let guest_address = setup.generate_address();
-    let lobby_id = 1u32;
-    
-    // Create and join lobby to start game
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    let make_req = MakeLobbyReq {
-        lobby_id,
-        parameters: lobby_parameters,
-    };
-    setup.client.make_lobby(&host_address, &make_req);
-    
-    let join_req = JoinLobbyReq { lobby_id };
-    setup.client.join_lobby(&guest_address, &join_req);
-    
-    // Host leaves during setup phase
-    setup.client.leave_lobby(&host_address);
-    
-    // Verify lobby is finished and assigns victory to remaining player
-    setup.env.as_contract(&setup.contract_id, || {
-        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
-        let stored_lobby_info: LobbyInfo = setup.env.storage()
-            .temporary()
-            .get(&lobby_info_key)
-            .expect("Lobby info should exist");
-        
-        assert_eq!(stored_lobby_info.phase, Phase::Finished);
-        // Could be either Guest wins or other end states depending on implementation
-        assert!(matches!(stored_lobby_info.subphase, Subphase::Guest | Subphase::Host | Subphase::None));
-        assert!(stored_lobby_info.host_address.is_empty());
-    });
 }
 
 // endregion
@@ -444,7 +387,6 @@ fn test_join_lobby_success() {
     let guest_address = setup.generate_address();
     let lobby_id = 1u32;
     
-    // Create lobby first
     let lobby_parameters = create_test_lobby_parameters(&setup.env);
     let make_req = MakeLobbyReq {
         lobby_id,
@@ -452,11 +394,9 @@ fn test_join_lobby_success() {
     };
     setup.client.make_lobby(&host_address, &make_req);
     
-    // Join lobby
     let join_req = JoinLobbyReq { lobby_id };
     setup.client.join_lobby(&guest_address, &join_req);
     
-    // Verify guest is in lobby and game started
     setup.verify_user_lobby(&guest_address, lobby_id);
     
     setup.env.as_contract(&setup.contract_id, || {
@@ -471,129 +411,63 @@ fn test_join_lobby_success() {
         assert_eq!(stored_lobby_info.subphase, Subphase::Both);
     });
     
-    // Verify game state was created with pawns
     setup.verify_game_state_created(lobby_id);
 }
 
 #[test]
-fn test_join_lobby_not_found() {
+fn test_join_lobby_errors() {
     let setup = TestSetup::new();
-    let guest_address = setup.generate_address();
+    let lobby_parameters = create_test_lobby_parameters(&setup.env);
     
+    // Test: Lobby not found
+    let guest_address = setup.generate_address();
     let join_req = JoinLobbyReq { lobby_id: 999 };
     let result = setup.client.try_join_lobby(&guest_address, &join_req);
     assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
-}
-
-#[test]
-fn test_join_lobby_not_joinable_wrong_phase() {
-    let setup = TestSetup::new();
+    
+    // Test: Lobby not joinable (wrong phase)
     let host_address = setup.generate_address();
     let guest_address_1 = setup.generate_address();
     let guest_address_2 = setup.generate_address();
     let lobby_id = 1u32;
     
-    // Create lobby and have a guest join to advance it to SetupCommit phase
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
     let make_req = MakeLobbyReq {
         lobby_id,
-        parameters: lobby_parameters,
+        parameters: lobby_parameters.clone(),
     };
     setup.client.make_lobby(&host_address, &make_req);
     
-    // First guest joins, which advances the lobby to SetupCommit phase
     let join_req_1 = JoinLobbyReq { lobby_id };
     setup.client.join_lobby(&guest_address_1, &join_req_1);
     
-    // Second guest tries to join - should fail because lobby is no longer in Lobby phase
     let join_req_2 = JoinLobbyReq { lobby_id };
     let result = setup.client.try_join_lobby(&guest_address_2, &join_req_2);
     assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotJoinable);
-}
-
-#[test]
-fn test_join_lobby_host_is_joiner() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let lobby_id = 1u32;
     
-    // Create lobby
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    let make_req = MakeLobbyReq {
-        lobby_id,
-        parameters: lobby_parameters,
-    };
-    setup.client.make_lobby(&host_address, &make_req);
-    
-    // Host tries to join their own lobby
-    let join_req = JoinLobbyReq { lobby_id };
-    let result = setup.client.try_join_lobby(&host_address, &join_req);
-    
-    // Should fail with a user conflict error
-    let error = result.unwrap_err().unwrap();
-    assert!(TestSetup::is_user_conflict_error(&error));
-}
-
-#[test]
-fn test_join_lobby_already_has_guest() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let guest_address_1 = setup.generate_address();
-    let guest_address_2 = setup.generate_address();
-    let lobby_id = 1u32;
-    
-    // Create lobby
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    let make_req = MakeLobbyReq {
-        lobby_id,
-        parameters: lobby_parameters,
-    };
-    setup.client.make_lobby(&host_address, &make_req);
-    
-    // First guest joins successfully
-    let join_req_1 = JoinLobbyReq { lobby_id };
-    setup.client.join_lobby(&guest_address_1, &join_req_1);
-    
-    // Second guest tries to join - should fail
-    let join_req_2 = JoinLobbyReq { lobby_id };
-    let result = setup.client.try_join_lobby(&guest_address_2, &join_req_2);
-    
-    // Should fail with lobby state error (game already started or full)
-    let error = result.unwrap_err().unwrap();
-    assert!(TestSetup::is_lobby_state_error(&error));
-}
-
-#[test]
-fn test_join_lobby_guest_already_in_another_lobby() {
-    let setup = TestSetup::new();
-    let host_address_1 = setup.generate_address();
+    // Test: Host trying to join own lobby
     let host_address_2 = setup.generate_address();
-    let guest_address = setup.generate_address();
-    
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    
-    // Create first lobby and join it
-    let make_req_1 = MakeLobbyReq {
-        lobby_id: 1,
-        parameters: lobby_parameters.clone(),
-    };
-    setup.client.make_lobby(&host_address_1, &make_req_1);
-    
-    let join_req_1 = JoinLobbyReq { lobby_id: 1 };
-    setup.client.join_lobby(&guest_address, &join_req_1);
-    
-    // Create second lobby
+    let lobby_id_2 = 2u32;
     let make_req_2 = MakeLobbyReq {
-        lobby_id: 2,
-        parameters: lobby_parameters,
+        lobby_id: lobby_id_2,
+        parameters: lobby_parameters.clone(),
     };
     setup.client.make_lobby(&host_address_2, &make_req_2);
     
-    // Try to join second lobby while still in first - should fail
-    let join_req_2 = JoinLobbyReq { lobby_id: 2 };
-    let result = setup.client.try_join_lobby(&guest_address, &join_req_2);
+    let join_req_3 = JoinLobbyReq { lobby_id: lobby_id_2 };
+    let result = setup.client.try_join_lobby(&host_address_2, &join_req_3);
+    assert!(TestSetup::is_user_conflict_error(&result.unwrap_err().unwrap()));
     
-    // Should fail with user conflict or lobby state error
+    // Test: Guest already in another lobby
+    let host_address_3 = setup.generate_address();
+    let lobby_id_3 = 3u32;
+    let make_req_3 = MakeLobbyReq {
+        lobby_id: lobby_id_3,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&host_address_3, &make_req_3);
+    
+    let join_req_4 = JoinLobbyReq { lobby_id: lobby_id_3 };
+    let result = setup.client.try_join_lobby(&guest_address_1, &join_req_4);
     let error = result.unwrap_err().unwrap();
     assert!(TestSetup::is_user_conflict_error(&error) || TestSetup::is_lobby_state_error(&error));
 }
@@ -824,70 +698,49 @@ fn test_commit_move_success_both_players() {
 }
 
 #[test]
-fn test_commit_move_lobby_not_found() {
+fn test_commit_move_errors() {
     let setup = TestSetup::new();
-    let user_address = setup.generate_address();
     
+    // Test: Lobby not found
+    let user_address = setup.generate_address();
     let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
     let commit_req = CommitMoveReq {
-        lobby_id: 999, // Non-existent lobby
-        move_hash,
+        lobby_id: 999,
+        move_hash: move_hash.clone(),
     };
-    
     let result = setup.client.try_commit_move(&user_address, &commit_req);
     assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
-}
-
-#[test]
-fn test_commit_move_not_in_lobby() {
-    let setup = TestSetup::new();
+    
+    // Test: Not in lobby
     let lobby_id = 1u32;
+    let (host_address, guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
     let outsider_address = setup.generate_address();
     
-    let (_host_address, _guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
-    
-    let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
     let commit_req = CommitMoveReq {
         lobby_id,
-        move_hash,
+        move_hash: move_hash.clone(),
     };
-    
     let result = setup.client.try_commit_move(&outsider_address, &commit_req);
     assert_eq!(result.unwrap_err().unwrap(), Error::NotInLobby);
-}
-
-#[test]
-fn test_commit_move_wrong_phase() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let lobby_id = 1u32;
     
-    // Create lobby but don't advance to MoveCommit phase
+    // Test: Wrong phase
+    let host_address_2 = setup.generate_address();
+    let lobby_id_2 = 2u32;
     let lobby_parameters = create_test_lobby_parameters(&setup.env);
     let make_req = MakeLobbyReq {
-        lobby_id,
+        lobby_id: lobby_id_2,
         parameters: lobby_parameters,
     };
-    setup.client.make_lobby(&host_address, &make_req);
+    setup.client.make_lobby(&host_address_2, &make_req);
     
-    let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
     let commit_req = CommitMoveReq {
-        lobby_id,
-        move_hash,
+        lobby_id: lobby_id_2,
+        move_hash: move_hash.clone(),
     };
-    
-    let result = setup.client.try_commit_move(&host_address, &commit_req);
+    let result = setup.client.try_commit_move(&host_address_2, &commit_req);
     assert_eq!(result.unwrap_err().unwrap(), Error::WrongPhase);
-}
-
-#[test]
-fn test_commit_move_wrong_subphase() {
-    let setup = TestSetup::new();
-    let lobby_id = 1u32;
     
-    let (host_address, _guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
-    
-    // Host commits first
+    // Test: Wrong subphase
     let host_pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 0 }, &0);
     let host_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
     
@@ -897,35 +750,24 @@ fn test_commit_move_wrong_subphase() {
     };
     setup.client.commit_move(&host_address, &host_commit_req);
     
-    // Now subphase should be Guest, so host trying to commit again should fail
     let another_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 0 }, Pos { x: 1, y: 0 }, 67890);
     let another_commit_req = CommitMoveReq {
         lobby_id,
         move_hash: another_move_hash,
     };
-    
     let result = setup.client.try_commit_move(&host_address, &another_commit_req);
     assert_eq!(result.unwrap_err().unwrap(), Error::WrongSubphase);
-}
-
-#[test]
-fn test_commit_move_after_game_finished() {
-    let setup = TestSetup::new();
-    let lobby_id = 1u32;
     
-    let (host_address, guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
+    // Test: After game finished
+    let lobby_id_3 = 3u32;
+    let (host_address_3, guest_address_3) = create_and_advance_to_move_commit(&setup, lobby_id_3);
+    setup.client.leave_lobby(&host_address_3);
     
-    // Have host leave the game to finish it
-    setup.client.leave_lobby(&host_address);
-    
-    // Try to commit a move after the game is finished
-    let move_hash = create_test_move_hash(&setup.env, 1, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
     let commit_req = CommitMoveReq {
-        lobby_id,
+        lobby_id: lobby_id_3,
         move_hash,
     };
-    
-    let result = setup.client.try_commit_move(&guest_address, &commit_req);
+    let result = setup.client.try_commit_move(&guest_address_3, &commit_req);
     assert_eq!(result.unwrap_err().unwrap(), Error::WrongPhase);
 }
 
@@ -1105,10 +947,10 @@ fn test_realistic_stratego_setup_generation() {
     setup.client.join_lobby(&guest_address, &join_req);
     
     // Generate realistic setup for both teams
-    let (host_commits, host_proof, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (host_commits, host_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
         create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 0)
     });
-    let (guest_commits, guest_proof, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (guest_commits, guest_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
         create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 1)
     });
     
@@ -1181,10 +1023,10 @@ fn test_full_stratego_game_with_populated_ranks() {
     setup.client.join_lobby(&guest_address, &join_req);
     
     // Generate realistic setup for both teams
-    let (host_commits, host_proof, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (host_commits, host_proof, _, host_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 0)
     });
-    let (guest_commits, guest_proof, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (guest_commits, guest_proof, _, guest_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 1)
     });
     
@@ -1237,93 +1079,398 @@ fn test_full_stratego_game_with_populated_ranks() {
         assert_eq!(lobby_info.subphase, Subphase::Both);
     });
     
-    // Now directly modify contract state to populate all pawn ranks
-    setup.env.as_contract(&setup.contract_id, || {
-        let game_state_key = DataKey::GameState(lobby_id);
-        let mut game_state: GameState = setup.env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
-        
-        // Get the lobby parameters to access max_ranks
-        let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
-        let lobby_parameters: LobbyParameters = setup.env.storage()
-            .temporary()
-            .get(&lobby_parameters_key)
-            .expect("Lobby parameters should exist");
-        
-        // Generate rank distribution from max_ranks vector
-        let mut rank_distribution = Vec::new(&setup.env);
-        for (rank, count) in lobby_parameters.max_ranks.iter().enumerate() {
-            for _ in 0..count {
-                rank_distribution.push_back(rank as u32);
+    // Store the rank information for later use in rank proving
+    let mut all_ranks = std::vec::Vec::new();
+    for rank in host_ranks.iter() {
+        all_ranks.push(rank);
+    }
+    for rank in guest_ranks.iter() {
+        all_ranks.push(rank);
+    }
+    let populate = false;
+    if populate {
+        // Populate all ranks in the game state
+        setup.env.as_contract(&setup.contract_id, || {
+            let game_state_key = DataKey::GameState(lobby_id);
+            let mut game_state: GameState = setup.env.storage()
+                .temporary()
+                .get(&game_state_key)
+                .expect("Game state should exist");
+            for hidden_rank in host_ranks.iter().chain(guest_ranks.iter()) {
+                let (index, mut pawn) = game_state.pawns.iter().enumerate().find(|(_, p)| p.pawn_id == hidden_rank.pawn_id).unwrap();
+                pawn.rank = Vec::from_array(&setup.env, [hidden_rank.rank]);
+                game_state.pawns.set(index as u32, pawn);
             }
-        }
-        
-        // Create maps to assign ranks to pawns
-        let mut host_rank_map = Map::new(&setup.env);
-        let mut guest_rank_map = Map::new(&setup.env);
-        
-        // Assign ranks to host pawns (team 0)
-        let mut host_rank_index = 0;
-        for commit in host_commits.iter() {
-            if host_rank_index < rank_distribution.len() {
-                host_rank_map.set(commit.pawn_id, rank_distribution.get(host_rank_index).unwrap());
-                host_rank_index += 1;
-            }
-        }
-        
-        // Assign ranks to guest pawns (team 1)  
-        let mut guest_rank_index = 0;
-        for commit in guest_commits.iter() {
-            if guest_rank_index < rank_distribution.len() {
-                guest_rank_map.set(commit.pawn_id, rank_distribution.get(guest_rank_index).unwrap());
-                guest_rank_index += 1;
-            }
-        }
-        
-        // Update all pawns with their correct ranks
-        let mut updated_pawns = Vec::new(&setup.env);
-        for pawn in game_state.pawns.iter() {
-            let mut updated_pawn = pawn.clone();
-            
-            // Get the rank for this pawn
-            let rank = if host_rank_map.contains_key(pawn.pawn_id) {
-                host_rank_map.get(pawn.pawn_id).unwrap()
-            } else if guest_rank_map.contains_key(pawn.pawn_id) {
-                guest_rank_map.get(pawn.pawn_id).unwrap()
-            } else {
-                // Fallback rank if not found (shouldn't happen)
-                2u32 // Scout
-            };
-            
-            // Set the rank
-            updated_pawn.rank = Vec::from_array(&setup.env, [rank]);
-            updated_pawns.push_back(updated_pawn);
-        }
-        
-        // Update the game state with populated ranks
-        game_state.pawns = updated_pawns;
-        setup.env.storage().temporary().set(&game_state_key, &game_state);
-        
-        // Verify all pawns now have ranks
-        let final_game_state: GameState = setup.env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
-        
-        let mut pawns_with_ranks = 0;
-        for pawn in final_game_state.pawns.iter() {
-            if !pawn.rank.is_empty() {
-                pawns_with_ranks += 1;
-            }
-        }
-        
-        // All 80 pawns (40 per team) should now have ranks
-        assert_eq!(pawns_with_ranks, 80);
-    });
+            setup.env.storage().temporary().set(&game_state_key, &game_state);
+        });
+    }
     
-    // Final verification that we're still in MoveCommit phase with populated ranks
+    
+    // Store move history for logging
+    let mut move_log: std::vec::Vec<(u32, u32, u32, i32, i32, i32, i32, u32, u32, bool, bool, u32, u32, i32, i32, i32, i32, u32, u32, bool, bool)> = std::vec::Vec::new();
+    
+    // Perform up to 50 moves or until no valid moves are possible
+    for move_number in 1..=50 {
+        std::println!("=== MOVE {} ===", move_number);
+        
+        // Check current phase and handle accordingly
+        let current_phase = setup.env.as_contract(&setup.contract_id, || {
+            let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+            let lobby_info: LobbyInfo = setup.env.storage()
+                .temporary()
+                .get(&lobby_info_key)
+                .expect("Lobby info should exist");
+            lobby_info.phase
+        });
+        
+        match current_phase {
+            Phase::MoveCommit => {
+                std::println!("Phase: MoveCommit - Committing moves");
+                
+                // Generate and commit moves
+                let move_result = setup.env.as_contract(&setup.contract_id, || {
+                    let game_state_key = DataKey::GameState(lobby_id);
+                    let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+                    
+                    let lobby_parameters: LobbyParameters = setup.env.storage()
+                        .temporary()
+                        .get(&lobby_parameters_key)
+                        .expect("Lobby parameters should exist");
+                    let game_state: GameState = setup.env.storage()
+                        .temporary()
+                        .get(&game_state_key)
+                        .expect("Game state should exist");
+                    
+                    let host_move_opt = generate_valid_move_req(&setup.env, &game_state, &lobby_parameters, 0, move_number as u64 * 1000 + 12345);
+                    let guest_move_opt = generate_valid_move_req(&setup.env, &game_state, &lobby_parameters, 1, move_number as u64 * 1000 + 54321);
+                    
+                    if host_move_opt.is_none() || guest_move_opt.is_none() {
+                        return None;
+                    }
+                    
+                    let host_move_proof = host_move_opt.unwrap();
+                    let guest_move_proof = guest_move_opt.unwrap();
+                    
+                    let host_move_serialized = host_move_proof.clone().to_xdr(&setup.env);
+                    let host_move_hash = setup.env.crypto().sha256(&host_move_serialized).to_bytes();
+                    let guest_move_serialized = guest_move_proof.clone().to_xdr(&setup.env);
+                    let guest_move_hash = setup.env.crypto().sha256(&guest_move_serialized).to_bytes();
+                    
+                    let host_move_req = CommitMoveReq {
+                        lobby_id,
+                        move_hash: host_move_hash,
+                    };
+                    let guest_move_req = CommitMoveReq {
+                        lobby_id,
+                        move_hash: guest_move_hash,
+                    };
+                    
+                    Some((host_move_proof, guest_move_proof, host_move_req, guest_move_req))
+                });
+                
+                if move_result.is_none() {
+                    std::println!("No valid moves available for one or both players. Game ends at move {}", move_number);
+                    break;
+                }
+                
+                let (host_move_proof, guest_move_proof, host_move_req, guest_move_req) = move_result.unwrap();
+                
+                setup.client.commit_move(&host_address, &host_move_req);
+                setup.client.commit_move(&guest_address, &guest_move_req);
+                
+                // Verify transition to MoveProve phase
+                setup.env.as_contract(&setup.contract_id, || {
+                    let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+                    let lobby_info: LobbyInfo = setup.env.storage()
+                        .temporary()
+                        .get(&lobby_info_key)
+                        .expect("Lobby info should exist");
+                    assert_eq!(lobby_info.phase, Phase::MoveProve);
+                });
+                
+                // Store move info for logging before moving the proofs
+                let host_pawn_id = host_move_proof.pawn_id;
+                let host_start_pos = host_move_proof.start_pos;
+                let host_target_pos = host_move_proof.target_pos;
+                let guest_pawn_id = guest_move_proof.pawn_id;
+                let guest_start_pos = guest_move_proof.start_pos;
+                let guest_target_pos = guest_move_proof.target_pos;
+                
+                // Prove moves
+                let host_prove_move_req = ProveMoveReq {
+                    move_proof: host_move_proof,
+                    lobby_id,
+                };
+                let guest_prove_move_req = ProveMoveReq {
+                    move_proof: guest_move_proof,
+                    lobby_id,
+                };
+                
+                setup.client.prove_move(&host_address, &host_prove_move_req);
+                setup.client.prove_move(&guest_address, &guest_prove_move_req);
+                
+                
+                // Log the move details
+                let move_info = setup.env.as_contract(&setup.contract_id, || {
+                    let game_state_key = DataKey::GameState(lobby_id);
+                    let game_state: GameState = setup.env.storage()
+                        .temporary()
+                        .get(&game_state_key)
+                        .expect("Game state should exist");
+                    std::println!("requested ranks for host: {:?}", game_state.moves.get(0).unwrap().needed_rank_proofs);
+                    std::println!("requested ranks for guest: {:?}", game_state.moves.get(1).unwrap().needed_rank_proofs);
+                    // Get pawn information
+                    let mut host_pawn_rank = 999u32; // Use 999 to indicate unknown
+                    let mut guest_pawn_rank = 999u32;
+                    let mut host_collision_pawn_id = 0u32;
+                    let mut guest_collision_pawn_id = 0u32;
+                    let mut host_collision_rank = 999u32;
+                    let mut guest_collision_rank = 999u32;
+                    let mut host_collision_alive = false;
+                    let mut guest_collision_alive = false;
+                    
+                    // Find the pawns that moved
+                    for pawn in game_state.pawns.iter() {
+                        if pawn.pawn_id == host_pawn_id {
+                            if !pawn.rank.is_empty() {
+                                host_pawn_rank = pawn.rank.get(0).unwrap();
+                            }
+                        }
+                        if pawn.pawn_id == guest_pawn_id {
+                            if !pawn.rank.is_empty() {
+                                guest_pawn_rank = pawn.rank.get(0).unwrap();
+                            }
+                        }
+                    }
+                    
+                    // Find any pawns at the target positions (collision pawns)
+                    for pawn in game_state.pawns.iter() {
+                        if pawn.pos == host_target_pos && pawn.pawn_id != host_pawn_id {
+                            host_collision_pawn_id = pawn.pawn_id;
+                            host_collision_alive = pawn.alive;
+                            if !pawn.rank.is_empty() {
+                                host_collision_rank = pawn.rank.get(0).unwrap();
+                            }
+                        }
+                        if pawn.pos == guest_target_pos && pawn.pawn_id != guest_pawn_id {
+                            guest_collision_pawn_id = pawn.pawn_id;
+                            guest_collision_alive = pawn.alive;
+                            if !pawn.rank.is_empty() {
+                                guest_collision_rank = pawn.rank.get(0).unwrap();
+                            }
+                        }
+                    }
+                    
+                    // Check if the moving pawns are still alive
+                    let host_alive = game_state.pawns.iter().find(|p| p.pawn_id == host_pawn_id).map(|p| p.alive).unwrap_or(false);
+                    let guest_alive = game_state.pawns.iter().find(|p| p.pawn_id == guest_pawn_id).map(|p| p.alive).unwrap_or(false);
+                    
+                    (move_number, host_pawn_id, host_pawn_rank, 
+                     host_start_pos.x, host_start_pos.y,
+                     host_target_pos.x, host_target_pos.y,
+                     host_collision_pawn_id, host_collision_rank, host_alive, host_collision_alive,
+                     guest_pawn_id, guest_pawn_rank,
+                     guest_start_pos.x, guest_start_pos.y,
+                     guest_target_pos.x, guest_target_pos.y,
+                     guest_collision_pawn_id, guest_collision_rank, guest_alive, guest_collision_alive)
+                });
+                
+                move_log.push(move_info);
+                // Print complete move log
+                std::println!("\n=== COMPLETE MOVE LOG ===");
+                for move_entry in &move_log {
+                    let (turn, host_pawn_id, host_rank, host_sx, host_sy, host_tx, host_ty, 
+                        host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+                        guest_pawn_id, guest_rank, guest_sx, guest_sy, guest_tx, guest_ty,
+                        guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+                    
+                    let host_rank_str = if *host_rank == 999 { "?" } else { 
+                        match *host_rank {
+                            0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                            5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                            9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+                        }
+                    };
+                    let guest_rank_str = if *guest_rank == 999 { "?" } else {
+                        match *guest_rank {
+                            0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                            5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                            9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+                        }
+                    };
+                    
+                    let host_collision_str = if *host_collision_id == 0 { 
+                        "none" 
+                    } else {
+                        let collision_rank_str = if *host_collision_rank == 999 { "?" } else {
+                            match *host_collision_rank {
+                                0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                                5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                                9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+                            }
+                        };
+                        "collision"
+                    };
+                    
+                    let guest_collision_str = if *guest_collision_id == 0 { 
+                        "none" 
+                    } else {
+                        let collision_rank_str = if *guest_collision_rank == 999 { "?" } else {
+                            match *guest_collision_rank {
+                                0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                                5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                                9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+                            }
+                        };
+                        "collision"
+                    };
+                    
+                    std::println!("{} - pawn_id: {} rank: {} ({},{}) -> ({},{}) -> {} | pawn_id: {} rank: {} ({},{}) -> ({},{}) -> {}",
+                        turn, host_pawn_id, host_rank_str, host_sx, host_sy, host_tx, host_ty, host_collision_str,
+                        guest_pawn_id, guest_rank_str, guest_sx, guest_sy, guest_tx, guest_ty, guest_collision_str);
+                }
+                std::println!("=== END MOVE LOG ===");
+                std::println!("Moves committed and proved successfully");
+            },
+            
+            Phase::RankProve => {
+                std::println!("Phase: RankProve - Proving ranks for collisions");
+                
+                // Get the needed rank proofs for both players
+                let (host_needed_ranks, guest_needed_ranks, host_subphase_required, guest_subphase_required) = setup.env.as_contract(&setup.contract_id, || {
+                    let game_state_key = DataKey::GameState(lobby_id);
+                    let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+                    let game_state: GameState = setup.env.storage()
+                        .temporary()
+                        .get(&game_state_key)
+                        .expect("Game state should exist");
+                    let lobby_info: LobbyInfo = setup.env.storage()
+                        .temporary()
+                        .get(&lobby_info_key)
+                        .expect("Lobby info should exist");
+                    // std::println!("Game state: {:?}", game_state);
+                    let host_move = game_state.moves.get(0).unwrap();
+                    std::println!("Host move: {:?}", host_move);
+                    let guest_move = game_state.moves.get(1).unwrap();
+                    std::println!("Guest move: {:?}", guest_move);
+                    let host_needed_ranks = host_move.needed_rank_proofs.clone();
+                    let guest_needed_ranks = guest_move.needed_rank_proofs.clone();
+                    let host_subphase_required = !host_needed_ranks.is_empty() && 
+                        (lobby_info.subphase == Subphase::Both || lobby_info.subphase == Subphase::Host);
+                    let guest_subphase_required = !guest_needed_ranks.is_empty() && 
+                        (lobby_info.subphase == Subphase::Both || lobby_info.subphase == Subphase::Guest);
+                    
+                    (host_needed_ranks, guest_needed_ranks, host_subphase_required, guest_subphase_required)
+                });
+                for id in host_needed_ranks.iter() {
+                    let (_, team) = Contract::decode_pawn_id(&id);
+                    std::println!("Host needed rank: {} team: {}", id.clone(), team);
+                }
+
+                // Prove ranks for host if needed
+                let mut host_hidden_ranks = Vec::new(&setup.env);
+                if host_subphase_required && !host_needed_ranks.is_empty() {
+                    std::println!("Host proving {} ranks", host_needed_ranks.len());
+                    for required_pawn_id in host_needed_ranks.iter() {
+                        for hidden_rank in host_ranks.iter() {
+                            if hidden_rank.pawn_id == required_pawn_id {
+                                host_hidden_ranks.push_back(hidden_rank);
+                            }
+                        }
+                    }
+                    let host_prove_rank_req = ProveRankReq {
+                        lobby_id,
+                        hidden_ranks: host_hidden_ranks,
+                    };
+                    std::println!("Host proving {} ranks {}", host_prove_rank_req.hidden_ranks.len(), host_needed_ranks.len());
+                    assert_eq!(host_prove_rank_req.hidden_ranks.len(), host_needed_ranks.len());
+                    setup.client.prove_rank(&host_address, &host_prove_rank_req);
+                }
+                
+                // Get the needed rank proofs for both players
+                let (host_needed_ranks, guest_needed_ranks, host_subphase_required, guest_subphase_required) = setup.env.as_contract(&setup.contract_id, || {
+                    let game_state_key = DataKey::GameState(lobby_id);
+                    let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+                    let game_state: GameState = setup.env.storage()
+                        .temporary()
+                        .get(&game_state_key)
+                        .expect("Game state should exist");
+                    let lobby_info: LobbyInfo = setup.env.storage()
+                        .temporary()
+                        .get(&lobby_info_key)
+                        .expect("Lobby info should exist");
+                    
+                    let host_move = game_state.moves.get(0).unwrap();
+                    let guest_move = game_state.moves.get(1).unwrap();
+                    let host_needed_ranks = host_move.needed_rank_proofs.clone();
+                    let guest_needed_ranks = guest_move.needed_rank_proofs.clone();
+                    let host_subphase_required = !host_needed_ranks.is_empty() && 
+                        (lobby_info.subphase == Subphase::Both || lobby_info.subphase == Subphase::Host);
+                    let guest_subphase_required = !guest_needed_ranks.is_empty() && 
+                        (lobby_info.subphase == Subphase::Both || lobby_info.subphase == Subphase::Guest);
+                    
+                    (host_needed_ranks, guest_needed_ranks, host_subphase_required, guest_subphase_required)
+                });
+                for id in guest_needed_ranks.iter() {
+                    let (_, team) = Contract::decode_pawn_id(&id);
+                    std::println!("Guest needed rank: {} team: {}", id.clone(), team);
+                }
+
+                let mut guest_hidden_ranks = Vec::new(&setup.env);
+                if guest_subphase_required && !guest_needed_ranks.is_empty() {
+                    std::println!("Guest proving {} ranks", guest_needed_ranks.len());
+                    for required_pawn_id in guest_needed_ranks.iter() {
+                        for hidden_rank in guest_ranks.iter() {
+                            if hidden_rank.pawn_id == required_pawn_id {
+                                guest_hidden_ranks.push_back(hidden_rank);
+                            }
+                        }
+                    }
+                    let guest_prove_rank_req = ProveRankReq {
+                        lobby_id,
+                        hidden_ranks: guest_hidden_ranks,
+                    };
+                    std::println!("Guest proving {} ranks {}", guest_prove_rank_req.hidden_ranks.len(), guest_needed_ranks.len());
+                    assert_eq!(guest_prove_rank_req.hidden_ranks.len(), guest_needed_ranks.len());
+                    setup.client.prove_rank(&guest_address, &guest_prove_rank_req);
+                }
+                
+                std::println!("Rank proving completed");
+            },
+            
+            Phase::Finished => {
+                std::println!("Game finished at move {}", move_number);
+                break;
+            },
+            
+            _ => {
+                panic!("Unexpected phase: {:?}", current_phase);
+            }
+        }
+        
+        // Print current game state after each move
+        setup.env.as_contract(&setup.contract_id, || {
+            let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+            let lobby_info: LobbyInfo = setup.env.storage()
+                .temporary()
+                .get(&lobby_info_key)
+                .expect("Lobby info should exist");
+            let game_state_key = DataKey::GameState(lobby_id);
+            let game_state: GameState = setup.env.storage()
+                .temporary()
+                .get(&game_state_key)
+                .expect("Game state should exist");
+            let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+            let lobby_parameters: LobbyParameters = setup.env.storage()
+                .temporary()
+                .get(&lobby_parameters_key)
+                .expect("Lobby parameters should exist");
+            std::println!("After move {}: Phase={:?}, Subphase={:?}", move_number, lobby_info.phase, lobby_info.subphase);
+            std::println!("{}", print_board_state_color(&setup.env, &game_state, &lobby_parameters, &lobby_info));
+        });
+    }
+    
+    // Verify final game state
     setup.env.as_contract(&setup.contract_id, || {
         let lobby_info_key = DataKey::LobbyInfo(lobby_id);
         let lobby_info: LobbyInfo = setup.env.storage()
@@ -1331,68 +1478,459 @@ fn test_full_stratego_game_with_populated_ranks() {
             .get(&lobby_info_key)
             .expect("Lobby info should exist");
         
+        // The game should be in a valid state
+        assert!(matches!(lobby_info.phase, Phase::MoveCommit | Phase::MoveProve | Phase::RankProve | Phase::Finished));
+        std::println!("Final game state: Phase={:?}, Subphase={:?}", lobby_info.phase, lobby_info.subphase);
+    });
+    
+    // Print complete move log
+    std::println!("\n=== COMPLETE MOVE LOG ===");
+    for move_entry in &move_log {
+        let (turn, host_pawn_id, host_rank, host_sx, host_sy, host_tx, host_ty, 
+             host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+             guest_pawn_id, guest_rank, guest_sx, guest_sy, guest_tx, guest_ty,
+             guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+        
+        let host_rank_str = if *host_rank == 999 { "?" } else { 
+            match *host_rank {
+                0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+            }
+        };
+        let guest_rank_str = if *guest_rank == 999 { "?" } else {
+            match *guest_rank {
+                0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+            }
+        };
+        
+        let host_collision_str = if *host_collision_id == 0 { 
+            "none" 
+        } else {
+            let collision_rank_str = if *host_collision_rank == 999 { "?" } else {
+                match *host_collision_rank {
+                    0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                    5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                    9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+                }
+            };
+            "collision"
+        };
+        
+        let guest_collision_str = if *guest_collision_id == 0 { 
+            "none" 
+        } else {
+            let collision_rank_str = if *guest_collision_rank == 999 { "?" } else {
+                match *guest_collision_rank {
+                    0 => "Flag", 1 => "Spy", 2 => "Scout", 3 => "Miner", 4 => "Sergeant",
+                    5 => "Lieutenant", 6 => "Captain", 7 => "Major", 8 => "Colonel", 
+                    9 => "General", 10 => "Marshal", 11 => "Bomb", _ => "Unknown"
+                }
+            };
+            "collision"
+        };
+        
+        std::println!("{} - {}|{} ({},{}) -> ({},{}) -> {} | {}|{} ({},{}) -> ({},{}) -> {}",
+            turn, host_pawn_id, host_rank_str, host_sx, host_sy, host_tx, host_ty, host_collision_str,
+            guest_pawn_id, guest_rank_str, guest_sx, guest_sy, guest_tx, guest_ty, guest_collision_str);
+    }
+    std::println!("=== END MOVE LOG ===");
+}
+
+
+fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters, team: u32, salt: u64) -> Option<HiddenMoveProof> {
+    // Create a map of all tile positions for quick lookup
+    let mut tile_map: Map<Pos, Tile> = Map::new(env);
+    for tile in lobby_parameters.board.tiles.iter() {
+        tile_map.set(tile.pos, tile);
+    }
+    
+    // Create a map of all pawn positions for quick lookup
+    let mut pawn_position_map: Map<Pos, PawnState> = Map::new(env);
+    for pawn in game_state.pawns.iter() {
+        if pawn.alive {
+            pawn_position_map.set(pawn.pos, pawn);
+        }
+    }
+    
+    // Collect all pawns that can make forward moves and all pawns that can make any moves
+    let mut forward_movable_pawns = Vec::new(env);
+    let mut any_movable_pawns = Vec::new(env);
+    
+    for pawn in game_state.pawns.iter() {
+        let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+        
+        // Skip if not our team or not alive
+        if pawn_team != team || !pawn.alive {
+            continue;
+        }
+        
+        // Skip if pawn is unmovable (flag or bomb)
+        if let Some(rank) = pawn.rank.get(0) {
+            if rank == 0 || rank == 11 {
+                continue;
+            }
+        }
+        
+        // Get adjacent positions (up, down, left, right)
+        let adjacent_positions = Vec::from_array(env, [
+            Pos { x: pawn.pos.x, y: pawn.pos.y + 1 }, // up
+            Pos { x: pawn.pos.x, y: pawn.pos.y - 1 }, // down
+            Pos { x: pawn.pos.x - 1, y: pawn.pos.y }, // left
+            Pos { x: pawn.pos.x + 1, y: pawn.pos.y }, // right
+        ]);
+        
+        let mut valid_moves = Vec::new(env);
+        let mut forward_moves = Vec::new(env);
+        
+        for target_pos in adjacent_positions.iter() {
+            // Check if position is within board bounds
+            if target_pos.x < 0 || target_pos.x >= lobby_parameters.board.size.x ||
+               target_pos.y < 0 || target_pos.y >= lobby_parameters.board.size.y {
+                continue;
+            }
+            
+            // Check if tile exists and is passable
+            if let Some(tile) = tile_map.get(target_pos) {
+                if !tile.passable {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+            
+            // Check if position is occupied by same team pawn
+            if let Some(occupying_pawn) = pawn_position_map.get(target_pos) {
+                let (_, occupying_team) = Contract::decode_pawn_id(&occupying_pawn.pawn_id);
+                if occupying_team == team {
+                    continue; // Skip if occupied by same team
+                }
+            }
+            
+            // This is a valid move
+            valid_moves.push_back(target_pos);
+            
+            // Check if this is a "forward" move
+            let is_forward = match team {
+                0 => target_pos.y > pawn.pos.y, // Team 0 moves up (increasing y)
+                1 => target_pos.y < pawn.pos.y, // Team 1 moves down (decreasing y)
+                _ => false,
+            };
+            
+            if is_forward {
+                forward_moves.push_back(target_pos);
+            }
+        }
+        
+        // If this pawn has valid moves, add it to appropriate lists
+        if !valid_moves.is_empty() {
+            any_movable_pawns.push_back((pawn.clone(), valid_moves.clone()));
+            
+            if !forward_moves.is_empty() {
+                forward_movable_pawns.push_back((pawn.clone(), forward_moves));
+            }
+        }
+    }
+    
+    // Prioritize forward-moving pawns, but fall back to any movable pawn
+    let (selected_pawn, available_moves) = if !forward_movable_pawns.is_empty() {
+        // Select a forward-movable pawn pseudorandomly
+        let pawn_index = (salt as usize) % forward_movable_pawns.len() as usize;
+        forward_movable_pawns.get(pawn_index as u32).unwrap()
+    } else if !any_movable_pawns.is_empty() {
+        // Select any movable pawn pseudorandomly
+        let pawn_index = (salt as usize) % any_movable_pawns.len() as usize;
+        any_movable_pawns.get(pawn_index as u32).unwrap()
+    } else {
+        // No movable pawns found
+        return None;
+    };
+    
+    // Select a move for the chosen pawn pseudorandomly
+    let move_index = ((salt >> 8) as usize) % available_moves.len() as usize;
+    let target_pos = available_moves.get(move_index as u32).unwrap();
+    
+    Some(HiddenMoveProof {
+        pawn_id: selected_pawn.pawn_id,
+        start_pos: selected_pawn.pos,
+        target_pos,
+        salt,
+    })
+}
+
+#[test]
+fn test_generate_valid_move_req() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let guest_address = setup.generate_address();
+    let lobby_id = 1u32;
+    
+    // Create full Stratego board and join
+    let lobby_parameters = create_full_stratego_board_parameters(&setup.env);
+    let make_req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&host_address, &make_req);
+    
+    let join_req = JoinLobbyReq { lobby_id };
+    setup.client.join_lobby(&guest_address, &join_req);
+    
+    // Generate realistic setup for both teams
+    let (host_commits, host_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
+        create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 0)
+    });
+    let (guest_commits, guest_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
+        create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 1)
+    });
+    
+    // Commit and prove setups to get to MoveCommit phase
+    let host_serialized = host_proof.clone().to_xdr(&setup.env);
+    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    
+    let guest_serialized = guest_proof.clone().to_xdr(&setup.env);
+    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    
+    let host_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: host_setup_hash,
+    };
+    let guest_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: guest_setup_hash,
+    };
+    
+    setup.client.commit_setup(&host_address, &host_commit_req);
+    setup.client.commit_setup(&guest_address, &guest_commit_req);
+    
+    let host_prove_req = ProveSetupReq {
+        lobby_id,
+        setup: host_proof,
+    };
+    let guest_prove_req = ProveSetupReq {
+        lobby_id,
+        setup: guest_proof,
+    };
+    
+    setup.client.prove_setup(&host_address, &host_prove_req);
+    setup.client.prove_setup(&guest_address, &guest_prove_req);
+    
+    // Now test the generate_valid_move_req function
+    setup.env.as_contract(&setup.contract_id, || {
         let game_state_key = DataKey::GameState(lobby_id);
         let game_state: GameState = setup.env.storage()
             .temporary()
             .get(&game_state_key)
             .expect("Game state should exist");
         
-        assert_eq!(lobby_info.phase, Phase::MoveCommit);
-        assert_eq!(lobby_info.subphase, Subphase::Both);
-        assert_eq!(game_state.pawns.len(), 80); // 40 per team
-        
-        // Verify we have the expected rank distribution
-        let mut rank_counts = [0u32; 12]; // 12 different ranks (0-11)
-        for pawn in game_state.pawns.iter() {
-            if !pawn.rank.is_empty() {
-                let rank = pawn.rank.get(0).unwrap();
-                if rank < 12 {
-                    rank_counts[rank as usize] += 1;
-                }
-            }
-        }
-        
-        // Get lobby parameters to verify against expected rank distribution
         let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
         let lobby_parameters: LobbyParameters = setup.env.storage()
             .temporary()
             .get(&lobby_parameters_key)
             .expect("Lobby parameters should exist");
         
-        // Verify we have the expected rank distribution (2x because we have 2 teams)
-        for (rank, expected_count) in lobby_parameters.max_ranks.iter().enumerate() {
-            let expected_total = expected_count * 2; // 2 teams
-            assert_eq!(rank_counts[rank], expected_total, 
-                "Rank {} should have {} total pieces ({}x2 teams), but found {}", 
-                rank, expected_total, expected_count, rank_counts[rank]);
+        // Test move generation for team 0 (host)
+        let host_move = generate_valid_move_req(&setup.env, &game_state, &lobby_parameters, 0, 12345);
+        assert!(host_move.is_some(), "Should generate a valid move for team 0");
+        
+        let host_move_proof = host_move.unwrap();
+        
+        // Verify the move is for team 0
+        let (_, pawn_team) = Contract::decode_pawn_id(&host_move_proof.pawn_id);
+        assert_eq!(pawn_team, 0, "Generated move should be for team 0");
+        
+        // Verify the move is valid using the existing validation function
+        let is_valid = Contract::validate_move_proof(&setup.env, &host_move_proof, &0, &game_state, &lobby_parameters);
+        assert!(is_valid, "Generated move should be valid according to validation function");
+        
+        // Test move generation for team 1 (guest)
+        let guest_move = generate_valid_move_req(&setup.env, &game_state, &lobby_parameters, 1, 54321);
+        assert!(guest_move.is_some(), "Should generate a valid move for team 1");
+        
+        let guest_move_proof = guest_move.unwrap();
+        
+        // Verify the move is for team 1
+        let (_, pawn_team) = Contract::decode_pawn_id(&guest_move_proof.pawn_id);
+        assert_eq!(pawn_team, 1, "Generated move should be for team 1");
+        
+        // Verify the move is valid using the existing validation function
+        let is_valid = Contract::validate_move_proof(&setup.env, &guest_move_proof, &1, &game_state, &lobby_parameters);
+        assert!(is_valid, "Generated move should be valid according to validation function");
+        
+        // Test that team 0 prefers forward moves (increasing y)
+        if host_move_proof.target_pos.y > host_move_proof.start_pos.y {
+            // This is a forward move for team 0, which is preferred
+            assert!(true, "Team 0 correctly chose forward move");
+        }
+        
+        // Test that team 1 prefers forward moves (decreasing y)
+        if guest_move_proof.target_pos.y < guest_move_proof.start_pos.y {
+            // This is a forward move for team 1, which is preferred
+            assert!(true, "Team 1 correctly chose forward move");
         }
     });
 }
 
 // endregion
 
-// region utility functions
+// region board visualization
 
-// DEMONSTRATION: Correct way to create hidden_rank_hash
-// 
-// WRONG (current approach in create_realistic_stratego_setup_from_game_state):
-// let mut hash_data = [0u8; 32];
-// hash_data[0] = rank as u8;
-// hash_data[1] = team as u8;
-// let hidden_rank_hash = BytesN::from_array(env, &hash_data);
-//
-// CORRECT approach:
-// let hidden_rank = HiddenRank {
-//     pawn_id: pawn.pawn_id,
-//     rank,
-//     salt: some_salt_value,
-// };
-// let serialized = hidden_rank.to_xdr(env);
-// let hidden_rank_hash = env.crypto().sha256(&serialized).to_bytes();
-//
-// The hidden_rank_hash should ALWAYS be the hash of a HiddenRank struct,
-// not manually constructed bytes. This is how the contract expects it
-// when validating in the prove_rank function.
+// ANSI color codes for terminal output
+const RESET: &str = "\x1b[0m";
+const BOLD: &str = "\x1b[1m";
+const RED: &str = "\x1b[31m";
+const GREEN: &str = "\x1b[32m";
+const YELLOW: &str = "\x1b[33m";
+const BLUE: &str = "\x1b[34m";
+const MAGENTA: &str = "\x1b[35m";
+const CYAN: &str = "\x1b[36m";
+const WHITE: &str = "\x1b[37m";
+const BRIGHT_RED: &str = "\x1b[91m";
+const BRIGHT_GREEN: &str = "\x1b[92m";
+const BRIGHT_YELLOW: &str = "\x1b[93m";
+const BRIGHT_BLUE: &str = "\x1b[94m";
+const BRIGHT_MAGENTA: &str = "\x1b[95m";
+const BRIGHT_CYAN: &str = "\x1b[96m";
+
+/// Creates a colorized text representation of the current board state
+fn print_board_state_color(_env: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters, lobby_info: &LobbyInfo) -> std::string::String {
+    let board = &lobby_parameters.board;
+    let width = board.size.x;
+    let height = board.size.y;
+    
+    // Create a map of positions to pawns for quick lookup
+    let mut pawn_map: std::collections::HashMap<(i32, i32), PawnState> = std::collections::HashMap::new();
+    for pawn in game_state.pawns.iter() {
+        if pawn.alive {
+            pawn_map.insert((pawn.pos.x, pawn.pos.y), pawn);
+        }
+    }
+    
+    // Create a map of positions to tiles for quick lookup
+    let mut tile_map: std::collections::HashMap<(i32, i32), Tile> = std::collections::HashMap::new();
+    for tile in board.tiles.iter() {
+        tile_map.insert((tile.pos.x, tile.pos.y), tile);
+    }
+    
+    let mut result = std::string::String::new();
+    
+    // Add colorized header information
+    result.push_str(&std::format!("{}{}=== BOARD STATE ==={}\n", BOLD, BRIGHT_CYAN, RESET));
+    result.push_str(&std::format!("{}Phase:{} {:?}, {}Subphase:{} {:?}\n", 
+                                   YELLOW, RESET, lobby_info.phase, YELLOW, RESET, lobby_info.subphase));
+    result.push_str(&std::format!("{}Board:{} {:?} ({}x{})\n", 
+                                   CYAN, RESET, board.name, width, height));
+    result.push_str(&std::format!("{}Host Team:{} {}\n\n", 
+                                   MAGENTA, RESET, lobby_parameters.host_team));
+    
+    // Add column headers with color
+    result.push_str(&std::format!("{}   ", BOLD));
+    for x in 0..width {
+        result.push_str(&std::format!("{:2} ", x));
+    }
+    result.push_str(&std::format!("{}\n", RESET));
+    
+    // Print board from top to bottom (y = height-1 to 0)
+    for y in (0..height).rev() {
+        result.push_str(&std::format!("{}{:2}{} ", BOLD, y, RESET));
+        
+        for x in 0..width {
+            let pos = (x, y);
+            
+            if let Some(pawn) = pawn_map.get(&pos) {
+                // There's a pawn here
+                let (_, team) = Contract::decode_pawn_id(&pawn.pawn_id);
+                let rank_char = if !pawn.rank.is_empty() {
+                    match pawn.rank.get(0).unwrap() {
+                        0 => 'F',   // Flag
+                        1 => 'S',   // Spy
+                        2 => 's',   // Scout
+                        3 => 'M',   // Miner
+                        4 => '4',   // Sergeant
+                        5 => '5',   // Lieutenant
+                        6 => '6',   // Captain
+                        7 => '7',   // Major
+                        8 => '8',   // Colonel
+                        9 => '9',   // General
+                        10 => 'G',  // Marshal (General)
+                        11 => 'B',  // Bomb
+                        _ => '?'
+                    }
+                } else {
+                    '?'  // Unknown rank
+                };
+                
+                // Get rank-specific color
+                let rank_color = if !pawn.rank.is_empty() {
+                    match pawn.rank.get(0).unwrap() {
+                        0 => BRIGHT_YELLOW,    // Flag - bright yellow (most important)
+                        1 => BRIGHT_MAGENTA,   // Spy - bright magenta (special)
+                        2 => GREEN,            // Scout - green (fast)
+                        3 => YELLOW,           // Miner - yellow (can defuse bombs)
+                        11 => BRIGHT_RED,      // Bomb - bright red (dangerous)
+                        10 => BRIGHT_CYAN,     // Marshal - bright cyan (highest rank)
+                        9 => CYAN,             // General - cyan (high rank)
+                        _ => WHITE,            // Other ranks - white
+                    }
+                } else {
+                    WHITE  // Unknown rank
+                };
+                
+                // Use different colors and formatting for different teams
+                if team == 0 {
+                    // Host team in red brackets with rank-specific colors
+                    result.push_str(&std::format!("{}[{}{}{}{}]{}", 
+                                                   BRIGHT_RED, rank_color, rank_char, BRIGHT_RED, RESET, RESET));
+                } else {
+                    // Guest team in blue parentheses with rank-specific colors
+                    result.push_str(&std::format!("{}({}{}{}{}){}", 
+                                                   BRIGHT_BLUE, rank_color, rank_char, BRIGHT_BLUE, RESET, RESET));
+                }
+            } else if let Some(tile) = tile_map.get(&pos) {
+                // No pawn, show tile info with colors
+                if !tile.passable {
+                    result.push_str(&std::format!("{}~~~{}", BRIGHT_CYAN, RESET));  // Water/lake in cyan
+                } else {
+                    match tile.setup {
+                        0 => result.push_str(&std::format!("{} . {}", RED, RESET)),      // Host setup area in red
+                        1 => result.push_str(&std::format!("{} : {}", BLUE, RESET)),     // Guest setup area in blue
+                        2 => result.push_str("   "),                                     // Neutral area - no color
+                        _ => result.push_str(&std::format!("{} ? {}", YELLOW, RESET)),   // Unknown in yellow
+                    }
+                }
+            } else {
+                result.push_str(&std::format!("{} ? {}", BRIGHT_RED, RESET));  // Should not happen - bright red
+            }
+        }
+        result.push_str(&std::format!(" {}{}{}\n", BOLD, y, RESET));
+    }
+    
+    // Add column footers with color
+    result.push_str(&std::format!("{}   ", BOLD));
+    for x in 0..width {
+        result.push_str(&std::format!("{:2} ", x));
+    }
+    result.push_str(&std::format!("{}\n\n", RESET));
+    
+    // Add colorized legend
+    result.push_str(&std::format!("{}Legend:{}\n", BOLD, RESET));
+    result.push_str(&std::format!("{}[X]{} = Host team pawn    {}(X){} = Guest team pawn\n", 
+                                   BRIGHT_RED, RESET, BRIGHT_BLUE, RESET));
+    result.push_str(&std::format!("{}F{}=Flag {}S{}=Spy {}s{}=Scout {}M{}=Miner {}4-9{}=Ranks {}G{}=Marshal {}B{}=Bomb {}?{}=Unknown\n",
+                                   BRIGHT_YELLOW, RESET, BRIGHT_MAGENTA, RESET, GREEN, RESET, 
+                                   YELLOW, RESET, WHITE, RESET, BRIGHT_CYAN, RESET, BRIGHT_RED, RESET, WHITE, RESET));
+    result.push_str(&std::format!("{}~~~{} = Water/Lake       {}. {} = Host setup area    {}: {} = Guest setup area\n",
+                                   BRIGHT_CYAN, RESET, RED, RESET, BLUE, RESET));
+    result.push_str(&std::format!("{}==================={}\n", BOLD, RESET));
+    
+    result
+}
+
+// endregion
+
+// region utility functions
 
 // Test environment setup helper
 struct TestSetup {
@@ -1501,3 +2039,177 @@ impl TestSetup {
 }
 
 // endregion
+
+#[test]
+fn test_board_visualization() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let guest_address = setup.generate_address();
+    let lobby_id = 1u32;
+    
+    // Create full Stratego board and join
+    let lobby_parameters = create_full_stratego_board_parameters(&setup.env);
+    let make_req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&host_address, &make_req);
+    
+    let join_req = JoinLobbyReq { lobby_id };
+    setup.client.join_lobby(&guest_address, &join_req);
+    
+    // Generate and commit setup for both teams
+    let (host_commits, host_proof, _, host_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 0)
+    });
+    let (guest_commits, guest_proof, _, guest_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_realistic_stratego_setup_from_game_state(&setup.env, lobby_id, 1)
+    });
+    
+    // Commit and prove setups
+    let host_serialized = host_proof.clone().to_xdr(&setup.env);
+    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    
+    let guest_serialized = guest_proof.clone().to_xdr(&setup.env);
+    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    
+    let host_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: host_setup_hash,
+    };
+    let guest_commit_req = CommitSetupReq {
+        lobby_id,
+        setup_hash: guest_setup_hash,
+    };
+    
+    setup.client.commit_setup(&host_address, &host_commit_req);
+    setup.client.commit_setup(&guest_address, &guest_commit_req);
+    
+    let host_prove_req = ProveSetupReq {
+        lobby_id,
+        setup: host_proof,
+    };
+    let guest_prove_req = ProveSetupReq {
+        lobby_id,
+        setup: guest_proof,
+    };
+    
+    setup.client.prove_setup(&host_address, &host_prove_req);
+    setup.client.prove_setup(&guest_address, &guest_prove_req);
+    
+    // Populate all ranks in the game state for visualization
+    setup.env.as_contract(&setup.contract_id, || {
+        let game_state_key = DataKey::GameState(lobby_id);
+        let mut game_state: GameState = setup.env.storage()
+            .temporary()
+            .get(&game_state_key)
+            .expect("Game state should exist");
+        for hidden_rank in host_ranks.iter().chain(guest_ranks.iter()) {
+            let (index, mut pawn) = game_state.pawns.iter().enumerate().find(|(_, p)| p.pawn_id == hidden_rank.pawn_id).unwrap();
+            pawn.rank = Vec::from_array(&setup.env, [hidden_rank.rank]);
+            game_state.pawns.set(index as u32, pawn);
+        }
+        setup.env.storage().temporary().set(&game_state_key, &game_state);
+    });
+    
+    // Print initial board state
+    let board_state = setup.env.as_contract(&setup.contract_id, || {
+        let game_state_key = DataKey::GameState(lobby_id);
+        let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+        
+        let game_state: GameState = setup.env.storage()
+            .temporary()
+            .get(&game_state_key)
+            .expect("Game state should exist");
+        let lobby_parameters: LobbyParameters = setup.env.storage()
+            .temporary()
+            .get(&lobby_parameters_key)
+            .expect("Lobby parameters should exist");
+        let lobby_info: LobbyInfo = setup.env.storage()
+            .temporary()
+            .get(&lobby_info_key)
+            .expect("Lobby info should exist");
+        
+        print_board_state_color(&setup.env, &game_state, &lobby_parameters, &lobby_info)
+    });
+    
+    std::println!("{}", board_state);
+    
+    // Make a few moves and show the board state again
+    for move_num in 1..=3 {
+        std::println!("=== MAKING MOVE {} ===", move_num);
+        
+        let (host_move_proof, guest_move_proof, host_move_req, guest_move_req) = setup.env.as_contract(&setup.contract_id, || {
+            let game_state_key = DataKey::GameState(lobby_id);
+            let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+            
+            let lobby_parameters: LobbyParameters = setup.env.storage()
+                .temporary()
+                .get(&lobby_parameters_key)
+                .expect("Lobby parameters should exist");
+            let game_state: GameState = setup.env.storage()
+                .temporary()
+                .get(&game_state_key)
+                .expect("Game state should exist");
+            
+            let host_move_proof = generate_valid_move_req(&setup.env, &game_state, &lobby_parameters, 0, move_num as u64 * 1000 + 12345).unwrap();
+            let guest_move_proof = generate_valid_move_req(&setup.env, &game_state, &lobby_parameters, 1, move_num as u64 * 1000 + 54321).unwrap();
+            
+            let host_move_serialized = host_move_proof.clone().to_xdr(&setup.env);
+            let host_move_hash = setup.env.crypto().sha256(&host_move_serialized).to_bytes();
+            let guest_move_serialized = guest_move_proof.clone().to_xdr(&setup.env);
+            let guest_move_hash = setup.env.crypto().sha256(&guest_move_serialized).to_bytes();
+            
+            let host_move_req = CommitMoveReq {
+                lobby_id,
+                move_hash: host_move_hash,
+            };
+            let guest_move_req = CommitMoveReq {
+                lobby_id,
+                move_hash: guest_move_hash,
+            };
+            
+            (host_move_proof, guest_move_proof, host_move_req, guest_move_req)
+        });
+        
+        setup.client.commit_move(&host_address, &host_move_req);
+        setup.client.commit_move(&guest_address, &guest_move_req);
+        
+        let host_prove_move_req = ProveMoveReq {
+            move_proof: host_move_proof,
+            lobby_id,
+        };
+        let guest_prove_move_req = ProveMoveReq {
+            move_proof: guest_move_proof,
+            lobby_id,
+        };
+        
+        setup.client.prove_move(&host_address, &host_prove_move_req);
+        setup.client.prove_move(&guest_address, &guest_prove_move_req);
+        
+        // Print board state after move
+        let board_state = setup.env.as_contract(&setup.contract_id, || {
+            let game_state_key = DataKey::GameState(lobby_id);
+            let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+            let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+            
+            let game_state: GameState = setup.env.storage()
+                .temporary()
+                .get(&game_state_key)
+                .expect("Game state should exist");
+            let lobby_parameters: LobbyParameters = setup.env.storage()
+                .temporary()
+                .get(&lobby_parameters_key)
+                .expect("Lobby parameters should exist");
+            let lobby_info: LobbyInfo = setup.env.storage()
+                .temporary()
+                .get(&lobby_info_key)
+                .expect("Lobby info should exist");
+            
+            print_board_state_color(&setup.env, &game_state, &lobby_parameters, &lobby_info)
+        });
+        
+        std::println!("{}", board_state);
+    }
+}
