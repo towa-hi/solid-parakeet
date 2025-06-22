@@ -1252,3 +1252,4 @@ impl Contract {
 
 
 mod test;// run tests
+mod test_utils; // test utilities
