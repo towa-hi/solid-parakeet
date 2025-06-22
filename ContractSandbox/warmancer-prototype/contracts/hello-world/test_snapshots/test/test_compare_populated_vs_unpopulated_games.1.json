@@ -25713,6 +25713,14 @@
                             "map": [
                               {
                                 "key": {
+                                  "symbol": "setup"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
                                   "symbol": "setup_hash"
                                 },
                                 "val": {
@@ -25722,19 +25730,19 @@
                                     }
                                   ]
                                 }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "setup_proof"
-                                },
-                                "val": {
-                                  "vec": []
-                                }
                               }
                             ]
                           },
                           {
                             "map": [
+                              {
+                                "key": {
+                                  "symbol": "setup"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
                               {
                                 "key": {
                                   "symbol": "setup_hash"
@@ -25745,14 +25753,6 @@
                                       "bytes": "bc35f7a0e3e401141ce51492591456fa7b175ca28e85aadfb6b8893c72ff6ae6"
                                     }
                                   ]
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "setup_proof"
-                                },
-                                "val": {
-                                  "vec": []
                                 }
                               }
                             ]
@@ -32370,6 +32370,14 @@
                             "map": [
                               {
                                 "key": {
+                                  "symbol": "setup"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
                                   "symbol": "setup_hash"
                                 },
                                 "val": {
@@ -32379,19 +32387,19 @@
                                     }
                                   ]
                                 }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "setup_proof"
-                                },
-                                "val": {
-                                  "vec": []
-                                }
                               }
                             ]
                           },
                           {
                             "map": [
+                              {
+                                "key": {
+                                  "symbol": "setup"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
                               {
                                 "key": {
                                   "symbol": "setup_hash"
@@ -32402,14 +32410,6 @@
                                       "bytes": "bc35f7a0e3e401141ce51492591456fa7b175ca28e85aadfb6b8893c72ff6ae6"
                                     }
                                   ]
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "setup_proof"
-                                },
-                                "val": {
-                                  "vec": []
                                 }
                               }
                             ]

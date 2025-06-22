@@ -20327,7 +20327,7 @@
                             "map": [
                               {
                                 "key": {
-                                  "symbol": "setup_hash"
+                                  "symbol": "setup"
                                 },
                                 "val": {
                                   "vec": []
@@ -20335,7 +20335,7 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "setup_proof"
+                                  "symbol": "setup_hash"
                                 },
                                 "val": {
                                   "vec": []
@@ -20347,7 +20347,7 @@
                             "map": [
                               {
                                 "key": {
-                                  "symbol": "setup_hash"
+                                  "symbol": "setup"
                                 },
                                 "val": {
                                   "vec": []
@@ -20355,7 +20355,7 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "setup_proof"
+                                  "symbol": "setup_hash"
                                 },
                                 "val": {
                                   "vec": []
