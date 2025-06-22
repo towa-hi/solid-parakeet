@@ -8,19 +8,12 @@ use soroban_sdk::{Env, Address, Vec, Map};
 // ANSI color codes for terminal output
 pub const RESET: &str = "\x1b[0m";
 pub const BOLD: &str = "\x1b[1m";
-pub const RED: &str = "\x1b[31m";
-pub const GREEN: &str = "\x1b[32m";
 pub const YELLOW: &str = "\x1b[33m";
-pub const BLUE: &str = "\x1b[34m";
 pub const MAGENTA: &str = "\x1b[35m";
 pub const CYAN: &str = "\x1b[36m";
 pub const WHITE: &str = "\x1b[37m";
 pub const BRIGHT_RED: &str = "\x1b[91m";
-pub const BRIGHT_GREEN: &str = "\x1b[92m";
-pub const BRIGHT_YELLOW: &str = "\x1b[93m";
 pub const BRIGHT_BLUE: &str = "\x1b[94m";
-pub const BRIGHT_MAGENTA: &str = "\x1b[95m";
-pub const BRIGHT_CYAN: &str = "\x1b[96m";
 
 // endregion
 
@@ -28,9 +21,34 @@ pub const BRIGHT_CYAN: &str = "\x1b[96m";
 
 /// Creates a colorized text representation of the current board state
 pub fn format_board_with_colors(_env: &Env, snapshot: &SnapshotFull) -> std::string::String {
+    format_board_with_colors_and_ranks(_env, snapshot, None, None)
+}
+
+pub fn format_board_with_colors_and_ranks(
+    _env: &Env, 
+    snapshot: &SnapshotFull, 
+    host_ranks: Option<&Vec<HiddenRank>>, 
+    guest_ranks: Option<&Vec<HiddenRank>>
+) -> std::string::String {
     let board = &snapshot.lobby_parameters.board;
     let width = board.size.x;
     let height = board.size.y;
+    
+    // Create a map of pawn IDs to ranks from the provided hidden ranks
+    let mut rank_map: std::collections::HashMap<PawnId, Rank> = std::collections::HashMap::new();
+    if let Some(host_hidden_ranks) = host_ranks {
+        for hidden_rank in host_hidden_ranks.iter() {
+            rank_map.insert(hidden_rank.pawn_id, hidden_rank.rank);
+        }
+    }
+    if let Some(guest_hidden_ranks) = guest_ranks {
+        for hidden_rank in guest_hidden_ranks.iter() {
+            rank_map.insert(hidden_rank.pawn_id, hidden_rank.rank);
+        }
+    }
+    
+    // Determine if we're showing revealed state
+    let is_revealed = host_ranks.is_some() || guest_ranks.is_some();
     
     // Create a map of positions to pawns for quick lookup
     let mut pawn_map: std::collections::HashMap<(i32, i32), PawnState> = std::collections::HashMap::new();
@@ -49,7 +67,8 @@ pub fn format_board_with_colors(_env: &Env, snapshot: &SnapshotFull) -> std::str
     let mut result = std::string::String::new();
     
     // Add colorized header information
-    result.push_str(&std::format!("{}{}=== BOARD STATE ==={}\n", BOLD, BRIGHT_CYAN, RESET));
+    let header_title = if is_revealed { "=== BOARD STATE (REVEALED) ===" } else { "=== BOARD STATE ===" };
+    result.push_str(&std::format!("{}{}{}{}\n", BOLD, WHITE, header_title, RESET));
     result.push_str(&std::format!("{}Phase:{} {:?}, {}Subphase:{} {:?}\n", 
                                    YELLOW, RESET, snapshot.lobby_info.phase, YELLOW, RESET, snapshot.lobby_info.subphase));
     result.push_str(&std::format!("{}Board:{} {:?} ({}x{})\n", 
@@ -74,12 +93,25 @@ pub fn format_board_with_colors(_env: &Env, snapshot: &SnapshotFull) -> std::str
             if let Some(pawn) = pawn_map.get(&pos) {
                 // There's a pawn here
                 let (_, team) = Contract::decode_pawn_id(&pawn.pawn_id);
-                let rank_char = if !pawn.rank.is_empty() {
-                    match pawn.rank.get(0).unwrap() {
+                
+                // Determine the rank to display and whether it's revealed in game state
+                let (display_rank, is_revealed_in_game) = if !pawn.rank.is_empty() {
+                    // Rank is revealed in game state - use bright team color
+                    (Some(pawn.rank.get(0).unwrap()), true)
+                } else if let Some(&hidden_rank) = rank_map.get(&pawn.pawn_id) {
+                    // Rank is only known from parameter - use darker team color
+                    (Some(hidden_rank), false)
+                } else {
+                    // No rank available
+                    (None, false)
+                };
+                
+                let rank_char = if let Some(rank) = display_rank {
+                    match rank {
                         0 => 'F',   // Flag
-                        1 => 'S',   // Spy
-                        2 => 's',   // Scout
-                        3 => 'M',   // Miner
+                        1 => '1',   // Spy
+                        2 => '2',   // Scout
+                        3 => '3',   // Miner
                         4 => '4',   // Sergeant
                         5 => '5',   // Lieutenant
                         6 => '6',   // Captain
@@ -94,42 +126,40 @@ pub fn format_board_with_colors(_env: &Env, snapshot: &SnapshotFull) -> std::str
                     '?'  // Unknown rank
                 };
                 
-                // Get rank-specific color
-                let rank_color = if !pawn.rank.is_empty() {
-                    match pawn.rank.get(0).unwrap() {
-                        0 => BRIGHT_YELLOW,    // Flag - bright yellow (most important)
-                        1 => BRIGHT_MAGENTA,   // Spy - bright magenta (special)
-                        2 => GREEN,            // Scout - green (fast)
-                        3 => YELLOW,           // Miner - yellow (can defuse bombs)
-                        11 => BRIGHT_RED,      // Bomb - bright red (dangerous)
-                        10 => BRIGHT_CYAN,     // Marshal - bright cyan (highest rank)
-                        9 => CYAN,             // General - cyan (high rank)
-                        _ => WHITE,            // Other ranks - white
-                    }
-                } else {
-                    WHITE  // Unknown rank
-                };
-                
                 // Use different colors and formatting for different teams
                 if team == 0 {
-                    // Host team in red brackets with rank-specific colors
-                    result.push_str(&std::format!("{}[{}{}{}{}]{}", 
-                                                   BRIGHT_RED, rank_color, rank_char, BRIGHT_RED, RESET, RESET));
+                    // Host team 
+                    if is_revealed_in_game { 
+                        std::println!("DEBUG: Team 0 pawn {} using BRIGHT_RED (revealed)", pawn.pawn_id);
+                        result.push_str(&std::format!("{}{{{}}}{}", 
+                                                       BRIGHT_RED, rank_char, RESET)); // Curly braces for revealed
+                    } else { 
+                        std::println!("DEBUG: Team 0 pawn {} using MAGENTA (hidden)", pawn.pawn_id);
+                        result.push_str(&std::format!("{}[{}]{}", 
+                                                       MAGENTA, rank_char, RESET)); // Square brackets for hidden
+                    };
                 } else {
-                    // Guest team in blue parentheses with rank-specific colors
-                    result.push_str(&std::format!("{}({}{}{}{}){}", 
-                                                   BRIGHT_BLUE, rank_color, rank_char, BRIGHT_BLUE, RESET, RESET));
+                    // Guest team  
+                    if is_revealed_in_game { 
+                        std::println!("DEBUG: Team 1 pawn {} using BRIGHT_BLUE (revealed)", pawn.pawn_id);
+                        result.push_str(&std::format!("{}{{{}}}{}", 
+                                                       BRIGHT_BLUE, rank_char, RESET)); // Curly braces for revealed
+                    } else { 
+                        std::println!("DEBUG: Team 1 pawn {} using CYAN (hidden)", pawn.pawn_id);
+                        result.push_str(&std::format!("{}[{}]{}", 
+                                                       CYAN, rank_char, RESET)); // Square brackets for hidden
+                    };
                 }
             } else if let Some(tile) = tile_map.get(&pos) {
                 // No pawn, show tile info with colors
                 if !tile.passable {
-                    result.push_str(&std::format!("{}~~~{}", BRIGHT_CYAN, RESET));  // Water/lake in cyan
+                    result.push_str(&std::format!("{}~~~{}", WHITE, RESET));  // Water/lake in white
                 } else {
                     match tile.setup {
-                        0 => result.push_str(&std::format!("{} . {}", RED, RESET)),      // Host setup area in red
-                        1 => result.push_str(&std::format!("{} : {}", BLUE, RESET)),     // Guest setup area in blue
-                        2 => result.push_str("   "),                                     // Neutral area - no color
-                        _ => result.push_str(&std::format!("{} ? {}", YELLOW, RESET)),   // Unknown in yellow
+                        0 => result.push_str(&std::format!("{} . {}", MAGENTA, RESET)),     // Host setup area in magenta (hidden color)
+                        1 => result.push_str(&std::format!("{} . {}", CYAN, RESET)),        // Guest setup area in cyan (hidden color) using dots
+                        2 => result.push_str("   "),                                        // Neutral area - no color
+                        _ => result.push_str(&std::format!("{} ? {}", YELLOW, RESET)),      // Unknown in yellow
                     }
                 }
             } else {
@@ -148,13 +178,15 @@ pub fn format_board_with_colors(_env: &Env, snapshot: &SnapshotFull) -> std::str
     
     // Add colorized legend
     result.push_str(&std::format!("{}Legend:{}\n", BOLD, RESET));
-    result.push_str(&std::format!("{}[X]{} = Host team pawn    {}(X){} = Guest team pawn\n", 
-                                   BRIGHT_RED, RESET, BRIGHT_BLUE, RESET));
-    result.push_str(&std::format!("{}F{}=Flag {}S{}=Spy {}s{}=Scout {}M{}=Miner {}4-9{}=Ranks {}G{}=Marshal {}B{}=Bomb {}?{}=Unknown\n",
-                                   BRIGHT_YELLOW, RESET, BRIGHT_MAGENTA, RESET, GREEN, RESET, 
-                                   YELLOW, RESET, WHITE, RESET, BRIGHT_CYAN, RESET, BRIGHT_RED, RESET, WHITE, RESET));
-    result.push_str(&std::format!("{}~~~{} = Water/Lake       {}. {} = Host setup area    {}: {} = Guest setup area\n",
-                                   BRIGHT_CYAN, RESET, RED, RESET, BLUE, RESET));
+    result.push_str(&std::format!("{}{{X}}{} = Host team pawn (revealed)    {}[X]{} = Host team pawn (hidden)\n", 
+                                   BRIGHT_RED, RESET, MAGENTA, RESET));
+    result.push_str(&std::format!("{}{{X}}{} = Guest team pawn (revealed)   {}[X]{} = Guest team pawn (hidden)\n",
+                                   BRIGHT_BLUE, RESET, CYAN, RESET));
+    result.push_str(&std::format!("{}F{}=Flag {}1{}=Spy {}2{}=Scout {}3{}=Miner {}4-9{}=Ranks {}G{}=Marshal {}B{}=Bomb {}?{}=Unknown\n",
+                                   WHITE, RESET, WHITE, RESET, WHITE, RESET, 
+                                   WHITE, RESET, WHITE, RESET, WHITE, RESET, WHITE, RESET, WHITE, RESET));
+    result.push_str(&std::format!("{}~~~{} = Water/Lake       {}. {} = Host setup area    {}. {} = Guest setup area\n",
+                                   WHITE, RESET, MAGENTA, RESET, CYAN, RESET));
     result.push_str(&std::format!("{}==================={}\n", BOLD, RESET));
     
     result

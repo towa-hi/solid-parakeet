@@ -363,7 +363,7 @@ fn test_commit_move_validation_errors() {
     assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
     
     // Create a lobby and advance to move commit phase for further tests
-    let (lobby_id, host_address, _guest_address) = setup_lobby_for_commit_move(&setup);
+    let (lobby_id, host_address, _guest_address, _host_ranks, _guest_ranks) = setup_lobby_for_commit_move(&setup);
     
     // Test: Not in lobby
     let outsider_address = setup.generate_address();
@@ -406,7 +406,7 @@ fn test_commit_move_validation_errors() {
     assert_eq!(result.unwrap_err().unwrap(), Error::WrongSubphase);
     
     // Test: After game finished
-    let (finished_lobby_id, finished_host, finished_guest) = setup_lobby_for_commit_move(&setup);
+    let (finished_lobby_id, finished_host, finished_guest, _, _) = setup_lobby_for_commit_move(&setup);
     setup.client.leave_lobby(&finished_host); // This should finish the game
     
     let commit_req = CommitMoveReq {
@@ -566,17 +566,12 @@ fn test_full_stratego_board_creation() {
     }
 }
 
-
 #[test]
 fn test_full_stratego_game() {
     let setup = TestSetup::new();
     
-    // Use helper function to set up lobby and advance to MoveCommit phase
-    let (lobby_id, host_address, guest_address) = setup_lobby_for_commit_move(&setup);
-    
-    // Get rank data for move generation using the same seeds as the helper function
-    let (_, _, _, host_ranks) = create_deterministic_setup(&setup.env, 0, 12345); // team 0, same seed as helper
-    let (_, _, _, guest_ranks) = create_deterministic_setup(&setup.env, 1, 67890); // team 1, same seed as helper
+    // Use helper function to set up lobby and advance to MoveCommit phase, getting ranks
+    let (lobby_id, host_address, guest_address, host_ranks, guest_ranks) = setup_lobby_for_commit_move(&setup);
     
     // Verify we're in MoveCommit phase (helper function should guarantee this)
     let initial_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
@@ -584,7 +579,7 @@ fn test_full_stratego_game() {
     assert_eq!(initial_snapshot.subphase, Subphase::Both);
     
     // Perform up to 50 moves or until no valid moves are possible
-    for move_number in 1..=50 {
+    for move_number in 1..=100 {
         std::println!("=== MOVE {} ===", move_number);
         
         // Take fresh snapshot at start of each loop iteration
@@ -594,7 +589,12 @@ fn test_full_stratego_game() {
         match current_phase {
             Phase::MoveCommit => {
                 std::println!("Phase: MoveCommit - Committing moves");
-                
+                {
+                    std::println!("=== BOARD STATE AT TURN START ===");
+                    let board_display_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
+                    let board_state_with_revealed_ranks = format_board_with_colors_and_ranks(&setup.env, &board_display_snapshot, Some(&host_ranks), Some(&guest_ranks));
+                    std::println!("{}", board_state_with_revealed_ranks);
+                }
                 // Generate moves using current game state from snapshot
                 let host_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 0, &host_ranks, move_number as u64 * 1000 + 12345);
                 let guest_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 1, &guest_ranks, move_number as u64 * 1000 + 54321);
@@ -634,8 +634,6 @@ fn test_full_stratego_game() {
                 // Only proceed with move proving if we're in MoveProve phase
                 if current_phase_after_commit == Phase::MoveProve {
                     std::println!("Proceeding with MoveProve phase for turn {}", move_number);
-                    
-
                     
                     // Prove moves
                     let host_prove_move_req = ProveMoveReq {
@@ -713,13 +711,6 @@ fn test_full_stratego_game() {
                     let rank_validation_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
                     validate_rank_prove_transition(&rank_validation_snapshot, host_rank_req.as_ref(), guest_rank_req.as_ref());
                 }
-                
-                // Print board state RIGHT AFTER rank proving but before collision resolution
-                std::println!("=== BOARD STATE AFTER RANK PROVING (BEFORE COLLISION RESOLUTION) ===");
-                let board_display_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-                let board_state_with_revealed_ranks = format_board_with_colors(&setup.env, &board_display_snapshot);
-                std::println!("{}", board_state_with_revealed_ranks);
-                std::println!("=== END BOARD STATE AFTER RANK PROVING ===");
             },
             
             Phase::Finished => {
@@ -732,7 +723,6 @@ fn test_full_stratego_game() {
             }
         }
         
-
     }
     
     // Take final snapshot after all loop iterations complete
@@ -744,11 +734,7 @@ fn test_full_stratego_game() {
     
 }
 
-
-
 // generate_valid_move_req function moved to test_utils.rs
-
-
 
 // endregion
 
@@ -866,8 +852,6 @@ impl TestSetup {
 }
 
 // endregion
-
-
 
 #[test]
 fn test_collision_winner_rank_revelation() {
@@ -1324,24 +1308,25 @@ fn setup_lobby_for_commit_setup(setup: &TestSetup) -> (u32, Address, Address) {
 }
 
 /// Sets up a lobby and advances it to move commit phase (first turn) for validation testing
-/// Returns (lobby_id, host_address, guest_address)
-fn setup_lobby_for_commit_move(setup: &TestSetup) -> (u32, Address, Address) {
+/// Returns (lobby_id, host_address, guest_address, host_ranks, guest_ranks)
+fn setup_lobby_for_commit_move(setup: &TestSetup) -> (u32, Address, Address, Vec<HiddenRank>, Vec<HiddenRank>) {
     let (lobby_id, host_address, guest_address) = setup_lobby_for_commit_setup(setup);
     
-    // Advance through setup phase
-    advance_through_setup_phase(setup, lobby_id, &host_address, &guest_address);
+    // Advance through complete setup phase (commit + prove)
+    let (host_ranks, guest_ranks) = advance_through_complete_setup_phase(setup, lobby_id, &host_address, &guest_address);
     
-    (lobby_id, host_address, guest_address)
+    (lobby_id, host_address, guest_address, host_ranks, guest_ranks)
 }
 
 /// Helper to advance a lobby through the complete setup phase to move commit
-fn advance_through_setup_phase(setup: &TestSetup, lobby_id: u32, host_address: &Address, guest_address: &Address) {
+/// Returns (host_ranks, guest_ranks) from the setup
+fn advance_through_complete_setup_phase(setup: &TestSetup, lobby_id: u32, host_address: &Address, guest_address: &Address) -> (Vec<HiddenRank>, Vec<HiddenRank>) {
     // Create deterministic setups for both players
-    let (_, host_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (_, host_setup_proof, _, host_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_deterministic_setup(&setup.env, 0, 12345) // team 0, salt 12345
     });
     
-    let (_, guest_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (_, guest_setup_proof, _, guest_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_deterministic_setup(&setup.env, 1, 67890) // team 1, salt 67890
     });
     
@@ -1365,7 +1350,7 @@ fn advance_through_setup_phase(setup: &TestSetup, lobby_id: u32, host_address: &
     };
     setup.client.commit_setup(guest_address, &guest_commit_req);
     
-    // Prove setups
+    // Prove setups to complete the setup phase
     let host_prove_req = ProveSetupReq {
         lobby_id,
         setup: host_setup_proof,
@@ -1377,6 +1362,13 @@ fn advance_through_setup_phase(setup: &TestSetup, lobby_id: u32, host_address: &
         setup: guest_setup_proof,
     };
     setup.client.prove_setup(guest_address, &guest_prove_req);
+    
+    (host_ranks, guest_ranks)
+}
+
+/// Helper to advance a lobby through the complete setup phase to move commit
+fn advance_through_setup_phase(setup: &TestSetup, lobby_id: u32, host_address: &Address, guest_address: &Address) {
+    let _ = advance_through_complete_setup_phase(setup, lobby_id, host_address, guest_address);
 }
 
 /// Generate a unique lobby ID to avoid conflicts across tests
@@ -1387,3 +1379,36 @@ fn generate_unique_lobby_id() -> u32 {
 }
 
 // endregion
+
+#[test]
+fn test_board_display_with_revealed_ranks() {
+    let setup = TestSetup::new();
+    
+    // Join and setup game - get the returned setup data including ranks
+    let (lobby_id, _host_address, _guest_address, host_ranks, guest_ranks) = setup_lobby_for_commit_move(&setup);
+    
+    // Get the current board state
+    let snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
+    
+    // Display board without revealed ranks (normal view)
+    std::println!("\n=== NORMAL BOARD DISPLAY ===");
+    let normal_board = format_board_with_colors(&setup.env, &snapshot);
+    std::println!("{}", normal_board);
+    
+    // Display board with host ranks revealed
+    std::println!("\n=== BOARD WITH HOST RANKS REVEALED ===");
+    let host_revealed_board = format_board_with_colors_and_ranks(&setup.env, &snapshot, Some(&host_ranks), None);
+    std::println!("{}", host_revealed_board);
+    
+    // Display board with both teams' ranks revealed
+    std::println!("\n=== BOARD WITH ALL RANKS REVEALED ===");
+    let fully_revealed_board = format_board_with_colors_and_ranks(&setup.env, &snapshot, Some(&host_ranks), Some(&guest_ranks));
+    std::println!("{}", fully_revealed_board);
+    
+    // Verify the titles are correct
+    assert!(normal_board.contains("=== BOARD STATE ==="));
+    assert!(host_revealed_board.contains("=== BOARD STATE (REVEALED) ==="));
+    assert!(fully_revealed_board.contains("=== BOARD STATE (REVEALED) ==="));
+}
+
+
