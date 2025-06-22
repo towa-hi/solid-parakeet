@@ -27,14 +27,14 @@ pub const BRIGHT_CYAN: &str = "\x1b[96m";
 // region board visualization
 
 /// Creates a colorized text representation of the current board state
-pub fn format_board_with_colors(_env: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters, lobby_info: &LobbyInfo) -> std::string::String {
-    let board = &lobby_parameters.board;
+pub fn format_board_with_colors(_env: &Env, snapshot: &SnapshotFull) -> std::string::String {
+    let board = &snapshot.lobby_parameters.board;
     let width = board.size.x;
     let height = board.size.y;
     
     // Create a map of positions to pawns for quick lookup
     let mut pawn_map: std::collections::HashMap<(i32, i32), PawnState> = std::collections::HashMap::new();
-    for pawn in game_state.pawns.iter() {
+    for pawn in snapshot.game_state.pawns.iter() {
         if pawn.alive {
             pawn_map.insert((pawn.pos.x, pawn.pos.y), pawn);
         }
@@ -51,11 +51,11 @@ pub fn format_board_with_colors(_env: &Env, game_state: &GameState, lobby_parame
     // Add colorized header information
     result.push_str(&std::format!("{}{}=== BOARD STATE ==={}\n", BOLD, BRIGHT_CYAN, RESET));
     result.push_str(&std::format!("{}Phase:{} {:?}, {}Subphase:{} {:?}\n", 
-                                   YELLOW, RESET, lobby_info.phase, YELLOW, RESET, lobby_info.subphase));
+                                   YELLOW, RESET, snapshot.lobby_info.phase, YELLOW, RESET, snapshot.lobby_info.subphase));
     result.push_str(&std::format!("{}Board:{} {:?} ({}x{})\n", 
                                    CYAN, RESET, board.name, width, height));
     result.push_str(&std::format!("{}Host Team:{} {}\n\n", 
-                                   MAGENTA, RESET, lobby_parameters.host_team));
+                                   MAGENTA, RESET, snapshot.lobby_parameters.host_team));
     
     // Add column headers with color
     result.push_str(&std::format!("{}   ", BOLD));
@@ -202,208 +202,59 @@ pub fn rank_to_string(rank: Rank) -> &'static str {
 
 // region move validation
 
-/// Validates the game state transition after move proving phase
-/// Checks that the provided move requests were applied correctly
-/// Returns (phase, subphase, host_needed_ranks, guest_needed_ranks)
-pub fn validate_move_prove_transition(
-    env: &Env,
-    contract_id: &Address,
-    lobby_id: u32,
-    host_move_req: &ProveMoveReq,
-    guest_move_req: &ProveMoveReq,
-) -> (Phase, Subphase, Vec<PawnId>, Vec<PawnId>) {
-    env.as_contract(contract_id, || {
-        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
-        let game_state_key = DataKey::GameState(lobby_id);
-        let lobby_info: LobbyInfo = env.storage()
-            .temporary()
-            .get(&lobby_info_key)
-            .expect("Lobby info should exist");
-        let game_state: GameState = env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
-        
-        let host_move = game_state.moves.get(0).unwrap();
-        let guest_move = game_state.moves.get(1).unwrap();
-        let host_needed_ranks = host_move.needed_rank_proofs.clone();
-        let guest_needed_ranks = guest_move.needed_rank_proofs.clone();
-        
-        // VALIDATE: Log the submitted moves for tracking
-        std::println!("=== POST-MOVEPROVE VALIDATION ===");
-        std::println!("Phase: {:?}, Subphase: {:?}", lobby_info.phase, lobby_info.subphase);
-        std::println!("✓ Host move submitted: {} from ({},{}) to ({},{})", 
-                     host_move_req.move_proof.pawn_id, 
-                     host_move_req.move_proof.start_pos.x, host_move_req.move_proof.start_pos.y, 
-                     host_move_req.move_proof.target_pos.x, host_move_req.move_proof.target_pos.y);
-        std::println!("✓ Guest move submitted: {} from ({},{}) to ({},{})", 
-                     guest_move_req.move_proof.pawn_id, 
-                     guest_move_req.move_proof.start_pos.x, guest_move_req.move_proof.start_pos.y, 
-                     guest_move_req.move_proof.target_pos.x, guest_move_req.move_proof.target_pos.y);
-        
-        // VALIDATE: Check that move processing was successful (moves exist in game state)
-        assert!(game_state.moves.len() >= 2, "Game state should have moves for both players");
-        std::println!("✓ Move processing completed successfully");
-        std::println!("Host needed rank proofs: {} pawns", host_needed_ranks.len());
-        for pawn_id in host_needed_ranks.iter() {
-            let (_, team) = Contract::decode_pawn_id(&pawn_id);
-            std::println!("  - Pawn {} (team {})", pawn_id, team);
-        }
-        std::println!("Guest needed rank proofs: {} pawns", guest_needed_ranks.len());
-        for pawn_id in guest_needed_ranks.iter() {
-            let (_, team) = Contract::decode_pawn_id(&pawn_id);
-            std::println!("  - Pawn {} (team {})", pawn_id, team);
-        }
-        std::println!("=== END VALIDATION ===");
-        
-        (lobby_info.phase, lobby_info.subphase, host_needed_ranks, guest_needed_ranks)
-    })
-}
 
-/// Validates the game state transition after rank proving phase
-/// Checks that the provided rank proof requests were applied correctly
-/// Returns (phase, subphase, remaining_host_rank_proofs, remaining_guest_rank_proofs)
-pub fn validate_rank_prove_transition(
-    env: &Env,
-    contract_id: &Address,
-    lobby_id: u32,
-    host_rank_req: Option<&ProveRankReq>,
-    guest_rank_req: Option<&ProveRankReq>,
-) -> (Phase, Subphase, Vec<PawnId>, Vec<PawnId>) {
-    env.as_contract(contract_id, || {
-        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
-        let game_state_key = DataKey::GameState(lobby_id);
-        let lobby_info: LobbyInfo = env.storage()
-            .temporary()
-            .get(&lobby_info_key)
-            .expect("Lobby info should exist");
-        let game_state: GameState = env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
-        
-        std::println!("=== POST-RANKPROVE VALIDATION ===");
-        std::println!("After rank proving: Phase={:?}, Subphase={:?}", lobby_info.phase, lobby_info.subphase);
-        
-        // VALIDATE: Check that the submitted rank proofs were applied correctly
-        if let Some(host_req) = host_rank_req {
-            std::println!("✓ Validating host rank proofs...");
-            for hidden_rank in host_req.hidden_ranks.iter() {
-                let pawn = game_state.pawns.iter()
-                    .find(|p| p.pawn_id == hidden_rank.pawn_id)
-                    .expect(&std::format!("Host pawn {} should exist", hidden_rank.pawn_id));
-                
-                assert!(!pawn.rank.is_empty(), "Host pawn {} should have rank revealed", hidden_rank.pawn_id);
-                assert_eq!(pawn.rank.get(0).unwrap(), hidden_rank.rank, "Host pawn {} rank should match submitted proof", hidden_rank.pawn_id);
-                
-                let rank_str = rank_to_string(hidden_rank.rank);
-                std::println!("  ✓ Host pawn {} rank validated: {}", hidden_rank.pawn_id, rank_str);
-            }
-        }
-        
-        if let Some(guest_req) = guest_rank_req {
-            std::println!("✓ Validating guest rank proofs...");
-            for hidden_rank in guest_req.hidden_ranks.iter() {
-                let pawn = game_state.pawns.iter()
-                    .find(|p| p.pawn_id == hidden_rank.pawn_id)
-                    .expect(&std::format!("Guest pawn {} should exist", hidden_rank.pawn_id));
-                
-                assert!(!pawn.rank.is_empty(), "Guest pawn {} should have rank revealed", hidden_rank.pawn_id);
-                assert_eq!(pawn.rank.get(0).unwrap(), hidden_rank.rank, "Guest pawn {} rank should match submitted proof", hidden_rank.pawn_id);
-                
-                let rank_str = rank_to_string(hidden_rank.rank);
-                std::println!("  ✓ Guest pawn {} rank validated: {}", hidden_rank.pawn_id, rank_str);
-            }
-        }
-        
-        // Check if rank proofs are still needed
-        let host_move = game_state.moves.get(0).unwrap();
-        let guest_move = game_state.moves.get(1).unwrap();
-        let remaining_host_proofs = host_move.needed_rank_proofs.clone();
-        let remaining_guest_proofs = guest_move.needed_rank_proofs.clone();
-        
-        std::println!("Host still needs {} rank proofs", remaining_host_proofs.len());
-        std::println!("Guest still needs {} rank proofs", remaining_guest_proofs.len());
-        std::println!("=== END VALIDATION ===");
-        
-        (lobby_info.phase, lobby_info.subphase, remaining_host_proofs, remaining_guest_proofs)
-    })
-}
 
 /// Validates that pawns involved in collisions have their ranks properly revealed
+/// Takes game state as parameter instead of accessing storage
 pub fn assert_ranks_revealed_after_collision(
-    env: &Env,
-    contract_id: &Address,
-    lobby_id: u32,
+    game_state: &GameState,
     expected_revealed_pawns: &[PawnId],
 ) {
-    env.as_contract(contract_id, || {
-        let game_state_key = DataKey::GameState(lobby_id);
-        let game_state: GameState = env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
+    std::println!("=== COLLISION RANK REVELATION VALIDATION ===");
+    for expected_pawn_id in expected_revealed_pawns {
+        let pawn = game_state.pawns.iter()
+            .find(|p| p.pawn_id == *expected_pawn_id)
+            .expect(&std::format!("Pawn {} should exist", expected_pawn_id));
         
-        std::println!("=== COLLISION RANK REVELATION VALIDATION ===");
-        for expected_pawn_id in expected_revealed_pawns {
-            let pawn = game_state.pawns.iter()
-                .find(|p| p.pawn_id == *expected_pawn_id)
-                .expect(&std::format!("Pawn {} should exist", expected_pawn_id));
-            
-            assert!(!pawn.rank.is_empty(), "Pawn {} should have its rank revealed", expected_pawn_id);
-            
-            let rank_str = rank_to_string(pawn.rank.get(0).unwrap());
-            std::println!("Pawn {} rank revealed: {} (alive: {})", pawn.pawn_id, rank_str, pawn.alive);
-        }
-        std::println!("=== END VALIDATION ===");
-    })
+        assert!(!pawn.rank.is_empty(), "Pawn {} should have its rank revealed", expected_pawn_id);
+        
+        let rank_str = rank_to_string(pawn.rank.get(0).unwrap());
+        std::println!("Pawn {} rank revealed: {} (alive: {})", pawn.pawn_id, rank_str, pawn.alive);
+    }
+    std::println!("=== END VALIDATION ===");
 }
 
 /// Validates the expected game phase and subphase
+/// Takes lobby info as parameter instead of accessing storage
 pub fn validate_game_phase(
-    env: &Env,
-    contract_id: &Address,
-    lobby_id: u32,
+    lobby_info: &LobbyInfo,
     expected_phase: Phase,
     expected_subphase: Option<Subphase>,
 ) {
-    env.as_contract(contract_id, || {
-        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
-        let lobby_info: LobbyInfo = env.storage()
-            .temporary()
-            .get(&lobby_info_key)
-            .expect("Lobby info should exist");
-        
-        assert_eq!(lobby_info.phase, expected_phase, "Game should be in phase {:?}", expected_phase);
-        
-        if let Some(subphase) = expected_subphase {
-            assert_eq!(lobby_info.subphase, subphase, "Game should be in subphase {:?}", subphase);
-        }
-        
-        std::println!("Phase validation passed: Phase={:?}, Subphase={:?}", lobby_info.phase, lobby_info.subphase);
-    })
+    assert_eq!(lobby_info.phase, expected_phase, "Game should be in phase {:?}", expected_phase);
+    
+    if let Some(subphase) = expected_subphase {
+        assert_eq!(lobby_info.subphase, subphase, "Game should be in subphase {:?}", subphase);
+    }
+    
+    std::println!("Phase validation passed: Phase={:?}, Subphase={:?}", lobby_info.phase, lobby_info.subphase);
 }
 
-/// Handles rank proving for both players given their needed rank proofs
-/// Returns (host_rank_req, guest_rank_req, ranks_proved)
-pub fn submit_required_rank_proofs(
+/// Creates ProveRankReq objects for both players given their needed rank proofs
+/// Returns (host_rank_req, guest_rank_req)
+pub fn create_rank_proof_requests(
     env: &Env,
-    client: &ContractClient,
     lobby_id: u32,
-    host_address: &Address,
-    guest_address: &Address,
     host_needed_ranks: &Vec<PawnId>,
     guest_needed_ranks: &Vec<PawnId>,
     host_ranks: &Vec<HiddenRank>,
     guest_ranks: &Vec<HiddenRank>,
-) -> (Option<ProveRankReq>, Option<ProveRankReq>, bool) {
-    let mut ranks_proved = false;
+) -> (Option<ProveRankReq>, Option<ProveRankReq>) {
     let mut host_rank_req: Option<ProveRankReq> = None;
     let mut guest_rank_req: Option<ProveRankReq> = None;
     
-    // Prove ranks for host if needed
+    // Create host rank proof request if needed
     if !host_needed_ranks.is_empty() {
-        std::println!("Host proving {} ranks", host_needed_ranks.len());
         let mut host_hidden_ranks = Vec::new(env);
         for required_pawn_id in host_needed_ranks.iter() {
             for hidden_rank in host_ranks.iter() {
@@ -416,16 +267,12 @@ pub fn submit_required_rank_proofs(
             lobby_id,
             hidden_ranks: host_hidden_ranks,
         };
-        std::println!("Host proving {} ranks", req.hidden_ranks.len());
-        assert_eq!(req.hidden_ranks.len(), host_needed_ranks.len());
-        client.prove_rank(host_address, &req);
+        assert_eq!(req.hidden_ranks.len(), host_needed_ranks.len(), "Host should have all required rank proofs");
         host_rank_req = Some(req);
-        ranks_proved = true;
     }
     
-    // Prove ranks for guest if needed
+    // Create guest rank proof request if needed
     if !guest_needed_ranks.is_empty() {
-        std::println!("Guest proving {} ranks", guest_needed_ranks.len());
         let mut guest_hidden_ranks = Vec::new(env);
         for required_pawn_id in guest_needed_ranks.iter() {
             for hidden_rank in guest_ranks.iter() {
@@ -438,18 +285,11 @@ pub fn submit_required_rank_proofs(
             lobby_id,
             hidden_ranks: guest_hidden_ranks,
         };
-        std::println!("Guest proving {} ranks", req.hidden_ranks.len());
-        assert_eq!(req.hidden_ranks.len(), guest_needed_ranks.len());
-        client.prove_rank(guest_address, &req);
+        assert_eq!(req.hidden_ranks.len(), guest_needed_ranks.len(), "Guest should have all required rank proofs");
         guest_rank_req = Some(req);
-        ranks_proved = true;
     }
     
-    if ranks_proved {
-        std::println!("Rank proving completed");
-    }
-    
-    (host_rank_req, guest_rank_req, ranks_proved)
+    (host_rank_req, guest_rank_req)
 }
 
 // endregion
@@ -608,28 +448,292 @@ pub fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_paramete
 
 // endregion
 
+// region board and lobby creation
+
+const DEFAULT_MAX_RANKS: [u32; 12] = [
+    1,  // Flag (rank 0)
+    1,  // Assassin/Spy (rank 1)
+    8,  // Scout (rank 2)
+    5,  // Miner (rank 3)
+    4,  // Sergeant (rank 4)
+    4,  // Lieutenant (rank 5)
+    4,  // Captain (rank 6)
+    3,  // Major (rank 7)
+    2,  // Colonel (rank 8)
+    1,  // General (rank 9)
+    1,  // Marshal (rank 10)
+    6,  // Bomb (rank 11)
+];
+
+pub fn create_default_board(env: &Env) -> Board {
+    let mut tiles = Vec::new(env);
+    
+    // Team 0 setup positions (bottom 4 rows, y=0-3)
+    // Row 0 (bottom row)
+    let tile_data = [
+        (0, 0, true, 0), (1, 0, true, 0), (2, 0, true, 0), (3, 0, true, 0), (4, 0, true, 0),
+        (5, 0, true, 0), (6, 0, true, 0), (7, 0, true, 0), (8, 0, true, 0), (9, 0, true, 0),
+        // Row 1
+        (0, 1, true, 0), (1, 1, true, 0), (2, 1, true, 0), (3, 1, true, 0), (4, 1, true, 0),
+        (5, 1, true, 0), (6, 1, true, 0), (7, 1, true, 0), (8, 1, true, 0), (9, 1, true, 0),
+        // Row 2
+        (0, 2, true, 0), (1, 2, true, 0), (2, 2, true, 0), (3, 2, true, 0), (4, 2, true, 0),
+        (5, 2, true, 0), (6, 2, true, 0), (7, 2, true, 0), (8, 2, true, 0), (9, 2, true, 0),
+        // Row 3
+        (0, 3, true, 0), (1, 3, true, 0), (2, 3, true, 0), (3, 3, true, 0), (4, 3, true, 0),
+        (5, 3, true, 0), (6, 3, true, 0), (7, 3, true, 0), (8, 3, true, 0), (9, 3, true, 0),
+        
+        // Neutral middle rows (y=4-5)
+        // Row 4 - with lakes
+        (0, 4, true, 2), (1, 4, true, 2), (2, 4, false, 2), (3, 4, false, 2), (4, 4, true, 2),
+        (5, 4, true, 2), (6, 4, false, 2), (7, 4, false, 2), (8, 4, true, 2), (9, 4, true, 2),
+        
+        // Row 5 - with lakes
+        (0, 5, true, 2), (1, 5, true, 2), (2, 5, false, 2), (3, 5, false, 2), (4, 5, true, 2),
+        (5, 5, true, 2), (6, 5, false, 2), (7, 5, false, 2), (8, 5, true, 2), (9, 5, true, 2),
+        
+        // Team 1 setup positions (top 4 rows, y=6-9)
+        // Row 6
+        (0, 6, true, 1), (1, 6, true, 1), (2, 6, true, 1), (3, 6, true, 1), (4, 6, true, 1),
+        (5, 6, true, 1), (6, 6, true, 1), (7, 6, true, 1), (8, 6, true, 1), (9, 6, true, 1),
+        
+        // Row 7
+        (0, 7, true, 1), (1, 7, true, 1), (2, 7, true, 1), (3, 7, true, 1), (4, 7, true, 1),
+        (5, 7, true, 1), (6, 7, true, 1), (7, 7, true, 1), (8, 7, true, 1), (9, 7, true, 1),
+        
+        // Row 8
+        (0, 8, true, 1), (1, 8, true, 1), (2, 8, true, 1), (3, 8, true, 1), (4, 8, true, 1),
+        (5, 8, true, 1), (6, 8, true, 1), (7, 8, true, 1), (8, 8, true, 1), (9, 8, true, 1),
+        
+        // Row 9 (top row)
+        (0, 9, true, 1), (1, 9, true, 1), (2, 9, true, 1), (3, 9, true, 1), (4, 9, true, 1),
+        (5, 9, true, 1), (6, 9, true, 1), (7, 9, true, 1), (8, 9, true, 1), (9, 9, true, 1),
+    ];
+    for (x, y, passable, setup) in tile_data.iter() {
+        tiles.push_back(Tile {
+            pos: Pos { x: *x, y: *y },
+            passable: *passable,
+            setup: *setup,
+        });
+    }
+    Board {
+        name: String::from_str(env, "Default Stratego Board"),
+        tiles,
+        hex: false,
+        size: Pos { x: 10, y: 10 },
+    }
+}
+
+pub fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
+    let board_hash = BytesN::from_array(env, &[1u8; 32]);
+    let board = create_default_board(env);
+    
+    LobbyParameters {
+        board_hash,
+        board,
+        dev_mode: true,
+        host_team: 0,
+        max_ranks: Vec::from_array(env, DEFAULT_MAX_RANKS),
+        must_fill_all_tiles: false,
+        security_mode: false,
+    }
+}
+
+pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
+    let board_hash = BytesN::from_array(env, &[1u8; 32]);
+    
+    let tiles = Vec::from_array(env, [
+        Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0 },
+        Tile { pos: Pos { x: 1, y: 0 }, passable: true, setup: 0 },
+        Tile { pos: Pos { x: 0, y: 1 }, passable: true, setup: 1 },
+    ]);
+    
+    let board = Board {
+        name: String::from_str(env, "Invalid Board"),
+        tiles,
+        hex: false,
+        size: Pos { x: 2, y: 2 }, // Says 2x2 = 4 tiles, but we only have 3
+    };
+    
+    LobbyParameters {
+        board_hash,
+        board,
+        dev_mode: true,
+        host_team: 0,
+        max_ranks: Vec::from_array(env, [1u32]),
+        must_fill_all_tiles: false,
+        security_mode: false,
+    }
+}
+
+pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
+    let board_hash = BytesN::from_array(env, &[
+        0xef, 0x3b, 0x53, 0x2a, 0x3e, 0x48, 0x1f, 0x29, 
+        0x10, 0x89, 0x91, 0xac, 0x07, 0xbf, 0xeb, 0xd3, 
+        0xbb, 0x0f, 0xc4, 0x41, 0xb2, 0xa7, 0xb9, 0xe4, 
+        0x7c, 0x99, 0xc0, 0xe6, 0xff, 0x8c, 0x8f, 0x78
+    ]);
+    
+    let mut board = create_default_board(env);
+    board.name = String::from_str(env, "Full Stratego Board");
+    
+    LobbyParameters {
+        board_hash,
+        board,
+        dev_mode: false,
+        host_team: 1,
+        max_ranks: Vec::from_array(env, DEFAULT_MAX_RANKS),
+        must_fill_all_tiles: true,
+        security_mode: true,
+    }
+}
+
+// endregion
+
 // region setup generation
+
+pub fn create_strategic_setup_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>) {
+    let game_state_key = DataKey::GameState(lobby_id);
+    let game_state: GameState = env.storage()
+        .temporary()
+        .get(&game_state_key)
+        .expect("Game state should exist");
+    
+    let mut setup_commits = Vec::new(env);
+    let mut team_pawns = Vec::new(env);
+    
+    for pawn in game_state.pawns.iter() {
+        let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+        if pawn_team == team {
+            team_pawns.push_back(pawn);
+        }
+    }
+    
+    let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+    let lobby_parameters: LobbyParameters = env.storage()
+        .temporary()
+        .get(&lobby_parameters_key)
+        .expect("Lobby parameters should exist");
+    
+    // Create rank distribution but organize strategically
+    let mut front_ranks = Vec::new(env);  // Movable pieces for front lines
+    let mut back_ranks = Vec::new(env);   // Flags and bombs for back row
+    
+    for (rank, count) in lobby_parameters.max_ranks.iter().enumerate() {
+        let rank_u32 = rank as u32;
+        for _ in 0..count {
+            if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb
+                back_ranks.push_back(rank_u32);
+            } else {
+                front_ranks.push_back(rank_u32);
+            }
+        }
+    }
+    
+    // Sort team pawns by position - back rows first for flags/bombs
+    let mut sorted_pawns = Vec::new(env);
+    for pawn in team_pawns.iter() {
+        sorted_pawns.push_back(pawn);
+    }
+    
+    // Sort by y-coordinate (back to front for each team)
+    // For team 0 (host): y=0,1,2,3 where y=0 is back row
+    // For team 1 (guest): y=9,8,7,6 where y=9 is back row
+    let mut pawn_vec: std::vec::Vec<PawnState> = std::vec::Vec::new();
+    for pawn in sorted_pawns.iter() {
+        pawn_vec.push(pawn.clone());
+    }
+    
+    if team == 0 {
+        // Host team: sort by y ascending (0,1,2,3) so back row (y=0) comes first
+        pawn_vec.sort_by_key(|pawn| pawn.pos.y);
+    } else {
+        // Guest team: sort by y descending (9,8,7,6) so back row (y=9) comes first  
+        pawn_vec.sort_by_key(|pawn| -pawn.pos.y);
+    }
+    
+    let salt = team as u64;
+    let mut hidden_ranks = Vec::new(env);
+    
+    // Assign ranks: flags/bombs to back positions, others to front
+    let back_count = back_ranks.len() as usize;
+    
+    // Add randomization to avoid mirror setups between teams
+    // Use a different seed for each team to create diverse rank assignments
+    let mut rank_seed = (salt + 1) * 12345; // Different seed per team
+    
+    // Shuffle the front ranks using the seed to create different distributions
+    let mut shuffled_front_ranks = std::vec::Vec::new();
+    for rank in front_ranks.iter() {
+        shuffled_front_ranks.push(rank);
+    }
+    
+    // Simple shuffle using the team-specific seed
+    for i in 0..shuffled_front_ranks.len() {
+        rank_seed = rank_seed.wrapping_mul(1103515245).wrapping_add(12345); // Linear congruential generator
+        let j = (rank_seed as usize) % shuffled_front_ranks.len();
+        shuffled_front_ranks.swap(i, j);
+    }
+    
+    // Also shuffle back ranks for more diversity
+    let mut shuffled_back_ranks = std::vec::Vec::new();
+    for rank in back_ranks.iter() {
+        shuffled_back_ranks.push(rank);
+    }
+    for i in 0..shuffled_back_ranks.len() {
+        rank_seed = rank_seed.wrapping_mul(1103515245).wrapping_add(12345);
+        let j = (rank_seed as usize) % shuffled_back_ranks.len();
+        shuffled_back_ranks.swap(i, j);
+    }
+    
+    for (i, pawn) in pawn_vec.iter().enumerate() {
+        let rank = if i < back_count {
+            // Assign shuffled flags and bombs to back positions
+            if i < shuffled_back_ranks.len() {
+                shuffled_back_ranks[i]
+            } else {
+                11u32 // Fallback to bomb
+            }
+        } else {
+            // Assign shuffled ranks to front positions
+            let front_index = i - back_count;
+            if front_index < shuffled_front_ranks.len() {
+                shuffled_front_ranks[front_index]
+            } else {
+                // Fallback to rank 4 (Sergeant) if we run out
+                4u32
+            }
+        };
+        
+        let hidden_rank = HiddenRank {
+            pawn_id: pawn.pawn_id,
+            rank,
+            salt: pawn.pawn_id as u64,
+        };
+        hidden_ranks.push_back(hidden_rank.clone());
+        let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
+        let hidden_rank_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes();
+        
+        let commit = SetupCommit {
+            pawn_id: pawn.pawn_id,
+            hidden_rank_hash,
+        };
+        setup_commits.push_back(commit);
+    }
+    
+    let setup_proof = Setup {
+        setup_commits: setup_commits.clone(),
+        salt,
+    };
+    
+    (setup_commits, setup_proof, salt, hidden_ranks)
+}
 
 pub fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>) {
     let mut setup_commits = Vec::new(env);
     let mut hidden_ranks = Vec::new(env);
     
     // Create standard Stratego rank distribution
-    const DEFAULT_MAX_RANKS: [u32; 12] = [
-        1,  // Flag (rank 0)
-        1,  // Assassin/Spy (rank 1)
-        8,  // Scout (rank 2)
-        5,  // Miner (rank 3)
-        4,  // Sergeant (rank 4)
-        4,  // Lieutenant (rank 5)
-        4,  // Captain (rank 6)
-        3,  // Major (rank 7)
-        2,  // Colonel (rank 8)
-        1,  // General (rank 9)
-        1,  // Marshal (rank 10)
-        6,  // Bomb (rank 11)
-    ];
-    
     let rank_counts = DEFAULT_MAX_RANKS;
     let mut all_ranks = Vec::new(env);
     for (rank, count) in rank_counts.iter().enumerate() {
@@ -703,12 +807,11 @@ pub fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<Setup
 
 // region game comparison
 
-pub fn verify_pawn_states_identical(env: &Env, contract_id: &Address, lobby_a: u32, lobby_b: u32) -> bool {
-    env.as_contract(contract_id, || {
-        let game_state_a: GameState = env.storage().temporary().get(&DataKey::GameState(lobby_a)).expect("Game A state should exist");
-        let game_state_b: GameState = env.storage().temporary().get(&DataKey::GameState(lobby_b)).expect("Game B state should exist");
-        
-        // First check: same number of pawns
+/// Compares all pawn states between two games to verify they're identical
+/// This is used to validate that populated vs unpopulated games converge to the same state
+/// Takes the specific game states it needs rather than accessing storage
+pub fn verify_pawn_states_identical(game_state_a: &GameState, game_state_b: &GameState) -> bool {
+    // First check: same number of pawns
         if game_state_a.pawns.len() != game_state_b.pawns.len() {
             std::println!("   ❌ Different number of pawns: A={}, B={}", game_state_a.pawns.len(), game_state_b.pawns.len());
             return false;
@@ -824,98 +927,7 @@ pub fn verify_pawn_states_identical(env: &Env, contract_id: &Address, lobby_a: u
                          alive_count_a, dead_count_a, revealed_count_a, revealed_count_b);
         }
         
-        !differences_found
-    })
-}
-
-// endregion
-
-// region move info capture
-
-/// Captures detailed move information for logging
-/// Returns a tuple with all move details including collision information
-pub fn extract_detailed_move_data(
-    env: &Env,
-    contract_id: &Address,
-    lobby_id: u32,
-    move_number: u32,
-    host_pawn_id: PawnId,
-    host_start_pos: Pos,
-    host_target_pos: Pos,
-    guest_pawn_id: PawnId,
-    guest_start_pos: Pos,
-    guest_target_pos: Pos,
-    include_collision_detection: bool,
-) -> (u32, u32, u32, i32, i32, i32, i32, u32, u32, bool, bool, u32, u32, i32, i32, i32, i32, u32, u32, bool, bool) {
-    env.as_contract(contract_id, || {
-        let game_state_key = DataKey::GameState(lobby_id);
-        let game_state: GameState = env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
-        
-        if include_collision_detection {
-            std::println!("requested ranks for host: {:?}", game_state.moves.get(0).unwrap().needed_rank_proofs);
-            std::println!("requested ranks for guest: {:?}", game_state.moves.get(1).unwrap().needed_rank_proofs);
-        }
-        
-        // Get pawn information
-        let mut host_pawn_rank = 999u32; // Use 999 to indicate unknown
-        let mut guest_pawn_rank = 999u32;
-        let mut host_collision_pawn_id = 0u32;
-        let mut guest_collision_pawn_id = 0u32;
-        let mut host_collision_rank = 999u32;
-        let mut guest_collision_rank = 999u32;
-        let mut host_collision_alive = false;
-        let mut guest_collision_alive = false;
-        
-        // Find the pawns that moved
-        for pawn in game_state.pawns.iter() {
-            if pawn.pawn_id == host_pawn_id {
-                if !pawn.rank.is_empty() {
-                    host_pawn_rank = pawn.rank.get(0).unwrap();
-                }
-            }
-            if pawn.pawn_id == guest_pawn_id {
-                if !pawn.rank.is_empty() {
-                    guest_pawn_rank = pawn.rank.get(0).unwrap();
-                }
-            }
-        }
-        
-        if include_collision_detection {
-            // Find any pawns at the target positions (collision pawns)
-            for pawn in game_state.pawns.iter() {
-                if pawn.pos == host_target_pos && pawn.pawn_id != host_pawn_id {
-                    host_collision_pawn_id = pawn.pawn_id;
-                    host_collision_alive = pawn.alive;
-                    if !pawn.rank.is_empty() {
-                        host_collision_rank = pawn.rank.get(0).unwrap();
-                    }
-                }
-                if pawn.pos == guest_target_pos && pawn.pawn_id != guest_pawn_id {
-                    guest_collision_pawn_id = pawn.pawn_id;
-                    guest_collision_alive = pawn.alive;
-                    if !pawn.rank.is_empty() {
-                        guest_collision_rank = pawn.rank.get(0).unwrap();
-                    }
-                }
-            }
-        }
-        
-        // Check if the moving pawns are still alive
-        let host_alive = game_state.pawns.iter().find(|p| p.pawn_id == host_pawn_id).map(|p| p.alive).unwrap_or(false);
-        let guest_alive = game_state.pawns.iter().find(|p| p.pawn_id == guest_pawn_id).map(|p| p.alive).unwrap_or(false);
-        
-        (move_number, host_pawn_id, host_pawn_rank, 
-         host_start_pos.x, host_start_pos.y,
-         host_target_pos.x, host_target_pos.y,
-         host_collision_pawn_id, host_collision_rank, host_alive, host_collision_alive,
-         guest_pawn_id, guest_pawn_rank,
-         guest_start_pos.x, guest_start_pos.y,
-         guest_target_pos.x, guest_target_pos.y,
-         guest_collision_pawn_id, guest_collision_rank, guest_alive, guest_collision_alive)
-    })
+    !differences_found
 }
 
 // endregion
@@ -926,6 +938,12 @@ pub fn extract_detailed_move_data(
 pub struct SnapshotPhase {
     pub phase: Phase,
     pub subphase: Subphase,
+}
+
+/// Snapshot of lobby parameters and info (without game state)
+pub struct SnapshotLobby {
+    pub lobby_parameters: LobbyParameters,
+    pub lobby_info: LobbyInfo,
 }
 
 /// Full snapshot of lobby state including parameters, info, and game state
@@ -947,6 +965,28 @@ pub fn extract_phase_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) -
         SnapshotPhase {
             phase: lobby_info.phase,
             subphase: lobby_info.subphase,
+        }
+    })
+}
+
+/// Extract lobby parameters and info from storage (without game state)
+pub fn extract_lobby_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) -> SnapshotLobby {
+    env.as_contract(contract_id, || {
+        let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
+        
+        let lobby_parameters: LobbyParameters = env.storage()
+            .temporary()
+            .get(&lobby_parameters_key)
+            .expect("Lobby parameters should exist");
+        let lobby_info: LobbyInfo = env.storage()
+            .temporary()
+            .get(&lobby_info_key)
+            .expect("Lobby info should exist");
+        
+        SnapshotLobby {
+            lobby_parameters,
+            lobby_info,
         }
     })
 }
