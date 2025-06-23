@@ -272,11 +272,6 @@ public static class Globals
     //     };
     // }
 
-    private static string HashEvents(Contract.ResolveEvent[] events)
-    {
-        // TODO: Implement proper hashing
-        return "TODO";
-    }
 }
 
 public enum MessageGenre : uint
@@ -1837,7 +1832,7 @@ public struct NetworkState
         {
             return false;
         }
-        if (user?.current_lobby == 0)
+        if (user?.current_lobby.)
         {
             return false;
         }

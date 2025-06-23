@@ -10,7 +10,7 @@ using UnityEngine;
 public static class CacheManager
 {
     static Dictionary<string, HiddenRank> hiddenRankCache = new Dictionary<string, HiddenRank>();
-    static Dictionary<string, ProveSetupReq> proveSetupReqCache = new Dictionary<string, ProveSetupReq>();
+    static Dictionary<string, Setup> setupCache = new Dictionary<string, Setup>();
     public static byte[] SaveHiddenRank(HiddenRank hiddenRank)
     {
         if (hiddenRank.salt == 0)
@@ -36,29 +36,29 @@ public static class CacheManager
         return GetFromPlayerPrefs<HiddenRank>(key);
     }
 
-    public static string SaveProveSetupReq(ProveSetupReq proveSetupReq)
+    public static string SaveSetupReq(Setup setup)
     {
-        if (proveSetupReq.salt == 0)
+        if (setup.salt == 0)
         {
             throw new ArgumentException("Salt can't be 0");
         }
-        string key = SaveToPlayerPrefs(proveSetupReq);
-        proveSetupReqCache[key] = proveSetupReq;
+        string key = SaveToPlayerPrefs(setup);
+        setupCache[key] = setup;
         return key;
     }
 
-    public static ProveSetupReq LoadProveSetupReq(byte[] hash)
+    public static Setup LoadSetupReq(byte[] hash)
     {
         if (hash.All(b => b == 0))
         {
             throw new ArgumentException("Hash can't be 0");
         }
         string key = Convert.ToBase64String(hash);
-        if (proveSetupReqCache.TryGetValue(key, out ProveSetupReq rank))
+        if (setupCache.TryGetValue(key, out Setup setup))
         {
-            return rank;
+            return setup;
         }
-        return GetFromPlayerPrefs<ProveSetupReq>(key);
+        return GetFromPlayerPrefs<Setup>(key);
     }
 
     static string SaveToPlayerPrefs(IScvMapCompatable obj)

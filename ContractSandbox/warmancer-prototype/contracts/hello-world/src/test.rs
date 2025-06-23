@@ -231,10 +231,10 @@ fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (Addre
     
     // Create setup data for both players
     let (_, host_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_strategic_setup_from_game_state(&setup.env, lobby_id, 0)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
     let (_, guest_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_strategic_setup_from_game_state(&setup.env, lobby_id, 1)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
     
     // Hash both setups
@@ -434,12 +434,12 @@ fn test_prove_setup_invalid_pawn_ownership() {
     
     // Create setup with wrong team pawns for host (team 1 instead of 0)
     let (_, host_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_strategic_setup_from_game_state(&setup.env, lobby_id, 1) // Wrong team!
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 1) // Wrong team!
     });
     
     // Create valid setup for guest (team 0 - also wrong, but different from host)
     let (_, guest_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_strategic_setup_from_game_state(&setup.env, lobby_id, 0)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
     
     // Hash both setups
@@ -798,10 +798,10 @@ fn test_collision_winner_rank_revelation() {
     
     // Create setups but manually assign specific ranks for testing
     let (_host_commits, host_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_strategic_setup_from_game_state(&setup.env, lobby_id, 0)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
     let (_guest_commits, guest_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_strategic_setup_from_game_state(&setup.env, lobby_id, 1)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
     
 

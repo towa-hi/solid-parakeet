@@ -212,8 +212,6 @@ pub fn rank_to_string(rank: Rank) -> &'static str {
 
 // region move validation
 
-
-
 /// Validates that pawns involved in collisions have their ranks properly revealed
 /// Takes game state as parameter instead of accessing storage
 pub fn assert_ranks_revealed_after_collision(
@@ -602,7 +600,7 @@ pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
 
 // region setup generation
 
-pub fn create_strategic_setup_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>) {
+pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>) {
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()
@@ -625,14 +623,14 @@ pub fn create_strategic_setup_from_game_state(env: &Env, lobby_id: u32, team: u3
         .get(&lobby_parameters_key)
         .expect("Lobby parameters should exist");
     
-    // Create rank distribution but organize strategically
-    let mut front_ranks = Vec::new(env);  // Movable pieces for front lines
+    // Create rank distribution - separate flags/bombs from movable pieces
     let mut back_ranks = Vec::new(env);   // Flags and bombs for back row
+    let mut front_ranks = Vec::new(env);  // All other movable pieces
     
     for (rank, count) in lobby_parameters.max_ranks.iter().enumerate() {
         let rank_u32 = rank as u32;
         for _ in 0..count {
-            if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb
+            if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb - always in back
                 back_ranks.push_back(rank_u32);
             } else {
                 front_ranks.push_back(rank_u32);
@@ -640,17 +638,11 @@ pub fn create_strategic_setup_from_game_state(env: &Env, lobby_id: u32, team: u3
         }
     }
     
-    // Sort team pawns by position - back rows first for flags/bombs
-    let mut sorted_pawns = Vec::new(env);
-    for pawn in team_pawns.iter() {
-        sorted_pawns.push_back(pawn);
-    }
-    
-    // Sort by y-coordinate (back to front for each team)
+    // Sort pawns by position to ensure consistent placement
     // For team 0 (host): y=0,1,2,3 where y=0 is back row
     // For team 1 (guest): y=9,8,7,6 where y=9 is back row
     let mut pawn_vec: std::vec::Vec<PawnState> = std::vec::Vec::new();
-    for pawn in sorted_pawns.iter() {
+    for pawn in team_pawns.iter() {
         pawn_vec.push(pawn.clone());
     }
     
@@ -668,51 +660,15 @@ pub fn create_strategic_setup_from_game_state(env: &Env, lobby_id: u32, team: u3
     // Assign ranks: flags/bombs to back positions, others to front
     let back_count = back_ranks.len() as usize;
     
-    // Add randomization to avoid mirror setups between teams
-    // Use a different seed for each team to create diverse rank assignments
-    let mut rank_seed = (salt + 1) * 12345; // Different seed per team
-    
-    // Shuffle the front ranks using the seed to create different distributions
-    let mut shuffled_front_ranks = std::vec::Vec::new();
-    for rank in front_ranks.iter() {
-        shuffled_front_ranks.push(rank);
-    }
-    
-    // Simple shuffle using the team-specific seed
-    for i in 0..shuffled_front_ranks.len() {
-        rank_seed = rank_seed.wrapping_mul(1103515245).wrapping_add(12345); // Linear congruential generator
-        let j = (rank_seed as usize) % shuffled_front_ranks.len();
-        shuffled_front_ranks.swap(i, j);
-    }
-    
-    // Also shuffle back ranks for more diversity
-    let mut shuffled_back_ranks = std::vec::Vec::new();
-    for rank in back_ranks.iter() {
-        shuffled_back_ranks.push(rank);
-    }
-    for i in 0..shuffled_back_ranks.len() {
-        rank_seed = rank_seed.wrapping_mul(1103515245).wrapping_add(12345);
-        let j = (rank_seed as usize) % shuffled_back_ranks.len();
-        shuffled_back_ranks.swap(i, j);
-    }
-    
+    // No randomization - use ranks in order for consistent testing
     for (i, pawn) in pawn_vec.iter().enumerate() {
         let rank = if i < back_count {
-            // Assign shuffled flags and bombs to back positions
-            if i < shuffled_back_ranks.len() {
-                shuffled_back_ranks[i]
-            } else {
-                11u32 // Fallback to bomb
-            }
+            // Assign flags and bombs to back positions (first positions in sorted order)
+            back_ranks.get(i as u32).unwrap_or(11u32) // Fallback to bomb if somehow out of bounds
         } else {
-            // Assign shuffled ranks to front positions
+            // Assign movable ranks to front positions
             let front_index = i - back_count;
-            if front_index < shuffled_front_ranks.len() {
-                shuffled_front_ranks[front_index]
-            } else {
-                // Fallback to rank 4 (Sergeant) if we run out
-                4u32
-            }
+            front_ranks.get(front_index as u32).unwrap_or(4u32) // Fallback to rank 4 (Sergeant)
         };
         
         let hidden_rank = HiddenRank {
@@ -743,49 +699,62 @@ pub fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<Setup
     let mut setup_commits = Vec::new(env);
     let mut hidden_ranks = Vec::new(env);
     
-    // Create standard Stratego rank distribution
+    // Create rank distribution - separate flags/bombs from movable pieces
     let rank_counts = DEFAULT_MAX_RANKS;
-    let mut all_ranks = Vec::new(env);
+    let mut back_ranks = Vec::new(env);   // Flags and bombs for back row
+    let mut front_ranks = Vec::new(env);  // All other movable pieces
+    
     for (rank, count) in rank_counts.iter().enumerate() {
         let rank_u32 = rank as u32;
         for _ in 0..*count {
-            all_ranks.push_back(rank_u32);
+            if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb - always in back
+                back_ranks.push_back(rank_u32);
+            } else {
+                front_ranks.push_back(rank_u32);
+            }
         }
     }
     
-    // Generate deterministic pawn positions for this team
+    // Generate pawn positions for this team, sorted back-to-front
     // Team 0: rows 0-3, Team 1: rows 6-9
     let mut team_positions = Vec::new(env);
     let start_row = if team == 0 { 0 } else { 6 };
     let end_row = if team == 0 { 3 } else { 9 };
     
-    for y in start_row..=end_row {
-        for x in 0..10 {
-            team_positions.push_back(Pos { x, y });
+    // Sort positions so back row comes first
+    if team == 0 {
+        // Host team: sort by y ascending (0,1,2,3) so back row (y=0) comes first
+        for y in start_row..=end_row {
+            for x in 0..10 {
+                team_positions.push_back(Pos { x, y });
+            }
+        }
+    } else {
+        // Guest team: sort by y descending (9,8,7,6) so back row (y=9) comes first
+        for y in (start_row..=end_row).rev() {
+            for x in 0..10 {
+                team_positions.push_back(Pos { x, y });
+            }
         }
     }
     
-    // Use deterministic shuffling with the provided seed
-    let mut rank_seed = seed.wrapping_mul(team as u64 + 1);
-    let mut rank_vec: std::vec::Vec<u32> = std::vec::Vec::new();
-    for rank in all_ranks.iter() {
-        rank_vec.push(rank);
-    }
+    let back_count = back_ranks.len() as usize;
     
-    // Shuffle ranks deterministically
-    for i in 0..rank_vec.len() {
-        rank_seed = rank_seed.wrapping_mul(1103515245).wrapping_add(12345);
-        let j = (rank_seed as usize) % rank_vec.len();
-        rank_vec.swap(i, j);
-    }
-    
-    // Assign ranks to positions
+    // No randomization - assign ranks deterministically with flags/bombs in back
     for (i, pos) in team_positions.iter().enumerate() {
-        if i >= rank_vec.len() {
+        if i >= (back_ranks.len() + front_ranks.len()) as usize {
             break; // Only assign as many ranks as we have
         }
         
-        let rank = rank_vec[i];
+        let rank = if i < back_count {
+            // Assign flags and bombs to back positions (first positions in sorted order)
+            back_ranks.get(i as u32).unwrap_or(11u32) // Fallback to bomb if somehow out of bounds
+        } else {
+            // Assign movable ranks to front positions
+            let front_index = i - back_count;
+            front_ranks.get(front_index as u32).unwrap_or(4u32) // Fallback to rank 4 (Sergeant)
+        };
+        
         let pawn_id = Contract::encode_pawn_id(&pos, &team);
         
         let hidden_rank = HiddenRank {
