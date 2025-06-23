@@ -1,13 +1,14 @@
 {
   "generators": {
-    "address": 3,
+    "address": 6,
     "nonce": 0
   },
   "auth": [
     [],
+    [],
     [
       [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
         {
           "function": {
             "contract_fn": {
@@ -15,7 +16,7 @@
               "function_name": "make_lobby",
               "args": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                 },
                 {
                   "map": [
@@ -4689,9 +4690,10 @@
         }
       ]
     ],
+    [],
     [
       [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4",
         {
           "function": {
             "contract_fn": {
@@ -4699,7 +4701,7 @@
               "function_name": "join_lobby",
               "args": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
                 },
                 {
                   "map": [
@@ -4721,18 +4723,17 @@
       ]
     ],
     [],
-    [],
     [
       [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4",
         {
           "function": {
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "commit_setup",
+              "function_name": "make_lobby",
               "args": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
                 },
                 {
                   "map": [
@@ -4741,571 +4742,1738 @@
                         "symbol": "lobby_id"
                       },
                       "val": {
-                        "u32": 1
+                        "u32": 2
                       }
                     },
                     {
                       "key": {
-                        "symbol": "setup_hash"
-                      },
-                      "val": {
-                        "bytes": "a365d4cdb7e8e0a1c4fa93cd8fc9d2399bbd2831f8c2dd31f6d6a6d22c523253"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "commit_setup",
-              "args": [
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                },
-                {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "lobby_id"
-                      },
-                      "val": {
-                        "u32": 1
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "setup_hash"
-                      },
-                      "val": {
-                        "bytes": "e85275a10b106eb093eba3058fb144ee485e15334aa4109e2608c3e8d9d7f0fb"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
-    [],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "prove_setup",
-              "args": [
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                },
-                {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "lobby_id"
-                      },
-                      "val": {
-                        "u32": 1
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "setup"
+                        "symbol": "parameters"
                       },
                       "val": {
                         "map": [
                           {
                             "key": {
-                              "symbol": "salt"
+                              "symbol": "board"
                             },
                             "val": {
-                              "u64": 1
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "setup_commits"
-                            },
-                            "val": {
-                              "vec": [
+                              "map": [
                                 {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
-                                      },
-                                      "val": {
-                                        "bytes": "a1bc916077106d80939eba2ba453efbca70330b50e5e1d779cd749db80bbe8ae"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
-                                      },
-                                      "val": {
-                                        "u32": 19
-                                      }
-                                    }
-                                  ]
+                                  "key": {
+                                    "symbol": "hex"
+                                  },
+                                  "val": {
+                                    "bool": false
+                                  }
                                 },
                                 {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
-                                      },
-                                      "val": {
-                                        "bytes": "9e31845ac3716effe47a8e86169857d6a33fe55f562940b5913920ac172c76ba"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
-                                      },
-                                      "val": {
-                                        "u32": 221
-                                      }
-                                    }
-                                  ]
+                                  "key": {
+                                    "symbol": "name"
+                                  },
+                                  "val": {
+                                    "string": "Default Stratego Board"
+                                  }
                                 },
                                 {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                  "key": {
+                                    "symbol": "size"
+                                  },
+                                  "val": {
+                                    "map": [
+                                      {
+                                        "key": {
+                                          "symbol": "x"
+                                        },
+                                        "val": {
+                                          "i32": 10
+                                        }
                                       },
-                                      "val": {
-                                        "bytes": "96093702d090af931adc2336ff11b7185d43f8d7f08437413af17ff95e68f3a9"
+                                      {
+                                        "key": {
+                                          "symbol": "y"
+                                        },
+                                        "val": {
+                                          "i32": 10
+                                        }
                                       }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
-                                      },
-                                      "val": {
-                                        "u32": 423
-                                      }
-                                    }
-                                  ]
+                                    ]
+                                  }
                                 },
                                 {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                  "key": {
+                                    "symbol": "tiles"
+                                  },
+                                  "val": {
+                                    "vec": [
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "385258191f1a898ce0890af954ffb303307a5e98dcd5f02d701d11375289e4ce"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 625
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "7b7803f8d4fa3e77fd461a14e334f6b7caa53eb987c0ffeb94ab7c5dc2b239e1"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 827
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 4
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "73fa6d7173b2425747f39b20fb25b9f057a608b9cad4ba5524624836e33fbcd7"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 5
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1029
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 6
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "543a1d87beef990646491b7c2e24433b08a9a9857664593a5a309badca62b8b5"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 7
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1231
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 8
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "88bd16b92bdca812c6f35f6545430a114efbc1535d2a7ab0e832a2d37e0e2384"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 9
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1433
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "246d9d3623f2ac77951b1237da020d32788e871b105be49bb375c9bfcb65a349"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1635
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "7d4ed920e24a2616a0a0d5d57fe536da68f8a7dd9b6e8a47d63540400063ec98"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1837
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 4
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "8baaa928f87154520551e8f35a91049e39d9ef53f410d62ccc9dbc8dd8cb636d"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 5
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 17
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 6
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "898815da802c4885e7c323bd99517dc3f6d1efafd755d3f27ed79f00f1ac3ed6"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 7
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 219
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 8
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "e5b9a8c67cb7b5b740072562544732cf79407fec327e5608b11097a1981265fe"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 9
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 421
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "e8297b16f4e5bbbcb45bc57b3cbfde995f48176b5ce1d4303c22a8e113742a34"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 623
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "ee97b4812a79990717a71986fd8d967f5b9cdc6bbddc1a6b50a61dc21bd6e904"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 825
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 4
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "f492a6eea54c76f7a75e0a7c27521b7ea02cc45653d91b111f6057516e5bb5ea"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 5
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1027
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 6
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "392c7c05ad0d94d032cbf0d13e4372b1a3d0ad451d18bce06083166ea93aaf67"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 7
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1229
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 8
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "6418347790f3fa5efafe6ad54eeed10378c4e2fec0326ba48239c6af598e7556"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 9
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1431
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 0
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "821001410366f04ef81e95215f5c0a1a8a61b9f68250e72d105745fbf33de002"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 1
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1633
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 2
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "af6a8bbbe9ca8007395a649fd750920dee4df135c925d8b65ec48ccbeeab93be"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 1835
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 4
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "3b2f254cb5d4bf6c268b7e619d0946f236fb4bc79cb91c7c9137832d2ffdbf29"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 5
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "u32": 15
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+                                              "bool": true
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "pos"
+                                            },
+                                            "val": {
+                                              "map": [
+                                                {
+                                                  "key": {
+                                                    "symbol": "x"
+                                                  },
+                                                  "val": {
+                                                    "i32": 6
+                                                  }
+                                                },
+                                                {
+                                                  "key": {
+                                                    "symbol": "y"
+                                                  },
+                                                  "val": {
+                                                    "i32": 3
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": {
+                                              "symbol": "setup"
+                                            },
+                                            "val": {
+                                              "u32": 0
+                                            }
+                                          }
+                                        ]
                                       },
-                                      "val": {
-                                        "bytes": "33b452a6487d5e6e47b92c750d76a876278ab8c8319dbd85392b1c0724b6eab4"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
-                                      },
-                                      "val": {
-                                        "u32": 217
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
-                                      },
-                                      "val": {
-                                        "bytes": "91f0a057c5aac06d1747ec7688714b952b16d459381908d85cc2d3178f794cda"
-                                      }
-                                    },
-                                    {
-                                      "key": {
-                                        "symbol": "pawn_id"
-                                      },
-                                      "val": {
-                                        "u32": 419
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "map": [
-                                    {
-                                      "key": {
-                                        "symbol": "hidden_rank_hash"
-                        
+                                      {
+                                        "map": [
+                                          {
+                                            "key": {
+                                              "symbol": "passable"
+                                            },
+                                            "val": {
+  

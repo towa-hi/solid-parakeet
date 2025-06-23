@@ -66,15 +66,10 @@ pub fn format_board_with_colors_and_ranks(
     
     let mut result = std::string::String::new();
     
-    // Add colorized header information
-    let header_title = if is_revealed { "=== BOARD STATE (REVEALED) ===" } else { "=== BOARD STATE ===" };
-    result.push_str(&std::format!("{}{}{}{}\n", BOLD, WHITE, header_title, RESET));
-    result.push_str(&std::format!("{}Phase:{} {:?}, {}Subphase:{} {:?}\n", 
-                                   YELLOW, RESET, snapshot.lobby_info.phase, YELLOW, RESET, snapshot.lobby_info.subphase));
-    result.push_str(&std::format!("{}Board:{} {:?} ({}x{})\n", 
-                                   CYAN, RESET, board.name, width, height));
-    result.push_str(&std::format!("{}Host Team:{} {}\n\n", 
-                                   MAGENTA, RESET, snapshot.lobby_parameters.host_team));
+    // Add simplified header with phase and subphase
+    let revealed_text = if is_revealed { " (REVEALED)" } else { "" };
+    result.push_str(&std::format!("{}=== BOARD STATE {:?} {:?}{} ==={}\n\n", 
+                                   BOLD, snapshot.lobby_info.phase, snapshot.lobby_info.subphase, revealed_text, RESET));
     
     // Add column headers with color
     result.push_str(&std::format!("{}   ", BOLD));
@@ -130,22 +125,18 @@ pub fn format_board_with_colors_and_ranks(
                 if team == 0 {
                     // Host team 
                     if is_revealed_in_game { 
-                        std::println!("DEBUG: Team 0 pawn {} using BRIGHT_RED (revealed)", pawn.pawn_id);
                         result.push_str(&std::format!("{}{{{}}}{}", 
                                                        BRIGHT_RED, rank_char, RESET)); // Curly braces for revealed
                     } else { 
-                        std::println!("DEBUG: Team 0 pawn {} using MAGENTA (hidden)", pawn.pawn_id);
                         result.push_str(&std::format!("{}[{}]{}", 
                                                        MAGENTA, rank_char, RESET)); // Square brackets for hidden
                     };
                 } else {
                     // Guest team  
                     if is_revealed_in_game { 
-                        std::println!("DEBUG: Team 1 pawn {} using BRIGHT_BLUE (revealed)", pawn.pawn_id);
                         result.push_str(&std::format!("{}{{{}}}{}", 
                                                        BRIGHT_BLUE, rank_char, RESET)); // Curly braces for revealed
                     } else { 
-                        std::println!("DEBUG: Team 1 pawn {} using CYAN (hidden)", pawn.pawn_id);
                         result.push_str(&std::format!("{}[{}]{}", 
                                                        CYAN, rank_char, RESET)); // Square brackets for hidden
                     };
@@ -174,20 +165,7 @@ pub fn format_board_with_colors_and_ranks(
     for x in 0..width {
         result.push_str(&std::format!("{:2} ", x));
     }
-    result.push_str(&std::format!("{}\n\n", RESET));
-    
-    // Add colorized legend
-    result.push_str(&std::format!("{}Legend:{}\n", BOLD, RESET));
-    result.push_str(&std::format!("{}{{X}}{} = Host team pawn (revealed)    {}[X]{} = Host team pawn (hidden)\n", 
-                                   BRIGHT_RED, RESET, MAGENTA, RESET));
-    result.push_str(&std::format!("{}{{X}}{} = Guest team pawn (revealed)   {}[X]{} = Guest team pawn (hidden)\n",
-                                   BRIGHT_BLUE, RESET, CYAN, RESET));
-    result.push_str(&std::format!("{}F{}=Flag {}1{}=Spy {}2{}=Scout {}3{}=Miner {}4-9{}=Ranks {}G{}=Marshal {}B{}=Bomb {}?{}=Unknown\n",
-                                   WHITE, RESET, WHITE, RESET, WHITE, RESET, 
-                                   WHITE, RESET, WHITE, RESET, WHITE, RESET, WHITE, RESET, WHITE, RESET));
-    result.push_str(&std::format!("{}~~~{} = Water/Lake       {}. {} = Host setup area    {}. {} = Guest setup area\n",
-                                   WHITE, RESET, MAGENTA, RESET, CYAN, RESET));
-    result.push_str(&std::format!("{}==================={}\n", BOLD, RESET));
+    result.push_str(&std::format!("{}\n", RESET));
     
     result
 }
@@ -613,7 +591,7 @@ pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
         board_hash,
         board,
         dev_mode: false,
-        host_team: 1,
+        host_team: 0,
         max_ranks: Vec::from_array(env, DEFAULT_MAX_RANKS),
         must_fill_all_tiles: true,
         security_mode: true,
