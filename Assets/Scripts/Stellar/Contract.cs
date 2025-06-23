@@ -83,19 +83,6 @@ namespace Contract
             if (input is IScvMapCompatable inputStruct)
             {
                 return inputStruct.ToScvMap();
-                // List<SCMapEntry> entries = new();
-                // foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
-                // {
-                //     object fieldValue = field.GetValue(input);
-                //     SCVal scFieldVal = NativeToSCVal(fieldValue);
-                //     entries.Add(new SCMapEntry
-                //     {
-                //         key = new SCVal.ScvSymbol { sym = new SCSymbol(field.Name) },
-                //         val = scFieldVal,
-                //     });
-                // }
-                // entries.Sort(new SCMapEntryComparer());
-                // return new SCVal.ScvMap { map = new SCMap(entries.ToArray()) };
             }
             else
             {

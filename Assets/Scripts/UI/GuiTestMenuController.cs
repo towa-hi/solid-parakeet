@@ -31,10 +31,10 @@ public class GuiTestMenuController: MonoBehaviour
     {
         blocker = blockerObject;
         blockerImage = blockerObject.GetComponent<Image>();
-        StellarManagerTest.Initialize();
+        StellarManager.Initialize();
 
-        StellarManagerTest.OnTaskStarted += EnableBlocker;
-        StellarManagerTest.OnTaskEnded += DisableBlocker;
+        StellarManager.OnTaskStarted += EnableBlocker;
+        StellarManager.OnTaskEnded += DisableBlocker;
 
         startMenuElement.OnStartButton += GotoMainMenu;
         
@@ -85,8 +85,8 @@ public class GuiTestMenuController: MonoBehaviour
     
     async void GotoLobbyMaker()
     {
-        await StellarManagerTest.UpdateState();
-        if (!StellarManagerTest.networkState.lobbyInfo.HasValue)
+        await StellarManager.UpdateState();
+        if (!StellarManager.networkState.lobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyMakerElement, true);
         }
@@ -104,14 +104,14 @@ public class GuiTestMenuController: MonoBehaviour
     
     async void GotoMainMenu()
     {
-        await StellarManagerTest.UpdateState();
+        await StellarManager.UpdateState();
         ShowMenuElement(mainMenuElement, true);
     }
 
     async void GotoJoinLobby()
     {
-        await StellarManagerTest.UpdateState();
-        if (!StellarManagerTest.networkState.lobbyInfo.HasValue)
+        await StellarManager.UpdateState();
+        if (!StellarManager.networkState.lobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyJoinerElement, true);
         }
@@ -124,13 +124,13 @@ public class GuiTestMenuController: MonoBehaviour
 
     void CheckAssets()
     {
-        _ = StellarManagerTest.GetAssets(StellarManagerTest.GetUserAddress());
+        _ = StellarManager.GetAssets(StellarManager.GetUserAddress());
     }
     
     async void ViewLobby()
     {
-        await StellarManagerTest.UpdateState();
-        if (StellarManagerTest.networkState.lobbyInfo.HasValue)
+        await StellarManager.UpdateState();
+        if (StellarManager.networkState.lobbyInfo.HasValue)
         {
             ShowMenuElement(lobbyViewerElement, true);
         }
@@ -138,8 +138,8 @@ public class GuiTestMenuController: MonoBehaviour
 
     async void JoinLobby(uint lobbyId)
     {
-        int code = await StellarManagerTest.JoinLobbyRequest(lobbyId);
-        await StellarManagerTest.UpdateState();
+        int code = await StellarManager.JoinLobbyRequest(lobbyId);
+        await StellarManager.UpdateState();
         if (code == 0)
         {
             ShowMenuElement(lobbyViewerElement, true);
@@ -148,8 +148,8 @@ public class GuiTestMenuController: MonoBehaviour
 
     async void OnStartGame()
     {
-        await StellarManagerTest.UpdateState();
-        if (StellarManagerTest.networkState.inLobby)
+        await StellarManager.UpdateState();
+        if (StellarManager.networkState.inLobby)
         {
             ShowMenuElement(gameElement, true);
         }
@@ -157,7 +157,7 @@ public class GuiTestMenuController: MonoBehaviour
     
     async void OnSubmitLobbyButton(LobbyParameters parameters)
     {
-        int code = await StellarManagerTest.MakeLobbyRequest(parameters);
+        int code = await StellarManager.MakeLobbyRequest(parameters);
         if (code == 0)
         {
             ShowMenuElement(lobbyViewerElement, true);
@@ -172,7 +172,7 @@ public class GuiTestMenuController: MonoBehaviour
     }
     async void DeleteLobby()
     {
-        int code = await StellarManagerTest.LeaveLobbyRequest();
+        int code = await StellarManager.LeaveLobbyRequest();
         if (code == 0)
         {
             ShowMenuElement(mainMenuElement, true);
@@ -181,21 +181,21 @@ public class GuiTestMenuController: MonoBehaviour
     
     async void RefreshNetworkState()
     {
-        await StellarManagerTest.UpdateState();
+        await StellarManager.UpdateState();
     }
 
     void EnableBlocker(TaskInfo task)
     {
         blocker.SetActive(true);
         blockerText.text = task.taskMessage;
-        string address = StellarManagerTest.GetUserAddress();
-        if (address == StellarManagerTest.testHost)
+        string address = StellarManager.GetUserAddress();
+        if (address == StellarManager.testHost)
         {
             Color color = Color.red;
             color.a = 0.5f;
             blockerImage.color = color;
         }
-        else if (address == StellarManagerTest.testGuest)
+        else if (address == StellarManager.testGuest)
         {
             Color color = Color.blue;
             color.a = 0.5f;

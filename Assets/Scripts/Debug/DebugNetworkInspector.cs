@@ -45,7 +45,7 @@ public class DebugNetworkInspector : MonoBehaviour
     }
     void Update()
     {
-        NetworkState state = StellarManagerTest.networkState;
+        NetworkState state = StellarManager.networkState;
         if (state.user.HasValue)
         {
             user = state.user.Value;

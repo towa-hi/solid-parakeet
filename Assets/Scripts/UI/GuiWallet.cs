@@ -39,7 +39,7 @@ public class GuiWallet : TestGuiElement
             AudioManager.instance.PlayMidButtonClick();
             HandleRefreshButton();
         });
-        StellarManagerTest.OnAssetsUpdated += OnAssetsUpdated;
+        StellarManager.OnAssetsUpdated += OnAssetsUpdated;
         accountEntry = null;
     }
 
@@ -95,10 +95,10 @@ public class GuiWallet : TestGuiElement
         bool success = await WalletManager.ConnectWallet();
         if (success)
         {
-            accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
+            accountEntry = await StellarManager.GetAccount(WalletManager.address);
             if (accountEntry != null)
             {
-                await StellarManagerTest.GetAssets(WalletManager.address);
+                await StellarManager.GetAssets(WalletManager.address);
             }
         }
         Refresh();
@@ -109,8 +109,8 @@ public class GuiWallet : TestGuiElement
         bool success = await WalletManager.ConnectWallet();
         if (success)
         {
-            accountEntry = await StellarManagerTest.GetAccount(WalletManager.address);
-            _ = await StellarManagerTest.GetAssets(WalletManager.address);
+            accountEntry = await StellarManager.GetAccount(WalletManager.address);
+            _ = await StellarManager.GetAssets(WalletManager.address);
         }
         else
         {

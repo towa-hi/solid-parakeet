@@ -14,7 +14,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using Random = UnityEngine.Random;
 
-public static class StellarManagerTest
+public static class StellarManager
 {
     public static StellarDotnet stellar;
     

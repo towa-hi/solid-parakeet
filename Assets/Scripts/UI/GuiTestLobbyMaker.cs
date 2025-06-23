@@ -42,7 +42,7 @@ public class GuiTestLobbyMaker : TestGuiElement
             AudioManager.instance.PlayMidButtonClick();
             OnSinglePlayerButton?.Invoke(GetLobbyParameters());
         });
-        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -63,7 +63,7 @@ public class GuiTestLobbyMaker : TestGuiElement
     
     void Refresh()
     {
-        hostAddressField.text = StellarManagerTest.GetUserAddress();
+        hostAddressField.text = StellarManager.GetUserAddress();
         statusText.text = "Making a new lobby";
     }
     

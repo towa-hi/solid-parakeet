@@ -42,7 +42,7 @@ public class GuiTestLobbyViewer : TestGuiElement
             AudioManager.instance.PlayMidButtonClick();
             OnStartButton?.Invoke();
         });
-        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -63,13 +63,13 @@ public class GuiTestLobbyViewer : TestGuiElement
     
     void Refresh()
     {
-        lobbyView.Refresh(StellarManagerTest.networkState.lobbyInfo);
+        lobbyView.Refresh(StellarManager.networkState.lobbyInfo);
         startButton.interactable = false;
         List<string> problems = new List<string>();
         bool lobbyStartable = true;
-        if (StellarManagerTest.networkState.lobbyInfo.HasValue)
+        if (StellarManager.networkState.lobbyInfo.HasValue)
         {
-            LobbyInfo lobbyInfo = StellarManagerTest.networkState.lobbyInfo.Value;
+            LobbyInfo lobbyInfo = StellarManager.networkState.lobbyInfo.Value;
             if (Globals.AddressIsEmpty(lobbyInfo.host_address))
             {
                 problems.Add("lobby.host_address is empty");

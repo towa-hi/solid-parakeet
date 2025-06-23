@@ -91,8 +91,8 @@ public class GuiMainMenu : TestGuiElement
             AudioManager.instance.PlaySmallButtonClick();
             OnAssetButton?.Invoke();
         });
-        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
-        StellarManagerTest.OnAssetsUpdated += OnAssetsUpdated;
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        StellarManager.OnAssetsUpdated += OnAssetsUpdated;
     }
     
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -117,7 +117,7 @@ public class GuiMainMenu : TestGuiElement
         if (!isEnabled) return;
         if (entry == null)
         {
-            string message = $"No SCRY could be found for account {StellarManagerTest.GetUserAddress()}";
+            string message = $"No SCRY could be found for account {StellarManager.GetUserAddress()}";
             assetsText.text = message;
         }
         else if (entry.asset is TrustLineAsset.AssetTypeCreditAlphanum4 asset)
@@ -133,21 +133,21 @@ public class GuiMainMenu : TestGuiElement
     void Refresh()
     {
         Debug.Log("Refresh");
-        setContractButton.interactable = StellarManagerTest.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
-        setSneedButton.interactable = StellarManagerTest.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
-        currentContractText.text = StellarManagerTest.GetContractAddress();
-        currentSneedText.text = StellarManagerTest.stellar.sneed;
-        if (currentSneedText.text == StellarManagerTest.testHostSneed)
+        setContractButton.interactable = StellarManager.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
+        setSneedButton.interactable = StellarManager.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
+        currentContractText.text = StellarManager.GetContractAddress();
+        currentSneedText.text = StellarManager.stellar.sneed;
+        if (currentSneedText.text == StellarManager.testHostSneed)
         {
             currentSneedText.text += " (Host sneed)";
         }
 
-        if (currentSneedText.text == StellarManagerTest.testGuestSneed)
+        if (currentSneedText.text == StellarManager.testGuestSneed)
         {
             currentSneedText.text += " (Guest sneed)";
         }
-        currentAddressText.text = StellarManagerTest.GetUserAddress();
-        User? currentUser = StellarManagerTest.networkState.user;
+        currentAddressText.text = StellarManager.GetUserAddress();
+        User? currentUser = StellarManager.networkState.user;
         joinLobbyButton.interactable = true;
         makeLobbyButton.interactable = true;
         viewLobbyButton.interactable = false;
@@ -177,35 +177,35 @@ public class GuiMainMenu : TestGuiElement
 
     void OnContractFieldChanged(string input)
     {
-        setContractButton.interactable = StellarManagerTest.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
+        setContractButton.interactable = StellarManager.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
     }
     
     void OnSneedFieldChanged(string input)
     {
-        setSneedButton.interactable = StellarManagerTest.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
+        setSneedButton.interactable = StellarManager.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
     }
 
     void OnFillGuestSneed()
     {
-        sneedField.text = StellarManagerTest.testGuestSneed;
+        sneedField.text = StellarManager.testGuestSneed;
     }
 
     void OnFillHostSneed()
     {
-        sneedField.text = StellarManagerTest.testHostSneed;
+        sneedField.text = StellarManager.testHostSneed;
     }
     
     void OnSetSneed()
     {
         string input = sneedField.text;
         sneedField.text = string.Empty;
-        _ = StellarManagerTest.SetSneed(input);
+        _ = StellarManager.SetSneed(input);
     }
     
     void OnSetContract()
     {
         string input = contractField.text;
         contractField.text = string.Empty;
-        _ = StellarManagerTest.SetContractAddress(input);
+        _ = StellarManager.SetContractAddress(input);
     }
 }

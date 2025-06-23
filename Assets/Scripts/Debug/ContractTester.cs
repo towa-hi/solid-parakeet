@@ -37,14 +37,14 @@ public class ContractTester : MonoBehaviour
         
         if (isTestHost)
         {
-            StellarManagerTest.stellar.SetSneed(StellarManagerTest.testGuestSneed);
+            StellarManager.stellar.SetSneed(StellarManager.testGuestSneed);
         }
         else
         {
-            StellarManagerTest.stellar.SetSneed(StellarManagerTest.testHostSneed);
+            StellarManager.stellar.SetSneed(StellarManager.testHostSneed);
         }
         isTestHost = !isTestHost;
-        swapAddressText.text = StellarManagerTest.stellar.userAddress;
+        swapAddressText.text = StellarManager.stellar.userAddress;
     }
     async void OnMakeLobby()
     {
@@ -71,7 +71,7 @@ public class ContractTester : MonoBehaviour
             must_fill_all_tiles = false,
             security_mode = false,
         };
-        int result = await StellarManagerTest.MakeLobbyRequest(lobbyParameters);
+        int result = await StellarManager.MakeLobbyRequest(lobbyParameters);
         Debug.Log(result);
         
     }

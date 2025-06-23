@@ -31,7 +31,7 @@ public class GuiTestLobbyJoiner : TestGuiElement
             OnJoinButton?.Invoke(uint.Parse(lobbyIdInputField.text));
         });
         lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdInputFieldChanged);
-        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -51,7 +51,7 @@ public class GuiTestLobbyJoiner : TestGuiElement
 
     void Refresh()
     {
-        contractAddressText.text = StellarManagerTest.GetContractAddress();
+        contractAddressText.text = StellarManager.GetContractAddress();
         joinButton.interactable = lobbyIdInputField.text.Length > 0;
         string status = "Enter a valid lobby ID";
         if (joinButton.interactable)

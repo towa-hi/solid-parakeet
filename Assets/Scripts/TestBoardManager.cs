@@ -49,7 +49,7 @@ public class TestBoardManager : MonoBehaviour
     {
         clickInputManager.OnClick += OnClick;
         clickInputManager.OnPositionHovered += OnHover;
-        StellarManagerTest.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
     bool firstTime;
@@ -68,8 +68,8 @@ public class TestBoardManager : MonoBehaviour
         }
         else
         {
-            Assert.IsTrue(StellarManagerTest.networkState.user.HasValue);
-            GameNetworkState networkState = new(StellarManagerTest.networkState);
+            Assert.IsTrue(StellarManager.networkState.user.HasValue);
+            GameNetworkState networkState = new(StellarManager.networkState);
             Initialize(networkState);
             //only invoke this directly once on start
         }
@@ -92,7 +92,7 @@ public class TestBoardManager : MonoBehaviour
         {
             return;
         }
-        GameNetworkState networkState = new(StellarManagerTest.networkState);
+        GameNetworkState networkState = new(StellarManager.networkState);
         if (firstTime || networkState.gameState.phase != lastPhase)
         {
             firstTime = false;
@@ -475,7 +475,7 @@ public class SetupTestPhase : ITestPhase
         if (clientState.committed && clientState.opponentCommitted && !clientState.submitted && !attemptedProveSetup)
         {
             attemptedProveSetup = true;
-            _ = StellarManagerTest.ProveSetupRequest();
+            _ = StellarManager.ProveSetupRequest();
         }
     }
 
@@ -535,7 +535,7 @@ public class SetupTestPhase : ITestPhase
     
     void OnRefresh()
     {
-        _ = StellarManagerTest.UpdateState();
+        _ = StellarManager.UpdateState();
     }
 
     void OnSubmit()
@@ -558,7 +558,7 @@ public class SetupTestPhase : ITestPhase
         }
         else
         {
-            _ = StellarManagerTest.CommitSetupRequest(pendingCommits);
+            _ = StellarManager.CommitSetupRequest(pendingCommits);
         }
     }
 
@@ -566,7 +566,7 @@ public class SetupTestPhase : ITestPhase
     {
         if (clientState.committed && clientState.opponentCommitted && !clientState.submitted)
         {
-            _ = StellarManagerTest.ProveSetupRequest();
+            _ = StellarManager.ProveSetupRequest();
         }
     }
 }
@@ -928,7 +928,7 @@ public class MovementTestPhase : ITestPhase
 
     void RefreshState()
     {
-        _ = StellarManagerTest.UpdateState();
+        _ = StellarManager.UpdateState();
     }
 
     void SetAutoSubmit(bool autoSubmit)
