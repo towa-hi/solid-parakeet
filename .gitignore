@@ -73,3 +73,12 @@ crashlytics-build.properties
 
 # Hide packages
 Packages/dev.ameye.linework
+
+# Node.js / npm
+node_modules/
+package.json
+package-lock.json
+
+# Development tools
+.claude/
+.vscode/

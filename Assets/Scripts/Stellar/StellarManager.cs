@@ -148,58 +148,7 @@ public static class StellarManager
         return ProcessTransactionResult(result, simResult);
     }
 
-    public static async Task<int> CommitSetupRequest(Dictionary<Vector2Int, Rank> pendingCommits)
-    {
-        GameNetworkState gameNetworkState = new(networkState);
-        List<PawnCommit> commitmentsList = new();
-        foreach (KeyValuePair<Vector2Int, Rank> commitment in pendingCommits)
-        {
-            HiddenRank hiddenRank = new()
-            {
-                rank = commitment.Value,
-                salt = Globals.RandomSalt(),
-            };
-            byte[] hiddenRankHash = CacheManager.SaveHiddenRank(hiddenRank);
-            commitmentsList.Add(new PawnCommit
-            {
-                hidden_rank_hash = hiddenRankHash,
-                pawn_id = Globals.GeneratePawnId(commitment.Key, gameNetworkState.clientTeam),
-            });
-        }
-        // create and store a future request
-        ProveSetupReq proveSetupReq = new()
-        {
-            lobby_id = gameNetworkState.user.current_lobby,
-            salt = Globals.RandomSalt(),
-            setup = commitmentsList.ToArray(),
-        };
-        // serialize into playerPrefs as a xdrstring
-        string hashString = CacheManager.SaveProveSetupReq(proveSetupReq);
-        CommitSetupReq req = new()
-        {
-            lobby_id = gameNetworkState.user.current_lobby,
-            setup_hash = Convert.FromBase64String(hashString),
-        };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
-        EndTask(task);
-        // TODO: clear CacheManager if transaction failed
-        await UpdateState();
-        return ProcessTransactionResult(result, simResult);
-    }
-
-    public static async Task<int> ProveSetupRequest()
-    {
-        GameNetworkState gameNetworkState = new(networkState);
-        ProveSetupReq req = CacheManager.LoadProveSetupReq(gameNetworkState.GetUserState().setup_hash);
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup", req);
-        EndTask(task);
-        await UpdateState();
-        return ProcessTransactionResult(result, simResult);
-    }
-    
-    public static async Task<int> JoinLobbyRequest(uint lobbyId)
+    public static async Task<int> JoinLobbyRequest(LobbyId lobbyId)
     {
         JoinLobbyReq req = new()
         {
@@ -210,7 +159,77 @@ public static class StellarManager
         EndTask(task);
         return ProcessTransactionResult(result, simResult);
     }
+    
+    public static async Task<int> CommitSetupRequest(LobbyId lobbyId, byte[] setupHash)
+    {
+        CommitSetupReq req = new()
+        {
+            lobby_id = lobbyId,
+            setup_hash = setupHash,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
 
+    public static async Task<int> ProveSetupRequest(LobbyId lobbyId, Setup setup)
+    {
+        ProveSetupReq req = new()
+        {
+            lobby_id = lobbyId,
+            setup = setup,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
+
+    public static async Task<int> CommitMoveRequest(LobbyId lobbyId, byte[] hiddenMoveHash)
+    {
+        CommitMoveReq req = new()
+        {
+            lobby_id = lobbyId,
+            move_hash = hiddenMoveHash,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_move", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
+
+    public static async Task<int> ProveMoveRequest(LobbyId lobbyId, HiddenMove hiddenMove)
+    {
+        ProveMoveReq req = new()
+        {
+            lobby_id = lobbyId,
+            move_proof = hiddenMove,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_move", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
+
+    public static async Task<int> ProveRankRequest(LobbyId lobbyId, HiddenRank[] hiddenRanks)
+    {
+        ProveRankReq req = new()
+        {
+            lobby_id = lobbyId,
+            hidden_ranks = hiddenRanks,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_rank", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
+    
     public static async Task<AccountEntry> GetAccount(string key)
     {
         TaskInfo task = SetCurrentTask("ReqAccountEntry");

@@ -11,6 +11,7 @@ public static class CacheManager
 {
     static Dictionary<string, HiddenRank> hiddenRankCache = new Dictionary<string, HiddenRank>();
     static Dictionary<string, Setup> setupCache = new Dictionary<string, Setup>();
+    static Dictionary<string, HiddenMove> hiddenMoveCache = new Dictionary<string, HiddenMove>();
     public static byte[] SaveHiddenRank(HiddenRank hiddenRank)
     {
         if (hiddenRank.salt == 0)
@@ -81,5 +82,30 @@ public static class CacheManager
         using MemoryStream memoryStream = new MemoryStream(Convert.FromBase64String(xdrString));
         SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
         return SCUtility.SCValToNative<T>(val);
+    }
+
+    public static byte[] SaveMoveReq(HiddenMove hiddenMove)
+    {
+        if (hiddenMove.salt == 0)
+        {
+            throw new ArgumentException("Salt can't be 0");
+        }
+        string key = SaveToPlayerPrefs(hiddenMove);
+        hiddenMoveCache[key] = hiddenMove;
+        return Convert.FromBase64String(key);
+    }
+
+    public static HiddenMove LoadMoveReq(byte[] hash)
+    {
+        if (hash.All(b => b == 0))
+        {
+            throw new ArgumentException("Hash can't be 0");
+        }
+        string key = Convert.ToBase64String(hash);
+        if (hiddenMoveCache.TryGetValue(key, out HiddenMove move))
+        {
+            return move;
+        }
+        return GetFromPlayerPrefs<HiddenMove>(key);
     }
 }

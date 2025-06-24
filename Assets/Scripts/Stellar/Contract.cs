@@ -71,6 +71,10 @@ namespace Contract
             {
                 return accountAddress.ToScvAddress();
             }
+            if (input is PawnId pawnId)
+            {
+                return new SCVal.ScvU32() { u32 = new uint32(pawnId.Value) };
+            }
             if (input is Array inputArray)
             {
                 SCVal[] scValArray = new SCVal[inputArray.Length];
@@ -175,6 +179,13 @@ namespace Contract
                     return new AccountAddress(scvAddress);
                 }
                 return scvAddress;
+            }
+            else if (targetType == typeof(PawnId))
+            {
+                if (scVal is SCVal.ScvU32 u32Val)
+                {
+                    return new PawnId(u32Val.u32.InnerValue);
+                }
             }
             else if (scVal is SCVal.ScvVec scvVec)
             {
@@ -369,6 +380,25 @@ namespace Contract
     // ReSharper disable InconsistentNaming
     
     [Serializable]
+    public readonly struct PawnId : IEquatable<PawnId>
+    {
+        public readonly uint Value;
+        
+        public PawnId(uint value) => Value = value;
+        
+        public static implicit operator uint(PawnId pawnId) => pawnId.Value;
+        public static implicit operator PawnId(uint value) => new(value);
+        
+        public bool Equals(PawnId other) => Value == other.Value;
+        public override bool Equals(object obj) => obj is PawnId other && Equals(other);
+        public override int GetHashCode() => Value.GetHashCode();
+        public override string ToString() => Value.ToString();
+        
+        public static bool operator ==(PawnId left, PawnId right) => left.Equals(right);
+        public static bool operator !=(PawnId left, PawnId right) => !left.Equals(right);
+    }
+    
+    [Serializable]
     public struct Pos : IScvMapCompatable, IEquatable<Pos>
     {
         public int x;
@@ -459,7 +489,7 @@ namespace Contract
     [Serializable]
     public struct HiddenMove : IScvMapCompatable
     {
-        public uint pawn_id;
+        public PawnId pawn_id;
         public ulong salt;
         public Pos start_pos;
         public Pos target_pos;
@@ -482,8 +512,8 @@ namespace Contract
     [Serializable]
     public struct HiddenRank : IScvMapCompatable
     {
-        public uint pawn_id;
-        public uint rank;
+        public PawnId pawn_id;
+        public Rank rank;
         public ulong salt;
 
         public SCVal.ScvMap ToScvMap()
@@ -504,7 +534,7 @@ namespace Contract
     public struct SetupCommit : IScvMapCompatable
     {
         public byte[] hidden_rank_hash;
-        public uint pawn_id;
+        public PawnId pawn_id;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -545,7 +575,7 @@ namespace Contract
         public byte[] hidden_rank_hash;
         public bool moved;
         public bool moved_scout;
-        public uint pawn_id;
+        public PawnId pawn_id;
         public Pos pos;
         public Rank? rank;
 
@@ -591,7 +621,7 @@ namespace Contract
     {
         public byte[] move_hash;
         public HiddenMove? move_proof;
-        public uint[] needed_rank_proofs;
+        public PawnId[] needed_rank_proofs;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -627,6 +657,16 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("turn", turn),
                 }),
             };
+        }
+
+        public UserMove GetUserMove(bool isHost)
+        {
+            return isHost ? moves[0] : moves[1];
+        }
+
+        public UserSetup GetUserSetup(bool isHost)
+        {
+            return isHost ? setups[0] : setups[1];
         }
     }
 
@@ -682,12 +722,25 @@ namespace Contract
                 }),
             };
         }
+
+        public bool IsHost(AccountAddress address)
+        {
+            if (address == host_address)
+            {
+                return true;
+            }
+            else if (address == guest_address)
+            {
+                return false;
+            }
+            else throw new ArgumentOutOfRangeException(nameof(address));
+        }
     }
 
     [Serializable]
     public struct MakeLobbyReq : IScvMapCompatable
     {
-        public uint lobby_id;
+        public LobbyId lobby_id;
         public LobbyParameters parameters;
 
         public SCVal.ScvMap ToScvMap()
@@ -706,7 +759,7 @@ namespace Contract
     [Serializable]
     public struct JoinLobbyReq : IScvMapCompatable
     {
-        public uint lobby_id;
+        public LobbyId lobby_id;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -723,7 +776,7 @@ namespace Contract
     [Serializable]
     public struct CommitSetupReq : IScvMapCompatable
     {
-        public uint lobby_id;
+        public LobbyId lobby_id;
         public byte[] setup_hash;
 
         public SCVal.ScvMap ToScvMap()
@@ -742,7 +795,7 @@ namespace Contract
     [Serializable]
     public struct ProveSetupReq : IScvMapCompatable
     {
-        public uint lobby_id;
+        public LobbyId lobby_id;
         public Setup setup;
 
         public SCVal.ScvMap ToScvMap()
@@ -761,7 +814,7 @@ namespace Contract
     [Serializable]
     public struct CommitMoveReq : IScvMapCompatable
     {
-        public uint lobby_id;
+        public LobbyId lobby_id;
         public byte[] move_hash;
 
         public SCVal.ScvMap ToScvMap()
@@ -780,7 +833,7 @@ namespace Contract
     [Serializable]
     public struct ProveMoveReq : IScvMapCompatable
     {
-        public uint lobby_id;
+        public LobbyId lobby_id;
         public HiddenMove move_proof;
 
         public SCVal.ScvMap ToScvMap()
@@ -800,7 +853,7 @@ namespace Contract
     public struct ProveRankReq : IScvMapCompatable
     {
         public HiddenRank[] hidden_ranks;
-        public uint lobby_id;
+        public LobbyId lobby_id;
 
         public SCVal.ScvMap ToScvMap()
         {

@@ -186,6 +186,13 @@ pub struct LobbyInfo {
     pub subphase: Subphase,
 }
 
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct History {
+    pub lobby_id: LobbyId,
+    pub host_moves: Vec<HiddenMove>,
+    pub guest_moves: Vec<HiddenMove>,
+}
+
 // // endregion
 // // region requests
 
@@ -239,6 +246,7 @@ pub enum DataKey {
     LobbyInfo(LobbyId), // lobby specific data
     LobbyParameters(LobbyId), // immutable lobby data
     GameState(LobbyId), // game state
+    History(LobbyId),
 }
 
 // endregion
@@ -644,6 +652,7 @@ impl Contract {
             match (game_state.moves.get_unchecked(u_index).needed_rank_proofs.is_empty(), game_state.moves.get_unchecked(o_index).needed_rank_proofs.is_empty()) {
                 (true, true) => {
                     debug_log!(e, "prove_move: No rank proofs needed, using shared resolution function");
+                    Self::set_history(e, &req.lobby_id, &game_state)?;
                     Self::complete_move_resolution(e, &mut game_state);
                     if let Some(winner) = Self::check_game_over(e, &game_state, &lobby_parameters)? {
                         lobby_info.phase = Phase::Finished;
@@ -727,6 +736,7 @@ impl Contract {
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
         if next_subphase == Subphase::None {
             // Both players have acted, check if we can transition to next phase
+            Self::set_history(e, &req.lobby_id, &game_state)?;
             Self::complete_move_resolution(e, &mut game_state);
             if let Some(winner) = Self::check_game_over(e, &game_state, &lobby_parameters)? {
                 lobby_info.phase = Phase::Finished;
@@ -1233,13 +1243,25 @@ impl Contract {
                 game_state.pawns.set(ox_pawn_index, ox_pawn.clone());
             }
         }
-        
         // Reset moves for next turn
         game_state.moves = Self::create_empty_moves(e);
         
     }
 
     // Data Access Helpers
+
+    pub(crate) fn set_history(e: &Env, lobby_id: &LobbyId, game_state: &GameState) -> Result<(), Error> {
+        let temporary = e.storage().temporary();
+        let history_key = DataKey::History(lobby_id.clone());
+        let mut history: History = match temporary.get(&history_key) {
+            Some(h) => h,
+            None => return Err(Error::LobbyNotFound),
+        };
+        history.host_moves.push_back(game_state.moves.get_unchecked(0).move_proof.get_unchecked(0).clone());
+        history.guest_moves.push_back(game_state.moves.get_unchecked(1).move_proof.get_unchecked(0).clone());
+        temporary.set(&history_key, &history);
+        Ok(())
+    }
     pub(crate) fn get_lobby_data(
         e: &Env, 
         lobby_id: &LobbyId, 

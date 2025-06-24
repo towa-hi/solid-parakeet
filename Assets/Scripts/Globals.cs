@@ -1832,7 +1832,7 @@ public struct NetworkState
         {
             return false;
         }
-        if (user?.current_lobby.)
+        if (user?.current_lobby == null)
         {
             return false;
         }
@@ -1841,6 +1841,18 @@ public struct NetworkState
             return true;
         }
         return false;
+    }
+    
+    public (LobbyInfo lobbyInfo, GameState gameState, LobbyParameters lobbyParameters) GetGameData()
+    {
+        if (!lobbyInfo.HasValue)
+            throw new InvalidOperationException("LobbyInfo is null - not in a lobby");
+        if (!gameState.HasValue)
+            throw new InvalidOperationException("GameState is null - game not started");
+        if (!lobbyParameters.HasValue)
+            throw new InvalidOperationException("LobbyParameters is null - lobby not configured");
+            
+        return (lobbyInfo.Value, gameState.Value, lobbyParameters.Value);
     }
     
     public override string ToString()

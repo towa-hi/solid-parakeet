@@ -13,16 +13,17 @@ This is a Unity-based implementation of "Scrying Stratego" - a variant of Strate
 ## Architecture
 
 ### Unity Project Structure
+- NOTE: When working in Unity, the only files that I will expect you to edit are .cs files inside of Assets/Scripts
 - `Assets/Scripts/` - Core game logic organized by domain:
-  - `Board/` - Game board, tiles, pawns, and piece definitions
-  - `UI/` - All user interface components and menus
-  - `Stellar/` - Blockchain integration and contract communication
-  - `Effects/` - Visual effects and rendering utilities
-  - `Controls/` - Input handling and interaction systems
-  - `Debug/` - Development and testing utilities
+	- `Board/` - Game board, tiles, pawns, and piece definitions
+	- `UI/` - All user interface components and menus
+	- `Stellar/` - Blockchain integration and contract communication
+	- `Effects/` - Visual effects and rendering utilities
+	- `Controls/` - Input handling and interaction systems
+	- `Debug/` - Development and testing utilities
 
 ### Smart Contract (Rust)
-- Located in `ContractSandbox/warmancer-prototype/`
+- Located in `ContractSandbox/warmancer-prototype/contracts/hello-world/src/`
 - Built with Soroban SDK for Stellar blockchain
 - Implements commit-reveal game mechanics
 
@@ -48,18 +49,17 @@ cargo test -- --nocapture  # Run contract tests with output
 
 ### Game State Management
 - `GameManager.cs` - Central game coordinator
-- `Rules.cs` - Game rule validation and enforcement
-- `FakeServer.cs` - Local testing without blockchain
+- `TestBoardManager.cs` - Client logic
 
 ### Blockchain Integration
 - `Contract.cs` - Smart contract interface
+- `StellarManager.cs` - Game to StellarDotnet layer
 - `StellarDotnet.cs` - Stellar network communication
 - `WalletManager.cs` - User wallet integration
 
 ### Board System
 - `BoardDef.cs` - Configurable board layouts stored as ScriptableObjects
 - `BoardGrid.cs` - Hex/square tile coordinate system
-- `Tile.cs`/`Pawn.cs` - Core game pieces
 
 ### Visual Systems
 - Universal Render Pipeline (URP) configuration
@@ -80,3 +80,19 @@ When working with the Rust contract code:
 - `AudioManager.cs` handles all sound effects and music
 - Separate folders for edited vs original audio files
 - Music includes battle, menu, and title tracks
+
+## Code Style and Conventions
+
+### C# Style Guidelines
+- Follow existing conventions
+- Types: UpperCamelCase
+- Interfaces: IUpperCamelCase
+- Methods: UpperCamelCase
+- Properties: UpperCamelCase
+- Local Variables: lowerCamelCase
+- Parameters: parameters that set values are sometimes prefixed with n
+- Static fields: lowerCamelCase
+- Explicit type over var
+- Trailing commas
+- Object creation using new()
+- For Unity Monobehaviours, null check with !
