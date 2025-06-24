@@ -8,29 +8,29 @@ using Random = UnityEngine.Random;
 public class FakeServer : MonoBehaviour
 {
     
-    public Contract.LobbyParameters fakeParameters;
-    public Contract.Lobby fakeLobby;
-    public Contract.User fakeHost;
-    public Contract.User fakeGuest;
-    public uint fakeLobbyId = 1;
-
-    public static FakeServer ins;
-    public BoardDef boardDef;
-    
-    void Awake()
-    {
-        ins = this;
-        fakeGuest = new User
-        {
-            current_lobby = fakeLobbyId,
-            games_completed = 0,
-        };
-        fakeHost = new User
-        {
-            current_lobby = fakeLobbyId,
-            games_completed = 0,
-        };
-    }
+    // public Contract.LobbyParameters fakeParameters;
+    // public Contract.Lobby fakeLobby;
+    // public Contract.User fakeHost;
+    // public Contract.User fakeGuest;
+    // public uint fakeLobbyId = 1;
+    //
+    // public static FakeServer ins;
+    // public BoardDef boardDef;
+    //
+    // void Awake()
+    // {
+    //     ins = this;
+    //     fakeGuest = new User
+    //     {
+    //         current_lobby = fakeLobbyId,
+    //         games_completed = 0,
+    //     };
+    //     fakeHost = new User
+    //     {
+    //         current_lobby = fakeLobbyId,
+    //         games_completed = 0,
+    //     };
+    // }
 
     public void SetFakeParameters(Contract.LobbyParameters parameters)
     {

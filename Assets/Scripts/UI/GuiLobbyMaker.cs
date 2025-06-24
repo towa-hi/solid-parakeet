@@ -8,7 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiTestLobbyMaker : TestGuiElement
+public class GuiLobbyMaker : TestGuiElement
 {
     public TMP_Dropdown boardDropdown;
     public Toggle mustFillAllSetupTilesToggle;
@@ -84,21 +84,17 @@ public class GuiTestLobbyMaker : TestGuiElement
         boardDropdown.RefreshShownValue();
     }
 
-    Contract.LobbyParameters GetLobbyParameters()
+    LobbyParameters GetLobbyParameters()
     {
         // TODO: more secure hash later
         BoardDef boardDef = boardDefs[boardDropdown.value];
         string boardName = boardDef.boardName;
         SHA256 sha256 = SHA256.Create();
         byte[] boardHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(boardName));
-        MaxRank[] maxRanks = new MaxRank[boardDef.maxPawns.Length];
-        for (int i = 0; i < boardDef.maxPawns.Length; i++)
+        uint[] maxRanks = new uint[13]; // Array size for all possible ranks (0-12)
+        foreach (SMaxPawnsPerRank maxPawn in boardDef.maxPawns)
         {
-            maxRanks[i] = new MaxRank()
-            {
-                max = (uint)boardDef.maxPawns[i].max,
-                rank = boardDef.maxPawns[i].rank,
-            };
+            maxRanks[(int)maxPawn.rank] = (uint)maxPawn.max;
         }
         return new LobbyParameters
         {

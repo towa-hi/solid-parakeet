@@ -130,9 +130,9 @@ public class StellarDotnet
         NetworkState networkState = new(userAddress);
         User? mUser = await ReqUser(userAddress);
         networkState.user = mUser;
-        if (mUser is { current_lobby: not 0 })
+        if (mUser?.current_lobby is uint lobbyId)
         {
-            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(mUser.Value.current_lobby);
+            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(lobbyId);
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
             networkState.gameState = mGameState;
@@ -159,7 +159,6 @@ public class StellarDotnet
                 throw new Exception($"ReqUserData on {key} failed because data was not ContractData");
             }
             User user = SCUtility.SCValToNative<User>(data.contractData.val);
-            user.liveUntilLedgerSeq = entries.LiveUntilLedgerSeq;
             return user;
         }
     }

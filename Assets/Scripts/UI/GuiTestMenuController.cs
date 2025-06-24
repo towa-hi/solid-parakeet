@@ -13,7 +13,7 @@ public class GuiTestMenuController: MonoBehaviour
 {
     public GuiStartMenu startMenuElement;
     public GuiMainMenu mainMenuElement;
-    public GuiTestLobbyMaker lobbyMakerElement;
+    public GuiLobbyMaker lobbyMakerElement;
     public GuiTestLobbyViewer lobbyViewerElement;
     public GuiTestLobbyJoiner lobbyJoinerElement;
     public GuiWallet walletElement;

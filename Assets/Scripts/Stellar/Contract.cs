@@ -644,6 +644,7 @@ namespace Contract
         public PawnState[] pawns;
         public UserSetup[] setups;
         public uint turn;
+        public long liveUntilLedgerSeq;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -680,6 +681,7 @@ namespace Contract
         public uint[] max_ranks;
         public bool must_fill_all_tiles;
         public bool security_mode;
+        public long liveUntilLedgerSeq;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -707,6 +709,7 @@ namespace Contract
         public uint index;
         public Phase phase;
         public Subphase subphase;
+        public long liveUntilLedgerSeq;
 
         public SCVal.ScvMap ToScvMap()
         {

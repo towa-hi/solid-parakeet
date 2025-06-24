@@ -1731,7 +1731,7 @@ public struct GameNetworkState
 {
     public AccountAddress address;
     public bool isHost;
-    public Team clientTeam;
+    public Team userTeam;
     public Team opponentTeam;
     public User user;
     public LobbyInfo lobbyInfo;
@@ -1763,48 +1763,29 @@ public struct GameNetworkState
             throw new ArgumentException($"address not in state: {address}");
         }
 
+        Team hostTeam = lobbyParameters.host_team == 1 ? Team.RED : Team.BLUE;
+        Team guestTeam = hostTeam == Team.RED ? Team.BLUE : Team.RED;
+        
         if (isHost)
         {
-            if (lobbyParameters.host_team == 1)
-            {
-                clientTeam = Team.RED;
-                opponentTeam = Team.BLUE;
-            }
-            else
-            {
-                clientTeam = Team.BLUE;
-                opponentTeam = Team.RED;
-            }
+            userTeam = hostTeam;
+            opponentTeam = guestTeam;
         }
         else
         {
-            if (lobbyParameters.host_team == 1)
-            {
-                clientTeam = Team.BLUE;
-                opponentTeam = Team.RED;
-            }
-            else
-            {
-                clientTeam = Team.RED;
-                opponentTeam = Team.BLUE;
-            }
+            userTeam = guestTeam;
+            opponentTeam = hostTeam;
         }
     }
 
-    public UserState GetUserState()
+    public UserMove GetUserMove()
     {
-        return gameState.GetUserState(isHost);
+        return isHost ? gameState.moves[0] : gameState.moves[1];
     }
 
-    public UserState GetOpponentUserState()
+    public UserSetup GetUserSetup()
     {
-        return gameState.GetOpponentUserState(isHost);
-    }
-
-    public string GetProveSetupReqPlayerPrefsKey()
-    {
-        string key = $"{address}, {user.current_lobby}";
-        return key;
+        return isHost ? gameState.setups[0] : gameState.setups[1];
     }
 }
 

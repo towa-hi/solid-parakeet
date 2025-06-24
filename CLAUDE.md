@@ -96,3 +96,7 @@ When working with the Rust contract code:
 - Trailing commas
 - Object creation using new()
 - For Unity Monobehaviours, null check with !
+
+## Strict Guidelines
+
+- Do not edit scriptableobjects or any fields in monobehaviors that are serialized without my permission

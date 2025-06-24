@@ -129,7 +129,7 @@ public static class StellarManager
     {
         MakeLobbyReq req = new()
         {
-            lobby_id = GenerateRandomUint(),
+            lobby_id = GenerateLobbyId(),
             parameters = parameters,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
@@ -281,17 +281,11 @@ public static class StellarManager
         currentTask = null;
     }
     
-    static uint GenerateRandomUint()
+    // NOTE: lobby IDs will be done server side in the future
+    static LobbyId GenerateLobbyId()
     {
-        uint value;
-        do
-        {
-            // range is [0, UInt32.MaxValue]
-            value = (uint)Random.Range(1, int.MaxValue)      // first half
-                    << 16
-                    | (uint)Random.Range(0, ushort.MaxValue); // second half
-        } while (value == 0);
-        return value;
+        uint value = (uint)Random.Range(100000, 1000000); // 6 digit number
+        return new LobbyId(value);
     }
 }
 
