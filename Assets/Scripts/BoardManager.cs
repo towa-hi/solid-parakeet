@@ -6,9 +6,10 @@ using System.Text;
 using Contract;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
-public class TestBoardManager : MonoBehaviour
+public class BoardManager : MonoBehaviour
 {
     public bool initialized;
     // never mutate these externally
@@ -20,21 +21,21 @@ public class TestBoardManager : MonoBehaviour
     public TestClickInputManager clickInputManager;
     public Vortex vortex;
     // UI stuff generally gets done in the phase
-    public GuiTestGame guiTestGame;
+    [FormerlySerializedAs("guiTestGame")] public GuiGame guiGame;
     // generally doesn't change after lobby is set in StartGame
     public BoardDef boardDef;
     public LobbyParameters parameters;
     public bool isHost;
     public string lobbyId;
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
-    public Dictionary<Vector2Int, TestTileView> tileViews = new();
-    public List<TestPawnView> pawnViews = new();
+    public Dictionary<Vector2Int, TileView> tileViews = new();
+    public List<PawnView> pawnViews = new();
     public Dictionary<Vector2Int, SetupPawnView> setupPawnViews = new();
     // last known lobby
     //public Lobby cachedLobby;
     public GameNetworkState cachedNetworkState;
     public Phase lastPhase;
-    public ITestPhase currentPhase;
+    public IPhase currentPhase;
     public Transform cameraBounds;
 
     public Transform waveOrigin1;
@@ -42,8 +43,8 @@ public class TestBoardManager : MonoBehaviour
 
     
     //public event Action<Lobby> OnPhaseChanged;
-    public event Action<GameNetworkState, ITestPhase> OnClientGameStateChanged;
-    public event Action<Vector2Int, TestTileView, TestPawnView, ITestPhase> OnGameHover;
+    public event Action<GameNetworkState, IPhase> OnClientGameStateChanged;
+    public event Action<Vector2Int, TileView, PawnView, IPhase> OnGameHover;
     
     void Start()
     {
@@ -100,11 +101,11 @@ public class TestBoardManager : MonoBehaviour
             {
                 case Phase.Setup:
                     Debug.Log("SetPhase setup");
-                    SetPhase(new SetupTestPhase(this, guiTestGame.setup, networkState));
+                    SetPhase(new SetupPhase(this, guiGame.setup, networkState));
                     break;
                 case Phase.Movement:
                     Debug.Log("SetPhase movement");
-                    SetPhase(new MovementTestPhase(this, guiTestGame.movement, networkState));
+                    SetPhase(new MovementPhase(this, guiGame.movement, networkState));
                     break;
                 case Phase.Completed:
                     throw new NotImplementedException();
@@ -148,7 +149,7 @@ public class TestBoardManager : MonoBehaviour
         }
         cameraBounds.position = cameraBounds.position + transform.position + boardDef.center;
         // Clear existing tileviews and replace
-        foreach (TestTileView tile in tileViews.Values)
+        foreach (TileView tile in tileViews.Values)
         {
             Destroy(tile.gameObject);
         }
@@ -158,12 +159,12 @@ public class TestBoardManager : MonoBehaviour
         {
             Vector3 worldPosition = grid.CellToWorld(tile.pos);
             GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
-            TestTileView tileView = tileObject.GetComponent<TestTileView>();
+            TileView tileView = tileObject.GetComponent<TileView>();
             tileView.Initialize(tile, this);
             tileViews.Add(tile.pos, tileView);
         }
         // Clear any existing pawnviews and replace
-        foreach (TestPawnView pawnView in pawnViews)
+        foreach (PawnView pawnView in pawnViews)
         {
             Destroy(pawnView.gameObject);
         }
@@ -195,21 +196,21 @@ public class TestBoardManager : MonoBehaviour
     
     public Tile GetTileAtPos(Vector2Int pos)
     {
-        TestTileView tileView = tileViews.GetValueOrDefault(pos);
+        TileView tileView = tileViews.GetValueOrDefault(pos);
         return tileView?.tile;
     }
 
-    public TestTileView GetTileViewAtPos(Vector2Int pos)
+    public TileView GetTileViewAtPos(Vector2Int pos)
     {
         if (pos == Globals.Purgatory)
         {
             return null;
         }
-        TestTileView tileView = tileViews.GetValueOrDefault(pos);
+        TileView tileView = tileViews.GetValueOrDefault(pos);
         return tileView;
     }
 
-    TestPawnView GetPawnViewAtPos(Vector2Int pos)
+    PawnView GetPawnViewAtPos(Vector2Int pos)
     {
         if (pos == Globals.Purgatory)
         {
@@ -218,7 +219,7 @@ public class TestBoardManager : MonoBehaviour
         return pawnViews.FirstOrDefault(pv => pv.displayedPos == pos);
     }
     
-    void SetPhase(ITestPhase newPhase)
+    void SetPhase(IPhase newPhase)
     {
         currentPhase?.ExitState();
         currentPhase = newPhase;
@@ -227,27 +228,27 @@ public class TestBoardManager : MonoBehaviour
     
     void OnClick(Vector2Int pos)
     {
-        TestTileView tileView = GetTileViewAtPos(pos);
-        TestPawnView pawnView = GetPawnViewAtPos(pos);
+        TileView tileView = GetTileViewAtPos(pos);
+        PawnView pawnView = GetPawnViewAtPos(pos);
         currentPhase?.OnClick(pos, tileView, pawnView);
     }
 
     void OnHover(Vector2Int pos)
     {
-        TestTileView tileView = GetTileViewAtPos(pos);
-        TestPawnView pawnView = GetPawnViewAtPos(pos);
+        TileView tileView = GetTileViewAtPos(pos);
+        PawnView pawnView = GetPawnViewAtPos(pos);
         currentPhase?.OnHover(pos, tileView, pawnView);
         OnGameHover?.Invoke(pos, tileView, pawnView, currentPhase);
     }
 }
 
-public interface ITestPhase
+public interface IPhase
 {
     public void EnterState();
     public void ExitState();
     public void Update();
-    public void OnHover(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
-    public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView);
+    public void OnHover(Vector2Int clickedPos, TileView tileView, PawnView pawnView);
+    public void OnClick(Vector2Int clickedPos, TileView tileView, PawnView pawnView);
 
     public void OnNetworkGameStateChanged(GameNetworkState networkState);
 
@@ -294,22 +295,22 @@ public class SetupClientState
     }
 }
 
-public class SetupTestPhase : ITestPhase
+public class SetupPhase : IPhase
 {
-    TestBoardManager bm;
-    GuiTestSetup setupGui;
+    BoardManager bm;
+    GuiSetup setupGui;
     SetupInputTool tool;
     
     public SetupClientState clientState;
     bool attemptedProveSetup;
     
-    public SetupTestPhase(TestBoardManager inBm, GuiTestSetup inSetupGui, GameNetworkState networkState)
+    public SetupPhase(BoardManager inBm, GuiSetup inSetupGui, GameNetworkState networkState)
     {
         bm = inBm;
         setupGui = inSetupGui;
         tool = SetupInputTool.NONE;
         // TODO: figure out a better way to tell gui to do stuff
-        bm.guiTestGame.SetCurrentElement(setupGui, networkState);
+        bm.guiGame.SetCurrentElement(setupGui, networkState);
     }
 
     public void RefreshGui()
@@ -381,7 +382,7 @@ public class SetupTestPhase : ITestPhase
         
     }
 
-    public void OnHover(Vector2Int hoveredPos, TestTileView tileView, TestPawnView pawnView)
+    public void OnHover(Vector2Int hoveredPos, TileView tileView, PawnView pawnView)
     {
         SetupInputTool newTool;
         if (!tileView)
@@ -446,7 +447,7 @@ public class SetupTestPhase : ITestPhase
         }
     }
 
-    public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
+    public void OnClick(Vector2Int clickedPos, TileView tileView, PawnView pawnView)
     {
         Debug.Log("OnClick from setup Phase");
         if (tileView == null) return;
@@ -552,7 +553,7 @@ public class SetupTestPhase : ITestPhase
                 throw new NullReferenceException();
             }
         }
-        if (TestBoardManager.singlePlayer)
+        if (BoardManager.singlePlayer)
         {
             //FakeServer.ins.CommitSetupRequest(clientState.commitments);
         }
@@ -591,7 +592,7 @@ public class SelectingPawnMovementClientSubState : MovementClientSubState
     public void SubmitMove()
     {
         if (!selectedPawnId.HasValue || !selectedPos.HasValue) return;
-        if (TestBoardManager.singlePlayer)
+        if (BoardManager.singlePlayer)
         {
             //FakeServer.ins.QueueMove(new QueuedMove { pawnId = selectedPawnId.Value, pos = selectedPos.Value });
 
@@ -742,7 +743,7 @@ public class MovementClientState
         SetSubState(new SelectingPawnMovementClientSubState(selectedPawnId, selectedPos));
     }
 
-    public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
+    public void OnClick(Vector2Int clickedPos, TileView tileView, PawnView pawnView)
     {
         switch (subState)
         {
@@ -812,18 +813,18 @@ public class MovementClientState
     }
 }
 
-public class MovementTestPhase : ITestPhase
+public class MovementPhase : IPhase
 {
-    TestBoardManager bm;
-    GuiTestMovement movementGui;
+    BoardManager bm;
+    GuiMovement movementGui;
     
     public MovementClientState clientState;
     
-    public MovementTestPhase(TestBoardManager inBm, GuiTestMovement inMovementGui, GameNetworkState networkState)
+    public MovementPhase(BoardManager inBm, GuiMovement inMovementGui, GameNetworkState networkState)
     {
         bm = inBm;
         movementGui = inMovementGui;
-        bm.guiTestGame.SetCurrentElement(movementGui, networkState);
+        bm.guiGame.SetCurrentElement(movementGui, networkState);
     }
 
     public void RefreshGui()
@@ -862,12 +863,12 @@ public class MovementTestPhase : ITestPhase
 
     public void Update() {}
 
-    public void OnHover(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
+    public void OnHover(Vector2Int clickedPos, TileView tileView, PawnView pawnView)
     {
         
     }
     
-    public void OnClick(Vector2Int clickedPos, TestTileView tileView, TestPawnView pawnView)
+    public void OnClick(Vector2Int clickedPos, TileView tileView, PawnView pawnView)
     {
         if (bm.currentPhase != this) return;
         clientState.OnClick(clickedPos, tileView, pawnView);

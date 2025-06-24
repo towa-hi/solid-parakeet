@@ -4,18 +4,18 @@ using JetBrains.Annotations;
 using TMPro;
 using UnityEngine;
 
-public class GuiTestGame : TestGuiElement
+public class GuiGame : TestGuiElement
 {
     public Chatbox chatbox;
     
-    public GuiTestSetup setup;
-    public GuiTestMovement movement;
+    public GuiSetup setup;
+    public GuiMovement movement;
     
     public CameraAnchor boardAnchor;
     
     public GameElement currentElement;
     
-    public TestBoardManager bm;
+    public BoardManager bm;
     
     void Start()
     {
@@ -32,7 +32,7 @@ public class GuiTestGame : TestGuiElement
             AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
             GameManager.instance.cameraManager.enableCameraMovement = true;
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
-            bm = GameManager.instance.testBoardManager;
+            bm = GameManager.instance.boardManager;
             bm.StartBoardManager(networkUpdated);
             if (networkUpdated)
             {
@@ -52,7 +52,7 @@ public class GuiTestGame : TestGuiElement
         currentElement?.SetIsEnabled(false);
         currentElement = element;
         currentElement.SetIsEnabled(true);
-        currentElement.Initialize(GameManager.instance.testBoardManager, networkState);
+        currentElement.Initialize(GameManager.instance.boardManager, networkState);
     }
 
 }

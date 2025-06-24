@@ -9,15 +9,15 @@ using UnityEngine.Assertions;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-public class GuiTestMenuController: MonoBehaviour
+public class GuiMenuController: MonoBehaviour
 {
     public GuiStartMenu startMenuElement;
     public GuiMainMenu mainMenuElement;
     public GuiLobbyMaker lobbyMakerElement;
-    public GuiTestLobbyViewer lobbyViewerElement;
-    public GuiTestLobbyJoiner lobbyJoinerElement;
+    public GuiLobbyViewer lobbyViewerElement;
+    public GuiLobbyJoiner lobbyJoinerElement;
     public GuiWallet walletElement;
-    public GuiTestGame gameElement;
+    public GuiGame gameElement;
     public GameObject blockerObject;
     public TextMeshProUGUI blockerText;
     static GameObject blocker;
@@ -136,7 +136,7 @@ public class GuiTestMenuController: MonoBehaviour
         }
     }
 
-    async void JoinLobby(uint lobbyId)
+    async void JoinLobby(LobbyId lobbyId)
     {
         int code = await StellarManager.JoinLobbyRequest(lobbyId);
         await StellarManager.UpdateState();
@@ -167,8 +167,8 @@ public class GuiTestMenuController: MonoBehaviour
     
     void StartSingleplayer(LobbyParameters parameters)
     {
-        FakeServer.ins.SetFakeParameters(parameters);
-        ShowMenuElement(gameElement, false);
+        // FakeServer.ins.SetFakeParameters(parameters);
+        // ShowMenuElement(gameElement, false);
     }
     async void DeleteLobby()
     {
@@ -230,7 +230,7 @@ public class TestGuiElement: MonoBehaviour
 public class GameElement: MonoBehaviour
 {
     bool isEnabled;
-    TestBoardManager bm;
+    BoardManager bm;
     
     public void SetIsEnabled(bool inIsEnabled)
     {
@@ -238,7 +238,7 @@ public class GameElement: MonoBehaviour
         gameObject.SetActive(inIsEnabled);
     }
 
-    public virtual void Initialize(TestBoardManager boardManager, GameNetworkState networkState)
+    public virtual void Initialize(BoardManager boardManager, GameNetworkState networkState)
     {
         bm = boardManager;
     }

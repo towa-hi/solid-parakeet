@@ -6,7 +6,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiTestSetup : GameElement
+public class GuiSetup : GameElement
 {
     public Transform rankEntryListRoot;
 
@@ -32,7 +32,7 @@ public class GuiTestSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
     
-    public override void Initialize(TestBoardManager inBoardManager, GameNetworkState networkState)
+    public override void Initialize(BoardManager inBoardManager, GameNetworkState networkState)
     {
         base.Initialize(inBoardManager, networkState);
         // Clear existing entries

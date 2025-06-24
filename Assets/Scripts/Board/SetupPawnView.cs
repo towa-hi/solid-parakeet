@@ -18,9 +18,9 @@ public class SetupPawnView: MonoBehaviour
     public GameObject model;
     
     Phase oldPhase = Phase.Completed;
-    TestBoardManager bm;
+    BoardManager bm;
     
-    public void Initialize(TestTileView tileView, Team inTeam, TestBoardManager inBm)
+    public void Initialize(TileView tileView, Team inTeam, BoardManager inBm)
     {
         bm = inBm;
         bm.OnClientGameStateChanged += OnClientGameStateChanged;
@@ -37,13 +37,13 @@ public class SetupPawnView: MonoBehaviour
         parentConstraint.constraintActive = true;
     }
 
-    void OnClientGameStateChanged(GameNetworkState networkState, ITestPhase phase)
+    void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
     {
         switch (phase)
         {
-            case MovementTestPhase movementTestPhase:
+            case MovementPhase movementTestPhase:
                 break;
-            case SetupTestPhase setupTestPhase:
+            case SetupPhase setupTestPhase:
                 if (setupTestPhase.clientState.committed)
                 {
                     foreach (PawnCommit pawnCommit in setupTestPhase.clientState.lockedCommits)

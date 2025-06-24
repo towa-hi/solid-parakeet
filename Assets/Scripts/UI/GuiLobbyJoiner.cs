@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiTestLobbyJoiner : TestGuiElement
+public class GuiLobbyJoiner : TestGuiElement
 {
 
     public TextMeshProUGUI statusText;
@@ -15,7 +15,7 @@ public class GuiTestLobbyJoiner : TestGuiElement
     public Button backButton;
     public Button joinButton;
 
-    public event Action<uint> OnJoinButton;
+    public event Action<LobbyId> OnJoinButton;
     public event Action OnBackButton;
 
     void Start()
@@ -28,7 +28,7 @@ public class GuiTestLobbyJoiner : TestGuiElement
         joinButton.onClick.AddListener(() =>
         {
             AudioManager.instance.PlayMidButtonClick();
-            OnJoinButton?.Invoke(uint.Parse(lobbyIdInputField.text));
+            OnJoinButton?.Invoke(new LobbyId(uint.Parse(lobbyIdInputField.text)));
         });
         lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdInputFieldChanged);
         StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;

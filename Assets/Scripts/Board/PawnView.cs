@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.Animations;
 using Random = UnityEngine.Random;
 
-public class TestPawnView : MonoBehaviour
+public class PawnView : MonoBehaviour
 {
     Billboard billboard;
 
@@ -22,13 +22,13 @@ public class TestPawnView : MonoBehaviour
     
     public Animator animator;
     public RenderEffect renderEffect;
-    TestBoardManager bm;
+    BoardManager bm;
 
     public Vector2Int setupPos;
     
     uint oldPhase = 999;
     
-    public void Initialize(Contract.Pawn p, TestBoardManager inBoardManager)
+    public void Initialize(Contract.Pawn p, BoardManager inBoardManager)
     {
         oldPhase = 999;
         //pawn = inPawn;
@@ -112,7 +112,7 @@ public class TestPawnView : MonoBehaviour
     //     }
     // }
     
-    void OnClientGameStateChanged(GameNetworkState networkState, ITestPhase phase)
+    void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
     {
         bool phaseChanged = (uint)networkState.gameState.phase != oldPhase;
         // switch (phase)
@@ -192,7 +192,7 @@ public class TestPawnView : MonoBehaviour
         }
         else
         {
-            TestTileView tileView = bm.GetTileViewAtPos(pos);
+            TileView tileView = bm.GetTileViewAtPos(pos);
             parentConstraint.SetSource(0, new ConstraintSource
             {
                 sourceTransform = tileView.tileModel.tileOrigin.transform,

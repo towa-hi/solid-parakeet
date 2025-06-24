@@ -5,7 +5,7 @@ using UnityEngine;
 using PrimeTween;
 using Random = UnityEngine.Random;
 
-public class TestTileView : MonoBehaviour
+public class TileView : MonoBehaviour
 {
     public Transform origin;
     
@@ -30,9 +30,9 @@ public class TestTileView : MonoBehaviour
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
 
-    TestBoardManager bm;
+    BoardManager bm;
     
-    public void Initialize(Tile inTile, TestBoardManager inBoardManager)
+    public void Initialize(Tile inTile, BoardManager inBoardManager)
     {
         tile = inTile;
         bm = inBoardManager;
@@ -89,7 +89,7 @@ public class TestTileView : MonoBehaviour
     }
 
     public Vector3 targetElevatorLocalPosition;
-    void OnGameHover(Vector2Int hoveredPos, TestTileView tileView, TestPawnView pawnView, ITestPhase phase)
+    void OnGameHover(Vector2Int hoveredPos, TileView tileView, PawnView pawnView, IPhase phase)
     {
         bool isHovered = tile.pos == hoveredPos;
         bool elevateTile = false;
@@ -213,12 +213,12 @@ public class TestTileView : MonoBehaviour
     }
     
     uint oldPhase = 999;
-    void OnClientGameStateChanged(GameNetworkState networkState, ITestPhase phase)
+    void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
     {
         bool phaseChanged = (uint)networkState.gameState.phase != oldPhase;
         switch (phase)
         {
-            case MovementTestPhase movementTestPhase:
+            case MovementPhase movementTestPhase:
                 // Contract.Pawn? pawnOnTile = lobby.GetPawnByPosition(tile.pos);
                 // if (phaseChanged)
                 // {
@@ -288,7 +288,7 @@ public class TestTileView : MonoBehaviour
                 // }
                 break;
                 
-            case SetupTestPhase setupTestPhase:
+            case SetupPhase setupTestPhase:
                 if (phaseChanged)
                 {
                     SetSetupEmissionHighlight(true);

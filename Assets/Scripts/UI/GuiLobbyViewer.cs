@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiTestLobbyViewer : TestGuiElement
+public class GuiLobbyViewer : TestGuiElement
 {
     public GuiLobbyView lobbyView;
     

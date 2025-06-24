@@ -10,8 +10,8 @@ public class TestClickInputManager : MonoBehaviour
 
     public GameObject hoveredObject; // first object closest to the camera that the pointer is over
     public bool isOverUI; // is pointer over UI element 
-    public TestPawnView hoveredPawnView; // closest pawnView pointer is over
-    public TestTileView hoveredTileView; // closest tileView pointer is over
+    public PawnView hoveredPawnView; // closest pawnView pointer is over
+    public TileView hoveredTileView; // closest tileView pointer is over
     public BoardMakerTile hoveredBoardMakerTile;
     public Dictionary<int, int> layerPriorities;
     
@@ -21,7 +21,7 @@ public class TestClickInputManager : MonoBehaviour
     public event Action<Vector2Int> OnPositionHovered;
     public event Action<Vector2Int> OnClick;
 
-    TestBoardManager bm;
+    BoardManager bm;
     void Awake()
     {
         layerPriorities = new()
@@ -34,7 +34,7 @@ public class TestClickInputManager : MonoBehaviour
         };
     }
     
-    public void Initialize(TestBoardManager inBoardManager)
+    public void Initialize(BoardManager inBoardManager)
     {
         bm = inBoardManager;
         isUpdating = true;
@@ -66,8 +66,8 @@ public class TestClickInputManager : MonoBehaviour
         bool hitTileView = false;
         bool hitBoardMakerTile = false;
         GameObject currentHoveredObject = results.Count == 0 ? null : results[0].gameObject;
-        TestPawnView currentHoveredPawnView = null;
-        TestTileView currentHoveredTileView = null;
+        PawnView currentHoveredPawnView = null;
+        TileView currentHoveredTileView = null;
         BoardMakerTile currentHoveredBoardMakerTile = null;
         foreach (RaycastResult result in results)
         {
@@ -86,12 +86,12 @@ public class TestClickInputManager : MonoBehaviour
                 if (!hitPawnView && hitLayer == LayerMask.NameToLayer("PawnView"))
                 {
                     hitPawnView = true;
-                    currentHoveredPawnView = hitObject.GetComponentInParent<TestPawnView>();
+                    currentHoveredPawnView = hitObject.GetComponentInParent<PawnView>();
                 }
                 if (!hitTileView && hitLayer == LayerMask.NameToLayer("TileView"))
                 {
                     hitTileView = true;
-                    currentHoveredTileView = hitObject.GetComponentInParent<TestTileView>();
+                    currentHoveredTileView = hitObject.GetComponentInParent<TileView>();
                 }
                 if (!hitBoardMakerTile && hitLayer == LayerMask.NameToLayer("BoardMakerTile"))
                 {

@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UI;
 
-public class GuiTestMovement : GameElement
+public class GuiMovement : GameElement
 {
     public TextMeshProUGUI statusText;
     public Button menuButton;
@@ -46,7 +46,7 @@ public class GuiTestMovement : GameElement
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
 
-    public override void Initialize(TestBoardManager boardManager, GameNetworkState networkState)
+    public override void Initialize(BoardManager boardManager, GameNetworkState networkState)
     {
         base.Initialize(boardManager, networkState);
         //boardManager.OnClientGameStateChanged += OnClientGameStateChanged;

@@ -8,6 +8,7 @@ using PrimeTween;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Serialization;
 
 public class GameManager : MonoBehaviour
 {
@@ -16,9 +17,9 @@ public class GameManager : MonoBehaviour
     public Transform purgatory;
     
     public Volume globalVolume;
-    public TestBoardManager testBoardManager;
+    [FormerlySerializedAs("testBoardManager")] public BoardManager boardManager;
     //public GuiManager guiManager;
-    public GuiTestMenuController guiTestMenuController;
+    [FormerlySerializedAs("guiTestMenuController")] public GuiMenuController guiMenuController;
     public CameraManager cameraManager;
     public AudioManager audioManager;
     public PoolManager poolManager;
@@ -61,7 +62,7 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         cameraManager.Initialize();
-        guiTestMenuController.Initialize();
+        guiMenuController.Initialize();
         Debug.Log("Enable input action");
         Globals.InputActions.Game.Enable();
     }
