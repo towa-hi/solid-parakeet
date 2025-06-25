@@ -132,9 +132,6 @@ public static class StellarManager
             lobby_id = GenerateLobbyId(),
             parameters = parameters,
         };
-        var thing = SCUtility.NativeToSCVal(req);
-        var xdr = SCValXdr.EncodeToBase64(thing);
-        Debug.Log("test xdr: " + xdr);
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req);
         EndTask(task);
