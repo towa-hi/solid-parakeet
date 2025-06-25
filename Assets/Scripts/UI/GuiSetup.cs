@@ -36,60 +36,58 @@ public class GuiSetup : GameElement
     {
         base.Initialize(inBoardManager, networkState);
         // Clear existing entries
-        foreach (Transform child in rankEntryListRoot.transform) { Destroy(child.gameObject); }
+        foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
         entries = new Dictionary<Rank, GuiRankListEntry>();
         
-        MaxRank[] maxRanks = networkState.lobbyParameters.max_ranks;
-        foreach (MaxRank maxRank in maxRanks)
+        uint[] maxRanks = networkState.lobbyParameters.max_ranks;
+        for (int i = 0; i < maxRanks.Length; i++)
         {
+            Rank rank = (Rank)i;
+            uint max = maxRanks[i];
             GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
-            entries.Add(maxRank.rank, rankListEntry);
-            rankListEntry.Initialize(maxRank);
+            entries.Add(rank, rankListEntry);
+            rankListEntry.Initialize(rank, max);
             rankListEntry.SetButtonOnClick(OnEntryClicked);
         }
     }
     
-    public void Refresh(SetupClientState state)
-    {
-        Debug.Log("GuiTestSetup Refresh");
-        foreach (KeyValuePair<Rank, uint> kvp in state.maxRanks)
-        {
-            
-        }
-        bool pawnsRemaining = false;
-        foreach (GuiRankListEntry entry in entries.Values)
-        {
-            int remaining = state.GetPendingRemainingCount(entry.rank);
-            int lockedCommitsOfThisRank = state.lockedCommits.Count(c => CacheManager.LoadHiddenRank(c.hidden_rank_hash).rank == entry.rank);
-            int remainingUncommitted = remaining - lockedCommitsOfThisRank;
-            bool isSelected = state.selectedRank.HasValue && state.selectedRank.Value == entry.rank;
-            entry.Refresh(entry.rank, remainingUncommitted, isSelected);
-            if (remainingUncommitted > 0)
-            {
-                pawnsRemaining = true;
-            }
-        }
-        submitButton.interactable = !state.committed && !pawnsRemaining;
-        autoSetupButton.interactable = !state.committed;
-        clearButton.interactable = !state.committed;
-        string status;
-        if (state.committed)
-        {
-            status = "Waiting for opponent... Click refresh to check";
-        }
-        else
-        {
-            if (pawnsRemaining)
-            {
-                status = "Please commit all pawns";
-            }
-            else
-            {
-                status = "Click submit to continue";
-            }
-        }
-        statusText.text = status;
-    }
+    // public void Refresh(SetupClientState state)
+    // {
+    //     Debug.Log("GuiTestSetup Refresh");
+    //     bool pawnsRemaining = false;
+    //     foreach (GuiRankListEntry entry in entries.Values)
+    //     {
+    //         int remaining = state.GetPendingRemainingCount(entry.rank);
+    //         int lockedCommitsOfThisRank = state.lockedCommits.Count(c => CacheManager.LoadHiddenRank(c.hidden_rank_hash).rank == entry.rank);
+    //         int remainingUncommitted = remaining - lockedCommitsOfThisRank;
+    //         bool isSelected = state.selectedRank.HasValue && state.selectedRank.Value == entry.rank;
+    //         entry.Refresh(entry.rank, remainingUncommitted, isSelected);
+    //         if (remainingUncommitted > 0)
+    //         {
+    //             pawnsRemaining = true;
+    //         }
+    //     }
+    //     submitButton.interactable = !state.committed && !pawnsRemaining;
+    //     autoSetupButton.interactable = !state.committed;
+    //     clearButton.interactable = !state.committed;
+    //     string status;
+    //     if (state.committed)
+    //     {
+    //         status = "Waiting for opponent... Click refresh to check";
+    //     }
+    //     else
+    //     {
+    //         if (pawnsRemaining)
+    //         {
+    //             status = "Please commit all pawns";
+    //         }
+    //         else
+    //         {
+    //             status = "Click submit to continue";
+    //         }
+    //     }
+    //     statusText.text = status;
+    // }
     
     void OnEntryClicked(GuiRankListEntry clickedEntry)
     {

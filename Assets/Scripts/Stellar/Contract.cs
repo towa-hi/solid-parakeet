@@ -881,6 +881,7 @@ namespace Contract
         RankProve = 5,
         Finished = 6,
         Aborted = 7,
+        None = 8,
     }
 
     public enum Subphase : uint

@@ -34,15 +34,8 @@ public class GuiGame : TestGuiElement
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
             bm = GameManager.instance.boardManager;
             bm.StartBoardManager(networkUpdated);
-            if (networkUpdated)
-            {
-                chatbox.gameObject.SetActive(true);
-                chatbox.Initialize(true, bm.lobbyId);
-            }
-            else
-            {
-                chatbox.gameObject.SetActive(false);
-            }
+            // TODO: get rid of chatbox
+            chatbox.gameObject.SetActive(false);
         }
         
     }

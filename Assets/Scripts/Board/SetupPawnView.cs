@@ -17,7 +17,7 @@ public class SetupPawnView: MonoBehaviour
     public Badge badge;
     public GameObject model;
     
-    Phase oldPhase = Phase.Completed;
+    Phase oldPhase = Phase.Aborted;
     BoardManager bm;
     
     public void Initialize(TileView tileView, Team inTeam, BoardManager inBm)
@@ -39,39 +39,39 @@ public class SetupPawnView: MonoBehaviour
 
     void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
     {
-        switch (phase)
-        {
-            case MovementPhase movementTestPhase:
-                break;
-            case SetupPhase setupTestPhase:
-                if (setupTestPhase.clientState.committed)
-                {
-                    foreach (PawnCommit pawnCommit in setupTestPhase.clientState.lockedCommits)
-                    {
-                        if (Globals.DecodeStartingPosAndTeamFromPawnId(pawnCommit.pawn_id).Item1 == pos)
-                        {
-                            Rank newRank = CacheManager.LoadHiddenRank(pawnCommit.hidden_rank_hash).rank;
-                            if (rank != newRank)
-                            {
-                                SetPendingCommit(newRank);
-                            }
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    Rank? newRank = setupTestPhase.clientState.pendingCommits[pos];
-                    if (rank != newRank)
-                    {
-                        SetPendingCommit(newRank);
-                    }
-                }
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(phase));
-
-        }
+        // switch (phase)
+        // {
+        //     case MovementPhase movementPhase:
+        //         break;
+        //     case SetupPhase setupPhase:
+        //         if (setupPhase.clientState.committed)
+        //         {
+        //             foreach (SetupCommit setupCommit in setupPhase.clientState.lockedCommits)
+        //             {
+        //                 if (Globals.DecodeStartingPosAndTeamFromPawnId(setupCommit.pawn_id).Item1 == pos)
+        //                 {
+        //                     Rank newRank = CacheManager.LoadHiddenRank(setupCommit.hidden_rank_hash).rank;
+        //                     if (rank != newRank)
+        //                     {
+        //                         SetPendingCommit(newRank);
+        //                     }
+        //                     break;
+        //                 }
+        //             }
+        //         }
+        //         else
+        //         {
+        //             Rank? newRank = setupPhase.clientState.pendingCommits[pos];
+        //             if (rank != newRank)
+        //             {
+        //                 SetPendingCommit(newRank);
+        //             }
+        //         }
+        //         break;
+        //     default:
+        //         throw new ArgumentOutOfRangeException(nameof(phase));
+        //
+        // }
     }
 
     void SetPendingCommit(Rank? inRank)

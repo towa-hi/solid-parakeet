@@ -100,3 +100,8 @@ When working with the Rust contract code:
 ## Strict Guidelines
 
 - Do not edit scriptableobjects or any fields in monobehaviors that are serialized without my permission
+
+## Current Development Status
+
+- We have recently done a major refactor of our contract code and contract structs so a lot of stuff doesn't work right now. We are working through the files one by one fixing them.
+- List of files currently fixed: Contract.cs, StellarDotnet.cs, StellarManager.cs, GuiSetup.cs, GuiRankListEntry.cs

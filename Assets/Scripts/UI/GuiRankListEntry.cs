@@ -15,10 +15,10 @@ public class GuiRankListEntry : MonoBehaviour
     public int remaining;
     public bool selected;
 
-    public void Initialize(MaxRank maxRank)
+    public void Initialize(Rank inRank, uint max)
     {
-        rank = maxRank.rank;
-        remaining = (int)maxRank.max;
+        rank = inRank;
+        remaining = (int)max;
     }
     
     public void Refresh(Rank inRank, int inRemaining, bool clicked)

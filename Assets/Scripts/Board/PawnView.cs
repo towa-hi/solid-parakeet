@@ -28,7 +28,7 @@ public class PawnView : MonoBehaviour
     
     uint oldPhase = 999;
     
-    public void Initialize(Contract.Pawn p, BoardManager inBoardManager)
+    public void Initialize(PawnState p, BoardManager inBoardManager)
     {
         oldPhase = 999;
         //pawn = inPawn;
@@ -40,9 +40,9 @@ public class PawnView : MonoBehaviour
         //isMyTeam = team == inBoardManager.userTeam;
     }
     
-    void Revealed(PawnCommit pawnCommit)
+    void Revealed(PawnState p)
     {
-        Rank rank = CacheManager.LoadHiddenRank(pawnCommit.hidden_rank_hash).rank;
+        Rank rank = CacheManager.LoadHiddenRank(p.hidden_rank_hash).rank;
         PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rank);
         switch (team)
         {
@@ -114,7 +114,7 @@ public class PawnView : MonoBehaviour
     
     void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
     {
-        bool phaseChanged = (uint)networkState.gameState.phase != oldPhase;
+        bool phaseChanged = (uint)networkState.lobbyInfo.phase != oldPhase;
         // switch (phase)
         // {
         //     case MovementTestPhase movementTestPhase:
@@ -165,7 +165,7 @@ public class PawnView : MonoBehaviour
         // oldPhase = lobby.phase;
     }
     
-    void SetPawn(Contract.Pawn p)
+    void SetPawn(PawnState p)
     {
         // pawnId = p.pawn_id;
         // team = (Team)p.team;

@@ -7,10 +7,9 @@ public class GuiMaxPawnListEntry : MonoBehaviour
     public TextMeshProUGUI rankText;
     public TextMeshProUGUI maxText;
     
-    public void Initialize(MaxPawns maxPawns)
+    public void Initialize(Rank rank, uint max)
     {
-        Rank rankEnum = (Rank)maxPawns.rank;
-        rankText.text = rankEnum.ToString();
-        maxText.text = maxPawns.max.ToString();
+        rankText.text = rank.ToString();
+        maxText.text = max.ToString();
     }
 }

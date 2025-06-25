@@ -70,12 +70,12 @@ public class GuiLobbyViewer : TestGuiElement
         if (StellarManager.networkState.lobbyInfo.HasValue)
         {
             LobbyInfo lobbyInfo = StellarManager.networkState.lobbyInfo.Value;
-            if (Globals.AddressIsEmpty(lobbyInfo.host_address))
+            if (lobbyInfo.host_address == null)
             {
                 problems.Add("lobby.host_address is empty");
                 lobbyStartable = false;
             }
-            if (Globals.AddressIsEmpty(lobbyInfo.guest_address))
+            if (lobbyInfo.guest_address == null)
             {
                 problems.Add("lobby.guest_address is empty");
                 lobbyStartable = false;

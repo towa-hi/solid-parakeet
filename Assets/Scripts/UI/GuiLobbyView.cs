@@ -83,8 +83,8 @@ public class GuiLobbyView : MonoBehaviour
         }
         LobbyInfo lobbyInfo = mLobbyInfo.Value;
         lobbyIdText.text = lobbyInfo.index.ToString();
-        hostAddressText.text = Globals.AddressToString(lobbyInfo.host_address);
-        guestAddressText.text = Globals.AddressToString(lobbyInfo.guest_address);
+        hostAddressText.text = lobbyInfo.host_address.Value;
+        guestAddressText.text = lobbyInfo.guest_address.Value;
         //boardNameText.text = lobby.parameters.board_def_name;
         //mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(lobby.parameters.must_fill_all_tiles);
         //securityModeToggle.SetIsOnWithoutNotify(lobby.parameters.security_mode);
