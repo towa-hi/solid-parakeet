@@ -94,16 +94,97 @@ public class GuiLobbyMaker : TestGuiElement
         uint[] maxRanks = new uint[13]; // Array size for all possible ranks (0-12)
         foreach (SMaxPawnsPerRank maxPawn in boardDef.maxPawns)
         {
+            Debug.Log((int)maxPawn.rank);
             maxRanks[(int)maxPawn.rank] = (uint)maxPawn.max;
         }
-        return new LobbyParameters
+        List<Contract.Tile> tilesList = new();
+        foreach (Tile tile in boardDef.tiles)
         {
-            board_hash = boardHash,
-            dev_mode = true,
-            host_team = 1,
-            max_ranks = maxRanks,
-            must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
-            security_mode = securityModeToggle.isOn,
+            int newSetupTeam = 0;
+            switch (tile.setupTeam)
+            {
+                case Team.NONE:
+                    newSetupTeam = 2;
+                    break;
+                case Team.RED:
+                    newSetupTeam = 0;
+                    break;
+                case Team.BLUE:
+                    newSetupTeam = 1;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            Contract.Tile tileDef = new()
+            {
+                passable = tile.isPassable,
+                pos = new Pos(tile.pos),
+                setup = (uint)newSetupTeam,
+            };
+            tilesList.Add(tileDef);
+        }
+
+        Board board = new()
+        {
+            name = boardName,
+            hex = boardDef.isHex,
+            size = new Pos(boardDef.boardSize),
+            tiles = tilesList.ToArray(),
         };
+        Contract.Tile[] fakeTiles = new[]
+        {
+            new Contract.Tile()
+            {
+                passable = true,
+                pos = new Pos(new Vector2Int(0, 0)),
+                setup = (uint)0,
+            },
+            new Contract.Tile()
+            {
+                passable = true,
+                pos = new Pos(new Vector2Int(1, 0)),
+                setup = (uint)0,
+            },
+            new Contract.Tile()
+            {
+                passable = true,
+                pos = new Pos(new Vector2Int(0, 1)),
+                setup = (uint)1,
+            },
+            new Contract.Tile()
+            {
+                passable = true,
+                pos = new Pos(new Vector2Int(1, 1)),
+                setup = (uint)1,
+            },
+        };
+        Board fakeBoard = new()
+        {
+            name = "fakeBoard",
+            hex = false,
+            size = new Pos(new Vector2Int(2, 2)),
+
+        };
+        var hash = boardDef.GetHash();
+        return new()
+        {
+            board = board,
+            board_hash = hash,
+            dev_mode = false,
+            host_team = 0,
+            max_ranks = maxRanks,
+            must_fill_all_tiles = true,
+            security_mode = false,
+            liveUntilLedgerSeq = 0,
+        };
+        // return new LobbyParameters
+        // {
+        //     board_hash = boardHash,
+        //     dev_mode = true,
+        //     host_team = 1,
+        //     max_ranks = maxRanks,
+        //     must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
+        //     security_mode = securityModeToggle.isOn,
+        // };
     }
 }

@@ -18,11 +18,11 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CCCHAOQ6EZOPUJZWF2RNLTKXJBHBLZJLGL6V66PZIQO27K43MQNV5UYZ";
-    public static AccountAddress testGuest = "GC7UFDAGZJMCKENUQ22PHBT6Y4YM2IGLZUAVKSBVQSONRQJEYX46RUAD";
-    public static AccountAddress testHost = "GCVQEM7ES6D37BROAMAOBYFJSJEWK6AYEYQ7YHDKPJ57Z3XHG2OVQD56";
-    public static string testHostSneed = "SDXM6FOTHMAD7Y6SMPGFMP4M7ULVYD47UFS6UXPEAIAPF7FAC4QFBLIV";
-    public static string testGuestSneed = "SBHR4URT5RHIK4U4N45ZNUNEKLYEJYVFQSLSTR4A4RVNFHLIERGVZSIE";
+    public static string testContract = "CCGSCEYNTUGC52ZSX3S6II23CSISFTCBGWC7EI253U2B5OFNPWNPESYP";
+    public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
+    public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
+    public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
+    public static string testGuestSneed = "SD43VTCJENK36DTZD5BJTTHVCWU3ZYYD342S247UE6MK57Y7BABMZVPU";
     public static event Action OnNetworkStateUpdated;
     public static event Action<TrustLineEntry> OnAssetsUpdated;
     public static event Action<TaskInfo> OnTaskStarted;
@@ -118,7 +118,7 @@ public static class StellarManager
         {
             return -3;
         }
-        if (result.Status != GetTransactionResultStatus.SUCCESS)
+        if (result.Status != GetTransactionResult_Status.SUCCESS)
         {
             return -4;
         }
@@ -132,6 +132,9 @@ public static class StellarManager
             lobby_id = GenerateLobbyId(),
             parameters = parameters,
         };
+        var thing = SCUtility.NativeToSCVal(req);
+        var xdr = SCValXdr.EncodeToBase64(thing);
+        Debug.Log("test xdr: " + xdr);
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req);
         EndTask(task);

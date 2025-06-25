@@ -166,5 +166,5 @@ public enum Rank
     CHAMPION = 9,
     WARLORD = 10,
     TRAP = 11,
-    UNKNOWN = 99,
+    UNKNOWN = 12,
 }

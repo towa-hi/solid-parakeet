@@ -75,6 +75,11 @@ namespace Contract
             {
                 return new SCVal.ScvU32() { u32 = new uint32(pawnId.Value) };
             }
+
+            if (input is LobbyId lobbyId)
+            {
+                return new SCVal.ScvU32() { u32 = new uint32(lobbyId.Value) };
+            }
             if (input is Array inputArray)
             {
                 SCVal[] scValArray = new SCVal[inputArray.Length];
@@ -172,19 +177,25 @@ namespace Contract
                     throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
                 }
             }
-            else if (scVal is SCVal.ScvAddress scvAddress)
+            else if (targetType == typeof(AccountAddress))
             {
-                if (targetType == typeof(AccountAddress) || targetType == typeof(AccountAddress?))
+                if (scVal is SCVal.ScvAddress scvAddress)
                 {
                     return new AccountAddress(scvAddress);
                 }
-                return scvAddress;
             }
             else if (targetType == typeof(PawnId))
             {
                 if (scVal is SCVal.ScvU32 u32Val)
                 {
                     return new PawnId(u32Val.u32.InnerValue);
+                }
+            }
+            else if (targetType == typeof(LobbyId))
+            {
+                if (scVal is SCVal.ScvU32 u32Val)
+                {
+                    return new LobbyId(u32Val.u32.InnerValue);
                 }
             }
             else if (scVal is SCVal.ScvVec scvVec)
@@ -404,6 +415,11 @@ namespace Contract
         public int x;
         public int y;
 
+        public Pos(Vector2Int pos)
+        {
+            x = (int)pos.x;
+            y = (int)pos.y;
+        }
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap

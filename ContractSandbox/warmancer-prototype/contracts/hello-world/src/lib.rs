@@ -269,6 +269,20 @@ pub struct CollisionDetection {
 #[contractimpl]
 impl Contract {
 
+    pub fn test_easy(e: &Env, address: Address) -> Result<(), Error> {
+        address.require_auth();
+        let persistent = e.storage().persistent();
+        let temporary = e.storage().temporary();
+        Ok(())
+    }
+
+    pub fn test_function(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
+        address.require_auth();
+        let persistent = e.storage().persistent();
+        let temporary = e.storage().temporary();
+        Ok(())
+    }
+    
     pub fn make_lobby(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();

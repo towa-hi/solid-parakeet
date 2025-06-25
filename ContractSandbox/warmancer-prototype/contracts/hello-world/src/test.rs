@@ -1210,8 +1210,6 @@ fn validate_rank_prove_transition(
 
 // region validation test helpers
 
-
-
 /// Sets up a lobby ready for setup commit phase testing
 /// Returns (lobby_id, host_address, guest_address)
 fn setup_lobby_for_commit_setup(setup: &TestSetup, lobby_id: u32) -> (u32, Address, Address) {
@@ -1290,6 +1288,194 @@ fn advance_through_complete_setup_phase(setup: &TestSetup, lobby_id: u32, host_a
     setup.client.prove_setup(guest_address, &guest_prove_req);
     
     (host_ranks, guest_ranks)
+}
+
+// endregion
+
+// region user board test
+
+#[test]
+fn test_make_lobby_with_user_board_configuration() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let lobby_id = 378189u32;  // Exact lobby ID from user's current request
+    
+    // Create the exact board configuration from user's input
+    let lobby_parameters = create_user_board_parameters(&setup.env);
+    let req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters.clone(),
+    };
+    
+    // This should succeed if the board is valid, or give a proper error if invalid
+    // It should NOT panic with UnreachableCodeReached
+    let result = setup.client.try_make_lobby(&host_address, &req);
+    
+    // Check the result
+    match result {
+        Ok(_) => {
+            // SUCCESS: The board configuration worked
+            setup.verify_lobby_info(lobby_id, &host_address, Phase::Lobby);
+            setup.verify_user_lobby(&host_address, lobby_id);
+        },
+        Err(err) => {
+            match err {
+                Ok(contract_error) => {
+                    // This is acceptable - a proper contract error like InvalidBoard
+                    // Expected error codes: InvalidBoard (40), etc.
+                    assert!(matches!(contract_error, Error::InvalidBoard), 
+                           "Expected InvalidBoard error, got: {:?}", contract_error);
+                },
+                Err(_host_error) => {
+                    // This indicates the contract panicked - which is the issue we're investigating
+                    panic!("Contract panicked with UnreachableCodeReached - this is the bug we found!");
+                }
+            }
+        }
+    }
+}
+
+// Helper function to create the exact board configuration from user's input
+fn create_user_board_parameters(env: &Env) -> LobbyParameters {
+    let mut tiles = Vec::new(env);
+    
+    // Add all 100 tiles exactly as specified in user's input
+    // Row 0
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 0 }, setup: 0 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 0 }, setup: 2 });
+    
+    // Row 1
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 1 }, setup: 0 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 1 }, setup: 2 });
+    
+    // Row 2
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 2 }, setup: 0 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 2 }, setup: 2 });
+    
+    // Row 3
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 3 }, setup: 0 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 3 }, setup: 2 });
+    
+    // Row 4 (neutral)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 4 }, setup: 2 });
+    
+    // Row 5 (neutral)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 5 }, setup: 2 });
+    
+    // Row 6 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 6 }, setup: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 6 }, setup: 2 });
+    
+    // Row 7 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 7 }, setup: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 7 }, setup: 2 });
+    
+    // Row 8 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 8 }, setup: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 8 }, setup: 2 });
+    
+    // Row 9 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 9 }, setup: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 9 }, setup: 2 });
+    
+    let board = Board {
+        hex: true,
+        name: String::from_str(env, "Narrow Hexagons"),
+        size: Pos { x: 10, y: 10 },
+        tiles,
+    };
+    
+    LobbyParameters {
+        board,
+        board_hash: BytesN::from_array(env, &[0u8; 32]),
+        dev_mode: false,
+        host_team: 0,
+        max_ranks: Vec::from_array(env, [1, 1, 8, 3, 4, 4, 4, 3, 2, 1, 1, 4, 0]),
+        must_fill_all_tiles: true,
+        security_mode: false,
+    }
 }
 
 // endregion

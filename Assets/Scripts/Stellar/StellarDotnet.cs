@@ -84,7 +84,7 @@ public class StellarDotnet
         {
             Debug.LogError("CallVoidFunction: timed out or failed to connect");
         }
-        else if (getResult.Status != GetTransactionResultStatus.SUCCESS)
+        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
         {
             Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
         }
@@ -308,13 +308,13 @@ public class StellarDotnet
             });
             switch (completion.Status)
             {
-                case GetTransactionResultStatus.FAILED:
+                case GetTransactionResult_Status.FAILED:
                     Debug.Log("WaitForTransaction: FAILED");
                     return completion;
-                case GetTransactionResultStatus.NOT_FOUND:
+                case GetTransactionResult_Status.NOT_FOUND:
                     await AsyncDelay.Delay(delayMS);
                     continue;
-                case GetTransactionResultStatus.SUCCESS:
+                case GetTransactionResult_Status.SUCCESS:
                     Debug.Log("WaitForTransaction: SUCCESS");
                     return completion;
             }
