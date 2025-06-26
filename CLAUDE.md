@@ -34,6 +34,14 @@ This is a Unity-based implementation of "Scrying Stratego" - a variant of Strate
 - Main scene: `Assets/Scenes/Main.unity`
 - Board editor scene: `Assets/Scenes/BoardMaker.unity`
 
+### Unity Console Logs via MCP Unity
+- **Preferred method**: Direct URI access using `ReadMcpResourceTool`
+  - Info logs: `unity://logs/info?offset=0&limit=25&includeStackTrace=false`
+  - Error logs: `unity://logs/error?offset=0&limit=25&includeStackTrace=false`
+  - Warning logs: `unity://logs/warning?offset=0&limit=25&includeStackTrace=false`
+- Alternative: `mcp__mcp-unity__get_console_logs` (may include MCP Unity debug spam)
+- Always set `includeStackTrace: false` to save 80-90% of tokens unless debugging
+
 ### Smart Contract Development
 ```bash
 cd ContractSandbox/warmancer-prototype
