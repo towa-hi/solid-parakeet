@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Contract;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
@@ -17,6 +18,14 @@ using Stellar.RPC;
 using Stellar.Utilities;
 using UnityEngine;
 using UnityEngine.Networking;
+
+public class SimpleHttpClientFactory : IHttpClientFactory
+{
+    public HttpClient CreateClient(string name)
+    {
+        return new HttpClient();
+    }
+}
 
 public class StellarDotnet
 {
@@ -142,10 +151,11 @@ public class StellarDotnet
     
     async Task<User?> ReqUser(AccountAddress key)
     {
-        LedgerKey ledgerKey = MakeLedgerKey("PackedUser", key, ContractDataDurability.PERSISTENT);
-        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
+        // try to use the stellar rpc client
+        LedgerKey ledgerKey = MakeLedgerKey("User", key, ContractDataDurability.PERSISTENT);
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
-            Keys = new[] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
+            Keys = new [] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
         });
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
@@ -383,7 +393,7 @@ public class StellarDotnet
         };
         string requestJson = JsonConvert.SerializeObject(request, this.jsonSettings);
         string content = await SendJsonRequest(requestJson);
-        JsonRpcResponse<GetLedgerEntriesResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetLedgerEntriesResult>>(content);
+        JsonRpcResponse<GetLedgerEntriesResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetLedgerEntriesResult>>(content, this.jsonSettings);
         GetLedgerEntriesResult ledgerEntriesAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         latestLedger = ledgerEntriesAsync.LatestLedger;
         return ledgerEntriesAsync;

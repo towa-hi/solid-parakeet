@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>dotnetstandard-bip32</id>
+    <version>1.0.0</version>
+    <authors>Eric Malamisura</authors>
+    <owners>elucidsoft</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <licenseUrl>https://github.com/elucidsoft/dotnetstandard-bip32/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/elucidsoft/dotnetstandard-bip32</projectUrl>
+    <iconUrl>http://github.com/contoso/UsefulStuff/nuget_icon.png</iconUrl>
+    <description>SLIP-0010 describes how to derive private and public key pairs for curve types different from secp256k1. This implementation supports ed25519.</description>
+    <releaseNotes>- Initial Release v1.0.0</releaseNotes>
+    <copyright>elucidsoft 2017</copyright>
+    <tags>'.NET Core' 'Stellar' 'BIP32' 'Mnemonic' 'Horizon' 'Blockchain' 'ed25519' 'SLIP-0010' 'Crypto' 'Distributed Ledger'</tags>
+  </metadata>
+</package>

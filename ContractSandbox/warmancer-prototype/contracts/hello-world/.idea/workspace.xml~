@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/../../Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="445860ed-7c9d-4510-83a6-92f93ff2e68d" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../../../../Assets/link.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../../../Assets/link.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../../Assets/link.xml.meta" beforeDir="false" afterPath="$PROJECT_DIR$/../../../../Assets/link.xml.meta" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../../Packages/manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../../Packages/manifest.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../../Packages/packages-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../../Packages/packages-lock.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../../../.." />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/.cargo/registry/src/index.crates.io-6f17d22bba15001f/soroban-sdk-22.0.7/src/string.rs" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="44lZ3yhi" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="2snkJpFfPl3WSHZwegi5NiHv1GS" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Cargo.Test warmancer-prototype.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;org.rust.disableDetachedFileInspectionC:/Users/mokou/scryingstratego/ContractSandbox/warmancer-prototype/contracts/hello-world/src/test.rs&quot;: &quot;true&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.editor&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="Test warmancer-prototype" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="dev" />
+      <option name="command" value="test -- --nocapture" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$/../.." />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="445860ed-7c9d-4510-83a6-92f93ff2e68d" name="Changes" comment="" />
+      <created>1739098656760</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1739098656760</updated>
+      <workItem from="1739098657804" duration="10000" />
+      <workItem from="1739098695208" duration="4628000" />
+      <workItem from="1739277710622" duration="7522000" />
+      <workItem from="1739524441480" duration="15562000" />
+      <workItem from="1739684595794" duration="7578000" />
+      <workItem from="1739978015213" duration="3166000" />
+      <workItem from="1740123538456" duration="17723000" />
+      <workItem from="1740141472359" duration="7894000" />
+      <workItem from="1740413109897" duration="3872000" />
+      <workItem from="1740500294737" duration="10145000" />
+      <workItem from="1740517609590" duration="1045000" />
+      <workItem from="1740615035634" duration="28999000" />
+      <workItem from="1740711786978" duration="9168000" />
+      <workItem from="1740974721820" duration="20085000" />
+      <workItem from="1741083454307" duration="2038000" />
+      <workItem from="1741153355081" duration="7312000" />
+      <workItem from="1741354728385" duration="721000" />
+      <workItem from="1741618423967" duration="8243000" />
+      <workItem from="1742362484321" duration="8793000" />
+      <workItem from="1743455483488" duration="3746000" />
+      <workItem from="1743511051315" duration="1975000" />
+      <workItem from="1744130863816" duration="12299000" />
+      <workItem from="1744234558358" duration="1822000" />
+      <workItem from="1744349189288" duration="20945000" />
+      <workItem from="1744440993830" duration="7833000" />
+      <workItem from="1744710201376" duration="2602000" />
+      <workItem from="1744804483057" duration="15203000" />
+      <workItem from="1744980279646" duration="41080000" />
+      <workItem from="1745466872085" duration="6688000" />
+      <workItem from="1745761652871" duration="4817000" />
+      <workItem from="1748351695666" duration="7000" />
+      <workItem from="1748351713647" duration="32346000" />
+      <workItem from="1748539468264" duration="48377000" />
+      <workItem from="1748816690650" duration="17398000" />
+      <workItem from="1749101984273" duration="2006000" />
+      <workItem from="1749104306162" duration="2681000" />
+      <workItem from="1749717890068" duration="358000" />
+      <workItem from="1749803526242" duration="61196000" />
+      <workItem from="1750153841789" duration="36084000" />
+      <workItem from="1750713194666" duration="16796000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$USER_HOME$/.cargo/registry/src/index.crates.io-6f17d22bba15001f/soroban-spec-tools-22.2.0/src/lib.rs</url>
+          <line>350</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>
