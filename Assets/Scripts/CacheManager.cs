@@ -12,6 +12,7 @@ public static class CacheManager
     static Dictionary<string, HiddenRank> hiddenRankCache = new Dictionary<string, HiddenRank>();
     static Dictionary<string, Setup> setupCache = new Dictionary<string, Setup>();
     static Dictionary<string, HiddenMove> hiddenMoveCache = new Dictionary<string, HiddenMove>();
+    static Dictionary<uint, long> lobbyExpirationCache = new Dictionary<uint, long>();
     public static byte[] SaveHiddenRank(HiddenRank hiddenRank)
     {
         if (hiddenRank.salt == 0)
@@ -107,5 +108,34 @@ public static class CacheManager
             return move;
         }
         return GetFromPlayerPrefs<HiddenMove>(key);
+    }
+
+    public static void CacheLobbyExpiration(uint lobbyId, long liveUntilLedgerSeq)
+    {
+        lobbyExpirationCache[lobbyId] = liveUntilLedgerSeq;
+        PlayerPrefs.SetString($"lobby_expiry_{lobbyId}", liveUntilLedgerSeq.ToString());
+    }
+
+    public static long? GetLobbyExpiration(uint lobbyId)
+    {
+        if (lobbyExpirationCache.TryGetValue(lobbyId, out long cachedExpiry))
+        {
+            return cachedExpiry;
+        }
+        
+        string storedExpiry = PlayerPrefs.GetString($"lobby_expiry_{lobbyId}", null);
+        if (storedExpiry != null && long.TryParse(storedExpiry, out long parsedExpiry))
+        {
+            lobbyExpirationCache[lobbyId] = parsedExpiry;
+            return parsedExpiry;
+        }
+        
+        return null;
+    }
+
+    public static bool IsLobbyExpired(uint lobbyId, long currentLedgerSeq)
+    {
+        long? expiry = GetLobbyExpiration(lobbyId);
+        return expiry.HasValue && currentLedgerSeq >= expiry.Value;
     }
 }

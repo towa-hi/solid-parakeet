@@ -43,14 +43,19 @@ public static class StellarManager
         TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
         networkState = await stellar.ReqNetworkState();
         EndTask(getNetworkStateTask);
-        if (networkState.CurrentLobbyOutdated())
+        
+        if (networkState.user.HasValue && networkState.user?.current_lobby != null)
         {
-            Debug.LogWarning($"UpdateState(): user.current_lobby is set to {networkState.user?.current_lobby} but unretrievable");
-            await LeaveLobbyRequest();
-            TaskInfo getNetworkStateTask2 = SetCurrentTask("ReqNetworkState2");
-            networkState = await stellar.ReqNetworkState();
-            EndTask(getNetworkStateTask2);
+            if (!networkState.lobbyInfo.HasValue || !networkState.lobbyParameters.HasValue)
+            {
+                Debug.LogWarning($"UpdateState(): user.current_lobby is set to {networkState.user?.current_lobby} but lobby data is missing - likely expired");
+                var updatedUser = networkState.user.Value;
+                updatedUser.current_lobby = null;
+                networkState.user = updatedUser;
+                Debug.Log("Set current_lobby to null due to expired/missing lobby");
+            }
         }
+        
         OnNetworkStateUpdated?.Invoke();
         return true;
     }

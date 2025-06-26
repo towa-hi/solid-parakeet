@@ -1807,22 +1807,6 @@ public struct NetworkState
         lobbyParameters = null;
         gameState = null;
     }
-    public bool CurrentLobbyOutdated()
-    {
-        if (!user.HasValue)
-        {
-            return false;
-        }
-        if (user?.current_lobby == null)
-        {
-            return false;
-        }
-        if (!lobbyInfo.HasValue || !lobbyParameters.HasValue)
-        {
-            return true;
-        }
-        return false;
-    }
     
     public (LobbyInfo lobbyInfo, GameState gameState, LobbyParameters lobbyParameters) GetGameData()
     {
