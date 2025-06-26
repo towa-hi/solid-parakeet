@@ -10090,16 +10090,16 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1737829280}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2387958193983423608}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 720, y: 540}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1737829282
@@ -10114,28 +10114,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 112046bbbac31bc4093ba57478e35766, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  user:
-    games_completed: 0
-  lobbyInfo:
-    index: 0
-    phase: 0
-    subphase: 0
-    liveUntilLedgerSeq: 0
-  lobbyParameters:
-    board:
-      hex: 0
-      name: 
-      size:
-        x: 0
-        y: 0
-      tiles: []
-    board_hash: 
-    dev_mode: 0
-    host_team: 0
-    max_ranks: 
-    must_fill_all_tiles: 0
-    security_mode: 0
-    liveUntilLedgerSeq: 0
+  isRunning: 0
+  isInitialized: 0
+  address: 
+  stringDebug: 
+  humanDebugNetworkInspector: {fileID: 1899628308}
 --- !u!1 &1753307258
 GameObject:
   m_ObjectHideFlags: 0
@@ -11134,6 +11117,101 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1895252788}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1899628307
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1899628309}
+  - component: {fileID: 1899628308}
+  m_Layer: 5
+  m_Name: HumanDebug
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1899628308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1899628307}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3624fa624972fd48868b395edde476a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  isRunning: 0
+  isInitialized: 0
+  address: 
+  inLobby: 0
+  userHasValue: 0
+  _user:
+    hasValue: 0
+    currentLobbyHasValue: 0
+    currentLobby: 42069
+    gamesCompleted: 0
+    index: 
+  lobbyInfoHasValue: 0
+  _lobbyInfo:
+    hasValue: 0
+    guestAddressHasValue: 0
+    guestAddress: 
+    hostAddressHasValue: 0
+    hostAddress: 
+    index: 0
+    phase: 0
+    subphase: 0
+    liveUntilLedgerSeq: 0
+  lobbyParametersHasValue: 0
+  _lobbyParameters:
+    hasValue: 0
+    board:
+      hex: 0
+      name: 
+      size:
+        x: 0
+        y: 0
+      tiles: []
+    boardHash: 
+    devMode: 0
+    hostTeam: 0
+    maxRanks: 
+    mustFillAllTiles: 0
+    securityMode: 0
+    liveUntilLedgerSeq: 0
+  gameStateHasValue: 0
+  _gameState:
+    hasValue: 0
+    moves: []
+    pawns: []
+    setups: []
+    turn: 0
+    liveUntilLedgerSeq: 0
+--- !u!224 &1899628309
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1899628307}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 720, y: 540}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1908073839
 GameObject:
   m_ObjectHideFlags: 0
@@ -12354,9 +12432,9 @@ MonoBehaviour:
   lobbyId: 
   pawnViews: []
   lastPhase: 0
-  cameraBounds: {fileID: 0}
-  waveOrigin1: {fileID: 0}
-  waveOrigin2: {fileID: 0}
+  cameraBounds: {fileID: 1401291439}
+  waveOrigin1: {fileID: 1800112619}
+  waveOrigin2: {fileID: 2045328833}
 --- !u!4 &1972489293
 Transform:
   m_ObjectHideFlags: 0
@@ -16109,7 +16187,6 @@ RectTransform:
   - {fileID: 2126589468293136351}
   - {fileID: 1035372901}
   - {fileID: 1152632649}
-  - {fileID: 1737829281}
   m_Father: {fileID: 15766421}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -21219,6 +21296,8 @@ PrefabInstance:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 1737829281}
+  - {fileID: 1899628309}
   - {fileID: 986824266}
   - {fileID: 1527594346}
   - {fileID: 1972489293}

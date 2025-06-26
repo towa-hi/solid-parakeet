@@ -83,9 +83,24 @@ public class GuiLobbyView : MonoBehaviour
         }
         LobbyInfo lobbyInfo = mLobbyInfo.Value;
         lobbyIdText.text = lobbyInfo.index.ToString();
-        hostAddressText.text = lobbyInfo.host_address.Value;
-        guestAddressText.text = lobbyInfo.guest_address.Value;
-        //boardNameText.text = lobby.parameters.board_def_name;
+        if (lobbyInfo.host_address != null)
+        {
+            hostAddressText.text = lobbyInfo.host_address.Value;
+        }
+        else
+        {
+            hostAddressText.text = string.Empty;
+        }
+
+        if (lobbyInfo.guest_address != null)
+        {
+            guestAddressText.text = lobbyInfo.guest_address.Value;
+        }
+        else
+        {
+            guestAddressText.text = string.Empty;
+        }
+        //boardNameText.text = lobbyInfo.parameters.board_def_name;
         //mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(lobby.parameters.must_fill_all_tiles);
         //securityModeToggle.SetIsOnWithoutNotify(lobby.parameters.security_mode);
         //

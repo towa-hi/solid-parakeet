@@ -89,12 +89,9 @@ public class GuiLobbyMaker : TestGuiElement
         // TODO: more secure hash later
         BoardDef boardDef = boardDefs[boardDropdown.value];
         string boardName = boardDef.boardName;
-        SHA256 sha256 = SHA256.Create();
-        byte[] boardHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(boardName));
         uint[] maxRanks = new uint[13]; // Array size for all possible ranks (0-12)
         foreach (SMaxPawnsPerRank maxPawn in boardDef.maxPawns)
         {
-            Debug.Log((int)maxPawn.rank);
             maxRanks[(int)maxPawn.rank] = (uint)maxPawn.max;
         }
         List<Contract.Tile> tilesList = new();
@@ -123,7 +120,6 @@ public class GuiLobbyMaker : TestGuiElement
             };
             tilesList.Add(tileDef);
         }
-
         Board board = new()
         {
             name = boardName,
@@ -131,41 +127,7 @@ public class GuiLobbyMaker : TestGuiElement
             size = new Pos(boardDef.boardSize),
             tiles = tilesList.ToArray(),
         };
-        Contract.Tile[] fakeTiles = new[]
-        {
-            new Contract.Tile()
-            {
-                passable = true,
-                pos = new Pos(new Vector2Int(0, 0)),
-                setup = (uint)0,
-            },
-            new Contract.Tile()
-            {
-                passable = true,
-                pos = new Pos(new Vector2Int(1, 0)),
-                setup = (uint)0,
-            },
-            new Contract.Tile()
-            {
-                passable = true,
-                pos = new Pos(new Vector2Int(0, 1)),
-                setup = (uint)1,
-            },
-            new Contract.Tile()
-            {
-                passable = true,
-                pos = new Pos(new Vector2Int(1, 1)),
-                setup = (uint)1,
-            },
-        };
-        Board fakeBoard = new()
-        {
-            name = "fakeBoard",
-            hex = false,
-            size = new Pos(new Vector2Int(2, 2)),
-
-        };
-        var hash = boardDef.GetHash();
+        byte[] hash = boardDef.GetHash();
         return new()
         {
             board = board,
@@ -173,18 +135,9 @@ public class GuiLobbyMaker : TestGuiElement
             dev_mode = false,
             host_team = 0,
             max_ranks = maxRanks,
-            must_fill_all_tiles = true,
-            security_mode = false,
+            must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
+            security_mode = securityModeToggle.isOn,
             liveUntilLedgerSeq = 0,
         };
-        // return new LobbyParameters
-        // {
-        //     board_hash = boardHash,
-        //     dev_mode = true,
-        //     host_team = 1,
-        //     max_ranks = maxRanks,
-        //     must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
-        //     security_mode = securityModeToggle.isOn,
-        // };
     }
 }

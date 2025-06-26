@@ -149,9 +149,8 @@ public class BoardManager : MonoBehaviour
     {
         // get boarddef from hash
         BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        SHA256 sha256 = SHA256.Create();
         boardDef = boardDefs.First(def => 
-            sha256.ComputeHash(Encoding.UTF8.GetBytes(def.boardName)).SequenceEqual(networkState.lobbyParameters.board_hash)
+            def.GetHash().SequenceEqual(networkState.lobbyParameters.board_hash)
         );
         if (!boardDef)
         {

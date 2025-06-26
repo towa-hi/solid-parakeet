@@ -441,6 +441,4 @@ MonoBehaviour:
     max: 1
   - rank: 11
     max: 4
-  - rank: 99
-    max: 0
   center: {x: 3.72, y: 0, z: 4.5}
