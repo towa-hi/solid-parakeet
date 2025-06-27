@@ -15,37 +15,47 @@ public class GuiGame : TestGuiElement
     
     public GameElement currentElement;
     
-    public BoardManager bm;
     
     void Start()
     {
-        setup.SetIsEnabled(false);
-        movement.SetIsEnabled(false);
+        setup.ShowElement(false);
+        movement.ShowElement(false);
+        GameManager.instance.boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
     }
     
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
     {
         base.SetIsEnabled(inIsEnabled, networkUpdated);
-        // TODO: make this not jank
         if (isEnabled)
         {
             AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
             GameManager.instance.cameraManager.enableCameraMovement = true;
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
-            bm = GameManager.instance.boardManager;
-            bm.StartBoardManager(networkUpdated);
             // TODO: get rid of chatbox
             chatbox.gameObject.SetActive(false);
         }
         
     }
-    
-    public void SetCurrentElement(GameElement element, GameNetworkState networkState)
-    {
-        currentElement?.SetIsEnabled(false);
-        currentElement = element;
-        currentElement.SetIsEnabled(true);
-        currentElement.Initialize(GameManager.instance.boardManager, networkState);
-    }
 
+    void OnClientGameStateChanged(IPhase currentPhase, bool phaseChanged)
+    {
+        GameElement newElement;
+        switch (currentPhase)
+        {
+            case SetupCommitPhase setupCommitPhase:
+            case SetupProvePhase setupProvePhase:
+                newElement = setup;
+                break;
+            case MoveCommitPhase moveCommitPhase:
+            case MoveProvePhase moveProvePhase:
+            case RankProvePhase rankProvePhase:
+                newElement = movement;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(currentPhase));
+        }
+        currentElement = newElement;
+        setup.Refresh(currentPhase);
+        movement.Refresh(currentPhase);
+    }
 }

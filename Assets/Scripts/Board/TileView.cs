@@ -12,7 +12,9 @@ public class TileView : MonoBehaviour
     public TileModel tileModel;
     public TileModel hexTileModel;
     public TileModel squareTileModel;
+
     public Tile tile;
+    
     public Color baseColor;
     public Color redTeamColor;
     public Color blueTeamColor;
@@ -30,19 +32,17 @@ public class TileView : MonoBehaviour
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
 
-    BoardManager bm;
+    // BoardManager bm;
     
-    public void Initialize(Tile inTile, BoardManager inBoardManager)
+    public void Initialize(Tile tile, BoardManager boardManager, bool isHex)
     {
-        tile = inTile;
-        bm = inBoardManager;
-        bm.OnClientGameStateChanged += OnClientGameStateChanged;
-        bm.OnGameHover += OnGameHover;
-        gameObject.name = $"Tile ({tile.pos.x}, {tile.pos.y})";
+        boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
+        boardManager.OnGameHover += OnGameHover;
+        this.tile = tile;
+        gameObject.name = $"Tile (not set)";
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
-        tileModel = bm.boardDef.isHex ? hexTileModel : squareTileModel;
-        tileModel.gameObject.SetActive(true);
+        tileModel = isHex ? hexTileModel : squareTileModel;
         ShowTile(tile.isPassable);
         initialElevatorLocalPos = tileModel.elevator.localPosition;
     }
@@ -91,7 +91,7 @@ public class TileView : MonoBehaviour
     public Vector3 targetElevatorLocalPosition;
     void OnGameHover(Vector2Int hoveredPos, TileView tileView, PawnView pawnView, IPhase phase)
     {
-        bool isHovered = tile.pos == hoveredPos;
+        // bool isHovered = tile.pos == hoveredPos;
         bool elevateTile = false;
         bool drawOutline = false;
         Transform elevator = tileModel.elevator;
@@ -212,10 +212,8 @@ public class TileView : MonoBehaviour
         // }
     }
     
-    Phase oldPhase = Phase.None;
-    void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
+    void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
     {
-        bool phaseChanged = networkState.lobbyInfo.phase != oldPhase;
         // switch (phase)
         // {
         //     case MovementPhase movementTestPhase:
@@ -300,64 +298,64 @@ public class TileView : MonoBehaviour
         // }
         // oldPhase = networkState.lobbyInfo.phase;
     }
-
-    public float delayFactor = 0.1f;
-    float delay = 0.001f;
-    void PlayStartAnimation()
-    {
-        if (!tileModel.isActiveAndEnabled) return;
-        if (startSequence.isAlive) return;
-        if (!bm) return;
-        // get the delay
-        // get distance to closest waveOrigin
-        float distanceToWave1 = Vector3.Distance(origin.position, bm.waveOrigin1.position);
-        float distanceToWave2 = Vector3.Distance(origin.position, bm.waveOrigin2.position);
-        float minDistance = Mathf.Min(distanceToWave1, distanceToWave2);
-        delay = minDistance;
-        delay = delay - 8f;
-        if (delay <= 0f)
-        {
-            delay = 0.01f;
-        }
-        Vector3 destination = tileModel.transform.localPosition;
-        startTweenSettings.endValue = destination;
-        startSequence = Sequence.Create()
-            .ChainCallback(() =>
-            {
-                ShowTile(false);
-            })
-            .ChainDelay(delay)
-            .ChainCallback(() =>
-            {
-                ShowTile(true);
-            })
-            .Chain(Tween.LocalPosition(tileModel.transform, startTweenSettings));
-    }
-    
-    void SetSetupEmissionHighlight(bool highlight)
-    {
-        if (highlight)
-        {
-            switch (tile.setupTeam)
-            {
-                case Team.NONE:
-                    SetTopEmission(Color.clear);
-                    break;
-                case Team.RED:
-                    SetTopEmission(redTeamColor);
-                    break;
-                case Team.BLUE:
-                    SetTopEmission(blueTeamColor);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-        else
-        {
-            SetTopEmission(baseColor);
-        }
-    }
+    //
+    // public float delayFactor = 0.1f;
+    // float delay = 0.001f;
+    // void PlayStartAnimation()
+    // {
+    //     if (!tileModel.isActiveAndEnabled) return;
+    //     if (startSequence.isAlive) return;
+    //     if (!bm) return;
+    //     // get the delay
+    //     // get distance to closest waveOrigin
+    //     float distanceToWave1 = Vector3.Distance(origin.position, bm.waveOrigin1.position);
+    //     float distanceToWave2 = Vector3.Distance(origin.position, bm.waveOrigin2.position);
+    //     float minDistance = Mathf.Min(distanceToWave1, distanceToWave2);
+    //     delay = minDistance;
+    //     delay = delay - 8f;
+    //     if (delay <= 0f)
+    //     {
+    //         delay = 0.01f;
+    //     }
+    //     Vector3 destination = tileModel.transform.localPosition;
+    //     startTweenSettings.endValue = destination;
+    //     startSequence = Sequence.Create()
+    //         .ChainCallback(() =>
+    //         {
+    //             ShowTile(false);
+    //         })
+    //         .ChainDelay(delay)
+    //         .ChainCallback(() =>
+    //         {
+    //             ShowTile(true);
+    //         })
+    //         .Chain(Tween.LocalPosition(tileModel.transform, startTweenSettings));
+    // }
+    //
+    // void SetSetupEmissionHighlight(bool highlight)
+    // {
+    //     if (highlight)
+    //     {
+    //         switch (tile.setupTeam)
+    //         {
+    //             case Team.NONE:
+    //                 SetTopEmission(Color.clear);
+    //                 break;
+    //             case Team.RED:
+    //                 SetTopEmission(redTeamColor);
+    //                 break;
+    //             case Team.BLUE:
+    //                 SetTopEmission(blueTeamColor);
+    //                 break;
+    //             default:
+    //                 throw new ArgumentOutOfRangeException();
+    //         }
+    //     }
+    //     else
+    //     {
+    //         SetTopEmission(baseColor);
+    //     }
+    // }
     
     void ShowTile(bool show)
     {

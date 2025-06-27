@@ -152,6 +152,7 @@ public class GuiMenuController: MonoBehaviour
         if (StellarManager.networkState.inLobby)
         {
             ShowMenuElement(gameElement, true);
+            GameManager.instance.boardManager.StartBoardManager();
         }
     }
     
@@ -229,17 +230,12 @@ public class TestGuiElement: MonoBehaviour
 
 public class GameElement: MonoBehaviour
 {
-    bool isEnabled;
-    BoardManager bm;
-    
-    public void SetIsEnabled(bool inIsEnabled)
-    {
-        isEnabled = inIsEnabled;
-        gameObject.SetActive(inIsEnabled);
-    }
+    public bool isVisible;
 
-    public virtual void Initialize(BoardManager boardManager, GameNetworkState networkState)
+    public void ShowElement(bool show)
     {
-        bm = boardManager;
+        isVisible = show;
+        gameObject.SetActive(show);
     }
+    
 }

@@ -1,4 +1,5 @@
 using System;
+using Contract;
 using UnityEngine;
 
 [ExecuteAlways]
@@ -7,16 +8,17 @@ public class BoardGrid : MonoBehaviour
     public bool showGizmos;
     public bool showLabels;
     bool isInitialized;
-    public SBoardDef boardDef;
+    //public SBoardDef boardDef;
     public float cellSize;
     public Vector2Int markerPos;
+    public bool isHex;
     
     // Constants for hex grid calculations
     public float HEX_INNER_RADIUS_MULTIPLIER = 0.866025404f; // √3/2
 
-    public void SetBoard(SBoardDef inBoardDef)
+    public void SetBoard(bool isHex)
     {
-        boardDef = inBoardDef;
+        this.isHex = isHex;
         isInitialized = true;
     }
 
@@ -25,42 +27,42 @@ public class BoardGrid : MonoBehaviour
         isInitialized = false;
     }
     
-    void OnDrawGizmos()
-    {
-        if (!isInitialized) return;
-        if (!showGizmos) return;
-        Gizmos.color = Color.white;
-        
-        // Draw all cells in the grid
-        for (int x = 0; x < boardDef.boardSize.x; x++)
-        {
-            for (int y = 0; y < boardDef.boardSize.y; y++)
-            {
-                Vector2Int pos = new Vector2Int(x, y);
-                Vector3 worldPos = CellToWorld(pos);
-                DrawCircle(worldPos);
-                if (boardDef.isHex)
-                {
-                    DrawHexGizmo(worldPos);
-                }
-                else
-                {
-                    DrawSquareGizmo(worldPos);
-                }
-            }
-        }
-        DrawMarkerCircle(CellToWorld(markerPos), Color.red);
-        Vector2Int[] neighbors = Shared.GetNeighbors(markerPos, boardDef.isHex);
-        DrawMarkerCircle(CellToWorld(neighbors[0]), Color.red);
-        DrawMarkerCircle(CellToWorld(neighbors[1]), Color.magenta);
-        DrawMarkerCircle(CellToWorld(neighbors[2]), Color.yellow);
-        DrawMarkerCircle(CellToWorld(neighbors[3]), Color.green);
-        if (boardDef.isHex)
-        {
-            DrawMarkerCircle(CellToWorld(neighbors[4]), Color.blue);
-            DrawMarkerCircle(CellToWorld(neighbors[5]), Color.cyan);
-        }
-    }
+    // void OnDrawGizmos()
+    // {
+    //     if (!isInitialized) return;
+    //     if (!showGizmos) return;
+    //     Gizmos.color = Color.white;
+    //     
+    //     // Draw all cells in the grid
+    //     for (int x = 0; x < boardDef.boardSize.x; x++)
+    //     {
+    //         for (int y = 0; y < boardDef.boardSize.y; y++)
+    //         {
+    //             Vector2Int pos = new Vector2Int(x, y);
+    //             Vector3 worldPos = CellToWorld(pos);
+    //             DrawCircle(worldPos);
+    //             if (boardDef.isHex)
+    //             {
+    //                 DrawHexGizmo(worldPos);
+    //             }
+    //             else
+    //             {
+    //                 DrawSquareGizmo(worldPos);
+    //             }
+    //         }
+    //     }
+    //     DrawMarkerCircle(CellToWorld(markerPos), Color.red);
+    //     Vector2Int[] neighbors = Shared.GetNeighbors(markerPos, boardDef.isHex);
+    //     DrawMarkerCircle(CellToWorld(neighbors[0]), Color.red);
+    //     DrawMarkerCircle(CellToWorld(neighbors[1]), Color.magenta);
+    //     DrawMarkerCircle(CellToWorld(neighbors[2]), Color.yellow);
+    //     DrawMarkerCircle(CellToWorld(neighbors[3]), Color.green);
+    //     if (boardDef.isHex)
+    //     {
+    //         DrawMarkerCircle(CellToWorld(neighbors[4]), Color.blue);
+    //         DrawMarkerCircle(CellToWorld(neighbors[5]), Color.cyan);
+    //     }
+    // }
     
     public Vector3 offset = Vector3.zero;
     public int fontSize = 11;
@@ -70,21 +72,21 @@ public class BoardGrid : MonoBehaviour
     
     GUIStyle style = new GUIStyle();
 
-    void OnGUI()
-    {
-        if (!isInitialized) return;
-        if (!showLabels) return;
-        for (int x = 0; x < boardDef.boardSize.x; x++)
-        {
-            for (int y = 0; y < boardDef.boardSize.y; y++)
-            {
-                Vector2Int pos = new Vector2Int(x, y);
-                Vector3 position = CellToWorld(pos);
-                string message = $"{pos}";
-                DrawText(position, message);
-            }
-        }
-    }
+    // void OnGUI()
+    // {
+    //     if (!isInitialized) return;
+    //     if (!showLabels) return;
+    //     for (int x = 0; x < boardDef.boardSize.x; x++)
+    //     {
+    //         for (int y = 0; y < boardDef.boardSize.y; y++)
+    //         {
+    //             Vector2Int pos = new Vector2Int(x, y);
+    //             Vector3 position = CellToWorld(pos);
+    //             string message = $"{pos}";
+    //             DrawText(position, message);
+    //         }
+    //     }
+    // }
     void DrawText(Vector3 position, string message)
     {
         Vector3 screenPos = Camera.main.WorldToScreenPoint(position + offset);
@@ -99,12 +101,12 @@ public class BoardGrid : MonoBehaviour
     }
     
     // Convert grid coordinates to world position
-    public Vector3 CellToWorld(Vector2Int pos)
+    public Vector3 CellToWorld(Pos pos)
     {
         // Adjust position by origin offset
-        Vector2Int adjustedPos = pos;
+        Vector2Int adjustedPos = pos.ToVector2Int();
         
-        if (boardDef.isHex)
+        if (isHex)
         {
             
             float x = adjustedPos.x * (cellSize * HEX_INNER_RADIUS_MULTIPLIER);

@@ -45,6 +45,35 @@ public class GuiMovement : GameElement
         badgeButton.onClick.AddListener(() => OnBadgeButton?.Invoke());
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
+
+    public void Refresh(IPhase currentPhase)
+    {
+        OnMenuButton = null;
+        OnExtraButton = null;
+        OnCheatButton = null;
+        OnBadgeButton = null;
+        OnSubmitMoveButton = null;
+        OnGraveyardButton = null;
+        OnRefreshButton = null;
+        OnAutoSubmitToggle = null;
+        
+        bool show;
+        switch (currentPhase)
+        {
+            case SetupCommitPhase setupCommitPhase:
+            case SetupProvePhase setupProvePhase:
+                show = false;
+                break;
+            case MoveCommitPhase moveCommitPhase:
+            case MoveProvePhase moveProvePhase:
+            case RankProvePhase rankProvePhase:
+                show = true;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(currentPhase));
+        }
+        ShowElement(show);
+    }
     //
     // public override void Initialize(BoardManager boardManager, GameNetworkState networkState)
     // {

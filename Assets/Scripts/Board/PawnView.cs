@@ -112,9 +112,9 @@ public class PawnView : MonoBehaviour
     //     }
     // }
     
-    void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
+    void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
     {
-        bool phaseChanged = (uint)networkState.lobbyInfo.phase != oldPhase;
+        // bool phaseChanged = (uint)networkState.lobbyInfo.phase != oldPhase;
         // switch (phase)
         // {
         //     case MovementTestPhase movementTestPhase:

@@ -22,7 +22,7 @@ public class GuiSetup : GameElement
     public event Action OnAutoSetupButton;
     public event Action OnRefreshButton;
     public event Action OnSubmitButton;
-    public event Action<Rank> OnRankEntryClicked;
+    public event Action<Rank?> OnRankSelected;
     
     void Start()
     {
@@ -31,15 +31,57 @@ public class GuiSetup : GameElement
         refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
-    
-    public override void Initialize(BoardManager inBoardManager, GameNetworkState networkState)
+
+    public void Refresh(IPhase currentPhase)
     {
-        base.Initialize(inBoardManager, networkState);
+        bool show;
+        switch (currentPhase)
+        {
+            case SetupCommitPhase setupCommitPhase:
+                show = true;
+                if (!isVisible)
+                {
+                    Initialize(setupCommitPhase);
+                }
+                break;
+            case SetupProvePhase setupProvePhase:
+                show = true;
+                if (!isVisible)
+                {
+                    Initialize(setupProvePhase);
+                }
+                break;
+            case MoveCommitPhase moveCommitPhase:
+            case MoveProvePhase moveProvePhase:
+            case RankProvePhase rankProvePhase:
+                show = false;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(currentPhase));
+        }
+
+        
+        ShowElement(show);
+    }
+
+    void Initialize(SetupCommitPhase setupCommitPhase)
+    {
+        SetRankEntries(setupCommitPhase.setupCommitData.lobbyParameters.max_ranks);
         // Clear existing entries
         foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
         entries = new Dictionary<Rank, GuiRankListEntry>();
         
-        uint[] maxRanks = networkState.lobbyParameters.max_ranks;
+    }
+
+    void Initialize(SetupProvePhase setupProvePhase)
+    {
+        // SetRankEntries()
+    }
+
+    void SetRankEntries(uint[] maxRanks)
+    {
+        foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
+        entries = new Dictionary<Rank, GuiRankListEntry>();
         for (int i = 0; i < maxRanks.Length; i++)
         {
             Rank rank = (Rank)i;
@@ -50,7 +92,39 @@ public class GuiSetup : GameElement
             rankListEntry.SetButtonOnClick(OnEntryClicked);
         }
     }
+    public void SetActions(
+        Action onClear = null, 
+        Action onAutoSetup = null, 
+        Action onRefresh = null, 
+        Action onSubmit = null, 
+        Action<Rank?> onRankSelected = null)
+    {
+        OnClearButton = onClear;
+        OnAutoSetupButton = onAutoSetup;
+        OnRefreshButton = onRefresh;
+        OnSubmitButton = onSubmit;
+        OnRankSelected = onRankSelected;
+    }
     
+    // public override void Initialize(BoardManager inBoardManager, GameNetworkState networkState)
+    // {
+    //     base.Initialize(inBoardManager, networkState);
+    //     // Clear existing entries
+    //     foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
+    //     entries = new Dictionary<Rank, GuiRankListEntry>();
+    //     
+    //     uint[] maxRanks = networkState.lobbyParameters.max_ranks;
+    //     for (int i = 0; i < maxRanks.Length; i++)
+    //     {
+    //         Rank rank = (Rank)i;
+    //         uint max = maxRanks[i];
+    //         GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
+    //         entries.Add(rank, rankListEntry);
+    //         rankListEntry.Initialize(rank, max);
+    //         rankListEntry.SetButtonOnClick(OnEntryClicked);
+    //     }
+    // }
+
     // public void Refresh(SetupClientState state)
     // {
     //     Debug.Log("GuiTestSetup Refresh");
@@ -92,6 +166,6 @@ public class GuiSetup : GameElement
     void OnEntryClicked(GuiRankListEntry clickedEntry)
     {
         Debug.Log("clicked");
-        OnRankEntryClicked?.Invoke(clickedEntry.rank);
+        // OnRankEntryClicked?.Invoke(clickedEntry.rank);
     }
 }

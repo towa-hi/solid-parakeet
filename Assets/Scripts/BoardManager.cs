@@ -8,10 +8,12 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Serialization;
+using Board = Contract.Board;
 using Random = UnityEngine.Random;
 
 public class BoardManager : MonoBehaviour
 {
+    public bool activated;
     public bool initialized;
     // never mutate these externally
     public Transform purgatory;
@@ -31,7 +33,7 @@ public class BoardManager : MonoBehaviour
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
     public Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
-    public Dictionary<Vector2Int, SetupPawnView> setupPawnViews = new();
+    public Dictionary<Pos, SetupPawnView> setupPawnViews = new();
     // last known lobby
     //public Lobby cachedLobby;
     public GameNetworkState cachedNetworkState;
@@ -44,7 +46,7 @@ public class BoardManager : MonoBehaviour
 
     
     //public event Action<Lobby> OnPhaseChanged;
-    public event Action<GameNetworkState, IPhase> OnClientGameStateChanged;
+    public event Action<IPhase, bool> OnClientGameStateChanged;
     public event Action<Vector2Int, TileView, PawnView, IPhase> OnGameHover;
     
     void Start()
@@ -53,30 +55,10 @@ public class BoardManager : MonoBehaviour
         clickInputManager.OnPositionHovered += OnHover;
         StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
-
-    bool firstTime;
-
-    public static bool singlePlayer;
     
-    public void StartBoardManager(bool networkUpdated)
+    public void StartBoardManager()
     {
-        clickInputManager.Initialize(this);
-        if (!networkUpdated)
-        {
-            singlePlayer = true;
-            //FakeServer.ins.StartFakeLobby();
-            //Initialize(FakeServer.ins.fakeHost, FakeServer.ins.fakeLobby);
-            //only invoke this directly once on start
-        }
-        else
-        {
-            Assert.IsTrue(StellarManager.networkState.user.HasValue);
-            GameNetworkState networkState = new(StellarManager.networkState);
-            Initialize(networkState);
-            //only invoke this directly once on start
-        }
-        initialized = true;
-        firstTime = true;
+        activated = true;
         OnNetworkStateUpdated(); //only invoke this directly once on start
     }
 
@@ -90,30 +72,37 @@ public class BoardManager : MonoBehaviour
     void OnNetworkStateUpdated()
     {
         Debug.Log("TestBoardManager::OnNetworkStateUpdated");
-        if (!initialized)
+        if (!activated)
         {
             return;
         }
         GameNetworkState networkState = new(StellarManager.networkState);
-        if (firstTime || networkState.lobbyInfo.phase != lastPhase)
+        if (!initialized)
         {
-            firstTime = false;
+            Initialize(networkState);
+            clickInputManager.Initialize(this);
+            initialized = true;
+        }
+        
+        bool phaseChanged = false;
+        if (networkState.lobbyInfo.phase != lastPhase)
+        {
             switch (networkState.lobbyInfo.phase)
             {
                 case Phase.SetupCommit:
-                    SetPhase(new SetupCommitPhase(this, guiGame.setup));
+                    SetPhase(new SetupCommitPhase(this, guiGame.setup, networkState));
                     break;
                 case Phase.SetupProve:
-                    SetPhase(new SetupProvePhase(this, guiGame.setup));
+                    SetPhase(new SetupProvePhase(this, guiGame.setup, networkState));
                     break;
                 case Phase.MoveCommit:
-                    SetPhase(new MoveCommitPhase(this, guiGame.movement));
+                    SetPhase(new MoveCommitPhase(this, guiGame.movement, networkState));
                     break;
                 case Phase.MoveProve:
-                    SetPhase(new MoveProvePhase(this, guiGame.movement));
+                    SetPhase(new MoveProvePhase(this, guiGame.movement, networkState));
                     break;
                 case Phase.RankProve:
-                    SetPhase(new RankProvePhase(this, guiGame.movement));
+                    SetPhase(new RankProvePhase(this, guiGame.movement, networkState));
                     break;
                 case Phase.Finished:
                 case Phase.Aborted:
@@ -122,14 +111,16 @@ public class BoardManager : MonoBehaviour
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+            phaseChanged = true;
         }
-
-        // if this is the first time, currentPhase gets it's state changed here
-        currentPhase?.OnNetworkGameStateChanged(networkState);
-        // refreshGui happens first
-        currentPhase?.RefreshGui();
+        else
+        {
+            // update existing state
+            currentPhase?.OnNetworkGameStateChanged(networkState);
+        }
         Debug.Log("OnClientGameStateChanged invoked by OnNetworkStateUpdated");
-        OnClientGameStateChanged?.Invoke(networkState, currentPhase);
+        // tell the ui and all the pawns to refresh
+        OnClientGameStateChanged?.Invoke(currentPhase, phaseChanged);
         cachedNetworkState = networkState;
         lastPhase = networkState.lobbyInfo.phase;
         clickInputManager.ForceInvokeOnPositionHovered();
@@ -140,8 +131,7 @@ public class BoardManager : MonoBehaviour
         // this function is only called from within currentState
         // when the phase is running and user input changed something
         Debug.Log("OnClientGameStateChanged invoked by OnlyClientGameStateChanged");
-        currentPhase?.RefreshGui();
-        OnClientGameStateChanged?.Invoke(cachedNetworkState, currentPhase);
+        OnClientGameStateChanged?.Invoke(currentPhase, false);
         clickInputManager.ForceInvokeOnPositionHovered();
     }
     
@@ -163,14 +153,21 @@ public class BoardManager : MonoBehaviour
             Destroy(tile.gameObject);
         }
         tileViews.Clear();
-        grid.SetBoard(new SBoardDef(boardDef));
-        foreach (Tile tile in boardDef.tiles)
+        Board board = networkState.lobbyParameters.board;
+        grid.SetBoard(board.hex);
+        foreach (Contract.Tile tile in board.tiles)
         {
             Vector3 worldPosition = grid.CellToWorld(tile.pos);
             GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
             TileView tileView = tileObject.GetComponent<TileView>();
-            tileView.Initialize(tile, this);
-            tileViews.Add(tile.pos, tileView);
+            tileView.Initialize(new Tile
+            {
+                pos = tile.pos.ToVector2Int(),
+                isPassable = tile.passable,
+                setupTeam = Team.NONE,
+                autoSetupZone = 0
+            }, this, board.hex);
+            tileViews.Add(tile.pos.ToVector2Int(), tileView);
         }
         // Clear any existing pawnviews and replace
         foreach (PawnView pawnView in pawnViews)
@@ -203,11 +200,6 @@ public class BoardManager : MonoBehaviour
         // isHost = lobby.host_address == user.index;
     }
     
-    public Tile GetTileAtPos(Vector2Int pos)
-    {
-        TileView tileView = tileViews.GetValueOrDefault(pos);
-        return tileView?.tile;
-    }
 
     public TileView GetTileViewAtPos(Vector2Int pos)
     {
@@ -261,26 +253,112 @@ public interface IPhase
 
     public void OnNetworkGameStateChanged(GameNetworkState networkState);
 
-    public void RefreshGui();
+}
 
+public struct SetupCommitData
+{
+    public readonly Dictionary<Pos, Contract.Tile> tiles;
+    public readonly Dictionary<Pos, PawnState> pawns;
+    public readonly LobbyInfo lobbyInfo;
+    public readonly LobbyParameters lobbyParameters;
+    
+    public SetupCommitData(GameNetworkState networkState)
+    {
+        tiles = new Dictionary<Pos, Contract.Tile>();
+        pawns = new Dictionary<Pos, PawnState>();
+        lobbyInfo = networkState.lobbyInfo;
+        lobbyParameters = networkState.lobbyParameters;
+        
+        if (networkState.lobbyInfo.phase != Phase.SetupCommit)
+        {
+            throw new ArgumentException("networkstate.lobbyInfo.phase is not Phase.SetupCommit");
+        }
+        UserSetup setup = networkState.GetUserSetup();
+        if (setup.setup.Length != 0)
+        {
+            throw new ArgumentException("Setup already been set.");
+        }
+        if (setup.setup_hash.Length != 0)
+        {
+            throw new ArgumentException("Setup already been committed.");
+        }
+        foreach (Contract.Tile tile in networkState.lobbyParameters.board.tiles)
+        {
+            tiles.Add(tile.pos, tile);
+        }
+        foreach (PawnState pawn in networkState.gameState.pawns)
+        {
+            if (!pawn.alive || pawn.rank.HasValue || pawn.moved || pawn.moved_scout)
+            {
+                throw new ArgumentException("pawn is not alive.");
+            }
+            if (pawn.hidden_rank_hash.Any(b => b != 0))
+            {
+                throw new ArgumentException("pawn not empty hidden_rank_hash");
+            }
+            pawns.Add(pawn.pos, pawn);
+        }
+        
+    }
 }
 
 public class SetupCommitPhase : IPhase
 {
-    GuiSetup guiSetup;
-    public SetupCommitPhase(BoardManager bm, GuiSetup guiSetup)
+    public SetupCommitData setupCommitData;
+    Dictionary<Pos, SetupPawnView> bmSetupPawnViews;
+    
+    public Dictionary<Pos, Rank?> pendingCommits { get; }
+    public Rank? selectedRank { get; }
+    
+    public SetupCommitPhase(BoardManager bm, GuiSetup guiSetup, GameNetworkState networkState)
     {
-        this.guiSetup = guiSetup;
+        bmSetupPawnViews = bm.setupPawnViews;
+        pendingCommits = new Dictionary<Pos, Rank?>();
+        selectedRank = null;
+        UpdateState(networkState);
+        guiSetup.SetActions(OnClear, OnAutoSetup, OnRefresh, OnSubmit, OnRankSelected);
+    }
+
+    
+    void OnClear()
+    {
+        
+    }
+
+    void OnAutoSetup()
+    {
+        
+    }
+
+    void OnRefresh()
+    {
+        
+    }
+
+    void OnSubmit()
+    {
+        
+    }
+
+    void OnRankSelected(Rank? rank)
+    {
+        
     }
     
+    void UpdateState(GameNetworkState networkState)
+    {
+        setupCommitData = new SetupCommitData(networkState);
+        
+    }
+
     public void EnterState()
     {
-        throw new NotImplementedException();
+        
     }
 
     public void ExitState()
     {
-        throw new NotImplementedException();
+
     }
 
     public void Update()
@@ -290,30 +368,26 @@ public class SetupCommitPhase : IPhase
 
     public void OnHover(Vector2Int clickedPos, TileView tileView, PawnView pawnView)
     {
-        throw new NotImplementedException();
+        
     }
 
     public void OnClick(Vector2Int clickedPos, TileView tileView, PawnView pawnView)
     {
-        throw new NotImplementedException();
+        
     }
 
     public void OnNetworkGameStateChanged(GameNetworkState networkState)
     {
-        throw new NotImplementedException();
+        UpdateState(networkState);
     }
 
-    public void RefreshGui()
-    {
-        throw new NotImplementedException();
-    }
 }
 
 public class SetupProvePhase : IPhase
 {
     BoardManager bm;
     GuiSetup guiSetup;
-    public SetupProvePhase(BoardManager bm, GuiSetup guiSetup)
+    public SetupProvePhase(BoardManager bm, GuiSetup guiSetup, GameNetworkState networkState)
     {
         this.bm = bm;
         this.guiSetup = guiSetup;
@@ -349,17 +423,13 @@ public class SetupProvePhase : IPhase
         throw new NotImplementedException();
     }
 
-    public void RefreshGui()
-    {
-        throw new NotImplementedException();
-    }
 }
 
 public class MoveCommitPhase: IPhase
 {
     BoardManager bm;
     GuiMovement guiMovement;
-    public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement)
+    public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState networkState)
     {
         this.bm = bm;
         this.guiMovement = guiMovement;
@@ -395,10 +465,6 @@ public class MoveCommitPhase: IPhase
         throw new NotImplementedException();
     }
 
-    public void RefreshGui()
-    {
-        throw new NotImplementedException();
-    }
 }
 
 public class MoveProvePhase: IPhase
@@ -406,12 +472,12 @@ public class MoveProvePhase: IPhase
     BoardManager bm;
     GuiMovement guiMovement;
 
-    public MoveProvePhase(BoardManager bm, GuiMovement guiMovement)
+    public MoveProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState networkState)
     {
         this.bm = bm;
         this.guiMovement = guiMovement;
     }
-    
+
     public void EnterState()
     {
         throw new NotImplementedException();
@@ -442,10 +508,6 @@ public class MoveProvePhase: IPhase
         throw new NotImplementedException();
     }
 
-    public void RefreshGui()
-    {
-        throw new NotImplementedException();
-    }
 }
 
 public class RankProvePhase: IPhase
@@ -453,12 +515,13 @@ public class RankProvePhase: IPhase
     BoardManager bm;
     GuiMovement guiMovement;
 
-    public RankProvePhase(BoardManager bm, GuiMovement guiMovement)
+    public RankProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState networkState)
     {
         this.bm = bm;
         this.guiMovement = guiMovement;
     }
     
+
     public void EnterState()
     {
         throw new NotImplementedException();
@@ -489,10 +552,6 @@ public class RankProvePhase: IPhase
         throw new NotImplementedException();
     }
 
-    public void RefreshGui()
-    {
-        throw new NotImplementedException();
-    }
 }
 //
 // public class SetupClientState

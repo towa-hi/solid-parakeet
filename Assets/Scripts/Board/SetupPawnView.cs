@@ -37,7 +37,7 @@ public class SetupPawnView: MonoBehaviour
         parentConstraint.constraintActive = true;
     }
 
-    void OnClientGameStateChanged(GameNetworkState networkState, IPhase phase)
+    void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
     {
         // switch (phase)
         // {

@@ -435,6 +435,8 @@ namespace Contract
         public bool Equals(Pos other) => x == other.x && y == other.y;
         public override bool Equals(object obj) => obj is Pos other && Equals(other);
         public override int GetHashCode() => HashCode.Combine(x, y);
+        
+        public Vector2Int ToVector2Int() => new Vector2Int(x, y);
     }
 
     [Serializable]
