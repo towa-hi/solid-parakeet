@@ -98,7 +98,7 @@ public class HumanDebugNetworkInspector : MonoBehaviour
         else
         {
             _lobbyParameters.hasValue = false;
-            _lobbyParameters.board = new Board { name = "NULL_BOARD", hex = false, size = new Pos { x = 42069, y = 42069 }, tiles = Array.Empty<Contract.Tile>() };
+            _lobbyParameters.board = new Board { name = "NULL_BOARD", hex = false, size = new Vector2Int { x = 42069, y = 42069 }, tiles = Array.Empty<Contract.Tile>() };
             _lobbyParameters.boardHash = new byte[] { 42, 0, 69 };
             _lobbyParameters.devMode = false;
             _lobbyParameters.hostTeam = 42069;

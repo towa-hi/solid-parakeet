@@ -27,13 +27,10 @@ public class BoardManager : MonoBehaviour
     [FormerlySerializedAs("guiTestGame")] public GuiGame guiGame;
     // generally doesn't change after lobby is set in StartGame
     public BoardDef boardDef;
-    public LobbyParameters parameters;
-    public bool isHost;
-    public string lobbyId;
     // internal game state. call OnStateChanged when updating these. only StartGame can make new views
     public Dictionary<Vector2Int, TileView> tileViews = new();
     public List<PawnView> pawnViews = new();
-    public Dictionary<Pos, SetupPawnView> setupPawnViews = new();
+    public Dictionary<Vector2Int, SetupPawnView> setupPawnViews = new();
     // last known lobby
     //public Lobby cachedLobby;
     public GameNetworkState cachedNetworkState;
@@ -160,14 +157,8 @@ public class BoardManager : MonoBehaviour
             Vector3 worldPosition = grid.CellToWorld(tile.pos);
             GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
             TileView tileView = tileObject.GetComponent<TileView>();
-            tileView.Initialize(new Tile
-            {
-                pos = tile.pos.ToVector2Int(),
-                isPassable = tile.passable,
-                setupTeam = Team.NONE,
-                autoSetupZone = 0
-            }, this, board.hex);
-            tileViews.Add(tile.pos.ToVector2Int(), tileView);
+            tileView.Initialize(tile, this, board.hex);
+            tileViews.Add(tile.pos, tileView);
         }
         // Clear any existing pawnviews and replace
         foreach (PawnView pawnView in pawnViews)
@@ -257,15 +248,15 @@ public interface IPhase
 
 public struct SetupCommitData
 {
-    public readonly Dictionary<Pos, Contract.Tile> tiles;
-    public readonly Dictionary<Pos, PawnState> pawns;
+    public readonly Dictionary<Vector2Int, Contract.Tile> tiles;
+    public readonly Dictionary<Vector2Int, PawnState> pawns;
     public readonly LobbyInfo lobbyInfo;
     public readonly LobbyParameters lobbyParameters;
     
     public SetupCommitData(GameNetworkState networkState)
     {
-        tiles = new Dictionary<Pos, Contract.Tile>();
-        pawns = new Dictionary<Pos, PawnState>();
+        tiles = new Dictionary<Vector2Int, Contract.Tile>();
+        pawns = new Dictionary<Vector2Int, PawnState>();
         lobbyInfo = networkState.lobbyInfo;
         lobbyParameters = networkState.lobbyParameters;
         
@@ -305,15 +296,15 @@ public struct SetupCommitData
 public class SetupCommitPhase : IPhase
 {
     public SetupCommitData setupCommitData;
-    Dictionary<Pos, SetupPawnView> bmSetupPawnViews;
+    Dictionary<Vector2Int, SetupPawnView> bmSetupPawnViews;
     
-    public Dictionary<Pos, Rank?> pendingCommits { get; }
+    public Dictionary<Vector2Int, Rank?> pendingCommits { get; }
     public Rank? selectedRank { get; }
     
     public SetupCommitPhase(BoardManager bm, GuiSetup guiSetup, GameNetworkState networkState)
     {
         bmSetupPawnViews = bm.setupPawnViews;
-        pendingCommits = new Dictionary<Pos, Rank?>();
+        pendingCommits = new Dictionary<Vector2Int, Rank?>();
         selectedRank = null;
         UpdateState(networkState);
         guiSetup.SetActions(OnClear, OnAutoSetup, OnRefresh, OnSubmit, OnRankSelected);

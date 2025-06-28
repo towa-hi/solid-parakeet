@@ -13,7 +13,7 @@ public class TileView : MonoBehaviour
     public TileModel hexTileModel;
     public TileModel squareTileModel;
 
-    public Tile tile;
+    public Contract.Tile tile;
     
     public Color baseColor;
     public Color redTeamColor;
@@ -34,16 +34,16 @@ public class TileView : MonoBehaviour
 
     // BoardManager bm;
     
-    public void Initialize(Tile tile, BoardManager boardManager, bool isHex)
+    public void Initialize(Contract.Tile inTile, BoardManager boardManager, bool isHex)
     {
         boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
         boardManager.OnGameHover += OnGameHover;
-        this.tile = tile;
+        tile = inTile;
         gameObject.name = $"Tile (not set)";
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
         tileModel = isHex ? hexTileModel : squareTileModel;
-        ShowTile(tile.isPassable);
+        ShowTile(tile.passable);
         initialElevatorLocalPos = tileModel.elevator.localPosition;
     }
 
@@ -96,6 +96,22 @@ public class TileView : MonoBehaviour
         bool drawOutline = false;
         Transform elevator = tileModel.elevator;
         tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
+        switch (phase)
+        {
+            case SetupCommitPhase setupCommitPhase:
+                break;
+            case SetupProvePhase setupProvePhase:
+                break;
+            case MoveCommitPhase moveCommitPhase:
+                break;
+            case MoveProvePhase moveProvePhase:
+                break;
+            case RankProvePhase rankProvePhase:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(phase));
+
+        }
         // switch (phase)
         // {
         //     case MovementTestPhase movementTestPhase:
@@ -214,6 +230,26 @@ public class TileView : MonoBehaviour
     
     void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
     {
+        switch (phase)
+        {
+            case SetupCommitPhase setupCommitPhase:
+                if (phaseChanged)
+                {
+                    SetSetupEmissionHighlight(true);
+                }
+                break;
+            case SetupProvePhase setupProvePhase:
+                break;
+            case MoveCommitPhase moveCommitPhase:
+                break;
+            case MoveProvePhase moveProvePhase:
+                break;
+            case RankProvePhase rankProvePhase:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(phase));
+
+        }
         // switch (phase)
         // {
         //     case MovementPhase movementTestPhase:
@@ -332,30 +368,30 @@ public class TileView : MonoBehaviour
     //         .Chain(Tween.LocalPosition(tileModel.transform, startTweenSettings));
     // }
     //
-    // void SetSetupEmissionHighlight(bool highlight)
-    // {
-    //     if (highlight)
-    //     {
-    //         switch (tile.setupTeam)
-    //         {
-    //             case Team.NONE:
-    //                 SetTopEmission(Color.clear);
-    //                 break;
-    //             case Team.RED:
-    //                 SetTopEmission(redTeamColor);
-    //                 break;
-    //             case Team.BLUE:
-    //                 SetTopEmission(blueTeamColor);
-    //                 break;
-    //             default:
-    //                 throw new ArgumentOutOfRangeException();
-    //         }
-    //     }
-    //     else
-    //     {
-    //         SetTopEmission(baseColor);
-    //     }
-    // }
+    void SetSetupEmissionHighlight(bool highlight)
+    {
+        if (highlight)
+        {
+            switch (tile.setup)
+            {
+                case 2:
+                    SetTopEmission(Color.clear);
+                    break;
+                case 0:
+                    SetTopEmission(redTeamColor);
+                    break;
+                case 1:
+                    SetTopEmission(blueTeamColor);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        else
+        {
+            SetTopEmission(baseColor);
+        }
+    }
     
     void ShowTile(bool show)
     {

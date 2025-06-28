@@ -33,73 +33,57 @@ namespace Contract
                 throw new ArgumentNullException(nameof(input));
             }
             Type type = input.GetType();
-            if (type.IsEnum)
+            switch (input)
             {
-                uint raw = Convert.ToUInt32(input);
-                return new SCVal.ScvU32() { u32 = new uint32(raw) };
-            }
-            if (input is byte[] byteArray)
-            {
-                return new SCVal.ScvBytes() { bytes = byteArray };
-            }
-            if (input is SCVal.ScvAddress address)
-            {
-                return address;
-            }
-            if (type == typeof(uint))
-            {
-                return new SCVal.ScvU32() { u32 = new uint32((uint)input) };
-            }
-            if (type == typeof(ulong))
-            {
-                return new SCVal.ScvU64() { u64 = new uint64((ulong)input) };
-            }
-            // For native int always convert to SCVal.ScvI32.
-            if (type == typeof(int))
-            {
-                return new SCVal.ScvI32 { i32 = new int32((int)input) };
-            }
-            if (type == typeof(string))
-            {
-                return new SCVal.ScvString { str = new SCString((string)input) };
-            }
-            if (type == typeof(bool))
-            {
-                return new SCVal.ScvBool { b = (bool)input };
-            }
-            if (input is AccountAddress accountAddress)
-            {
-                return accountAddress.ToScvAddress();
-            }
-            if (input is PawnId pawnId)
-            {
-                return new SCVal.ScvU32() { u32 = new uint32(pawnId.Value) };
-            }
-
-            if (input is LobbyId lobbyId)
-            {
-                return new SCVal.ScvU32() { u32 = new uint32(lobbyId.Value) };
-            }
-            if (input is Array inputArray)
-            {
-                SCVal[] scValArray = new SCVal[inputArray.Length];
-                for (int i = 0; i < inputArray.Length; i++)
-                {
-                    scValArray[i] = NativeToSCVal(inputArray.GetValue(i));
-                }
-                return new SCVal.ScvVec() { vec = new SCVec(scValArray) };
-            }
-            if (input is IScvMapCompatable inputStruct)
-            {
-                return inputStruct.ToScvMap();
-            }
-            else
-            {
-                throw new NotImplementedException($"Type {input.GetType()} not implemented.");
+                case var _ when type.IsEnum:
+                    uint raw = Convert.ToUInt32(input);
+                    return new SCVal.ScvU32() { u32 = new uint32(raw) };
+                case var _ when type == typeof(uint):
+                    return new SCVal.ScvU32() { u32 = new uint32((uint)input) };
+                case var _ when type == typeof(ulong):
+                    return new SCVal.ScvU64() { u64 = new uint64((ulong)input) };
+                case var _ when type == typeof(int):
+                    return new SCVal.ScvI32 { i32 = new int32((int)input) };
+                case var _ when type == typeof(string):
+                    return new SCVal.ScvString { str = new SCString((string)input) };
+                case var _ when type == typeof(bool):
+                    return new SCVal.ScvBool { b = (bool)input };
+                case byte[] byteArray:
+                    return new SCVal.ScvBytes() { bytes = byteArray };
+                case Vector2Int vector2Int:
+                    // special case where we directly convert vector2Int into
+                    // something that can be interpreted as a Pos struct
+                    return new SCVal.ScvMap
+                    {
+                        map = new SCMap(new[]
+                        {
+                            FieldToSCMapEntry("x", vector2Int.x),
+                            FieldToSCMapEntry("y", vector2Int.y),
+                        }),
+                    };
+                case SCVal.ScvAddress address:
+                    return address;
+                case AccountAddress accountAddress:
+                    return accountAddress.ToScvAddress();
+                case PawnId pawnId:
+                    return new SCVal.ScvU32() { u32 = new uint32(pawnId.Value) };
+                case LobbyId lobbyId:
+                    return new SCVal.ScvU32() { u32 = new uint32(lobbyId.Value) };
+                case Array inputArray:
+                    SCVal[] scValArray = new SCVal[inputArray.Length];
+                    for (int i = 0; i < inputArray.Length; i++)
+                    {
+                        scValArray[i] = NativeToSCVal(inputArray.GetValue(i));
+                    }
+                    return new SCVal.ScvVec() { vec = new SCVec(scValArray) };
+                case IScvMapCompatable inputStruct:
+                    return inputStruct.ToScvMap();
+                default:
+                    throw new NotImplementedException($"Type {type} not implemented.");
             }
         }
 
-        public static object SCValToNative(SCVal scVal, Type targetType)
+        static object SCValToNative(SCVal scVal, Type targetType)
         {
             if (scVal == null)
             {
@@ -107,201 +91,219 @@ namespace Contract
                 throw new ArgumentNullException();
             }
             DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
-            if (targetType.IsEnum)
+            
+            switch (targetType)
             {
-                if (scVal is SCVal.ScvU32 scvU32)
-                {
-                    DebugLog($"SCValToNative: Attempting to convert {scvU32.u32.InnerValue} to {targetType}.");
-                    return Enum.ToObject(targetType, scvU32.u32.InnerValue);
-                }
-            }
-            else if (scVal is SCVal.ScvBytes scvBytes)
-            {
-                DebugLog($"SCValToNative: Getting bytes with length '{scvBytes.bytes.InnerValue.Length}'.");
-                return scvBytes.bytes.InnerValue;
-            }
-            else if (targetType == typeof(uint))
-            {
-                DebugLog("SCValToNative: Target type is uint.");
-                if (scVal is SCVal.ScvU32 u32Val)
-                {
-                    DebugLog($"SCValToNative: Found SCVal.ScvU32 with value {u32Val.u32.InnerValue}.");
-                    return u32Val.u32.InnerValue;
-                }
-            }
-            else if (targetType == typeof(int))
-            {
-                DebugLog("SCValToNative: Target type is int.");
-                // Prefer I32. If we get a U32, log a warning.
-                if (scVal is SCVal.ScvI32 i32Val)
-                {
-                    DebugLog($"SCValToNative: Found SCVal.ScvI32 with value {i32Val.i32.InnerValue}.");
-                    return i32Val.i32.InnerValue;
-                }
-                else if (scVal is SCVal.ScvU32 u32Val)
-                {
-                    Debug.LogWarning("SCValToNative: Expected SCVal.ScvI32 for int conversion, got SCVal.ScvU32. Converting anyway.");
-                    return u32Val.u32.InnerValue;
-                }
-                else
-                {
-                    Debug.LogError("SCValToNative: Failed int conversion. SCVal is not I32 or U32.");
-                    throw new NotSupportedException("Expected SCVal.ScvI32 (or SCVal.ScvU32 as fallback) for int conversion.");
-                }
-            }
-            else if (targetType == typeof(string))
-            {
-                DebugLog("SCValToNative: Target type is string.");
-                if (scVal is SCVal.ScvString strVal)
-                {
-                    DebugLog($"SCValToNative: Found SCVal.ScvString with value '{strVal.str.InnerValue}'.");
-                    return strVal.str.InnerValue;
-                }
-                else
-                {
-                    Debug.LogError("SCValToNative: Failed string conversion. SCVal is not SCvString.");
-                    throw new NotSupportedException("Expected SCVal.ScvString for string conversion.");
-                }
-            }
-            else if (targetType == typeof(bool))
-            {
-                DebugLog("SCValToNative: Target type is bool.");
-                if (scVal is SCVal.ScvBool boolVal)
-                {
-                    DebugLog($"SCValToNative: Found SCVal.ScvBool with value {boolVal.b}.");
-                    return boolVal.b;
-                }
-                else
-                {
-                    Debug.LogError("SCValToNative: Failed bool conversion. SCVal is not SCvBool.");
-                    throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
-                }
-            }
-            else if (targetType == typeof(AccountAddress))
-            {
-                if (scVal is SCVal.ScvAddress scvAddress)
-                {
-                    return new AccountAddress(scvAddress);
-                }
-            }
-            else if (targetType == typeof(PawnId))
-            {
-                if (scVal is SCVal.ScvU32 u32Val)
-                {
-                    return new PawnId(u32Val.u32.InnerValue);
-                }
-            }
-            else if (targetType == typeof(LobbyId))
-            {
-                if (scVal is SCVal.ScvU32 u32Val)
-                {
-                    return new LobbyId(u32Val.u32.InnerValue);
-                }
-            }
-            else if (scVal is SCVal.ScvVec scvVec)
-            {
-                DebugLog("SCValToNative: Target type is a collection. Using vector conversion branch.");
-                Type elementType = targetType.IsArray
-                    ? targetType.GetElementType()
-                    : (targetType.IsGenericType ? targetType.GetGenericArguments()[0] : typeof(object));
-                if (elementType == null)
-                {
-                    Debug.LogError("SCValToNative: Unable to determine element type for collection conversion.");
-                    throw new NotSupportedException("Unable to determine element type for collection conversion.");
-                }
-                SCVal[] innerArray = scvVec.vec.InnerValue;
-                int len = innerArray.Length;
-                object[] convertedElements = new object[len];
-                for (int i = 0; i < len; i++)
-                {
-                    DebugLog($"SCValToNative: Converting collection element at index {i}.");
-                    convertedElements[i] = SCValToNative(innerArray[i], elementType);
-                }
-                if (targetType.IsArray)
-                {
-                    Array arr = Array.CreateInstance(elementType, len);
-                    for (int i = 0; i < len; i++)
+                case var _ when targetType.IsEnum:
+                    if (scVal is SCVal.ScvU32 scvU32)
                     {
-                        arr.SetValue(convertedElements[i], i);
+                        DebugLog($"SCValToNative: Attempting to convert {scvU32.u32.InnerValue} to {targetType}.");
+                        return Enum.ToObject(targetType, scvU32.u32.InnerValue);
                     }
-                    DebugLog("SCValToNative: Collection converted to array.");
-                    return arr;
-                }
-            }
-            // Handle structured types (native structs/classes) via SCVal.ScvMap.
-            else if (scVal is SCVal.ScvMap scvMap)
-            {
-                DebugLog("SCValToNative: Target type is either a map or a structured type.");
-                // if is a struct
-                if (targetType.IsValueType && !targetType.IsPrimitive)
-                {
-                    object instance = Activator.CreateInstance(targetType);
-                    DebugLog("SCValToNative: Target type is a struct");
-                    Dictionary<string, SCMapEntry> dict = new Dictionary<string, SCMapEntry>();
-                    foreach (SCMapEntry entry in scvMap.map.InnerValue)
+                    break;
+                    
+                case var _ when targetType == typeof(uint):
+                    DebugLog("SCValToNative: Target type is uint.");
+                    if (scVal is SCVal.ScvU32 uintVal)
                     {
-                        if (entry.key is SCVal.ScvSymbol sym)
-                        {
-                            dict[sym.sym.InnerValue] = entry;
-                            DebugLog($"SCValToNative: Found map key '{sym.sym.InnerValue}'.");
-                        }
-                        else
-                        {
-                            Debug.LogError("SCValToNative: Expected map key to be SCVal.ScvSymbol.");
-                            throw new NotSupportedException("Expected map key to be SCVal.ScvSymbol.");
-                        }
+                        DebugLog($"SCValToNative: Found SCVal.ScvU32 with value {uintVal.u32.InnerValue}.");
+                        return uintVal.u32.InnerValue;
                     }
-                    foreach (FieldInfo field in targetType.GetFields(BindingFlags.Instance | BindingFlags.Public))
+                    break;
+                    
+                case var _ when targetType == typeof(int):
+                    DebugLog("SCValToNative: Target type is int.");
+                    // Prefer I32. If we get a U32, log a warning.
+                    if (scVal is SCVal.ScvI32 i32Val)
                     {
-                        if (dict.TryGetValue(field.Name, out SCMapEntry mapEntry))
-                        {
-                            DebugLog($"SCValToNative: Converting field '{field.Name}'.");
+                        DebugLog($"SCValToNative: Found SCVal.ScvI32 with value {i32Val.i32.InnerValue}.");
+                        return i32Val.i32.InnerValue;
+                    }
+                    else if (scVal is SCVal.ScvU32 intU32Val)
+                    {
+                        Debug.LogWarning("SCValToNative: Expected SCVal.ScvI32 for int conversion, got SCVal.ScvU32. Converting anyway.");
+                        return intU32Val.u32.InnerValue;
+                    }
+                    else
+                    {
+                        Debug.LogError("SCValToNative: Failed int conversion. SCVal is not I32 or U32.");
+                        throw new NotSupportedException("Expected SCVal.ScvI32 (or SCVal.ScvU32 as fallback) for int conversion.");
+                    }
+                    
+                case var _ when targetType == typeof(string):
+                    DebugLog("SCValToNative: Target type is string.");
+                    if (scVal is SCVal.ScvString strVal)
+                    {
+                        DebugLog($"SCValToNative: Found SCVal.ScvString with value '{strVal.str.InnerValue}'.");
+                        return strVal.str.InnerValue;
+                    }
+                    else
+                    {
+                        Debug.LogError("SCValToNative: Failed string conversion. SCVal is not SCvString.");
+                        throw new NotSupportedException("Expected SCVal.ScvString for string conversion.");
+                    }
+                    
+                case var _ when targetType == typeof(bool):
+                    DebugLog("SCValToNative: Target type is bool.");
+                    if (scVal is SCVal.ScvBool boolVal)
+                    {
+                        DebugLog($"SCValToNative: Found SCVal.ScvBool with value {boolVal.b}.");
+                        return boolVal.b;
+                    }
+                    else
+                    {
+                        Debug.LogError("SCValToNative: Failed bool conversion. SCVal is not SCvBool.");
+                        throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
+                    }
+                    
+                case var _ when targetType == typeof(AccountAddress):
+                    if (scVal is SCVal.ScvAddress scvAddress)
+                    {
+                        return new AccountAddress(scvAddress);
+                    }
+                    break;
+                    
+                case var _ when targetType == typeof(PawnId):
+                    if (scVal is SCVal.ScvU32 pawnU32Val)
+                    {
+                        return new PawnId(pawnU32Val.u32.InnerValue);
+                    }
+                    break;
+                    
+                case var _ when targetType == typeof(LobbyId):
+                    if (scVal is SCVal.ScvU32 lobbyU32Val)
+                    {
+                        return new LobbyId(lobbyU32Val.u32.InnerValue);
+                    }
+                    break;
+                default:
+                    switch (scVal)
+                    {
+                        case SCVal.ScvBytes scvBytes:
+                            DebugLog($"SCValToNative: Getting bytes with length '{scvBytes.bytes.InnerValue.Length}'.");
+                            return scvBytes.bytes.InnerValue;
                             
-                            // Check if field is nullable and the SCVal is a Vec
-                            bool isNullableField = (field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>)) ||
-                                                   field.GetCustomAttribute<CanBeNullAttribute>() != null;
+                        case SCVal.ScvVec scvVec:
+                            DebugLog("SCValToNative: Target type is a collection. Using vector conversion branch.");
+                            Type elementType = targetType.IsArray
+                                ? targetType.GetElementType()
+                                : (targetType.IsGenericType ? targetType.GetGenericArguments()[0] : typeof(object));
+                            if (elementType == null)
+                            {
+                                Debug.LogError("SCValToNative: Unable to determine element type for collection conversion.");
+                                throw new NotSupportedException("Unable to determine element type for collection conversion.");
+                            }
+                            SCVal[] vecInnerArray = scvVec.vec.InnerValue;
+                            int len = vecInnerArray.Length;
+                            object[] convertedElements = new object[len];
+                            for (int i = 0; i < len; i++)
+                            {
+                                DebugLog($"SCValToNative: Converting collection element at index {i}.");
+                                convertedElements[i] = SCValToNative(vecInnerArray[i], elementType);
+                            }
+                            if (targetType.IsArray)
+                            {
+                                Array arr = Array.CreateInstance(elementType, len);
+                                for (int i = 0; i < len; i++)
+                                {
+                                    arr.SetValue(convertedElements[i], i);
+                                }
+                                DebugLog("SCValToNative: Collection converted to array.");
+                                return arr;
+                            }
+                            break;
                             
-                            if (isNullableField && mapEntry.val is SCVal.ScvVec scvVecNullable)
+                        case SCVal.ScvMap scvMap:
+                            DebugLog("SCValToNative: Target type is either a map or a structured type.");
+                            // if is a struct
+                            if (targetType.IsValueType && !targetType.IsPrimitive)
                             {
-                                // Handle nullable field as single-item Vec
-                                SCVal[] innerArray = scvVecNullable.vec.InnerValue;
-                                if (innerArray.Length == 1)
+                                
+                                object instance = Activator.CreateInstance(targetType);
+                                DebugLog("SCValToNative: Target type is a struct");
+                                Dictionary<string, SCMapEntry> dict = new Dictionary<string, SCMapEntry>();
+                                foreach (SCMapEntry entry in scvMap.map.InnerValue)
                                 {
-                                    DebugLog($"SCValToNative: Unwrapping single-item Vec for nullable field '{field.Name}'.");
-                                    // For nullable types, get the underlying type
-                                    Type underlyingType = field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>)
-                                        ? Nullable.GetUnderlyingType(field.FieldType)
-                                        : field.FieldType;
-                                    object fieldValue = SCValToNative(innerArray[0], underlyingType);
-                                    field.SetValue(instance, fieldValue);
+                                    if (entry.key is SCVal.ScvSymbol sym)
+                                    {
+                                        dict[sym.sym.InnerValue] = entry;
+                                        DebugLog($"SCValToNative: Found map key '{sym.sym.InnerValue}'.");
+                                    }
+                                    else
+                                    {
+                                        Debug.LogError("SCValToNative: Expected map key to be SCVal.ScvSymbol.");
+                                        throw new NotSupportedException("Expected map key to be SCVal.ScvSymbol.");
+                                    }
                                 }
-                                else if (innerArray.Length == 0)
+                                // special exception for vector2ints
+                                if (targetType == typeof(Vector2Int))
                                 {
-                                    // Empty Vec means null for nullable field
-                                    DebugLog($"SCValToNative: Empty Vec treated as null for nullable field '{field.Name}'.");
-                                    field.SetValue(instance, null);
+                                    if (dict.TryGetValue("x", out SCMapEntry xEntry) && dict.TryGetValue("y", out SCMapEntry yEntry))
+                                    {
+                                        int x = (int)SCValToNative(xEntry.val, typeof(int));
+                                        int y = (int)SCValToNative(yEntry.val, typeof(int));
+                                        return new Vector2Int(x, y);
+                                    }
+                                    else
+                                    {
+                                        Debug.LogError("SCValToNative: Vector2Int conversion requires 'x' and 'y' fields in SCVal map.");
+                                        throw new NotSupportedException("Vector2Int conversion requires 'x' and 'y' fields in SCVal map.");
+                                    }
                                 }
-                                else
+                                foreach (FieldInfo field in targetType.GetFields(BindingFlags.Instance | BindingFlags.Public))
                                 {
-                                    Debug.LogWarning($"SCValToNative: Vec for nullable field '{field.Name}' has {innerArray.Length} items, expected 0 or 1.");
+                                    if (dict.TryGetValue(field.Name, out SCMapEntry mapEntry))
+                                    {
+                                        DebugLog($"SCValToNative: Converting field '{field.Name}'.");
+                                        
+                                        // Check if field is nullable and the SCVal is a Vec
+                                        bool isNullableField = (field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>)) ||
+                                                               field.GetCustomAttribute<CanBeNullAttribute>() != null;
+                                        
+                                        if (isNullableField && mapEntry.val is SCVal.ScvVec scvVecNullable)
+                                        {
+                                            // Handle nullable field as single-item Vec
+                                            SCVal[] nullableInnerArray = scvVecNullable.vec.InnerValue;
+                                            if (nullableInnerArray.Length == 1)
+                                            {
+                                                DebugLog($"SCValToNative: Unwrapping single-item Vec for nullable field '{field.Name}'.");
+                                                // For nullable types, get the underlying type
+                                                Type underlyingType = field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>)
+                                                    ? Nullable.GetUnderlyingType(field.FieldType)
+                                                    : field.FieldType;
+                                                object fieldValue = SCValToNative(nullableInnerArray[0], underlyingType);
+                                                field.SetValue(instance, fieldValue);
+                                            }
+                                            else if (nullableInnerArray.Length == 0)
+                                            {
+                                                // Empty Vec means null for nullable field
+                                                DebugLog($"SCValToNative: Empty Vec treated as null for nullable field '{field.Name}'.");
+                                                field.SetValue(instance, null);
+                                            }
+                                            else
+                                            {
+                                                Debug.LogWarning($"SCValToNative: Vec for nullable field '{field.Name}' has {nullableInnerArray.Length} items, expected 0 or 1.");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
+                                            field.SetValue(instance, fieldValue);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (field.Name != "liveUntilLedgerSeq")
+                                        {
+                                            Debug.LogWarning($"SCValToNative: Field '{field.Name}' not found in SCVal map.");
+                                        }
+                                    }
                                 }
+                                return instance;
                             }
-                            else
-                            {
-                                object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
-                                field.SetValue(instance, fieldValue);
-                            }
-                        }
-                        else
-                        {
-                            if (field.Name != "liveUntilLedgerSeq")
-                            {
-                                Debug.LogWarning($"SCValToNative: Field '{field.Name}' not found in SCVal map.");
-                            }
-                        }
+                            break;
                     }
-                    return instance;
-                }
+                    break;
             }
             Debug.LogError("SCValToNative: SCVal type not supported for conversion.");
             throw new NotSupportedException("SCVal type not supported for conversion.");
@@ -337,7 +339,7 @@ namespace Contract
                     return new SCMapEntry()
                     {
                         key = new SCVal.ScvSymbol() { sym = new SCSymbol(fieldName) },
-                        val = new SCVal.ScvVec() { vec = new SCVec(new SCVal[0]) },
+                        val = new SCVal.ScvVec() { vec = new SCVec(Array.Empty<SCVal>()) },
                     };
                 }
                 else
@@ -409,42 +411,43 @@ namespace Contract
         public static bool operator !=(PawnId left, PawnId right) => !left.Equals(right);
     }
     
-    [Serializable]
-    public struct Pos : IScvMapCompatable, IEquatable<Pos>
-    {
-        public int x;
-        public int y;
-
-        public Pos(Vector2Int pos)
-        {
-            x = (int)pos.x;
-            y = (int)pos.y;
-        }
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap
-            {
-                map = new SCMap(new[]
-                {
-                    SCUtility.FieldToSCMapEntry("x", x),
-                    SCUtility.FieldToSCMapEntry("y", y),
-                }),
-            };
-        }
-
-        public bool Equals(Pos other) => x == other.x && y == other.y;
-        public override bool Equals(object obj) => obj is Pos other && Equals(other);
-        public override int GetHashCode() => HashCode.Combine(x, y);
-        
-        public Vector2Int ToVector2Int() => new Vector2Int(x, y);
-    }
+    // [Serializable]
+    // public struct Pos : IScvMapCompatable, IEquatable<Pos>
+    // {
+    //     public int x;
+    //     public int y;
+    //
+    //     public Pos(Vector2Int pos)
+    //     {
+    //         x = (int)pos.x;
+    //         y = (int)pos.y;
+    //     }
+    //     public SCVal.ScvMap ToScvMap()
+    //     {
+    //         return new SCVal.ScvMap
+    //         {
+    //             map = new SCMap(new[]
+    //             {
+    //                 SCUtility.FieldToSCMapEntry("x", x),
+    //                 SCUtility.FieldToSCMapEntry("y", y),
+    //             }),
+    //         };
+    //     }
+    //
+    //     public bool Equals(Pos other) => x == other.x && y == other.y;
+    //     public override bool Equals(object obj) => obj is Pos other && Equals(other);
+    //     public override int GetHashCode() => HashCode.Combine(x, y);
+    //     
+    //     public Vector2Int ToVector2Int() => new Vector2Int(x, y);
+    // }
 
     [Serializable]
     public struct Tile : IScvMapCompatable
     {
         public bool passable;
-        public Pos pos;
+        public Vector2Int pos;
         public uint setup;
+        public uint setup_zone;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -455,6 +458,7 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("passable", passable),
                     SCUtility.FieldToSCMapEntry("pos", pos),
                     SCUtility.FieldToSCMapEntry("setup", setup),
+                    SCUtility.FieldToSCMapEntry("setup_zone", setup_zone),
                 }),
             };
         }
@@ -486,7 +490,7 @@ namespace Contract
     {
         public bool hex;
         public string name;
-        public Pos size;
+        public Vector2Int size;
         public Tile[] tiles;
 
         public SCVal.ScvMap ToScvMap()
@@ -509,8 +513,8 @@ namespace Contract
     {
         public PawnId pawn_id;
         public ulong salt;
-        public Pos start_pos;
-        public Pos target_pos;
+        public Vector2Int start_pos;
+        public Vector2Int target_pos;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -594,7 +598,7 @@ namespace Contract
         public bool moved;
         public bool moved_scout;
         public PawnId pawn_id;
-        public Pos pos;
+        public Vector2Int pos;
         public Rank? rank;
 
         public SCVal.ScvMap ToScvMap()

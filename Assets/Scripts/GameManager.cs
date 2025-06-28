@@ -24,8 +24,6 @@ public class GameManager : MonoBehaviour
     public AudioManager audioManager;
     public PoolManager poolManager;
     public SettingsManager settingsManager;
-    //public StellarManager stellarManager;
-    public IGameClient client;
 
     public List<PawnDef> orderedPawnDefList;
 

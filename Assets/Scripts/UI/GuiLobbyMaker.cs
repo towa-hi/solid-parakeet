@@ -115,8 +115,9 @@ public class GuiLobbyMaker : TestGuiElement
             Contract.Tile tileDef = new()
             {
                 passable = tile.isPassable,
-                pos = new Pos(tile.pos),
+                pos = tile.pos,
                 setup = (uint)newSetupTeam,
+                setup_zone = (uint)tile.autoSetupZone,
             };
             tilesList.Add(tileDef);
         }
@@ -124,7 +125,7 @@ public class GuiLobbyMaker : TestGuiElement
         {
             name = boardName,
             hex = boardDef.isHex,
-            size = new Pos(boardDef.boardSize),
+            size = boardDef.boardSize,
             tiles = tilesList.ToArray(),
         };
         byte[] hash = boardDef.GetHash();

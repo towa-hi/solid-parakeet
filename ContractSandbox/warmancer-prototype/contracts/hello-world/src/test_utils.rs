@@ -522,6 +522,7 @@ pub fn create_default_board(env: &Env) -> Board {
             pos: Pos { x: *x, y: *y },
             passable: *passable,
             setup: *setup,
+            setup_zone: 1,
         });
     }
     Board {
@@ -551,9 +552,9 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
     let board_hash = BytesN::from_array(env, &[1u8; 32]);
     
     let tiles = Vec::from_array(env, [
-        Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0 },
-        Tile { pos: Pos { x: 1, y: 0 }, passable: true, setup: 0 },
-        Tile { pos: Pos { x: 0, y: 1 }, passable: true, setup: 1 },
+        Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 },
+        Tile { pos: Pos { x: 1, y: 0 }, passable: true, setup: 0, setup_zone: 1 },
+        Tile { pos: Pos { x: 0, y: 1 }, passable: true, setup: 1, setup_zone: 1 },
     ]);
     
     let board = Board {

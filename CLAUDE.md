@@ -4,11 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Unity-based implementation of "Scrying Stratego" - a variant of Stratego running on the Stellar blockchain with simultaneous turn resolution using commit-reveal logic. The project combines:
+This is a WebGL Unity-based implementation of "Scrying Stratego" - a variant of Stratego running on the Stellar blockchain with simultaneous turn resolution using commit-reveal logic. The project combines:
 
 - **Unity Game Client** (C#): Main game interface and logic
 - **Stellar Smart Contract** (Rust): Blockchain game state management in `ContractSandbox/warmancer-prototype`
-- **Build System**: Multi-platform Unity builds with WebGL support
 
 ## Architecture
 
@@ -87,7 +86,6 @@ When working with the Rust contract code:
 ## Audio System
 - `AudioManager.cs` handles all sound effects and music
 - Separate folders for edited vs original audio files
-- Music includes battle, menu, and title tracks
 
 ## Code Style and Conventions
 
@@ -109,7 +107,3 @@ When working with the Rust contract code:
 
 - Do not edit scriptableobjects or any fields in monobehaviors that are serialized without my permission
 
-## Current Development Status
-
-- We have recently done a major refactor of our contract code and contract structs so a lot of stuff doesn't work right now. We are working through the files one by one fixing them.
-- List of files currently fixed: Contract.cs, StellarDotnet.cs, StellarManager.cs, GuiSetup.cs, GuiRankListEntry.cs

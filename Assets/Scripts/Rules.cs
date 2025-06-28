@@ -78,71 +78,71 @@ public static class Rules
             blueDies = blueDies,
         };
     }
-    
-    public static bool IsSetupValid(int targetPlayer, SLobbyParameters lobbyParameters, SSetupPawn[] setupPawns)
-    {
-        bool isValid = true;
-        List<string> errorMessages = new();
-        if (setupPawns.Length == 0)
-        {
-            errorMessages.Add("IsSetupValid(): lobbyParameters setupPawns is empty.");
-            isValid = false;
-        }
-        if (lobbyParameters.mustFillAllTiles)
-        {
-            foreach (STile tile in lobbyParameters.board.tiles)
-            {
-                if (tile.setupTeam != targetPlayer)
-                {
-                    continue;
-                }
-                bool tileIsOccupied = setupPawns.Any(setupPawn => setupPawn.pos == tile.pos);
-                if (!tileIsOccupied)
-                {
-                    errorMessages.Add($"IsSetupValid(): mustFillAllTiles but tile is not filled at {tile.pos}");
-                    isValid = false;
-                }
-            }
-        }
-        foreach (SSetupPawn pawn in setupPawns.Where(p => p.deployed))
-        {
-            if (!lobbyParameters.board.IsPosValid(pawn.pos))
-            {
-                errorMessages.Add($"IsSetupValid(): Pawn '{pawn.def.pawnName}' is on an invalid position {pawn.pos}.");
-                isValid = false;
-            }
-        }
-        if (!setupPawns.Any(pawn => pawn.deployed && pawn.def.Rank == Rank.THRONE))
-        {
-            errorMessages.Add("IsSetupValid(): Throne is not deployed.");
-            isValid = false;
-        }
-        bool hasMovablePawns = false;
-        foreach (SSetupPawn pawn in setupPawns.Where(p => p.deployed && p.def.movementRange > 0))
-        {
-            IEnumerable<(Vector2Int pos, bool isValid)> neighbors = Shared.GetNeighbors(pawn.pos, lobbyParameters.board.isHex)
-                .Select(pos => (pos, isValid: lobbyParameters.board.IsPosValid(pos) &&
-                                        lobbyParameters.board.GetTileByPos(pos).isPassable && setupPawns.All(other => other.pos != pos)));
-            if (neighbors.Any(neighbor => neighbor.isValid))
-            {
-                hasMovablePawns = true;
-            }
-        }
-        if (!hasMovablePawns)
-        {
-            errorMessages.Add("IsSetupValid(): No pawns with valid moves found.");
-            isValid = false;
-        }
-        if (!isValid)
-        {
-            foreach (var error in errorMessages)
-            {
-                Debug.LogError(error);
-            }
-        }
-        Debug.Log(isValid ? "IsSetupValid(): Setup is valid." : "IsSetupValid(): Setup is invalid.");
-        return isValid;
-    }
+    //
+    // public static bool IsSetupValid(int targetPlayer, SLobbyParameters lobbyParameters, SSetupPawn[] setupPawns)
+    // {
+    //     bool isValid = true;
+    //     List<string> errorMessages = new();
+    //     if (setupPawns.Length == 0)
+    //     {
+    //         errorMessages.Add("IsSetupValid(): lobbyParameters setupPawns is empty.");
+    //         isValid = false;
+    //     }
+    //     if (lobbyParameters.mustFillAllTiles)
+    //     {
+    //         foreach (STile tile in lobbyParameters.board.tiles)
+    //         {
+    //             if (tile.setupTeam != targetPlayer)
+    //             {
+    //                 continue;
+    //             }
+    //             bool tileIsOccupied = setupPawns.Any(setupPawn => setupPawn.pos == tile.pos);
+    //             if (!tileIsOccupied)
+    //             {
+    //                 errorMessages.Add($"IsSetupValid(): mustFillAllTiles but tile is not filled at {tile.pos}");
+    //                 isValid = false;
+    //             }
+    //         }
+    //     }
+    //     foreach (SSetupPawn pawn in setupPawns.Where(p => p.deployed))
+    //     {
+    //         if (!lobbyParameters.board.IsPosValid(pawn.pos))
+    //         {
+    //             errorMessages.Add($"IsSetupValid(): Pawn '{pawn.def.pawnName}' is on an invalid position {pawn.pos}.");
+    //             isValid = false;
+    //         }
+    //     }
+    //     if (!setupPawns.Any(pawn => pawn.deployed && pawn.def.Rank == Rank.THRONE))
+    //     {
+    //         errorMessages.Add("IsSetupValid(): Throne is not deployed.");
+    //         isValid = false;
+    //     }
+    //     bool hasMovablePawns = false;
+    //     foreach (SSetupPawn pawn in setupPawns.Where(p => p.deployed && p.def.movementRange > 0))
+    //     {
+    //         IEnumerable<(Vector2Int pos, bool isValid)> neighbors = Shared.GetNeighbors(pawn.pos, lobbyParameters.board.isHex)
+    //             .Select(pos => (pos, isValid: lobbyParameters.board.IsPosValid(pos) &&
+    //                                     lobbyParameters.board.GetTileByPos(pos).isPassable && setupPawns.All(other => other.pos != pos)));
+    //         if (neighbors.Any(neighbor => neighbor.isValid))
+    //         {
+    //             hasMovablePawns = true;
+    //         }
+    //     }
+    //     if (!hasMovablePawns)
+    //     {
+    //         errorMessages.Add("IsSetupValid(): No pawns with valid moves found.");
+    //         isValid = false;
+    //     }
+    //     if (!isValid)
+    //     {
+    //         foreach (var error in errorMessages)
+    //         {
+    //             Debug.LogError(error);
+    //         }
+    //     }
+    //     Debug.Log(isValid ? "IsSetupValid(): Setup is valid." : "IsSetupValid(): Setup is invalid.");
+    //     return isValid;
+    // }
 }
 
 public enum Team

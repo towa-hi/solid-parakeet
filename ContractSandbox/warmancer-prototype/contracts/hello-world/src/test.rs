@@ -1341,124 +1341,124 @@ fn create_user_board_parameters(env: &Env) -> LobbyParameters {
     
     // Add all 100 tiles exactly as specified in user's input
     // Row 0
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 0 }, setup: 0 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 0 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 0 }, setup:2, setup_zone: 1 });
     
     // Row 1
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 1 }, setup: 0 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 1 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 1 }, setup:2, setup_zone: 1 });
     
     // Row 2
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 2 }, setup: 0 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 2 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 2 }, setup:2, setup_zone: 1 });
     
     // Row 3
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 3 }, setup: 0 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 3 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 3 }, setup:2, setup_zone: 1 });
     
     // Row 4 (neutral)
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 4 }, setup: 2 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 4 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 4 }, setup:2, setup_zone: 1 });
     
     // Row 5 (neutral)
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 5 }, setup: 2 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 5 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 5 }, setup:2, setup_zone: 1 });
     
     // Row 6 (team 1)
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 6 }, setup: 1 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 6 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 6 }, setup:2, setup_zone: 1 });
     
     // Row 7 (team 1)
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 7 }, setup: 1 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 7 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 7 }, setup:2, setup_zone: 1 });
     
     // Row 8 (team 1)
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 8 }, setup: 1 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 8 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 8 }, setup:2, setup_zone: 1 });
     
     // Row 9 (team 1)
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 9 }, setup: 1 });
-    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 9 }, setup: 2 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 9 }, setup:2, setup_zone: 1 });
     
     let board = Board {
         hex: true,

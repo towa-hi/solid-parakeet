@@ -101,10 +101,10 @@ public class BoardGrid : MonoBehaviour
     }
     
     // Convert grid coordinates to world position
-    public Vector3 CellToWorld(Pos pos)
+    public Vector3 CellToWorld(Vector2Int pos)
     {
         // Adjust position by origin offset
-        Vector2Int adjustedPos = pos.ToVector2Int();
+        Vector2Int adjustedPos = pos;
         
         if (isHex)
         {

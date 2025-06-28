@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{*, log};
 use soroban_sdk::xdr::*;
-const DEBUG_LOGGING: bool = false;
+const DEBUG_LOGGING: bool = true;
 macro_rules! debug_log {
     ($env:expr, $($arg:tt)*) => {
         if DEBUG_LOGGING {
@@ -107,6 +107,7 @@ pub struct Tile {
     pub passable: bool,
     pub pos: Pos,
     pub setup: u32,
+    pub setup_zone: u32,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Board {
@@ -323,6 +324,10 @@ impl Contract {
                     break;
                 }
             }
+            if tile.setup_zone != 0 && tile.setup_zone != 1 && tile.setup_zone != 2 && tile.setup_zone != 3 && tile.setup_zone != 4 {
+                board_invalid = true;
+                break;
+            }
         }
         if board_invalid {
             return Err(Error::InvalidBoard)
@@ -336,9 +341,16 @@ impl Contract {
             subphase: Subphase::None,
         };
         user.current_lobby = Vec::from_array(e, [req.lobby_id.clone()]);
+        let history = History {
+            lobby_id: req.lobby_id.clone(),
+            host_moves: Vec::new(e),
+            guest_moves: Vec::new(e),
+        };
+        let history_key = DataKey::History(req.lobby_id.clone());
         // save
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&lobby_parameters_key, &req.parameters);
+        temporary.set(&history_key, &history);
         persistent.set(&user_key, &user);
         Ok(())
     }
