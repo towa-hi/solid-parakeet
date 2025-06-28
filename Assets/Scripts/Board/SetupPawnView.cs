@@ -18,12 +18,9 @@ public class SetupPawnView: MonoBehaviour
     public GameObject model;
     
     Phase oldPhase = Phase.Aborted;
-    BoardManager bm;
     
-    public void Initialize(TileView tileView, Team inTeam, BoardManager inBm)
+    public void Initialize(TileView tileView, Team inTeam)
     {
-        bm = inBm;
-        bm.OnClientGameStateChanged += OnClientGameStateChanged;
         rank = null;
         team = inTeam;
         pos = tileView.tile.pos;
@@ -37,8 +34,8 @@ public class SetupPawnView: MonoBehaviour
         parentConstraint.constraintActive = true;
     }
 
-    void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
-    {
+    // void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
+    // {
         // switch (phase)
         // {
         //     case MovementPhase movementPhase:
@@ -72,7 +69,7 @@ public class SetupPawnView: MonoBehaviour
         //         throw new ArgumentOutOfRangeException(nameof(phase));
         //
         // }
-    }
+    //}
 
     void SetPendingCommit(Rank? inRank)
     {

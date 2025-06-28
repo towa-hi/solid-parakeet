@@ -34,10 +34,9 @@ public class TileView : MonoBehaviour
 
     // BoardManager bm;
     
-    public void Initialize(Contract.Tile inTile, BoardManager boardManager, bool isHex)
+    public void Initialize(Contract.Tile inTile, bool isHex)
     {
-        boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
-        boardManager.OnGameHover += OnGameHover;
+        //boardManager.OnGameHover += OnGameHover;
         tile = inTile;
         gameObject.name = $"Tile (not set)";
         hexTileModel.gameObject.SetActive(false);
@@ -89,7 +88,7 @@ public class TileView : MonoBehaviour
     }
 
     public Vector3 targetElevatorLocalPosition;
-    void OnGameHover(Vector2Int hoveredPos, TileView tileView, PawnView pawnView, IPhase phase)
+    void OnGameHover(Vector2Int hoveredPos, TileView tileView, PawnView pawnView, PhaseBase phase)
     {
         // bool isHovered = tile.pos == hoveredPos;
         bool elevateTile = false;
@@ -226,30 +225,30 @@ public class TileView : MonoBehaviour
         //         elevator.localPosition = targetElevatorLocalPosition;
         //     });
         // }
-    }
+    //}
     
-    void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
-    {
-        switch (phase)
-        {
-            case SetupCommitPhase setupCommitPhase:
-                if (phaseChanged)
-                {
-                    SetSetupEmissionHighlight(true);
-                }
-                break;
-            case SetupProvePhase setupProvePhase:
-                break;
-            case MoveCommitPhase moveCommitPhase:
-                break;
-            case MoveProvePhase moveProvePhase:
-                break;
-            case RankProvePhase rankProvePhase:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(phase));
-
-        }
+    // void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
+    // {
+    //     switch (phase)
+    //     {
+    //         case SetupCommitPhase setupCommitPhase:
+    //             if (phaseChanged)
+    //             {
+    //                 SetSetupEmissionHighlight(true);
+    //             }
+    //             break;
+    //         case SetupProvePhase setupProvePhase:
+    //             break;
+    //         case MoveCommitPhase moveCommitPhase:
+    //             break;
+    //         case MoveProvePhase moveProvePhase:
+    //             break;
+    //         case RankProvePhase rankProvePhase:
+    //             break;
+    //         default:
+    //             throw new ArgumentOutOfRangeException(nameof(phase));
+    //
+    //     }
         // switch (phase)
         // {
         //     case MovementPhase movementTestPhase:

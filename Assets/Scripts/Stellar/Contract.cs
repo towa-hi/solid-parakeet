@@ -390,6 +390,18 @@ namespace Contract
             SCVal scVal = obj.ToScvMap();
             return GetHash(scVal);
         }
+
+        public static byte[] GetHiddenRankHash(HiddenRank hiddenRank)
+        {
+            SCVal scVal = hiddenRank.ToScvMap();
+            string xdrString = SCValXdr.EncodeToBase64(scVal);
+            using SHA256 sha256 = SHA256.Create();
+            byte[] fullHash = sha256.ComputeHash(Convert.FromBase64String(xdrString));
+            // Truncate to 16 bytes for HiddenRankHash
+            byte[] truncatedHash = new byte[16];
+            Array.Copy(fullHash, truncatedHash, 16);
+            return truncatedHash;
+        }
         
         public static bool HashEqual(SCVal a, SCVal b)
         {

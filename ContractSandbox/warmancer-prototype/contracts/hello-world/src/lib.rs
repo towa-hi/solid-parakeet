@@ -13,7 +13,7 @@ macro_rules! debug_log {
 
 pub type LobbyId = u32;
 pub type PawnId = u32;
-pub type HiddenRankHash = BytesN<32>; // always the hash of HiddenRank struct
+pub type HiddenRankHash = BytesN<16>; // always the hash of HiddenRank struct
 pub type HiddenMoveHash = BytesN<32>; // always the hash of HiddenMove struct
 pub type SetupHash = BytesN<32>; // always the hash of Setup struct
 pub type BoardHash = BytesN<32>; // not used at the moment
@@ -431,7 +431,7 @@ impl Contract {
                 let pawn_id = Self::encode_pawn_id(&pos, &team);
                 let pawn_state = PawnState {
                     alive: true,
-                    hidden_rank_hash: HiddenRankHash::from_array(e, &[0u8; 32]),
+                    hidden_rank_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
                     moved: false,
                     moved_scout: false,
                     pawn_id: pawn_id,
@@ -880,7 +880,8 @@ impl Contract {
         let pawns_map = Self::create_pawns_map(e, game_state);
         for hidden_rank in hidden_ranks.iter() {
             let serialized_hidden_rank = hidden_rank.clone().to_xdr(e);
-            let rank_hash = e.crypto().sha256(&serialized_hidden_rank).to_bytes();
+            let full_hash = e.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
+            let rank_hash = HiddenRankHash::from_array(e, &full_hash[0..16].try_into().unwrap());
             let (_, mut pawn) = match pawns_map.get(hidden_rank.pawn_id.clone()) {
                 Some(tuple) => tuple,
                 None => {

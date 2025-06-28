@@ -688,7 +688,8 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
         };
         hidden_ranks.push_back(hidden_rank.clone());
         let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
-        let hidden_rank_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes();
+        let full_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
+        let hidden_rank_hash = HiddenRankHash::from_array(env, &full_hash[0..16].try_into().unwrap());
         
         let commit = SetupCommit {
             pawn_id: pawn.pawn_id,
@@ -775,7 +776,8 @@ pub fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<Setup
         hidden_ranks.push_back(hidden_rank.clone());
         
         let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
-        let hidden_rank_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes();
+        let full_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
+        let hidden_rank_hash = HiddenRankHash::from_array(env, &full_hash[0..16].try_into().unwrap());
         
         let commit = SetupCommit {
             pawn_id,

@@ -54,6 +54,7 @@ public class TestClickInputManager : MonoBehaviour
         // sort so UI is always on top, then PawnViews then TileViews
         results.Sort((a, b) =>
         {
+            // TODO: investigate error when tabbed out
             int layerA = a.gameObject.layer;
             int layerB = b.gameObject.layer;
             int priorityA = layerPriorities.TryGetValue(layerA, out int priority) ? priority : int.MaxValue;

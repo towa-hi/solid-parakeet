@@ -1693,7 +1693,13 @@ public readonly struct AccountAddress : IEquatable<AccountAddress>
         => acct.ed25519PublicKey;
 }
 
-
+public enum RelativeSubphase
+{
+    MYSELF,
+    OPPONENT,
+    BOTH,
+    NONE,
+}
 
 public struct GameNetworkState
 {
@@ -1746,6 +1752,19 @@ public struct GameNetworkState
         }
     }
 
+    
+    public RelativeSubphase GetRelativeSubphase()
+    {
+        return lobbyInfo.subphase switch
+        {
+            Subphase.Host => isHost ? RelativeSubphase.MYSELF : RelativeSubphase.OPPONENT,
+            Subphase.Guest => isHost ? RelativeSubphase.OPPONENT : RelativeSubphase.MYSELF,
+            Subphase.Both => RelativeSubphase.BOTH,
+            Subphase.None => RelativeSubphase.NONE,
+            _ => throw new ArgumentOutOfRangeException()
+        };
+    }
+    
     public UserMove GetUserMove()
     {
         return isHost ? gameState.moves[0] : gameState.moves[1];

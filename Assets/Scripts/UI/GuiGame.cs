@@ -13,14 +13,10 @@ public class GuiGame : TestGuiElement
     
     public CameraAnchor boardAnchor;
     
-    public GameElement currentElement;
-    
-    
     void Start()
     {
         setup.ShowElement(false);
         movement.ShowElement(false);
-        GameManager.instance.boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
     }
     
     public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
@@ -34,28 +30,17 @@ public class GuiGame : TestGuiElement
             // TODO: get rid of chatbox
             chatbox.gameObject.SetActive(false);
         }
-        
     }
 
-    void OnClientGameStateChanged(IPhase currentPhase, bool phaseChanged)
+    public void PhaseChanged(PhaseBase newPhase)
     {
-        GameElement newElement;
-        switch (currentPhase)
-        {
-            case SetupCommitPhase setupCommitPhase:
-            case SetupProvePhase setupProvePhase:
-                newElement = setup;
-                break;
-            case MoveCommitPhase moveCommitPhase:
-            case MoveProvePhase moveProvePhase:
-            case RankProvePhase rankProvePhase:
-                newElement = movement;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(currentPhase));
-        }
-        currentElement = newElement;
-        setup.Refresh(currentPhase);
-        movement.Refresh(currentPhase);
+        setup.PhaseChanged(newPhase);
+        movement.PhaseChanged(newPhase);
+    }
+
+    public void PhaseStateChanged(PhaseBase currentPhase)
+    {
+        setup.PhaseStateChanged(currentPhase);
+        movement.PhaseStateChanged(currentPhase);
     }
 }

@@ -46,7 +46,17 @@ public class GuiMovement : GameElement
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
 
-    public void Refresh(IPhase currentPhase)
+    public void PhaseChanged(PhaseBase currentPhase)
+    {
+        
+    }
+
+    public void PhaseStateChanged(PhaseBase currentPhase)
+    {
+        
+    }
+    
+    void Refresh(PhaseBase currentPhase)
     {
         OnMenuButton = null;
         OnExtraButton = null;
@@ -74,6 +84,7 @@ public class GuiMovement : GameElement
         }
         ShowElement(show);
     }
+    
     //
     // public override void Initialize(BoardManager boardManager, GameNetworkState networkState)
     // {

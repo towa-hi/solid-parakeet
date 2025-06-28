@@ -34,7 +34,7 @@ public class PawnView : MonoBehaviour
         //pawn = inPawn;
         bm = inBoardManager;
         //bm.OnNetworkGameStateChanged += OnNetworkGameStateChanged;
-        bm.OnClientGameStateChanged += OnClientGameStateChanged;
+        //bm.OnClientGameStateChanged += OnClientGameStateChanged;
         //badge.Initialize(p, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
         SetPawn(p);
         //isMyTeam = team == inBoardManager.userTeam;
@@ -112,8 +112,8 @@ public class PawnView : MonoBehaviour
     //     }
     // }
     
-    void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
-    {
+    // void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
+    // {
         // bool phaseChanged = (uint)networkState.lobbyInfo.phase != oldPhase;
         // switch (phase)
         // {
@@ -163,7 +163,7 @@ public class PawnView : MonoBehaviour
         //         throw new ArgumentOutOfRangeException();
         // }
         // oldPhase = lobby.phase;
-    }
+    //}
     
     void SetPawn(PawnState p)
     {

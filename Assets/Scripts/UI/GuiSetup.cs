@@ -18,11 +18,11 @@ public class GuiSetup : GameElement
     public GameObject rankEntryPrefab;
     public Dictionary<Rank, GuiRankListEntry> entries;
 
-    public event Action OnClearButton;
-    public event Action OnAutoSetupButton;
-    public event Action OnRefreshButton;
-    public event Action OnSubmitButton;
-    public event Action<Rank?> OnRankSelected;
+    Action OnClearButton;
+    Action OnAutoSetupButton;
+    Action OnRefreshButton;
+    Action OnSubmitButton;
+    Action<Rank> OnEntryClicked;
     
     void Start()
     {
@@ -32,23 +32,89 @@ public class GuiSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
 
-    public void Refresh(IPhase currentPhase)
+    public void PhaseChanged(PhaseBase newPhase)
+    {
+        InitializeRankEntries(newPhase.cachedNetworkState, true);
+        Refresh(newPhase);
+    }
+
+    public void PhaseStateChanged(PhaseBase currentPhase)
+    {
+        Refresh(currentPhase);
+    }
+    //
+    void Refresh(PhaseBase currentPhase)
     {
         bool show;
+        string status = "";
         switch (currentPhase)
         {
             case SetupCommitPhase setupCommitPhase:
                 show = true;
-                if (!isVisible)
+                // TODO: make this not shit
+                // update entry counts
+                Dictionary<Rank, int> committed = new();
+                foreach ((Vector2Int _, Rank? mRank) in setupCommitPhase.pendingCommits)
                 {
-                    Initialize(setupCommitPhase);
+                    if (mRank is Rank rank)
+                    {
+                        if (!committed.ContainsKey(rank))
+                        {
+                            committed.Add(rank, 1);
+                        }
+                        else
+                        {
+                            committed[rank]++;
+                        }
+                    }
+                }
+                uint[] maxRanks = setupCommitPhase.cachedNetworkState.lobbyParameters.max_ranks;
+                for (int i = 0; i < maxRanks.Length; i++)
+                {
+                    Rank rank = (Rank)i;
+                    uint max = maxRanks[i];
+                    GuiRankListEntry rankListEntry = entries[rank];
+                    rankListEntry.SetRemaining(max, committed.GetValueOrDefault(rank, 0));
+                }
+                
+                switch (setupCommitPhase.cachedNetworkState.GetRelativeSubphase())
+                {
+                    case RelativeSubphase.MYSELF:
+                    case RelativeSubphase.BOTH:
+                        bool pawnsRemaining = setupCommitPhase.ArePawnsRemaining();
+                        submitButton.interactable = !pawnsRemaining;
+                        clearButton.interactable = true;
+                        autoSetupButton.interactable = true;
+                        status = "Commit your pawn setup";
+                        break;
+                    case RelativeSubphase.OPPONENT:
+                        submitButton.interactable = false;
+                        clearButton.interactable = false;
+                        autoSetupButton.interactable = false;
+                        status = "Awaiting opponent commit...";
+                        break;
+                    case RelativeSubphase.NONE:
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
                 break;
             case SetupProvePhase setupProvePhase:
                 show = true;
-                if (!isVisible)
+                submitButton.interactable = false;
+                clearButton.interactable = false;
+                autoSetupButton.interactable = false;
+                switch (setupProvePhase.cachedNetworkState.GetRelativeSubphase())
                 {
-                    Initialize(setupProvePhase);
+                    case RelativeSubphase.MYSELF:
+                    case RelativeSubphase.BOTH:
+                        status = "awaiting your setup proof";
+                        break;
+                    case RelativeSubphase.OPPONENT:
+                        status = "awaiting opponent setup proof";
+                        break;
+                    case RelativeSubphase.NONE:
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
                 break;
             case MoveCommitPhase moveCommitPhase:
@@ -59,113 +125,39 @@ public class GuiSetup : GameElement
             default:
                 throw new ArgumentOutOfRangeException(nameof(currentPhase));
         }
-
-        
+        statusText.text = status;
         ShowElement(show);
     }
 
-    void Initialize(SetupCommitPhase setupCommitPhase)
+    void InitializeRankEntries(GameNetworkState networkState, bool allInteractable)
     {
-        SetRankEntries(setupCommitPhase.setupCommitData.lobbyParameters.max_ranks);
         // Clear existing entries
         foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
         entries = new Dictionary<Rank, GuiRankListEntry>();
-        
-    }
-
-    void Initialize(SetupProvePhase setupProvePhase)
-    {
-        // SetRankEntries()
-    }
-
-    void SetRankEntries(uint[] maxRanks)
-    {
-        foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
-        entries = new Dictionary<Rank, GuiRankListEntry>();
+        uint[] maxRanks = networkState.lobbyParameters.max_ranks;
         for (int i = 0; i < maxRanks.Length; i++)
         {
             Rank rank = (Rank)i;
             uint max = maxRanks[i];
             GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
             entries.Add(rank, rankListEntry);
-            rankListEntry.Initialize(rank, max);
+            rankListEntry.Initialize(rank, max, allInteractable);
             rankListEntry.SetButtonOnClick(OnEntryClicked);
         }
     }
+
     public void SetActions(
         Action onClear = null, 
         Action onAutoSetup = null, 
         Action onRefresh = null, 
         Action onSubmit = null, 
-        Action<Rank?> onRankSelected = null)
+        Action<Rank> onEntryClicked = null)
     {
         OnClearButton = onClear;
         OnAutoSetupButton = onAutoSetup;
         OnRefreshButton = onRefresh;
         OnSubmitButton = onSubmit;
-        OnRankSelected = onRankSelected;
+        OnEntryClicked = onEntryClicked;
     }
     
-    // public override void Initialize(BoardManager inBoardManager, GameNetworkState networkState)
-    // {
-    //     base.Initialize(inBoardManager, networkState);
-    //     // Clear existing entries
-    //     foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
-    //     entries = new Dictionary<Rank, GuiRankListEntry>();
-    //     
-    //     uint[] maxRanks = networkState.lobbyParameters.max_ranks;
-    //     for (int i = 0; i < maxRanks.Length; i++)
-    //     {
-    //         Rank rank = (Rank)i;
-    //         uint max = maxRanks[i];
-    //         GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
-    //         entries.Add(rank, rankListEntry);
-    //         rankListEntry.Initialize(rank, max);
-    //         rankListEntry.SetButtonOnClick(OnEntryClicked);
-    //     }
-    // }
-
-    // public void Refresh(SetupClientState state)
-    // {
-    //     Debug.Log("GuiTestSetup Refresh");
-    //     bool pawnsRemaining = false;
-    //     foreach (GuiRankListEntry entry in entries.Values)
-    //     {
-    //         int remaining = state.GetPendingRemainingCount(entry.rank);
-    //         int lockedCommitsOfThisRank = state.lockedCommits.Count(c => CacheManager.LoadHiddenRank(c.hidden_rank_hash).rank == entry.rank);
-    //         int remainingUncommitted = remaining - lockedCommitsOfThisRank;
-    //         bool isSelected = state.selectedRank.HasValue && state.selectedRank.Value == entry.rank;
-    //         entry.Refresh(entry.rank, remainingUncommitted, isSelected);
-    //         if (remainingUncommitted > 0)
-    //         {
-    //             pawnsRemaining = true;
-    //         }
-    //     }
-    //     submitButton.interactable = !state.committed && !pawnsRemaining;
-    //     autoSetupButton.interactable = !state.committed;
-    //     clearButton.interactable = !state.committed;
-    //     string status;
-    //     if (state.committed)
-    //     {
-    //         status = "Waiting for opponent... Click refresh to check";
-    //     }
-    //     else
-    //     {
-    //         if (pawnsRemaining)
-    //         {
-    //             status = "Please commit all pawns";
-    //         }
-    //         else
-    //         {
-    //             status = "Click submit to continue";
-    //         }
-    //     }
-    //     statusText.text = status;
-    // }
-    
-    void OnEntryClicked(GuiRankListEntry clickedEntry)
-    {
-        Debug.Log("clicked");
-        // OnRankEntryClicked?.Invoke(clickedEntry.rank);
-    }
 }
