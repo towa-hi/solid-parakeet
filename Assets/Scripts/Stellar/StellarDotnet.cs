@@ -139,9 +139,9 @@ public class StellarDotnet
         NetworkState networkState = new(userAddress);
         User? mUser = await ReqUser(userAddress);
         networkState.user = mUser;
-        if (mUser?.current_lobby is uint lobbyId)
+        if (mUser is User user && user.current_lobby != 0)
         {
-            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(lobbyId);
+            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(user.current_lobby);
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
             networkState.gameState = mGameState;

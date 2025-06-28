@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{*, log};
 use soroban_sdk::xdr::*;
-const DEBUG_LOGGING: bool = true;
+const DEBUG_LOGGING: bool = false;
 macro_rules! debug_log {
     ($env:expr, $($arg:tt)*) => {
         if DEBUG_LOGGING {
@@ -18,6 +18,7 @@ pub type HiddenMoveHash = BytesN<32>; // always the hash of HiddenMove struct
 pub type SetupHash = BytesN<32>; // always the hash of Setup struct
 pub type BoardHash = BytesN<32>; // not used at the moment
 pub type Rank = u32;
+pub type PackedTile = u32;
 
 // endregion
 // region enums errors
@@ -98,25 +99,23 @@ pub struct Pos {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
-    pub current_lobby: Vec<LobbyId>,
+    pub current_lobby: LobbyId,
     pub games_completed: u32,
-    pub index: Address,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Tile {
-    pub passable: bool,
-    pub pos: Pos,
-    pub setup: u32,
-    pub setup_zone: u32,
+pub struct Tile {           // packs into 32 bit PackedTile
+    pub passable: bool,     // bit 0
+    pub pos: Pos,           // bit 1-18, x & y range -256 to 255
+    pub setup: u32,         // bit 19-21 range 0-2 for now
+    pub setup_zone: u32,    // bit 22-24 range 0-4 for now
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Board {
     pub hex: bool,
     pub name: String,
     pub size: Pos,
-    pub tiles: Vec<Tile>,
+    pub tiles: Vec<PackedTile>,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HiddenMove {
     pub pawn_id: PawnId,
@@ -270,17 +269,13 @@ pub struct CollisionDetection {
 #[contractimpl]
 impl Contract {
 
-    pub fn test_easy(e: &Env, address: Address) -> Result<(), Error> {
+    pub fn test_easy(_e: &Env, address: Address) -> Result<(), Error> {
         address.require_auth();
-        let persistent = e.storage().persistent();
-        let temporary = e.storage().temporary();
         Ok(())
     }
 
-    pub fn test_function(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
+    pub fn test_function(_e: &Env, address: Address, _req: MakeLobbyReq) -> Result<(), Error> {
         address.require_auth();
-        let persistent = e.storage().persistent();
-        let temporary = e.storage().temporary();
         Ok(())
     }
     
@@ -291,9 +286,8 @@ impl Contract {
         let user_key = DataKey::User(address.clone());
         let mut user =  persistent.get(&user_key).unwrap_or_else(|| {
             User {
-                current_lobby: Vec::new(e),
+                current_lobby: 0,
                 games_completed: 0,
-                index: address.clone(),
             }
         });
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
@@ -308,7 +302,8 @@ impl Contract {
             board_invalid = true;
         }
         let mut used_positions: Map<Pos, bool> = Map::new(e);
-        for tile in board.tiles.iter() {
+        for packed_tile in board.tiles.iter() {
+            let tile = Self::unpack_tile(packed_tile);
             if used_positions.contains_key(tile.pos.clone()) {
                 board_invalid = true;
                 break;
@@ -340,7 +335,7 @@ impl Contract {
             phase: Phase::Lobby,
             subphase: Subphase::None,
         };
-        user.current_lobby = Vec::from_array(e, [req.lobby_id.clone()]);
+        user.current_lobby = req.lobby_id.clone();
         let history = History {
             lobby_id: req.lobby_id.clone(),
             host_moves: Vec::new(e),
@@ -364,11 +359,10 @@ impl Contract {
             Some(user) => user,
             None => return Err(Error::UserNotFound),
         };
-        let current_lobby_id = match user.current_lobby.get(0) {
-            Some(id) => id,
-            None => return Err(Error::LobbyNotFound),
-        };
-        let (lobby_info, _, _, lobby_info_key, _, _) = Self::get_lobby_data(e, &current_lobby_id, true, false, false)?;
+        if user.current_lobby == 0 {
+            return Err(Error::LobbyNotFound)
+        }
+        let (lobby_info, _, _, lobby_info_key, _, _) = Self::get_lobby_data(e, &user.current_lobby, true, false, false)?;
         let mut lobby_info = lobby_info.unwrap();
         let user_index = Self::get_player_index(&address, &lobby_info)?;
         // update
@@ -378,7 +372,7 @@ impl Contract {
         else if lobby_info.guest_address.contains(&address) {
             lobby_info.guest_address.remove(0);
         }
-        user.current_lobby.remove(0);
+        user.current_lobby = 0;
         // if left while game is ongoing, assign winner
         if lobby_info.phase != Phase::Lobby && lobby_info.phase != Phase::Aborted && lobby_info.phase != Phase::Finished {
             lobby_info.subphase = Self::opponent_subphase_from_player_index(&user_index);
@@ -397,16 +391,13 @@ impl Contract {
         let user_key = DataKey::User(address.clone());
         let mut user =  persistent.get(&user_key).unwrap_or_else(|| {
             User {
-                current_lobby: Vec::new(e),
+                current_lobby: 0,
                 games_completed: 0,
-                index: address.clone(),
             }
         });
-        let maybe_old_lobby_id = user.current_lobby.get(0);
-        if let Some(old_lobby_id) = maybe_old_lobby_id {
-            if temporary.has(&DataKey::LobbyInfo(old_lobby_id.clone())) {
-                return Err(Error::GuestAlreadyInLobby)
-            }
+        let old_lobby_id = user.current_lobby;
+        if temporary.has(&DataKey::LobbyInfo(old_lobby_id.clone())) {
+            return Err(Error::GuestAlreadyInLobby)
         }
         let (lobby_info, _, lobby_parameters, lobby_info_key, _, _) = Self::get_lobby_data(e, &req.lobby_id, true, false, true)?;
         let mut lobby_info = lobby_info.unwrap();
@@ -425,14 +416,15 @@ impl Contract {
             return Err(Error::LobbyNotJoinable)
         }
         // update
-        user.current_lobby = Vec::from_array(e, [req.lobby_id.clone()]);
+        user.current_lobby = req.lobby_id.clone();
         lobby_info.guest_address = Vec::from_array(e, [address]);
         // start game automatically
         lobby_info.phase = Phase::SetupCommit;
         lobby_info.subphase = Subphase::Both;
         // generate pawns
         let mut pawns: Vec<PawnState> = Vec::new(e);
-        for tile in lobby_parameters.board.tiles.iter() {
+        for packed_tile in lobby_parameters.board.tiles.iter() {
+            let tile = Self::unpack_tile(packed_tile);
             if tile.setup == 0 || tile.setup == 1 {
                 let pos = tile.pos;
                 let team = tile.setup;
@@ -945,7 +937,8 @@ impl Contract {
         }
         // tile must exist
         let mut tile_exists = false;
-        for tile in lobby_parameters.board.tiles.iter() {
+        for packed_tile in lobby_parameters.board.tiles.iter() {
+            let tile = Self::unpack_tile(packed_tile);
             if tile.pos == move_proof.target_pos {
                 tile_exists = true;
                 if !tile.passable {
@@ -1137,9 +1130,9 @@ impl Contract {
          
          (u_proof_list, o_proof_list)
      }
-    pub(crate) fn check_game_over(e: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters) -> Result<Option<Subphase>, Error> {
+    pub(crate) fn check_game_over(e: &Env, game_state: &GameState, _lobby_parameters: &LobbyParameters) -> Result<Option<Subphase>, Error> {
         // game over check happens at the end of turn resolution
-        let pawn_indexes = Self::create_pawn_indexes(e, &game_state.pawns);
+        // let pawn_indexes = Self::create_pawn_indexes(e, &game_state.pawns);
         // case: game ends when a flag is not alive. if both flags are dead, game ends in a draw
         // find flag
         let mut h_flag_alive = true;
@@ -1337,6 +1330,115 @@ impl Contract {
             indexes.set(pawn.pawn_id, index as u32);
         }
         indexes
+    }
+
+    // Tile Packing Functions
+    pub(crate) fn pack_tile(tile: &Tile) -> PackedTile {
+        let mut packed: u32 = 0;
+        // Pack passable (1 bit) - bit 0
+        if tile.passable {
+            packed |= 1;
+        }
+        // Pack x coordinate (9 bits) - bits 1-9
+        let x_val = (tile.pos.x as u32) & 0x1FF; // Mask to 9 bits
+        packed |= x_val << 1;
+        // Pack y coordinate (9 bits) - bits 10-18  
+        let y_val = (tile.pos.y as u32) & 0x1FF; // Mask to 9 bits
+        packed |= y_val << 10;
+        // Pack setup (3 bits) - bits 19-21
+        let setup_val = tile.setup & 0x7; // Mask to 3 bits
+        packed |= setup_val << 19;
+        // Pack setup_zone (3 bits) - bits 22-24
+        let setup_zone_val = tile.setup_zone & 0x7; // Mask to 3 bits
+        packed |= setup_zone_val << 22;
+        packed
+    }
+
+    pub(crate) fn unpack_tile(packed: PackedTile) -> Tile {
+        // Extract passable (bit 0)
+        let passable = (packed & 1) != 0;
+        // Extract x coordinate (bits 1-9)
+        let x = ((packed >> 1) & 0x1FF) as i32;
+        // Extract y coordinate (bits 10-18)
+        let y = ((packed >> 10) & 0x1FF) as i32;
+        // Extract setup (bits 19-21)
+        let setup = (packed >> 19) & 0x7;
+        // Extract setup_zone (bits 22-24)
+        let setup_zone = (packed >> 22) & 0x7;
+        Tile {
+            passable,
+            pos: Pos { x, y },
+            setup,
+            setup_zone,
+        }
+    }
+
+    pub(crate) fn validate_packed_tile(packed: PackedTile) -> bool {
+        // Check if reserved bits (25-31) are zero
+        if (packed >> 25) != 0 {
+            return false;
+        }
+        
+        // Extract and validate setup field (bits 19-21)
+        let setup = (packed >> 19) & 0x7;
+        if setup > 2 {
+            return false;
+        }
+        
+        // Extract and validate setup_zone field (bits 22-24)
+        let setup_zone = (packed >> 22) & 0x7;
+        if setup_zone > 4 {
+            return false;
+        }
+        
+        // Extract coordinates and check reasonable bounds
+        let x = ((packed >> 1) & 0x1FF) as i32;
+        let y = ((packed >> 10) & 0x1FF) as i32;
+        
+        // Check if coordinates are within reasonable range (-256 to 255)
+        if x > 255 || y > 255 {
+            return false;
+        }
+        
+        true
+    }
+
+    pub(crate) fn validate_tile_consistency(tile: &Tile) -> bool {
+        // Validate setup field
+        if tile.setup > 2 {
+            return false;
+        }
+        
+        // Validate setup_zone field
+        if tile.setup_zone > 4 {
+            return false;
+        }
+        
+        // Validate that impassable tiles are only setup type 2
+        if !tile.passable && tile.setup != 2 {
+            return false;
+        }
+        
+        // Validate coordinates are within signed 9-bit range (-256 to 255)
+        if tile.pos.x < -256 || tile.pos.x > 255 || tile.pos.y < -256 || tile.pos.y > 255 {
+            return false;
+        }
+        
+        true
+    }
+
+    pub(crate) fn test_tile_packing_roundtrip(tile: &Tile) -> bool {
+        if !Self::validate_tile_consistency(tile) {
+            return false;
+        }
+        
+        let packed = Self::pack_tile(tile);
+        if !Self::validate_packed_tile(packed) {
+            return false;
+        }
+        
+        let unpacked = Self::unpack_tile(packed);
+        *tile == unpacked
     }
     // endregion
 

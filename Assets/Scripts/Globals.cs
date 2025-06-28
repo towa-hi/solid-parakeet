@@ -1693,39 +1693,7 @@ public readonly struct AccountAddress : IEquatable<AccountAddress>
         => acct.ed25519PublicKey;
 }
 
-public readonly struct LobbyId : IEquatable<LobbyId>
-{
-    private readonly uint val;
-    public uint Value => val;
 
-    public LobbyId(uint value)
-    {
-        val = value;
-    }
-
-    // Allow easy conversion to/from raw uint:
-    public static implicit operator uint(LobbyId id)   => id.val;
-    public static explicit operator LobbyId(uint raw)  => new LobbyId(raw);
-
-    // IEquatable<T> implementation:
-    public bool Equals(LobbyId other) 
-        => val == other.val;
-
-    public override bool Equals(object obj) 
-        => obj is LobbyId other && Equals(other);
-
-    public override int GetHashCode() 
-        => val.GetHashCode();
-
-    // == and != operators:
-    public static bool operator ==(LobbyId left, LobbyId right) 
-        => left.Equals(right);
-    public static bool operator !=(LobbyId left, LobbyId right) 
-        => !left.Equals(right);
-
-    public override string ToString() 
-        => val.ToString();
-}
 
 public struct GameNetworkState
 {

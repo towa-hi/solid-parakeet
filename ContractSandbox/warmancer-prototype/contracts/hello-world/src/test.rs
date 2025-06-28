@@ -746,7 +746,7 @@ impl TestSetup {
                 .get(&user_key)
                 .expect("User should be stored");
             
-            assert_eq!(stored_user.current_lobby.get(0).unwrap(), expected_lobby_id);
+            assert_eq!(stored_user.current_lobby, expected_lobby_id);
         });
     }
     
@@ -758,7 +758,7 @@ impl TestSetup {
                 .get(&user_key)
                 .expect("User should be stored");
             
-            assert!(stored_user.current_lobby.is_empty());
+            assert_eq!(stored_user.current_lobby, 0);
         });
     }
 
@@ -1459,12 +1459,15 @@ fn create_user_board_parameters(env: &Env) -> LobbyParameters {
     tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 9 }, setup: 1, setup_zone: 1 });
     tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 9 }, setup: 1, setup_zone: 1 });
     tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 9 }, setup:2, setup_zone: 1 });
-    
+    let mut packed_tiles = Vec::new(env);
+    for tile in tiles.iter() {
+        packed_tiles.push_back(Contract::pack_tile(&tile));
+    }
     let board = Board {
         hex: true,
         name: String::from_str(env, "Narrow Hexagons"),
         size: Pos { x: 10, y: 10 },
-        tiles,
+        tiles: packed_tiles,
     };
     
     LobbyParameters {

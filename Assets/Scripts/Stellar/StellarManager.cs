@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CCPR6TURHM7KNUI36Y4BQ4VJXURK7KIQNUL7WIBQYPCQGXMO5BB2HWYS";
+    public static string testContract = "CBYMLUL5DHFJXWXTC6WT73QSRGHRSOSVMN6ZXHKTMVVLLTPA6YPXOOP6";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -43,14 +43,13 @@ public static class StellarManager
         TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
         networkState = await stellar.ReqNetworkState();
         EndTask(getNetworkStateTask);
-        
-        if (networkState.user.HasValue && networkState.user?.current_lobby != null)
+        if (networkState.user is User user && user.current_lobby != 0)
         {
             if (!networkState.lobbyInfo.HasValue || !networkState.lobbyParameters.HasValue)
             {
                 Debug.LogWarning($"UpdateState(): user.current_lobby is set to {networkState.user?.current_lobby} but lobby data is missing - likely expired");
-                var updatedUser = networkState.user.Value;
-                updatedUser.current_lobby = null;
+                User updatedUser = user;
+                updatedUser.current_lobby = new LobbyId(0);
                 networkState.user = updatedUser;
                 Debug.Log("Set current_lobby to null due to expired/missing lobby");
             }

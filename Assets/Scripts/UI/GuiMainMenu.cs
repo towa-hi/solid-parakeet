@@ -154,7 +154,7 @@ public class GuiMainMenu : TestGuiElement
         if (currentUser.HasValue)
         {
             User user = currentUser.Value;
-            if (user.current_lobby == null)
+            if (user.current_lobby == 0)
             {
                 currentLobbyText.text = "No lobby";
                 viewLobbyButton.interactable = false;

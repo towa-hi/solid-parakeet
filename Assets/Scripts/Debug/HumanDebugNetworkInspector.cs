@@ -38,10 +38,9 @@ public class HumanDebugNetworkInspector : MonoBehaviour
         {
             User user = networkState.user.Value;
             _user.hasValue = true;
-            _user.currentLobbyHasValue = user.current_lobby.HasValue;
-            _user.currentLobby = user.current_lobby ?? 42069;
+            _user.currentLobbyHasValue = user.current_lobby != 0;
+            _user.currentLobby = user.current_lobby;
             _user.gamesCompleted = user.games_completed;
-            _user.index = user.index.ToString();
         }
         else
         {

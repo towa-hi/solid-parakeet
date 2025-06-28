@@ -61,6 +61,9 @@ namespace Contract
                             FieldToSCMapEntry("y", vector2Int.y),
                         }),
                     };
+                case Tile tile:
+                    // special case for unpacked tiles
+                    return new SCVal.ScvU32() { u32 = new uint32((uint)tile) };
                 case SCVal.ScvAddress address:
                     return address;
                 case AccountAddress accountAddress:
@@ -174,6 +177,12 @@ namespace Contract
                     if (scVal is SCVal.ScvU32 lobbyU32Val)
                     {
                         return new LobbyId(lobbyU32Val.u32.InnerValue);
+                    }
+                    break;
+                case var _ when targetType == typeof(Tile):
+                    if (scVal is SCVal.ScvU32 tileU32Val)
+                    {
+                        return (Tile)tileU32Val.u32.InnerValue;
                     }
                     break;
                 default:
@@ -411,6 +420,40 @@ namespace Contract
         public static bool operator !=(PawnId left, PawnId right) => !left.Equals(right);
     }
     
+    public readonly struct LobbyId : IEquatable<LobbyId>
+    {
+        private readonly uint val;
+        public uint Value => val;
+
+        public LobbyId(uint value)
+        {
+            val = value;
+        }
+
+        // Allow easy conversion to/from raw uint:
+        public static implicit operator uint(LobbyId id)   => id.val;
+        public static explicit operator LobbyId(uint raw)  => new LobbyId(raw);
+
+        // IEquatable<T> implementation:
+        public bool Equals(LobbyId other) 
+            => val == other.val;
+
+        public override bool Equals(object obj) 
+            => obj is LobbyId other && Equals(other);
+
+        public override int GetHashCode() 
+            => val.GetHashCode();
+
+        // == and != operators:
+        public static bool operator ==(LobbyId left, LobbyId right) 
+            => left.Equals(right);
+        public static bool operator !=(LobbyId left, LobbyId right) 
+            => !left.Equals(right);
+
+        public override string ToString() 
+            => val.ToString();
+    }
+    
     // [Serializable]
     // public struct Pos : IScvMapCompatable, IEquatable<Pos>
     // {
@@ -442,7 +485,7 @@ namespace Contract
     // }
 
     [Serializable]
-    public struct Tile : IScvMapCompatable
+    public struct Tile
     {
         public bool passable;
         public Vector2Int pos;
@@ -462,14 +505,70 @@ namespace Contract
                 }),
             };
         }
+
+        // Implicit conversion from Tile to uint (packing)
+        public static implicit operator uint(Tile tile)
+        {
+            uint packed = 0;
+            
+            // Pack passable (1 bit) - bit 0
+            if (tile.passable)
+            {
+                packed |= 1u;
+            }
+            
+            // Pack x coordinate (9 bits) - bits 1-9
+            uint xVal = ((uint)tile.pos.x) & 0x1FFu;
+            packed |= xVal << 1;
+            
+            // Pack y coordinate (9 bits) - bits 10-18
+            uint yVal = ((uint)tile.pos.y) & 0x1FFu;
+            packed |= yVal << 10;
+            
+            // Pack setup (3 bits) - bits 19-21
+            uint setupVal = tile.setup & 0x7u;
+            packed |= setupVal << 19;
+            
+            // Pack setup_zone (3 bits) - bits 22-24
+            uint setupZoneVal = tile.setup_zone & 0x7u;
+            packed |= setupZoneVal << 22;
+            
+            return packed;
+        }
+
+        // Implicit conversion from uint to Tile (unpacking)
+        public static implicit operator Tile(uint packed)
+        {
+            // Extract passable (bit 0)
+            bool passable = (packed & 1u) != 0;
+            
+            // Extract x coordinate (bits 1-9)
+            int x = (int)((packed >> 1) & 0x1FFu);
+            
+            // Extract y coordinate (bits 10-18)
+            int y = (int)((packed >> 10) & 0x1FFu);
+            
+            // Extract setup (bits 19-21)
+            uint setup = (packed >> 19) & 0x7u;
+            
+            // Extract setup_zone (bits 22-24)
+            uint setupZone = (packed >> 22) & 0x7u;
+            
+            return new Tile
+            {
+                passable = passable,
+                pos = new Vector2Int(x, y),
+                setup = setup,
+                setup_zone = setupZone,
+            };
+        }
     }
 
     [Serializable]
     public struct User : IScvMapCompatable
     {
-        public uint? current_lobby;
+        public LobbyId current_lobby;
         public uint games_completed;
-        public AccountAddress index;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -479,7 +578,6 @@ namespace Contract
                 {
                     SCUtility.FieldToSCMapEntry("current_lobby", current_lobby),
                     SCUtility.FieldToSCMapEntry("games_completed", games_completed),
-                    SCUtility.FieldToSCMapEntry("index", index),
                 }),
             };
         }

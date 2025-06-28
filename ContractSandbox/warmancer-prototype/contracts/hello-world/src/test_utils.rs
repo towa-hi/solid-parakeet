@@ -60,7 +60,8 @@ pub fn format_board_with_colors_and_ranks(
     
     // Create a map of positions to tiles for quick lookup
     let mut tile_map: std::collections::HashMap<(i32, i32), Tile> = std::collections::HashMap::new();
-    for tile in board.tiles.iter() {
+    for packed_tile in board.tiles.iter() {
+        let tile = Contract::unpack_tile(packed_tile);
         tile_map.insert((tile.pos.x, tile.pos.y), tile);
     }
     
@@ -315,7 +316,8 @@ pub fn create_rank_proof_requests(
 pub fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters, team: u32, team_ranks: &Vec<HiddenRank>, salt: u64) -> Option<HiddenMove> {
     // Create a map of all tile positions for quick lookup
     let mut tile_map: Map<Pos, Tile> = Map::new(env);
-    for tile in lobby_parameters.board.tiles.iter() {
+    for packed_tile in lobby_parameters.board.tiles.iter() {
+        let tile = Contract::unpack_tile(packed_tile);
         tile_map.set(tile.pos, tile);
     }
     
@@ -525,11 +527,15 @@ pub fn create_default_board(env: &Env) -> Board {
             setup_zone: 1,
         });
     }
+    let mut packed_tiles = Vec::new(env);
+    for tile in tiles.iter() {
+        packed_tiles.push_back(Contract::pack_tile(&tile));
+    }
     Board {
         name: String::from_str(env, "Default Stratego Board"),
-        tiles,
         hex: false,
         size: Pos { x: 10, y: 10 },
+        tiles: packed_tiles,
     }
 }
 
@@ -556,10 +562,13 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
         Tile { pos: Pos { x: 1, y: 0 }, passable: true, setup: 0, setup_zone: 1 },
         Tile { pos: Pos { x: 0, y: 1 }, passable: true, setup: 1, setup_zone: 1 },
     ]);
-    
+    let mut packed_tiles = Vec::new(env);
+    for tile in tiles.iter() {
+        packed_tiles.push_back(Contract::pack_tile(&tile));
+    }
     let board = Board {
         name: String::from_str(env, "Invalid Board"),
-        tiles,
+        tiles: packed_tiles,
         hex: false,
         size: Pos { x: 2, y: 2 }, // Says 2x2 = 4 tiles, but we only have 3
     };
