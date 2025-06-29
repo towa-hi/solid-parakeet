@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2765450fdbda0b346bd89b71d445593d, type: 3}
-  m_Name: 99-unknown
+  m_Name: 12-unknown
   m_EditorClassIdentifier: 
-  id: 99
-  rank: 99
+  id: 12
+  rank: 12
   pawnName: Unknown
   power: 0
   movementRange: 0

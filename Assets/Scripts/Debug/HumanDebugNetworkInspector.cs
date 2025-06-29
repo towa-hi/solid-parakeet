@@ -100,7 +100,7 @@ public class HumanDebugNetworkInspector : MonoBehaviour
             _lobbyParameters.board = new Board { name = "NULL_BOARD", hex = false, size = new Vector2Int { x = 42069, y = 42069 }, tiles = Array.Empty<Contract.Tile>() };
             _lobbyParameters.boardHash = new byte[] { 42, 0, 69 };
             _lobbyParameters.devMode = false;
-            _lobbyParameters.hostTeam = 42069;
+            _lobbyParameters.hostTeam = Team.NONE;
             _lobbyParameters.maxRanks = new uint[] { 42069 };
             _lobbyParameters.mustFillAllTiles = false;
             _lobbyParameters.securityMode = false;
@@ -203,7 +203,7 @@ public class SerializableLobbyParameters
     public Board board;
     public byte[] boardHash;
     public bool devMode;
-    public uint hostTeam;
+    public Team hostTeam;
     public uint[] maxRanks;
     public bool mustFillAllTiles;
     public bool securityMode;

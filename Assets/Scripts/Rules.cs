@@ -147,9 +147,16 @@ public static class Rules
 
 public enum Team
 {
-    NONE,
     RED,
     BLUE,
+    NONE,
+}
+
+public enum Player
+{
+    HOST,
+    GUEST,
+    NONE,
 }
 
 public enum Rank

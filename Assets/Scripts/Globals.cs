@@ -20,6 +20,18 @@ public static class Globals
     public const float SelectedHoveredHeight = 0.1f;
     public static readonly InputSystem_Actions InputActions = new();
 
+    public static bool IsHashEmpty(byte[] hash)
+    {
+        if (hash == null || hash.Length == 0)
+            return true;
+            
+        foreach (byte b in hash)
+        {
+            if (b != 0)
+                return false;
+        }
+        return true;
+    }
     public static ulong RandomSalt()
     {
         ulong value;
@@ -1737,7 +1749,7 @@ public struct GameNetworkState
             throw new ArgumentException($"address not in state: {address}");
         }
 
-        Team hostTeam = lobbyParameters.host_team == 1 ? Team.RED : Team.BLUE;
+        Team hostTeam = lobbyParameters.host_team;
         Team guestTeam = hostTeam == Team.RED ? Team.BLUE : Team.RED;
         
         if (isHost)
@@ -1764,6 +1776,12 @@ public struct GameNetworkState
             _ => throw new ArgumentOutOfRangeException()
         };
     }
+
+    public bool IsMySubphase()
+    {
+        RelativeSubphase subphase = GetRelativeSubphase();
+        return subphase is RelativeSubphase.MYSELF or RelativeSubphase.BOTH;
+    }
     
     public UserMove GetUserMove()
     {
@@ -1774,6 +1792,13 @@ public struct GameNetworkState
     {
         return isHost ? gameState.setups[0] : gameState.setups[1];
     }
+
+    public Dictionary<Vector2Int, Rank> AutoSetup(Team team)
+    {
+        Dictionary<Vector2Int, Rank> commitments = new Dictionary<Vector2Int, Rank>();
+        return commitments;
+    }
+
 }
 
 public struct NetworkState

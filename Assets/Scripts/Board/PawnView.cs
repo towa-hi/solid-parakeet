@@ -10,40 +10,103 @@ public class PawnView : MonoBehaviour
     Billboard billboard;
 
     public Badge badge;
-
+    public GameObject model;
     public ParentConstraint parentConstraint;
     ConstraintSource parentSource;
-    //public Pawn pawn;
-    public uint pawnId;
-    public Team team;
-    public bool isMyTeam;
-    public Vector2Int displayedPos;
-    public string pawnDefHash;
     
     public Animator animator;
     public RenderEffect renderEffect;
     BoardManager bm;
-
-    public Vector2Int setupPos;
+    // immutable
+    public PawnId pawnId;
+    public Vector2Int startPos;
+    public Team team;
     
-    uint oldPhase = 999;
+    // cached
+    bool aliveView;
+    Rank rankView;
+    public Vector2Int posView;
     
-    public void Initialize(PawnState p, BoardManager inBoardManager)
+    
+    public void Initialize(PawnState pawn, Transform target)
     {
-        oldPhase = 999;
-        //pawn = inPawn;
-        bm = inBoardManager;
-        //bm.OnNetworkGameStateChanged += OnNetworkGameStateChanged;
-        //bm.OnClientGameStateChanged += OnClientGameStateChanged;
-        //badge.Initialize(p, PlayerPrefs.GetInt("DISPLAYBADGE") == 1);
-        SetPawn(p);
-        //isMyTeam = team == inBoardManager.userTeam;
+        pawnId = pawn.pawn_id;
+        startPos = pawnId.Decode().Item1;
+        team = pawnId.Decode().Item2;
+    }
+
+    public void PhaseStateChanged(PhaseBase phase)
+    {
+        switch (phase)
+        {
+            case SetupCommitPhase setupCommitPhase:
+                PawnState pawn = setupCommitPhase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
+                if (setupCommitPhase.pendingCommits.TryGetValue(pawn.pos, out Rank commit))
+                {
+                    SetRankView(pawn, commit);
+                    SetPosView(setupCommitPhase.tileViews[pawn.pos]);
+                }
+                else
+                {
+                    SetRankView(pawn);
+                    SetPosView();
+                }
+                break;
+            case SetupProvePhase setupProvePhase:
+                break;
+            case MoveCommitPhase moveCommitPhase:
+                break;
+            case MoveProvePhase moveProvePhase:
+                break;
+            case RankProvePhase rankProvePhase:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(phase));
+        }
+    }
+
+    void SetPosView(TileView tileView = null)
+    {
+        Transform target = tileView ? tileView.origin : GameManager.instance.purgatory;
+        parentConstraint.SetSource(0, new ConstraintSource()
+        {
+            sourceTransform = target,
+            weight = 1,
+        });
+        parentConstraint.constraintActive = true;
     }
     
-    void Revealed(PawnState p)
+    void SetRankView(PawnState pawn, Rank? mOverrideRank = null)
     {
-        Rank rank = CacheManager.LoadHiddenRank(p.hidden_rank_hash).rank;
-        PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rank);
+        Rank oldRankView = rankView;
+        if (mOverrideRank is Rank overrideRank)
+        {
+            Debug.Log($"Rank view override {overrideRank}");
+            rankView = overrideRank;
+        }
+        else
+        {
+            if (pawn.rank is Rank rank)
+            {
+                rankView = rank;
+            }
+            else
+            {
+                if (CacheManager.LoadHiddenRank(pawn.hidden_rank_hash) is HiddenRank hiddenRank)
+                {
+                    rankView = hiddenRank.rank;
+                }
+                else
+                {
+                    rankView = Rank.UNKNOWN;
+                }
+            }
+        }
+        if (rankView == oldRankView)
+        {
+            return;
+        }
+        PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rankView);
         switch (team)
         {
             case Team.RED:
@@ -51,14 +114,12 @@ public class PawnView : MonoBehaviour
                 {
                     animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
                 }
-
                 break;
             case Team.BLUE:
                 if (pawnDef.blueAnimatorOverrideController)
                 {
                     animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
                 }
-
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -66,7 +127,36 @@ public class PawnView : MonoBehaviour
         float randNormTime = Random.Range(0f, 1f);
         animator.Play("Idle", 0, randNormTime);
         animator.Update(0f);
+        badge.SetBadge(team, rankView);
     }
+    
+    // void Revealed(PawnState p)
+    // {
+    //     Rank rank = CacheManager.LoadHiddenRank(p.hidden_rank_hash).rank;
+    //     PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rank);
+    //     switch (team)
+    //     {
+    //         case Team.RED:
+    //             if (pawnDef.redAnimatorOverrideController)
+    //             {
+    //                 animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
+    //             }
+    //
+    //             break;
+    //         case Team.BLUE:
+    //             if (pawnDef.blueAnimatorOverrideController)
+    //             {
+    //                 animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
+    //             }
+    //
+    //             break;
+    //         default:
+    //             throw new ArgumentOutOfRangeException();
+    //     }
+    //     float randNormTime = Random.Range(0f, 1f);
+    //     animator.Play("Idle", 0, randNormTime);
+    //     animator.Update(0f);
+    // }
     
     // void Revealed(Contract.Pawn p)
     // {
@@ -200,7 +290,7 @@ public class PawnView : MonoBehaviour
             });
         }
         parentConstraint.constraintActive = true;
-        displayedPos = pos;
+        posView = pos;
     }
     
     void SetRenderEffect(bool enable, string renderEffect)

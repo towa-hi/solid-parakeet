@@ -10,9 +10,10 @@ public class Badge : MonoBehaviour
     public Color redBackgroundColor;
     public Color blueBackgroundColor;
 
-    public void SetBadge(Team team, PawnDef def)
+    public void SetBadge(Team team, Rank? rank)
     {
-        symbolRenderer.sprite = def ? def.icon : null;
+        PawnDef def = GameManager.instance.GetPawnDefFromRankTemp(rank);
+        symbolRenderer.sprite = def.icon;
         switch (team)
         {
             case Team.RED:

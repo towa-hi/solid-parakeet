@@ -10,28 +10,31 @@ public class SetupPawnView: MonoBehaviour
 {
     public ParentConstraint parentConstraint;
     ConstraintSource parentSource;
-    public Rank? rank;
-    public Vector2Int pos;
-    public Team team;
     public Animator animator;
     public Badge badge;
     public GameObject model;
+    // immutable
+    public PawnId pawnId;
+    public Vector2Int startPos;
+    public Team team;
+    // mutable
+    public Rank? rank;
     
-    Phase oldPhase = Phase.Aborted;
-    
-    public void Initialize(TileView tileView, Team inTeam)
+    public void Initialize(PawnId inPawnId, Transform target)
     {
         rank = null;
-        team = inTeam;
-        pos = tileView.tile.pos;
-        gameObject.name = $"SetupPawn {pos}";
-        model.SetActive(false);
+        pawnId = inPawnId;
+        startPos = pawnId.Decode().Item1;
+        team = pawnId.Decode().Item2;
+        gameObject.name = $"SetupPawn {pawnId} team {team} at {startPos}";
+        //model.SetActive(false);
         parentConstraint.SetSource(0, new ConstraintSource()
         {
-            sourceTransform = tileView.tileModel.tileOrigin.transform,
+            sourceTransform = target,
             weight = 1,
         });
         parentConstraint.constraintActive = true;
+        badge.SetBadge(team, null);
     }
 
     // void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
@@ -70,42 +73,41 @@ public class SetupPawnView: MonoBehaviour
         //
         // }
     //}
-
-    void SetPendingCommit(Rank? inRank)
-    {
-        rank = inRank;
-        if (rank == null)
-        {
-            model.SetActive(false);
-        }
-        else
-        {
-            PawnDef pawnDef = GameManager.instance.orderedPawnDefList.First(def => def.rank == rank);
-            badge.SetBadge(team, pawnDef);
-            model.SetActive(true);
-            switch (team)
-            {
-                case Team.RED:
-                    if (pawnDef.redAnimatorOverrideController)
-                    {
-                        animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
-                    }
-                    break;
-                case Team.BLUE:
-                    if (pawnDef.blueAnimatorOverrideController)
-                    {
-                        animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
-                    }
-                    break;
-                case Team.NONE:
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-            float randNormTime = Random.Range(0f, 1f);
-            animator.Play("Idle", 0, randNormTime);
-            animator.Update(0f);
-        }
-    }
+    //
+    // void SetPendingCommit(Rank? inRank)
+    // {
+    //     rank = inRank;
+    //     if (rank == null)
+    //     {
+    //         model.SetActive(false);
+    //     }
+    //     else
+    //     {
+    //         badge.SetBadge(team, inRank);
+    //         model.SetActive(true);
+    //         switch (team)
+    //         {
+    //             case Team.RED:
+    //                 if (pawnDef.redAnimatorOverrideController)
+    //                 {
+    //                     animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
+    //                 }
+    //                 break;
+    //             case Team.BLUE:
+    //                 if (pawnDef.blueAnimatorOverrideController)
+    //                 {
+    //                     animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
+    //                 }
+    //                 break;
+    //             case Team.NONE:
+    //             default:
+    //                 throw new ArgumentOutOfRangeException();
+    //         }
+    //         float randNormTime = Random.Range(0f, 1f);
+    //         animator.Play("Idle", 0, randNormTime);
+    //         animator.Update(0f);
+    //     }
+    // }
 
     
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)

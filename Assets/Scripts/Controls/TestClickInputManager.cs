@@ -18,8 +18,8 @@ public class TestClickInputManager : MonoBehaviour
     public bool isUpdating;
     public int resultsCount;
     
-    public event Action<Vector2Int> OnPositionHovered;
-    public event Action<Vector2Int> OnClick;
+    public Action<Vector2Int, bool> OnMouseInput;
+    //public Action<Vector2Int> OnClick;
 
     BoardManager bm;
     void Awake()
@@ -109,7 +109,7 @@ public class TestClickInputManager : MonoBehaviour
         }
         else if (currentHoveredPawnView)
         {
-            currentHoveredPosition = currentHoveredPawnView.displayedPos;
+            currentHoveredPosition = currentHoveredPawnView.posView;
         }
         else if (currentHoveredTileView)
         {
@@ -128,34 +128,27 @@ public class TestClickInputManager : MonoBehaviour
         hoveredTileView = hitUI ? null : currentHoveredTileView;
         // Check if the hovered position or object has changed
         // NOTE: this used to be if (currentHoveredPosition != hoveredPosition || currentHoveredObject != hoveredObject)
+        bool clicked = false;
+        bool hoverChanged = false;
         if (currentHoveredPosition != hoveredPosition)
         {
+            hoverChanged = true;
             // Update the hovered position and object
             hoveredPosition = currentHoveredPosition;
-            // Debug.Log($"OnPositionHovered tile: {hoveredTileView?.tile.pos} pawn: {hoveredPawnView?.pawn.pos}");
-            // Invoke the event with old and new positions
-            OnPositionHovered?.Invoke(hoveredPosition);
-
-            
             hoveredObject = currentHoveredObject;
             hoveredBoardMakerTile = currentHoveredBoardMakerTile;
         }
-        
         hoveredBoardMakerTile = currentHoveredBoardMakerTile;
         
         if (!hitUI && Globals.InputActions.Game.Click.triggered)
         {
-            OnClick?.Invoke(hoveredPosition);
+            clicked = true;
+        }
+
+        if (clicked || hoverChanged)
+        {
+            OnMouseInput?.Invoke(hoveredPosition, clicked);
         }
     }
     
-    public void ForceInvokeOnPositionHovered()
-    {
-        OnPositionHovered?.Invoke(hoveredPosition);
-    }
-
-    public void ForceInvokeOnClick()
-    {
-        OnClick?.Invoke(hoveredPosition);
-    }
 }

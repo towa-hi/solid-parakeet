@@ -38,7 +38,7 @@ public class TileView : MonoBehaviour
     {
         //boardManager.OnGameHover += OnGameHover;
         tile = inTile;
-        gameObject.name = $"Tile (not set)";
+        gameObject.name = $"Tile {tile.pos}";
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
         tileModel = isHex ? hexTileModel : squareTileModel;
@@ -51,6 +51,27 @@ public class TileView : MonoBehaviour
         pulseTween.Stop();
     }
 
+    public void PhaseStateChanged(PhaseBase phase)
+    {
+        switch (phase)
+        {
+            case SetupCommitPhase setupCommitPhase:
+                SetSetupEmissionHighlight(true);
+                break;
+            case SetupProvePhase setupProvePhase:
+                break;
+            case MoveCommitPhase moveCommitPhase:
+                break;
+            case MoveProvePhase moveProvePhase:
+                break;
+            case RankProvePhase rankProvePhase:
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(phase));
+
+        }
+    }
     public void StartPulse()
     {
         // Stop any existing pulse
@@ -373,14 +394,14 @@ public class TileView : MonoBehaviour
         {
             switch (tile.setup)
             {
-                case 2:
-                    SetTopEmission(Color.clear);
-                    break;
-                case 0:
+                case Team.RED:
                     SetTopEmission(redTeamColor);
                     break;
-                case 1:
+                case Team.BLUE:
                     SetTopEmission(blueTeamColor);
+                    break;
+                case Team.NONE:
+                    SetTopEmission(Color.clear);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

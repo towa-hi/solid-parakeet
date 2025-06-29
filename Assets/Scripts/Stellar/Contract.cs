@@ -419,6 +419,19 @@ namespace Contract
         public readonly uint Value;
         
         public PawnId(uint value) => Value = value;
+
+        public (Vector2Int, Team) Decode()
+        {
+            bool isHost = (Value & 1) == 0;
+            uint baseId = Value >> 1;
+            Vector2Int startPos = new()
+            {
+                x = (int)baseId / 101,
+                y = (int)baseId % 101,
+            };
+            Team t = isHost ? Team.RED : Team.BLUE;
+            return (startPos, t);
+        }
         
         public static implicit operator uint(PawnId pawnId) => pawnId.Value;
         public static implicit operator PawnId(uint value) => new(value);
@@ -501,7 +514,7 @@ namespace Contract
     {
         public bool passable;
         public Vector2Int pos;
-        public uint setup;
+        public Team setup;
         public uint setup_zone;
 
         public SCVal.ScvMap ToScvMap()
@@ -538,7 +551,7 @@ namespace Contract
             packed |= yVal << 10;
             
             // Pack setup (3 bits) - bits 19-21
-            uint setupVal = tile.setup & 0x7u;
+            uint setupVal = (uint)tile.setup & 0x7u;
             packed |= setupVal << 19;
             
             // Pack setup_zone (3 bits) - bits 22-24
@@ -570,7 +583,7 @@ namespace Contract
             {
                 passable = passable,
                 pos = new Vector2Int(x, y),
-                setup = setup,
+                setup = (Team)setup,
                 setup_zone = setupZone,
             };
         }
@@ -602,7 +615,7 @@ namespace Contract
         public string name;
         public Vector2Int size;
         public Tile[] tiles;
-
+        
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap
@@ -615,6 +628,15 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("tiles", tiles),
                 }),
             };
+        }
+        
+        public Tile? GetTileFromPosition(Vector2Int pos)
+        {
+            if (tiles.Any(tile => tile.pos == pos))
+            {
+                return tiles.First(tile => tile.pos == pos);
+            }
+            return null;
         }
     }
 
@@ -711,6 +733,16 @@ namespace Contract
         public Vector2Int pos;
         public Rank? rank;
 
+        public Team GetTeam()
+        {
+            return pawn_id.Decode().Item2;
+        }
+
+        public Vector2Int GetStartPosition()
+        {
+            return pawn_id.Decode().Item1;
+        }
+        
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap
@@ -801,6 +833,24 @@ namespace Contract
         {
             return isHost ? setups[0] : setups[1];
         }
+
+        public PawnState? GetPawnStateFromPosition(Vector2Int pos)
+        {
+            if (pawns.Any(pawn => pawn.pos == pos))
+            {
+                return pawns.First(pawn => pawn.pos == pos);
+            }
+            return null;
+        }
+
+        public PawnState GetPawnStateFromId(PawnId pawnId)
+        {
+            if (pawns.Any(pawn => pawn.pawn_id == pawnId))
+            {
+                return pawns.First(pawn => pawn.pawn_id == pawnId);
+            }
+            throw new ArgumentOutOfRangeException(nameof(pawnId));
+        }
     }
 
     [Serializable]
@@ -809,7 +859,7 @@ namespace Contract
         public Board board;
         public byte[] board_hash;
         public bool dev_mode;
-        public uint host_team;
+        public Team host_team;
         public uint[] max_ranks; // NOTE: index is the Rank enum converted to int
         public bool must_fill_all_tiles;
         public bool security_mode;
@@ -830,6 +880,11 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("security_mode", security_mode),
                 }),
             };
+        }
+        
+        public int GetMax(Rank rank)
+        {
+            return (int)max_ranks[(int)rank];
         }
     }
 

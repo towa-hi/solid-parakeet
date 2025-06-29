@@ -97,26 +97,11 @@ public class GuiLobbyMaker : TestGuiElement
         List<Contract.Tile> tilesList = new();
         foreach (Tile tile in boardDef.tiles)
         {
-            int newSetupTeam = 0;
-            switch (tile.setupTeam)
-            {
-                case Team.NONE:
-                    newSetupTeam = 2;
-                    break;
-                case Team.RED:
-                    newSetupTeam = 0;
-                    break;
-                case Team.BLUE:
-                    newSetupTeam = 1;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
             Contract.Tile tileDef = new()
             {
                 passable = tile.isPassable,
                 pos = tile.pos,
-                setup = (uint)newSetupTeam,
+                setup = tile.setupTeam,
                 setup_zone = (uint)tile.autoSetupZone,
             };
             tilesList.Add(tileDef);

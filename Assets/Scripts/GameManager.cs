@@ -53,7 +53,7 @@ public class GameManager : MonoBehaviour
             Resources.Load<PawnDef>("Pawn/09-champion"),
             Resources.Load<PawnDef>("Pawn/10-warlord"),
             Resources.Load<PawnDef>("Pawn/11-trap"),
-            Resources.Load<PawnDef>("Pawn/99-unknown"),
+            Resources.Load<PawnDef>("Pawn/12-unknown"),
         };
     }
     
@@ -65,22 +65,14 @@ public class GameManager : MonoBehaviour
         Globals.InputActions.Game.Enable();
     }
 
-    public PawnDef GetPawnDefFromRankTemp(Rank rank)
+    public PawnDef GetPawnDefFromRankTemp(Rank? mRank)
     {
-        // NOTE: this is a nasty hack that wont work on the server side. we need to keep a lookup table for this later instead of loading from unity
-        return orderedPawnDefList.FirstOrDefault(def => def.rank == rank);
-    }
-    
-    public Dictionary<Rank, PawnDef> GetPawnDefFromRank()
-    {
-        // NOTE: this is a nasty hack that wont work on the server side. we need to keep a lookup table for this later instead of loading from unity
-        Dictionary<Rank, PawnDef> rankDictionary = new Dictionary<Rank, PawnDef>();
-        foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+        Rank rankTemp = Rank.UNKNOWN;
+        if (mRank is Rank rank)
         {
-            PawnDef pawnDef = orderedPawnDefList.FirstOrDefault(def => def.rank == rank);
-            rankDictionary.Add(rank, pawnDef);
+            rankTemp = rank;
         }
-        return rankDictionary;
+        return orderedPawnDefList.FirstOrDefault(def => def.rank == rankTemp);
     }
     
     Coroutine lightningCoroutine;

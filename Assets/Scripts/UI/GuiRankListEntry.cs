@@ -28,12 +28,16 @@ public class GuiRankListEntry : MonoBehaviour
         button.onClick.AddListener(delegate { buttonAction(rank); });
     }
 
-    public void Refresh(int max, int used, bool inSelected)
+    public void Refresh(int max, int used, bool inSelected, bool interactable)
     {
         remaining = max - used;
         numberText.text = remaining.ToString();
         selected = inSelected;
         Color newColor = selected ? Color.green : Color.white;
+        if (selected && remaining == 0)
+        {
+            newColor = Color.red;
+        }
         ColorBlock cb = button.colors;
         cb.normalColor = newColor;
         cb.highlightedColor = newColor;
@@ -41,6 +45,6 @@ public class GuiRankListEntry : MonoBehaviour
         cb.selectedColor = newColor;
         numberBackground.color = remaining == 0 ? Color.red : Color.white;
         button.colors = cb;
-        button.interactable = remaining != 0;
+        button.interactable = interactable;
     }
 }

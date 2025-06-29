@@ -18,11 +18,11 @@ public class GuiSetup : GameElement
     public GameObject rankEntryPrefab;
     public Dictionary<Rank, GuiRankListEntry> entries;
 
-    Action OnClearButton;
-    Action OnAutoSetupButton;
-    Action OnRefreshButton;
-    Action OnSubmitButton;
-    Action<Rank> OnEntryClicked;
+    public Action OnClearButton;
+    public Action OnAutoSetupButton;
+    public Action OnRefreshButton;
+    public Action OnSubmitButton;
+    public Action<Rank> OnEntryClicked;
     
     void Start()
     {
@@ -34,7 +34,7 @@ public class GuiSetup : GameElement
 
     public void PhaseChanged(PhaseBase newPhase)
     {
-        Initialize(newPhase.cachedNetworkState, true);
+        Initialize(newPhase.cachedNetworkState);
         Refresh(newPhase);
     }
 
@@ -43,7 +43,7 @@ public class GuiSetup : GameElement
         Refresh(currentPhase);
     }
     
-    void Initialize(GameNetworkState networkState, bool allInteractable)
+    void Initialize(GameNetworkState networkState)
     {
         // Clear existing entries
         foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
@@ -67,33 +67,27 @@ public class GuiSetup : GameElement
         {
             case SetupCommitPhase setupCommitPhase:
                 show = true;
-                // TODO: make this not shit
-                // update entry counts
-                (Rank, int, int)[] ranksRemaining = setupCommitPhase.RanksRemaining();
-                foreach ((Rank rank, int max, int committed) in ranksRemaining)
+                if (setupCommitPhase.cachedNetworkState.IsMySubphase())
                 {
-                    bool entrySelected = rank == setupCommitPhase.selectedRank;
-                    entries[rank].Refresh(max, committed, entrySelected);
+                    // update entry counts
+                    (Rank, int, int)[] ranksRemaining = setupCommitPhase.RanksRemaining();
+                    foreach ((Rank rank, int max, int committed) in ranksRemaining)
+                    {
+                        bool entrySelected = rank == setupCommitPhase.selectedRank;
+                        entries[rank].Refresh(max, committed, entrySelected, true);
+                    }
+                    bool pawnsComitted = setupCommitPhase.AreAllPawnsComitted();
+                    submitButton.interactable = pawnsComitted;
+                    clearButton.interactable = true;
+                    autoSetupButton.interactable = true;
+                    status = "Commit your pawn setup";
                 }
-                switch (setupCommitPhase.cachedNetworkState.GetRelativeSubphase())
+                else
                 {
-                    case RelativeSubphase.MYSELF:
-                    case RelativeSubphase.BOTH:
-                        bool pawnsRemaining = setupCommitPhase.ArePawnsRemaining();
-                        submitButton.interactable = !pawnsRemaining;
-                        clearButton.interactable = true;
-                        autoSetupButton.interactable = true;
-                        status = "Commit your pawn setup";
-                        break;
-                    case RelativeSubphase.OPPONENT:
-                        submitButton.interactable = false;
-                        clearButton.interactable = false;
-                        autoSetupButton.interactable = false;
-                        status = "Awaiting opponent commit...";
-                        break;
-                    case RelativeSubphase.NONE:
-                    default:
-                        throw new ArgumentOutOfRangeException();
+                    submitButton.interactable = false;
+                    clearButton.interactable = false;
+                    autoSetupButton.interactable = false;
+                    status = "Awaiting opponent commit...";
                 }
                 break;
             case SetupProvePhase setupProvePhase:
@@ -101,18 +95,13 @@ public class GuiSetup : GameElement
                 submitButton.interactable = false;
                 clearButton.interactable = false;
                 autoSetupButton.interactable = false;
-                switch (setupProvePhase.cachedNetworkState.GetRelativeSubphase())
+                if (setupProvePhase.cachedNetworkState.IsMySubphase())
                 {
-                    case RelativeSubphase.MYSELF:
-                    case RelativeSubphase.BOTH:
-                        status = "awaiting your setup proof";
-                        break;
-                    case RelativeSubphase.OPPONENT:
-                        status = "awaiting opponent setup proof";
-                        break;
-                    case RelativeSubphase.NONE:
-                    default:
-                        throw new ArgumentOutOfRangeException();
+                    status = "awaiting your setup proof";
+                }
+                else
+                {
+                    status = "awaiting opponent setup proof";
                 }
                 break;
             case MoveCommitPhase moveCommitPhase:
@@ -126,20 +115,4 @@ public class GuiSetup : GameElement
         statusText.text = status;
         ShowElement(show);
     }
-
-
-    public void SetActions(
-        Action onClear = null, 
-        Action onAutoSetup = null, 
-        Action onRefresh = null, 
-        Action onSubmit = null, 
-        Action<Rank> onEntryClicked = null)
-    {
-        OnClearButton = onClear;
-        OnAutoSetupButton = onAutoSetup;
-        OnRefreshButton = onRefresh;
-        OnSubmitButton = onSubmit;
-        OnEntryClicked = onEntryClicked;
-    }
-    
 }

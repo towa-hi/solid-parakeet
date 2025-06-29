@@ -24,18 +24,30 @@ public static class CacheManager
         return Convert.FromBase64String(key);
     }
 
-    public static HiddenRank LoadHiddenRank(byte[] hash)
+    public static HiddenRank? LoadHiddenRank(byte[] hash)
     {
+        if (hash.Length != 16)
+        {
+            throw new ArgumentException("Invalid hidden rank hash length");
+        }
         if (hash.All(b => b == 0))
         {
-            throw new ArgumentException("Hash can't be 0");
+            return null;
         }
         string key = Convert.ToBase64String(hash);
         if (hiddenRankCache.TryGetValue(key, out HiddenRank rank))
         {
             return rank;
         }
-        return GetFromPlayerPrefs<HiddenRank>(key);
+        if (PlayerPrefs.HasKey(key))
+        {
+            return GetFromPlayerPrefs<HiddenRank>(key);
+        }
+        else
+        {
+            return null;
+        }
+        
     }
 
     public static string SaveSetupReq(Setup setup)
