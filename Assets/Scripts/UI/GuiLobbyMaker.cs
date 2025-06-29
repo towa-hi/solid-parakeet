@@ -104,6 +104,10 @@ public class GuiLobbyMaker : TestGuiElement
                 setup = tile.setupTeam,
                 setup_zone = (uint)tile.autoSetupZone,
             };
+            if (tileDef.setup != Team.NONE && !tileDef.passable)
+            {
+                Debug.LogError($"{tileDef.pos} is invalid");
+            }
             tilesList.Add(tileDef);
         }
         Board board = new()
@@ -119,7 +123,7 @@ public class GuiLobbyMaker : TestGuiElement
             board = board,
             board_hash = hash,
             dev_mode = false,
-            host_team = 0,
+            host_team = Team.RED,
             max_ranks = maxRanks,
             must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,
             security_mode = securityModeToggle.isOn,

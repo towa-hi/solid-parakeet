@@ -33,6 +33,500 @@ fn test_make_lobby_success() {
 }
 
 #[test]
+fn test_replicate_bad_request_exact() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let lobby_id = 536714u32; // Exact lobby_id from bad request
+    
+    // Create the exact board hash from bad request: "f88f128c1d9c0e0f989c50490982a99c"
+    let board_hash = BytesN::from_array(&setup.env, &[
+        0xf8, 0x8f, 0x12, 0x8c, 0x1d, 0x9c, 0x0e, 0x0f,
+        0x98, 0x9c, 0x50, 0x49, 0x09, 0x82, 0xa9, 0x9c
+    ]);
+    
+    // Create tiles matching the exact packed tile values from bad request
+    let packed_tiles = Vec::from_array(&setup.env, [13107201,
+
+
+
+
+        13107203,
+
+
+
+
+        13107205,
+
+
+
+
+        13107207,
+
+
+
+
+        13107209,
+
+
+
+
+        13107211,
+
+
+
+
+        13107213,
+
+
+
+
+        13107215,
+
+
+
+
+        13107217,
+
+
+
+
+        1048594,
+
+
+
+
+        8913921,
+
+
+
+
+        8913923,
+
+
+
+
+        8913925,
+
+
+
+
+        8913927,
+
+
+
+
+        8913929,
+
+
+
+
+        8913931,
+
+
+
+
+        8913933,
+
+
+
+
+        8913935,
+
+
+
+
+        8913937,
+
+
+
+
+        1049618,
+
+
+
+
+        4720641,
+
+
+
+
+        4720643,
+
+
+
+
+        4720645,
+
+
+
+
+        4720647,
+
+
+
+
+        4720649,
+
+
+
+
+        4720651,
+
+
+
+
+        4720653,
+
+
+
+
+        4720655,
+
+
+
+
+        4720657,
+
+
+
+
+        1050642,
+
+
+
+
+        527361,
+
+
+
+
+        527363,
+
+
+
+
+        527365,
+
+
+
+
+        527367,
+
+
+
+
+        527369,
+
+
+
+
+        527371,
+
+
+
+
+        527373,
+
+
+
+
+        527375,
+
+
+
+
+        527377,
+
+
+
+
+        1051666,
+
+
+
+
+        4097,
+
+
+
+
+        4099,
+
+
+
+
+        1052676,
+
+
+
+
+        4103,
+
+
+
+
+        4105,
+
+
+
+
+        4107,
+
+
+
+
+        1052684,
+
+
+
+
+        4111,
+
+
+
+
+        4113,
+
+
+
+
+        1052690,
+
+
+
+
+        5121,
+
+
+
+
+        5123,
+
+
+
+
+        1053700,
+
+
+
+
+        5127,
+
+
+
+
+        5129,
+
+
+
+
+        5131,
+
+
+
+
+        1053708,
+
+
+
+
+        5135,
+
+
+
+
+        5137,
+
+
+
+
+        1053714,
+
+
+
+
+        1054721,
+
+
+
+
+        1054723,
+
+
+
+
+        1054725,
+
+
+
+
+        1054727,
+
+
+
+
+        1054729,
+
+
+
+
+        1054731,
+
+
+
+
+        1054733,
+
+
+
+
+        1054735,
+
+
+
+
+        1054737,
+        1054738,
+        5250049,
+        5250051,
+        5250053,
+        5250055,
+        5250057,
+        5250059,
+        5250061,
+        5250063,
+        5250065,
+        1055762,
+        9445377,
+        9445379,
+        9445381,
+        9445383,
+        9445385,
+        9445387,
+        9445389,
+        9445391,
+        9445393,
+        1056786,
+        13640705,
+        13640707,
+        13640709,
+        13640711,
+        13640713,
+        13640715,
+        13640717,
+        13640719,
+        13640721,
+        1057810,]);
+    let mut used_positions: Map<Pos, bool> = Map::new(&setup.env);
+    let mut board_invalid = false;
+    for packed_tile in packed_tiles.clone() {
+        let tile = Contract::unpack_tile(packed_tile);
+        std::println!("passable: {}, x {} y {} setup {} setup_zone {}", tile.passable, tile.pos.x, tile.pos.y, tile.setup, tile.setup_zone);
+        if used_positions.contains_key(tile.pos.clone()) {
+            board_invalid = true;
+            break;
+        }
+        used_positions.set(tile.pos.clone(), true);
+        if tile.setup != 0 && tile.setup != 1 && tile.setup != 2 {
+            board_invalid = true;
+            std::println!("{}, {} is invalid because rule 1", tile.pos.x, tile.pos.y);
+        }
+        if tile.setup != 2 {
+            if !tile.passable {
+                board_invalid = true;
+                std::println!("{}, {} is invalid because rule 2", tile.pos.x, tile.pos.y);
+            }
+        }
+        if tile.setup_zone != 0 && tile.setup_zone != 1 && tile.setup_zone != 2 && tile.setup_zone != 3 && tile.setup_zone != 4 {
+            board_invalid = true;
+            std::println!("{}, {} is invalid because rule 3", tile.pos.x, tile.pos.y);
+        }
+    }
+    let good_board = create_default_board(&setup.env);
+    let good_tiles = good_board.tiles.clone();
+    let board = Board {
+        hex: true, // From bad request
+        name: String::from_str(&setup.env, "Narrow Hexagons"), // From bad request
+        size: Pos { x: 10, y: 10 }, // From bad request
+        tiles: packed_tiles.clone(),
+    };
+    
+    // Exact max_ranks from bad request: [1,1,8,3,4,4,4,3,2,1,1,4,0]
+    let max_ranks = Vec::from_array(&setup.env, [1u32, 1u32, 8u32, 3u32, 4u32, 4u32, 4u32, 3u32, 2u32, 1u32, 1u32, 4u32, 0u32]);
+
+    let lobby_parameters = LobbyParameters {
+        board,
+        board_hash,
+        dev_mode: false, // From bad request
+        host_team: 0, // From bad request  
+        max_ranks,
+        must_fill_all_tiles: true, // From bad request
+        security_mode: true, // From bad request
+    };
+    
+    let req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters.clone(),
+    };
+    
+    // This should replicate the exact bad request scenario
+    setup.client.make_lobby(&host_address, &req);
+    
+    // Verify the lobby was created successfully
+    setup.verify_lobby_info(lobby_id, &host_address, Phase::Lobby);
+    setup.verify_user_lobby(&host_address, lobby_id);
+}
+
+#[test]
+fn test_replicate_bad_request_exact2() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let lobby_id = 536714u32; // Exact lobby_id from bad request
+
+    // Create the exact board hash from bad request: "f88f128c1d9c0e0f989c50490982a99c"
+    let board_hash = BytesN::from_array(&setup.env, &[
+        0xf8, 0x8f, 0x12, 0x8c, 0x1d, 0x9c, 0x0e, 0x0f,
+        0x98, 0x9c, 0x50, 0x49, 0x09, 0x82, 0xa9, 0x9c]);
+
+    // Create tiles matching the exact packed tile values from bad request
+    let packed_tiles = Vec::from_array(&setup.env, [4114u32]);
+
+    let good_board = create_default_board(&setup.env);
+
+    let board = Board {
+        hex: true, // From bad request
+        name: String::from_str(&setup.env, "Narrow Hexagons"), // From bad request
+        size: Pos { x: 10, y: 10 }, // From bad request
+        tiles: good_board.tiles.clone(),
+    };
+
+    // Exact max_ranks from bad request: [1,1,8,3,4,4,4,3,2,1,1,4,0]
+    let max_ranks = Vec::from_array(&setup.env, [1u32, 1u32, 8u32, 3u32, 4u32, 4u32, 4u32, 3u32, 2u32, 1u32, 1u32, 4u32, 0u32]);
+    let good_lobby_parameters = create_test_lobby_parameters(&setup.env);
+    let lobby_parameters = LobbyParameters {
+        board: board,
+        board_hash,
+        dev_mode: false, // From bad request
+        host_team: 0, // From bad request
+        max_ranks,
+        must_fill_all_tiles: true, // From bad request
+        security_mode: true, // From bad request
+    };
+
+    let req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters.clone(),
+    };
+
+    // This should replicate the exact bad request scenario
+    setup.client.make_lobby(&host_address, &req);
+
+    // Verify the lobby was created successfully
+    setup.verify_lobby_info(lobby_id, &host_address, Phase::Lobby);
+    setup.verify_user_lobby(&host_address, lobby_id);
+}
+
+#[test]
 fn test_make_lobby_validation_errors() {
     let setup = TestSetup::new();
     let lobby_parameters = create_test_lobby_parameters(&setup.env);
@@ -1497,4 +1991,38 @@ fn create_user_board_parameters(env: &Env) -> LobbyParameters {
 }
 
 // endregion
+
+#[test]
+fn test_bad_request_exact() {
+    let setup = TestSetup::new();
+    
+    // Analyze some of the packed_tiles values to see what they decode to
+    let sample_packed_values = [13107201u32, 18u32, 4114u32, 13640721u32];
+    
+    for packed_value in sample_packed_values.iter() {
+        let tile = Contract::unpack_tile(*packed_value);
+        std::println!("Packed value {} unpacks to:", packed_value);
+        std::println!("  passable: {}", tile.passable);
+        std::println!("  pos: ({}, {})", tile.pos.x, tile.pos.y);
+        std::println!("  setup: {} (valid: {})", tile.setup, tile.setup <= 2);
+        std::println!("  setup_zone: {} (valid: {})", tile.setup_zone, tile.setup_zone <= 4);
+        
+        // Check validation rules
+        let mut valid = true;
+        if tile.setup > 2 {
+            valid = false;
+            std::println!("  INVALID: setup > 2");
+        }
+        if tile.setup_zone > 4 {
+            valid = false;
+            std::println!("  INVALID: setup_zone > 4");
+        }
+        if tile.setup != 2 && !tile.passable {
+            valid = false;
+            std::println!("  INVALID: setup != 2 but not passable");
+        }
+        std::println!("  Overall valid: {}", valid);
+        std::println!();
+    }
+}
 

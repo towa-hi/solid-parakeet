@@ -146,19 +146,19 @@ public class HumanDebugNetworkInspector : MonoBehaviour
             }).ToArray();
             
             // Convert UserSetups
-            _gameState.setups = gameState.setups?.Select(setup => new SerializableUserSetup
-            {
-                setupHash = setup.setup_hash,
-                setup = setup.setup?.Select(s => new SerializableSetup
-                {
-                    salt = s.salt,
-                    setupCommits = s.setup_commits?.Select(commit => new SerializableSetupCommit
-                    {
-                        hiddenRankHash = commit.hidden_rank_hash,
-                        pawnID = commit.pawn_id.Value
-                    }).ToArray()
-                }).ToArray()
-            }).ToArray();
+            // _gameState.setups = gameState.setups?.Select(setup => new SerializableUserSetup
+            // {
+            //     setupHash = setup.setup_hash,
+            //     setup = setup.setup.Value..Select(s => new SerializableSetup
+            //     {
+            //         salt = s.salt,
+            //         setupCommits = s.setup_commits?.Select(commit => new SerializableSetupCommit
+            //         {
+            //             hiddenRankHash = commit.hidden_rank_hash,
+            //             pawnID = commit.pawn_id.Value
+            //         }).ToArray()
+            //     }).ToArray()
+            // }).ToArray();
         }
         else
         {

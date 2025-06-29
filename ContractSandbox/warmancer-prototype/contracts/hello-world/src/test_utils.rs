@@ -532,8 +532,8 @@ pub fn create_default_board(env: &Env) -> Board {
         packed_tiles.push_back(Contract::pack_tile(&tile));
     }
     Board {
-        name: String::from_str(env, "Default Stratego Board"),
         hex: false,
+        name: String::from_str(env, "Default Stratego Board"),
         size: Pos { x: 10, y: 10 },
         tiles: packed_tiles,
     }

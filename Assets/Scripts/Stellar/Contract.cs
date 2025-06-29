@@ -788,8 +788,8 @@ namespace Contract
     [Serializable]
     public struct UserSetup : IScvMapCompatable
     {
-        public Setup[] setup;
-        public byte[] setup_hash;
+        public Setup? setup;
+        [CanBeNull] public byte[] setup_hash;
 
         public SCVal.ScvMap ToScvMap()
         {
