@@ -397,7 +397,7 @@
                               "symbol": "board_hash"
                             },
                             "val": {
-                              "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                              "bytes": "01010101010101010101010101010101"
                             }
                           },
                           {
@@ -549,7 +549,7 @@
                         "symbol": "setup_hash"
                       },
                       "val": {
-                        "bytes": "dd19ce089a0ec5e9612eb02ca5922dad7003a3559a8da77837cfa74e0471ce1d"
+                        "bytes": "dd19ce089a0ec5e9612eb02ca5922dad"
                       }
                     }
                   ]
@@ -588,7 +588,7 @@
                         "symbol": "setup_hash"
                       },
                       "val": {
-                        "bytes": "9bcd4bde97e2d17b8b54bd36d759e316a38d925874d9a8813fa647d899a314f7"
+                        "bytes": "9bcd4bde97e2d17b8b54bd36d759e316"
                       }
                     }
                   ]
@@ -7707,7 +7707,7 @@
                                 "val": {
                                   "vec": [
                                     {
-                                      "bytes": "dd19ce089a0ec5e9612eb02ca5922dad7003a3559a8da77837cfa74e0471ce1d"
+                                      "bytes": "dd19ce089a0ec5e9612eb02ca5922dad"
                                     }
                                   ]
                                 }
@@ -7731,7 +7731,7 @@
                                 "val": {
                                   "vec": [
                                     {
-                                      "bytes": "9bcd4bde97e2d17b8b54bd36d759e316a38d925874d9a8813fa647d899a314f7"
+                                      "bytes": "9bcd4bde97e2d17b8b54bd36d759e316"
                                     }
                                   ]
                                 }
@@ -8323,7 +8323,7 @@
                         "symbol": "board_hash"
                       },
                       "val": {
-                        "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                        "bytes": "01010101010101010101010101010101"
                       }
                     },
                     {

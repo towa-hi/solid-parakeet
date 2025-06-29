@@ -50,7 +50,7 @@ public static class CacheManager
         
     }
 
-    public static string SaveSetupReq(Setup setup)
+    public static byte[] SaveSetupReq(Setup setup)
     {
         if (setup.salt == 0)
         {
@@ -58,11 +58,15 @@ public static class CacheManager
         }
         string key = SaveToPlayerPrefs(setup);
         setupCache[key] = setup;
-        return key;
+        return Convert.FromBase64String(key);
     }
 
     public static Setup LoadSetupReq(byte[] hash)
     {
+        if (hash.Length != 16)
+        {
+            throw new ArgumentException("Invalid setup hash length");
+        }
         if (hash.All(b => b == 0))
         {
             throw new ArgumentException("Hash can't be 0");
@@ -79,7 +83,23 @@ public static class CacheManager
     {
         SCVal scVal = SCUtility.NativeToSCVal(obj);
         string xdrString = SCValXdr.EncodeToBase64(scVal);
-        byte[] hash = SCUtility.GetHash(scVal);
+        
+        byte[] hash;
+        switch (obj)
+        {
+            case HiddenRank hiddenRank:
+                hash = SCUtility.GetHiddenRankHash(hiddenRank);
+                break;
+            case Setup setup:
+                hash = SCUtility.GetSetupHash(setup);
+                break;
+            case HiddenMove hiddenMove:
+                hash = SCUtility.GetHiddenMoveHash(hiddenMove);
+                break;
+            default:
+                throw new ArgumentException($"Unsupported type for caching: {obj.GetType()}");
+        }
+        
         string key = Convert.ToBase64String(hash);
         PlayerPrefs.SetString(key, xdrString);
         return key;
@@ -110,6 +130,10 @@ public static class CacheManager
 
     public static HiddenMove LoadMoveReq(byte[] hash)
     {
+        if (hash.Length != 16)
+        {
+            throw new ArgumentException("Invalid hidden move hash length");
+        }
         if (hash.All(b => b == 0))
         {
             throw new ArgumentException("Hash can't be 0");

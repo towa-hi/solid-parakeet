@@ -239,10 +239,12 @@ fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (Addre
     
     // Hash both setups
     let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
-    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
+    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
     
     let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
-    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
+    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
     
     // Commit both setups
     let host_commit_req = CommitSetupReq {
@@ -294,7 +296,8 @@ fn create_test_move_hash(env: &Env, pawn_id: PawnId, start_pos: Pos, target_pos:
         salt,
     };
     let serialized = move_proof.to_xdr(env);
-    env.crypto().sha256(&serialized).to_bytes()
+    let full_hash = env.crypto().sha256(&serialized).to_bytes().to_array();
+    HiddenMoveHash::from_array(env, &full_hash[0..16].try_into().unwrap())
 }
 
 #[test]
@@ -444,10 +447,12 @@ fn test_prove_setup_invalid_pawn_ownership() {
     
     // Hash both setups
     let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
-    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
+    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
     
     let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
-    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
+    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
     
     // Commit both setups to transition to SetupProve phase
     let host_commit_req = CommitSetupReq {
@@ -531,9 +536,11 @@ fn test_full_stratego_game() {
                 let guest_move_proof = guest_move_opt.unwrap();
                 
                 let host_move_serialized = host_move_proof.clone().to_xdr(&setup.env);
-                let host_move_hash = setup.env.crypto().sha256(&host_move_serialized).to_bytes();
+                let host_move_full_hash = setup.env.crypto().sha256(&host_move_serialized).to_bytes().to_array();
+                let host_move_hash = HiddenMoveHash::from_array(&setup.env, &host_move_full_hash[0..16].try_into().unwrap());
                 let guest_move_serialized = guest_move_proof.clone().to_xdr(&setup.env);
-                let guest_move_hash = setup.env.crypto().sha256(&guest_move_serialized).to_bytes();
+                let guest_move_full_hash = setup.env.crypto().sha256(&guest_move_serialized).to_bytes().to_array();
+                let guest_move_hash = HiddenMoveHash::from_array(&setup.env, &guest_move_full_hash[0..16].try_into().unwrap());
                 
                 let host_move_req = CommitMoveReq {
                     lobby_id,
@@ -806,10 +813,12 @@ fn test_collision_winner_rank_revelation() {
     
 
     let host_serialized = host_proof.clone().to_xdr(&setup.env);
-    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
+    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
     
     let guest_serialized = guest_proof.clone().to_xdr(&setup.env);
-    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
+    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
     
     let host_commit_req = CommitSetupReq {
         lobby_id,
@@ -956,8 +965,10 @@ fn test_compare_populated_vs_unpopulated_games() {
     for lobby_id in [lobby_a, lobby_b] {
         let (host_addr, guest_addr) = if lobby_id == lobby_a { (&host_a, &guest_a) } else { (&host_b, &guest_b) };
         
-        let host_hash = setup.env.crypto().sha256(&host_proof.clone().to_xdr(&setup.env)).to_bytes();
-        let guest_hash = setup.env.crypto().sha256(&guest_proof.clone().to_xdr(&setup.env)).to_bytes();
+        let host_full_hash = setup.env.crypto().sha256(&host_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
+        let host_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
+        let guest_full_hash = setup.env.crypto().sha256(&guest_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
+        let guest_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
         
         setup.client.commit_setup(host_addr, &CommitSetupReq { lobby_id, setup_hash: host_hash });
         setup.client.commit_setup(guest_addr, &CommitSetupReq { lobby_id, setup_hash: guest_hash });
@@ -1005,8 +1016,10 @@ fn test_compare_populated_vs_unpopulated_games() {
             let can_commit = lobby_snapshot.phase == Phase::MoveCommit;
             
             if can_commit {
-                let host_hash = setup.env.crypto().sha256(&host_move_proof.clone().to_xdr(&setup.env)).to_bytes();
-                let guest_hash = setup.env.crypto().sha256(&guest_move_proof.clone().to_xdr(&setup.env)).to_bytes();
+                let host_move_full_hash = setup.env.crypto().sha256(&host_move_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
+                let host_hash = HiddenMoveHash::from_array(&setup.env, &host_move_full_hash[0..16].try_into().unwrap());
+                let guest_move_full_hash = setup.env.crypto().sha256(&guest_move_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
+                let guest_hash = HiddenMoveHash::from_array(&setup.env, &guest_move_full_hash[0..16].try_into().unwrap());
                 
                                 // Commit moves (state-changing operation)
                 setup.client.commit_move(host_addr, &CommitMoveReq { lobby_id, move_hash: host_hash });
@@ -1256,10 +1269,12 @@ fn advance_through_complete_setup_phase(setup: &TestSetup, lobby_id: u32, host_a
     
     // Hash both setups
     let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
-    let host_setup_hash = setup.env.crypto().sha256(&host_serialized).to_bytes();
+    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
+    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
     
     let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
-    let guest_setup_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes();
+    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
+    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
     
     // Commit setups
     let host_commit_req = CommitSetupReq {
@@ -1472,7 +1487,7 @@ fn create_user_board_parameters(env: &Env) -> LobbyParameters {
     
     LobbyParameters {
         board,
-        board_hash: BytesN::from_array(env, &[0u8; 32]),
+        board_hash: BytesN::from_array(env, &[0u8; 16]),
         dev_mode: false,
         host_team: 0,
         max_ranks: Vec::from_array(env, [1, 1, 8, 3, 4, 4, 4, 3, 2, 1, 1, 4, 0]),

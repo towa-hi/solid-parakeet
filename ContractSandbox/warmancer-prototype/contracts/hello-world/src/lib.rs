@@ -14,9 +14,9 @@ macro_rules! debug_log {
 pub type LobbyId = u32;
 pub type PawnId = u32;
 pub type HiddenRankHash = BytesN<16>; // always the hash of HiddenRank struct
-pub type HiddenMoveHash = BytesN<32>; // always the hash of HiddenMove struct
-pub type SetupHash = BytesN<32>; // always the hash of Setup struct
-pub type BoardHash = BytesN<32>; // not used at the moment
+pub type HiddenMoveHash = BytesN<16>; // always the hash of HiddenMove struct
+pub type SetupHash = BytesN<16>; // always the hash of Setup struct
+pub type BoardHash = BytesN<16>; // not used at the moment
 pub type Rank = u32;
 pub type PackedTile = u32;
 
@@ -188,9 +188,9 @@ pub struct LobbyInfo {
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct History {
-    pub lobby_id: LobbyId,
-    pub host_moves: Vec<HiddenMove>,
     pub guest_moves: Vec<HiddenMove>,
+    pub host_moves: Vec<HiddenMove>,
+    pub lobby_id: LobbyId,
 }
 
 // // endregion
@@ -260,10 +260,10 @@ pub struct CollisionDetection {
     pub has_o_collision: bool,
     pub has_swap_collision: bool, 
     pub has_u_collision: bool,
-    pub u_pawn_id: Option<PawnId>,
-    pub o_pawn_id: Option<PawnId>,
     pub o_collision_target: Option<PawnId>,
+    pub o_pawn_id: Option<PawnId>,
     pub u_collision_target: Option<PawnId>,
+    pub u_pawn_id: Option<PawnId>,
 }
 
 #[contractimpl]
@@ -517,7 +517,8 @@ impl Contract {
         let u_setup: UserSetup = game_state.setups.get_unchecked(u_index);
         let setup_hash = u_setup.setup_hash.get_unchecked(0);
         let serialized_setup_proof = req.setup.clone().to_xdr(e);
-        let submitted_hash = e.crypto().sha256(&serialized_setup_proof).to_bytes();
+        let full_hash = e.crypto().sha256(&serialized_setup_proof).to_bytes().to_array();
+        let submitted_hash = SetupHash::from_array(e, &full_hash[0..16].try_into().unwrap());
         if setup_hash != submitted_hash {
             return Err(Error::SetupHashFail)
         }
@@ -623,7 +624,8 @@ impl Contract {
         {
             let mut u_move = game_state.moves.get_unchecked(u_index);
             let serialized_move_proof = req.move_proof.clone().to_xdr(e);
-            let submitted_hash = e.crypto().sha256(&serialized_move_proof).to_bytes();
+            let full_hash = e.crypto().sha256(&serialized_move_proof).to_bytes().to_array();
+            let submitted_hash = HiddenMoveHash::from_array(e, &full_hash[0..16].try_into().unwrap());
             if u_move.move_hash.get_unchecked(0) != submitted_hash {
                 return Err(Error::HiddenMoveHashFail)
             }

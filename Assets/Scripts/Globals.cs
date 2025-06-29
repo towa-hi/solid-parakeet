@@ -65,7 +65,6 @@ public static class Globals
         int y = (int)(baseId % 101);
         return (new Vector2Int(x, y), isRed ? Team.RED : Team.BLUE);
     }
-    
     public static bool AddressIsEmpty(SCVal.ScvAddress address)
     {
         return AddressToString(address) == "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
@@ -1795,8 +1794,75 @@ public struct GameNetworkState
 
     public Dictionary<Vector2Int, Rank> AutoSetup(Team team)
     {
-        Dictionary<Vector2Int, Rank> commitments = new Dictionary<Vector2Int, Rank>();
+        // AIDEV-NOTE: Auto-setup algorithm places pawns by setup zone priority (THRONE=3, ASSASSIN/CHAMPION/WARLORD=2, TRAP=1, others=0)
+        Dictionary<Vector2Int, Rank> commitments = new();
+        HashSet<Vector2Int> usedPositions = new();
+        
+        // Get all ranks and sort by setup zone priority (highest first, then by rank enum for consistency)
+        Rank[] allRanks = (Rank[])Enum.GetValues(typeof(Rank));
+        Array.Sort(allRanks, (rank1, rank2) =>
+        {
+            int zone1 = Rules.GetSetupZone(rank1);
+            int zone2 = Rules.GetSetupZone(rank2);
+            if (zone1 != zone2)
+                return zone2.CompareTo(zone1); // Higher zones first
+            return rank1.CompareTo(rank2); // Consistent ordering for same zone
+        });
+
+        // Place pawns for each rank according to max_ranks array
+        foreach (Rank rank in allRanks)
+        {
+            int maxAllowed = lobbyParameters.GetMax(rank);
+            for (int i = 0; i < maxAllowed; i++)
+            {
+                // Get available tiles for this rank's setup zone
+                List<Vector2Int> availableTiles = GetAvailableSetupTiles(team, rank, usedPositions);
+                if (availableTiles.Count == 0)
+                {
+                    Debug.LogWarning($"AutoSetup: No available tiles for rank {rank}, stopping setup");
+                    break;
+                }
+                
+                // Pick a random tile from available options
+                int randomIndex = UnityEngine.Random.Range(0, availableTiles.Count);
+                Vector2Int selectedPos = availableTiles[randomIndex];
+                
+                commitments[selectedPos] = rank;
+                usedPositions.Add(selectedPos);
+            }
+        }
+        
         return commitments;
+    }
+
+    List<Vector2Int> GetAvailableSetupTiles(Team team, Rank rank, HashSet<Vector2Int> usedPositions)
+    {
+        // AIDEV-NOTE: Find tiles for team that match rank's setup zone requirements and aren't already used
+        int rankSetupZone = Rules.GetSetupZone(rank);
+        List<Vector2Int> eligibleTiles = new();
+        List<Vector2Int> preferredTiles = new();
+        
+        foreach (Contract.Tile tile in lobbyParameters.board.tiles)
+        {
+            // Skip if tile is not for this team or position is already used
+            if (tile.setup != team || usedPositions.Contains(tile.pos))
+                continue;
+                
+            // Only consider passable tiles
+            if (!tile.passable)
+                continue;
+                
+            eligibleTiles.Add(tile.pos);
+            
+            // Prefer tiles that match the rank's setup zone requirements
+            if (rankSetupZone <= tile.setup_zone)
+            {
+                preferredTiles.Add(tile.pos);
+            }
+        }
+        
+        // Return preferred tiles if available, otherwise fallback to all eligible tiles
+        return preferredTiles.Count > 0 ? preferredTiles : eligibleTiles;
     }
 
 }

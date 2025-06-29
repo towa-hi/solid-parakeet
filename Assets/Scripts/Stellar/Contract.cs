@@ -402,6 +402,30 @@ namespace Contract
             Array.Copy(fullHash, truncatedHash, 16);
             return truncatedHash;
         }
+
+        public static byte[] GetSetupHash(Setup setup)
+        {
+            SCVal scVal = setup.ToScvMap();
+            string xdrString = SCValXdr.EncodeToBase64(scVal);
+            using SHA256 sha256 = SHA256.Create();
+            byte[] fullHash = sha256.ComputeHash(Convert.FromBase64String(xdrString));
+            // Truncate to 16 bytes for SetupHash
+            byte[] truncatedHash = new byte[16];
+            Array.Copy(fullHash, truncatedHash, 16);
+            return truncatedHash;
+        }
+
+        public static byte[] GetHiddenMoveHash(HiddenMove hiddenMove)
+        {
+            SCVal scVal = hiddenMove.ToScvMap();
+            string xdrString = SCValXdr.EncodeToBase64(scVal);
+            using SHA256 sha256 = SHA256.Create();
+            byte[] fullHash = sha256.ComputeHash(Convert.FromBase64String(xdrString));
+            // Truncate to 16 bytes for HiddenMoveHash
+            byte[] truncatedHash = new byte[16];
+            Array.Copy(fullHash, truncatedHash, 16);
+            return truncatedHash;
+        }
         
         public static bool HashEqual(SCVal a, SCVal b)
         {
@@ -893,7 +917,7 @@ namespace Contract
     {
         public AccountAddress? guest_address;
         public AccountAddress? host_address;
-        public uint index;
+        public LobbyId index;
         public Phase phase;
         public Subphase subphase;
         public long liveUntilLedgerSeq;

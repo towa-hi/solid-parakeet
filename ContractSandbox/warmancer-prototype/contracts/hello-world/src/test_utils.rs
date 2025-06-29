@@ -540,7 +540,7 @@ pub fn create_default_board(env: &Env) -> Board {
 }
 
 pub fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
-    let board_hash = BytesN::from_array(env, &[1u8; 32]);
+    let board_hash = BytesN::from_array(env, &[1u8; 16]);
     let board = create_default_board(env);
     
     LobbyParameters {
@@ -555,7 +555,7 @@ pub fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
 }
 
 pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
-    let board_hash = BytesN::from_array(env, &[1u8; 32]);
+    let board_hash = BytesN::from_array(env, &[1u8; 16]);
     
     let tiles = Vec::from_array(env, [
         Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 },
@@ -587,9 +587,7 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
 pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
     let board_hash = BytesN::from_array(env, &[
         0xef, 0x3b, 0x53, 0x2a, 0x3e, 0x48, 0x1f, 0x29, 
-        0x10, 0x89, 0x91, 0xac, 0x07, 0xbf, 0xeb, 0xd3, 
-        0xbb, 0x0f, 0xc4, 0x41, 0xb2, 0xa7, 0xb9, 0xe4, 
-        0x7c, 0x99, 0xc0, 0xe6, 0xff, 0x8c, 0x8f, 0x78
+        0x10, 0x89, 0x91, 0xac, 0x07, 0xbf, 0xeb, 0xd3
     ]);
     
     let mut board = create_default_board(env);

@@ -81,7 +81,11 @@ public class BoardDef : ScriptableObject
         }
         // 2) Compute SHA‐256 over the resulting byte array
         using SHA256 sha = SHA256.Create();
-        return sha.ComputeHash(ms.ToArray());  // 32‐byte digest
+        byte[] fullHash = sha.ComputeHash(ms.ToArray());  // 32‐byte digest
+        byte[] truncatedHash = new byte[16];
+        Array.Copy(fullHash, truncatedHash, 16);
+        return truncatedHash;
+
     }
 }
 

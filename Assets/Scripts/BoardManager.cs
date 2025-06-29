@@ -310,7 +310,7 @@ public class SetupCommitPhase : PhaseBase
         return ranksRemaining;
     }
 
-    public int GetRemainingRank(Rank rank)
+    int GetRemainingRank(Rank rank)
     {
         int max = cachedNetworkState.lobbyParameters.GetMax(rank);
         int committed = pendingCommits.Values.Count(r => r == rank);
@@ -319,14 +319,40 @@ public class SetupCommitPhase : PhaseBase
     
     void OnClear()
     {
+        if (!cachedNetworkState.IsMySubphase())
+        {
+            throw new InvalidOperationException("not my turn to act");
+        }
         pendingCommits.Clear();
+        OnPhaseStateChanged?.Invoke();
     }
 
     void OnAutoSetup()
     {
+        if (!cachedNetworkState.IsMySubphase())
+        {
+            throw new InvalidOperationException("not my turn to act");
+        }
         pendingCommits.Clear();
-        HashSet<Tile> usedTiles = new();
-
+        try
+        {
+            Dictionary<Vector2Int, Rank> autoCommitments = cachedNetworkState.AutoSetup(cachedNetworkState.userTeam);
+            
+            foreach (KeyValuePair<Vector2Int, Rank> commitment in autoCommitments)
+            {
+                pendingCommits[commitment.Key] = commitment.Value;
+            }
+            
+            Debug.Log($"AutoSetup completed: {pendingCommits.Count} commitments made");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"AutoSetup failed: {ex.Message}");
+            pendingCommits.Clear();
+        }
+        
+        // Trigger UI refresh to show the auto-setup results
+        OnPhaseStateChanged?.Invoke();
     }
 
     void OnRefresh()
@@ -336,7 +362,44 @@ public class SetupCommitPhase : PhaseBase
 
     void OnSubmit()
     {
-        
+        if (!cachedNetworkState.IsMySubphase())
+        {
+            throw new InvalidOperationException("not my turn to act");
+        }
+        if (!AreAllPawnsComitted())
+        {
+            throw new InvalidOperationException("not all pawns are committed");
+        }
+        List<SetupCommit> commits = new List<SetupCommit>();
+        foreach ((Vector2Int pos, Rank rank) in pendingCommits)
+        {
+            PawnState? mPawn = cachedNetworkState.gameState.GetPawnStateFromPosition(pos);
+            if (mPawn is not PawnState pawn)
+            {
+                throw new IndexOutOfRangeException("pawn not found");
+            }
+            
+            HiddenRank hiddenRank = new()
+            {
+                pawn_id = pawn.pawn_id,
+                rank = rank,
+                salt = Globals.RandomSalt(),
+            };
+            byte[] hash = CacheManager.SaveHiddenRank(hiddenRank);
+            commits.Add(new SetupCommit
+            {
+                hidden_rank_hash = hash,
+                pawn_id = pawn.pawn_id,
+            });
+        }
+
+        Setup setup = new()
+        {
+            salt = Globals.RandomSalt(),
+            setup_commits = commits.ToArray(),
+        };
+        byte[] setupHash = CacheManager.SaveSetupReq(setup);
+        _ = StellarManager.CommitSetupRequest(cachedNetworkState.lobbyInfo.index, setupHash);
     }
 
     void OnEntryClicked(Rank clickedRank)

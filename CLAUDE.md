@@ -13,6 +13,12 @@ When unsure about implementation details, ALWAYS ask the user.
 - **Update relevant anchors** when modifying associated code.  
 - **Do not remove `AIDEV-NOTE`s** without explicit human instruction.  
 
+## IDE Diagnostics Guidelines
+- **Only fix errors** (severity level "Error") from IDE diagnostics
+- **Do not fix warnings** (severity level "Warning") unless explicitly requested by the user
+- **Do not fix info/hint level** diagnostics unless explicitly requested
+- Focus on functionality over style warnings
+
 
 ## C# Style Guidelines
 - Follow existing conventions
