@@ -26,7 +26,7 @@ When unsure about implementation details, ALWAYS ask the user.
 - Explicit type over var
 - Trailing commas
 - Object creation using new()
-- For Unity Monobehaviours, null check with !
+- For Unity GameObjects and MonoBehaviours, use `!gameObject` instead of `gameObject == null` for null checks
 
 ## Strict Guidelines
 - Do not edit scriptableobjects or any fields in monobehaviors that are serialized without my permission
