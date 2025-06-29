@@ -76,34 +76,42 @@ public class BoardManager : MonoBehaviour
             clickInputManager.Initialize(this);
             initialized = true;
         }
-        switch (networkState.lobbyInfo.phase)
+
+        if (networkState.lobbyInfo.phase != lastPhase)
         {
-            case Phase.SetupCommit:
-                SetPhase(new SetupCommitPhase(this, guiGame.setup, networkState));
-                break;
-            case Phase.SetupProve:
-                SetPhase(new SetupProvePhase(this, guiGame.setup, networkState));
-                break;
-            case Phase.MoveCommit:
-                SetPhase(new MoveCommitPhase(this, guiGame.movement, networkState));
-                break;
-            case Phase.MoveProve:
-                SetPhase(new MoveProvePhase(this, guiGame.movement, networkState));
-                break;
-            case Phase.RankProve:
-                SetPhase(new RankProvePhase(this, guiGame.movement, networkState));
-                break;
-            case Phase.Finished:
-            case Phase.Aborted:
-            case Phase.Lobby:
-                throw new NotImplementedException();
-            default:
-                throw new ArgumentOutOfRangeException();
+            switch (networkState.lobbyInfo.phase)
+            {
+                case Phase.SetupCommit:
+                    SetPhase(new SetupCommitPhase(this, guiGame.setup, networkState));
+                    break;
+                case Phase.SetupProve:
+                    SetPhase(new SetupProvePhase(this, guiGame.setup, networkState));
+                    break;
+                case Phase.MoveCommit:
+                    SetPhase(new MoveCommitPhase(this, guiGame.movement, networkState));
+                    break;
+                case Phase.MoveProve:
+                    SetPhase(new MoveProvePhase(this, guiGame.movement, networkState));
+                    break;
+                case Phase.RankProve:
+                    SetPhase(new RankProvePhase(this, guiGame.movement, networkState));
+                    break;
+                case Phase.Finished:
+                case Phase.Aborted:
+                case Phase.Lobby:
+                    throw new NotImplementedException();
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            PhaseChanged();
+            lastPhase = networkState.lobbyInfo.phase;
         }
-        Debug.Log("OnClientGameStateChanged invoked by OnNetworkStateUpdated");
-        // phase always changes when network changes!
-        PhaseChanged();
-        lastPhase = networkState.lobbyInfo.phase;
+        else
+        {
+            currentPhase.UpdateNetworkState(networkState);
+            PhaseStateChanged();
+        }
+        
         clickInputManager.ForceInvokeOnPositionHovered();
     }
 
@@ -248,6 +256,10 @@ public abstract class PhaseBase
         OnPhaseStateChanged = null;
     }
 
+    public virtual void UpdateNetworkState(GameNetworkState newNetworkState)
+    {
+        cachedNetworkState = newNetworkState;
+    }
     public abstract void Update();
     public abstract void OnHover(Vector2Int clickedPos, TileView tileView, PawnView pawnView);
     public abstract void OnClick(Vector2Int clickedPos, TileView tileView, PawnView pawnView);
@@ -269,6 +281,25 @@ public class SetupCommitPhase : PhaseBase
     public bool ArePawnsRemaining()
     {
         return cachedNetworkState.gameState.pawns.All(pawn => pendingCommits.ContainsKey(pawn.pos));
+    }
+
+    public (Rank, int, int)[] RanksRemaining()
+    {
+        Rank[] ranks = (Rank[])Enum.GetValues(typeof(Rank));
+        uint[] maxRanks = cachedNetworkState.lobbyParameters.max_ranks;
+        (Rank, int, int)[] ranksRemaining = new (Rank, int, int)[ranks.Length];
+        if (ranks.Length != maxRanks.Length)
+        {
+            throw new InvalidOperationException($"Rank enum count {ranks.Length} doesn't match max_ranks array length {maxRanks.Length}");
+        }
+        for (int i = 0; i < ranksRemaining.Length; i++)
+        {
+            Rank rank = ranks[i];
+            int max = (int)cachedNetworkState.lobbyParameters.max_ranks[i];
+            int committed = pendingCommits.Values.Count(r => r == rank);
+            ranksRemaining[i] = (rank, max, committed);
+        }
+        return ranksRemaining;
     }
     
     void OnClear()
@@ -293,12 +324,15 @@ public class SetupCommitPhase : PhaseBase
 
     void OnEntryClicked(Rank clickedRank)
     {
-        Debug.Log("clicked");
-        if (selectedRank is Rank rank)
+        Debug.Log("OnEntryClicked" + clickedRank);
+        if (selectedRank is Rank rank && rank == clickedRank)
         {
-            selectedRank = clickedRank == rank ? null : clickedRank;
+            selectedRank = null;
         }
-        selectedRank = clickedRank;
+        else
+        {
+            selectedRank = clickedRank;
+        }
         OnPhaseStateChanged?.Invoke();
     }
     

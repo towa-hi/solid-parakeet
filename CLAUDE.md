@@ -2,6 +2,35 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## The Golden Rule  
+When unsure about implementation details, ALWAYS ask the user.  
+
+## Development Guidelines
+- Add specially formatted comments throughout the codebase, where appropriate, for yourself as inline knowledge that can be easily `grep`ped for.
+- Use `AIDEV-NOTE:`, `AIDEV-TODO:`, or `AIDEV-QUESTION:` (all-caps prefix) for comments aimed at AI and developers.  
+- Keep them concise (≤ 120 chars).  
+- **Important:** Before scanning files, always first try to **locate existing anchors** `AIDEV-*` in relevant subdirectories.  
+- **Update relevant anchors** when modifying associated code.  
+- **Do not remove `AIDEV-NOTE`s** without explicit human instruction.  
+
+
+## C# Style Guidelines
+- Follow existing conventions
+- Types: UpperCamelCase
+- Interfaces: IUpperCamelCase
+- Methods: UpperCamelCase
+- Properties: UpperCamelCase
+- Local Variables: lowerCamelCase
+- Parameters: parameters that set values are sometimes prefixed with n
+- Static fields: lowerCamelCase
+- Explicit type over var
+- Trailing commas
+- Object creation using new()
+- For Unity Monobehaviours, null check with !
+
+## Strict Guidelines
+- Do not edit scriptableobjects or any fields in monobehaviors that are serialized without my permission
+
 ## Project Overview
 
 This is a WebGL Unity-based implementation of "Scrying Stratego" - a variant of Stratego running on the Stellar blockchain with simultaneous turn resolution using commit-reveal logic. The project combines:
@@ -21,10 +50,39 @@ This is a WebGL Unity-based implementation of "Scrying Stratego" - a variant of 
 	- `Controls/` - Input handling and interaction systems
 	- `Debug/` - Development and testing utilities
 
+#### Game State Management
+- `GameManager.cs` - Central game coordinator
+- `TestBoardManager.cs` - Client logic
+
+#### Blockchain Integration
+- `Contract.cs` - Smart contract interface
+- `StellarManager.cs` - Game to StellarDotnet layer
+- `StellarDotnet.cs` - Stellar network communication
+- `WalletManager.cs` - User wallet integration
+
+#### Board System
+- `BoardDef.cs` - Configurable board layouts stored as ScriptableObjects
+- `BoardGrid.cs` - Hex/square tile coordinate system
+
+#### Visual Systems
+- Universal Render Pipeline (URP) configuration
+- Custom shaders for card effects and visual polish
+- Sprite-based pawn rendering with animation controllers
+
 ### Smart Contract (Rust)
 - Located in `ContractSandbox/warmancer-prototype/contracts/hello-world/src/`
 - Built with Soroban SDK for Stellar blockchain
 - Implements commit-reveal game mechanics
+
+#### Smart Contract Rules
+
+When working with the Rust contract code:
+- Never edit struct definitions in the contract
+- Do not import external dependencies (no `std`)
+- Only edit `lib.rs` and `test.rs` files
+- Use `#region` and `#endregion` for code organization
+- "user" and "opponent" refer to method invoker, not guest/host
+- Valid moves require: owned pawn, alive pawn, passable tile, not occupied by same team
 
 ## Development Commands
 
@@ -50,60 +108,4 @@ cargo test -- --nocapture  # Run contract tests with output
 ### Building
 - Unity builds are configured through Unity Editor Build Settings
 - WebGL builds output to `Build/` directory
-- Contract builds use Rust/Cargo standard build process
-
-## Key Systems
-
-### Game State Management
-- `GameManager.cs` - Central game coordinator
-- `TestBoardManager.cs` - Client logic
-
-### Blockchain Integration
-- `Contract.cs` - Smart contract interface
-- `StellarManager.cs` - Game to StellarDotnet layer
-- `StellarDotnet.cs` - Stellar network communication
-- `WalletManager.cs` - User wallet integration
-
-### Board System
-- `BoardDef.cs` - Configurable board layouts stored as ScriptableObjects
-- `BoardGrid.cs` - Hex/square tile coordinate system
-
-### Visual Systems
-- Universal Render Pipeline (URP) configuration
-- Custom shaders for card effects and visual polish
-- Sprite-based pawn rendering with animation controllers
-
-## Smart Contract Rules
-
-When working with the Rust contract code:
-- Never edit struct definitions in the contract
-- Do not import external dependencies (no `std`)
-- Only edit `lib.rs` and `test.rs` files
-- Use `#region` and `#endregion` for code organization
-- "user" and "opponent" refer to method invoker, not guest/host
-- Valid moves require: owned pawn, alive pawn, passable tile, not occupied by same team
-
-## Audio System
-- `AudioManager.cs` handles all sound effects and music
-- Separate folders for edited vs original audio files
-
-## Code Style and Conventions
-
-### C# Style Guidelines
-- Follow existing conventions
-- Types: UpperCamelCase
-- Interfaces: IUpperCamelCase
-- Methods: UpperCamelCase
-- Properties: UpperCamelCase
-- Local Variables: lowerCamelCase
-- Parameters: parameters that set values are sometimes prefixed with n
-- Static fields: lowerCamelCase
-- Explicit type over var
-- Trailing commas
-- Object creation using new()
-- For Unity Monobehaviours, null check with !
-
-## Strict Guidelines
-
-- Do not edit scriptableobjects or any fields in monobehaviors that are serialized without my permission
-
+- Contract builds use Rust/Cargo standard build process. Only the user should build and deploy

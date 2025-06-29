@@ -810,7 +810,7 @@ namespace Contract
         public byte[] board_hash;
         public bool dev_mode;
         public uint host_team;
-        public uint[] max_ranks;
+        public uint[] max_ranks; // NOTE: index is the Rank enum converted to int
         public bool must_fill_all_tiles;
         public bool security_mode;
         public long liveUntilLedgerSeq;

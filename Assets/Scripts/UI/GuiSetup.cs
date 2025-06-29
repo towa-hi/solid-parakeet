@@ -34,7 +34,7 @@ public class GuiSetup : GameElement
 
     public void PhaseChanged(PhaseBase newPhase)
     {
-        InitializeRankEntries(newPhase.cachedNetworkState, true);
+        Initialize(newPhase.cachedNetworkState, true);
         Refresh(newPhase);
     }
 
@@ -42,7 +42,23 @@ public class GuiSetup : GameElement
     {
         Refresh(currentPhase);
     }
-    //
+    
+    void Initialize(GameNetworkState networkState, bool allInteractable)
+    {
+        // Clear existing entries
+        foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
+        entries = new Dictionary<Rank, GuiRankListEntry>();
+        uint[] maxRanks = networkState.lobbyParameters.max_ranks;
+        for (int i = 0; i < maxRanks.Length; i++)
+        {
+            Rank rank = (Rank)i;
+            GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
+            entries.Add(rank, rankListEntry);
+            rankListEntry.Initialize(rank);
+            rankListEntry.SetButtonOnClick(OnEntryClicked);
+        }
+    }
+    
     void Refresh(PhaseBase currentPhase)
     {
         bool show;
@@ -53,30 +69,12 @@ public class GuiSetup : GameElement
                 show = true;
                 // TODO: make this not shit
                 // update entry counts
-                Dictionary<Rank, int> committed = new();
-                foreach ((Vector2Int _, Rank? mRank) in setupCommitPhase.pendingCommits)
+                (Rank, int, int)[] ranksRemaining = setupCommitPhase.RanksRemaining();
+                foreach ((Rank rank, int max, int committed) in ranksRemaining)
                 {
-                    if (mRank is Rank rank)
-                    {
-                        if (!committed.ContainsKey(rank))
-                        {
-                            committed.Add(rank, 1);
-                        }
-                        else
-                        {
-                            committed[rank]++;
-                        }
-                    }
+                    bool entrySelected = rank == setupCommitPhase.selectedRank;
+                    entries[rank].Refresh(max, committed, entrySelected);
                 }
-                uint[] maxRanks = setupCommitPhase.cachedNetworkState.lobbyParameters.max_ranks;
-                for (int i = 0; i < maxRanks.Length; i++)
-                {
-                    Rank rank = (Rank)i;
-                    uint max = maxRanks[i];
-                    GuiRankListEntry rankListEntry = entries[rank];
-                    rankListEntry.SetRemaining(max, committed.GetValueOrDefault(rank, 0));
-                }
-                
                 switch (setupCommitPhase.cachedNetworkState.GetRelativeSubphase())
                 {
                     case RelativeSubphase.MYSELF:
@@ -129,22 +127,6 @@ public class GuiSetup : GameElement
         ShowElement(show);
     }
 
-    void InitializeRankEntries(GameNetworkState networkState, bool allInteractable)
-    {
-        // Clear existing entries
-        foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
-        entries = new Dictionary<Rank, GuiRankListEntry>();
-        uint[] maxRanks = networkState.lobbyParameters.max_ranks;
-        for (int i = 0; i < maxRanks.Length; i++)
-        {
-            Rank rank = (Rank)i;
-            uint max = maxRanks[i];
-            GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
-            entries.Add(rank, rankListEntry);
-            rankListEntry.Initialize(rank, max, allInteractable);
-            rankListEntry.SetButtonOnClick(OnEntryClicked);
-        }
-    }
 
     public void SetActions(
         Action onClear = null, 
