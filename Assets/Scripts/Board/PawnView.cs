@@ -44,7 +44,7 @@ public class PawnView : MonoBehaviour
     public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
         Team userTeam = phase.cachedNetworkState.userTeam;
-        if (changes.networkUpdated || changes.pawnsChanged || changes.tilesChanged)
+        if (changes.networkUpdated || changes.phaseChanged || changes.pawnsChanged || changes.tilesChanged)
         {
             PawnState pawn = phase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
             switch (phase)
@@ -70,7 +70,12 @@ public class PawnView : MonoBehaviour
             }
             firstTime = false;
         }
-        if (changes.networkUpdated || changes.hoverStateChanged)
+
+        if (changes.uiStateChanged)
+        {
+            // react to selections here
+        }
+        if (changes.hoverStateChanged)
         {
             // react to hover here
         }

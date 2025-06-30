@@ -126,7 +126,6 @@ public class BoardManager : MonoBehaviour
         {
             throw new Exception("BoardManager not initialized");
         }
-        Debug.Log($"PhaseStateChanged networkUpdated: {changes.networkUpdated} phaseChanged: {changes.phaseChanged} pawnsChanged: {changes.pawnsChanged} tilesChanged: {changes.tilesChanged} uiStateChanged: {changes.uiStateChanged} hoverStateChanged: {changes.hoverStateChanged}");
         switch (currentPhase.inputTool)
         {
             case SetupInputTool.NONE:
@@ -214,9 +213,13 @@ public abstract class PhaseBase
     public SetupInputTool inputTool;
     public bool mouseInputEnabled;
     
+    public Dictionary<Vector2Int, TileView> tileViews;
+    public Dictionary<PawnId, PawnView> pawnViews;
+    public Vector2Int hoveredPos;
     protected PhaseBase(BoardManager bm, GameNetworkState networkState, TestClickInputManager clickInputManager)
     {
-        
+        tileViews = bm.tileViews;
+        pawnViews = bm.pawnViews;
         clickInputManager.OnMouseInput = OnMouseInput;
     }
     
@@ -239,13 +242,11 @@ public abstract class PhaseBase
 }
 public class SetupCommitPhase : PhaseBase
 {
-    public Dictionary<Vector2Int, TileView> tileViews;
     public Dictionary<Vector2Int, Rank> pendingCommits;
     public Rank? selectedRank;
     
     public SetupCommitPhase(BoardManager bm, GuiSetup guiSetup, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
-        tileViews = bm.tileViews;
         pendingCommits = new Dictionary<Vector2Int, Rank>();
         selectedRank = null;
         inputTool = SetupInputTool.NONE;
@@ -486,9 +487,12 @@ public class SetupCommitPhase : PhaseBase
         {
             return;
         }
+        this.hoveredPos = hoveredPos;
         Debug.Log($"On Hover {hoveredPos}");
-        Contract.Tile? mTile = cachedNetworkState.lobbyParameters.board.GetTileFromPosition(hoveredPos);
         PhaseChanges changes = new();
+        changes.hoverStateChanged = true;
+        Contract.Tile? mTile = cachedNetworkState.lobbyParameters.board.GetTileFromPosition(hoveredPos);
+
         if (clicked)
         {
             switch (inputTool)
@@ -526,7 +530,8 @@ public class SetupCommitPhase : PhaseBase
 public class MoveCommitPhase: PhaseBase
 {
     public Dictionary<Vector2Int, TileView> tileViews;
-    
+    public Vector2Int selectedPos;
+    public Vector2Int targetPos;
     public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
         tileViews = bm.tileViews;
@@ -576,8 +581,65 @@ public class MoveCommitPhase: PhaseBase
         throw new NotImplementedException();
     }
 
+    public void SelectPosition(Vector2Int hoveredPos, PhaseChanges changes)
+    {
+        changes.uiStateChanged = true;
+        if (cachedNetworkState.gameState.GetPawnStateFromPosition(base.hoveredPos) is not PawnState pawn)
+        {
+            // do nothing
+            return;
+        }
+
+        if (pawn.GetTeam() != cachedNetworkState.userTeam)
+        {
+            return;
+        }
+
+        if (CacheManager.GetHiddenRank(pawn.hidden_rank_hash) is HiddenRank hiddenRank)
+        {
+            
+        }
+    }
+
+    public void TargetPosition(Vector2Int hoveredPos, PhaseChanges changes)
+    {
+        changes.uiStateChanged = true;
+    }
+
+    public void ClearSelection(PhaseChanges changes)
+    {
+        changes.uiStateChanged = true;
+    }
+    
     public override void OnMouseInput(Vector2Int hoveredPos, bool clicked)
     {
+        if (!mouseInputEnabled)
+        {
+            return;
+        }
+        this.hoveredPos = hoveredPos;
+        PhaseChanges changes = new();
+        changes.hoverStateChanged = true;
+        if (clicked)
+        {
+            switch (inputTool)
+            {
+                case SetupInputTool.NONE:
+                    SelectPosition(hoveredPos, changes);
+                    break;
+                case SetupInputTool.ADD:
+                    TargetPosition(hoveredPos, changes);
+                    break;
+                case SetupInputTool.REMOVE:
+                    ClearSelection(changes);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        SetupInputTool tool = SetupInputTool.NONE;
+        // TODO: finish this
+        OnPhaseStateChanged?.Invoke(changes);
         
     }
 
@@ -596,7 +658,7 @@ public class MoveProvePhase: PhaseBase
 
     public override void OnMouseInput(Vector2Int hoveredPos, bool clicked)
     {
-        
+    
     }
 
 

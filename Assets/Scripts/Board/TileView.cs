@@ -54,7 +54,7 @@ public class TileView : MonoBehaviour
     public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
         // Only update tile data when network updates or tiles specifically changed
-        if (changes.networkUpdated || changes.tilesChanged)
+        if (changes.networkUpdated || changes.phaseChanged || changes.tilesChanged)
         {
             Vector2Int oldPos = tile.pos;
             Contract.Tile? mTile = phase.cachedNetworkState.lobbyParameters.board.GetTileFromPosition(oldPos);
@@ -68,27 +68,37 @@ public class TileView : MonoBehaviour
             tileModel = phase.cachedNetworkState.lobbyParameters.board.hex ? hexTileModel : squareTileModel;
             ShowTile(tile.passable);
             initialElevatorLocalPos = tileModel.elevator.localPosition;
-        }
-        
-        // Only update visual state when phase changes or network updates
-        if (changes.networkUpdated || changes.phaseChanged)
-        {
             switch (phase)
             {
                 case SetupCommitPhase setupCommitPhase:
-                    SetSetupEmissionHighlight(true);
+                    if (changes.phaseChanged || changes.subphaseChanged)
+                    {
+                        SetSetupEmissionHighlight(true);
+                    }
                     break;
                 case MoveCommitPhase moveCommitPhase:
-                    SetSetupEmissionHighlight(false);
+                    if (changes.phaseChanged || changes.subphaseChanged)
+                    {
+                        SetSetupEmissionHighlight(false);
+                    }
                     break;
                 case MoveProvePhase moveProvePhase:
                     break;
                 case RankProvePhase rankProvePhase:
                     break;
-
                 default:
                     throw new ArgumentOutOfRangeException(nameof(phase));
             }
+        }
+
+        if (changes.uiStateChanged)
+        {
+            // react to selections here
+        }
+        if (changes.hoverStateChanged)
+        {
+            bool outline = phase.hoveredPos == tile.pos;
+            tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, outline);
         }
     }
     public void StartPulse()
