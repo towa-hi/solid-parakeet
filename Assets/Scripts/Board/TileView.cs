@@ -73,8 +73,6 @@ public class TileView : MonoBehaviour
             case SetupCommitPhase setupCommitPhase:
                 SetSetupEmissionHighlight(true);
                 break;
-            case SetupProvePhase setupProvePhase:
-                break;
             case MoveCommitPhase moveCommitPhase:
                 break;
             case MoveProvePhase moveProvePhase:
@@ -134,8 +132,6 @@ public class TileView : MonoBehaviour
         switch (phase)
         {
             case SetupCommitPhase setupCommitPhase:
-                break;
-            case SetupProvePhase setupProvePhase:
                 break;
             case MoveCommitPhase moveCommitPhase:
                 break;

@@ -26,18 +26,25 @@ public class PawnView : MonoBehaviour
     bool aliveView;
     Rank rankView;
     public Vector2Int posView;
-    
+
+    bool firstTime = false;
     
     public void Initialize(PawnState pawn)
     {
         pawnId = pawn.pawn_id;
+        gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
         startPos = pawnId.Decode().Item1;
         team = pawnId.Decode().Item2;
+        rankView = Rank.UNKNOWN;
+        aliveView = false;
+        posView = Vector2Int.zero;
     }
 
     public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
+        firstTime = true;
         PawnState pawn = phase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
+        Team userTeam = phase.cachedNetworkState.userTeam;
         if (changes.networkUpdated)
         {
             
@@ -45,27 +52,20 @@ public class PawnView : MonoBehaviour
         switch (phase)
         {
             case SetupCommitPhase setupCommitPhase:
-                if (setupCommitPhase.pendingCommits.TryGetValue(pawn.pos, out Rank commit))
-                {
-                    SetRankView(pawn, commit);
-                }
-                else
-                {
-                    SetRankView(pawn);
-                }
+                Rank? pendingCommitRank = setupCommitPhase.pendingCommits.TryGetValue(pawn.pos, out Rank rank) ? rank : null;
+                SetRankView(pawn, userTeam, pendingCommitRank);
                 // send pawnView to purgatory to hide it if rank is not known
                 SetPosView(rankView == Rank.UNKNOWN ? null : setupCommitPhase.tileViews[pawn.pos]);
-
-                break;
-            case SetupProvePhase setupProvePhase:
-                SetRankView(pawn);
-                SetPosView(setupProvePhase.tileViews[pawn.pos]);
                 break;
             case MoveCommitPhase moveCommitPhase:
+                SetRankView(pawn, userTeam);
+                SetPosView(moveCommitPhase.tileViews[pawn.pos]);
                 break;
             case MoveProvePhase moveProvePhase:
+                SetRankView(pawn, userTeam);
                 break;
             case RankProvePhase rankProvePhase:
+                SetRankView(pawn, userTeam);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(phase));
@@ -74,6 +74,7 @@ public class PawnView : MonoBehaviour
 
     void SetPosView(TileView tileView = null)
     {
+        posView = tileView?.tile.pos ?? Globals.Purgatory;
         Transform target = tileView ? tileView.origin : GameManager.instance.purgatory;
         parentConstraint.SetSource(0, new ConstraintSource()
         {
@@ -83,36 +84,24 @@ public class PawnView : MonoBehaviour
         parentConstraint.constraintActive = true;
     }
     
-    void SetRankView(PawnState pawn, Rank? mOverrideRank = null)
+    void SetRankView(PawnState pawn, Team userTeam, Rank? mOverrideRank = null)
     {
         Rank oldRankView = rankView;
+        rankView = Rank.UNKNOWN;
         if (mOverrideRank is Rank overrideRank)
         {
             rankView = overrideRank;
         }
-        else
+        else if (pawn.rank is Rank rank)
         {
-            if (pawn.rank is Rank rank)
-            {
-                Debug.Log("rank set to pawn rank");
-                rankView = rank;
-            }
-            else
-            {
-                Debug.Log("attemtping to laod hidden rank");
-                if (CacheManager.LoadHiddenRank(pawn.hidden_rank_hash) is HiddenRank hiddenRank)
-                {
-                    Debug.Log("Hidden rank gotten");
-                    rankView = hiddenRank.rank;
-                }
-                else
-                {
-                    Debug.Log("hidden rank not found");
-                    rankView = Rank.UNKNOWN;
-                }
-            }
+            rankView = rank;
         }
-        if (rankView == oldRankView)
+        else if (pawn.GetTeam() == userTeam && CacheManager.GetHiddenRank(pawn.hidden_rank_hash) is HiddenRank hiddenRank)
+        {
+            rankView = hiddenRank.rank;
+        }
+        
+        if (!firstTime && rankView == oldRankView)
         {
             return;
         }
@@ -134,6 +123,7 @@ public class PawnView : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException();
         }
+        Debug.Log($"animation set for {gameObject.name}");
         float randNormTime = Random.Range(0f, 1f);
         animator.Play("Idle", 0, randNormTime);
         animator.Update(0f);

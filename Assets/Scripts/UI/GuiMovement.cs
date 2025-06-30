@@ -69,7 +69,6 @@ public class GuiMovement : GameElement
         switch (currentPhase)
         {
             case SetupCommitPhase setupCommitPhase:
-            case SetupProvePhase setupProvePhase:
                 show = false;
                 break;
             case MoveCommitPhase moveCommitPhase:

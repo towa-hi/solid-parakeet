@@ -9,24 +9,79 @@ using UnityEngine;
 
 public static class CacheManager
 {
-    static Dictionary<string, HiddenRank> hiddenRankCache = new Dictionary<string, HiddenRank>();
-    static Dictionary<string, Setup> setupCache = new Dictionary<string, Setup>();
-    static Dictionary<string, HiddenMove> hiddenMoveCache = new Dictionary<string, HiddenMove>();
-    static Dictionary<uint, long> lobbyExpirationCache = new Dictionary<uint, long>();
-    public static byte[] SaveHiddenRank(HiddenRank hiddenRank)
+    
+    static Dictionary<string, HiddenRank> hiddenRankCache = new();
+    static Dictionary<string, HiddenMove> hiddenMoveCache = new();
+    
+    const ulong expirationTicks = 172800000000000UL; // 2 days in ticks
+    
+    public static void Initialize(AccountAddress address, LobbyId lobbyId)
     {
-        if (hiddenRank.salt == 0)
+        hiddenRankCache.Clear();
+        hiddenMoveCache.Clear();
+        
+        // Cleanup expired caches for this address
+        CleanupExpiredCaches(address);
+        // Load HiddenRanks
+        string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
+        
+        HiddenRank[] hiddenRankArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
+        foreach (HiddenRank hiddenRank in hiddenRankArray)
         {
-            throw new ArgumentException("Salt can't be 0");
+            string key = Convert.ToBase64String(SCUtility.Get16ByteHash(hiddenRank));
+            hiddenRankCache.Add(key, hiddenRank);
+            // Debug.Log($"hash {key} id {hiddenRank.pawn_id} rank {hiddenRank.rank}");
         }
-        string key = SaveToPlayerPrefs(hiddenRank);
+        
+        // Load HiddenMoves
+        string hiddenMovesKey = GetHiddenMovesKey(address, lobbyId);
+        HiddenMove[] hiddenMoveArray = LoadFromPlayerPrefs<HiddenMove>(hiddenMovesKey);
+        foreach (HiddenMove hiddenMove in hiddenMoveArray)
+        {
+            string key = Convert.ToBase64String(SCUtility.Get16ByteHash(hiddenMove));
+            hiddenMoveCache.Add(key, hiddenMove);
+        }
+    }
+    
+    public static void StoreHiddenRank(HiddenRank hiddenRank, AccountAddress address, LobbyId lobbyId)
+    {
+        string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
+        HiddenRank[] existingArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
+        
+        List<HiddenRank> hiddenRankList = existingArray.ToList();
+        hiddenRankList.Add(hiddenRank);
+        
+        HiddenRank[] hiddenRankArray = hiddenRankList.ToArray();
+        SaveToPlayerPrefs(hiddenRankArray, hiddenRanksKey, address);
+        
+        byte[] hash = SCUtility.Get16ByteHash(hiddenRank);
+        string key = Convert.ToBase64String(hash);
         hiddenRankCache[key] = hiddenRank;
-        return Convert.FromBase64String(key);
+    }
+    
+    public static void StoreHiddenRanks(HiddenRank[] hiddenRanks, AccountAddress address, LobbyId lobbyId)
+    {
+        string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
+        HiddenRank[] existingArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
+        
+        List<HiddenRank> hiddenRankList = existingArray.ToList();
+        hiddenRankList.AddRange(hiddenRanks);
+        
+        HiddenRank[] hiddenRankArray = hiddenRankList.ToArray();
+        SaveToPlayerPrefs(hiddenRankArray, hiddenRanksKey, address);
+        
+        foreach (HiddenRank hiddenRank in hiddenRanks)
+        {
+            byte[] hash = SCUtility.Get16ByteHash(hiddenRank);
+            string key = Convert.ToBase64String(hash);
+            hiddenRankCache[key] = hiddenRank;
+        }
     }
 
-    public static HiddenRank? LoadHiddenRank(byte[] hash)
+    public static HiddenRank? GetHiddenRank(byte[] hash)
     {
-        
+        // NOTE: this should only ever be called on the player's own pawns that have
+        // yet to be revealed
         if (hash.Length != 16)
         {
             throw new ArgumentException("Invalid hidden rank hash length");
@@ -36,103 +91,17 @@ public static class CacheManager
             return null;
         }
         string key = Convert.ToBase64String(hash);
-        
         if (hiddenRankCache.TryGetValue(key, out HiddenRank rank))
         {
             return rank;
-        }
-        if (PlayerPrefs.HasKey(key))
-        {
-            return GetFromPlayerPrefs<HiddenRank>(key);
         }
         else
         {
             return null;
         }
-        
     }
-
-    public static byte[] SaveSetupReq(Setup setup)
-    {
-        if (setup.salt == 0)
-        {
-            throw new ArgumentException("Salt can't be 0");
-        }
-        string key = SaveToPlayerPrefs(setup);
-        setupCache[key] = setup;
-        return Convert.FromBase64String(key);
-    }
-
-    public static Setup LoadSetupReq(byte[] hash)
-    {
-        if (hash.Length != 16)
-        {
-            throw new ArgumentException("Invalid setup hash length");
-        }
-        if (hash.All(b => b == 0))
-        {
-            throw new ArgumentException("Hash can't be 0");
-        }
-        string key = Convert.ToBase64String(hash);
-        if (setupCache.TryGetValue(key, out Setup setup))
-        {
-            return setup;
-        }
-        return GetFromPlayerPrefs<Setup>(key);
-    }
-
-    static string SaveToPlayerPrefs(IScvMapCompatable obj)
-    {
-        SCVal scVal = SCUtility.NativeToSCVal(obj);
-        string xdrString = SCValXdr.EncodeToBase64(scVal);
-        
-        byte[] hash;
-        switch (obj)
-        {
-            case HiddenRank hiddenRank:
-                hash = SCUtility.GetHiddenRankHash(hiddenRank);
-                break;
-            case Setup setup:
-                hash = SCUtility.GetSetupHash(setup);
-                break;
-            case HiddenMove hiddenMove:
-                hash = SCUtility.GetHiddenMoveHash(hiddenMove);
-                break;
-            default:
-                throw new ArgumentException($"Unsupported type for caching: {obj.GetType()}");
-        }
-        
-        string key = Convert.ToBase64String(hash);
-        PlayerPrefs.SetString(key, xdrString);
-        PlayerPrefs.Save();
-        return key;
-    }
-
-    static T GetFromPlayerPrefs<T>(string key)
-    {
-        Debug.Log($"GetFromPlayerPrefs key: {key}");
-        string xdrString = PlayerPrefs.GetString(key, null);
-        if (xdrString == null)
-        {
-            throw new IndexOutOfRangeException();
-        }
-        using MemoryStream memoryStream = new MemoryStream(Convert.FromBase64String(xdrString));
-        SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
-        return SCUtility.SCValToNative<T>(val);
-    }
-
-    public static byte[] SaveMoveReq(HiddenMove hiddenMove)
-    {
-        if (hiddenMove.salt == 0)
-        {
-            throw new ArgumentException("Salt can't be 0");
-        }
-        string key = SaveToPlayerPrefs(hiddenMove);
-        hiddenMoveCache[key] = hiddenMove;
-        return Convert.FromBase64String(key);
-    }
-
-    public static HiddenMove LoadMoveReq(byte[] hash)
+    
+    public static HiddenMove? GetHiddenMove(byte[] hash)
     {
         if (hash.Length != 16)
         {
@@ -140,43 +109,209 @@ public static class CacheManager
         }
         if (hash.All(b => b == 0))
         {
-            throw new ArgumentException("Hash can't be 0");
+            return null;
         }
         string key = Convert.ToBase64String(hash);
         if (hiddenMoveCache.TryGetValue(key, out HiddenMove move))
         {
             return move;
         }
-        return GetFromPlayerPrefs<HiddenMove>(key);
+        else
+        {
+            return null;
+        }
+    }
+    
+    public static void StoreHiddenMove(HiddenMove hiddenMove, AccountAddress address, LobbyId lobbyId)
+    {
+        string hiddenMovesKey = GetHiddenMovesKey(address, lobbyId);
+        HiddenMove[] existingArray = LoadFromPlayerPrefs<HiddenMove>(hiddenMovesKey);
+        
+        List<HiddenMove> hiddenMoveList = existingArray.ToList();
+        hiddenMoveList.Add(hiddenMove);
+        
+        HiddenMove[] hiddenMoveArray = hiddenMoveList.ToArray();
+        SaveToPlayerPrefs(hiddenMoveArray, hiddenMovesKey, address);
+        
+        byte[] hash = SCUtility.Get16ByteHash(hiddenMove);
+        string key = Convert.ToBase64String(hash);
+        hiddenMoveCache[key] = hiddenMove;
+    }
+    
+    public static void StoreHiddenMoves(HiddenMove[] hiddenMoves, AccountAddress address, LobbyId lobbyId)
+    {
+        string hiddenMovesKey = GetHiddenMovesKey(address, lobbyId);
+        HiddenMove[] existingArray = LoadFromPlayerPrefs<HiddenMove>(hiddenMovesKey);
+        
+        List<HiddenMove> hiddenMoveList = existingArray.ToList();
+        hiddenMoveList.AddRange(hiddenMoves);
+        
+        HiddenMove[] hiddenMoveArray = hiddenMoveList.ToArray();
+        SaveToPlayerPrefs(hiddenMoveArray, hiddenMovesKey, address);
+        
+        foreach (HiddenMove hiddenMove in hiddenMoves)
+        {
+            byte[] hash = SCUtility.Get16ByteHash(hiddenMove);
+            string key = Convert.ToBase64String(hash);
+            hiddenMoveCache[key] = hiddenMove;
+        }
     }
 
-    public static void CacheLobbyExpiration(uint lobbyId, long liveUntilLedgerSeq)
+
+    static string GetHiddenRanksKey(AccountAddress address, LobbyId lobbyId)
     {
-        lobbyExpirationCache[lobbyId] = liveUntilLedgerSeq;
-        PlayerPrefs.SetString($"lobby_expiry_{lobbyId}", liveUntilLedgerSeq.ToString());
+        return $"{address}_{lobbyId}_ranks";
+    }
+    
+    static string GetHiddenMovesKey(AccountAddress address, LobbyId lobbyId)
+    {
+        return $"{address}_{lobbyId}_moves";
+    }
+    
+    static string GetMasterKeyListKey(AccountAddress address)
+    {
+        return $"cache_keys_{address}";
+    }
+    
+    static string[] GetCacheKeysForAddress(AccountAddress address)
+    {
+        string masterKey = GetMasterKeyListKey(address);
+        string serialized = PlayerPrefs.GetString(masterKey, null);
+        if (serialized == null)
+        {
+            return Array.Empty<string>();
+        }
+        return serialized.Split(',');
+    }
+    
+    static void AddCacheKeyForAddress(AccountAddress address, string cacheKey)
+    {
+        string[] existingKeys = GetCacheKeysForAddress(address);
+        if (!existingKeys.Contains(cacheKey))
+        {
+            List<string> keyList = existingKeys.ToList();
+            keyList.Add(cacheKey);
+            string masterKey = GetMasterKeyListKey(address);
+            PlayerPrefs.SetString(masterKey, string.Join(",", keyList.ToArray()));
+            PlayerPrefs.Save();
+        }
+    }
+    
+    static void RemoveCacheKeyForAddress(AccountAddress address, string cacheKey)
+    {
+        string[] existingKeys = GetCacheKeysForAddress(address);
+        List<string> keyList = existingKeys.ToList();
+        if (keyList.Remove(cacheKey))
+        {
+            string masterKey = GetMasterKeyListKey(address);
+            if (keyList.Count == 0)
+            {
+                PlayerPrefs.DeleteKey(masterKey);
+            }
+            else
+            {
+                PlayerPrefs.SetString(masterKey, string.Join(",", keyList.ToArray()));
+            }
+            PlayerPrefs.Save();
+        }
+    }
+    
+    static CacheContainer? DeserializeContainer(string serialized)
+    {
+        if (serialized == null) return null;
+        
+        try
+        {
+            using MemoryStream memoryStream = new(Convert.FromBase64String(serialized));
+            SCVal val = SCValXdr.Decode(new XdrReader(memoryStream));
+            return SCUtility.SCValToNative<CacheContainer>(val);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+    
+    static bool IsExpired(ulong timestamp)
+    {
+        ulong currentTime = (ulong)DateTime.UtcNow.Ticks;
+        return currentTime - timestamp > expirationTicks;
+    }
+    
+    static T[] LoadFromPlayerPrefs<T>(string key)
+    {
+        string serialized = PlayerPrefs.GetString(key, null);
+        CacheContainer? container = DeserializeContainer(serialized);
+        
+        if (container == null || IsExpired(container.Value.createdTimestamp))
+        {
+            return Array.Empty<T>();
+        }
+        
+        try
+        {
+            using MemoryStream dataStream = new(Convert.FromBase64String(container.Value.base64XdrData));
+            SCVal dataVal = SCValXdr.Decode(new XdrReader(dataStream));
+            return SCUtility.SCValToNative<T[]>(dataVal);
+        }
+        catch
+        {
+            return Array.Empty<T>();
+        }
+    }
+    
+    static void SaveToPlayerPrefs<T>(T[] array, string key, AccountAddress address)
+    {
+        SCVal dataScVal = SCUtility.NativeToSCVal(array);
+        string base64XdrData = SCValXdr.EncodeToBase64(dataScVal);
+        
+        CacheContainer container = new()
+        {
+            createdTimestamp = (ulong)DateTime.UtcNow.Ticks,
+            base64XdrData = base64XdrData,
+        };
+        
+        SCVal containerScVal = SCUtility.NativeToSCVal(container);
+        string serialized = SCValXdr.EncodeToBase64(containerScVal);
+        PlayerPrefs.SetString(key, serialized);
         PlayerPrefs.Save();
+        Debug.Log($"Saved key {key} val {serialized}");
+        AddCacheKeyForAddress(address, key);
     }
-
-    public static long? GetLobbyExpiration(uint lobbyId)
+    
+    static void CleanupExpiredCaches(AccountAddress address)
     {
-        if (lobbyExpirationCache.TryGetValue(lobbyId, out long cachedExpiry))
-        {
-            return cachedExpiry;
-        }
+        string[] cacheKeys = GetCacheKeysForAddress(address);
         
-        string storedExpiry = PlayerPrefs.GetString($"lobby_expiry_{lobbyId}", null);
-        if (storedExpiry != null && long.TryParse(storedExpiry, out long parsedExpiry))
+        foreach (string cacheKey in cacheKeys)
         {
-            lobbyExpirationCache[lobbyId] = parsedExpiry;
-            return parsedExpiry;
+            string serialized = PlayerPrefs.GetString(cacheKey, null);
+            CacheContainer? container = DeserializeContainer(serialized);
+            
+            if (container == null || IsExpired(container.Value.createdTimestamp))
+            {
+                PlayerPrefs.DeleteKey(cacheKey);
+                RemoveCacheKeyForAddress(address, cacheKey);
+            }
         }
-        
-        return null;
     }
-
-    public static bool IsLobbyExpired(uint lobbyId, long currentLedgerSeq)
+    
+    [Serializable]
+    struct CacheContainer : IScvMapCompatable
     {
-        long? expiry = GetLobbyExpiration(lobbyId);
-        return expiry.HasValue && currentLedgerSeq >= expiry.Value;
+        public ulong createdTimestamp;
+        public string base64XdrData;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("createdTimestamp", createdTimestamp),
+                    SCUtility.FieldToSCMapEntry("base64XdrData", base64XdrData),
+                }),
+            };
+        }
     }
 }

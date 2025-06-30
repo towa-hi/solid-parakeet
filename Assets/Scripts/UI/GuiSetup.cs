@@ -88,20 +88,6 @@ public class GuiSetup : GameElement
                     status = "Awaiting opponent commit...";
                 }
                 break;
-            case SetupProvePhase setupProvePhase:
-                show = true;
-                submitButton.interactable = false;
-                clearButton.interactable = false;
-                autoSetupButton.interactable = false;
-                if (setupProvePhase.cachedNetworkState.IsMySubphase())
-                {
-                    status = "awaiting your setup proof";
-                }
-                else
-                {
-                    status = "awaiting opponent setup proof";
-                }
-                break;
             case MoveCommitPhase moveCommitPhase:
             case MoveProvePhase moveProvePhase:
             case RankProvePhase rankProvePhase:

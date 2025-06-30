@@ -370,40 +370,18 @@ fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (Addre
         create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
 
-    // Hash both setups
-    let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
-    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
-    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
-
-    let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
-    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
-    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
-
     // Commit both setups
     let host_commit_req = CommitSetupReq {
         lobby_id,
-        setup_hash: host_setup_hash,
-    };
-    let guest_commit_req = CommitSetupReq {
-        lobby_id,
-        setup_hash: guest_setup_hash,
-    };
-
-    setup.client.commit_setup(&host_address, &host_commit_req);
-    setup.client.commit_setup(&guest_address, &guest_commit_req);
-
-    // Prove both setups to advance to MoveCommit phase
-    let host_prove_req = ProveSetupReq {
-        lobby_id,
         setup: host_setup_proof,
     };
-    let guest_prove_req = ProveSetupReq {
+    let guest_commit_req = CommitSetupReq {
         lobby_id,
         setup: guest_setup_proof,
     };
 
-    setup.client.prove_setup(&host_address, &host_prove_req);
-    setup.client.prove_setup(&guest_address, &guest_prove_req);
+    setup.client.commit_setup(&host_address, &host_commit_req);
+    setup.client.commit_setup(&guest_address, &guest_commit_req);
 
     // Verify we're in MoveCommit phase
     setup.env.as_contract(&setup.contract_id, || {
@@ -578,42 +556,13 @@ fn test_prove_setup_invalid_pawn_ownership() {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
 
-    // Hash both setups
-    let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
-    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
-    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
-
-    let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
-    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
-    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
-
-    // Commit both setups to transition to SetupProve phase
-    let host_commit_req = CommitSetupReq {
-        lobby_id,
-        setup_hash: host_setup_hash,
-    };
-    let guest_commit_req = CommitSetupReq {
-        lobby_id,
-        setup_hash: guest_setup_hash,
-    };
-
-    setup.client.commit_setup(&host_address, &host_commit_req);
-    setup.client.commit_setup(&guest_address, &guest_commit_req);
-
-    // Verify we're in SetupProve phase with Both subphase
-    {
-        let validation_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_eq!(validation_snapshot.phase, Phase::SetupProve);
-        assert_eq!(validation_snapshot.subphase, Subphase::Both); // Both players can prove
-    }
-
     // Try to prove invalid setup - should end the game with host losing
-    let host_prove_req = ProveSetupReq {
+    let host_commit_req = CommitSetupReq {
         lobby_id,
         setup: host_setup_proof,
     };
 
-    setup.client.prove_setup(&host_address, &host_prove_req);
+    setup.client.commit_setup(&host_address, &host_commit_req);
 
     // Verify game aborted with guest winning
     {
@@ -911,7 +860,6 @@ impl TestSetup {
                 .expect("Game state should be created");
 
             assert!(!stored_game_state.pawns.is_empty());
-            assert_eq!(stored_game_state.setups.len(), 2);
         });
     }
 }
@@ -944,38 +892,17 @@ fn test_collision_winner_rank_revelation() {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
 
-
-    let host_serialized = host_proof.clone().to_xdr(&setup.env);
-    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
-    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
-
-    let guest_serialized = guest_proof.clone().to_xdr(&setup.env);
-    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
-    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
-
     let host_commit_req = CommitSetupReq {
-        lobby_id,
-        setup_hash: host_setup_hash,
-    };
-    let guest_commit_req = CommitSetupReq {
-        lobby_id,
-        setup_hash: guest_setup_hash,
-    };
-
-    setup.client.commit_setup(&host_address, &host_commit_req);
-    setup.client.commit_setup(&guest_address, &guest_commit_req);
-
-    let host_prove_req = ProveSetupReq {
         lobby_id,
         setup: host_proof,
     };
-    let guest_prove_req = ProveSetupReq {
+    let guest_commit_req = CommitSetupReq {
         lobby_id,
         setup: guest_proof,
     };
 
-    setup.client.prove_setup(&host_address, &host_prove_req);
-    setup.client.prove_setup(&guest_address, &guest_prove_req);
+    setup.client.commit_setup(&host_address, &host_commit_req);
+    setup.client.commit_setup(&guest_address, &guest_commit_req);
 
     // Now manually set up a controlled collision scenario
     // Set specific ranks to ensure we have a clear winner
@@ -1103,10 +1030,8 @@ fn test_compare_populated_vs_unpopulated_games() {
         let guest_full_hash = setup.env.crypto().sha256(&guest_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
         let guest_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
 
-        setup.client.commit_setup(host_addr, &CommitSetupReq { lobby_id, setup_hash: host_hash });
-        setup.client.commit_setup(guest_addr, &CommitSetupReq { lobby_id, setup_hash: guest_hash });
-        setup.client.prove_setup(host_addr, &ProveSetupReq { lobby_id, setup: host_proof.clone() });
-        setup.client.prove_setup(guest_addr, &ProveSetupReq { lobby_id, setup: guest_proof.clone() });
+        setup.client.commit_setup(host_addr, &CommitSetupReq { lobby_id, setup: host_proof.clone() });
+        setup.client.commit_setup(guest_addr, &CommitSetupReq { lobby_id, setup: guest_proof.clone() });
     }
 
     // Populate ranks only in Game B
@@ -1400,40 +1325,18 @@ fn advance_through_complete_setup_phase(setup: &TestSetup, lobby_id: u32, host_a
         create_deterministic_setup(&setup.env, 1, 67890)
     });
 
-    // Hash both setups
-    let host_serialized = host_setup_proof.clone().to_xdr(&setup.env);
-    let host_full_hash = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
-    let host_setup_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
-
-    let guest_serialized = guest_setup_proof.clone().to_xdr(&setup.env);
-    let guest_full_hash = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
-    let guest_setup_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
-
     // Commit setups
     let host_commit_req = CommitSetupReq {
         lobby_id,
-        setup_hash: host_setup_hash,
+        setup: host_setup_proof,
     };
     setup.client.commit_setup(host_address, &host_commit_req);
 
     let guest_commit_req = CommitSetupReq {
         lobby_id,
-        setup_hash: guest_setup_hash,
-    };
-    setup.client.commit_setup(guest_address, &guest_commit_req);
-
-    // Prove setups to complete the setup phase
-    let host_prove_req = ProveSetupReq {
-        lobby_id,
-        setup: host_setup_proof,
-    };
-    setup.client.prove_setup(host_address, &host_prove_req);
-
-    let guest_prove_req = ProveSetupReq {
-        lobby_id,
         setup: guest_setup_proof,
     };
-    setup.client.prove_setup(guest_address, &guest_prove_req);
+    setup.client.commit_setup(guest_address, &guest_commit_req);
 
     (host_ranks, guest_ranks)
 }
@@ -1665,114 +1568,4 @@ fn test_bad_request_exact() {
     }
 }
 
-#[test]
-fn test_prove_setup_alt_success() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let guest_address = setup.generate_address();
-    let lobby_id = 1u32;
-
-    // Create and join lobby
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    let make_req = MakeLobbyReq {
-        lobby_id,
-        parameters: lobby_parameters,
-    };
-    setup.client.make_lobby(&host_address, &make_req);
-
-    let join_req = JoinLobbyReq { lobby_id };
-    setup.client.join_lobby(&guest_address, &join_req);
-
-    // Verify we're in SetupCommit phase after joining
-    {
-        let validation_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_eq!(validation_snapshot.phase, Phase::SetupCommit);
-        assert_eq!(validation_snapshot.subphase, Subphase::Both);
-    }
-
-    // Create setup data for both players using deterministic generation
-    let (_, host_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_deterministic_setup(&setup.env, 0, 12345) // Host team 0
-    });
-    let (_, guest_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_deterministic_setup(&setup.env, 1, 67890) // Guest team 1
-    });
-
-    // Call prove_setup_alt for both players directly (no commit_setup needed)
-    let host_prove_req = ProveSetupReq {
-        lobby_id,
-        setup: host_setup_proof,
-    };
-    setup.client.prove_setup_alt(&host_address, &host_prove_req);
-
-    // Verify phase transition after host proves (should still be SetupCommit but subphase changes)
-    {
-        let validation_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_eq!(validation_snapshot.phase, Phase::SetupCommit);
-        assert_eq!(validation_snapshot.subphase, Subphase::Guest); // Host done, waiting for guest
-    }
-
-    let guest_prove_req = ProveSetupReq {
-        lobby_id,
-        setup: guest_setup_proof,
-    };
-    setup.client.prove_setup_alt(&guest_address, &guest_prove_req);
-
-    // Verify both players have proved and game advanced to MoveCommit phase
-    {
-        let validation_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_eq!(validation_snapshot.lobby_info.phase, Phase::MoveCommit);
-        assert_eq!(validation_snapshot.lobby_info.subphase, Subphase::Both);
-        
-        // Verify game state has moves initialized
-        assert_eq!(validation_snapshot.game_state.moves.len(), 2);
-        
-        // Verify pawns have their hidden rank hashes set
-        let mut pawns_with_rank_hashes = 0;
-        for pawn in validation_snapshot.game_state.pawns.iter() {
-            if pawn.hidden_rank_hash != HiddenRankHash::from_array(&setup.env, &[0u8; 16]) {
-                pawns_with_rank_hashes += 1;
-            }
-        }
-        assert!(pawns_with_rank_hashes > 0, "Pawns should have rank hashes set after setup");
-    }
-}
-
-#[test]
-fn test_prove_setup_alt_invalid_pawn_ownership() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let guest_address = setup.generate_address();
-    let lobby_id = 1u32;
-
-    // Create and join lobby
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    let make_req = MakeLobbyReq {
-        lobby_id,
-        parameters: lobby_parameters,
-    };
-    setup.client.make_lobby(&host_address, &make_req);
-
-    let join_req = JoinLobbyReq { lobby_id };
-    setup.client.join_lobby(&guest_address, &join_req);
-
-    // Create setup with wrong team pawns for host (team 1 instead of 0)
-    let (_, invalid_host_setup_proof, _, _) = setup.env.as_contract(&setup.contract_id, || {
-        create_deterministic_setup(&setup.env, 1, 12345) // Wrong team for host!
-    });
-
-    // Try to prove invalid setup - should abort the game
-    let host_prove_req = ProveSetupReq {
-        lobby_id,
-        setup: invalid_host_setup_proof,
-    };
-    setup.client.prove_setup_alt(&host_address, &host_prove_req);
-
-    // Verify game was aborted with guest winning (opponent of the cheating host)
-    {
-        let validation_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_eq!(validation_snapshot.phase, Phase::Aborted);
-        assert_eq!(validation_snapshot.subphase, Subphase::Guest); // Guest wins because host cheated
-    }
-}
 

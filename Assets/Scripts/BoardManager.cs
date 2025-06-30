@@ -70,6 +70,7 @@ public class BoardManager : MonoBehaviour
         {
             Initialize(networkState);
             clickInputManager.Initialize(this);
+            CacheManager.Initialize(networkState.address, networkState.lobbyInfo.index);
             initialized = true;
         }
 
@@ -79,9 +80,6 @@ public class BoardManager : MonoBehaviour
             {
                 case Phase.SetupCommit:
                     SetPhase(new SetupCommitPhase(this, guiGame.setup, networkState, clickInputManager));
-                    break;
-                case Phase.SetupProve:
-                    SetPhase(new SetupProvePhase(this, guiGame.setup, networkState, clickInputManager));
                     break;
                 case Phase.MoveCommit:
                     SetPhase(new MoveCommitPhase(this, guiGame.movement, networkState, clickInputManager));
@@ -352,7 +350,8 @@ public class SetupCommitPhase : PhaseBase
         {
             throw new InvalidOperationException("not all pawns are committed");
         }
-        List<SetupCommit> commits = new List<SetupCommit>();
+        List<HiddenRank> hiddenRanks = new();
+        List<SetupCommit> commits = new();
         foreach ((Vector2Int pos, Rank rank) in pendingCommits)
         {
             PawnState? mPawn = cachedNetworkState.gameState.GetPawnStateFromPosition(pos);
@@ -360,27 +359,26 @@ public class SetupCommitPhase : PhaseBase
             {
                 throw new IndexOutOfRangeException("pawn not found");
             }
-            
             HiddenRank hiddenRank = new()
             {
                 pawn_id = pawn.pawn_id,
                 rank = rank,
                 salt = Globals.RandomSalt(),
             };
-            byte[] hash = CacheManager.SaveHiddenRank(hiddenRank);
+            hiddenRanks.Add(hiddenRank);
             commits.Add(new SetupCommit
             {
-                hidden_rank_hash = hash,
+                hidden_rank_hash = SCUtility.Get16ByteHash(hiddenRank),
                 pawn_id = pawn.pawn_id,
             });
         }
-
+        CacheManager.StoreHiddenRanks(hiddenRanks.ToArray(), cachedNetworkState.address, cachedNetworkState.lobbyInfo.index);
         Setup setup = new()
         {
             salt = Globals.RandomSalt(),
             setup_commits = commits.ToArray(),
         };
-        _ = StellarManager.ProveSetupAltRequest(cachedNetworkState.lobbyInfo.index, setup);
+        _ = StellarManager.CommitSetupRequest(cachedNetworkState.lobbyInfo.index, setup);
     }
 
     void OnEntryClicked(Rank clickedRank)
@@ -482,32 +480,13 @@ public class SetupCommitPhase : PhaseBase
     }
 }
 
-public class SetupProvePhase : PhaseBase
-{
-    public Dictionary<Vector2Int, TileView> tileViews;
-    public SetupProvePhase(BoardManager bm, GuiSetup guiSetup, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
-    {
-        tileViews = bm.tileViews;
-    }
-    
-    public override void Update()
-    {
-        throw new NotImplementedException();
-    }
-
-    public override void OnMouseInput(Vector2Int hoveredPos, bool clicked)
-    {
-        
-    }
-
-
-}
-
 public class MoveCommitPhase: PhaseBase
 {
+    public Dictionary<Vector2Int, TileView> tileViews;
+    
     public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
-
+        tileViews = bm.tileViews;
     }
 
     public override void Update()

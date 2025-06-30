@@ -1787,11 +1787,6 @@ public struct GameNetworkState
         return isHost ? gameState.moves[0] : gameState.moves[1];
     }
 
-    public UserSetup GetUserSetup()
-    {
-        return isHost ? gameState.setups[0] : gameState.setups[1];
-    }
-
     public Dictionary<Vector2Int, Rank> AutoSetup(Team team)
     {
         // AIDEV-NOTE: Auto-setup algorithm places pawns by setup zone priority (THRONE=3, ASSASSIN/CHAMPION/WARLORD=2, TRAP=1, others=0)

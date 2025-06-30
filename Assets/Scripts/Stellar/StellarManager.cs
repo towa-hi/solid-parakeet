@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CDFBK6QT6SKOX2BLZV7IOIFUGO2C5TSSDVPCICZFAM3TJBK7W6KFNAHL";
+    public static string testContract = "CBXDRVC2UVWCBFQ7XNDU5KTJ6ASMWJENZN6BQREHJGAVPTOB4R7NO5KA";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -150,20 +150,6 @@ public static class StellarManager
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
-
-    public static async Task<int> ProveSetupAltRequest(LobbyId lobbyId, Setup setup)
-    {
-        ProveSetupReq req = new()
-        {
-            lobby_id = lobbyId,
-            setup = setup,
-        };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup_alt", req);
-        EndTask(task);
-        await UpdateState();
-        return ProcessTransactionResult(result, simResult);
-    }
     
     public static async Task<int> JoinLobbyRequest(LobbyId lobbyId)
     {
@@ -177,29 +163,15 @@ public static class StellarManager
         return ProcessTransactionResult(result, simResult);
     }
     
-    public static async Task<int> CommitSetupRequest(LobbyId lobbyId, byte[] setupHash)
+    public static async Task<int> CommitSetupRequest(LobbyId lobbyId, Setup setup)
     {
         CommitSetupReq req = new()
-        {
-            lobby_id = lobbyId,
-            setup_hash = setupHash,
-        };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
-        EndTask(task);
-        await UpdateState();
-        return ProcessTransactionResult(result, simResult);
-    }
-
-    public static async Task<int> ProveSetupRequest(LobbyId lobbyId, Setup setup)
-    {
-        ProveSetupReq req = new()
         {
             lobby_id = lobbyId,
             setup = setup,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup", req);
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
         EndTask(task);
         await UpdateState();
         return ProcessTransactionResult(result, simResult);

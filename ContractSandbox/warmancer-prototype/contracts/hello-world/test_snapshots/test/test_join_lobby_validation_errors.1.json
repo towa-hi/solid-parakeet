@@ -7235,55 +7235,6 @@
                     },
                     {
                       "key": {
-                        "symbol": "setups"
-                      },
-                      "val": {
-                        "vec": [
-                          {
-                            "map": [
-                              {
-                                "key": {
-                                  "symbol": "setup"
-                                },
-                                "val": {
-                                  "vec": []
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "setup_hash"
-                                },
-                                "val": {
-                                  "vec": []
-                                }
-                              }
-                            ]
-                          },
-                          {
-                            "map": [
-                              {
-                                "key": {
-                                  "symbol": "setup"
-                                },
-                                "val": {
-                                  "vec": []
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "setup_hash"
-                                },
-                                "val": {
-                                  "vec": []
-                                }
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "key": {
                         "symbol": "turn"
                       },
                       "val": {

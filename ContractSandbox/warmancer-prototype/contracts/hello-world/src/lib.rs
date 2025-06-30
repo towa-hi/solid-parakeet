@@ -67,18 +67,18 @@ pub enum Error {
     InvalidBoard = 40,
     WrongSubphase = 41,
     NoRankProofsNeeded = 42,
+    ParametersInvalid = 43,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Phase {
     Lobby = 0,
     SetupCommit = 1,
-    SetupProve = 2,
-    MoveCommit = 3,
-    MoveProve = 4,
-    RankProve = 5,
-    Finished = 6,
-    Aborted = 7,
+    MoveCommit = 2,
+    MoveProve = 3,
+    RankProve = 4,
+    Finished = 5,
+    Aborted = 6,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -150,11 +150,6 @@ pub struct PawnState {
     pub rank: Vec<Rank>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct UserSetup {
-    pub setup: Vec<Setup>,
-    pub setup_hash: Vec<SetupHash>,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserMove {
     pub move_hash: Vec<HiddenMoveHash>,
     pub move_proof: Vec<HiddenMove>,
@@ -164,7 +159,6 @@ pub struct UserMove {
 pub struct GameState {
     pub moves: Vec<UserMove>,
     pub pawns: Vec<PawnState>,
-    pub setups: Vec<UserSetup>,
     pub turn: u32,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -205,17 +199,8 @@ pub struct MakeLobbyReq {
 pub struct JoinLobbyReq {
     pub lobby_id: LobbyId,
 }
-// #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-// pub struct LeaveLobbyReq {
-//     pub lobby_id: LobbyId,
-// }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitSetupReq {
-    pub lobby_id: LobbyId,
-    pub setup_hash: SetupHash,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProveSetupReq {
     pub lobby_id: LobbyId,
     pub setup: Setup,
 }
@@ -326,6 +311,27 @@ impl Contract {
         }
         if board_invalid {
             return Err(Error::InvalidBoard)
+        }
+        let mut parameters_invalid = false;
+        // parameter validation
+        for (i, max) in req.parameters.max_ranks.iter().enumerate() {
+            let index = i as u32;
+            if index == 0 {
+                if max == 0 {
+                    parameters_invalid = true;
+                    break;
+                }
+            }
+            // cant submit rank unknown pawns
+            if index == 12 {
+                if max != 0 {
+                    parameters_invalid = true;
+                    break;
+                }
+            }
+        }
+        if parameters_invalid {
+            return Err(Error::ParametersInvalid)
         }
         // update
         let lobby_info = LobbyInfo {
@@ -441,20 +447,9 @@ impl Contract {
                 pawns.push_back(pawn_state);
             }
         }
-        let setups: Vec<UserSetup> = Vec::from_array(e, [
-            UserSetup {
-                setup: Vec::new(e),
-                setup_hash: Vec::new(e),
-            },
-            UserSetup {
-                setup: Vec::new(e),
-                setup_hash: Vec::new(e),
-            },
-        ]);
         let game_state = GameState {
             moves: Vec::new(e),
             pawns: pawns,
-            setups: setups,
             turn: 0,
         };
         lobby_info.phase = Phase::SetupCommit;
@@ -470,36 +465,6 @@ impl Contract {
         // some state requirements:
         // lobby_info.phase must be Phase::SetupCommit
         // lobby_info.subphase must be Subphase::Both or invoker's Host/Guest
-        address.require_auth();
-        let temporary = e.storage().temporary();
-        let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
-        let mut lobby_info = lobby_info.unwrap();
-        let mut game_state = game_state.unwrap();
-        
-        let u_index = Self::get_player_index(&address, &lobby_info)?;
-        if lobby_info.phase != Phase::SetupCommit {
-            return Err(Error::WrongPhase)
-        }
-        let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-        let mut u_setup = game_state.setups.get_unchecked(u_index);
-        u_setup.setup_hash = Vec::from_array(e, [req.setup_hash.clone()]);
-        // update
-        if next_subphase == Subphase::None {
-            lobby_info.phase = Phase::SetupProve;
-            lobby_info.subphase = Subphase::Both;
-        }
-        else {
-            lobby_info.subphase = next_subphase;
-        }
-        game_state.setups.set(u_index, u_setup);
-        temporary.set(&lobby_info_key, &lobby_info);
-        temporary.set(&game_state_key, &game_state);
-        Ok(())
-    }
-
-    pub fn prove_setup_alt(e: &Env, address: Address, req: ProveSetupReq) -> Result<(), Error> {
-        // this version of prove_setup can be called from the setup_commit phase and doesn't require setup_commit because
-        // it doesn't check the setup hash
         address.require_auth();
         let temporary = e.storage().temporary();
         let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
@@ -549,75 +514,7 @@ impl Contract {
         else {
             lobby_info.subphase = next_subphase;
         }
-        
-        temporary.set(&lobby_info_key, &lobby_info);
-        temporary.set(&game_state_key, &game_state);
-        Ok(())
-    }
 
-    pub fn prove_setup(e: &Env, address: Address, req: ProveSetupReq) -> Result<(), Error> {
-        // some state requirements:
-        // lobby_info.phase must be Phase::SetupProve
-        // lobby_info.subphase must be Subphase::Both or invoker's Host/Guest
-        // game_state.setups[u_index].setup_hash[0] must exist
-        address.require_auth();
-        let temporary = e.storage().temporary();
-        
-        let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
-        let mut lobby_info = lobby_info.unwrap();
-        let mut game_state = game_state.unwrap();
-        let u_index = Self::get_player_index(&address, &lobby_info)?;
-        
-        if lobby_info.phase != Phase::SetupProve {
-            return Err(Error::WrongPhase)
-        }
-        let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-        let u_setup: UserSetup = game_state.setups.get_unchecked(u_index);
-        let setup_hash = u_setup.setup_hash.get_unchecked(0);
-        let serialized_setup_proof = req.setup.clone().to_xdr(e);
-        let full_hash = e.crypto().sha256(&serialized_setup_proof).to_bytes().to_array();
-        let submitted_hash = SetupHash::from_array(e, &full_hash[0..16].try_into().unwrap());
-        if setup_hash != submitted_hash {
-            return Err(Error::SetupHashFail)
-        }
-        // validate the proof
-        let mut setup_valid = true;
-        let pawns_map = Self::create_pawns_map(e, &game_state);
-        for commit in req.setup.setup_commits.iter() {
-            let (_, x_index) = Self::decode_pawn_id(&commit.pawn_id);
-            if x_index != u_index {
-                setup_valid = false;
-                break;
-            }
-            if !pawns_map.contains_key(commit.pawn_id) {
-                setup_valid = false;
-                break;
-            }
-        }
-        // TODO: validate max_ranks
-        if !setup_valid {
-            // immediately abort the game
-            debug_log!(e, "prove_setup: Invalid setup! Setting phase to Aborted");
-            lobby_info.phase = Phase::Aborted;
-            lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
-            temporary.set(&lobby_info_key, &lobby_info);
-            return Ok(())
-        }
-        // update
-        for commit in req.setup.setup_commits.iter() {
-            let (pawn_index, mut pawn_state) = pawns_map.get_unchecked(commit.pawn_id.clone());
-            pawn_state.hidden_rank_hash = commit.hidden_rank_hash.clone();
-            game_state.pawns.set(pawn_index, pawn_state);
-        }
-        if next_subphase == Subphase::None {
-            lobby_info.phase = Phase::MoveCommit;
-            lobby_info.subphase = Subphase::Both;
-            game_state.moves = Self::create_empty_moves(e);
-        }
-        else {
-            lobby_info.subphase = next_subphase;
-        }
-        
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
         Ok(())
