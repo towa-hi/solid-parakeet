@@ -337,7 +337,7 @@ public class SetupCommitPhase : PhaseBase
 
     void OnRefresh()
     {
-        
+        _ = StellarManager.UpdateState();
     }
 
     void OnSubmit()

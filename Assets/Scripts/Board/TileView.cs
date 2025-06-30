@@ -74,6 +74,7 @@ public class TileView : MonoBehaviour
                 SetSetupEmissionHighlight(true);
                 break;
             case MoveCommitPhase moveCommitPhase:
+                SetSetupEmissionHighlight(false);
                 break;
             case MoveProvePhase moveProvePhase:
                 break;

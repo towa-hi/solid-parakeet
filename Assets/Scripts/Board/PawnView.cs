@@ -27,10 +27,11 @@ public class PawnView : MonoBehaviour
     Rank rankView;
     public Vector2Int posView;
 
-    bool firstTime = false;
+    bool firstTime = true;
     
     public void Initialize(PawnState pawn)
     {
+        firstTime = true;
         pawnId = pawn.pawn_id;
         gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
         startPos = pawnId.Decode().Item1;
@@ -42,7 +43,6 @@ public class PawnView : MonoBehaviour
 
     public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
-        firstTime = true;
         PawnState pawn = phase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
         Team userTeam = phase.cachedNetworkState.userTeam;
         if (changes.networkUpdated)
@@ -70,6 +70,7 @@ public class PawnView : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException(nameof(phase));
         }
+        firstTime = false;
     }
 
     void SetPosView(TileView tileView = null)
