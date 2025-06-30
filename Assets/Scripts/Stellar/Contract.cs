@@ -104,7 +104,6 @@ namespace Contract
                         return Enum.ToObject(targetType, scvU32.u32.InnerValue);
                     }
                     break;
-                    
                 case var _ when targetType == typeof(uint):
                     DebugLog("SCValToNative: Target type is uint.");
                     if (scVal is SCVal.ScvU32 uintVal)
@@ -113,7 +112,6 @@ namespace Contract
                         return uintVal.u32.InnerValue;
                     }
                     break;
-                    
                 case var _ when targetType == typeof(int):
                     DebugLog("SCValToNative: Target type is int.");
                     // Prefer I32. If we get a U32, log a warning.
@@ -127,12 +125,15 @@ namespace Contract
                         Debug.LogWarning("SCValToNative: Expected SCVal.ScvI32 for int conversion, got SCVal.ScvU32. Converting anyway.");
                         return intU32Val.u32.InnerValue;
                     }
-                    else
+                    break;
+                case var _ when targetType == typeof(ulong):
+                    DebugLog("SCValToNative: Target type is ulong.");
+                    if (scVal is SCVal.ScvU64 u64Val)
                     {
-                        Debug.LogError("SCValToNative: Failed int conversion. SCVal is not I32 or U32.");
-                        throw new NotSupportedException("Expected SCVal.ScvI32 (or SCVal.ScvU32 as fallback) for int conversion.");
+                        DebugLog($"SCValToNative: Found SCVal.ScvU64 with value '{u64Val.u64.InnerValue}'.");
+                        return u64Val.u64.InnerValue;
                     }
-                    
+                    break;
                 case var _ when targetType == typeof(string):
                     DebugLog("SCValToNative: Target type is string.");
                     if (scVal is SCVal.ScvString strVal)

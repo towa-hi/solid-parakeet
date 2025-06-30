@@ -497,6 +497,64 @@ impl Contract {
         Ok(())
     }
 
+    pub fn prove_setup_alt(e: &Env, address: Address, req: ProveSetupReq) -> Result<(), Error> {
+        // this version of prove_setup can be called from the setup_commit phase and doesn't require setup_commit because
+        // it doesn't check the setup hash
+        address.require_auth();
+        let temporary = e.storage().temporary();
+        let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
+        let mut lobby_info = lobby_info.unwrap();
+        let mut game_state = game_state.unwrap();
+        let u_index = Self::get_player_index(&address, &lobby_info)?;
+        if lobby_info.phase != Phase::SetupCommit {
+            return Err(Error::WrongPhase)
+        }
+        let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
+        // validate the proof
+        let mut setup_valid = true;
+        let pawns_map = Self::create_pawns_map(e, &game_state);
+        for commit in req.setup.setup_commits.iter() {
+            let pawn = match pawns_map.get(commit.pawn_id) {
+                Some(pawn) => pawn,
+                None => {
+                    setup_valid = false;
+                    break;
+                }
+            };
+            // pawn id ownership check
+            let (_, x_index) = Self::decode_pawn_id(&commit.pawn_id);
+            if x_index != u_index {
+                setup_valid = false;
+                break;
+            }
+        }
+        if !setup_valid {
+            // immediately abort the game
+            debug_log!(e, "prove_setup: Invalid setup! Setting phase to Aborted");
+            lobby_info.phase = Phase::Aborted;
+            lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
+            temporary.set(&lobby_info_key, &lobby_info);
+            return Ok(())
+        }
+        for commit in req.setup.setup_commits.iter() {
+            let (pawn_index, mut pawn_state) = pawns_map.get_unchecked(commit.pawn_id.clone());
+            pawn_state.hidden_rank_hash = commit.hidden_rank_hash.clone();
+            game_state.pawns.set(pawn_index, pawn_state);
+        }
+        if next_subphase == Subphase::None {
+            lobby_info.phase = Phase::MoveCommit;
+            lobby_info.subphase = Subphase::Both;
+            game_state.moves = Self::create_empty_moves(e);
+        }
+        else {
+            lobby_info.subphase = next_subphase;
+        }
+        
+        temporary.set(&lobby_info_key, &lobby_info);
+        temporary.set(&game_state_key, &game_state);
+        Ok(())
+    }
+
     pub fn prove_setup(e: &Env, address: Address, req: ProveSetupReq) -> Result<(), Error> {
         // some state requirements:
         // lobby_info.phase must be Phase::SetupProve

@@ -380,8 +380,7 @@ public class SetupCommitPhase : PhaseBase
             salt = Globals.RandomSalt(),
             setup_commits = commits.ToArray(),
         };
-        byte[] setupHash = CacheManager.SaveSetupReq(setup);
-        _ = StellarManager.CommitSetupRequest(cachedNetworkState.lobbyInfo.index, setupHash);
+        _ = StellarManager.ProveSetupAltRequest(cachedNetworkState.lobbyInfo.index, setup);
     }
 
     void OnEntryClicked(Rank clickedRank)

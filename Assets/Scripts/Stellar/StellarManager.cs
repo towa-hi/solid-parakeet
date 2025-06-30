@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CALLJLIC466GQTTPAY6X5RT75VR4V7IX76WZV2Z3E7KKDBBB7POWY4JU";
+    public static string testContract = "CDFBK6QT6SKOX2BLZV7IOIFUGO2C5TSSDVPCICZFAM3TJBK7W6KFNAHL";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -151,6 +151,20 @@ public static class StellarManager
         return ProcessTransactionResult(result, simResult);
     }
 
+    public static async Task<int> ProveSetupAltRequest(LobbyId lobbyId, Setup setup)
+    {
+        ProveSetupReq req = new()
+        {
+            lobby_id = lobbyId,
+            setup = setup,
+        };
+        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_setup_alt", req);
+        EndTask(task);
+        await UpdateState();
+        return ProcessTransactionResult(result, simResult);
+    }
+    
     public static async Task<int> JoinLobbyRequest(LobbyId lobbyId)
     {
         JoinLobbyReq req = new()
