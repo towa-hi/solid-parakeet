@@ -53,7 +53,8 @@ public class TileView : MonoBehaviour
 
     public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
-        if (changes.networkUpdated)
+        // Only update tile data when network updates or tiles specifically changed
+        if (changes.networkUpdated || changes.tilesChanged)
         {
             Vector2Int oldPos = tile.pos;
             Contract.Tile? mTile = phase.cachedNetworkState.lobbyParameters.board.GetTileFromPosition(oldPos);
@@ -68,22 +69,26 @@ public class TileView : MonoBehaviour
             ShowTile(tile.passable);
             initialElevatorLocalPos = tileModel.elevator.localPosition;
         }
-        switch (phase)
+        
+        // Only update visual state when phase changes or network updates
+        if (changes.networkUpdated || changes.phaseChanged)
         {
-            case SetupCommitPhase setupCommitPhase:
-                SetSetupEmissionHighlight(true);
-                break;
-            case MoveCommitPhase moveCommitPhase:
-                SetSetupEmissionHighlight(false);
-                break;
-            case MoveProvePhase moveProvePhase:
-                break;
-            case RankProvePhase rankProvePhase:
-                break;
+            switch (phase)
+            {
+                case SetupCommitPhase setupCommitPhase:
+                    SetSetupEmissionHighlight(true);
+                    break;
+                case MoveCommitPhase moveCommitPhase:
+                    SetSetupEmissionHighlight(false);
+                    break;
+                case MoveProvePhase moveProvePhase:
+                    break;
+                case RankProvePhase rankProvePhase:
+                    break;
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(phase));
-
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(phase));
+            }
         }
     }
     public void StartPulse()
@@ -421,7 +426,7 @@ public class TileView : MonoBehaviour
         }
         else
         {
-            SetTopEmission(baseColor);
+            SetTopEmission(Color.clear);
         }
     }
     

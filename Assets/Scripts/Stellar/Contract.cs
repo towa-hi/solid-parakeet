@@ -681,7 +681,7 @@ namespace Contract
     }
 
     [Serializable]
-    public struct PawnState : IScvMapCompatable
+    public struct PawnState : IScvMapCompatable, IEquatable<PawnState>
     {
         public bool alive;
         public byte[] hidden_rank_hash;
@@ -716,6 +716,32 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("rank", rank),
                 }),
             };
+        }
+
+        public bool Equals(PawnState other)
+        {
+            // TODO: change this to use bitpacked value when it gets implemented
+            return SCUtility.HashEqual(ToScvMap(), other.ToScvMap());
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PawnState other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return SCValXdr.EncodeToBase64(ToScvMap()).GetHashCode();
+        }
+
+        public static bool operator ==(PawnState left, PawnState right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(PawnState left, PawnState right)
+        {
+            return !left.Equals(right);
         }
     }
     

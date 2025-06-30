@@ -43,34 +43,37 @@ public class PawnView : MonoBehaviour
 
     public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
-        PawnState pawn = phase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
         Team userTeam = phase.cachedNetworkState.userTeam;
-        if (changes.networkUpdated)
+        if (changes.networkUpdated || changes.pawnsChanged || changes.tilesChanged)
         {
-            
+            PawnState pawn = phase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
+            switch (phase)
+            {
+                case SetupCommitPhase setupCommitPhase:
+                    Rank? pendingCommitRank = setupCommitPhase.pendingCommits.TryGetValue(pawn.pos, out Rank rank) ? rank : null;
+                    SetRankView(pawn, userTeam, pendingCommitRank);
+                    // send pawnView to purgatory to hide it if rank is not known
+                    SetPosView(rankView == Rank.UNKNOWN ? null : setupCommitPhase.tileViews[pawn.pos]);
+                    break;
+                case MoveCommitPhase moveCommitPhase:
+                    SetRankView(pawn, userTeam);
+                    SetPosView(moveCommitPhase.tileViews[pawn.pos]);
+                    break;
+                case MoveProvePhase moveProvePhase:
+                    SetRankView(pawn, userTeam);
+                    break;
+                case RankProvePhase rankProvePhase:
+                    SetRankView(pawn, userTeam);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(phase));
+            }
+            firstTime = false;
         }
-        switch (phase)
+        if (changes.networkUpdated || changes.hoverStateChanged)
         {
-            case SetupCommitPhase setupCommitPhase:
-                Rank? pendingCommitRank = setupCommitPhase.pendingCommits.TryGetValue(pawn.pos, out Rank rank) ? rank : null;
-                SetRankView(pawn, userTeam, pendingCommitRank);
-                // send pawnView to purgatory to hide it if rank is not known
-                SetPosView(rankView == Rank.UNKNOWN ? null : setupCommitPhase.tileViews[pawn.pos]);
-                break;
-            case MoveCommitPhase moveCommitPhase:
-                SetRankView(pawn, userTeam);
-                SetPosView(moveCommitPhase.tileViews[pawn.pos]);
-                break;
-            case MoveProvePhase moveProvePhase:
-                SetRankView(pawn, userTeam);
-                break;
-            case RankProvePhase rankProvePhase:
-                SetRankView(pawn, userTeam);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(phase));
+            // react to hover here
         }
-        firstTime = false;
     }
 
     void SetPosView(TileView tileView = null)

@@ -66,6 +66,16 @@ public class BoardManager : MonoBehaviour
             return;
         }
         GameNetworkState networkState = new(StellarManager.networkState);
+        PhaseChanges changes = new()
+        {
+            networkUpdated = true,
+            phaseChanged = true,
+            subphaseChanged = true,
+            pawnsChanged = true,
+            tilesChanged = true,
+            uiStateChanged = true,
+            hoverStateChanged = true,
+        };
         if (!initialized)
         {
             Initialize(networkState);
@@ -73,8 +83,11 @@ public class BoardManager : MonoBehaviour
             CacheManager.Initialize(networkState.address, networkState.lobbyInfo.index);
             initialized = true;
         }
-
-        if (networkState.lobbyInfo.phase != lastPhase)
+        else
+        {
+            changes = networkState.GetPhaseChanges(currentPhase.cachedNetworkState);
+        }
+        if (changes.phaseChanged)
         {
             switch (networkState.lobbyInfo.phase)
             {
@@ -97,15 +110,14 @@ public class BoardManager : MonoBehaviour
                 default:
                     throw new ArgumentOutOfRangeException();
             }
-            PhaseStateChanged(new PhaseChanges { networkUpdated = true, phaseChanged = true, phaseUpdated = false, });
             lastPhase = networkState.lobbyInfo.phase;
         }
         else
         {
-            currentPhase.UpdateNetworkState(networkState);
-            PhaseStateChanged(new PhaseChanges { networkUpdated = true, phaseChanged = false, phaseUpdated = false, });
+            currentPhase.UpdateNetworkState(networkState, changes);
         }
-        
+        PhaseStateChanged(changes);
+
     }
     
     void PhaseStateChanged(PhaseChanges changes)
@@ -114,7 +126,7 @@ public class BoardManager : MonoBehaviour
         {
             throw new Exception("BoardManager not initialized");
         }
-        Debug.Log($"PhaseStateChanged networkUpdated: {changes.networkUpdated} phaseChanged: {changes.phaseChanged} phaseUpdated: {changes.phaseUpdated}");
+        Debug.Log($"PhaseStateChanged networkUpdated: {changes.networkUpdated} phaseChanged: {changes.phaseChanged} pawnsChanged: {changes.pawnsChanged} tilesChanged: {changes.tilesChanged} uiStateChanged: {changes.uiStateChanged} hoverStateChanged: {changes.hoverStateChanged}");
         switch (currentPhase.inputTool)
         {
             case SetupInputTool.NONE:
@@ -204,8 +216,7 @@ public abstract class PhaseBase
     
     protected PhaseBase(BoardManager bm, GameNetworkState networkState, TestClickInputManager clickInputManager)
     {
-
-        cachedNetworkState = networkState;
+        
         clickInputManager.OnMouseInput = OnMouseInput;
     }
     
@@ -219,9 +230,9 @@ public abstract class PhaseBase
         OnPhaseStateChanged = null;
     }
 
-    public virtual void UpdateNetworkState(GameNetworkState newNetworkState)
+    public virtual void UpdateNetworkState(GameNetworkState newNetworkState, PhaseChanges changes)
     {
-        cachedNetworkState = newNetworkState;
+
     }
     public abstract void Update();
     public abstract void OnMouseInput(Vector2Int hoveredPos, bool clicked);
@@ -243,27 +254,49 @@ public class SetupCommitPhase : PhaseBase
         guiSetup.OnRefreshButton = OnRefresh;
         guiSetup.OnSubmitButton = OnSubmit;
         guiSetup.OnEntryClicked = OnEntryClicked;
-        SetDataFromNetworkState();
+        PhaseChanges allChanges = new()
+        {
+            networkUpdated = true,
+            phaseChanged = true,
+            subphaseChanged = true,
+            pawnsChanged = true,
+            tilesChanged = true,
+            uiStateChanged = true,
+            hoverStateChanged = true,
+        };
+        SetCachedNetworkState(inNetworkState, allChanges);
     }
 
-    public override void UpdateNetworkState(GameNetworkState newNetworkState)
+    public override void UpdateNetworkState(GameNetworkState newNetworkState, PhaseChanges changes)
     {
+        SetCachedNetworkState(newNetworkState, changes);
+    }
+
+    void SetCachedNetworkState(GameNetworkState newNetworkState, PhaseChanges changes)
+    {
+        if (changes.subphaseChanged)
+        {
+            if (newNetworkState.IsMySubphase())
+            {
+                mouseInputEnabled = true;
+            }
+            else
+            {
+                mouseInputEnabled = false;
+                selectedRank = null;
+            }
+        }
+        if (changes.pawnsChanged)
+        {
+            
+        }
+        if (changes.tilesChanged)
+        {
+            
+        }
         cachedNetworkState = newNetworkState;
-        SetDataFromNetworkState();
     }
-
-    void SetDataFromNetworkState()
-    {
-        if (cachedNetworkState.IsMySubphase())
-        {
-            mouseInputEnabled = true;
-        }
-        else
-        {
-            mouseInputEnabled = false;
-            selectedRank = null;
-        }
-    }
+    
     public bool AreAllPawnsComitted()
     {
         bool uncommitted = cachedNetworkState.gameState.pawns
@@ -304,7 +337,7 @@ public class SetupCommitPhase : PhaseBase
             throw new InvalidOperationException("not my turn to act");
         }
         pendingCommits.Clear();
-        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
+        OnPhaseStateChanged?.Invoke(new PhaseChanges { pawnsChanged = true, uiStateChanged = true });
     }
 
     void OnAutoSetup()
@@ -332,7 +365,7 @@ public class SetupCommitPhase : PhaseBase
         }
         
         // Trigger UI refresh to show the auto-setup results
-        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
+        OnPhaseStateChanged?.Invoke(new PhaseChanges { pawnsChanged = true, uiStateChanged = true });
     }
 
     void OnRefresh()
@@ -392,10 +425,10 @@ public class SetupCommitPhase : PhaseBase
         {
             selectedRank = clickedRank;
         }
-        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
+        OnPhaseStateChanged?.Invoke(new PhaseChanges { uiStateChanged = true });
     }
 
-    void CommitPosition(Vector2Int pos)
+    void CommitPosition(Vector2Int pos, PhaseChanges changes)
     {
         if (!cachedNetworkState.IsMySubphase())
         {
@@ -418,10 +451,12 @@ public class SetupCommitPhase : PhaseBase
             throw new InvalidOperationException("Rank is not available");
         }
         pendingCommits[pos] = rank;
+        changes.pawnsChanged = true;
+        changes.uiStateChanged = true;
         Debug.Log($"commit position {pos} {rank}");
     }
 
-    void UncommitPosition(Vector2Int pos)
+    void UncommitPosition(Vector2Int pos, PhaseChanges changes)
     {
         if (!cachedNetworkState.IsMySubphase())
         {
@@ -436,6 +471,9 @@ public class SetupCommitPhase : PhaseBase
             throw new InvalidOperationException("Pos is not committed");
         }
         pendingCommits.Remove(pos);
+        
+        changes.pawnsChanged = true;
+        changes.uiStateChanged = true;
         Debug.Log($"uncommit position {pos}");
     }
     public override void Update()
@@ -450,6 +488,7 @@ public class SetupCommitPhase : PhaseBase
         }
         Debug.Log($"On Hover {hoveredPos}");
         Contract.Tile? mTile = cachedNetworkState.lobbyParameters.board.GetTileFromPosition(hoveredPos);
+        PhaseChanges changes = new();
         if (clicked)
         {
             switch (inputTool)
@@ -457,10 +496,10 @@ public class SetupCommitPhase : PhaseBase
                 case SetupInputTool.NONE:
                     break;
                 case SetupInputTool.ADD:
-                    CommitPosition(hoveredPos);
+                    CommitPosition(hoveredPos, changes);
                     break;
                 case SetupInputTool.REMOVE:
-                    UncommitPosition(hoveredPos);
+                    UncommitPosition(hoveredPos, changes);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -475,8 +514,12 @@ public class SetupCommitPhase : PhaseBase
         {
             tool = SetupInputTool.ADD;
         }
-        inputTool = tool;
-        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
+        if (inputTool != tool)
+        {
+            inputTool = tool;
+            changes.uiStateChanged = true;
+        }
+        OnPhaseStateChanged?.Invoke(changes);
     }
 }
 
@@ -487,8 +530,47 @@ public class MoveCommitPhase: PhaseBase
     public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
         tileViews = bm.tileViews;
+        PhaseChanges allChanges = new()
+        {
+            networkUpdated = true,
+            phaseChanged = true,
+            subphaseChanged = true,
+            pawnsChanged = true,
+            tilesChanged = true,
+            uiStateChanged = true,
+            hoverStateChanged = true,
+        };
+        SetCachedNetworkState(inNetworkState, allChanges);
     }
-
+    
+    public override void UpdateNetworkState(GameNetworkState newNetworkState, PhaseChanges changes)
+    {
+        SetCachedNetworkState(newNetworkState, changes);
+    }
+    
+    void SetCachedNetworkState(GameNetworkState newNetworkState, PhaseChanges changes)
+    {
+        if (changes.subphaseChanged)
+        {
+            if (newNetworkState.IsMySubphase())
+            {
+                mouseInputEnabled = true;
+            }
+            else
+            {
+                mouseInputEnabled = false;
+            }
+        }
+        if (changes.pawnsChanged)
+        {
+            
+        }
+        if (changes.tilesChanged)
+        {
+            
+        }
+        cachedNetworkState = newNetworkState;
+    }
     public override void Update()
     {
         throw new NotImplementedException();
@@ -544,9 +626,13 @@ public class RankProvePhase: PhaseBase
 
 public struct PhaseChanges
 {
-    public bool networkUpdated;
-    public bool phaseChanged;
-    public bool phaseUpdated;
+    public bool networkUpdated;     // Force-refresh scenario when network state changes
+    public bool phaseChanged;       // When game phase actually changes  
+    public bool subphaseChanged;
+    public bool pawnsChanged;       // Pawn positions, ranks, or states changed
+    public bool tilesChanged;       // Board layout or tile states changed
+    public bool uiStateChanged;     // UI-only state (selections, tools, etc.)
+    public bool hoverStateChanged;  // Mouse hover state (most frequent, least impactful)
 }
 
 //

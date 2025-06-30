@@ -1763,6 +1763,55 @@ public struct GameNetworkState
         }
     }
 
+    public PhaseChanges GetPhaseChanges(GameNetworkState c)
+    {
+        bool phaseChanged = false;
+        bool subphaseChanged = false;
+        bool pawnsChanged = false;
+        bool tilesChanged = false;
+        
+        if (this.lobbyInfo.phase != c.lobbyInfo.phase)
+        {
+            phaseChanged = true;
+            subphaseChanged = true;
+        }
+        if (this.lobbyInfo.subphase != c.lobbyInfo.subphase)
+        {
+            subphaseChanged = true;
+        }
+        for (int index = 0; index < c.gameState.pawns.Length; index++)
+        {
+            PawnState nPawnState = this.gameState.pawns[index];
+            PawnState cPawnState = c.gameState.pawns[index];
+            if (nPawnState != cPawnState)
+            {
+                pawnsChanged = true;
+                break;
+            }
+        }
+        for (int index = 0; index < c.lobbyParameters.board.tiles.Length; index++)
+        {
+            Contract.Tile nTile = this.lobbyParameters.board.tiles[index];
+            Contract.Tile cTile = this.lobbyParameters.board.tiles[index];
+            if (nTile != cTile)
+            {
+                tilesChanged = true;
+                break;
+            }
+        }
+        
+        return new PhaseChanges
+        {
+            networkUpdated = true,
+            phaseChanged = phaseChanged,
+            subphaseChanged = subphaseChanged,
+            pawnsChanged = pawnsChanged,
+            tilesChanged = tilesChanged,
+            // assumed to be true if the phase changed
+            uiStateChanged = phaseChanged,
+            hoverStateChanged = phaseChanged,
+        };
+    }
     
     public RelativeSubphase GetRelativeSubphase()
     {

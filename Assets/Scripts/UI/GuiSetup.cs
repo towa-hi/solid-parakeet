@@ -34,11 +34,63 @@ public class GuiSetup : GameElement
 
     public void PhaseStateChanged(PhaseBase currentPhase, PhaseChanges changes)
     {
-        if (changes.networkUpdated)
+        if (changes.networkUpdated || changes.phaseChanged)
         {
             Initialize(currentPhase.cachedNetworkState);
+            bool show;
+            switch (currentPhase)
+            {
+                case SetupCommitPhase setupCommitPhase:
+                    show = true;
+                    break;
+                case MoveCommitPhase moveCommitPhase:
+                case MoveProvePhase moveProvePhase:
+                case RankProvePhase rankProvePhase:
+                    show = false;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(currentPhase));
+            }
+            ShowElement(show);
         }
-        Refresh(currentPhase);
+        if (changes.networkUpdated || changes.uiStateChanged)
+        {
+            string status = "";
+            switch (currentPhase)
+            {
+                case SetupCommitPhase setupCommitPhase:
+                    if (setupCommitPhase.cachedNetworkState.IsMySubphase())
+                    {
+                        // update entry counts
+                        (Rank, int, int)[] ranksRemaining = setupCommitPhase.RanksRemaining();
+                        foreach ((Rank rank, int max, int committed) in ranksRemaining)
+                        {
+                            bool entrySelected = rank == setupCommitPhase.selectedRank;
+                            entries[rank].Refresh(max, committed, entrySelected, true);
+                        }
+                        bool pawnsComitted = setupCommitPhase.AreAllPawnsComitted();
+                        submitButton.interactable = pawnsComitted;
+                        clearButton.interactable = true;
+                        autoSetupButton.interactable = true;
+                        status = "Commit your pawn setup";
+                    }
+                    else
+                    {
+                        submitButton.interactable = false;
+                        clearButton.interactable = false;
+                        autoSetupButton.interactable = false;
+                        status = "Awaiting opponent commit...";
+                    }
+                    break;
+                case MoveCommitPhase moveCommitPhase:
+                case MoveProvePhase moveProvePhase:
+                case RankProvePhase rankProvePhase:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(currentPhase));
+            }
+            statusText.text = status;
+        }
     }
     
     void Initialize(GameNetworkState networkState)
@@ -59,44 +111,6 @@ public class GuiSetup : GameElement
     
     void Refresh(PhaseBase currentPhase)
     {
-        bool show;
-        string status = "";
-        switch (currentPhase)
-        {
-            case SetupCommitPhase setupCommitPhase:
-                show = true;
-                if (setupCommitPhase.cachedNetworkState.IsMySubphase())
-                {
-                    // update entry counts
-                    (Rank, int, int)[] ranksRemaining = setupCommitPhase.RanksRemaining();
-                    foreach ((Rank rank, int max, int committed) in ranksRemaining)
-                    {
-                        bool entrySelected = rank == setupCommitPhase.selectedRank;
-                        entries[rank].Refresh(max, committed, entrySelected, true);
-                    }
-                    bool pawnsComitted = setupCommitPhase.AreAllPawnsComitted();
-                    submitButton.interactable = pawnsComitted;
-                    clearButton.interactable = true;
-                    autoSetupButton.interactable = true;
-                    status = "Commit your pawn setup";
-                }
-                else
-                {
-                    submitButton.interactable = false;
-                    clearButton.interactable = false;
-                    autoSetupButton.interactable = false;
-                    status = "Awaiting opponent commit...";
-                }
-                break;
-            case MoveCommitPhase moveCommitPhase:
-            case MoveProvePhase moveProvePhase:
-            case RankProvePhase rankProvePhase:
-                show = false;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(currentPhase));
-        }
-        statusText.text = status;
-        ShowElement(show);
+        
     }
 }
