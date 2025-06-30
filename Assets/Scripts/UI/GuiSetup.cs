@@ -32,14 +32,12 @@ public class GuiSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
 
-    public void PhaseChanged(PhaseBase newPhase)
+    public void PhaseStateChanged(PhaseBase currentPhase, PhaseChanges changes)
     {
-        Initialize(newPhase.cachedNetworkState);
-        Refresh(newPhase);
-    }
-
-    public void PhaseStateChanged(PhaseBase currentPhase)
-    {
+        if (changes.networkUpdated)
+        {
+            Initialize(currentPhase.cachedNetworkState);
+        }
         Refresh(currentPhase);
     }
     

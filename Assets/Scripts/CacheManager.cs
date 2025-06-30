@@ -26,6 +26,7 @@ public static class CacheManager
 
     public static HiddenRank? LoadHiddenRank(byte[] hash)
     {
+        
         if (hash.Length != 16)
         {
             throw new ArgumentException("Invalid hidden rank hash length");
@@ -35,6 +36,7 @@ public static class CacheManager
             return null;
         }
         string key = Convert.ToBase64String(hash);
+        
         if (hiddenRankCache.TryGetValue(key, out HiddenRank rank))
         {
             return rank;
@@ -102,11 +104,13 @@ public static class CacheManager
         
         string key = Convert.ToBase64String(hash);
         PlayerPrefs.SetString(key, xdrString);
+        PlayerPrefs.Save();
         return key;
     }
 
     static T GetFromPlayerPrefs<T>(string key)
     {
+        Debug.Log($"GetFromPlayerPrefs key: {key}");
         string xdrString = PlayerPrefs.GetString(key, null);
         if (xdrString == null)
         {
@@ -150,6 +154,7 @@ public static class CacheManager
     {
         lobbyExpirationCache[lobbyId] = liveUntilLedgerSeq;
         PlayerPrefs.SetString($"lobby_expiry_{lobbyId}", liveUntilLedgerSeq.ToString());
+        PlayerPrefs.Save();
     }
 
     public static long? GetLobbyExpiration(uint lobbyId)

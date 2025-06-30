@@ -28,31 +28,38 @@ public class PawnView : MonoBehaviour
     public Vector2Int posView;
     
     
-    public void Initialize(PawnState pawn, Transform target)
+    public void Initialize(PawnState pawn)
     {
         pawnId = pawn.pawn_id;
         startPos = pawnId.Decode().Item1;
         team = pawnId.Decode().Item2;
     }
 
-    public void PhaseStateChanged(PhaseBase phase)
+    public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
+        PawnState pawn = phase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
+        if (changes.networkUpdated)
+        {
+            
+        }
         switch (phase)
         {
             case SetupCommitPhase setupCommitPhase:
-                PawnState pawn = setupCommitPhase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
                 if (setupCommitPhase.pendingCommits.TryGetValue(pawn.pos, out Rank commit))
                 {
                     SetRankView(pawn, commit);
-                    SetPosView(setupCommitPhase.tileViews[pawn.pos]);
                 }
                 else
                 {
                     SetRankView(pawn);
-                    SetPosView();
                 }
+                // send pawnView to purgatory to hide it if rank is not known
+                SetPosView(rankView == Rank.UNKNOWN ? null : setupCommitPhase.tileViews[pawn.pos]);
+
                 break;
             case SetupProvePhase setupProvePhase:
+                SetRankView(pawn);
+                SetPosView(setupProvePhase.tileViews[pawn.pos]);
                 break;
             case MoveCommitPhase moveCommitPhase:
                 break;
@@ -81,23 +88,26 @@ public class PawnView : MonoBehaviour
         Rank oldRankView = rankView;
         if (mOverrideRank is Rank overrideRank)
         {
-            Debug.Log($"Rank view override {overrideRank}");
             rankView = overrideRank;
         }
         else
         {
             if (pawn.rank is Rank rank)
             {
+                Debug.Log("rank set to pawn rank");
                 rankView = rank;
             }
             else
             {
+                Debug.Log("attemtping to laod hidden rank");
                 if (CacheManager.LoadHiddenRank(pawn.hidden_rank_hash) is HiddenRank hiddenRank)
                 {
+                    Debug.Log("Hidden rank gotten");
                     rankView = hiddenRank.rank;
                 }
                 else
                 {
+                    Debug.Log("hidden rank not found");
                     rankView = Rank.UNKNOWN;
                 }
             }

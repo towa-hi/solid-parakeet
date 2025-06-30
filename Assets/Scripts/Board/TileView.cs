@@ -51,8 +51,23 @@ public class TileView : MonoBehaviour
         pulseTween.Stop();
     }
 
-    public void PhaseStateChanged(PhaseBase phase)
+    public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
     {
+        if (changes.networkUpdated)
+        {
+            Vector2Int oldPos = tile.pos;
+            Contract.Tile? mTile = phase.cachedNetworkState.lobbyParameters.board.GetTileFromPosition(oldPos);
+            if (mTile is Contract.Tile newTile)
+            {
+                tile = newTile;
+            }
+            gameObject.name = $"Tile {tile.pos}";
+            hexTileModel.gameObject.SetActive(false);
+            squareTileModel.gameObject.SetActive(false);
+            tileModel = phase.cachedNetworkState.lobbyParameters.board.hex ? hexTileModel : squareTileModel;
+            ShowTile(tile.passable);
+            initialElevatorLocalPos = tileModel.elevator.localPosition;
+        }
         switch (phase)
         {
             case SetupCommitPhase setupCommitPhase:

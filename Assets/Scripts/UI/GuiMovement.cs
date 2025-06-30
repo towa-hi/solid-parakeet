@@ -45,15 +45,13 @@ public class GuiMovement : GameElement
         badgeButton.onClick.AddListener(() => OnBadgeButton?.Invoke());
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
-
-    public void PhaseChanged(PhaseBase currentPhase)
+    
+    public void PhaseStateChanged(PhaseBase currentPhase, PhaseChanges changes)
     {
-        
-    }
-
-    public void PhaseStateChanged(PhaseBase currentPhase)
-    {
-        
+        if (changes.networkUpdated)
+        {
+            
+        }
     }
     
     void Refresh(PhaseBase currentPhase)

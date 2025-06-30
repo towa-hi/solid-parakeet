@@ -99,34 +99,24 @@ public class BoardManager : MonoBehaviour
                 default:
                     throw new ArgumentOutOfRangeException();
             }
-            PhaseChanged();
+            PhaseStateChanged(new PhaseChanges { networkUpdated = true, phaseChanged = true, phaseUpdated = false, });
             lastPhase = networkState.lobbyInfo.phase;
         }
         else
         {
             currentPhase.UpdateNetworkState(networkState);
-            PhaseStateChanged();
+            PhaseStateChanged(new PhaseChanges { networkUpdated = true, phaseChanged = false, phaseUpdated = false, });
         }
         
     }
-
-    void PhaseChanged()
-    {
-        if (!initialized)
-        {
-            throw new Exception("BoardManager not initialized");
-        }
-        Debug.Log("PhaseChanged");
-        guiGame.PhaseChanged(currentPhase);
-    }
     
-    void PhaseStateChanged()
+    void PhaseStateChanged(PhaseChanges changes)
     {
         if (!initialized)
         {
             throw new Exception("BoardManager not initialized");
         }
-        Debug.Log("PhaseStateChanged");
+        Debug.Log($"PhaseStateChanged networkUpdated: {changes.networkUpdated} phaseChanged: {changes.phaseChanged} phaseUpdated: {changes.phaseUpdated}");
         switch (currentPhase.inputTool)
         {
             case SetupInputTool.NONE:
@@ -143,27 +133,19 @@ public class BoardManager : MonoBehaviour
         }
         foreach (TileView tileView in tileViews.Values)
         {
-            tileView.PhaseStateChanged(currentPhase);
+            tileView.PhaseStateChanged(currentPhase, changes);
         }
         foreach (PawnView pawnView in pawnViews.Values)
         {
-            pawnView.PhaseStateChanged(currentPhase);
+            pawnView.PhaseStateChanged(currentPhase, changes);
         }
-        guiGame.PhaseStateChanged(currentPhase);
+        guiGame.PhaseStateChanged(currentPhase, changes);
     }
     
     void Initialize(GameNetworkState networkState)
     {
         // get boarddef from hash
-        BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        boardDef = boardDefs.First(def => 
-            def.GetHash().SequenceEqual(networkState.lobbyParameters.board_hash)
-        );
-        if (!boardDef)
-        {
-            throw new NullReferenceException();
-        }
-        cameraBounds.position = cameraBounds.position + transform.position + boardDef.center;
+
         // Clear existing tileviews and replace
         foreach (TileView tile in tileViews.Values)
         {
@@ -190,7 +172,7 @@ public class BoardManager : MonoBehaviour
         {
             GameObject pawnObject = Instantiate(pawnPrefab, transform);
             PawnView pawnView = pawnObject.GetComponent<PawnView>();
-            pawnView.Initialize(pawn, GetTileViewAtPos(pawn.pos).origin);
+            pawnView.Initialize(pawn);
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
     }
@@ -217,7 +199,7 @@ public class BoardManager : MonoBehaviour
 
 public abstract class PhaseBase
 {
-    protected Action OnPhaseStateChanged;
+    protected Action<PhaseChanges> OnPhaseStateChanged;
     public GameNetworkState cachedNetworkState { get; protected set; }
     public SetupInputTool inputTool;
     public bool mouseInputEnabled;
@@ -229,7 +211,7 @@ public abstract class PhaseBase
         clickInputManager.OnMouseInput = OnMouseInput;
     }
     
-    public virtual void EnterState(Action inOnPhaseStateChanged)
+    public virtual void EnterState(Action<PhaseChanges> inOnPhaseStateChanged)
     {
         OnPhaseStateChanged = inOnPhaseStateChanged;
     }
@@ -324,7 +306,7 @@ public class SetupCommitPhase : PhaseBase
             throw new InvalidOperationException("not my turn to act");
         }
         pendingCommits.Clear();
-        OnPhaseStateChanged?.Invoke();
+        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
     }
 
     void OnAutoSetup()
@@ -352,7 +334,7 @@ public class SetupCommitPhase : PhaseBase
         }
         
         // Trigger UI refresh to show the auto-setup results
-        OnPhaseStateChanged?.Invoke();
+        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
     }
 
     void OnRefresh()
@@ -413,7 +395,7 @@ public class SetupCommitPhase : PhaseBase
         {
             selectedRank = clickedRank;
         }
-        OnPhaseStateChanged?.Invoke();
+        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
     }
 
     void CommitPosition(Vector2Int pos)
@@ -497,15 +479,16 @@ public class SetupCommitPhase : PhaseBase
             tool = SetupInputTool.ADD;
         }
         inputTool = tool;
-        OnPhaseStateChanged?.Invoke();
+        OnPhaseStateChanged?.Invoke(new PhaseChanges { networkUpdated = false, phaseChanged = false, phaseUpdated = true, });
     }
 }
 
 public class SetupProvePhase : PhaseBase
 {
+    public Dictionary<Vector2Int, TileView> tileViews;
     public SetupProvePhase(BoardManager bm, GuiSetup guiSetup, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
-
+        tileViews = bm.tileViews;
     }
     
     public override void Update()
@@ -578,6 +561,16 @@ public class RankProvePhase: PhaseBase
 
 
 }
+
+
+
+public struct PhaseChanges
+{
+    public bool networkUpdated;
+    public bool phaseChanged;
+    public bool phaseUpdated;
+}
+
 //
 // public class SetupClientState
 // {
