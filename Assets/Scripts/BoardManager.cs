@@ -309,8 +309,8 @@ public class SetupCommitPhase : PhaseBase
         {
             pendingCommits[pawnId] = null;
         }
-        Dictionary<PawnId, Rank?> changedCommits = pendingCommits;
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new SetupRankCommitted(changedCommits, this)));
+        Dictionary<PawnId, Rank?> oldPendingCommits = new(pendingCommits);
+        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
     }
 
     void OnAutoSetup()
@@ -329,8 +329,8 @@ public class SetupCommitPhase : PhaseBase
             PawnState pawn = cachedNetState.GetPawnFromPos(pos);
             pendingCommits[pawn.pawn_id] = rank;
         }
-        Dictionary<PawnId, Rank?> changedCommits = pendingCommits;
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new SetupRankCommitted(changedCommits, this)));
+        Dictionary<PawnId, Rank?> oldPendingCommits = new(pendingCommits);
+        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
     }
 
     void OnRefresh()
@@ -466,7 +466,6 @@ public class SetupCommitPhase : PhaseBase
 
 public class MoveCommitPhase: PhaseBase
 {
-    public Dictionary<Vector2Int, TileView> tileViews;
     public Vector2Int? selectedPos;
     public Vector2Int? targetPos;
     public MoveInputTool moveInputTool;
