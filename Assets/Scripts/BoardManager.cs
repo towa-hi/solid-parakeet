@@ -483,24 +483,35 @@ public class MoveCommitPhase: PhaseBase
     public Vector2Int? selectedPos;
     public Vector2Int? targetPos;
     public MoveInputTool moveInputTool;
+    public HashSet<Vector2Int> targetablePositions;
+    
     public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
         tileViews = bm.tileViews;
-
+        targetablePositions = new HashSet<Vector2Int>();
     }
     
     MovePosSelected SelectPosition(Vector2Int? pos)
     {
         Vector2Int? oldPos = selectedPos;
         selectedPos = pos;
-        return new MovePosSelected(oldPos, this);
+        if (selectedPos is Vector2Int p && cachedNetState.GetPawnFromPosChecked(p) is PawnState selectedPawn)
+        {
+            targetablePositions = cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id);
+        }
+        else
+        {
+            targetablePositions.Clear();
+        }
+        return new(oldPos, this);
     }
 
     MoveTargetSelected TargetPosition(Vector2Int? target)
     {
         Vector2Int? oldTarget = targetPos;
         targetPos = target;
-        return new MoveTargetSelected(oldTarget, this);
+        targetablePositions.Clear();
+        return new(oldTarget, this);
     }
     
     protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)
@@ -510,7 +521,6 @@ public class MoveCommitPhase: PhaseBase
 
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
-        Debug.Log($"On Hover {hoveredPos}");
         List<GameOperation> operations = new();
         Vector2Int oldHoveredPos = hoveredPos;
         hoveredPos = inHoveredPos;
@@ -522,9 +532,7 @@ public class MoveCommitPhase: PhaseBase
                     break;
                 case MoveInputTool.SELECT:
                     MovePosSelected posSelected = SelectPosition(hoveredPos);
-                    MoveTargetSelected targetSelectedClear1 = TargetPosition(null);
                     operations.Add(posSelected);
-                    operations.Add(targetSelectedClear1);
                     break;
                 case MoveInputTool.TARGET:
                     MoveTargetSelected targetSelected = TargetPosition(hoveredPos);
@@ -532,9 +540,7 @@ public class MoveCommitPhase: PhaseBase
                     break;
                 case MoveInputTool.CLEAR_SELECT:
                     MovePosSelected posUnselected = SelectPosition(null);
-                    MoveTargetSelected targetSelectedClear2 = TargetPosition(null);
                     operations.Add(posUnselected);
-                    operations.Add(targetSelectedClear2);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -552,9 +558,8 @@ public class MoveCommitPhase: PhaseBase
         {
             return MoveInputTool.NONE;
         }
-        
         // a pawn is already selected and target hasn't been selected yet
-        if (selectedPos is Vector2Int selectedPos2 && cachedNetState.GetPawnFromPosChecked(selectedPos2) is PawnState selectedPawn && !targetPos.HasValue)
+        if (selectedPos is Vector2Int selectedPos2 && cachedNetState.GetPawnFromPosChecked(selectedPos2) is PawnState selectedPawn)
         {
             // if hovering over selected pawn we do nothing
             if (selectedPawn.pos == pos)
@@ -568,7 +573,7 @@ public class MoveCommitPhase: PhaseBase
                 return MoveInputTool.SELECT;
             }
             // check if hovering over a valid target
-            if (cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id).Contains(pos))
+            if (targetablePositions.Contains(hoveredPos))
             {
                 return MoveInputTool.TARGET;
             }

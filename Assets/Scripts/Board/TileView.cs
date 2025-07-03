@@ -100,50 +100,78 @@ public class TileView : MonoBehaviour
     
     public void PhaseStateChanged(IPhaseChangeSet changes)
     {
+        // what to do
+        bool? setSetupEmission = null;
+        bool? setHoverOutline = null;
+        bool? setSelectOutline = null;
+        bool? setTargetableFill = null;
+        bool? setTargetEmission = null;
+        // figure out what to do based on what happened
+        // for net changes
         if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
-                    DisplaySetupView(true);
+                    setSetupEmission = true;
                     break;
                 case MoveCommitPhase moveCommitPhase:
-                    DisplaySetupView(false);
-                    break;
                 case MoveProvePhase moveProvePhase:
-                    break;
                 case RankProvePhase rankProvePhase:
+                    setSetupEmission = false;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
             }
         }
+        // for local changes
         foreach (GameOperation operation in changes.operations)
         {
             switch (operation)
             {
                 case SetupHoverChanged(var oldHoveredPos, var setupCommitPhase):
                 {
-                    bool outline = posView == setupCommitPhase.hoveredPos;
-                    tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, outline);
+                    setHoverOutline = posView == setupCommitPhase.hoveredPos;
                     break;
                 }
                 case MoveHoverChanged(var oldHoveredPos, var moveCommitPhase):
                 {
-                    bool outline = posView == moveCommitPhase.hoveredPos;
-                    tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, outline);
+                    setHoverOutline = posView == moveCommitPhase.hoveredPos;
                     break;
                 }
                 case MovePosSelected(var oldPos, var moveCommitPhase):
-                    bool selectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
-                    tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, selectOutline);
+                    setSelectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
+                    setTargetableFill = moveCommitPhase.selectedPos.HasValue && moveCommitPhase.targetablePositions.Contains(posView);
+                    setTargetEmission = false;
                     break;
                 case MoveTargetSelected(var oldPos, var moveCommitPhase):
-                    bool targetFill = moveCommitPhase.targetPos.HasValue && posView == moveCommitPhase.targetPos.Value;
-                    tileModel.renderEffect.SetEffect(EffectType.FILL, targetFill);
+                    setSelectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
+                    setTargetableFill = false;
+                    setTargetEmission =  moveCommitPhase.targetPos.HasValue && posView == moveCommitPhase.targetPos.Value;
                     break;
                     
             }
+        }
+        // now do the stuff
+        if (setSetupEmission.HasValue)
+        {
+            SetSetupEmissionHighlight(setSetupEmission.Value);
+        }
+        if (setHoverOutline.HasValue)
+        {
+            tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, setHoverOutline.Value);
+        }
+        if (setSelectOutline.HasValue)
+        {
+            tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, setSelectOutline.Value);
+        }
+        if (setTargetableFill.HasValue)
+        {
+            tileModel.renderEffect.SetEffect(EffectType.FILL, setTargetableFill.Value);
+        }
+        if (setTargetEmission.HasValue)
+        {
+            SetTopEmission(setTargetEmission.Value ? Color.green : Color.clear);
         }
     }
     public void StartPulse()
