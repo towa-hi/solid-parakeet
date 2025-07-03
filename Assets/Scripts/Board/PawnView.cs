@@ -61,35 +61,36 @@ public class PawnView : MonoBehaviour
         // for net changes
         if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
         {
-            PawnState pawn = netStateUpdated.phase.cachedNetState.GetPawnFromId(pawnId);
+            GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
+            PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
             setRankView = pawn.GetKnownRank() ?? Rank.UNKNOWN;
             setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
-            switch (netStateUpdated.phase)
+            switch (cachedNetState.lobbyInfo.phase)
             {
-                case SetupCommitPhase setupCommitPhase:
-                    // in setupCommitPhase we only show pawns that have been committed on our side
-                    if (setupCommitPhase.cachedNetState.IsMySubphase())
+                case Phase.SetupCommit:
+                    if (cachedNetState.IsMySubphase())
                     {
-                        setVisible = setupCommitPhase.pendingCommits.ContainsKey(pawnId) &&
-                                     setupCommitPhase.pendingCommits[pawnId] != null;
+                        setVisible = false;
                     }
                     else
                     {
-                        // if waiting for opponent we just show our own committed pawns
-                        if (team == setupCommitPhase.cachedNetState.userTeam)
-                        {
-                            setVisible = true;
-                        }
+                        // only show your pawns when waiting
+                        setVisible = team == cachedNetState.userTeam;
                     }
                     break;
-                case MoveCommitPhase moveCommitPhase:
+                case Phase.MoveCommit:
+                    setVisible = true;
                     break;
-                case MoveProvePhase moveProvePhase:
+                case Phase.MoveProve:
                     break;
-                case RankProvePhase rankProvePhase:
+                case Phase.RankProve:
+                    break;
+                case Phase.Finished:
+                    break;
+                case Phase.Aborted:
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
+                    throw new ArgumentOutOfRangeException();
             }
         }
         // for local changes
@@ -105,7 +106,8 @@ public class PawnView : MonoBehaviour
                         if (oldPendingCommits[pawnId] != setupCommitPhase.pendingCommits[pawnId])
                         {
                             setRankView = setupCommitPhase.pendingCommits[pawnId] ?? Rank.UNKNOWN;
-                            setVisible = rankView != Rank.UNKNOWN;
+                            setVisible = setRankView.Value != Rank.UNKNOWN;
+                            Debug.Log($"set visible {setVisible.Value}");
                         }
                     }
                     else

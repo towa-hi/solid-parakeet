@@ -45,6 +45,7 @@ public class GuiSetup : GameElement
             entries.Add(rank, rankListEntry);
             rankListEntry.Initialize(rank);
             rankListEntry.SetButtonOnClick(OnEntryClicked);
+            entries[rank].Refresh((int)maxRanks[i], 0, false, true);
         }
         
     }
@@ -64,19 +65,18 @@ public class GuiSetup : GameElement
         // for net changes
         if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
         {
-            setInitialize = netStateUpdated.phase.cachedNetState;
-            switch (netStateUpdated.phase)
+            GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
+            setInitialize = cachedNetState;
+            switch (cachedNetState.lobbyInfo.phase)
             {
-                case SetupCommitPhase setupCommitPhase:
+                case Phase.SetupCommit:
                     setShowElement = true;
-                    (Rank, int, int)[] ranksArray = setupCommitPhase.RanksRemaining();
-                    setRefreshEntries = (ranksArray, setupCommitPhase.selectedRank);
-                    if (netStateUpdated.phase.cachedNetState.IsMySubphase())
+                    if (cachedNetState.IsMySubphase())
                     {
                         setStatus = "Commit your pawn setup";
                         setAutoSetupButton = true;
-                        setSubmitButton = ranksArray.All(rank => rank.Item3 == rank.Item2); 
-                        setClearButton = ranksArray.Any(rank => rank.Item3 > 0); 
+                        setSubmitButton = false; 
+                        setClearButton = false; 
                     }
                     else
                     {
@@ -86,13 +86,16 @@ public class GuiSetup : GameElement
                         setClearButton = false;
                     }
                     break;
-                case MoveCommitPhase moveCommitPhase:
-                case MoveProvePhase moveProvePhase:
-                case RankProvePhase rankProvePhase:
+                case Phase.MoveCommit:
+                case Phase.MoveProve:
+                case Phase.RankProve:
+                case Phase.Finished:
+                case Phase.Aborted:
                     setShowElement = false;
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
-            
         }
         // for local changes
         foreach (GameOperation operation in changes.operations)

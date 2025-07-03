@@ -265,8 +265,8 @@ public class SetupCommitPhase : PhaseBase
         {
             pendingCommits[pawn.pawn_id] = null;
         }
-
         userTeam = inNetworkState.userTeam;
+        Debug.Log(userTeam);
         setupInputTool = SetupInputTool.NONE;
         guiSetup.OnClearButton = OnClear;
         guiSetup.OnAutoSetupButton = OnAutoSetup;
@@ -457,6 +457,10 @@ public class SetupCommitPhase : PhaseBase
     SetupInputTool GetNextTool()
     {
         SetupInputTool tool = SetupInputTool.NONE;
+        if (!cachedNetState.IsMySubphase())
+        {
+            return SetupInputTool.NONE;
+        }
         // if hovered over a already committed pawn
         if (cachedNetState.GetPawnFromPosChecked(hoveredPos) is PawnState pawn && pendingCommits.ContainsKey(pawn.pawn_id) && pendingCommits[pawn.pawn_id] != null)
         {
@@ -470,7 +474,6 @@ public class SetupCommitPhase : PhaseBase
             }
             
         }
-        Debug.Log(tool);
         return tool;
     }
 }
