@@ -553,8 +553,8 @@ public class MoveCommitPhase: PhaseBase
             return MoveInputTool.NONE;
         }
         
-        // a pawn is already selected
-        if (selectedPos is Vector2Int selectedPos2 && cachedNetState.GetPawnFromPosChecked(selectedPos2) is PawnState selectedPawn)
+        // a pawn is already selected and target hasn't been selected yet
+        if (selectedPos is Vector2Int selectedPos2 && cachedNetState.GetPawnFromPosChecked(selectedPos2) is PawnState selectedPawn && !targetPos.HasValue)
         {
             // if hovering over selected pawn we do nothing
             if (selectedPawn.pos == pos)

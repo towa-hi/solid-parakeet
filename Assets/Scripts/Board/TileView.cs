@@ -134,6 +134,15 @@ public class TileView : MonoBehaviour
                     tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, outline);
                     break;
                 }
+                case MovePosSelected(var oldPos, var moveCommitPhase):
+                    bool selectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
+                    tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, selectOutline);
+                    break;
+                case MoveTargetSelected(var oldPos, var moveCommitPhase):
+                    bool targetFill = moveCommitPhase.targetPos.HasValue && posView == moveCommitPhase.targetPos.Value;
+                    tileModel.renderEffect.SetEffect(EffectType.FILL, targetFill);
+                    break;
+                    
             }
         }
     }
