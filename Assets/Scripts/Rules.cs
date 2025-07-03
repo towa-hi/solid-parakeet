@@ -27,6 +27,26 @@ public static class Rules
         };
     }
     
+    public static int GetMovementRange(Rank rank)
+    {
+        return rank switch
+        {
+            Rank.THRONE => 0,
+            Rank.ASSASSIN => 1,
+            Rank.SCOUT => 12,
+            Rank.SEER => 1,
+            Rank.GRUNT => 1,
+            Rank.KNIGHT => 1,
+            Rank.WRAITH => 1,
+            Rank.REAVER => 1,
+            Rank.HERALD => 1,
+            Rank.CHAMPION => 1,
+            Rank.WARLORD => 1,
+            Rank.TRAP => 0,
+            Rank.UNKNOWN => 0,
+            _ => throw new ArgumentOutOfRangeException(nameof(rank)),
+        };
+    }
     // ResolveConflict determines the outcome of a conflict. Special cases are defined here
     public static SConflictReceipt ResolveConflict(in SPawn redPawn, in SPawn bluePawn)
     {

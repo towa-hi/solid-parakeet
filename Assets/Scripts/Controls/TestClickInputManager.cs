@@ -113,7 +113,7 @@ public class TestClickInputManager : MonoBehaviour
         }
         else if (currentHoveredTileView)
         {
-            currentHoveredPosition = currentHoveredTileView.tile.pos;
+            currentHoveredPosition = currentHoveredTileView.posView;
         }
         else if (currentHoveredBoardMakerTile)
         {

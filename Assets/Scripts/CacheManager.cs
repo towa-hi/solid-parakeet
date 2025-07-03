@@ -80,8 +80,6 @@ public static class CacheManager
 
     public static HiddenRank? GetHiddenRank(byte[] hash)
     {
-        // NOTE: this should only ever be called on the player's own pawns that have
-        // yet to be revealed
         if (hash.Length != 16)
         {
             throw new ArgumentException("Invalid hidden rank hash length");

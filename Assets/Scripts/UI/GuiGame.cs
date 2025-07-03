@@ -32,7 +32,7 @@ public class GuiGame : TestGuiElement
         }
     }
 
-    public void PhaseStateChanged(PhaseBase currentPhase, PhaseChanges changes)
+    public void PhaseStateChanged(PhaseBase currentPhase, IPhaseChangeSet changes)
     {
         setup.PhaseStateChanged(currentPhase, changes);
         movement.PhaseStateChanged(currentPhase, changes);

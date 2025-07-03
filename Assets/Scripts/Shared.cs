@@ -44,42 +44,42 @@ public static class Shared
     }
     
     
-    public static UnityEngine.Vector2Int[] GetDirections(UnityEngine.Vector2Int pos, bool isHex)
+    public static Vector2Int[] GetDirections(Vector2Int pos, bool isHex)
     {
         if (isHex)
         {
-            UnityEngine.Vector2Int[] neighbors = new UnityEngine.Vector2Int[6];
+            Vector2Int[] neighbors = new Vector2Int[6];
             bool oddCol = pos.x % 2 == 1; // Adjust for origin offset
             
             if (oddCol)
             {
-                neighbors[0] = new UnityEngine.Vector2Int(0, 1);  // top
-                neighbors[1] = new UnityEngine.Vector2Int(-1, 0);  // top right
-                neighbors[2] = new UnityEngine.Vector2Int(-1, -1);  // bot right
-                neighbors[3] = new UnityEngine.Vector2Int(0, -1); // bot
-                neighbors[4] = new UnityEngine.Vector2Int(1, -1); // bot left
-                neighbors[5] = new UnityEngine.Vector2Int(1, 0);  // top left
+                neighbors[0] = new (0, 1);  // top
+                neighbors[1] = new (-1, 0);  // top right
+                neighbors[2] = new (-1, -1);  // bot right
+                neighbors[3] = new (0, -1); // bot
+                neighbors[4] = new (1, -1); // bot left
+                neighbors[5] = new (1, 0);  // top left
             }
             else
             {
-                neighbors[0] = new UnityEngine.Vector2Int(0, 1);  // top
-                neighbors[1] = new UnityEngine.Vector2Int(-1, 1);  // top right
-                neighbors[2] = new UnityEngine.Vector2Int(-1, -0); // bot right
-                neighbors[3] = new UnityEngine.Vector2Int(0, -1); // bot
-                neighbors[4] = new UnityEngine.Vector2Int(1, 0);// bot left
-                neighbors[5] = new UnityEngine.Vector2Int(1, 1); // top left
+                neighbors[0] = new (0, 1);  // top
+                neighbors[1] = new (-1, 1);  // top right
+                neighbors[2] = new (-1, -0); // bot right
+                neighbors[3] = new (0, -1); // bot
+                neighbors[4] = new (1, 0);// bot left
+                neighbors[5] = new (1, 1); // top left
             }
             
             return neighbors;
         }
         else
         {
-            return new UnityEngine.Vector2Int[]
+            return new[]
             {
-                UnityEngine.Vector2Int.up,
-                UnityEngine.Vector2Int.right,
-                UnityEngine.Vector2Int.down,
-                UnityEngine.Vector2Int.left
+                Vector2Int.up,
+                Vector2Int.right,
+                Vector2Int.down,
+                Vector2Int.left,
             };
         }
     }

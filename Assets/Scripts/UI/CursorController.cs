@@ -6,6 +6,7 @@ public class CursorController : MonoBehaviour
     public static Texture2D currentCursor;
     public Texture2D defaultCursor;
     public Texture2D plusCursor;
+    public Texture2D targetCursor;
     public Texture2D minusCursor;
     public Texture2D disabledCursor;
     public Vector2 hotspot = Vector2.zero;
@@ -34,6 +35,9 @@ public class CursorController : MonoBehaviour
             case CursorType.PLUS:
                 newCursor = instance.plusCursor;
                 break;
+            case CursorType.TARGET:
+                newCursor = instance.targetCursor;
+                break;
             case CursorType.MINUS:
                 newCursor = instance.minusCursor;
                 break;
@@ -55,6 +59,7 @@ public enum CursorType
 {
     DEFAULT,
     PLUS,
+    TARGET,
     MINUS,
     DISABLED,
 }

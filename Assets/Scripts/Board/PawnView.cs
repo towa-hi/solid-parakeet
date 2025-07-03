@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Contract;
+using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Animations;
 using Random = UnityEngine.Random;
@@ -16,74 +17,95 @@ public class PawnView : MonoBehaviour
     
     public Animator animator;
     public RenderEffect renderEffect;
-    BoardManager bm;
     // immutable
     public PawnId pawnId;
     public Vector2Int startPos;
     public Team team;
     
     // cached
-    bool aliveView;
     Rank rankView;
     public Vector2Int posView;
+    bool visible;
 
-    bool firstTime = true;
-    
-    public void Initialize(PawnState pawn)
+    public void Initialize(PawnState pawn, TileView tileView)
     {
-        firstTime = true;
+        // never changes
         pawnId = pawn.pawn_id;
-        gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
         startPos = pawnId.Decode().Item1;
         team = pawnId.Decode().Item2;
+        gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
+        
         rankView = Rank.UNKNOWN;
-        aliveView = false;
         posView = Vector2Int.zero;
+        SetConstraintToTile(tileView);
     }
 
-    public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
+
+    void OnSetupPhase()
     {
-        Team userTeam = phase.cachedNetworkState.userTeam;
-        if (changes.networkUpdated || changes.phaseChanged || changes.pawnsChanged || changes.tilesChanged)
+        
+    }
+
+    void OnMovePhase()
+    {
+        
+    }
+    
+    public void PhaseStateChanged(PhaseBase phase, IPhaseChangeSet changes)
+    {
+        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
         {
-            PawnState pawn = phase.cachedNetworkState.gameState.GetPawnStateFromId(pawnId);
+            PawnState pawn = netStateUpdated.netState.GetPawnFromId(pawnId);
+            rankView = pawn.GetKnownRank() ?? Rank.UNKNOWN;
             switch (phase)
             {
                 case SetupCommitPhase setupCommitPhase:
-                    Rank? pendingCommitRank = setupCommitPhase.pendingCommits.TryGetValue(pawn.pos, out Rank rank) ? rank : null;
-                    SetRankView(pawn, userTeam, pendingCommitRank);
-                    // send pawnView to purgatory to hide it if rank is not known
-                    SetPosView(rankView == Rank.UNKNOWN ? null : setupCommitPhase.tileViews[pawn.pos]);
+                    visible = setupCommitPhase.pendingCommits[pawnId] != null;
                     break;
                 case MoveCommitPhase moveCommitPhase:
-                    SetRankView(pawn, userTeam);
-                    SetPosView(moveCommitPhase.tileViews[pawn.pos]);
+                    visible = pawn.alive;
                     break;
                 case MoveProvePhase moveProvePhase:
-                    SetRankView(pawn, userTeam);
+                    visible = pawn.alive;
                     break;
                 case RankProvePhase rankProvePhase:
-                    SetRankView(pawn, userTeam);
+                    visible = pawn.alive;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(phase));
             }
-            firstTime = false;
         }
-
-        if (changes.uiStateChanged)
+        foreach (GameOperation operation in changes.operations)
         {
-            // react to selections here
+            switch (operation)
+            {
+                case SetupHoverChanged setupHoverChanged:
+                    break;
+                case SetupRankCommitted(var changedCommits, var setupCommitPhase) setupRankCommitted:
+                    if (changedCommits.ContainsKey(pawnId))
+                    {
+                        rankView = changedCommits[pawnId] ?? Rank.UNKNOWN;
+                        visible = rankView == Rank.UNKNOWN;
+                    }
+                    break;
+                case MoveHoverChanged moveHoverChanged:
+                    break;
+                case MovePosSelected movePosSelected:
+                    break;
+                case MoveTargetSelected moveTargetSelected:
+                    break;
+            }
         }
-        if (changes.hoverStateChanged)
-        {
-            // react to hover here
-        }
+        // do view stuff
+        model.SetActive(visible);
+        DisplayRankView();
+        DisplayPosView();
+        
     }
-
-    void SetPosView(TileView tileView = null)
+    
+    void DisplayPosView(TileView tileView = null)
     {
-        posView = tileView?.tile.pos ?? Globals.Purgatory;
+        posView = tileView?.posView ?? Globals.Purgatory;
         Transform target = tileView ? tileView.origin : GameManager.instance.purgatory;
         parentConstraint.SetSource(0, new ConstraintSource()
         {
@@ -93,46 +115,20 @@ public class PawnView : MonoBehaviour
         parentConstraint.constraintActive = true;
     }
     
-    void SetRankView(PawnState pawn, Team userTeam, Rank? mOverrideRank = null)
+    void DisplayRankView()
     {
-        Rank oldRankView = rankView;
-        rankView = Rank.UNKNOWN;
-        if (mOverrideRank is Rank overrideRank)
-        {
-            rankView = overrideRank;
-        }
-        else if (pawn.rank is Rank rank)
-        {
-            rankView = rank;
-        }
-        else if (pawn.GetTeam() == userTeam && CacheManager.GetHiddenRank(pawn.hidden_rank_hash) is HiddenRank hiddenRank)
-        {
-            rankView = hiddenRank.rank;
-        }
-        
-        if (!firstTime && rankView == oldRankView)
-        {
-            return;
-        }
         PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rankView);
         switch (team)
         {
             case Team.RED:
-                if (pawnDef.redAnimatorOverrideController)
-                {
-                    animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
-                }
+                animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
                 break;
             case Team.BLUE:
-                if (pawnDef.blueAnimatorOverrideController)
-                {
-                    animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
-                }
+                animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
         }
-        Debug.Log($"animation set for {gameObject.name}");
         float randNormTime = Random.Range(0f, 1f);
         animator.Play("Idle", 0, randNormTime);
         animator.Update(0f);
@@ -264,42 +260,20 @@ public class PawnView : MonoBehaviour
         // oldPhase = lobby.phase;
     //}
     
-    void SetPawn(PawnState p)
-    {
-        // pawnId = p.pawn_id;
-        // team = (Team)p.team;
-        // pawnDefHash = p.pawn_def_hash;
-        // if (!string.IsNullOrEmpty(pawnDefHash))
-        // {
-        //     PawnDef def = Globals.FakeHashToPawnDef(pawnDefHash);
-        //     badge.symbolRenderer.sprite = def.icon;
-        // }
-        // gameObject.name = $"Pawn {p.team} {p.pawn_id}";
-        // SetViewPos(p.pos.ToVector2Int());
-    }
     
-    void SetViewPos(Vector2Int pos)
+    void SetConstraintToTile([CanBeNull] TileView tileView)
     {
-        if (pos == Globals.Purgatory)
+        Transform source = GameManager.instance.purgatory;
+        if (tileView)
         {
-            
-            parentConstraint.SetSource(0, new ConstraintSource
-            {
-                sourceTransform = bm.purgatory,
-                weight = 1,
-            });
+            source = tileView.tileModel.tileOrigin.transform;
         }
-        else
+        parentConstraint.SetSource(0, new()
         {
-            TileView tileView = bm.GetTileViewAtPos(pos);
-            parentConstraint.SetSource(0, new ConstraintSource
-            {
-                sourceTransform = tileView.tileModel.tileOrigin.transform,
-                weight = 1,
-            });
-        }
+            sourceTransform = source,
+            weight = 1,
+        });
         parentConstraint.constraintActive = true;
-        posView = pos;
     }
     
     void SetRenderEffect(bool enable, string renderEffect)
@@ -338,6 +312,5 @@ public class PawnView : MonoBehaviour
         // Ensure the final position is set
         isMoving = false;
         parentConstraint.constraintActive = true;
-        bm.vortex.EndVortex();
     }
 }

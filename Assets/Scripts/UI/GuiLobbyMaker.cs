@@ -94,10 +94,10 @@ public class GuiLobbyMaker : TestGuiElement
         {
             maxRanks[(int)maxPawn.rank] = (uint)maxPawn.max;
         }
-        List<Contract.Tile> tilesList = new();
+        List<Contract.TileState> tilesList = new();
         foreach (Tile tile in boardDef.tiles)
         {
-            Contract.Tile tileDef = new()
+            Contract.TileState tileDef = new()
             {
                 passable = tile.isPassable,
                 pos = tile.pos,

@@ -32,73 +32,12 @@ public class GuiSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
 
-    public void PhaseStateChanged(PhaseBase currentPhase, PhaseChanges changes)
-    {
-        if (changes.networkUpdated || changes.phaseChanged)
-        {
-            Initialize(currentPhase.cachedNetworkState);
-            bool show;
-            switch (currentPhase)
-            {
-                case SetupCommitPhase setupCommitPhase:
-                    show = true;
-                    break;
-                case MoveCommitPhase moveCommitPhase:
-                case MoveProvePhase moveProvePhase:
-                case RankProvePhase rankProvePhase:
-                    show = false;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(currentPhase));
-            }
-            ShowElement(show);
-        }
-        if (changes.networkUpdated || changes.uiStateChanged)
-        {
-            string status = "";
-            switch (currentPhase)
-            {
-                case SetupCommitPhase setupCommitPhase:
-                    if (setupCommitPhase.cachedNetworkState.IsMySubphase())
-                    {
-                        // update entry counts
-                        (Rank, int, int)[] ranksRemaining = setupCommitPhase.RanksRemaining();
-                        foreach ((Rank rank, int max, int committed) in ranksRemaining)
-                        {
-                            bool entrySelected = rank == setupCommitPhase.selectedRank;
-                            entries[rank].Refresh(max, committed, entrySelected, true);
-                        }
-                        bool pawnsComitted = setupCommitPhase.AreAllPawnsComitted();
-                        submitButton.interactable = pawnsComitted;
-                        clearButton.interactable = true;
-                        autoSetupButton.interactable = true;
-                        status = "Commit your pawn setup";
-                    }
-                    else
-                    {
-                        submitButton.interactable = false;
-                        clearButton.interactable = false;
-                        autoSetupButton.interactable = false;
-                        status = "Awaiting opponent commit...";
-                    }
-                    break;
-                case MoveCommitPhase moveCommitPhase:
-                case MoveProvePhase moveProvePhase:
-                case RankProvePhase rankProvePhase:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(currentPhase));
-            }
-            statusText.text = status;
-        }
-    }
-    
-    void Initialize(GameNetworkState networkState)
+    void Initialize(GameNetworkState netState)
     {
         // Clear existing entries
         foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
-        entries = new Dictionary<Rank, GuiRankListEntry>();
-        uint[] maxRanks = networkState.lobbyParameters.max_ranks;
+        entries = new();
+        uint[] maxRanks = netState.lobbyParameters.max_ranks;
         for (int i = 0; i < maxRanks.Length; i++)
         {
             Rank rank = (Rank)i;
@@ -107,10 +46,68 @@ public class GuiSetup : GameElement
             rankListEntry.Initialize(rank);
             rankListEntry.SetButtonOnClick(OnEntryClicked);
         }
+        
+    }
+
+
+    public void PhaseStateChanged(PhaseBase phase, IPhaseChangeSet changes)
+    {
+
+        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
+        {
+            string status = "";
+            Initialize(netStateUpdated.netState);
+            bool showElement = false;
+            switch (phase)
+            {
+                case SetupCommitPhase setupCommitPhase:
+                    showElement = true;
+                    if (netStateUpdated.netState.IsMySubphase())
+                    {
+                        status = "Commit your pawn setup";
+                    }
+                    else
+                    {
+                        status = "Awaiting opponent setup";
+                    }
+                    break;
+                case MoveCommitPhase moveCommitPhase:
+                case MoveProvePhase moveProvePhase:
+                case RankProvePhase rankProvePhase:
+                    showElement = false;
+                    break;
+            }
+            ShowElement(showElement);
+        }
+
+        foreach (GameOperation operation in changes.operations)
+        {
+            switch (operation)
+            {
+                case SetupRankCommitted(_, var setupCommitPhase) setupRankCommitted:
+                    RefreshRankEntryList(setupCommitPhase.RanksRemaining(), setupCommitPhase.selectedRank);
+                    break;
+                case SetupRankSelected(_,var setupCommitPhase) setupRankSelected:
+                    RefreshRankEntryList(setupCommitPhase.RanksRemaining(), setupCommitPhase.selectedRank);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(operation));
+
+            }
+        }
+        
     }
     
-    void Refresh(PhaseBase currentPhase)
+    void RefreshRankEntryList((Rank rank, int max, int committed)[] ranksRemaining, Rank? selectedRank)
     {
-        
+        foreach ((Rank rank, int max, int committed) in ranksRemaining)
+        {
+            bool entrySelected = rank == selectedRank;
+            entries[rank].Refresh(max, committed, entrySelected, true);
+        }
+        bool pawnsComitted = ranksRemaining.Any(e => e.max - e.committed != 0);
+        submitButton.interactable = pawnsComitted;
+        clearButton.interactable = true;
+        autoSetupButton.interactable = true;
     }
 }

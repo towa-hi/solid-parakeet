@@ -61,7 +61,7 @@ namespace Contract
                             FieldToSCMapEntry("y", vector2Int.y),
                         }),
                     };
-                case Tile tile:
+                case TileState tile:
                     // special case for unpacked tiles
                     return new SCVal.ScvU32() { u32 = new uint32((uint)tile) };
                 case SCVal.ScvAddress address:
@@ -180,10 +180,10 @@ namespace Contract
                         return new LobbyId(lobbyU32Val.u32.InnerValue);
                     }
                     break;
-                case var _ when targetType == typeof(Tile):
+                case var _ when targetType == typeof(TileState):
                     if (scVal is SCVal.ScvU32 tileU32Val)
                     {
-                        return (Tile)tileU32Val.u32.InnerValue;
+                        return (TileState)tileU32Val.u32.InnerValue;
                     }
                     break;
                 default:
@@ -420,6 +420,16 @@ namespace Contract
             Team t = isHost ? Team.RED : Team.BLUE;
             return (startPos, t);
         }
+
+        public Vector2Int GetStartPos()
+        {
+            return Decode().Item1;
+        }
+
+        public Team GetTeam()
+        {
+            return Decode().Item2;
+        }
         
         public static implicit operator uint(PawnId pawnId) => pawnId.Value;
         public static implicit operator PawnId(uint value) => new(value);
@@ -468,7 +478,7 @@ namespace Contract
     }
 
     [Serializable]
-    public struct Tile
+    public struct TileState
     {
         public bool passable;
         public Vector2Int pos;
@@ -490,7 +500,7 @@ namespace Contract
         }
 
         // Implicit conversion from Tile to uint (packing)
-        public static implicit operator uint(Tile tile)
+        public static implicit operator uint(TileState tile)
         {
             uint packed = 0;
             
@@ -520,7 +530,7 @@ namespace Contract
         }
 
         // Implicit conversion from uint to Tile (unpacking)
-        public static implicit operator Tile(uint packed)
+        public static implicit operator TileState(uint packed)
         {
             // Extract passable (bit 0)
             bool passable = (packed & 1u) != 0;
@@ -537,7 +547,7 @@ namespace Contract
             // Extract setup_zone (bits 22-24)
             uint setupZone = (packed >> 22) & 0x7u;
             
-            return new Tile
+            return new TileState
             {
                 passable = passable,
                 pos = new Vector2Int(x, y),
@@ -572,7 +582,7 @@ namespace Contract
         public bool hex;
         public string name;
         public Vector2Int size;
-        public Tile[] tiles;
+        public TileState[] tiles;
         
         public SCVal.ScvMap ToScvMap()
         {
@@ -588,7 +598,7 @@ namespace Contract
             };
         }
         
-        public Tile? GetTileFromPosition(Vector2Int pos)
+        public TileState? GetTileFromPosition(Vector2Int pos)
         {
             if (tiles.Any(tile => tile.pos == pos))
             {
@@ -700,6 +710,33 @@ namespace Contract
         {
             return pawn_id.Decode().Item1;
         }
+
+        public Rank? GetKnownRank()
+        {
+            if (rank is Rank knownRank)
+            {
+                return knownRank;
+            }
+            if (CacheManager.GetHiddenRank(hidden_rank_hash) is HiddenRank hiddenRank)
+            {
+                return hiddenRank.rank;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        public bool CanMove()
+        {
+            if (alive && GetKnownRank() is Rank knownRank)
+            {
+                if (knownRank != Rank.TRAP && knownRank != Rank.THRONE)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
         
         public SCVal.ScvMap ToScvMap()
         {
@@ -790,24 +827,6 @@ namespace Contract
         public UserMove GetUserMove(bool isHost)
         {
             return isHost ? moves[0] : moves[1];
-        }
-
-        public PawnState? GetPawnStateFromPosition(Vector2Int pos)
-        {
-            if (pawns.Any(pawn => pawn.pos == pos))
-            {
-                return pawns.First(pawn => pawn.pos == pos);
-            }
-            return null;
-        }
-
-        public PawnState GetPawnStateFromId(PawnId pawnId)
-        {
-            if (pawns.Any(pawn => pawn.pawn_id == pawnId))
-            {
-                return pawns.First(pawn => pawn.pawn_id == pawnId);
-            }
-            throw new ArgumentOutOfRangeException(nameof(pawnId));
         }
     }
 

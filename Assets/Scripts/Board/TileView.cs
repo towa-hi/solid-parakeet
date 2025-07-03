@@ -3,6 +3,7 @@ using System.Linq;
 using Contract;
 using UnityEngine;
 using PrimeTween;
+using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
 public class TileView : MonoBehaviour
@@ -12,10 +13,13 @@ public class TileView : MonoBehaviour
     public TileModel tileModel;
     public TileModel hexTileModel;
     public TileModel squareTileModel;
-
-    public Contract.Tile tile;
     
-    public Color baseColor;
+    // never changes
+    public Vector2Int posView; // this is the key of tileView it must never change
+    public bool passableView;
+    public Team setupView;
+    public uint setupZoneView;
+    
     public Color redTeamColor;
     public Color blueTeamColor;
 
@@ -34,53 +38,84 @@ public class TileView : MonoBehaviour
 
     // BoardManager bm;
     
-    public void Initialize(Contract.Tile inTile, bool isHex)
+    public void Initialize(TileState tile, bool hex)
     {
-        //boardManager.OnGameHover += OnGameHover;
-        tile = inTile;
-        gameObject.name = $"Tile {tile.pos}";
-        hexTileModel.gameObject.SetActive(false);
-        squareTileModel.gameObject.SetActive(false);
-        tileModel = isHex ? hexTileModel : squareTileModel;
-        ShowTile(tile.passable);
+        // never changes
+        posView = tile.pos;
+        gameObject.name = $"Tile {posView}";
+        
         initialElevatorLocalPos = tileModel.elevator.localPosition;
+        
+        SetTile(tile, hex);
+        Refresh();
     }
 
+    void SetTile(TileState tile, bool hex)
+    {
+        if (tile.pos != posView)
+        {
+            throw new ArgumentException("set to wrong tile pos");
+        }
+        
+        passableView = tile.passable;
+        setupView = tile.setup;
+        setupZoneView = tile.setup_zone;
+        hexTileModel.gameObject.SetActive(false);
+        squareTileModel.gameObject.SetActive(false);
+        
+        tileModel = hex ? hexTileModel : squareTileModel;
+        // update view except posView which cant be updated because only boardManager can do that
+        tileModel.gameObject.SetActive(passableView);
+    }
+    
+
+    void Refresh()
+    {
+        
+    }
+    
     void OnDestroy()
     {
         pulseTween.Stop();
     }
 
-    public void PhaseStateChanged(PhaseBase phase, PhaseChanges changes)
+    void DisplaySetupView(bool display)
     {
-        // Only update tile data when network updates or tiles specifically changed
-        if (changes.networkUpdated || changes.phaseChanged || changes.tilesChanged)
+        if (display)
         {
-            Vector2Int oldPos = tile.pos;
-            Contract.Tile? mTile = phase.cachedNetworkState.lobbyParameters.board.GetTileFromPosition(oldPos);
-            if (mTile is Contract.Tile newTile)
+            switch (setupView)
             {
-                tile = newTile;
+                case Team.RED:
+                    SetTopEmission(redTeamColor);
+                    break;
+                case Team.BLUE:
+                    SetTopEmission(blueTeamColor);
+                    break;
+                case Team.NONE:
+                    SetTopEmission(Color.clear);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
-            gameObject.name = $"Tile {tile.pos}";
-            hexTileModel.gameObject.SetActive(false);
-            squareTileModel.gameObject.SetActive(false);
-            tileModel = phase.cachedNetworkState.lobbyParameters.board.hex ? hexTileModel : squareTileModel;
-            ShowTile(tile.passable);
-            initialElevatorLocalPos = tileModel.elevator.localPosition;
+        }
+        else
+        {
+            SetTopEmission(Color.clear);
+        }
+    }
+
+    
+    public void PhaseStateChanged(PhaseBase phase, IPhaseChangeSet changes)
+    {
+        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
+        {
             switch (phase)
             {
                 case SetupCommitPhase setupCommitPhase:
-                    if (changes.phaseChanged || changes.subphaseChanged)
-                    {
-                        SetSetupEmissionHighlight(true);
-                    }
+                    DisplaySetupView(true);
                     break;
                 case MoveCommitPhase moveCommitPhase:
-                    if (changes.phaseChanged || changes.subphaseChanged)
-                    {
-                        SetSetupEmissionHighlight(false);
-                    }
+                    DisplaySetupView(false);
                     break;
                 case MoveProvePhase moveProvePhase:
                     break;
@@ -90,15 +125,23 @@ public class TileView : MonoBehaviour
                     throw new ArgumentOutOfRangeException(nameof(phase));
             }
         }
-
-        if (changes.uiStateChanged)
+        foreach (GameOperation operation in changes.operations)
         {
-            // react to selections here
-        }
-        if (changes.hoverStateChanged)
-        {
-            bool outline = phase.hoveredPos == tile.pos;
-            tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, outline);
+            switch (operation)
+            {
+                case SetupHoverChanged(var oldHoveredPos, var setupCommitPhase):
+                {
+                    bool outline = posView == setupCommitPhase.hoveredPos;
+                    tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, outline);
+                    break;
+                }
+                case MoveHoverChanged(var oldHoveredPos, var moveCommitPhase):
+                {
+                    bool outline = posView == moveCommitPhase.hoveredPos;
+                    tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, outline);
+                    break;
+                }
+            }
         }
     }
     public void StartPulse()
@@ -419,7 +462,7 @@ public class TileView : MonoBehaviour
     {
         if (highlight)
         {
-            switch (tile.setup)
+            switch (setupView)
             {
                 case Team.RED:
                     SetTopEmission(redTeamColor);

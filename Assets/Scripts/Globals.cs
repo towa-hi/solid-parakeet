@@ -1762,56 +1762,6 @@ public struct GameNetworkState
             opponentTeam = hostTeam;
         }
     }
-
-    public PhaseChanges GetPhaseChanges(GameNetworkState c)
-    {
-        bool phaseChanged = false;
-        bool subphaseChanged = false;
-        bool pawnsChanged = false;
-        bool tilesChanged = false;
-        
-        if (this.lobbyInfo.phase != c.lobbyInfo.phase)
-        {
-            phaseChanged = true;
-            subphaseChanged = true;
-        }
-        if (this.lobbyInfo.subphase != c.lobbyInfo.subphase)
-        {
-            subphaseChanged = true;
-        }
-        for (int index = 0; index < c.gameState.pawns.Length; index++)
-        {
-            PawnState nPawnState = this.gameState.pawns[index];
-            PawnState cPawnState = c.gameState.pawns[index];
-            if (nPawnState != cPawnState)
-            {
-                pawnsChanged = true;
-                break;
-            }
-        }
-        for (int index = 0; index < c.lobbyParameters.board.tiles.Length; index++)
-        {
-            Contract.Tile nTile = this.lobbyParameters.board.tiles[index];
-            Contract.Tile cTile = this.lobbyParameters.board.tiles[index];
-            if (nTile != cTile)
-            {
-                tilesChanged = true;
-                break;
-            }
-        }
-        
-        return new PhaseChanges
-        {
-            networkUpdated = true,
-            phaseChanged = phaseChanged,
-            subphaseChanged = subphaseChanged,
-            pawnsChanged = pawnsChanged,
-            tilesChanged = tilesChanged,
-            // assumed to be true if the phase changed
-            uiStateChanged = phaseChanged,
-            hoverStateChanged = phaseChanged,
-        };
-    }
     
     public RelativeSubphase GetRelativeSubphase()
     {
@@ -1886,7 +1836,7 @@ public struct GameNetworkState
         List<Vector2Int> eligibleTiles = new();
         List<Vector2Int> preferredTiles = new();
         
-        foreach (Contract.Tile tile in lobbyParameters.board.tiles)
+        foreach (Contract.TileState tile in lobbyParameters.board.tiles)
         {
             // Skip if tile is not for this team or position is already used
             if (tile.setup != team || usedPositions.Contains(tile.pos))
@@ -1907,6 +1857,133 @@ public struct GameNetworkState
         
         // Return preferred tiles if available, otherwise fallback to all eligible tiles
         return preferredTiles.Count > 0 ? preferredTiles : eligibleTiles;
+    }
+
+    public bool CanUserMovePawn(PawnId? mPawnId)
+    {
+        if (mPawnId is PawnId pawnId)
+        {
+            if (pawnId.GetTeam() == userTeam)
+            {
+                return CanPawnMove(pawnId);
+            }
+        }
+        return false;
+    }
+    
+    public bool CanPawnMove(PawnId pawnId)
+    {
+        PawnState pawn = GetPawnFromId(pawnId);
+        if (pawn.CanMove())
+        {
+            // TODO check adjacent tiles
+            return true;
+        }
+        return false;
+    }
+
+    public PawnState GetPawnFromId(PawnId pawnId)
+    {
+        if (gameState.pawns.Any(pawn => pawn.pawn_id == pawnId))
+        {
+            return gameState.pawns.First(pawn => pawn.pawn_id == pawnId);
+        }
+        throw new ArgumentOutOfRangeException(nameof(pawnId));
+    }
+    
+    public PawnState? GetPawnFromPosChecked(Vector2Int pos)
+    {
+        if (gameState.pawns.Any(pawn => pawn.pos == pos))
+        {
+            return gameState.pawns.First(pawn => pawn.pos == pos);
+        }
+        return null;
+    }
+    
+    public PawnState GetPawnFromPos(Vector2Int pos)
+    {
+        if (GetPawnFromPosChecked(pos) is PawnState pawnState)
+        {
+            return pawnState;
+        }
+        throw new ArgumentOutOfRangeException();
+    }
+    
+    public TileState? GetTileChecked(Vector2Int pos)
+    {
+        if (lobbyParameters.board.GetTileFromPosition(pos) is Contract.TileState tile)
+        {
+            return tile;
+        }
+        return null;
+    }
+    
+    public TileState GetTile(Vector2Int pos)
+    {
+        if (GetTileChecked(pos) is Contract.TileState tile)
+        {
+            return tile;
+        }
+        throw new ArgumentOutOfRangeException();
+    }
+
+    bool IsPosValidMoveTarget(Vector2Int target)
+    {
+        if (GetTileChecked(target) is not TileState tile)
+        {
+            return false;
+        }
+        if (!tile.passable)
+        {
+            return false;
+        }
+        
+        return true;
+    }
+
+    public HashSet<Vector2Int> GetValidMoveTargetList(PawnId pawnId)
+    {
+        PawnState pawn = GetPawnFromId(pawnId);
+        bool isHex = lobbyParameters.board.hex;
+        Vector2Int[] initialDirections = Shared.GetDirections(pawn.pos, isHex);
+        // if rank is unknown just return empty
+        if (pawn.GetKnownRank() is not Rank rank)
+        {
+            return new();
+        }
+        HashSet<Vector2Int> movablePositions = new();
+        for (int directionIndex = 0; directionIndex < initialDirections.Length; directionIndex++)
+        {
+            Vector2Int currentPos = pawn.pos;
+            int walkedTiles = 0;
+            while (walkedTiles < Rules.GetMovementRange(rank))
+            {
+                Vector2Int[] currentDirections = Shared.GetDirections(currentPos, isHex);
+                currentPos += currentDirections[directionIndex];
+                if (GetTileChecked(currentPos) is not TileState tile)
+                {
+                    break;
+                }
+                if (!tile.passable)
+                {
+                    break;
+                }
+                if (GetPawnFromPosChecked(currentPos) is PawnState pawnOnPos)
+                {
+                    if (pawnOnPos.GetTeam() == pawn.GetTeam())
+                    {
+                        // cannot move through own pawns
+                        break;
+                    }
+                    // tile is occupied by enemy pawn, stop walking
+                    movablePositions.Add(currentPos);
+                    break;
+                }
+                movablePositions.Add(currentPos);
+                walkedTiles++;
+            }
+        }
+        return movablePositions;
     }
 
 }
@@ -1960,4 +2037,12 @@ public enum SetupInputTool
     NONE,
     ADD,
     REMOVE,
+}
+
+public enum MoveInputTool
+{
+    NONE,
+    SELECT,
+    TARGET,
+    CLEAR_SELECT,
 }
