@@ -46,7 +46,7 @@ public class GuiMovement : GameElement
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
     
-    public void PhaseStateChanged(PhaseBase currentPhase, IPhaseChangeSet changes)
+    public void PhaseStateChanged(IPhaseChangeSet changes)
     {
 
         

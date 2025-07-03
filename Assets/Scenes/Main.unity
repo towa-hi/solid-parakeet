@@ -8179,7 +8179,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   defaultCursor: {fileID: 2800000, guid: 0503195036b9f124ea06737b75fe199e, type: 3}
   plusCursor: {fileID: 2800000, guid: 5f735a943445c9b468952bfc092d26a1, type: 3}
-  targetCursor: {fileID: 0}
+  targetCursor: {fileID: 2800000, guid: 9229e2524e995fa49ba7c41770c8f85c, type: 3}
   minusCursor: {fileID: 2800000, guid: e51ca90dab0a0d84299cca7e744a0210, type: 3}
   disabledCursor: {fileID: 2800000, guid: 9229e2524e995fa49ba7c41770c8f85c, type: 3}
   hotspot: {x: 0, y: 0}

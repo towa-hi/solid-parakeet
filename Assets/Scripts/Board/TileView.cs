@@ -98,11 +98,11 @@ public class TileView : MonoBehaviour
     }
 
     
-    public void PhaseStateChanged(PhaseBase phase, IPhaseChangeSet changes)
+    public void PhaseStateChanged(IPhaseChangeSet changes)
     {
         if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
         {
-            switch (phase)
+            switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
                     DisplaySetupView(true);
@@ -115,7 +115,7 @@ public class TileView : MonoBehaviour
                 case RankProvePhase rankProvePhase:
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(phase));
+                    throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
             }
         }
         foreach (GameOperation operation in changes.operations)

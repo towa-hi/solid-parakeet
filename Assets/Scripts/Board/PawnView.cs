@@ -51,43 +51,66 @@ public class PawnView : MonoBehaviour
         
     }
     
-    public void PhaseStateChanged(PhaseBase phase, IPhaseChangeSet changes)
+    public void PhaseStateChanged(IPhaseChangeSet changes)
     {
+        // what to do
+        bool? setVisible = null;
+        Rank? setRankView = null;
+        (Vector2Int, TileView)? setPosView = null;
+        // figure out what to do based on what happened
+        // for net changes
         if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
         {
-            PawnState pawn = netStateUpdated.netState.GetPawnFromId(pawnId);
-            rankView = pawn.GetKnownRank() ?? Rank.UNKNOWN;
-            switch (phase)
+            PawnState pawn = netStateUpdated.phase.cachedNetState.GetPawnFromId(pawnId);
+            setRankView = pawn.GetKnownRank() ?? Rank.UNKNOWN;
+            setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
+            switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
                     // in setupCommitPhase we only show pawns that have been committed on our side
-                    visible = setupCommitPhase.pendingCommits.ContainsKey(pawnId) &&
-                              setupCommitPhase.pendingCommits[pawnId] != null;
+                    if (setupCommitPhase.cachedNetState.IsMySubphase())
+                    {
+                        setVisible = setupCommitPhase.pendingCommits.ContainsKey(pawnId) &&
+                                     setupCommitPhase.pendingCommits[pawnId] != null;
+                    }
+                    else
+                    {
+                        // if waiting for opponent we just show our own committed pawns
+                        if (team == setupCommitPhase.cachedNetState.userTeam)
+                        {
+                            setVisible = true;
+                        }
+                    }
                     break;
                 case MoveCommitPhase moveCommitPhase:
-                    visible = pawn.alive;
                     break;
                 case MoveProvePhase moveProvePhase:
-                    visible = pawn.alive;
                     break;
                 case RankProvePhase rankProvePhase:
-                    visible = pawn.alive;
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(phase));
+                    throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
             }
         }
+        // for local changes
         foreach (GameOperation operation in changes.operations)
         {
             switch (operation)
             {
                 case SetupHoverChanged setupHoverChanged:
                     break;
-                case SetupRankCommitted(var changedCommits, var setupCommitPhase) setupRankCommitted:
-                    if (changedCommits.ContainsKey(pawnId))
+                case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
+                    if (pawnId.GetTeam() == setupCommitPhase.userTeam)
                     {
-                        rankView = changedCommits[pawnId] ?? Rank.UNKNOWN;
-                        visible = rankView == Rank.UNKNOWN;
+                        if (oldPendingCommits[pawnId] != setupCommitPhase.pendingCommits[pawnId])
+                        {
+                            setRankView = setupCommitPhase.pendingCommits[pawnId] ?? Rank.UNKNOWN;
+                            setVisible = rankView != Rank.UNKNOWN;
+                        }
+                    }
+                    else
+                    {
+                        visible = false;
                     }
                     break;
                 case MoveHoverChanged moveHoverChanged:
@@ -98,16 +121,29 @@ public class PawnView : MonoBehaviour
                     break;
             }
         }
-        // do view stuff
-        model.SetActive(visible);
-        DisplayRankView();
-        DisplayPosView();
+        // now do the stuff
+        if (setVisible != null)
+        {
+            visible = setVisible.Value;
+            model.SetActive(visible);
+        }
+        if (setRankView != null)
+        {
+            rankView = setRankView.Value;
+            DisplayRankView(rankView);
+        }
+
+        if (setPosView != null)
+        {
+            (Vector2Int pos, TileView tile) = setPosView.Value;
+            posView = pos;
+            DisplayPosView(tile);
+        }
         
     }
     
     void DisplayPosView(TileView tileView = null)
     {
-        posView = tileView?.posView ?? Globals.Purgatory;
         Transform target = tileView ? tileView.origin : GameManager.instance.purgatory;
         parentConstraint.SetSource(0, new ConstraintSource()
         {
@@ -117,9 +153,9 @@ public class PawnView : MonoBehaviour
         parentConstraint.constraintActive = true;
     }
     
-    void DisplayRankView()
+    void DisplayRankView(Rank rank)
     {
-        PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rankView);
+        PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rank);
         switch (team)
         {
             case Team.RED:
@@ -134,7 +170,7 @@ public class PawnView : MonoBehaviour
         float randNormTime = Random.Range(0f, 1f);
         animator.Play("Idle", 0, randNormTime);
         animator.Update(0f);
-        badge.SetBadge(team, rankView);
+        badge.SetBadge(team, rank);
     }
     
     // void Revealed(PawnState p)

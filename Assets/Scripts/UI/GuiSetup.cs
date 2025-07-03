@@ -50,53 +50,104 @@ public class GuiSetup : GameElement
     }
 
 
-    public void PhaseStateChanged(PhaseBase phase, IPhaseChangeSet changes)
+    public void PhaseStateChanged(IPhaseChangeSet changes)
     {
-
+        // what to do
+        bool? setShowElement = null;
+        GameNetworkState? setInitialize = null;
+        ((Rank, int, int)[], Rank?)? setRefreshEntries = null;
+        string setStatus = "";
+        bool? setAutoSetupButton = null;
+        bool? setSubmitButton = null;
+        bool? setClearButton = null;
+        // figure out what to do based on what happened
+        // for net changes
         if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
         {
-            string status = "";
-            Initialize(netStateUpdated.netState);
-            bool showElement = false;
-            switch (phase)
+            setInitialize = netStateUpdated.phase.cachedNetState;
+            switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
-                    showElement = true;
-                    if (netStateUpdated.netState.IsMySubphase())
+                    setShowElement = true;
+                    (Rank, int, int)[] ranksArray = setupCommitPhase.RanksRemaining();
+                    setRefreshEntries = (ranksArray, setupCommitPhase.selectedRank);
+                    if (netStateUpdated.phase.cachedNetState.IsMySubphase())
                     {
-                        status = "Commit your pawn setup";
+                        setStatus = "Commit your pawn setup";
+                        setAutoSetupButton = true;
+                        setSubmitButton = ranksArray.All(rank => rank.Item3 == rank.Item2); 
+                        setClearButton = ranksArray.Any(rank => rank.Item3 > 0); 
                     }
                     else
                     {
-                        status = "Awaiting opponent setup";
+                        setStatus = "Awaiting opponent setup";
+                        setAutoSetupButton = false;
+                        setSubmitButton = false;
+                        setClearButton = false;
                     }
                     break;
                 case MoveCommitPhase moveCommitPhase:
                 case MoveProvePhase moveProvePhase:
                 case RankProvePhase rankProvePhase:
-                    showElement = false;
+                    setShowElement = false;
                     break;
             }
-            ShowElement(showElement);
+            
         }
-
+        // for local changes
         foreach (GameOperation operation in changes.operations)
         {
             switch (operation)
             {
-                case SetupRankCommitted(_, var setupCommitPhase) setupRankCommitted:
-                    RefreshRankEntryList(setupCommitPhase.RanksRemaining(), setupCommitPhase.selectedRank);
+                case SetupRankCommitted(_, var setupCommitPhase):
+                    (Rank, int, int)[] ranksArray = setupCommitPhase.RanksRemaining();
+                    setRefreshEntries = (ranksArray, setupCommitPhase.selectedRank);
+                    setSubmitButton = ranksArray.All(rank => rank.Item3 == rank.Item2); 
+                    setClearButton = ranksArray.Any(rank => rank.Item3 > 0); 
                     break;
-                case SetupRankSelected(_,var setupCommitPhase) setupRankSelected:
-                    RefreshRankEntryList(setupCommitPhase.RanksRemaining(), setupCommitPhase.selectedRank);
+                case SetupRankSelected(_,var setupCommitPhase):
+                    (Rank, int, int)[] ranksArray2 = setupCommitPhase.RanksRemaining();
+                    setRefreshEntries = (ranksArray2, setupCommitPhase.selectedRank);
+                    setSubmitButton = ranksArray2.All(rank => rank.Item3 == rank.Item2); 
+                    setClearButton = ranksArray2.Any(rank => rank.Item3 > 0); 
                     break;
             }
         }
         
+        // now do the stuff
+        if (setShowElement != null)
+        {
+            ShowElement(setShowElement.Value);
+        }
+        if (setInitialize != null)
+        {
+            Initialize(setInitialize.Value);
+        }
+        if (setRefreshEntries != null)
+        {
+            RefreshRankEntryList(setRefreshEntries.Value.Item1, setRefreshEntries.Value.Item2);
+        }
+        if (setStatus.Length != 0)
+        {
+            statusText.text = setStatus;
+        }
+        if (setAutoSetupButton != null)
+        {
+            autoSetupButton.interactable = setAutoSetupButton.Value;
+        }
+        if (setSubmitButton != null)
+        {
+            submitButton.interactable = setSubmitButton.Value;
+        }
+        if (setClearButton != null)
+        {
+            clearButton.interactable = setClearButton.Value;
+        }
     }
     
     void RefreshRankEntryList((Rank rank, int max, int committed)[] ranksRemaining, Rank? selectedRank)
     {
+        // TODO: these parameters are insanely stupid
         foreach ((Rank rank, int max, int committed) in ranksRemaining)
         {
             bool entrySelected = rank == selectedRank;
