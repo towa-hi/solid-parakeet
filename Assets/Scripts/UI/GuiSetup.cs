@@ -90,9 +90,6 @@ public class GuiSetup : GameElement
                 case SetupRankSelected(_,var setupCommitPhase) setupRankSelected:
                     RefreshRankEntryList(setupCommitPhase.RanksRemaining(), setupCommitPhase.selectedRank);
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(operation));
-
             }
         }
         
