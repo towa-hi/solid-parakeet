@@ -86,37 +86,36 @@ public class BoardManager : MonoBehaviour
     
     void OnNetworkStateUpdated()
     {
-        Debug.Log("TestBoardManager::OnNetworkStateUpdated");
         if (!activated)
         {
             return;
         }
-        GameNetworkState networkState = new(StellarManager.networkState);
+        Debug.Log("TestBoardManager::OnNetworkStateUpdated");
+        GameNetworkState netState = new(StellarManager.networkState);
         if (!initialized)
         {
-            Initialize(networkState);
+            Initialize(netState);
             clickInputManager.Initialize(this);
-            CacheManager.Initialize(networkState.address, networkState.lobbyInfo.index);
+            CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
             lastPhase = Phase.Lobby;
             initialized = true;
         }
-
-        Phase nextPhase = networkState.lobbyInfo.phase;
+        Phase nextPhase = netState.lobbyInfo.phase;
         if (nextPhase != lastPhase)
         {
-            switch (networkState.lobbyInfo.phase)
+            switch (netState.lobbyInfo.phase)
             {
                 case Phase.SetupCommit:
-                    SetPhase(new SetupCommitPhase(this, guiGame.setup, networkState, clickInputManager));
+                    SetPhase(new SetupCommitPhase(this, guiGame.setup, netState, clickInputManager));
                     break;
                 case Phase.MoveCommit:
-                    SetPhase(new MoveCommitPhase(this, guiGame.movement, networkState, clickInputManager));
+                    SetPhase(new MoveCommitPhase(this, guiGame.movement, netState, clickInputManager));
                     break;
                 case Phase.MoveProve:
-                    SetPhase(new MoveProvePhase(this, guiGame.movement, networkState, clickInputManager));
+                    SetPhase(new MoveProvePhase(this, guiGame.movement, netState, clickInputManager));
                     break;
                 case Phase.RankProve:
-                    SetPhase(new RankProvePhase(this, guiGame.movement, networkState, clickInputManager));
+                    SetPhase(new RankProvePhase(this, guiGame.movement, netState, clickInputManager));
                     break;
                 case Phase.Finished:
                 case Phase.Aborted:
@@ -129,8 +128,10 @@ public class BoardManager : MonoBehaviour
         }
         else
         {
-            currentPhase.UpdateNetworkState(networkState);
+            currentPhase.UpdateNetworkState(netState);
         }
+        // directly invoke this
+        PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(netState)));
     }
     
     void SetPhase(PhaseBase newPhase)
@@ -227,6 +228,7 @@ public abstract class PhaseBase
         pawnViews = bm.pawnViews;
         clickInputManager.OnMouseInput = OnMouseInput;
         oldNetState = netState;
+        cachedNetState = netState;
     }
     
     public virtual void EnterState(Action<IPhaseChangeSet> inOnPhaseStateChanged)
@@ -243,7 +245,6 @@ public abstract class PhaseBase
     {
         oldNetState = cachedNetState;
         cachedNetState = netState;
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new NetStateUpdated(netState)));
     }
 
 
@@ -263,6 +264,8 @@ public class SetupCommitPhase : PhaseBase
         {
             pendingCommits[pawn.pawn_id] = null;
         }
+
+        setupInputTool = SetupInputTool.NONE;
         guiSetup.OnClearButton = OnClear;
         guiSetup.OnAutoSetupButton = OnAutoSetup;
         guiSetup.OnRefreshButton = OnRefresh;
@@ -270,11 +273,6 @@ public class SetupCommitPhase : PhaseBase
         guiSetup.OnEntryClicked = OnEntryClicked;
     }
     
-    public bool AreAllPawnsComitted()
-    {
-        return !pendingCommits.ContainsValue(null);
-    }
-
     public (Rank, int, int)[] RanksRemaining()
     {
         Rank[] ranks = (Rank[])Enum.GetValues(typeof(Rank));

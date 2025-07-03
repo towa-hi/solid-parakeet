@@ -44,10 +44,9 @@ public class TileView : MonoBehaviour
         posView = tile.pos;
         gameObject.name = $"Tile {posView}";
         
-        initialElevatorLocalPos = tileModel.elevator.localPosition;
         
         SetTile(tile, hex);
-        Refresh();
+        initialElevatorLocalPos = tileModel.elevator.localPosition;
     }
 
     void SetTile(TileState tile, bool hex)
@@ -66,12 +65,6 @@ public class TileView : MonoBehaviour
         tileModel = hex ? hexTileModel : squareTileModel;
         // update view except posView which cant be updated because only boardManager can do that
         tileModel.gameObject.SetActive(passableView);
-    }
-    
-
-    void Refresh()
-    {
-        
     }
     
     void OnDestroy()

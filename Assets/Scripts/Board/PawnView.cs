@@ -60,7 +60,9 @@ public class PawnView : MonoBehaviour
             switch (phase)
             {
                 case SetupCommitPhase setupCommitPhase:
-                    visible = setupCommitPhase.pendingCommits[pawnId] != null;
+                    // in setupCommitPhase we only show pawns that have been committed on our side
+                    visible = setupCommitPhase.pendingCommits.ContainsKey(pawnId) &&
+                              setupCommitPhase.pendingCommits[pawnId] != null;
                     break;
                 case MoveCommitPhase moveCommitPhase:
                     visible = pawn.alive;

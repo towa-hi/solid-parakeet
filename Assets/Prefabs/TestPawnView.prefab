@@ -775,14 +775,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   badge: {fileID: 6941801488250841614}
+  model: {fileID: 2702605089973670794}
   parentConstraint: {fileID: 6554624529676426233}
-  team: 0
-  isMyTeam: 0
-  displayedPos: {x: 0, y: 0}
-  pawnDefHash: 
   animator: {fileID: 236010443059273928}
   renderEffect: {fileID: 5543228733878367094}
-  setupPos: {x: 0, y: 0}
+  startPos: {x: 0, y: 0}
+  team: 0
+  posView: {x: 0, y: 0}
 --- !u!1773428102 &6554624529676426233
 ParentConstraint:
   m_ObjectHideFlags: 0
