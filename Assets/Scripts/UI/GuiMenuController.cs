@@ -234,6 +234,7 @@ public class GameElement: MonoBehaviour
 
     public void ShowElement(bool show)
     {
+        Debug.Log($"GameElement {gameObject.name} show element: {show}");
         isVisible = show;
         gameObject.SetActive(show);
     }

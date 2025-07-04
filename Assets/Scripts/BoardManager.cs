@@ -143,6 +143,12 @@ public class BoardManager : MonoBehaviour
     
     void PhaseStateChanged(IPhaseChangeSet changes)
     {
+        string debugString = "";
+        foreach (GameOperation operation in changes.operations)
+        {
+            debugString += $"{operation.GetType()},";
+        }
+        Debug.Log($"PhaseStateChanged changes: {debugString}");
         // Central callback - receives all operations and broadcasts to views
         // boardmanager handles its own stuff first
         foreach (GameOperation operation in changes.operations)
@@ -510,6 +516,7 @@ public class MoveCommitPhase: PhaseBase
     public Vector2Int? targetPos;
     public MoveInputTool moveInputTool;
     public HashSet<Vector2Int> targetablePositions;
+    bool polling;
     
     public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
@@ -522,6 +529,7 @@ public class MoveCommitPhase: PhaseBase
         guiMovement.OnRefreshButton = OnRefresh;
         if (!cachedNetState.IsMySubphase())
         {
+            polling = true;
             LoadCachedData();
         }
     }
@@ -531,6 +539,7 @@ public class MoveCommitPhase: PhaseBase
         base.UpdateNetworkState(netState);
         if (!cachedNetState.IsMySubphase())
         {
+            polling = true;
             LoadCachedData();
         }
     }
@@ -697,10 +706,49 @@ public class MoveCommitPhase: PhaseBase
 
 public class MoveProvePhase: PhaseBase
 {
+    public Vector2Int? selectedPos;
+    public Vector2Int? targetPos;
+    
     public MoveProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
+        LoadCachedData();
+        if (cachedNetState.IsMySubphase())
+        {
+            AutomaticallySendMoveProof();
+        }
     }
 
+    public override void UpdateNetworkState(GameNetworkState netState)
+    {
+        base.UpdateNetworkState(netState);
+        LoadCachedData();
+        if (cachedNetState.IsMySubphase())
+        {
+            AutomaticallySendMoveProof();
+        }
+    }
+
+    void LoadCachedData()
+    {
+        byte[] moveHash = cachedNetState.GetUserMove().move_hash;
+        if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+        {
+            selectedPos = hiddenMove.start_pos;
+            targetPos = hiddenMove.target_pos;
+        }
+    }
+    
+    void AutomaticallySendMoveProof()
+    {
+        Debug.Log("automatically send move proof");
+        byte[] moveHash = cachedNetState.GetUserMove().move_hash;
+        if (CacheManager.GetHiddenMove(moveHash) is not HiddenMove move)
+        {
+            throw new Exception($"Could not find move with move hash {moveHash}");
+        }
+        _ = StellarManager.ProveMoveRequest(cachedNetState.lobbyInfo.index, move);
+    }
+    
     protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)
     {
         throw new NotImplementedException();
@@ -716,8 +764,50 @@ public class MoveProvePhase: PhaseBase
 
 public class RankProvePhase: PhaseBase
 {
+    public Vector2Int? selectedPos;
+    public Vector2Int? targetPos;
+    
     public RankProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
+        if (cachedNetState.GetUserMove().move_proof is HiddenMove hiddenMove)
+        {
+            selectedPos = hiddenMove.start_pos;
+            targetPos = hiddenMove.target_pos;
+        }
+        if (cachedNetState.IsMySubphase())
+        {
+            AutomaticallySendRankProof();
+        }
+    }
+
+    public override void UpdateNetworkState(GameNetworkState netState)
+    {
+        base.UpdateNetworkState(netState);
+        if (cachedNetState.GetUserMove().move_proof is HiddenMove hiddenMove)
+        {
+            selectedPos = hiddenMove.start_pos;
+            targetPos = hiddenMove.target_pos;
+        }
+        if (cachedNetState.IsMySubphase())
+        {
+            AutomaticallySendRankProof();
+        }
+    }
+    
+    void AutomaticallySendRankProof()
+    {
+        Debug.Log("automatically send rank proof");
+        List<HiddenRank> rankProofs = new();
+        foreach (PawnId pawnId in cachedNetState.GetUserMove().needed_rank_proofs)
+        {
+            byte[] rankHash = cachedNetState.GetPawnFromId(pawnId).hidden_rank_hash;
+            if (CacheManager.GetHiddenRank(rankHash) is not HiddenRank hiddenRank)
+            {
+                throw new Exception($"Could not find move with rank hash {rankHash}");
+            }
+            rankProofs.Add(hiddenRank);
+        }
+        _ = StellarManager.ProveRankRequest(cachedNetState.lobbyInfo.index, rankProofs.ToArray());
     }
     
     protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)

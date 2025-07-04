@@ -21,7 +21,7 @@ namespace Contract
     
     public static class SCUtility
     {
-        public static bool log = true;
+        public static bool log = false;
         
         public static void DebugLog(string msg) { if (log) { Debug.Log(msg); } }
         

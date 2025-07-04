@@ -19,29 +19,60 @@ using Stellar.Utilities;
 using UnityEngine;
 using UnityEngine.Networking;
 
-public class SimpleHttpClientFactory : IHttpClientFactory
-{
-    public HttpClient CreateClient(string name)
-    {
-        return new HttpClient();
-    }
-}
-
 public class StellarDotnet
 {
     // sneed and derived properties
     public string sneed;
-    MuxedAccount.KeyTypeEd25519 userAccount => MuxedAccount.FromSecretSeed(sneed);
-    public string userAddress => StrKey.EncodeStellarAccountId(userAccount.PublicKey);
-    SCVal.ScvAddress userAddressSCVal => new()
+    MuxedAccount.KeyTypeEd25519 cachedUserAccount;
+    string cachedUserAddress;
+    SCVal.ScvAddress cachedUserAddresSCVal;
+    
+    MuxedAccount.KeyTypeEd25519 userAccount
     {
-        address = new SCAddress.ScAddressTypeAccount()
+        get
         {
-            accountId = new AccountID(userAccount.XdrPublicKey),
-        },
-    };
+            if (cachedUserAccount == null && !string.IsNullOrEmpty(sneed))
+            {
+                cachedUserAccount = MuxedAccount.FromSecretSeed(sneed);
+            }
+            return cachedUserAccount;
+        }
+    }
+    
+    public string userAddress
+    {
+        get
+        {
+            if (cachedUserAddress == null && userAccount != null)
+            {
+                cachedUserAddress = StrKey.EncodeStellarAccountId(userAccount.PublicKey);
+            }
+            return cachedUserAddress;
+        }
+    }
+    
+    SCVal.ScvAddress userAddressSCVal
+    {
+        get
+        {
+            if (cachedUserAddresSCVal == null && userAccount != null)
+            {
+                cachedUserAddresSCVal = new SCVal.ScvAddress()
+                {
+                    address = new SCAddress.ScAddressTypeAccount()
+                    {
+                        accountId = new AccountID(userAccount.XdrPublicKey),
+                    },
+                };
+            }
+            return cachedUserAddresSCVal;
+        }
+    }
 
     long latestLedger;
+    
+    [ThreadStatic]
+    private static TimingTracker currentTracker;
     
     // contract address and derived properties
     public string contractAddress;
@@ -61,11 +92,47 @@ public class StellarDotnet
         Network.UseTestNetwork();
         SetSneed(inSecretSneed);
         SetContractId(inContractId);
+        
+        // Warm up JSON.NET to avoid first-call initialization delay
+        WarmUpJsonSerializer();
+    }
+    
+    private void WarmUpJsonSerializer()
+    {
+        try
+        {
+            // Create a dummy request similar to what we'll actually serialize
+            var dummyRequest = new JsonRpcRequest
+            {
+                JsonRpc = "2.0",
+                Method = "getLedgerEntries",
+                Params = new GetLedgerEntriesParams
+                {
+                    Keys = new[] { "dummy" }
+                },
+                Id = 1
+            };
+            
+            // Perform serialization to warm up JSON.NET
+            long warmupStart = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string warmupJson = JsonConvert.SerializeObject(dummyRequest, jsonSettings);
+            long warmupEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            
+            Debug.Log($"JSON.NET warmup completed in {warmupEnd - warmupStart}ms");
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"JSON.NET warmup failed: {e.Message}");
+        }
     }
 
     public void SetSneed(string inSneed)
     {
         sneed = inSneed;
+        // Clear cached values when sneed changes
+        cachedUserAccount = null;
+        cachedUserAddress = null;
+        cachedUserAddresSCVal = null;
     }
     
     public void SetContractId(string inContractAddress)
@@ -75,7 +142,13 @@ public class StellarDotnet
 
     public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable obj)
     {
+        currentTracker = new TimingTracker();
+        currentTracker.StartOperation($"CallVoidFunction({functionName})");
+        
+        currentTracker.StartOperation("ReqAccountEntry");
         AccountEntry accountEntry = await ReqAccountEntry(userAccount);
+        currentTracker.EndOperation();
+        
         List<SCVal> argsList = new() { userAddressSCVal };
         if (obj != null)
         {
@@ -83,12 +156,23 @@ public class StellarDotnet
             argsList.Add(data);
         }
         SCVal[] args = argsList.ToArray();
+        
+        currentTracker.StartOperation($"InvokeContractFunction({functionName})");
         (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await InvokeContractFunction(accountEntry, functionName, args);
+        currentTracker.EndOperation();
+        
         if (simResult.Error != null)
         {
+            currentTracker.EndOperation();
+            Debug.Log(currentTracker.GetReport());
+            currentTracker = null;
             return (null, simResult);
         }
+        
+        currentTracker.StartOperation("WaitForTransaction");
         GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000);
+        currentTracker.EndOperation();
+        
         if (getResult == null)
         {
             Debug.LogError("CallVoidFunction: timed out or failed to connect");
@@ -97,15 +181,26 @@ public class StellarDotnet
         {
             Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
         }
+        
+        currentTracker.EndOperation();
+        Debug.Log(currentTracker.GetReport());
+        currentTracker = null;
+        
         return (getResult, simResult);
     }
     
     public async Task<AccountEntry> ReqAccountEntry(MuxedAccount.KeyTypeEd25519 account)
     {
+        currentTracker?.StartOperation("EncodedAccountKey");
+        string encodedKey = EncodedAccountKey(account);
+        currentTracker?.EndOperation();
+        
+        currentTracker?.StartOperation("GetLedgerEntriesAsync");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
-            Keys = new [] {EncodedAccountKey(account)},
+            Keys = new [] {encodedKey},
         });
+        currentTracker?.EndOperation();
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
             return null;
@@ -119,10 +214,31 @@ public class StellarDotnet
     
     public async Task<LedgerEntry.dataUnion.Trustline> GetAssets(MuxedAccount.KeyTypeEd25519 account)
     {
+        bool isTopLevel = currentTracker == null;
+        if (isTopLevel)
+        {
+            currentTracker = new TimingTracker();
+            currentTracker.StartOperation("GetAssets");
+        }
+        
+        currentTracker?.StartOperation("EncodedTrustlineKey");
+        string encodedKey = EncodedTrustlineKey(account);
+        currentTracker?.EndOperation();
+        
+        currentTracker?.StartOperation("GetLedgerEntriesAsync");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
-            Keys = new [] {EncodedTrustlineKey(account)},
+            Keys = new [] {encodedKey},
         });
+        currentTracker?.EndOperation();
+        
+        if (isTopLevel)
+        {
+            currentTracker.EndOperation();
+            Debug.Log(currentTracker.GetReport());
+            currentTracker = null;
+        }
+        
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
             return null;
@@ -136,27 +252,52 @@ public class StellarDotnet
     
     public async Task<NetworkState> ReqNetworkState()
     {
+        currentTracker = new TimingTracker();
+        currentTracker.StartOperation("ReqNetworkState");
+        
         NetworkState networkState = new(userAddress);
+        
+        currentTracker.StartOperation("ReqUser");
         User? mUser = await ReqUser(userAddress);
+        currentTracker.EndOperation();
+        
         networkState.user = mUser;
         if (mUser is User user && user.current_lobby != 0)
         {
+            currentTracker.StartOperation("ReqLobbyStuff");
             (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(user.current_lobby);
+            currentTracker.EndOperation();
+            
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
             networkState.gameState = mGameState;
         }
+        
+        currentTracker.EndOperation();
+        Debug.Log(currentTracker.GetReport());
+        currentTracker = null;
+        
         return networkState;
     }
     
     async Task<User?> ReqUser(AccountAddress key)
     {
         // try to use the stellar rpc client
+        currentTracker?.StartOperation("MakeLedgerKey");
         LedgerKey ledgerKey = MakeLedgerKey("User", key, ContractDataDurability.PERSISTENT);
+        currentTracker?.EndOperation();
+        
+        currentTracker?.StartOperation("EncodeToBase64");
+        string encodedKey = LedgerKeyXdr.EncodeToBase64(ledgerKey);
+        currentTracker?.EndOperation();
+        
+        currentTracker?.StartOperation("GetLedgerEntriesAsync");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
-            Keys = new [] {LedgerKeyXdr.EncodeToBase64(ledgerKey)},
+            Keys = new [] {encodedKey},
         });
+        currentTracker?.EndOperation();
+        
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
             return null;
@@ -178,6 +319,8 @@ public class StellarDotnet
         string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
         string lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyParameters", key, ContractDataDurability.TEMPORARY));
         string gameStateKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("GameState", key, ContractDataDurability.TEMPORARY));
+        
+        currentTracker?.StartOperation("GetLedgerEntriesAsync (3 keys)");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
             Keys = new[]
@@ -187,6 +330,8 @@ public class StellarDotnet
                 gameStateKey,
             },
         });
+        currentTracker?.EndOperation();
+        
         (LobbyInfo?, LobbyParameters?, GameState?) tuple = (null, null, null);
         foreach (Entries entry in getLedgerEntriesResult.Entries)
         {
@@ -213,12 +358,15 @@ public class StellarDotnet
                 tuple.Item3 = gameState;
             }
         }
+        
         return tuple;
     }
     
     async Task<(SendTransactionResult, SimulateTransactionResult)> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
     {
         Transaction invokeContractTransaction = InvokeContractTransaction(functionName, accountEntry, args);
+        
+        currentTracker?.StartOperation("SimulateTransactionAsync");
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(new SimulateTransactionParams()
         {
             Transaction = EncodeTransaction(invokeContractTransaction),
@@ -227,16 +375,22 @@ public class StellarDotnet
                 // TODO: setup resource config
             }
         });
+        currentTracker?.EndOperation();
+        
         if (simulateTransactionResult.Error != null)
         {
             return (null, simulateTransactionResult);
         }
         Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
         string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+        
+        currentTracker?.StartOperation("SendTransactionAsync");
         SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
         {
             Transaction = encodedSignedTransaction,
         });
+        currentTracker?.EndOperation();
+        
         return (sendTransactionResult, simulateTransactionResult);
     }
     
@@ -306,23 +460,32 @@ public class StellarDotnet
 
     async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
     {
-        
         int attempts = 0;
+        
+        currentTracker?.StartOperation($"Initial delay ({delayMS}ms)");
         await AsyncDelay.Delay(delayMS);
+        currentTracker?.EndOperation();
+        
         while (attempts < maxAttempts)
         {
             attempts++;
+            
+            currentTracker?.StartOperation($"GetTransactionAsync (attempt {attempts})");
             GetTransactionResult completion = await GetTransactionAsync(new GetTransactionParams()
             {
                 Hash = txHash
             });
+            currentTracker?.EndOperation();
+            
             switch (completion.Status)
             {
                 case GetTransactionResult_Status.FAILED:
                     Debug.Log("WaitForTransaction: FAILED");
                     return completion;
                 case GetTransactionResult_Status.NOT_FOUND:
+                    currentTracker?.StartOperation($"Retry delay ({delayMS}ms)");
                     await AsyncDelay.Delay(delayMS);
+                    currentTracker?.EndOperation();
                     continue;
                 case GetTransactionResult_Status.SUCCESS:
                     Debug.Log("WaitForTransaction: SUCCESS");
@@ -345,7 +508,11 @@ public class StellarDotnet
             Id = 1,
         };
         string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
+        
+        currentTracker?.StartOperation("SendJsonRequest");
         string content = await SendJsonRequest(requestJson);
+        currentTracker?.EndOperation();
+        
         JObject jsonObject = JObject.Parse(content);
         // NOTE: Remove "stateChanges" entirely to avoid deserialization issues
         JObject resultObj = (JObject)jsonObject["result"];
@@ -375,8 +542,12 @@ public class StellarDotnet
             Id = 1,
         };
         string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
+        
+        currentTracker?.StartOperation("SendJsonRequest");
         string content = await SendJsonRequest(requestJson);
-        JsonRpcResponse<SendTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<SendTransactionResult>>(content, this.jsonSettings);
+        currentTracker?.EndOperation();
+        
+        JsonRpcResponse<SendTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<SendTransactionResult>>(content, jsonSettings);
         SendTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         return transactionResult;
     }
@@ -391,10 +562,21 @@ public class StellarDotnet
             Params = parameters,
             Id = 1
         };
-        string requestJson = JsonConvert.SerializeObject(request, this.jsonSettings);
+        currentTracker?.StartOperation("JSON Serialize Request");
+        long serializeStart = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
+        long serializeEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        currentTracker?.EndOperation();
+        
+        currentTracker?.StartOperation("SendJsonRequest");
         string content = await SendJsonRequest(requestJson);
+        currentTracker?.EndOperation();
+        
+        currentTracker?.StartOperation("JSON Deserialize Response");
         JsonRpcResponse<GetLedgerEntriesResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetLedgerEntriesResult>>(content, this.jsonSettings);
         GetLedgerEntriesResult ledgerEntriesAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
+        currentTracker?.EndOperation();
+        
         latestLedger = ledgerEntriesAsync.LatestLedger;
         return ledgerEntriesAsync;
     }
@@ -410,7 +592,11 @@ public class StellarDotnet
             Id = 1
         };
         string requestJson = JsonConvert.SerializeObject(request, this.jsonSettings);
+        
+        currentTracker?.StartOperation("SendJsonRequest");
         string content = await SendJsonRequest(requestJson);
+        currentTracker?.EndOperation();
+        
         JsonRpcResponse<GetTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetTransactionResult>>(content, this.jsonSettings);
         GetTransactionResult transactionAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         latestLedger = transactionAsync.LatestLedger;
@@ -425,7 +611,11 @@ public class StellarDotnet
         request.downloadHandler = new DownloadHandlerBuffer();
         request.SetRequestHeader("Content-Type", "application/json");
         Debug.Log($"SendJsonRequest: request: {json}");
+        
+        currentTracker?.StartOperation("SendWebRequest");
         await request.SendWebRequest();
+        currentTracker?.EndOperation();
+        
         if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
         {
             Debug.LogError($"SendJsonRequest: error: {request.error}");
@@ -540,6 +730,83 @@ public class CoroutineRunner : MonoBehaviour
                 DontDestroyOnLoad(go);
             }
             return ins;
+        }
+    }
+}
+
+
+public class TimingNode
+{
+    public string Name { get; set; }
+    public long StartTime { get; set; }
+    public long EndTime { get; set; }
+    public long ElapsedMs => EndTime - StartTime;
+    public List<TimingNode> Children { get; set; } = new List<TimingNode>();
+    public TimingNode Parent { get; set; }
+}
+
+public class TimingTracker
+{
+    private TimingNode root;
+    private TimingNode current;
+    
+    public void StartOperation(string name)
+    {
+        var node = new TimingNode 
+        { 
+            Name = name, 
+            StartTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Parent = current
+        };
+        
+        if (root == null)
+        {
+            root = node;
+            current = node;
+        }
+        else
+        {
+            current.Children.Add(node);
+            current = node;
+        }
+    }
+    
+    public void EndOperation()
+    {
+        if (current != null)
+        {
+            current.EndTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            current = current.Parent;
+        }
+    }
+    
+    public string GetReport()
+    {
+        if (root == null) return "No timing data";
+        
+        var sb = new StringBuilder();
+        sb.AppendLine($"\n=== Performance Report for {root.Name} ===");
+        sb.AppendLine($"Total time: {root.ElapsedMs}ms");
+        sb.AppendLine("\nBreakdown:");
+        
+        PrintNode(sb, root, "", true);
+        
+        return sb.ToString();
+    }
+    
+    private void PrintNode(StringBuilder sb, TimingNode node, string indent, bool isLast)
+    {
+        if (node != root)
+        {
+            sb.Append(indent);
+            sb.Append(isLast ? "└── " : "├── ");
+            sb.AppendLine($"{node.Name}: {node.ElapsedMs}ms");
+        }
+        
+        for (int i = 0; i < node.Children.Count; i++)
+        {
+            string childIndent = indent + (node == root ? "" : (isLast ? "    " : "│   "));
+            PrintNode(sb, node.Children[i], childIndent, i == node.Children.Count - 1);
         }
     }
 }

@@ -237,7 +237,7 @@ public static class StellarManager
         OnAssetsUpdated?.Invoke(result.trustLine);
         return result.trustLine;
     }
-    
+
     static TaskInfo SetCurrentTask(string message)
     {
         if (currentTask != null)

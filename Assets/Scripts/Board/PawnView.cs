@@ -24,6 +24,7 @@ public class PawnView : MonoBehaviour
     
     // cached
     Rank rankView;
+    bool aliveView;
     public Vector2Int posView;
     bool visible;
 
@@ -54,8 +55,9 @@ public class PawnView : MonoBehaviour
     public void PhaseStateChanged(IPhaseChangeSet changes)
     {
         // what to do
-        bool? setVisible = null;
-        Rank? setRankView = null;
+        bool? setAlive = null; // wether to display the pawn dead or alive 
+        bool? setVisible = null; // wether to show the pawn regardless of aliveness
+        Rank? setRankView = null; // wether to display rank regardless of revealed rank
         (Vector2Int, TileView)? setPosView = null;
         // figure out what to do based on what happened
         // for net changes
@@ -64,7 +66,15 @@ public class PawnView : MonoBehaviour
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
             setRankView = pawn.GetKnownRank() ?? Rank.UNKNOWN;
-            setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
+            setAlive = pawn.alive;
+            if (setAlive.Value)
+            {
+                setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
+            }
+            else
+            {
+                setPosView = (Globals.Purgatory, null);
+            }
             switch (cachedNetState.lobbyInfo.phase)
             {
                 case Phase.SetupCommit:
@@ -82,8 +92,10 @@ public class PawnView : MonoBehaviour
                     setVisible = true;
                     break;
                 case Phase.MoveProve:
+                    setVisible = true;
                     break;
                 case Phase.RankProve:
+                    setVisible = true;
                     break;
                 case Phase.Finished:
                     break;
@@ -124,6 +136,11 @@ public class PawnView : MonoBehaviour
             }
         }
         // now do the stuff
+        if (setAlive.HasValue)
+        {
+            aliveView = setAlive.Value;
+            model.SetActive(aliveView);
+        }
         if (setVisible != null)
         {
             visible = setVisible.Value;

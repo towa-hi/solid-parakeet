@@ -36,7 +36,8 @@ public class TileView : MonoBehaviour
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
 
-    // BoardManager bm;
+    Color cachedSetupEmissionColor = Color.clear;
+    Color cachedTargetEmissionColor = Color.clear;
     
     public void Initialize(TileState tile, bool hex)
     {
@@ -114,6 +115,9 @@ public class TileView : MonoBehaviour
             {
                 case SetupCommitPhase setupCommitPhase:
                     setSetupEmission = true;
+                    setSelectOutline = false;
+                    setTargetableFill = false;
+                    // setTargetEmission = false;
                     break;
                 case MoveCommitPhase moveCommitPhase:
                     setSetupEmission = false;
@@ -122,8 +126,16 @@ public class TileView : MonoBehaviour
                     setTargetEmission = moveCommitPhase.targetPos.HasValue && posView == moveCommitPhase.targetPos.Value;
                     break;
                 case MoveProvePhase moveProvePhase:
+                    setSetupEmission = false;
+                    setSelectOutline = moveProvePhase.selectedPos.HasValue && posView == moveProvePhase.selectedPos.Value;
+                    setTargetableFill = false;
+                    setTargetEmission = moveProvePhase.targetPos.HasValue && posView == moveProvePhase.targetPos.Value;
+                    break;
                 case RankProvePhase rankProvePhase:
                     setSetupEmission = false;
+                    setSelectOutline = rankProvePhase.selectedPos.HasValue && posView == rankProvePhase.selectedPos.Value;
+                    setTargetableFill = false;
+                    setTargetEmission = rankProvePhase.targetPos.HasValue && posView == rankProvePhase.targetPos.Value;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
@@ -162,7 +174,8 @@ public class TileView : MonoBehaviour
         // now do the stuff
         if (setSetupEmission.HasValue)
         {
-            SetSetupEmissionHighlight(setSetupEmission.Value);
+            SetCachedSetupEmissionColor(setSetupEmission.Value);
+            SetTopEmission(cachedSetupEmissionColor);
         }
         if (setHoverOutline.HasValue)
         {
@@ -178,7 +191,8 @@ public class TileView : MonoBehaviour
         }
         if (setTargetEmission.HasValue)
         {
-            SetTopEmission(setTargetEmission.Value ? Color.green : Color.clear);
+            cachedTargetEmissionColor = setTargetEmission.Value ? Color.green : Color.clear;
+            SetTopEmission(cachedTargetEmissionColor);
         }
     }
     public void StartPulse()
@@ -495,20 +509,20 @@ public class TileView : MonoBehaviour
     //         .Chain(Tween.LocalPosition(tileModel.transform, startTweenSettings));
     // }
     //
-    void SetSetupEmissionHighlight(bool highlight)
+    void SetCachedSetupEmissionColor(bool highlight)
     {
         if (highlight)
         {
             switch (setupView)
             {
                 case Team.RED:
-                    SetTopEmission(redTeamColor);
+                    cachedSetupEmissionColor = redTeamColor;
                     break;
                 case Team.BLUE:
-                    SetTopEmission(blueTeamColor);
+                    cachedSetupEmissionColor = blueTeamColor;
                     break;
                 case Team.NONE:
-                    SetTopEmission(Color.clear);
+                    cachedSetupEmissionColor = Color.clear;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -516,7 +530,7 @@ public class TileView : MonoBehaviour
         }
         else
         {
-            SetTopEmission(Color.clear);
+            cachedSetupEmissionColor = Color.clear;
         }
     }
     

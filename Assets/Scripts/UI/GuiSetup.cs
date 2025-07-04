@@ -53,6 +53,7 @@ public class GuiSetup : GameElement
 
     public void PhaseStateChanged(IPhaseChangeSet changes)
     {
+        Debug.Log($"GuiSetup.PhaseStateChanged() started");
         // what to do
         bool? setShowElement = null;
         GameNetworkState? setInitialize = null;
@@ -71,6 +72,7 @@ public class GuiSetup : GameElement
             {
                 case Phase.SetupCommit:
                     setShowElement = true;
+                    Debug.Log($"GuiSetup.PhaseStateChanged() setShowElement set to {setShowElement}");
                     if (cachedNetState.IsMySubphase())
                     {
                         setStatus = "Commit your pawn setup";
@@ -120,8 +122,11 @@ public class GuiSetup : GameElement
         // now do the stuff
         if (setShowElement.HasValue)
         {
+            Debug.Log($"GuiSetup.PhaseStateChanged() SetShowElement {setShowElement.Value}");
             ShowElement(setShowElement.Value);
+            Debug.Log("GuiSetup.PhaseStateChanged() finished doing ShowElement");
         }
+        
         if (setInitialize.HasValue)
         {
             Initialize(setInitialize.Value);
@@ -146,6 +151,7 @@ public class GuiSetup : GameElement
         {
             clearButton.interactable = setClearButton.Value;
         }
+        Debug.Log($"GuiSetup.PhaseStateChanged() ended");
     }
     
     void RefreshRankEntryList((Rank rank, int max, int committed)[] ranksRemaining, Rank? selectedRank)
