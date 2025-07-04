@@ -448,8 +448,8 @@ fn test_commit_move_success_both_players() {
         let host_move = validation_snapshot.game_state.moves.get(0).unwrap();
         let guest_move = validation_snapshot.game_state.moves.get(1).unwrap();
 
-        assert_eq!(host_move.move_hash.get(0).unwrap(), host_move_hash);
-        assert_eq!(guest_move.move_hash.get(0).unwrap(), guest_move_hash);
+        assert_eq!(host_move.move_hash, host_move_hash);
+        assert_eq!(guest_move.move_hash, guest_move_hash);
     }
 }
 

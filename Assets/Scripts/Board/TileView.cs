@@ -116,6 +116,11 @@ public class TileView : MonoBehaviour
                     setSetupEmission = true;
                     break;
                 case MoveCommitPhase moveCommitPhase:
+                    setSetupEmission = false;
+                    setSelectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
+                    setTargetableFill = moveCommitPhase.selectedPos.HasValue && moveCommitPhase.targetablePositions.Contains(posView);
+                    setTargetEmission = moveCommitPhase.targetPos.HasValue && posView == moveCommitPhase.targetPos.Value;
+                    break;
                 case MoveProvePhase moveProvePhase:
                 case RankProvePhase rankProvePhase:
                     setSetupEmission = false;
@@ -123,6 +128,8 @@ public class TileView : MonoBehaviour
                 default:
                     throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
             }
+            setHoverOutline = netStateUpdated.phase.cachedNetState.IsMySubphase() && posView == netStateUpdated.phase.hoveredPos;
+            
         }
         // for local changes
         foreach (GameOperation operation in changes.operations)
@@ -131,12 +138,12 @@ public class TileView : MonoBehaviour
             {
                 case SetupHoverChanged(var oldHoveredPos, var setupCommitPhase):
                 {
-                    setHoverOutline = posView == setupCommitPhase.hoveredPos;
+                    setHoverOutline = setupCommitPhase.cachedNetState.IsMySubphase() && posView == setupCommitPhase.hoveredPos;
                     break;
                 }
                 case MoveHoverChanged(var oldHoveredPos, var moveCommitPhase):
                 {
-                    setHoverOutline = posView == moveCommitPhase.hoveredPos;
+                    setHoverOutline = moveCommitPhase.cachedNetState.IsMySubphase() && posView == moveCommitPhase.hoveredPos;
                     break;
                 }
                 case MovePosSelected(var oldPos, var moveCommitPhase):

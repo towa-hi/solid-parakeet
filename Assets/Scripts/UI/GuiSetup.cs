@@ -118,15 +118,15 @@ public class GuiSetup : GameElement
         }
         
         // now do the stuff
-        if (setShowElement != null)
+        if (setShowElement.HasValue)
         {
             ShowElement(setShowElement.Value);
         }
-        if (setInitialize != null)
+        if (setInitialize.HasValue)
         {
             Initialize(setInitialize.Value);
         }
-        if (setRefreshEntries != null)
+        if (setRefreshEntries.HasValue)
         {
             RefreshRankEntryList(setRefreshEntries.Value.Item1, setRefreshEntries.Value.Item2);
         }
@@ -134,15 +134,15 @@ public class GuiSetup : GameElement
         {
             statusText.text = setStatus;
         }
-        if (setAutoSetupButton != null)
+        if (setAutoSetupButton.HasValue)
         {
             autoSetupButton.interactable = setAutoSetupButton.Value;
         }
-        if (setSubmitButton != null)
+        if (setSubmitButton.HasValue)
         {
             submitButton.interactable = setSubmitButton.Value;
         }
-        if (setClearButton != null)
+        if (setClearButton.HasValue)
         {
             clearButton.interactable = setClearButton.Value;
         }

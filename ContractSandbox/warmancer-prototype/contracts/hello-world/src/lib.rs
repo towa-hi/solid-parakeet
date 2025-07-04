@@ -151,7 +151,7 @@ pub struct PawnState {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserMove {
-    pub move_hash: Vec<HiddenMoveHash>,
+    pub move_hash: HiddenMoveHash,
     pub move_proof: Vec<HiddenMove>,
     pub needed_rank_proofs: Vec<PawnId>,
 }
@@ -544,7 +544,7 @@ impl Contract {
         debug_log!(e, "commit_move: next_subphase will be {:?}", next_subphase);
         let mut u_move = game_state.moves.get_unchecked(u_index);
         // update
-        u_move.move_hash = Vec::from_array(e, [req.move_hash.clone()]);
+        u_move.move_hash = req.move_hash.clone();
         if next_subphase == Subphase::None {
             debug_log!(e, "commit_move: Both players committed, transitioning to MoveProve/Both");
             lobby_info.phase = Phase::MoveProve;
@@ -581,7 +581,7 @@ impl Contract {
             let serialized_move_proof = req.move_proof.clone().to_xdr(e);
             let full_hash = e.crypto().sha256(&serialized_move_proof).to_bytes().to_array();
             let submitted_hash = HiddenMoveHash::from_array(e, &full_hash[0..16].try_into().unwrap());
-            if u_move.move_hash.get_unchecked(0) != submitted_hash {
+            if u_move.move_hash != submitted_hash {
                 return Err(Error::HiddenMoveHashFail)
             }
             let u_move_valid = Self::validate_move_proof(e, &req.move_proof, &u_index, &game_state, &lobby_parameters);
@@ -750,12 +750,12 @@ impl Contract {
     pub(crate) fn create_empty_moves(e: &Env) -> Vec<UserMove> {
         Vec::from_array(e, [
             UserMove {
-                move_hash: Vec::new(e),
+                move_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
                 move_proof: Vec::new(e),
                 needed_rank_proofs: Vec::new(e),
             },
             UserMove {
-                move_hash: Vec::new(e),
+                move_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
                 move_proof: Vec::new(e),
                 needed_rank_proofs: Vec::new(e),
             },

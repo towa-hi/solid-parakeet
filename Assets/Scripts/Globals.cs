@@ -1891,7 +1891,12 @@ public struct GameNetworkState
         }
         throw new ArgumentOutOfRangeException(nameof(pawnId));
     }
-    
+
+    public PawnState? GetAlivePawnFromPosChecked(Vector2Int pos)
+    {
+        PawnState? pawn = GetPawnFromPosChecked(pos);
+        return pawn is { alive: true } ? pawn : null;
+    }
     public PawnState? GetPawnFromPosChecked(Vector2Int pos)
     {
         if (gameState.pawns.Any(pawn => pawn.pos == pos))
@@ -1969,7 +1974,7 @@ public struct GameNetworkState
                 {
                     break;
                 }
-                if (GetPawnFromPosChecked(currentPos) is PawnState pawnOnPos)
+                if (GetAlivePawnFromPosChecked(currentPos) is PawnState pawnOnPos)
                 {
                     if (pawnOnPos.GetTeam() == pawn.GetTeam())
                     {

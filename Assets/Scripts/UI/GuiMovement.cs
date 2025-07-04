@@ -24,15 +24,15 @@ public class GuiMovement : GameElement
     public TextMeshProUGUI turnText;
     public GuiGameOverModal gameOverModal;
     
-    public event Action OnMenuButton;
-    public event Action OnExtraButton;
+    public Action OnMenuButton;
+    public Action OnExtraButton;
     
-    public event Action OnCheatButton;
-    public event Action OnBadgeButton;
-    public event Action OnSubmitMoveButton;
-    public event Action OnGraveyardButton;
-    public event Action OnRefreshButton;
-    public event Action<bool> OnAutoSubmitToggle;
+    public Action OnCheatButton;
+    public Action OnBadgeButton;
+    public Action OnSubmitMoveButton;
+    public Action OnGraveyardButton;
+    public Action OnRefreshButton;
+    public Action<bool> OnAutoSubmitToggle;
 
     void Start()
     {
@@ -45,40 +45,124 @@ public class GuiMovement : GameElement
         badgeButton.onClick.AddListener(() => OnBadgeButton?.Invoke());
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
+
+    void Initialize(GameNetworkState netState)
+    {
+        
+    }
     
     public void PhaseStateChanged(IPhaseChangeSet changes)
     {
-
-        
+        // what to do
+        bool? setShowElement = null;
+        GameNetworkState? setInitialize = null;
+        bool? setSubmitButton = null;
+        bool? setRefreshButton = null;
+        string setStatus = "";
+        // figure out what to do based on what happened
+        // for net changes
+        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
+        {
+            GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
+            setInitialize = cachedNetState;
+            switch (cachedNetState.lobbyInfo.phase)
+            {
+                case Phase.MoveCommit:
+                    setShowElement = true;
+                    setSubmitButton = false;
+                    if (cachedNetState.IsMySubphase())
+                    {
+                        setStatus = "Commit your move";
+                        setRefreshButton = false;
+                    }
+                    else
+                    {
+                        setStatus = "Awaiting opponent move";
+                        setRefreshButton = true;
+                    }
+                    break;
+                case Phase.MoveProve:
+                    setShowElement = true;
+                    setSubmitButton = false;
+                    if (cachedNetState.IsMySubphase())
+                    {
+                        setStatus = "Commit your move proof (automatic)";
+                        setRefreshButton = false;
+                    }
+                    else
+                    {
+                        setStatus = "Awaiting opponent move proof";
+                        setRefreshButton = true;
+                    }
+                    break;
+                case Phase.RankProve:
+                    setShowElement = true;
+                    setSubmitButton = false;
+                    if (cachedNetState.IsMySubphase())
+                    {
+                        setStatus = "Commit your rank proof (automatic)";
+                        setRefreshButton = false;
+                    }
+                    else
+                    {
+                        setStatus = "Awaiting opponent rank proof";
+                        setRefreshButton = true;
+                    }
+                    break;
+                case Phase.SetupCommit:
+                case Phase.Finished:
+                case Phase.Aborted:
+                    setShowElement = false;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        // for local changes
+        foreach (GameOperation operation in changes.operations)
+        {
+            switch (operation)
+            {
+                case MovePosSelected(_, var moveCommitPhase):
+                    setSubmitButton = false;
+                    setStatus = "Select a target position";
+                    break;
+                case MoveTargetSelected(_, var moveCommitPhase):
+                    if (moveCommitPhase.targetPos.HasValue)
+                    {
+                        setStatus = "Submit move";
+                        setSubmitButton = true;
+                    }
+                    else
+                    {
+                        setSubmitButton = false;
+                    }
+                    break;
+            }
+        }
+        // now do the stuff
+        if (setShowElement.HasValue)
+        {
+            ShowElement(setShowElement.Value);
+        }
+        if (setInitialize.HasValue)
+        {
+            Initialize(setInitialize.Value);
+        }
+        if (setSubmitButton.HasValue)
+        {
+            submitMoveButton.interactable = setSubmitButton.Value;
+        }
+        if (setRefreshButton.HasValue)
+        {
+            refreshButton.interactable = setRefreshButton.Value;
+        }
+        if (setStatus.Length > 0)
+        {
+            statusText.text = setStatus;
+        }
     }
     
-    void Refresh(PhaseBase currentPhase)
-    {
-        OnMenuButton = null;
-        OnExtraButton = null;
-        OnCheatButton = null;
-        OnBadgeButton = null;
-        OnSubmitMoveButton = null;
-        OnGraveyardButton = null;
-        OnRefreshButton = null;
-        OnAutoSubmitToggle = null;
-        
-        bool show;
-        switch (currentPhase)
-        {
-            case SetupCommitPhase setupCommitPhase:
-                show = false;
-                break;
-            case MoveCommitPhase moveCommitPhase:
-            case MoveProvePhase moveProvePhase:
-            case RankProvePhase rankProvePhase:
-                show = true;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(currentPhase));
-        }
-        ShowElement(show);
-    }
     
     //
     // public override void Initialize(BoardManager boardManager, GameNetworkState networkState)

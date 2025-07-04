@@ -21,7 +21,7 @@ namespace Contract
     
     public static class SCUtility
     {
-        public static bool log = false;
+        public static bool log = true;
         
         public static void DebugLog(string msg) { if (log) { Debug.Log(msg); } }
         
@@ -186,12 +186,20 @@ namespace Contract
                         return (TileState)tileU32Val.u32.InnerValue;
                     }
                     break;
+                case var _ when targetType == typeof(byte[]):
+                    DebugLog("SCValToNative: Target type is byte[].");
+                    if (scVal is SCVal.ScvBytes scvBytes)
+                    {
+                        DebugLog($"SCValToNative: Found SCVal.ScvBytes with length {scvBytes.bytes.InnerValue.Length}.");
+                        return scvBytes.bytes.InnerValue;
+                    }
+                    break;
                 default:
                     switch (scVal)
                     {
-                        case SCVal.ScvBytes scvBytes:
-                            DebugLog($"SCValToNative: Getting bytes with length '{scvBytes.bytes.InnerValue.Length}'.");
-                            return scvBytes.bytes.InnerValue;
+                        case SCVal.ScvBytes scvBytes2:
+                            DebugLog($"SCValToNative: Getting bytes with length '{scvBytes2.bytes.InnerValue.Length}'.");
+                            return scvBytes2.bytes.InnerValue;
                             
                         case SCVal.ScvVec scvVec:
                             DebugLog("SCValToNative: Target type is a collection. Using vector conversion branch.");
@@ -785,7 +793,7 @@ namespace Contract
     [Serializable]
     public struct UserMove : IScvMapCompatable
     {
-        public byte[] move_hash;
+        public byte[] move_hash; // is all zeros when empty
         public HiddenMove? move_proof;
         public PawnId[] needed_rank_proofs;
 

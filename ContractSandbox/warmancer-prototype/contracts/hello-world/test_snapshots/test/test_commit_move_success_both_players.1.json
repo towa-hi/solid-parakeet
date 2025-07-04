@@ -2377,11 +2377,7 @@
                                   "symbol": "move_hash"
                                 },
                                 "val": {
-                                  "vec": [
-                                    {
-                                      "bytes": "8a9dfdfdd194cff229f261d0b3e38dbe"
-                                    }
-                                  ]
+                                  "bytes": "8a9dfdfdd194cff229f261d0b3e38dbe"
                                 }
                               },
                               {
@@ -2409,11 +2405,7 @@
                                   "symbol": "move_hash"
                                 },
                                 "val": {
-                                  "vec": [
-                                    {
-                                      "bytes": "0bb882856c0bd80784a6ad36d43aa606"
-                                    }
-                                  ]
+                                  "bytes": "0bb882856c0bd80784a6ad36d43aa606"
                                 }
                               },
                               {

@@ -101,7 +101,7 @@ public class PawnView : MonoBehaviour
                 case SetupHoverChanged setupHoverChanged:
                     break;
                 case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
-                    if (pawnId.GetTeam() == setupCommitPhase.userTeam)
+                    if (pawnId.GetTeam() == setupCommitPhase.cachedNetState.userTeam)
                     {
                         if (oldPendingCommits[pawnId] != setupCommitPhase.pendingCommits[pawnId])
                         {
