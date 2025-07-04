@@ -520,7 +520,7 @@ impl Contract {
         Ok(())
     }
 
-    pub fn commit_move(e: &Env, address: Address, req: CommitMoveReq) -> Result<(), Error> {
+    pub fn commit_move(e: &Env, address: Address, req: CommitMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
         
@@ -557,10 +557,10 @@ impl Contract {
         game_state.moves.set(u_index, u_move);
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
-        Ok(())
+        Ok(lobby_info)
     }
 
-    pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<(), Error> {
+    pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
         let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
@@ -591,7 +591,7 @@ impl Contract {
                 lobby_info.phase = Phase::Aborted;
                 lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
                 temporary.set(&lobby_info_key, &lobby_info);
-                return Ok(())
+                return Ok(lobby_info)
             }
             u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
             game_state.moves.set(u_index, u_move);
@@ -665,10 +665,10 @@ impl Contract {
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
         debug_log!(e, "prove_move: Completed successfully. Final phase={:?}, subphase={:?}", lobby_info.phase, lobby_info.subphase);
-        Ok(())
+        Ok(lobby_info)
     }
 
-    pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<(), Error> {
+    pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
         let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
@@ -695,7 +695,7 @@ impl Contract {
             lobby_info.phase = Phase::Aborted;
             lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
             temporary.set(&lobby_info_key, &lobby_info);
-            return Ok(())
+            return Ok(lobby_info)
         }
         for hidden_rank in req.hidden_ranks.iter() {
             let pawn_index = pawn_indexes.get_unchecked(hidden_rank.pawn_id.clone());
@@ -732,7 +732,7 @@ impl Contract {
         }
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
-        Ok(())
+        Ok(lobby_info)
     }
 
     // region helper functions
@@ -824,6 +824,7 @@ impl Contract {
 
     // Movement and Validation Helpers
     pub(crate) fn is_scout_move(hidden_move: &HiddenMove) -> bool {
+        // TODO: something seems weird about this scout_move is usually wrong
         let dx = hidden_move.target_pos.x - hidden_move.start_pos.x;
         let dy = hidden_move.target_pos.y - hidden_move.start_pos.y;
         if dx.abs() > 1 || dy.abs() > 1 {

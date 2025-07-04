@@ -2036,6 +2036,29 @@ public struct NetworkState
         };
         return JsonConvert.SerializeObject(simplified, Formatting.Indented);
     }
+
+    public bool CanBatchProveMove()
+    {
+        if (lobbyInfo is LobbyInfo lobby && lobby.phase == Phase.MoveCommit)
+        {
+            bool isHost = lobby.IsHost(address);
+            if (isHost)
+            {
+                if (lobby.subphase == Subphase.Host)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                if (lobby.subphase == Subphase.Guest)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }
 
 public enum SetupInputTool

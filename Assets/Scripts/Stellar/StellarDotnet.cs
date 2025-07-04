@@ -18,6 +18,7 @@ using Stellar.RPC;
 using Stellar.Utilities;
 using UnityEngine;
 using UnityEngine.Networking;
+// ReSharper disable ArrangeObjectCreationWhenTypeNotEvident
 
 public class StellarDotnet
 {
@@ -140,39 +141,21 @@ public class StellarDotnet
         contractAddress = inContractAddress;
     }
 
-    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable obj)
+    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable request)
     {
-        currentTracker = new TimingTracker();
-        currentTracker.StartOperation($"CallVoidFunction({functionName})");
-        
-        currentTracker.StartOperation("ReqAccountEntry");
-        AccountEntry accountEntry = await ReqAccountEntry(userAccount);
-        currentTracker.EndOperation();
-        
-        List<SCVal> argsList = new() { userAddressSCVal };
-        if (obj != null)
+        //currentTracker = new TimingTracker();
+        //currentTracker.StartOperation($"CallVoidFunctionWithoutWaiting({functionName})");
+        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await CallVoidFunctionWithoutWaiting(functionName, request);
+        //currentTracker.EndOperation();
+        //currentTracker.StartOperation("WaitForTransaction");
+        if (sendResult == null)
         {
-            SCVal data = obj.ToScvMap();
-            argsList.Add(data);
-        }
-        SCVal[] args = argsList.ToArray();
-        
-        currentTracker.StartOperation($"InvokeContractFunction({functionName})");
-        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await InvokeContractFunction(accountEntry, functionName, args);
-        currentTracker.EndOperation();
-        
-        if (simResult.Error != null)
-        {
-            currentTracker.EndOperation();
-            Debug.Log(currentTracker.GetReport());
-            currentTracker = null;
+            Debug.LogError("CallVoidFunction: simulation failed, sendResult is null");
             return (null, simResult);
         }
-        
-        currentTracker.StartOperation("WaitForTransaction");
+        Debug.Log(sendResult.Hash);
         GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000);
-        currentTracker.EndOperation();
-        
+        //currentTracker.EndOperation();
         if (getResult == null)
         {
             Debug.LogError("CallVoidFunction: timed out or failed to connect");
@@ -181,12 +164,45 @@ public class StellarDotnet
         {
             Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
         }
-        
-        currentTracker.EndOperation();
-        Debug.Log(currentTracker.GetReport());
-        currentTracker = null;
-        
+        //Debug.Log(currentTracker.GetReport());
+        //currentTracker = null;
         return (getResult, simResult);
+    }
+    public async Task<(SendTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithoutWaiting(string functionName, IScvMapCompatable request)
+    {
+        Debug.Log("XX call void function without waiting");
+        currentTracker?.StartOperation("ReqAccountEntry");
+        AccountEntry accountEntry = await ReqAccountEntry(userAccount);
+        currentTracker?.EndOperation();
+        List<SCVal> argsList = new() { userAddressSCVal };
+        if (request != null)
+        {
+            SCVal data = request.ToScvMap();
+            argsList.Add(data);
+        }
+        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray());
+        // try to simulate it
+        currentTracker?.StartOperation($"SimulateTransactionAsync");
+        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
+            new SimulateTransactionParams()
+            {
+                Transaction = EncodeTransaction(invokeContractTransaction),
+                ResourceConfig = new()
+                {
+                    // TODO: setup resource config
+                },
+            });
+        currentTracker?.EndOperation();
+        if (simulateTransactionResult.Error != null)
+        {
+            return (null, simulateTransactionResult);
+        }
+        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
+        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+        currentTracker?.StartOperation($"InvokeContractFunction({functionName})");
+        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction);
+        currentTracker?.EndOperation();
+        return (sendResult, simulateTransactionResult);
     }
     
     public async Task<AccountEntry> ReqAccountEntry(MuxedAccount.KeyTypeEd25519 account)
@@ -362,28 +378,8 @@ public class StellarDotnet
         return tuple;
     }
     
-    async Task<(SendTransactionResult, SimulateTransactionResult)> InvokeContractFunction(AccountEntry accountEntry, string functionName, SCVal[] args)
+    async Task<SendTransactionResult> InvokeContractFunctions(string encodedSignedTransaction)
     {
-        Transaction invokeContractTransaction = InvokeContractTransaction(functionName, accountEntry, args);
-        
-        currentTracker?.StartOperation("SimulateTransactionAsync");
-        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(new SimulateTransactionParams()
-        {
-            Transaction = EncodeTransaction(invokeContractTransaction),
-            ResourceConfig = new()
-            {
-                // TODO: setup resource config
-            }
-        });
-        currentTracker?.EndOperation();
-        
-        if (simulateTransactionResult.Error != null)
-        {
-            return (null, simulateTransactionResult);
-        }
-        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
-        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
-        
         currentTracker?.StartOperation("SendTransactionAsync");
         SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
         {
@@ -391,11 +387,12 @@ public class StellarDotnet
         });
         currentTracker?.EndOperation();
         
-        return (sendTransactionResult, simulateTransactionResult);
+        return sendTransactionResult;
     }
     
-    Transaction InvokeContractTransaction(string functionName, AccountEntry accountEntry, SCVal[] args)
+    Transaction InvokeContractTransaction(AccountEntry accountEntry, string functionName, SCVal[] args)
     {
+        List<Operation> operations = new();
         Operation operation = new()
         {
             sourceAccount = userAccount,
@@ -418,7 +415,8 @@ public class StellarDotnet
                     },
                 },
             },
-        }; 
+        };
+        operations.Add(operation);
         return new Transaction()
         {
             sourceAccount = userAccount,
@@ -427,7 +425,7 @@ public class StellarDotnet
             seqNum = accountEntry.seqNum.Increment(), // TODO: sometimes we might not want to increment here
             cond = new Preconditions.PrecondNone(),
             ext = new Transaction.extUnion.case_0(),
-            operations = new[] { operation },
+            operations = operations.ToArray(),
         };
     }
 
@@ -458,8 +456,9 @@ public class StellarDotnet
         return TransactionEnvelopeXdr.EncodeToBase64(envelope);
     }
 
-    async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
+    public async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
     {
+        Debug.Log("XX wait for transaction");
         int attempts = 0;
         
         currentTracker?.StartOperation($"Initial delay ({delayMS}ms)");
@@ -498,7 +497,7 @@ public class StellarDotnet
     
     
     // variant of StellarRPCClient.SimulateTransactionAsync()
-    async Task<SimulateTransactionResult> SimulateTransactionAsync(SimulateTransactionParams parameters = null)
+    public async Task<SimulateTransactionResult> SimulateTransactionAsync(SimulateTransactionParams parameters = null)
     {
         JsonRpcRequest request = new()
         {
@@ -512,11 +511,11 @@ public class StellarDotnet
         currentTracker?.StartOperation("SendJsonRequest");
         string content = await SendJsonRequest(requestJson);
         currentTracker?.EndOperation();
-        
+        Debug.Log("Simulate transaction result contents: " + content);
         JObject jsonObject = JObject.Parse(content);
         // NOTE: Remove "stateChanges" entirely to avoid deserialization issues
         JObject resultObj = (JObject)jsonObject["result"];
-        resultObj.Remove("stateChanges");
+        // resultObj.Remove("stateChanges");
         try
         {
             JsonRpcResponse<SimulateTransactionResult> rpcResponse = jsonObject.ToObject<JsonRpcResponse<SimulateTransactionResult>>();

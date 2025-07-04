@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CA357ZTN74EMUNBMGWLBDPLL4LNUKTA4JTEH5YCDIDL2BBU76DYBTLPE";
+    public static string testContract = "CDCJL2XIGYD77CSYNYXJ3JH5OVASNTRINIHC5HROJMFBDOVKT5HTUCAJ";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -177,18 +177,70 @@ public static class StellarManager
         return ProcessTransactionResult(result, simResult);
     }
 
-    public static async Task<int> CommitMoveRequest(LobbyId lobbyId, byte[] hiddenMoveHash)
+    public static async Task<int> CommitMoveRequest(LobbyId lobbyId, byte[] hiddenMoveHash, HiddenMove hiddenMove)
     {
-        CommitMoveReq req = new()
+        CommitMoveReq commitMoveReq = new()
         {
             lobby_id = lobbyId,
             move_hash = hiddenMoveHash,
         };
+        ProveMoveReq proveMoveReq = new()
+        {
+            lobby_id = lobbyId,
+            move_proof = hiddenMove,
+        };
+        // NOTE: voodoo to decide if we can get away with sending proveMoveReq in the same transaction
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_move", req);
+        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await stellar.CallVoidFunctionWithoutWaiting("commit_move", commitMoveReq);
+        
+        if (simResult.Error != null)
+        {
+            EndTask(task);
+            return ProcessTransactionResult(null, simResult);
+        }
+        // TODO: wait like half a second out of courtesy
+        bool sendProveMove = false;
+        foreach (Results results in simResult.Results)
+        {
+            SCVal scVal = results.Result;
+            LobbyInfo simulatedLobbyInfo = SCUtility.SCValToNative<LobbyInfo>(scVal);
+            Debug.Log(simulatedLobbyInfo.phase);
+            Debug.Log(simulatedLobbyInfo.subphase);
+            bool isHost = simulatedLobbyInfo.IsHost(stellar.userAddress);
+            Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
+            if (simulatedLobbyInfo.phase == Phase.MoveProve)
+            {
+                if (simulatedLobbyInfo.subphase == Subphase.Both || simulatedLobbyInfo.subphase == mySubphase)
+                {
+                    sendProveMove = true;
+                }
+            }
+        }
+
+        if (sendProveMove)
+        {
+            
+            
+            
+            
+        }
+        
+        
+        
+        GetTransactionResult getResult = await stellar.WaitForTransaction(sendResult.Hash, 1000);
+        //currentTracker.EndOperation();
+        if (getResult == null)
+        {
+            Debug.LogError("CallVoidFunction: timed out or failed to connect");
+        }
+        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
+        {
+            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
+        }
+        
         EndTask(task);
         await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        return ProcessTransactionResult(getResult, simResult);
     }
 
     public static async Task<int> ProveMoveRequest(LobbyId lobbyId, HiddenMove hiddenMove)

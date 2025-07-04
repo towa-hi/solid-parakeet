@@ -588,7 +588,7 @@ public class MoveCommitPhase: PhaseBase
             target_pos = targetPosition,
         };
         CacheManager.StoreHiddenMove(hiddenMove, cachedNetState.address, cachedNetState.lobbyInfo.index);
-        _ = StellarManager.CommitMoveRequest(cachedNetState.lobbyInfo.index, SCUtility.Get16ByteHash(hiddenMove));
+        _ = StellarManager.CommitMoveRequest(cachedNetState.lobbyInfo.index, SCUtility.Get16ByteHash(hiddenMove), hiddenMove);
     }
 
     void OnRefresh()
@@ -711,6 +711,8 @@ public class MoveProvePhase: PhaseBase
     
     public MoveProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
+        
+        guiMovement.OnRefreshButton = OnRefresh;
         LoadCachedData();
         if (cachedNetState.IsMySubphase())
         {
@@ -726,6 +728,11 @@ public class MoveProvePhase: PhaseBase
         {
             AutomaticallySendMoveProof();
         }
+    }
+
+    void OnRefresh()
+    {
+        _ = StellarManager.UpdateState();
     }
 
     void LoadCachedData()
@@ -769,6 +776,7 @@ public class RankProvePhase: PhaseBase
     
     public RankProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
     {
+        guiMovement.OnRefreshButton += OnRefresh;
         if (cachedNetState.GetUserMove().move_proof is HiddenMove hiddenMove)
         {
             selectedPos = hiddenMove.start_pos;
@@ -778,6 +786,11 @@ public class RankProvePhase: PhaseBase
         {
             AutomaticallySendRankProof();
         }
+    }
+
+    void OnRefresh()
+    {
+        _ = StellarManager.UpdateState();
     }
 
     public override void UpdateNetworkState(GameNetworkState netState)
