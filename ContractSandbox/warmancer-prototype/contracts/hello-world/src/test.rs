@@ -635,7 +635,13 @@ fn test_full_stratego_game() {
 
                 // Commit moves (state-changing operation)
                 setup.client.commit_move(&host_address, &host_move_req);
-                setup.client.commit_move(&guest_address, &guest_move_req);
+
+                let guest_prove_move_req = ProveMoveReq {
+                    move_proof: guest_move_proof,
+                    lobby_id,
+                };
+                // later player can use commit_move_and_prove_move for convenience
+                setup.client.commit_move_and_prove_move(&guest_address, &guest_move_req, &guest_prove_move_req);
 
                 // Take snapshot after committing moves to check new phase
                 let post_commit_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
@@ -652,14 +658,11 @@ fn test_full_stratego_game() {
                         move_proof: host_move_proof,
                         lobby_id,
                     };
-                    let guest_prove_move_req = ProveMoveReq {
-                        move_proof: guest_move_proof,
-                        lobby_id,
-                    };
+
 
                     // Prove moves (state-changing operation)
                     setup.client.prove_move(&host_address, &host_prove_move_req);
-                    setup.client.prove_move(&guest_address, &guest_prove_move_req);
+                    //setup.client.prove_move(&guest_address, &guest_prove_move_req);
 
                     // VALIDATE: Check what happened after MoveProve - what rank proofs are needed?
                     {

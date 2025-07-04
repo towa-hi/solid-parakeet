@@ -28,7 +28,7 @@ public class StellarDotnet
     string cachedUserAddress;
     SCVal.ScvAddress cachedUserAddresSCVal;
     
-    MuxedAccount.KeyTypeEd25519 userAccount
+    public MuxedAccount.KeyTypeEd25519 userAccount
     {
         get
         {
@@ -71,9 +71,6 @@ public class StellarDotnet
     }
 
     long latestLedger;
-    
-    [ThreadStatic]
-    private static TimingTracker currentTracker;
     
     // contract address and derived properties
     public string contractAddress;
@@ -141,20 +138,101 @@ public class StellarDotnet
         contractAddress = inContractAddress;
     }
 
-    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable request)
+    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithTwoParameters(AccountEntry accountEntry, string functionName, IScvMapCompatable request1, IScvMapCompatable request2, TimingTracker tracker = null)
     {
-        //currentTracker = new TimingTracker();
-        //currentTracker.StartOperation($"CallVoidFunctionWithoutWaiting({functionName})");
-        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await CallVoidFunctionWithoutWaiting(functionName, request);
-        //currentTracker.EndOperation();
-        //currentTracker.StartOperation("WaitForTransaction");
+        tracker?.StartOperation("CallVoidFunctionWithTwoParameters");
+        List<SCVal> argsList = new()
+        {
+            userAddressSCVal,
+            request1.ToScvMap(),
+            request2.ToScvMap(),
+        };
+        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray());
+        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
+            new SimulateTransactionParams()
+            {
+                Transaction = EncodeTransaction(invokeContractTransaction),
+                ResourceConfig = new()
+                {
+                    // TODO: setup resource config
+                },
+            },
+            tracker);
+        if (simulateTransactionResult.Error != null)
+        {
+            tracker?.EndOperation();
+            return (null, simulateTransactionResult);
+        }
+        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
+        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
+        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000, tracker);
+        tracker?.EndOperation();
+        return (getResult, simulateTransactionResult);
+    }
+    
+    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable request, TimingTracker tracker = null)
+    {
+        tracker?.StartOperation("CallVoidFunction");
+        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await CallVoidFunctionWithoutWaiting(functionName, request, tracker);
         if (sendResult == null)
         {
             Debug.LogError("CallVoidFunction: simulation failed, sendResult is null");
+            tracker?.EndOperation();
             return (null, simResult);
         }
-        Debug.Log(sendResult.Hash);
-        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000);
+        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000, tracker);
+        if (getResult == null)
+        {
+            Debug.LogError("CallVoidFunction: timed out or failed to connect");
+        }
+        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
+        {
+            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
+        }
+        tracker?.EndOperation();
+        return (getResult, simResult);
+    }
+    async Task<(SendTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithoutWaiting(string functionName, IScvMapCompatable request, TimingTracker tracker = null)
+    {
+        tracker?.StartOperation("CallVoidFunctionWithoutWaiting");
+        AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
+        List<SCVal> argsList = new() { userAddressSCVal };
+        if (request != null)
+        {
+            SCVal data = request.ToScvMap();
+            argsList.Add(data);
+        }
+        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray());
+        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
+            new SimulateTransactionParams()
+            {
+                Transaction = EncodeTransaction(invokeContractTransaction),
+                ResourceConfig = new()
+                {
+                    // TODO: setup resource config
+                },
+            },
+            tracker);
+        if (simulateTransactionResult.Error != null)
+        {
+            tracker?.EndOperation();
+            return (null, simulateTransactionResult);
+        }
+        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
+        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
+        tracker?.EndOperation();
+        return (sendResult, simulateTransactionResult);
+    }
+
+    public async Task<GetTransactionResult> CallVoidFunctionWithoutSimulating(Transaction invokeContractTransaction, SimulateTransactionResult simResult, TimingTracker tracker = null)
+    {
+        tracker?.StartOperation("CallVoidFunctionWithoutSimulating");
+        Transaction assembledTransaction = simResult.ApplyTo(invokeContractTransaction);
+        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
+        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000, tracker);
         //currentTracker.EndOperation();
         if (getResult == null)
         {
@@ -164,16 +242,13 @@ public class StellarDotnet
         {
             Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
         }
-        //Debug.Log(currentTracker.GetReport());
-        //currentTracker = null;
-        return (getResult, simResult);
+        tracker?.EndOperation();
+        return getResult;
     }
-    public async Task<(SendTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithoutWaiting(string functionName, IScvMapCompatable request)
+
+    public async Task<(Transaction, SimulateTransactionResult)> SimulateFunction(AccountEntry accountEntry, string functionName, IScvMapCompatable request, TimingTracker tracker = null)
     {
-        Debug.Log("XX call void function without waiting");
-        currentTracker?.StartOperation("ReqAccountEntry");
-        AccountEntry accountEntry = await ReqAccountEntry(userAccount);
-        currentTracker?.EndOperation();
+        tracker?.StartOperation($"SimulateFunction");
         List<SCVal> argsList = new() { userAddressSCVal };
         if (request != null)
         {
@@ -181,8 +256,6 @@ public class StellarDotnet
             argsList.Add(data);
         }
         Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray());
-        // try to simulate it
-        currentTracker?.StartOperation($"SimulateTransactionAsync");
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
             new SimulateTransactionParams()
             {
@@ -191,131 +264,86 @@ public class StellarDotnet
                 {
                     // TODO: setup resource config
                 },
-            });
-        currentTracker?.EndOperation();
-        if (simulateTransactionResult.Error != null)
-        {
-            return (null, simulateTransactionResult);
-        }
-        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
-        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
-        currentTracker?.StartOperation($"InvokeContractFunction({functionName})");
-        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction);
-        currentTracker?.EndOperation();
-        return (sendResult, simulateTransactionResult);
+            },
+            tracker);
+        tracker?.EndOperation();
+        return (invokeContractTransaction, simulateTransactionResult);
     }
     
-    public async Task<AccountEntry> ReqAccountEntry(MuxedAccount.KeyTypeEd25519 account)
+    public async Task<AccountEntry> ReqAccountEntry(MuxedAccount.KeyTypeEd25519 account, TimingTracker tracker = null)
     {
-        currentTracker?.StartOperation("EncodedAccountKey");
+        tracker?.StartOperation($"ReqAccountEntry");
         string encodedKey = EncodedAccountKey(account);
-        currentTracker?.EndOperation();
-        
-        currentTracker?.StartOperation("GetLedgerEntriesAsync");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
             Keys = new [] {encodedKey},
-        });
-        currentTracker?.EndOperation();
+        }, tracker);
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
+            tracker?.EndOperation();
             return null;
         }
         else
         {
             LedgerEntry.dataUnion.Account entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
+            tracker?.EndOperation();
             return entry?.account;
         }
     }
     
-    public async Task<LedgerEntry.dataUnion.Trustline> GetAssets(MuxedAccount.KeyTypeEd25519 account)
+    public async Task<LedgerEntry.dataUnion.Trustline> GetAssets(MuxedAccount.KeyTypeEd25519 account, TimingTracker tracker = null)
     {
-        bool isTopLevel = currentTracker == null;
-        if (isTopLevel)
-        {
-            currentTracker = new TimingTracker();
-            currentTracker.StartOperation("GetAssets");
-        }
-        
-        currentTracker?.StartOperation("EncodedTrustlineKey");
+        tracker?.StartOperation($"GetAssets");
         string encodedKey = EncodedTrustlineKey(account);
-        currentTracker?.EndOperation();
-        
-        currentTracker?.StartOperation("GetLedgerEntriesAsync");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
             Keys = new [] {encodedKey},
-        });
-        currentTracker?.EndOperation();
-        
-        if (isTopLevel)
-        {
-            currentTracker.EndOperation();
-            Debug.Log(currentTracker.GetReport());
-            currentTracker = null;
-        }
-        
+        }, tracker);
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
+            tracker?.EndOperation();
             return null;
         }
         else
         {
             LedgerEntry.dataUnion.Trustline entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Trustline;
+            tracker?.EndOperation();
             return entry;
         }
     }
     
-    public async Task<NetworkState> ReqNetworkState()
+    public async Task<NetworkState> ReqNetworkState(TimingTracker tracker = null)
     {
-        currentTracker = new TimingTracker();
-        currentTracker.StartOperation("ReqNetworkState");
+        tracker?.StartOperation("ReqNetworkState");
         
         NetworkState networkState = new(userAddress);
         
-        currentTracker.StartOperation("ReqUser");
-        User? mUser = await ReqUser(userAddress);
-        currentTracker.EndOperation();
-        
+        User? mUser = await ReqUser(userAddress, tracker);
         networkState.user = mUser;
         if (mUser is User user && user.current_lobby != 0)
         {
-            currentTracker.StartOperation("ReqLobbyStuff");
-            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(user.current_lobby);
-            currentTracker.EndOperation();
-            
+            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = await ReqLobbyStuff(user.current_lobby, tracker);
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
             networkState.gameState = mGameState;
         }
-        
-        currentTracker.EndOperation();
-        Debug.Log(currentTracker.GetReport());
-        currentTracker = null;
-        
+        tracker?.EndOperation();
         return networkState;
     }
     
-    async Task<User?> ReqUser(AccountAddress key)
+    async Task<User?> ReqUser(AccountAddress key, TimingTracker tracker = null)
     {
+        tracker?.StartOperation($"ReqUser");
         // try to use the stellar rpc client
-        currentTracker?.StartOperation("MakeLedgerKey");
         LedgerKey ledgerKey = MakeLedgerKey("User", key, ContractDataDurability.PERSISTENT);
-        currentTracker?.EndOperation();
-        
-        currentTracker?.StartOperation("EncodeToBase64");
         string encodedKey = LedgerKeyXdr.EncodeToBase64(ledgerKey);
-        currentTracker?.EndOperation();
-        
-        currentTracker?.StartOperation("GetLedgerEntriesAsync");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams()
         {
             Keys = new [] {encodedKey},
-        });
-        currentTracker?.EndOperation();
-        
+        }, tracker);
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
+            tracker?.EndOperation();
             return null;
         }
         else
@@ -326,17 +354,17 @@ public class StellarDotnet
                 throw new Exception($"ReqUserData on {key} failed because data was not ContractData");
             }
             User user = SCUtility.SCValToNative<User>(data.contractData.val);
+            tracker?.EndOperation();
             return user;
         }
     }
 
-    async Task<(LobbyInfo?, LobbyParameters?, GameState?)> ReqLobbyStuff(uint key)
+    async Task<(LobbyInfo?, LobbyParameters?, GameState?)> ReqLobbyStuff(uint key, TimingTracker tracker = null)
     {
+        tracker?.StartOperation($"ReqLobbyStuff");
         string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
         string lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyParameters", key, ContractDataDurability.TEMPORARY));
         string gameStateKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("GameState", key, ContractDataDurability.TEMPORARY));
-        
-        currentTracker?.StartOperation("GetLedgerEntriesAsync (3 keys)");
         GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
         {
             Keys = new[]
@@ -345,9 +373,7 @@ public class StellarDotnet
                 lobbyParametersKey,
                 gameStateKey,
             },
-        });
-        currentTracker?.EndOperation();
-        
+        }, tracker);
         (LobbyInfo?, LobbyParameters?, GameState?) tuple = (null, null, null);
         foreach (Entries entry in getLedgerEntriesResult.Entries)
         {
@@ -374,19 +400,18 @@ public class StellarDotnet
                 tuple.Item3 = gameState;
             }
         }
-        
+        tracker?.EndOperation();
         return tuple;
     }
     
-    async Task<SendTransactionResult> InvokeContractFunctions(string encodedSignedTransaction)
+    async Task<SendTransactionResult> InvokeContractFunctions(string encodedSignedTransaction, TimingTracker tracker = null)
     {
-        currentTracker?.StartOperation("SendTransactionAsync");
+        tracker?.StartOperation("SendTransactionAsync");
         SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
         {
             Transaction = encodedSignedTransaction,
-        });
-        currentTracker?.EndOperation();
-        
+        }, tracker);
+        tracker?.EndOperation();
         return sendTransactionResult;
     }
     
@@ -456,49 +481,54 @@ public class StellarDotnet
         return TransactionEnvelopeXdr.EncodeToBase64(envelope);
     }
 
-    public async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS)
+    async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS, TimingTracker tracker = null)
     {
-        Debug.Log("XX wait for transaction");
+        tracker?.StartOperation($"WaitForTransaction");
         int attempts = 0;
         
-        currentTracker?.StartOperation($"Initial delay ({delayMS}ms)");
+        tracker?.StartOperation($"Initial delay ({delayMS}ms)");
         await AsyncDelay.Delay(delayMS);
-        currentTracker?.EndOperation();
+        tracker?.EndOperation();
         
         while (attempts < maxAttempts)
         {
             attempts++;
             
-            currentTracker?.StartOperation($"GetTransactionAsync (attempt {attempts})");
+            tracker?.StartOperation($"GetTransactionAsync (attempt {attempts})");
             GetTransactionResult completion = await GetTransactionAsync(new GetTransactionParams()
             {
-                Hash = txHash
+                Hash = txHash,
             });
-            currentTracker?.EndOperation();
-            
+            tracker?.EndOperation();
+            tracker?.EndOperation();
             switch (completion.Status)
             {
                 case GetTransactionResult_Status.FAILED:
                     Debug.Log("WaitForTransaction: FAILED");
+                    tracker?.EndOperation();
                     return completion;
                 case GetTransactionResult_Status.NOT_FOUND:
-                    currentTracker?.StartOperation($"Retry delay ({delayMS}ms)");
+                    tracker?.StartOperation($"Retry delay ({delayMS}ms)");
                     await AsyncDelay.Delay(delayMS);
-                    currentTracker?.EndOperation();
+                    tracker?.EndOperation();
                     continue;
                 case GetTransactionResult_Status.SUCCESS:
                     Debug.Log("WaitForTransaction: SUCCESS");
+                    tracker?.EndOperation();
                     return completion;
             }
         }
         Debug.Log("WaitForTransaction: timed out");
+        tracker?.EndOperation();
         return null;
+        
     }
     
     
     // variant of StellarRPCClient.SimulateTransactionAsync()
-    public async Task<SimulateTransactionResult> SimulateTransactionAsync(SimulateTransactionParams parameters = null)
+    async Task<SimulateTransactionResult> SimulateTransactionAsync(SimulateTransactionParams parameters = null, TimingTracker tracker = null)
     {
+        tracker?.StartOperation("SimulateTransactionAsync");
         JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
@@ -508,18 +538,16 @@ public class StellarDotnet
         };
         string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
         
-        currentTracker?.StartOperation("SendJsonRequest");
-        string content = await SendJsonRequest(requestJson);
-        currentTracker?.EndOperation();
+        
+        string content = await SendJsonRequest(requestJson, tracker);
+        
         Debug.Log("Simulate transaction result contents: " + content);
         JObject jsonObject = JObject.Parse(content);
-        // NOTE: Remove "stateChanges" entirely to avoid deserialization issues
-        JObject resultObj = (JObject)jsonObject["result"];
-        // resultObj.Remove("stateChanges");
         try
         {
             JsonRpcResponse<SimulateTransactionResult> rpcResponse = jsonObject.ToObject<JsonRpcResponse<SimulateTransactionResult>>();
             SimulateTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
+            tracker?.EndOperation();
             return transactionResult;
         }
         catch (Exception e)
@@ -527,12 +555,13 @@ public class StellarDotnet
             Debug.LogError(e);
             throw;
         }
-
+        
     }
     
     // variant of StellarRPCClient.SendTransactionAsync()
-    async Task<SendTransactionResult> SendTransactionAsync(SendTransactionParams parameters = null)
+    async Task<SendTransactionResult> SendTransactionAsync(SendTransactionParams parameters = null, TimingTracker tracker = null)
     {
+        tracker?.StartOperation($"SendTransactionAsync");
         JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
@@ -541,19 +570,17 @@ public class StellarDotnet
             Id = 1,
         };
         string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
-        
-        currentTracker?.StartOperation("SendJsonRequest");
-        string content = await SendJsonRequest(requestJson);
-        currentTracker?.EndOperation();
-        
+        string content = await SendJsonRequest(requestJson, tracker);
         JsonRpcResponse<SendTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<SendTransactionResult>>(content, jsonSettings);
         SendTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
+        tracker?.EndOperation();
         return transactionResult;
     }
     
     // variant of StellarRPCClient.GetLedgerEntriesAsync()
-    async Task<GetLedgerEntriesResult> GetLedgerEntriesAsync(GetLedgerEntriesParams parameters = null)
+    async Task<GetLedgerEntriesResult> GetLedgerEntriesAsync(GetLedgerEntriesParams parameters = null, TimingTracker tracker = null)
     {
+        tracker?.StartOperation($"GetLedgerEntriesAsync");
         JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
@@ -561,28 +588,19 @@ public class StellarDotnet
             Params = parameters,
             Id = 1
         };
-        currentTracker?.StartOperation("JSON Serialize Request");
-        long serializeStart = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
-        long serializeEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        currentTracker?.EndOperation();
-        
-        currentTracker?.StartOperation("SendJsonRequest");
-        string content = await SendJsonRequest(requestJson);
-        currentTracker?.EndOperation();
-        
-        currentTracker?.StartOperation("JSON Deserialize Response");
+        string content = await SendJsonRequest(requestJson, tracker);
         JsonRpcResponse<GetLedgerEntriesResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetLedgerEntriesResult>>(content, this.jsonSettings);
         GetLedgerEntriesResult ledgerEntriesAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
-        currentTracker?.EndOperation();
-        
         latestLedger = ledgerEntriesAsync.LatestLedger;
+        tracker?.EndOperation();
         return ledgerEntriesAsync;
     }
     
     // variant of StellarRPCClient.GetTransactionAsync()
-    async Task<GetTransactionResult> GetTransactionAsync(GetTransactionParams parameters = null)
+    async Task<GetTransactionResult> GetTransactionAsync(GetTransactionParams parameters = null, TimingTracker tracker = null)
     {
+        tracker?.StartOperation($"GetTransactionAsync");
         JsonRpcRequest request = new()
         {
             JsonRpc = "2.0",
@@ -590,20 +608,18 @@ public class StellarDotnet
             Params = parameters,
             Id = 1
         };
-        string requestJson = JsonConvert.SerializeObject(request, this.jsonSettings);
-        
-        currentTracker?.StartOperation("SendJsonRequest");
-        string content = await SendJsonRequest(requestJson);
-        currentTracker?.EndOperation();
-        
+        string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
+        string content = await SendJsonRequest(requestJson, tracker);
         JsonRpcResponse<GetTransactionResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetTransactionResult>>(content, this.jsonSettings);
         GetTransactionResult transactionAsync = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         latestLedger = transactionAsync.LatestLedger;
+        tracker?.EndOperation();
         return transactionAsync;
     }
     
-    async Task<string> SendJsonRequest(string json)
+    async Task<string> SendJsonRequest(string json, TimingTracker tracker = null)
     {
+        tracker?.StartOperation("SendJsonRequest");
         UnityWebRequest request = new(networkUri, "POST");
         byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
         request.uploadHandler = new UploadHandlerRaw(bodyRaw);
@@ -611,9 +627,9 @@ public class StellarDotnet
         request.SetRequestHeader("Content-Type", "application/json");
         Debug.Log($"SendJsonRequest: request: {json}");
         
-        currentTracker?.StartOperation("SendWebRequest");
+        tracker?.StartOperation("SendWebRequest");
         await request.SendWebRequest();
-        currentTracker?.EndOperation();
+        tracker?.EndOperation();
         
         if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
         {
@@ -623,6 +639,7 @@ public class StellarDotnet
         {
             Debug.Log($"SendJsonRequest: response: {request.downloadHandler.text}");
         }
+        tracker?.EndOperation();
         return request.downloadHandler.text;
     }
     
@@ -784,8 +801,7 @@ public class TimingTracker
         if (root == null) return "No timing data";
         
         var sb = new StringBuilder();
-        sb.AppendLine($"\n=== Performance Report for {root.Name} ===");
-        sb.AppendLine($"Total time: {root.ElapsedMs}ms");
+        sb.AppendLine($"\n=== Performance Report for {root.Name} Total time: {root.ElapsedMs}ms ===");
         sb.AppendLine("\nBreakdown:");
         
         PrintNode(sb, root, "", true);

@@ -560,8 +560,17 @@ impl Contract {
         Ok(lobby_info)
     }
 
+    pub fn commit_move_and_prove_move(e: &Env, address: Address, req: CommitMoveReq, req2: ProveMoveReq) -> Result<LobbyInfo, Error> {
+        Self::commit_move(e, address.clone(), req);
+        Self::prove_move_internal(e, address, req2)
+    }
+
     pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
+        Self::prove_move_internal(e, address, req)
+    }
+
+    pub(crate) fn prove_move_internal(e: &Env, address: Address, req: ProveMoveReq) -> Result<LobbyInfo, Error> {
         let temporary = e.storage().temporary();
         let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
         let mut lobby_info = lobby_info.unwrap();
@@ -596,7 +605,7 @@ impl Contract {
             u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
             game_state.moves.set(u_index, u_move);
         }
-        
+
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
         if next_subphase == Subphase::None {
             // update pawns
@@ -661,15 +670,26 @@ impl Contract {
         } else {
             lobby_info.subphase = next_subphase;
         }
-        
+
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
         debug_log!(e, "prove_move: Completed successfully. Final phase={:?}, subphase={:?}", lobby_info.phase, lobby_info.subphase);
         Ok(lobby_info)
     }
 
+
+    pub fn prove_move_and_prove_rank(e: &Env, address: Address, req: ProveMoveReq, req2: ProveRankReq) -> Result<LobbyInfo, Error> {
+        address.require_auth();
+        Self::prove_move_internal(e, address.clone(), req);
+        Self::prove_rank_internal(e, address, req2)
+    }
+
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
+        Self::prove_rank_internal(e, address, req)
+    }
+
+    pub fn prove_rank_internal(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
         let temporary = e.storage().temporary();
         let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
         let mut lobby_info = lobby_info.unwrap();
@@ -679,7 +699,7 @@ impl Contract {
         if lobby_info.phase != Phase::RankProve {
             return Err(Error::WrongPhase)
         }
-        
+
         let u_move = game_state.moves.get_unchecked(u_index);
         if u_move.needed_rank_proofs.is_empty() {
             return Err(Error::NoRankProofsNeeded)
@@ -687,7 +707,7 @@ impl Contract {
         if u_move.needed_rank_proofs.len() != req.hidden_ranks.len() {
             return Err(Error::InvalidArgs)
         }
-        
+
         let pawn_indexes = Self::create_pawn_indexes(e, &game_state.pawns);
         if !Self::validate_rank_proofs(e, &req.hidden_ranks, &game_state) {
             // abort the game
@@ -707,7 +727,7 @@ impl Contract {
         let mut u_move = game_state.moves.get_unchecked(u_index);
         u_move.needed_rank_proofs = Vec::new(e);
         game_state.moves.set(u_index, u_move);
-        
+
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
         if next_subphase == Subphase::None {
             // Both players have acted, check if we can transition to next phase
@@ -734,7 +754,6 @@ impl Contract {
         temporary.set(&game_state_key, &game_state);
         Ok(lobby_info)
     }
-
     // region helper functions
 
     pub(crate) fn create_pawns_map(e: &Env, game_state: &GameState) -> Map<PawnId, (u32, PawnState)> {

@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CDCJL2XIGYD77CSYNYXJ3JH5OVASNTRINIHC5HROJMFBDOVKT5HTUCAJ";
+    public static string testContract = "CCPGTYNG7JOTZDYF2FO3LTPJVZCALWODV3E34RRD4COTBY6XYZ53CIBM";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -40,8 +40,10 @@ public static class StellarManager
 
     public static async Task<bool> UpdateState()
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation("UpdateState");
         TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
-        networkState = await stellar.ReqNetworkState();
+        networkState = await stellar.ReqNetworkState(tracker);
         EndTask(getNetworkStateTask);
         if (networkState.user is User user && user.current_lobby != 0)
         {
@@ -54,7 +56,8 @@ public static class StellarManager
                 Debug.Log("Set current_lobby to null due to expired/missing lobby");
             }
         }
-        
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         OnNetworkStateUpdated?.Invoke();
         return true;
     }
@@ -130,55 +133,73 @@ public static class StellarManager
 
     public static async Task<int> MakeLobbyRequest(LobbyParameters parameters)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"MakeLobbyRequest");
         MakeLobbyReq req = new()
         {
             lobby_id = GenerateLobbyId(),
             parameters = parameters,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req);
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req, tracker);
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
 
     public static async Task<int> LeaveLobbyRequest()
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"LeaveLobbyRequest");
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("leave_lobby", null);
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("leave_lobby", null, tracker);
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
     
     public static async Task<int> JoinLobbyRequest(LobbyId lobbyId)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"JoinLobbyRequest");
         JoinLobbyReq req = new()
         {
             lobby_id = lobbyId,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("join_lobby", req);
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("join_lobby", req, tracker);
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         return ProcessTransactionResult(result, simResult);
     }
     
     public static async Task<int> CommitSetupRequest(LobbyId lobbyId, Setup setup)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"CommitSetupRequest");
         CommitSetupReq req = new()
         {
             lobby_id = lobbyId,
             setup = setup,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req);
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req, tracker);
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
 
     public static async Task<int> CommitMoveRequest(LobbyId lobbyId, byte[] hiddenMoveHash, HiddenMove hiddenMove)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation("CommitMoveRequest");
         CommitMoveReq commitMoveReq = new()
         {
             lobby_id = lobbyId,
@@ -191,101 +212,120 @@ public static class StellarManager
         };
         // NOTE: voodoo to decide if we can get away with sending proveMoveReq in the same transaction
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await stellar.CallVoidFunctionWithoutWaiting("commit_move", commitMoveReq);
-        
+        AccountEntry accountEntry = await stellar.ReqAccountEntry(stellar.userAccount, tracker);
+        (Transaction invokeContractTransaction, SimulateTransactionResult simResult) = await stellar.SimulateFunction(accountEntry, "commit_move", commitMoveReq, tracker);
         if (simResult.Error != null)
         {
             EndTask(task);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
             return ProcessTransactionResult(null, simResult);
         }
-        // TODO: wait like half a second out of courtesy
-        bool sendProveMove = false;
-        foreach (Results results in simResult.Results)
-        {
-            SCVal scVal = results.Result;
-            LobbyInfo simulatedLobbyInfo = SCUtility.SCValToNative<LobbyInfo>(scVal);
-            Debug.Log(simulatedLobbyInfo.phase);
-            Debug.Log(simulatedLobbyInfo.subphase);
-            bool isHost = simulatedLobbyInfo.IsHost(stellar.userAddress);
-            Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
-            if (simulatedLobbyInfo.phase == Phase.MoveProve)
-            {
-                if (simulatedLobbyInfo.subphase == Subphase.Both || simulatedLobbyInfo.subphase == mySubphase)
-                {
-                    sendProveMove = true;
-                }
-            }
-        }
-
+        SCVal scVal = simResult.Results.FirstOrDefault()!.Result;
+        LobbyInfo simulatedLobbyInfo = SCUtility.SCValToNative<LobbyInfo>(scVal);
+        bool isHost = simulatedLobbyInfo.IsHost(stellar.userAddress);
+        Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
+        bool sendProveMove = simulatedLobbyInfo.phase == Phase.MoveProve &&
+                             (simulatedLobbyInfo.subphase == Subphase.Both || simulatedLobbyInfo.subphase == mySubphase);
         if (sendProveMove)
         {
-            
-            
-            
-            
+            (GetTransactionResult combinedTransactionResult, SimulateTransactionResult combinedSimResult) = await stellar.CallVoidFunctionWithTwoParameters(accountEntry,"commit_move_and_prove_move", commitMoveReq, proveMoveReq, tracker);
+            if (combinedTransactionResult == null)
+            {
+                Debug.LogError("CallVoidFunction: timed out or failed to connect");
+            }
+            else if (combinedTransactionResult.Status != GetTransactionResult_Status.SUCCESS)
+            {
+                Debug.LogWarning($"CallVoidFunction: status: {combinedTransactionResult.Status}");
+            }
+            EndTask(task);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return ProcessTransactionResult(combinedTransactionResult, combinedSimResult);
         }
-        
-        
-        
-        GetTransactionResult getResult = await stellar.WaitForTransaction(sendResult.Hash, 1000);
-        //currentTracker.EndOperation();
-        if (getResult == null)
+        else
         {
-            Debug.LogError("CallVoidFunction: timed out or failed to connect");
-        }
-        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
-        {
-            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
+            GetTransactionResult getResult = await stellar.CallVoidFunctionWithoutSimulating(invokeContractTransaction, simResult, tracker);
+            //currentTracker.EndOperation();
+            if (getResult == null)
+            {
+                Debug.LogError("CallVoidFunction: timed out or failed to connect");
+            }
+            else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
+            {
+                Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
+            }
+            EndTask(task);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return ProcessTransactionResult(getResult, simResult);
         }
         
-        EndTask(task);
-        await UpdateState();
-        return ProcessTransactionResult(getResult, simResult);
+        
+        
     }
 
     public static async Task<int> ProveMoveRequest(LobbyId lobbyId, HiddenMove hiddenMove)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"ProveMoveRequest");
         ProveMoveReq req = new()
         {
             lobby_id = lobbyId,
             move_proof = hiddenMove,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_move", req);
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_move", req, tracker);
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
 
     public static async Task<int> ProveRankRequest(LobbyId lobbyId, HiddenRank[] hiddenRanks)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"ProveRankRequest");
         ProveRankReq req = new()
         {
             lobby_id = lobbyId,
             hidden_ranks = hiddenRanks,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_rank", req);
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_rank", req, tracker);
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         await UpdateState();
         return ProcessTransactionResult(result, simResult);
     }
     
     public static async Task<AccountEntry> GetAccount(string key)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"GetAccount");
         TaskInfo task = SetCurrentTask("ReqAccountEntry");
         AccountEntry result = await stellar.ReqAccountEntry(MuxedAccount.FromAccountId(key));
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         return result;
     }
 
     public static async Task<TrustLineEntry> GetAssets(string userId)
     {
+        TimingTracker tracker = new TimingTracker();
+        tracker.StartOperation($"GetAssets");
         TaskInfo task = SetCurrentTask("ReqAccountEntry");
         MuxedAccount.KeyTypeEd25519 userAccount = MuxedAccount.FromAccountId(userId);
 
-        LedgerEntry.dataUnion.Trustline result = await stellar.GetAssets(userAccount);
+        LedgerEntry.dataUnion.Trustline result = await stellar.GetAssets(userAccount, tracker);
         EndTask(task);
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
         OnAssetsUpdated?.Invoke(result.trustLine);
         return result.trustLine;
     }
