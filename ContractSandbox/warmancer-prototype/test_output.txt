@@ -1,0 +1,246 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\contracts\hello-world\Cargo.toml
+workspace: C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\Cargo.toml
+   Compiling hello-world v0.0.0 (C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\contracts\hello-world)
+error[E0308]: mismatched types
+   --> contracts\hello-world\src\test.rs:366:9
+    |
+366 |       let (_, host_setup_proof, _, _, _, host_rank_root) = setup.env.as_contract(&setup.contract_id, || {
+    |  _________^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^___-
+    | |         |
+    | |         expected a tuple with 5 elements, found one with 6 elements
+367 | |         create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
+368 | |     });
+    | |______- this expression has type `(Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>)`
+    |
+    = note: expected tuple `(soroban_sdk::Vec<SetupCommit>, Setup, u64, soroban_sdk::Vec<HiddenRank>, soroban_sdk::Vec<MerkleProof>)`
+               found tuple `(_, _, _, _, _, _)`
+    = note: the full name for the type has been written to 'C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\target\debug\deps\hello_world-f7fa15f8914dd868.long-type-872027948765990720.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+error[E0308]: mismatched types
+   --> contracts\hello-world\src\test.rs:369:9
+    |
+369 |       let (_, guest_setup_proof, _, _, _, guest_rank_root) = setup.env.as_contract(&setup.contract_id, || {
+    |  _________^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^___-
+    | |         |
+    | |         expected a tuple with 5 elements, found one with 6 elements
+370 | |         create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
+371 | |     });
+    | |______- this expression has type `(Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>)`
+    |
+    = note: expected tuple `(soroban_sdk::Vec<SetupCommit>, Setup, u64, soroban_sdk::Vec<HiddenRank>, soroban_sdk::Vec<MerkleProof>)`
+               found tuple `(_, _, _, _, _, _)`
+    = note: the full name for the type has been written to 'C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\target\debug\deps\hello_world-f7fa15f8914dd868.long-type-872027948765990720.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+error[E0308]: mismatched types
+    --> contracts\hello-world\src\test.rs:1049:9
+     |
+1049 |     let (_, host_proof, _, host_ranks, host_merkle_proofs) = create_deterministic_setup(&setup.env, 0, fixed_seed);
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   ----------------------------------------------------- this expression has type `(Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, ...)`
+     |         |
+     |         expected a tuple with 6 elements, found one with 5 elements
+     |
+     = note: expected tuple `(soroban_sdk::Vec<SetupCommit>, Setup, u64, soroban_sdk::Vec<HiddenRank>, soroban_sdk::Vec<MerkleProof>, soroban_sdk::BytesN<16>)`
+                found tuple `(_, _, _, _, _)`
+     = note: the full name for the type has been written to 'C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\target\debug\deps\hello_world-f7fa15f8914dd868.long-type-10585805231404113140.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0308]: mismatched types
+    --> contracts\hello-world\src\test.rs:1050:9
+     |
+1050 |     let (_, guest_proof, _, guest_ranks, guest_merkle_proofs) = create_deterministic_setup(&setup.env, 1, fixed_seed);
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   ----------------------------------------------------- this expression has type `(Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, ...)`
+     |         |
+     |         expected a tuple with 6 elements, found one with 5 elements
+     |
+     = note: expected tuple `(soroban_sdk::Vec<SetupCommit>, Setup, u64, soroban_sdk::Vec<HiddenRank>, soroban_sdk::Vec<MerkleProof>, soroban_sdk::BytesN<16>)`
+                found tuple `(_, _, _, _, _)`
+     = note: the full name for the type has been written to 'C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\target\debug\deps\hello_world-f7fa15f8914dd868.long-type-10585805231404113140.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0308]: mismatched types
+    --> contracts\hello-world\src\test.rs:1847:9
+     |
+1847 |       let (_, host_setup_proof, _, host_ranks, host_merkle_proofs) = setup.env.as_contract(&setup.contract_id, || {
+     |  _________^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^___-
+     | |         |
+     | |         expected a tuple with 6 elements, found one with 5 elements
+1848 | |         create_deterministic_setup(&setup.env, 0, 12345)
+1849 | |     });
+     | |______- this expression has type `(Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, ...)`
+     |
+     = note: expected tuple `(soroban_sdk::Vec<SetupCommit>, Setup, u64, soroban_sdk::Vec<HiddenRank>, soroban_sdk::Vec<MerkleProof>, soroban_sdk::BytesN<16>)`
+                found tuple `(_, _, _, _, _)`
+     = note: the full name for the type has been written to 'C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\target\debug\deps\hello_world-f7fa15f8914dd868.long-type-10585805231404113140.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0308]: mismatched types
+    --> contracts\hello-world\src\test.rs:1851:9
+     |
+1851 |       let (_, guest_setup_proof, _, guest_ranks, guest_merkle_proofs) = setup.env.as_contract(&setup.contract_id, || {
+     |  _________^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^___-
+     | |         |
+     | |         expected a tuple with 6 elements, found one with 5 elements
+1852 | |         create_deterministic_setup(&setup.env, 1, 67890)
+1853 | |     });
+     | |______- this expression has type `(Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, ...)`
+     |
+     = note: expected tuple `(soroban_sdk::Vec<SetupCommit>, Setup, u64, soroban_sdk::Vec<HiddenRank>, soroban_sdk::Vec<MerkleProof>, soroban_sdk::BytesN<16>)`
+                found tuple `(_, _, _, _, _)`
+     = note: the full name for the type has been written to 'C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\target\debug\deps\hello_world-f7fa15f8914dd868.long-type-10585805231404113140.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+warning: unused variable: `pawn`
+   --> contracts\hello-world\src\lib.rs:496:17
+    |
+496 |             let pawn = match pawns_map.get(commit.pawn_id) {
+    |                 ^^^^ help: if this is intentional, prefix it with an underscore: `_pawn`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: variable does not need to be mutable
+   --> contracts\hello-world\src\lib.rs:520:30
+    |
+520 |             let (pawn_index, mut pawn_state) = pawns_map.get_unchecked(commit.pawn_id.clone());
+    |                              ----^^^^^^^^^^
+    |                              |
+    |                              help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `e`
+    --> contracts\hello-world\src\lib.rs:1198:35
+     |
+1198 |     pub(crate) fn check_game_over(e: &Env, game_state: &GameState, _lobby_parameters: &LobbyParameters) -> Result<Option<Subphase>, Error> {
+     |                                   ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+    --> contracts\hello-world\src\lib.rs:1265:38
+     |
+1265 |     pub(crate) fn apply_move_to_pawn(e: &Env, move_proof: &HiddenMove, pawn: &mut PawnState) -> () {
+     |                                      ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: variable `board_invalid` is assigned to, but never used
+  --> contracts\hello-world\src\test.rs:60:13
+   |
+60 |     let mut board_invalid = false;
+   |             ^^^^^^^^^^^^^
+   |
+   = note: consider using `_board_invalid` instead
+
+warning: value assigned to `board_invalid` is never read
+  --> contracts\hello-world\src\test.rs:65:13
+   |
+65 |             board_invalid = true;
+   |             ^^^^^^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: value assigned to `board_invalid` is never read
+  --> contracts\hello-world\src\test.rs:70:13
+   |
+70 |             board_invalid = true;
+   |             ^^^^^^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: value assigned to `board_invalid` is never read
+  --> contracts\hello-world\src\test.rs:75:17
+   |
+75 |                 board_invalid = true;
+   |                 ^^^^^^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: value assigned to `board_invalid` is never read
+  --> contracts\hello-world\src\test.rs:80:13
+   |
+80 |             board_invalid = true;
+   |             ^^^^^^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: unused variable: `good_tiles`
+  --> contracts\hello-world\src\test.rs:85:9
+   |
+85 |     let good_tiles = good_board.tiles.clone();
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_good_tiles`
+
+warning: unused variable: `packed_tiles`
+   --> contracts\hello-world\src\test.rs:131:9
+    |
+131 |     let packed_tiles = Vec::from_array(&setup.env, [4114u32]);
+    |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_packed_tiles`
+
+warning: unused variable: `good_lobby_parameters`
+   --> contracts\hello-world\src\test.rs:144:9
+    |
+144 |     let good_lobby_parameters = create_test_lobby_parameters(&setup.env);
+    |         ^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_good_lobby_parameters`
+
+warning: unused variable: `guest_setup_proof`
+   --> contracts\hello-world\src\test.rs:557:13
+    |
+557 |     let (_, guest_setup_proof, _, _, _) = setup.env.as_contract(&setup.contract_id, || {
+    |             ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_setup_proof`
+
+warning: unused variable: `setup`
+    --> contracts\hello-world\src\test.rs:1746:9
+     |
+1746 |     let setup = TestSetup::new();
+     |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_setup`
+
+warning: unused variable: `host_collision_rank`
+   --> contracts\hello-world\src\test_utils.rs:183:33
+    |
+183 |              host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+    |                                 ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_collision_rank`
+
+warning: unused variable: `host_alive`
+   --> contracts\hello-world\src\test_utils.rs:183:54
+    |
+183 |              host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+    |                                                      ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_alive`
+
+warning: unused variable: `host_collision_alive`
+   --> contracts\hello-world\src\test_utils.rs:183:66
+    |
+183 |              host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_collision_alive`
+
+warning: unused variable: `guest_collision_rank`
+   --> contracts\hello-world\src\test_utils.rs:185:34
+    |
+185 |              guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+    |                                  ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_collision_rank`
+
+warning: unused variable: `guest_alive`
+   --> contracts\hello-world\src\test_utils.rs:185:56
+    |
+185 |              guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+    |                                                        ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_alive`
+
+warning: unused variable: `guest_collision_alive`
+   --> contracts\hello-world\src\test_utils.rs:185:69
+    |
+185 |              guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+    |                                                                     ^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_collision_alive`
+
+warning: unused variable: `root`
+   --> contracts\hello-world\src\test_utils.rs:707:10
+    |
+707 |     let (root, tree) = crate::test::build_merkle_tree(env, rank_hashes);
+    |          ^^^^ help: if this is intentional, prefix it with an underscore: `_root`
+
+warning: unused variable: `seed`
+   --> contracts\hello-world\src\test_utils.rs:739:57
+    |
+739 | pub fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, M...
+    |                                                         ^^^^ help: if this is intentional, prefix it with an underscore: `_seed`
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `hello-world` (lib test) generated 22 warnings
+error: could not compile `hello-world` (lib test) due to 6 previous errors; 22 warnings emitted

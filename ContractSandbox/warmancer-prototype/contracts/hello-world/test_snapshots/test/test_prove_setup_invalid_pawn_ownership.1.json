@@ -546,6 +546,14 @@
                     },
                     {
                       "key": {
+                        "symbol": "rank_commitment_root"
+                      },
+                      "val": {
+                        "bytes": "8f1498e13ff87a91766c6db7db45740b"
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "setup"
                       },
                       "val": {
@@ -1454,14 +1462,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -1527,14 +1527,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -1608,14 +1600,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -1681,14 +1665,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -1762,14 +1738,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -1835,14 +1803,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -1916,14 +1876,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -1989,14 +1941,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -2070,14 +2014,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -2143,14 +2079,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -2224,14 +2152,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -2297,14 +2217,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -2378,14 +2290,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -2451,14 +2355,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -2532,14 +2428,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -2605,14 +2493,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -2686,14 +2566,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -2759,14 +2631,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -2840,14 +2704,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -2913,14 +2769,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -2994,14 +2842,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -3067,14 +2907,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -3148,14 +2980,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -3221,14 +3045,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -3302,14 +3118,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -3375,14 +3183,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -3456,14 +3256,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -3529,14 +3321,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -3610,14 +3394,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -3683,14 +3459,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -3764,14 +3532,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -3837,14 +3597,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -3918,14 +3670,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -3991,14 +3735,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -4072,14 +3808,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -4145,14 +3873,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -4226,14 +3946,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -4299,14 +4011,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -4380,14 +4084,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -4453,14 +4149,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -4534,14 +4222,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -4607,14 +4287,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -4688,14 +4360,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -4761,14 +4425,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -4842,14 +4498,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -4915,14 +4563,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -4996,14 +4636,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -5069,14 +4701,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -5150,14 +4774,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -5223,14 +4839,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -5304,14 +4912,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -5377,14 +4977,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -5458,14 +5050,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -5531,14 +5115,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -5612,14 +5188,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -5685,14 +5253,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -5766,14 +5326,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -5839,14 +5391,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -5920,14 +5464,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -5993,14 +5529,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -6074,14 +5602,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -6147,14 +5667,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -6228,14 +5740,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -6301,14 +5805,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -6382,14 +5878,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -6455,14 +5943,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -6536,14 +6016,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -6609,14 +6081,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -6690,14 +6154,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -6763,14 +6219,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -6844,14 +6292,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -6917,14 +6357,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -6998,14 +6430,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -7071,14 +6495,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -7152,14 +6568,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -7225,14 +6633,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -7306,14 +6706,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -7379,14 +6771,6 @@
                                 },
                                 "val": {
                                   "bool": true
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
                                 }
                               },
                               {
@@ -7460,14 +6844,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -7537,14 +6913,6 @@
                               },
                               {
                                 "key": {
-                                  "symbol": "hidden_rank_hash"
-                                },
-                                "val": {
-                                  "bytes": "00000000000000000000000000000000"
-                                }
-                              },
-                              {
-                                "key": {
                                   "symbol": "moved"
                                 },
                                 "val": {
@@ -7601,6 +6969,21 @@
                                 }
                               }
                             ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "rank_roots"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "bytes": "00000000000000000000000000000000"
+                          },
+                          {
+                            "bytes": "00000000000000000000000000000000"
                           }
                         ]
                       }

@@ -17,6 +17,7 @@ pub type HiddenRankHash = BytesN<16>; // always the hash of HiddenRank struct
 pub type HiddenMoveHash = BytesN<16>; // always the hash of HiddenMove struct
 pub type SetupHash = BytesN<16>; // always the hash of Setup struct
 pub type BoardHash = BytesN<16>; // not used at the moment
+pub type MerkleHash = BytesN<16>;
 pub type Rank = u32;
 pub type PackedTile = u32;
 
@@ -90,6 +91,16 @@ pub enum Subphase {
 }
 
 // endregion
+// region merkel structs
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MerkleProof {
+    pub leaf_index: u32,
+    pub siblings: Vec<MerkleHash>,
+}
+
+// endregion
+
 // region structs
 
 #[contracttype]#[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -142,7 +153,7 @@ pub struct Setup {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnState {
     pub alive: bool,
-    pub hidden_rank_hash: HiddenRankHash,
+//    pub hidden_rank_hash: HiddenRankHash,
     pub moved: bool,
     pub moved_scout: bool,
     pub pawn_id: PawnId,
@@ -159,6 +170,7 @@ pub struct UserMove {
 pub struct GameState {
     pub moves: Vec<UserMove>,
     pub pawns: Vec<PawnState>,
+    pub rank_roots: Vec<MerkleHash>,
     pub turn: u32,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -179,7 +191,6 @@ pub struct LobbyInfo {
     pub phase: Phase,
     pub subphase: Subphase,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct History {
     pub guest_moves: Vec<HiddenMove>,
@@ -202,6 +213,7 @@ pub struct JoinLobbyReq {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitSetupReq {
     pub lobby_id: LobbyId,
+    pub rank_commitment_root: MerkleHash,
     pub setup: Setup,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -220,6 +232,7 @@ pub struct ProveMoveReq {
 pub struct ProveRankReq {
     pub hidden_ranks: Vec<HiddenRank>,
     pub lobby_id: LobbyId,
+    pub merkle_proofs: Vec<MerkleProof>,
 }
 
 // // endregion
@@ -437,7 +450,7 @@ impl Contract {
                 let pawn_id = Self::encode_pawn_id(&pos, &team);
                 let pawn_state = PawnState {
                     alive: true,
-                    hidden_rank_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
+//                    hidden_rank_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
                     moved: false,
                     moved_scout: false,
                     pawn_id: pawn_id,
@@ -450,6 +463,7 @@ impl Contract {
         let game_state = GameState {
             moves: Vec::new(e),
             pawns: pawns,
+            rank_roots: Vec::from_array(e, [MerkleHash::from_array(e, &[0u8; 16]), MerkleHash::from_array(e, &[0u8; 16]),]),
             turn: 0,
         };
         lobby_info.phase = Phase::SetupCommit;
@@ -493,6 +507,7 @@ impl Contract {
                 break;
             }
         }
+        game_state.rank_roots.set(u_index, req.rank_commitment_root);
         if !setup_valid {
             // immediately abort the game
             debug_log!(e, "prove_setup: Invalid setup! Setting phase to Aborted");
@@ -503,7 +518,7 @@ impl Contract {
         }
         for commit in req.setup.setup_commits.iter() {
             let (pawn_index, mut pawn_state) = pawns_map.get_unchecked(commit.pawn_id.clone());
-            pawn_state.hidden_rank_hash = commit.hidden_rank_hash.clone();
+            // pawn_state.hidden_rank_hash = commit.hidden_rank_hash.clone();
             game_state.pawns.set(pawn_index, pawn_state);
         }
         if next_subphase == Subphase::None {
@@ -690,26 +705,55 @@ impl Contract {
     }
 
     pub fn prove_rank_internal(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
+        debug_log!(e, "=== prove_rank_internal START ===");
+        debug_log!(e, "Address: {:?}", address);
+        debug_log!(e, "Lobby ID: {}", req.lobby_id);
+        debug_log!(e, "Hidden ranks count: {}", req.hidden_ranks.len());
+        debug_log!(e, "Merkle proofs count: {}", req.merkle_proofs.len());
+        
+        for (i, hidden_rank) in req.hidden_ranks.iter().enumerate() {
+            debug_log!(e, "Rank request {}: pawn_id={}, rank={}, salt={}", 
+                      i as u32, hidden_rank.pawn_id, hidden_rank.rank, hidden_rank.salt);
+        }
+        
         let temporary = e.storage().temporary();
         let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
         let mut lobby_info = lobby_info.unwrap();
         let mut game_state = game_state.unwrap();
         let lobby_parameters = lobby_parameters.unwrap();
         let u_index = Self::get_player_index(&address, &lobby_info)?;
+        
+        debug_log!(e, "Player index: {}", u_index);
+        debug_log!(e, "Current phase: {:?}", lobby_info.phase);
+        debug_log!(e, "Current subphase: {:?}", lobby_info.subphase);
+        
         if lobby_info.phase != Phase::RankProve {
+            debug_log!(e, "FAIL: Wrong phase - expected RankProve, got {:?}", lobby_info.phase);
             return Err(Error::WrongPhase)
         }
 
         let u_move = game_state.moves.get_unchecked(u_index);
+        debug_log!(e, "Needed rank proofs: {}", u_move.needed_rank_proofs.len());
+        
+        for (i, needed_pawn_id) in u_move.needed_rank_proofs.iter().enumerate() {
+            debug_log!(e, "Needed rank proof {}: pawn_id={}", i as u32, needed_pawn_id);
+        }
+        
         if u_move.needed_rank_proofs.is_empty() {
+            debug_log!(e, "FAIL: No rank proofs needed");
             return Err(Error::NoRankProofsNeeded)
         }
         if u_move.needed_rank_proofs.len() != req.hidden_ranks.len() {
+            debug_log!(e, "FAIL: Mismatch - needed {} proofs, got {} hidden ranks", 
+                      u_move.needed_rank_proofs.len(), req.hidden_ranks.len());
             return Err(Error::InvalidArgs)
         }
 
         let pawn_indexes = Self::create_pawn_indexes(e, &game_state.pawns);
-        if !Self::validate_rank_proofs(e, &req.hidden_ranks, &game_state) {
+        let rank_root = game_state.rank_roots.get_unchecked(u_index);
+        debug_log!(e, "Using rank root: {:?}", rank_root.to_array());
+        
+        if !Self::validate_rank_proofs(e, &req.hidden_ranks, &req.merkle_proofs, &game_state, &rank_root) {
             // abort the game
             debug_log!(e, "prove_rank: Invalid rank proof! Setting phase to Aborted");
             lobby_info.phase = Phase::Aborted;
@@ -717,9 +761,11 @@ impl Contract {
             temporary.set(&lobby_info_key, &lobby_info);
             return Ok(lobby_info)
         }
+        debug_log!(e, "SUCCESS: Rank proofs validated, updating pawn ranks");
         for hidden_rank in req.hidden_ranks.iter() {
             let pawn_index = pawn_indexes.get_unchecked(hidden_rank.pawn_id.clone());
             let mut pawn = game_state.pawns.get_unchecked(pawn_index);
+            debug_log!(e, "Setting pawn {} rank to {}", hidden_rank.pawn_id, hidden_rank.rank);
             pawn.rank = Vec::from_array(e, [hidden_rank.rank.clone()]);
             game_state.pawns.set(pawn_index, pawn);
         }
@@ -727,31 +773,37 @@ impl Contract {
         let mut u_move = game_state.moves.get_unchecked(u_index);
         u_move.needed_rank_proofs = Vec::new(e);
         game_state.moves.set(u_index, u_move);
+        debug_log!(e, "Cleared needed rank proofs for player {}", u_index);
 
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
+        debug_log!(e, "Next subphase: {:?}", next_subphase);
+        
         if next_subphase == Subphase::None {
             // Both players have acted, check if we can transition to next phase
+            debug_log!(e, "Both players completed rank proofs, resolving moves");
             Self::set_history(e, &req.lobby_id, &game_state)?;
             Self::complete_move_resolution(e, &mut game_state);
             if let Some(winner) = Self::check_game_over(e, &game_state, &lobby_parameters)? {
                 lobby_info.phase = Phase::Finished;
                 lobby_info.subphase = winner.clone();
                 temporary.set(&lobby_info_key, &lobby_info);
-                debug_log!(e, "prove_move: Game over, winner={:?}", winner);
+                debug_log!(e, "prove_rank: Game over, winner={:?}", winner);
             }
             else {
                 // Transition to next turn
                 lobby_info.phase = Phase::MoveCommit;
                 lobby_info.subphase = Subphase::Both;
                 game_state.turn += 1;
-                debug_log!(e, "prove_move: Transitioned to MoveCommit/Both for next turn");
+                debug_log!(e, "prove_rank: Transitioned to MoveCommit/Both for next turn");
             }
         } else {
             // Standard case: advance to next player's turn
+            debug_log!(e, "Advanced to next player's turn: {:?}", next_subphase);
             lobby_info.subphase = next_subphase;
         }
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
+        debug_log!(e, "=== prove_rank_internal END: SUCCESS ===");
         Ok(lobby_info)
     }
     // region helper functions
@@ -852,29 +904,64 @@ impl Contract {
         return true
     }
 
-    pub(crate) fn validate_rank_proofs(e: &Env, hidden_ranks: &Vec<HiddenRank>, game_state: &GameState) -> bool {
+    pub(crate) fn validate_rank_proofs(e: &Env, hidden_ranks: &Vec<HiddenRank>, merkle_proofs: &Vec<MerkleProof>, game_state: &GameState, root: &MerkleHash) -> bool {
+        debug_log!(e, "=== validate_rank_proofs START ===");
+        debug_log!(e, "Number of hidden ranks: {}", hidden_ranks.len());
+        debug_log!(e, "Number of merkle proofs: {}", merkle_proofs.len());
+        debug_log!(e, "Root hash: {:?}", root.to_array());
+        
         let mut valid_rank_proof = true;
         let pawns_map = Self::create_pawns_map(e, game_state);
-        for hidden_rank in hidden_ranks.iter() {
+        
+        // Check that we have the same number of hidden ranks and merkle proofs
+        if hidden_ranks.len() != merkle_proofs.len() {
+            debug_log!(e, "FAIL: Mismatch in number of hidden ranks ({}) vs merkle proofs ({})", 
+                      hidden_ranks.len(), merkle_proofs.len());
+            return false;
+        }
+        
+        for (i, hidden_rank) in hidden_ranks.iter().enumerate() {
+            debug_log!(e, "--- Validating rank proof {} ---", i as u32);
+            debug_log!(e, "Pawn ID: {}, Rank: {}, Salt: {}", 
+                      hidden_rank.pawn_id, hidden_rank.rank, hidden_rank.salt);
+            
             let serialized_hidden_rank = hidden_rank.clone().to_xdr(e);
             let full_hash = e.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
             let rank_hash = HiddenRankHash::from_array(e, &full_hash[0..16].try_into().unwrap());
-            let (_, mut pawn) = match pawns_map.get(hidden_rank.pawn_id.clone()) {
-                Some(tuple) => tuple,
-                None => {
-                    valid_rank_proof = false;
-                    break;
-                }
-            };
-            if pawn.hidden_rank_hash == rank_hash {
-                debug_log!(e, "set rank for pawnid {} to {}", pawn.pawn_id, hidden_rank.rank);
-                pawn.rank = Vec::from_array(e, [hidden_rank.rank.clone()]);
+            debug_log!(e, "Calculated rank hash: {:?}", rank_hash.to_array());
+
+            let merkle_proof = merkle_proofs.get(i as u32).unwrap();
+            debug_log!(e, "Merkle proof leaf_index: {}, siblings: {}", 
+                      merkle_proof.leaf_index, merkle_proof.siblings.len());
+            
+            // Log all sibling hashes
+            for (j, sibling) in merkle_proof.siblings.iter().enumerate() {
+                debug_log!(e, "  Sibling {}: {:?}", j as u32, sibling.to_array());
             }
-            else {
+            
+            let is_valid = Self::verify_merkle_proof(e, &rank_hash, &merkle_proof, root);
+            debug_log!(e, "Merkle proof verification result: {}", is_valid);
+
+            if !is_valid {
+                debug_log!(e, "FAIL: Merkle proof verification failed for pawn {}", hidden_rank.pawn_id);
                 valid_rank_proof = false;
-                break;
+            } else {
+                debug_log!(e, "PASS: Merkle proof verification succeeded for pawn {}", hidden_rank.pawn_id);
+            }
+
+            // Check if pawn exists in game state
+            match pawns_map.get(hidden_rank.pawn_id.clone()) {
+                Some(_) => {
+                    debug_log!(e, "PASS: Pawn {} exists in game state", hidden_rank.pawn_id);
+                }
+                None => {
+                    debug_log!(e, "FAIL: Pawn {} not found in game state", hidden_rank.pawn_id);
+                    valid_rank_proof = false;
+                }
             }
         }
+        
+        debug_log!(e, "=== validate_rank_proofs END: {} ===", valid_rank_proof);
         valid_rank_proof
     }
 
@@ -1246,6 +1333,65 @@ impl Contract {
     }
 
     // Data Access Helpers
+
+    pub(crate) fn verify_merkle_proof(e: &Env, leaf: &MerkleHash, proof: &MerkleProof, root: &MerkleHash) -> bool {
+        debug_log!(e, "=== verify_merkle_proof START ===");
+        debug_log!(e, "Leaf hash: {:?}", leaf.to_array());
+        debug_log!(e, "Proof leaf_index: {}", proof.leaf_index);
+        debug_log!(e, "Proof siblings count: {}", proof.siblings.len());
+        debug_log!(e, "Expected root: {:?}", root.to_array());
+        
+        let mut current_hash = leaf.clone();
+        let mut index = proof.leaf_index;
+        
+        debug_log!(e, "Starting with current_hash: {:?}, index: {}", current_hash.to_array(), index);
+        
+        for (level, sibling) in proof.siblings.iter().enumerate() {
+            debug_log!(e, "--- Level {} ---", level as u32);
+            debug_log!(e, "Current hash: {:?}", current_hash.to_array());
+            debug_log!(e, "Sibling hash: {:?}", sibling.to_array());
+            debug_log!(e, "Current index: {}", index);
+            
+            // Create a 32-byte array directly for concatenation
+            let mut combined_bytes = [0u8; 32];
+            
+            // Determine order based on index (even = current is left, odd = current is right)
+            if index % 2 == 0 {
+                // Current hash goes on the left, sibling on the right
+                debug_log!(e, "Index {} is even: current (left) + sibling (right)", index);
+                combined_bytes[0..16].copy_from_slice(&current_hash.to_array());
+                combined_bytes[16..32].copy_from_slice(&sibling.to_array());
+            } else {
+                // Sibling goes on the left, current hash on the right
+                debug_log!(e, "Index {} is odd: sibling (left) + current (right)", index);
+                combined_bytes[0..16].copy_from_slice(&sibling.to_array());
+                combined_bytes[16..32].copy_from_slice(&current_hash.to_array());
+            }
+            
+            debug_log!(e, "Combined bytes: {:?}", combined_bytes);
+            
+            // Hash the combined bytes
+            let parent_full = e.crypto().sha256(&Bytes::from_array(e, &combined_bytes));
+            
+            // Take first 16 bytes as the new current hash
+            let parent_bytes = parent_full.to_array();
+            current_hash = MerkleHash::from_array(e, &parent_bytes[0..16].try_into().unwrap());
+            
+            debug_log!(e, "New current hash: {:?}", current_hash.to_array());
+            
+            // Move up the tree
+            index = index / 2;
+            debug_log!(e, "New index: {}", index);
+        }
+        
+        debug_log!(e, "Final computed hash: {:?}", current_hash.to_array());
+        debug_log!(e, "Expected root hash: {:?}", root.to_array());
+        
+        let result = current_hash == *root;
+        debug_log!(e, "=== verify_merkle_proof END: {} ===", result);
+        
+        result
+    }
 
     pub(crate) fn set_history(e: &Env, lobby_id: &LobbyId, game_state: &GameState) -> Result<(), Error> {
         let temporary = e.storage().temporary();

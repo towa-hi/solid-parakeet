@@ -1,0 +1,100 @@
+
+warning: unused variable: `host_merkle_root`
+    --> contracts\hello-world\src\test.rs:1064:60
+     |
+1064 |     let (_, host_proof, _, host_ranks, host_merkle_proofs, host_merkle_root) = create_deterministic_setup(&setup.env, 0, fixed_seed);
+     |                                                            ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_merkle_root`
+
+warning: unused variable: `guest_merkle_root`
+    --> contracts\hello-world\src\test.rs:1065:63
+     |
+1065 |     let (_, guest_proof, _, guest_ranks, guest_merkle_proofs, guest_merkle_root) = create_deterministic_setup(&setup.env, 1, fixed_seed);
+     |                                                               ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_merkle_root`
+
+warning: unused variable: `host_hash`
+    --> contracts\hello-world\src\test.rs:1085:13
+     |
+1085 |         let host_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
+     |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_hash`
+
+warning: unused variable: `guest_hash`
+    --> contracts\hello-world\src\test.rs:1087:13
+     |
+1087 |         let guest_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_hash`
+
+warning: unused variable: `setup`
+    --> contracts\hello-world\src\test.rs:1761:9
+     |
+1761 |     let setup = TestSetup::new();
+     |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_setup`
+
+warning: unused variable: `host_merkle_root`
+    --> contracts\hello-world\src\test.rs:1862:66
+     |
+1862 |     let (_, host_setup_proof, _, host_ranks, host_merkle_proofs, host_merkle_root) = setup.env.as_contract(&setup.contract_id, || {
+     |                                                                  ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_merkle_root`
+
+warning: unused variable: `guest_merkle_proofs`
+    --> contracts\hello-world\src\test.rs:1866:48
+     |
+1866 |     let (_, guest_setup_proof, _, guest_ranks, guest_merkle_proofs, guest_merkle_root) = setup.env.as_contract(&setup.contract_id, || {
+     |                                                ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_merkle_proofs`
+
+warning: unused variable: `guest_merkle_root`
+    --> contracts\hello-world\src\test.rs:1866:69
+     |
+1866 |     let (_, guest_setup_proof, _, guest_ranks, guest_merkle_proofs, guest_merkle_root) = setup.env.as_contract(&setup.contract_id, || {
+     |                                                                     ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_merkle_root`
+
+warning: unused variable: `result`
+    --> contracts\hello-world\src\test.rs:2019:9
+     |
+2019 |     let result = setup.client.prove_rank(&host_address, &prove_req);
+     |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_result`
+
+warning: unused variable: `host_collision_rank`
+   --> contracts\hello-world\src\test_utils.rs:183:33
+    |
+183 |              host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+    |                                 ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_collision_rank`
+
+warning: unused variable: `host_alive`
+   --> contracts\hello-world\src\test_utils.rs:183:54
+    |
+183 |              host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+    |                                                      ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_alive`
+
+warning: unused variable: `host_collision_alive`
+   --> contracts\hello-world\src\test_utils.rs:183:66
+    |
+183 |              host_collision_id, host_collision_rank, host_alive, host_collision_alive,
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_collision_alive`
+
+warning: unused variable: `guest_collision_rank`
+   --> contracts\hello-world\src\test_utils.rs:185:34
+    |
+185 |              guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+    |                                  ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_collision_rank`
+
+warning: unused variable: `guest_alive`
+   --> contracts\hello-world\src\test_utils.rs:185:56
+    |
+185 |              guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+    |                                                        ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_alive`
+
+warning: unused variable: `guest_collision_alive`
+   --> contracts\hello-world\src\test_utils.rs:185:69
+    |
+185 |              guest_collision_id, guest_collision_rank, guest_alive, guest_collision_alive) = move_entry;
+    |                                                                     ^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_guest_collision_alive`
+
+warning: unused variable: `seed`
+   --> contracts\hello-world\src\test_utils.rs:762:57
+    |
+762 | pub fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, M...
+    |                                                         ^^^^ help: if this is intentional, prefix it with an underscore: `_seed`
+
+For more information about this error, try `rustc --explain E0277`.
+warning: `hello-world` (lib test) generated 29 warnings
+error: could not compile `hello-world` (lib test) due to 2 previous errors; 29 warnings emitted
