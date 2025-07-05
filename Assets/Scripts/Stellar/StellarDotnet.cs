@@ -154,6 +154,7 @@ public class StellarDotnet
                 Transaction = EncodeTransaction(invokeContractTransaction),
                 ResourceConfig = new()
                 {
+                    
                     // TODO: setup resource config
                 },
             },
@@ -456,7 +457,7 @@ public class StellarDotnet
             sourceAccount = userAccount,
             fee = 100000, // TODO: make this configurable
             memo = new Memo.MemoNone(),
-            seqNum = accountEntry.seqNum, // TODO: sometimes we might not want to increment here
+            seqNum = accountEntry.seqNum, 
             cond = new Preconditions.PrecondNone(),
             ext = new Transaction.extUnion.case_0(),
             operations = operations.ToArray(),
