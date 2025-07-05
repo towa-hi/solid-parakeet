@@ -516,11 +516,11 @@ impl Contract {
             temporary.set(&lobby_info_key, &lobby_info);
             return Ok(())
         }
-        for commit in req.setup.setup_commits.iter() {
-            let (pawn_index, mut pawn_state) = pawns_map.get_unchecked(commit.pawn_id.clone());
-            // pawn_state.hidden_rank_hash = commit.hidden_rank_hash.clone();
-            game_state.pawns.set(pawn_index, pawn_state);
-        }
+        // for commit in req.setup.setup_commits.iter() {
+        //     let (pawn_index, mut pawn_state) = pawns_map.get_unchecked(commit.pawn_id.clone());
+        //     // pawn_state.hidden_rank_hash = commit.hidden_rank_hash.clone();
+        //     game_state.pawns.set(pawn_index, pawn_state);
+        // }
         if next_subphase == Subphase::None {
             lobby_info.phase = Phase::MoveCommit;
             lobby_info.subphase = Subphase::Both;
@@ -697,6 +697,25 @@ impl Contract {
         address.require_auth();
         Self::prove_move_internal(e, address.clone(), req);
         Self::prove_rank_internal(e, address, req2)
+    }
+
+    pub fn prove_rank_test(e: &Env, address: Address, req: ProveRankReq) -> Result<bool, Error> {
+        let temporary = e.storage().temporary();
+        let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
+        let mut lobby_info = lobby_info.unwrap();
+        let mut game_state = game_state.unwrap();
+        let lobby_parameters = lobby_parameters.unwrap();
+        let u_index = Self::get_player_index(&address, &lobby_info)?;
+        let rank_root = game_state.rank_roots.get_unchecked(u_index);
+        if !Self::validate_rank_proofs(e, &req.hidden_ranks, &req.merkle_proofs, &game_state, &rank_root) {
+            // abort the game
+            debug_log!(e, "prove_rank: Invalid rank proof! Setting phase to Aborted");
+            lobby_info.phase = Phase::Aborted;
+            lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
+            temporary.set(&lobby_info_key, &lobby_info);
+            return Ok(false)
+        }
+        Ok(true)
     }
 
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {

@@ -363,23 +363,25 @@ fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (Addre
     setup.client.join_lobby(&guest_address, &join_req);
 
     // Create setup data for both players
-    let (_, host_setup_proof, _, _, _, host_rank_root) = setup.env.as_contract(&setup.contract_id, || {
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
-    let (_, guest_setup_proof, _, _, _, guest_rank_root) = setup.env.as_contract(&setup.contract_id, || {
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
+    let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
+    let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
 
     // Commit both setups
     let host_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: host_rank_root,
-        setup: host_setup_proof,
+        rank_commitment_root: host_root,
+        setup: host_setup,
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: guest_rank_root,
-        setup: guest_setup_proof,
+        rank_commitment_root: guest_root,
+        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);
@@ -549,18 +551,18 @@ fn test_prove_setup_invalid_pawn_ownership() {
     setup.client.join_lobby(&guest_address, &join_req);
 
     // Create setup with wrong team pawns for host (team 1 instead of 0)
-    let (_, host_setup_proof, _, _, _, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 1) // Wrong team!
     });
 
     // Create valid setup for guest (team 0 - also wrong, but different from host)
-    let (_, guest_setup_proof, _, _, _, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
 
     // Build merkle tree for host rank commitment
     let mut host_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    for commit in host_setup_proof.setup_commits.iter() {
+    for commit in host_setup.setup_commits.iter() {
         host_leaves.push_back(commit.hidden_rank_hash.clone());
     }
     let (host_rank_root, _) = build_merkle_tree(&setup.env, host_leaves);
@@ -569,7 +571,7 @@ fn test_prove_setup_invalid_pawn_ownership() {
     let host_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: host_rank_root,
-        setup: host_setup_proof,
+        setup: host_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);
@@ -913,35 +915,24 @@ fn test_collision_winner_rank_revelation() {
     setup.client.join_lobby(&guest_address, &join_req);
 
     // Create setups but manually assign specific ranks for testing
-    let (_host_commits, host_proof, _, _, _, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
-    let (_guest_commits, guest_proof, _, _, _, _) = setup.env.as_contract(&setup.contract_id, || {
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
-
-    // Build merkle trees for rank commitments
-    let mut host_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    for commit in host_proof.setup_commits.iter() {
-        host_leaves.push_back(commit.hidden_rank_hash.clone());
-    }
-    let (host_rank_root, _) = build_merkle_tree(&setup.env, host_leaves);
-    
-    let mut guest_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    for commit in guest_proof.setup_commits.iter() {
-        guest_leaves.push_back(commit.hidden_rank_hash.clone());
-    }
-    let (guest_rank_root, _) = build_merkle_tree(&setup.env, guest_leaves);
+    let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
+    let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
 
     let host_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: host_rank_root,
-        setup: host_proof,
+        rank_commitment_root: host_root,
+        setup: host_setup,
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: guest_rank_root,
-        setup: guest_proof,
+        rank_commitment_root: guest_root,
+        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);
@@ -1060,41 +1051,24 @@ fn test_compare_populated_vs_unpopulated_games() {
     setup.client.join_lobby(&guest_b, &JoinLobbyReq { lobby_id: lobby_b });
 
     // Generate identical setups using fixed seed
-    let fixed_seed = 42u64;
-    let (_, host_proof, _, host_ranks, host_merkle_proofs, host_merkle_root) = create_deterministic_setup(&setup.env, 0, fixed_seed);
-    let (_, guest_proof, _, guest_ranks, guest_merkle_proofs, guest_merkle_root) = create_deterministic_setup(&setup.env, 1, fixed_seed);
-
-    // Build merkle trees for rank commitments
-    let mut host_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    for commit in host_proof.setup_commits.iter() {
-        host_leaves.push_back(commit.hidden_rank_hash.clone());
-    }
-    let (host_rank_root, _) = build_merkle_tree(&setup.env, host_leaves);
-    
-    let mut guest_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    for commit in guest_proof.setup_commits.iter() {
-        guest_leaves.push_back(commit.hidden_rank_hash.clone());
-    }
-    let (guest_rank_root, _) = build_merkle_tree(&setup.env, guest_leaves);
+    let (host_setup, host_hidden_ranks) = create_setup_commits_from_game_state(&setup.env, lobby_a, 0);
+    let (guest_setup, guest_hidden_ranks) = create_setup_commits_from_game_state(&setup.env, lobby_a, 1);
+    let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
+    let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
 
     // Apply identical setups to both games
     for lobby_id in [lobby_a, lobby_b] {
         let (host_addr, guest_addr) = if lobby_id == lobby_a { (&host_a, &guest_a) } else { (&host_b, &guest_b) };
 
-        let host_full_hash = setup.env.crypto().sha256(&host_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
-        let host_hash = SetupHash::from_array(&setup.env, &host_full_hash[0..16].try_into().unwrap());
-        let guest_full_hash = setup.env.crypto().sha256(&guest_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
-        let guest_hash = SetupHash::from_array(&setup.env, &guest_full_hash[0..16].try_into().unwrap());
-
-        setup.client.commit_setup(host_addr, &CommitSetupReq { lobby_id, rank_commitment_root: host_rank_root.clone(), setup: host_proof.clone() });
-        setup.client.commit_setup(guest_addr, &CommitSetupReq { lobby_id, rank_commitment_root: guest_rank_root.clone(), setup: guest_proof.clone() });
+        setup.client.commit_setup(host_addr, &CommitSetupReq { lobby_id, rank_commitment_root: host_root.clone(), setup: host_setup.clone() });
+        setup.client.commit_setup(guest_addr, &CommitSetupReq { lobby_id, rank_commitment_root: guest_root.clone(), setup: guest_setup.clone() });
     }
 
     // Populate ranks only in Game B
     setup.env.as_contract(&setup.contract_id, || {
         let game_state_key = DataKey::GameState(lobby_b);
         let mut game_state: GameState = setup.env.storage().temporary().get(&game_state_key).expect("Game state should exist");
-        for hidden_rank in host_ranks.iter().chain(guest_ranks.iter()) {
+        for hidden_rank in host_hidden_ranks.iter().chain(guest_hidden_ranks.iter()) {
             let (index, mut pawn) = game_state.pawns.iter().enumerate().find(|(_, p)| p.pawn_id == hidden_rank.pawn_id).unwrap();
             pawn.rank = Vec::from_array(&setup.env, [hidden_rank.rank]);
             game_state.pawns.set(index as u32, pawn);
@@ -1111,8 +1085,8 @@ fn test_compare_populated_vs_unpopulated_games() {
         // Take snapshot at start of loop to get current game state
         let loop_start_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_a);
 
-        let host_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 0, &host_ranks, salt_host);
-        let guest_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 1, &guest_ranks, salt_guest);
+        let host_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 0, &host_hidden_ranks, salt_host);
+        let guest_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 1, &guest_hidden_ranks, salt_guest);
 
         if host_move.is_none() || guest_move.is_none() {
             break; // No more valid moves
@@ -1168,7 +1142,7 @@ fn test_compare_populated_vs_unpopulated_games() {
             if !host_needed.is_empty() {
                 let mut host_proof_ranks = Vec::new(&setup.env);
                 for needed_id in host_needed.iter() {
-                    for rank in host_ranks.iter() {
+                    for rank in host_hidden_ranks.iter() {
                         if rank.pawn_id == needed_id {
                             host_proof_ranks.push_back(rank);
                         }
@@ -1178,9 +1152,9 @@ fn test_compare_populated_vs_unpopulated_games() {
                     // Prove host ranks (state-changing operation)
                     let mut host_needed_merkle_proofs = Vec::new(&setup.env);
                     for needed_id in host_needed.iter() {
-                        for (i, rank) in host_ranks.iter().enumerate() {
+                        for (i, rank) in host_hidden_ranks.iter().enumerate() {
                             if rank.pawn_id == needed_id {
-                                host_needed_merkle_proofs.push_back(host_merkle_proofs.get(i as u32).unwrap());
+                                host_needed_merkle_proofs.push_back(host_proofs.get(i as u32).unwrap());
                             }
                         }
                     }
@@ -1191,7 +1165,7 @@ fn test_compare_populated_vs_unpopulated_games() {
             if !guest_needed.is_empty() {
                 let mut guest_proof_ranks = Vec::new(&setup.env);
                 for needed_id in guest_needed.iter() {
-                    for rank in guest_ranks.iter() {
+                    for rank in guest_hidden_ranks.iter() {
                         if rank.pawn_id == needed_id {
                             guest_proof_ranks.push_back(rank);
                         }
@@ -1201,9 +1175,9 @@ fn test_compare_populated_vs_unpopulated_games() {
                     // Prove guest ranks (state-changing operation)
                     let mut guest_needed_merkle_proofs = Vec::new(&setup.env);
                     for needed_id in guest_needed.iter() {
-                        for (i, rank) in guest_ranks.iter().enumerate() {
+                        for (i, rank) in guest_hidden_ranks.iter().enumerate() {
                             if rank.pawn_id == needed_id {
-                                guest_needed_merkle_proofs.push_back(guest_merkle_proofs.get(i as u32).unwrap());
+                                guest_needed_merkle_proofs.push_back(guest_proofs.get(i as u32).unwrap());
                             }
                         }
                     }
@@ -1401,7 +1375,7 @@ impl Tree {
         let mut current_index = leaf_index;
         
         // Walk up the tree collecting siblings
-        for level in 0..self.levels.len() - 1 {
+        for level in 0..self.levels.len() {
             let level_nodes = &self.levels.get(level).unwrap();
             let sibling_index = if current_index % 2 == 0 {
                 current_index + 1
@@ -1537,30 +1511,32 @@ pub fn build_merkle_tree(env: &Env, leaves: Vec<BytesN<16>>) -> (BytesN<16>, Tre
 /// Returns (host_ranks, guest_ranks, host_merkle_proofs, guest_merkle_proofs) from the setup
 fn advance_through_complete_setup_phase(setup: &TestSetup, lobby_id: u32, host_address: &Address, guest_address: &Address) -> (Vec<HiddenRank>, Vec<HiddenRank>, Vec<MerkleProof>, Vec<MerkleProof>) {
     // Create setups from the actual game state to ensure consistency
-    let (_, host_setup_proof, _, host_ranks, host_merkle_proofs, host_rank_root) = setup.env.as_contract(&setup.contract_id, || {
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
 
-    let (_, guest_setup_proof, _, guest_ranks, guest_merkle_proofs, guest_rank_root) = setup.env.as_contract(&setup.contract_id, || {
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
 
+    let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
+    let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
     // Commit both setups using the Merkle roots that were generated from the same tree
     let host_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: host_rank_root,
-        setup: host_setup_proof,
+        rank_commitment_root: host_root,
+        setup: host_setup,
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: guest_rank_root,
-        setup: guest_setup_proof,
+        rank_commitment_root: guest_root,
+        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);
     setup.client.commit_setup(&guest_address, &guest_commit_req);
 
-    (host_ranks, guest_ranks, host_merkle_proofs, guest_merkle_proofs)
+    (host_hidden_ranks, guest_hidden_ranks, host_proofs, guest_proofs)
 }
 
 // endregion
@@ -1859,192 +1835,54 @@ fn test_rank_proving_simple() {
     setup.client.join_lobby(&guest_address, &join_req);
 
     // Create deterministic setups with known content
-    let (_, host_setup_proof, _, host_ranks, host_merkle_proofs, host_merkle_root) = setup.env.as_contract(&setup.contract_id, || {
-        create_deterministic_setup(&setup.env, 0, 12345)
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
     });
 
-    let (_, guest_setup_proof, _, guest_ranks, guest_merkle_proofs, guest_merkle_root) = setup.env.as_contract(&setup.contract_id, || {
-        create_deterministic_setup(&setup.env, 1, 67890)
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
     });
 
-    // // Build merkle trees for rank commitments
-    // let mut host_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    // for commit in host_setup_proof.setup_commits.iter() {
-    //     host_leaves.push_back(commit.hidden_rank_hash.clone());
-    // }
-    // let (host_rank_root, _) = build_merkle_tree(&setup.env, host_leaves);
-    //
-    // let mut guest_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    // for commit in guest_setup_proof.setup_commits.iter() {
-    //     guest_leaves.push_back(commit.hidden_rank_hash.clone());
-    // }
-    // let (guest_rank_root, _) = build_merkle_tree(&setup.env, guest_leaves);
-
-    // Store the committed hash before moving host_setup_proof
-    let committed_hash = host_setup_proof.setup_commits.get(0).unwrap().hidden_rank_hash.clone();
-    //
-    // // Store copies of rank roots before they're moved
-    // let host_rank_root_copy = host_rank_root.clone();
-    // let guest_rank_root_copy = guest_rank_root.clone();
-
+    let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
+    let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
     // Commit both setups
     let host_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: host_merkle_root.clone(),
-        setup: host_setup_proof,
+        rank_commitment_root: host_root.clone(),
+        setup: host_setup.clone(),
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
-        rank_commitment_root: guest_merkle_root.clone(),
-        setup: guest_setup_proof,
+        rank_commitment_root: guest_root,
+        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);
     setup.client.commit_setup(&guest_address, &guest_commit_req);
-
-    // Manually create a collision scenario by updating the game state
-    setup.env.as_contract(&setup.contract_id, || {
-        let game_state_key = DataKey::GameState(lobby_id);
-        let mut game_state: GameState = setup.env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
-
-        // Get actual pawn IDs from host and guest ranks
-        let host_pawn_id = host_ranks.get(0).unwrap().pawn_id;
-        let guest_pawn_id = guest_ranks.get(0).unwrap().pawn_id;
-        
-        // Create moves using actual pawn IDs that exist in the game state
-        let host_move_proof = HiddenMove {
-            pawn_id: host_pawn_id,
-            salt: 123,
-            start_pos: Pos { x: 0, y: 0 },
-            target_pos: Pos { x: 0, y: 1 },
-        };
-        
-        let guest_move_proof = HiddenMove {
-            pawn_id: guest_pawn_id,
-            salt: 456,
-            start_pos: Pos { x: 0, y: 3 },
-            target_pos: Pos { x: 0, y: 2 },
-        };
-        
-        let host_move = UserMove {
-            move_hash: HiddenMoveHash::from_array(&setup.env, &[1u8; 16]),
-            move_proof: Vec::from_array(&setup.env, [host_move_proof]),
-            needed_rank_proofs: Vec::from_array(&setup.env, [host_pawn_id]),
-        };
-        
-        let guest_move = UserMove {
-            move_hash: HiddenMoveHash::from_array(&setup.env, &[2u8; 16]),
-            move_proof: Vec::from_array(&setup.env, [guest_move_proof]),
-            needed_rank_proofs: Vec::new(&setup.env),
-        };
-        
-        // Ensure moves is a vector with 2 elements (index 0 for host, index 1 for guest)
-        game_state.moves = Vec::from_array(&setup.env, [host_move, guest_move]);
-        
-        // Set up rank roots from our committed setups
-        game_state.rank_roots = Vec::from_array(&setup.env, [host_rank_root_copy, guest_rank_root_copy]);
-        
-        // Create pawns for both players using actual pawn IDs
-        let host_pawn = PawnState {
-            alive: true,
-            moved: false,
-            moved_scout: false,
-            pawn_id: host_pawn_id,
-            pos: Pos { x: 0, y: 0 },
-            rank: Vec::new(&setup.env), // Empty initially, will be filled by prove_rank
-        };
-        
-        let guest_pawn = PawnState {
-            alive: true,
-            moved: false,
-            moved_scout: false,
-            pawn_id: guest_pawn_id,
-            pos: Pos { x: 0, y: 3 },
-            rank: Vec::new(&setup.env), // Empty initially
-        };
-        
-        game_state.pawns = Vec::from_array(&setup.env, [host_pawn, guest_pawn]);
-
-        // Manually set phase to RankProve
-        let lobby_info_key = DataKey::LobbyInfo(lobby_id);
-        let mut lobby_info: LobbyInfo = setup.env.storage()
-            .temporary()
-            .get(&lobby_info_key)
-            .expect("Lobby info should exist");
-        lobby_info.phase = Phase::RankProve;
-        lobby_info.subphase = Subphase::Host;
-        
-        // Initialize History object that set_history expects
-        let history_key = DataKey::History(lobby_id);
-        let history = History {
-            guest_moves: Vec::new(&setup.env),
-            host_moves: Vec::new(&setup.env),
+    for (i, hidden_rank) in host_hidden_ranks.iter().enumerate() {
+        std::println!("team: {}", Contract::decode_pawn_id(&hidden_rank.pawn_id.clone()).1);
+        let hidden_rank_proof = host_proofs.get_unchecked(i as u32);
+        let prove_rank_test_req = ProveRankReq {
             lobby_id,
+            hidden_ranks: Vec::from_array(&setup.env, [hidden_rank]),
+            merkle_proofs: Vec::from_array(&setup.env, [hidden_rank_proof.clone()]),
         };
-        setup.env.storage().temporary().set(&history_key, &history);
+        let hidden_rank_hash = host_setup.setup_commits.get_unchecked(i as u32).hidden_rank_hash;
+        let is_valid = setup.env.as_contract(&setup.contract_id, || {
+            Contract::verify_merkle_proof(&setup.env, &hidden_rank_hash, &hidden_rank_proof, &host_root)
+        });
 
-        setup.env.storage().temporary().set(&game_state_key, &game_state);
-        setup.env.storage().temporary().set(&lobby_info_key, &lobby_info);
-    });
+        assert!(is_valid, "Merkle proof should be valid");
+
+
+        let result = setup.client.prove_rank_test(&host_address, &prove_rank_test_req);
+        std::println!("submitted proof: leaf index {}", hidden_rank_proof.leaf_index.clone());
+
+        assert!(result, "Merkle proof should be valid");
+    }
+
 
     // Now test proving a rank
-    std::println!("Total host ranks: {}", host_ranks.len());
-    std::println!("Total host merkle proofs: {}", host_merkle_proofs.len());
-    
-    let rank_to_prove = host_ranks.get(0).unwrap();
-    let merkle_proof_to_use = host_merkle_proofs.get(0).unwrap();
-    
-    std::println!("Proving rank for pawn {} (rank {})", rank_to_prove.pawn_id, rank_to_prove.rank);
-    std::println!("Merkle proof: leaf_index={}, siblings={}", merkle_proof_to_use.leaf_index, merkle_proof_to_use.siblings.len());
-    
-    // Also verify that the hash of the HiddenRank matches what was committed
-    let serialized = rank_to_prove.clone().to_xdr(&setup.env);
-    let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-    let calculated_hash = HiddenRankHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap());
-    
-    // We already have committed_hash from earlier
-        
-    std::println!("Calculated hash matches committed: {}", calculated_hash == committed_hash);
-    
-    let prove_req = ProveRankReq {
-        lobby_id,
-        hidden_ranks: Vec::from_array(&setup.env, [rank_to_prove.clone()]),
-        merkle_proofs: Vec::from_array(&setup.env, [merkle_proof_to_use]),
-    };
-
-    // This should succeed
-    let result = setup.client.prove_rank(&host_address, &prove_req);
-    
-    // Verify the rank was set
-    setup.env.as_contract(&setup.contract_id, || {
-        let game_state_key = DataKey::GameState(lobby_id);
-        let game_state: GameState = setup.env.storage()
-            .temporary()
-            .get(&game_state_key)
-            .expect("Game state should exist");
-            
-        std::println!("Checking for pawn with ID: {}", rank_to_prove.pawn_id);
-        std::println!("Game state has {} pawns", game_state.pawns.len());
-        for pawn in game_state.pawns.iter() {
-            if pawn.rank.is_empty() {
-                std::println!("  Pawn ID: {}, alive: {}, rank: None", pawn.pawn_id, pawn.alive);
-            } else {
-                std::println!("  Pawn ID: {}, alive: {}, rank: {}", pawn.pawn_id, pawn.alive, pawn.rank.get(0).unwrap());
-            }
-        }
-            
-        let proven_pawn = game_state.pawns.iter()
-            .find(|p| p.pawn_id == rank_to_prove.pawn_id)
-            .expect("Pawn should exist");
-            
-        assert!(!proven_pawn.rank.is_empty(), "Rank should be revealed");
-        assert_eq!(proven_pawn.rank.get(0).unwrap(), rank_to_prove.rank, "Rank should match");
-        
-        std::println!("✓ Rank proof verified successfully!");
-    });
 }
 
 // endregion
@@ -2055,25 +1893,32 @@ fn test_verify_merkle_proof_direct() {
     
     // Create test data
     let hidden_rank = HiddenRank { pawn_id: 100, rank: 5, salt: 1234 };
-    
+    let hidden_rank2 = HiddenRank{ pawn_id: 101, rank: 7, salt: 1234 };
     // Calculate hash
     let serialized = hidden_rank.clone().to_xdr(&setup.env);
     let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
     let rank_hash = HiddenRankHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap());
-    
+    let serialized2 = hidden_rank2.clone().to_xdr(&setup.env);
+    let full_hash2 = setup.env.crypto().sha256(&serialized2).to_bytes().to_array();
+    let rank_hash2 = HiddenRankHash::from_array(&setup.env, &full_hash2[0..16].try_into().unwrap());
     // Build merkle tree with this single leaf
-    let leaves = Vec::from_array(&setup.env, [rank_hash.clone()]);
+    let leaves = Vec::from_array(&setup.env, [rank_hash.clone(), rank_hash2.clone()]);
     let (root, tree) = build_merkle_tree(&setup.env, leaves);
     
     // Generate proof
     let proof = tree.generate_proof(&setup.env, 0);
-    
+    let proof2 = tree.generate_proof(&setup.env, 1);
     // Verify the proof
     let is_valid = setup.env.as_contract(&setup.contract_id, || {
         Contract::verify_merkle_proof(&setup.env, &rank_hash, &proof, &root)
     });
     
     assert!(is_valid, "Merkle proof should be valid");
+
+    let is_valid2 = setup.env.as_contract(&setup.contract_id, || {
+        Contract::verify_merkle_proof(&setup.env, &rank_hash2, &proof2, &root)
+    });
+    assert!(is_valid, "Merkle proof 2 should be valid");
     std::println!("✓ Direct merkle proof verification successful!");
 }
 

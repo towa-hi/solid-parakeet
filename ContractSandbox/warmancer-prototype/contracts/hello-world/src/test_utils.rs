@@ -2,7 +2,8 @@
 extern crate std;
 use super::*;
 use soroban_sdk::{Env, Address, Vec, Map};
-
+use crate::test;
+use crate::test::build_merkle_tree;
 // region ANSI color codes
 
 // ANSI color codes for terminal output
@@ -622,7 +623,7 @@ pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
 
 // region setup generation
 
-pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, MerkleHash) {
+pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Setup, Vec<HiddenRank>) {
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()
@@ -659,56 +660,49 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
             }
         }
     }
-    
-    // Sort pawns by position to ensure consistent placement
-    // For team 0 (host): y=0,1,2,3 where y=0 is back row
-    // For team 1 (guest): y=9,8,7,6 where y=9 is back row
-    let mut pawn_vec: std::vec::Vec<PawnState> = std::vec::Vec::new();
-    for pawn in team_pawns.iter() {
-        pawn_vec.push(pawn.clone());
-    }
-    
-    if team == 0 {
-        // Host team: sort by y first (ascending), then by x
-        pawn_vec.sort_by(|a, b| {
-            match a.pos.y.cmp(&b.pos.y) {
-                std::cmp::Ordering::Equal => a.pos.x.cmp(&b.pos.x),
-                other => other,
-            }
-        });
-    } else {
-        // Guest team: sort by y first (descending), then by x  
-        pawn_vec.sort_by(|a, b| {
-            match b.pos.y.cmp(&a.pos.y) {
-                std::cmp::Ordering::Equal => a.pos.x.cmp(&b.pos.x),
-                other => other,
-            }
-        });
-    }
-    
-    std::println!("create_setup_commits_from_game_state: Sorted {} pawns for team {}", pawn_vec.len(), team);
-    
-    // Debug: Log pawn order for team 0 to track pawn 814
-    if team == 0 {
-        for (i, pawn) in pawn_vec.iter().enumerate() {
-            if pawn.pawn_id == 814 {
-                std::println!("DEBUG: Pawn 814 found at index {} after sorting, position ({}, {})", i, pawn.pos.x, pawn.pos.y);
-            }
-        }
-    }
-    for (i, pawn) in pawn_vec.iter().enumerate() {
-        std::println!("  Index {}: pawn_id={} at ({},{})", i, pawn.pawn_id, pawn.pos.x, pawn.pos.y);
-    }
+    //
+    // // Sort pawns by position to ensure consistent placement
+    // // For team 0 (host): y=0,1,2,3 where y=0 is back row
+    // // For team 1 (guest): y=9,8,7,6 where y=9 is back row
+    // let mut pawn_vec: std::vec::Vec<PawnState> = std::vec::Vec::new();
+    // for pawn in team_pawns.iter() {
+    //     pawn_vec.push(pawn.clone());
+    // }
+    //
+    // if team == 0 {
+    //     // Host team: sort by y first (ascending), then by x
+    //     pawn_vec.sort_by(|a, b| {
+    //         match a.pos.y.cmp(&b.pos.y) {
+    //             std::cmp::Ordering::Equal => a.pos.x.cmp(&b.pos.x),
+    //             other => other,
+    //         }
+    //     });
+    // } else {
+    //     // Guest team: sort by y first (descending), then by x
+    //     pawn_vec.sort_by(|a, b| {
+    //         match b.pos.y.cmp(&a.pos.y) {
+    //             std::cmp::Ordering::Equal => a.pos.x.cmp(&b.pos.x),
+    //             other => other,
+    //         }
+    //     });
+    // }
+    //
+    // std::println!("create_setup_commits_from_game_state: Sorted {} pawns for team {}", pawn_vec.len(), team);
+    // for (i, pawn) in pawn_vec.iter().enumerate() {
+    //     std::println!("  Index {}: pawn_id={} at ({},{})", i, pawn.pawn_id, pawn.pos.x, pawn.pos.y);
+    // }
     
     let salt = team as u64;
     let mut hidden_ranks = Vec::new(env);
-    let mut rank_hashes = Vec::new(env);
     
     // Assign ranks: flags/bombs to back positions, others to front
     let back_count = back_ranks.len() as usize;
     
     // Single pass: create HiddenRank structs and collect hashes
-    for (i, pawn) in pawn_vec.iter().enumerate() {
+    for (i, pawn) in game_state.pawns.iter().enumerate() {
+        if Contract::decode_pawn_id(&pawn.pawn_id).1 != team {
+            continue;
+        }
         let rank = if i < back_count {
             // Assign flags and bombs to back positions (first positions in sorted order)
             back_ranks.get(i as u32).unwrap_or(11u32) // Fallback to bomb if somehow out of bounds
@@ -728,8 +722,7 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
         let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
         let full_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
         let hidden_rank_hash = HiddenRankHash::from_array(env, &full_hash[0..16].try_into().unwrap());
-        
-        rank_hashes.push_back(hidden_rank_hash.clone());
+
         hidden_ranks.push_back(hidden_rank.clone());
         
         let commit = SetupCommit {
@@ -738,128 +731,115 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
         };
         setup_commits.push_back(commit);
     }
-    
-    // Build merkle tree from the rank hashes
-    std::println!("create_setup_commits_from_game_state: Building merkle tree for {} rank hashes (team {})", rank_hashes.len(), team);
-    let (root, tree) = crate::test::build_merkle_tree(env, rank_hashes);
-    std::println!("create_setup_commits_from_game_state: Merkle root: {:?}", root.to_array());
-    
-    // Generate merkle proofs for each rank
-    let mut merkle_proofs = Vec::new(env);
-    for i in 0..hidden_ranks.len() {
-        let merkle_proof = tree.generate_proof(env, i);
-        merkle_proofs.push_back(merkle_proof);
-    }
-    
     let setup_proof = Setup {
         setup_commits: setup_commits.clone(),
         salt,
     };
     
-    (setup_commits, setup_proof, salt, hidden_ranks, merkle_proofs, root)
+    (setup_proof, hidden_ranks)
 }
-
-pub fn create_deterministic_setup(env: &Env, team: u32, seed: u64) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, MerkleHash) {
-    let mut setup_commits = Vec::new(env);
-    
-    // Create rank distribution - separate flags/bombs from movable pieces
-    let rank_counts = DEFAULT_MAX_RANKS;
-    let mut back_ranks = Vec::new(env);   // Flags and bombs for back row
-    let mut front_ranks = Vec::new(env);  // All other movable pieces
-    
-    for (rank, count) in rank_counts.iter().enumerate() {
-        let rank_u32 = rank as u32;
-        for _ in 0..*count {
-            if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb - always in back
-                back_ranks.push_back(rank_u32);
-            } else {
-                front_ranks.push_back(rank_u32);
-            }
-        }
-    }
-    
-    // Generate pawn positions for this team, sorted back-to-front
-    // Team 0: rows 0-3, Team 1: rows 6-9
-    let mut team_positions = Vec::new(env);
-    let start_row = if team == 0 { 0 } else { 6 };
-    let end_row = if team == 0 { 3 } else { 9 };
-    
-    // Sort positions so back row comes first
-    if team == 0 {
-        // Host team: sort by y ascending (0,1,2,3) so back row (y=0) comes first
-        for y in start_row..=end_row {
-            for x in 0..10 {
-                team_positions.push_back(Pos { x, y });
-            }
-        }
-    } else {
-        // Guest team: sort by y descending (9,8,7,6) so back row (y=9) comes first
-        for y in (start_row..=end_row).rev() {
-            for x in 0..10 {
-                team_positions.push_back(Pos { x, y });
-            }
-        }
-    }
-    
-    let back_count = back_ranks.len() as usize;
-    let mut hidden_ranks = Vec::new(env);
-    let mut rank_hashes = Vec::new(env);
-    
-    // Single pass: create HiddenRank structs and collect hashes
-    for (i, pos) in team_positions.iter().enumerate() {
-        if i >= (back_ranks.len() + front_ranks.len()) as usize {
-            break; // Only assign as many ranks as we have
-        }
-        
-        let rank = if i < back_count {
-            // Assign flags and bombs to back positions (first positions in sorted order)
-            back_ranks.get(i as u32).unwrap_or(11u32) // Fallback to bomb if somehow out of bounds
-        } else {
-            // Assign movable ranks to front positions
-            let front_index = i - back_count;
-            front_ranks.get(front_index as u32).unwrap_or(4u32) // Fallback to rank 4 (Sergeant)
-        };
-        
-        let pawn_id = Contract::encode_pawn_id(&pos, &team);
-        
-        // Create hidden rank
-        let hidden_rank = HiddenRank {
-            pawn_id,
-            rank,
-            salt: pawn_id as u64,
-        };
-        
-        let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
-        let full_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
-        let hidden_rank_hash = HiddenRankHash::from_array(env, &full_hash[0..16].try_into().unwrap());
-        
-        rank_hashes.push_back(hidden_rank_hash.clone());
-        hidden_ranks.push_back(hidden_rank.clone());
-        
-        let commit = SetupCommit {
-            pawn_id,
-            hidden_rank_hash: hidden_rank_hash.clone(),
-        };
-        setup_commits.push_back(commit);
-    }
-    
-    // Build merkle tree from the rank hashes
-    let (root, tree) = crate::test::build_merkle_tree(env, rank_hashes);
-    
-    // Generate merkle proofs for each rank
-    let mut merkle_proofs = Vec::new(env);
-    for i in 0..hidden_ranks.len() {
-        let merkle_proof = tree.generate_proof(env, i);
-        merkle_proofs.push_back(merkle_proof);
-    }
-    
-    let setup_proof = Setup {
-        setup_commits: setup_commits.clone(),
-        salt: team as u64,
-    };
-    
-    (setup_commits, setup_proof, team as u64, hidden_ranks, merkle_proofs, root)
-}
+//
+// pub fn create_deterministic_setup(env: &Env, pawns: Vec<PawnState>, team: u32, seed: u64) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, MerkleHash) {
+//     let mut setup_commits = Vec::new(env);
+//
+//     // Create rank distribution - separate flags/bombs from movable pieces
+//     let rank_counts = DEFAULT_MAX_RANKS;
+//     let mut back_ranks = Vec::new(env);   // Flags and bombs for back row
+//     let mut front_ranks = Vec::new(env);  // All other movable pieces
+//
+//     for (rank, count) in rank_counts.iter().enumerate() {
+//         let rank_u32 = rank as u32;
+//         for _ in 0..*count {
+//             if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb - always in back
+//                 back_ranks.push_back(rank_u32);
+//             } else {
+//                 front_ranks.push_back(rank_u32);
+//             }
+//         }
+//     }
+//
+//     // Generate pawn positions for this team, sorted back-to-front
+//     // Team 0: rows 0-3, Team 1: rows 6-9
+//     let mut team_positions = Vec::new(env);
+//     let start_row = if team == 0 { 0 } else { 6 };
+//     let end_row = if team == 0 { 3 } else { 9 };
+//
+//     // Sort positions so back row comes first
+//     if team == 0 {
+//         // Host team: sort by y ascending (0,1,2,3) so back row (y=0) comes first
+//         for y in start_row..=end_row {
+//             for x in 0..10 {
+//                 team_positions.push_back(Pos { x, y });
+//             }
+//         }
+//     } else {
+//         // Guest team: sort by y descending (9,8,7,6) so back row (y=9) comes first
+//         for y in (start_row..=end_row).rev() {
+//             for x in 0..10 {
+//                 team_positions.push_back(Pos { x, y });
+//             }
+//         }
+//     }
+//
+//     let back_count = back_ranks.len() as usize;
+//     let mut hidden_ranks = Vec::new(env);
+//     let mut rank_hashes = Vec::new(env);
+//
+//     // Single pass: create HiddenRank structs and collect hashes
+//     for (i, pos) in team_positions.iter().enumerate() {
+//         if i >= (back_ranks.len() + front_ranks.len()) as usize {
+//             break; // Only assign as many ranks as we have
+//         }
+//
+//         let rank = if i < back_count {
+//             // Assign flags and bombs to back positions (first positions in sorted order)
+//             back_ranks.get(i as u32).unwrap_or(11u32) // Fallback to bomb if somehow out of bounds
+//         } else {
+//             // Assign movable ranks to front positions
+//             let front_index = i - back_count;
+//             front_ranks.get(front_index as u32).unwrap_or(4u32) // Fallback to rank 4 (Sergeant)
+//         };
+//
+//         let pawn_id = Contract::encode_pawn_id(&pos, &team);
+//
+//         // Create hidden rank
+//         let hidden_rank = HiddenRank {
+//             pawn_id,
+//             rank,
+//             salt: pawn_id as u64,
+//         };
+//
+//         let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
+//         let full_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
+//         let hidden_rank_hash = HiddenRankHash::from_array(env, &full_hash[0..16].try_into().unwrap());
+//
+//         rank_hashes.push_back(hidden_rank_hash.clone());
+//         hidden_ranks.push_back(hidden_rank.clone());
+//
+//         let commit = SetupCommit {
+//             pawn_id,
+//             hidden_rank_hash: hidden_rank_hash.clone(),
+//         };
+//         setup_commits.push_back(commit);
+//     }
+//
+//     // Build merkle tree from the rank hashes
+//     let (root, tree) = crate::test::build_merkle_tree(env, rank_hashes);
+//
+//     // Generate merkle proofs for each rank
+//     let mut merkle_proofs = Vec::new(env);
+//     for i in 0..hidden_ranks.len() {
+//         let merkle_proof = tree.generate_proof(env, i);
+//         merkle_proofs.push_back(merkle_proof);
+//     }
+//
+//     let setup_proof = Setup {
+//         setup_commits: setup_commits.clone(),
+//         salt: team as u64,
+//     };
+//
+//     (setup_commits, setup_proof, team as u64, hidden_ranks, merkle_proofs, root)
+// }
 
 // endregion
 
@@ -1077,4 +1057,17 @@ pub fn extract_full_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) ->
     })
 }
 
+pub fn get_merkel(e: &Env, setup: &Setup, hidden_ranks: &Vec<HiddenRank>) -> (BytesN<16>, Vec<MerkleProof>) {
+    let mut leaves: Vec<HiddenRankHash> = Vec::new(e);
+    for commit in setup.setup_commits.iter() {
+        leaves.push_back(commit.hidden_rank_hash.clone())
+    }
+    let mut proofs: Vec<MerkleProof> = Vec::new(e);
+    let (root, tree) = build_merkle_tree(e, leaves.clone());
+    for (i, leaf) in leaves.iter().enumerate() {
+        let proof = tree.generate_proof(e, i as u32);
+        proofs.push_back(proof);
+    }
+    return (root, proofs);
+}
 // endregion 
