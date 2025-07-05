@@ -36,7 +36,6 @@ public class GuiGame : TestGuiElement
 
     public void PhaseStateChanged(IPhaseChangeSet changes)
     {
-        Debug.Log("GuiGame.PhaseStateChanged()");
         setup.PhaseStateChanged(changes);
         movement.PhaseStateChanged(changes);
     }

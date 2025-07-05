@@ -148,7 +148,7 @@ public class BoardManager : MonoBehaviour
         {
             debugString += $"{operation.GetType()},";
         }
-        Debug.Log($"PhaseStateChanged changes: {debugString}");
+        // Debug.Log($"PhaseStateChanged changes: {debugString}");
         // Central callback - receives all operations and broadcasts to views
         // boardmanager handles its own stuff first
         foreach (GameOperation operation in changes.operations)
@@ -297,17 +297,14 @@ public class SetupCommitPhase : PhaseBase
         pendingCommits = new();
         foreach (PawnState pawn in cachedNetState.gameState.pawns.Where(p => p.GetTeam() == cachedNetState.userTeam))
         {
-            byte[] hiddenRankHash = pawn.hidden_rank_hash;
-            if (CacheManager.GetHiddenRank(hiddenRankHash) is HiddenRank hiddenRank)
+            if (CacheManager.GetHiddenRankAndProof(pawn.pawn_id) is not CachedRankProof rankProof)
             {
-                pendingCommits[pawn.pawn_id] = hiddenRank.rank;
+                throw new Exception($"cachemanager could not find pawn {pawn.pawn_id}");
             }
-            else
-            {
-                pendingCommits[pawn.pawn_id] = null;
-            }
+            pendingCommits[pawn.pawn_id] = rankProof.hidden_rank.rank;
         }
     }
+    
     public (Rank, int, int)[] RanksRemaining()
     {
         Rank[] ranks = (Rank[])Enum.GetValues(typeof(Rank));
@@ -397,13 +394,25 @@ public class SetupCommitPhase : PhaseBase
                 pawn_id = pawn.pawn_id,
             });
         }
-        CacheManager.StoreHiddenRanks(hiddenRanks.ToArray(), cachedNetState.address, cachedNetState.lobbyInfo.index);
         Setup setup = new()
         {
             salt = Globals.RandomSalt(),
             setup_commits = commits.ToArray(),
         };
-        _ = StellarManager.CommitSetupRequest(cachedNetState.lobbyInfo.index, setup);
+        List<byte[]> leaves = new();
+        foreach (SetupCommit commit in commits)
+        {
+            leaves.Add(commit.hidden_rank_hash);
+        }
+        (byte[] root, MerkleTree tree) = MerkleTree.BuildMerkleTree(leaves.ToArray());
+        List<CachedRankProof> ranksAndProofs = new();
+        for (int i = 0; i < commits.Count; i++)
+        {
+            HiddenRank hiddenRank = hiddenRanks[i];
+            MerkleProof merkleProof = tree.GenerateProof((uint)i);
+            ranksAndProofs.Add(new() {hidden_rank = hiddenRank, merkle_proof = merkleProof});
+        }
+        _ = StellarManager.CommitSetupRequest(cachedNetState.lobbyInfo.index, root, setup, ranksAndProofs);
     }
 
     void OnEntryClicked(Rank clickedRank)
@@ -587,7 +596,6 @@ public class MoveCommitPhase: PhaseBase
             start_pos = selectedPawn.pos,
             target_pos = targetPosition,
         };
-        CacheManager.StoreHiddenMove(hiddenMove, cachedNetState.address, cachedNetState.lobbyInfo.index);
         _ = StellarManager.CommitMoveRequest(cachedNetState.lobbyInfo.index, SCUtility.Get16ByteHash(hiddenMove), hiddenMove);
     }
 
@@ -810,17 +818,18 @@ public class RankProvePhase: PhaseBase
     void AutomaticallySendRankProof()
     {
         Debug.Log("automatically send rank proof");
-        List<HiddenRank> rankProofs = new();
+        List<HiddenRank> hiddenRanks = new();
+        List<MerkleProof> merkleProofs = new();
         foreach (PawnId pawnId in cachedNetState.GetUserMove().needed_rank_proofs)
         {
-            byte[] rankHash = cachedNetState.GetPawnFromId(pawnId).hidden_rank_hash;
-            if (CacheManager.GetHiddenRank(rankHash) is not HiddenRank hiddenRank)
+            if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof rankProof)
             {
-                throw new Exception($"Could not find move with rank hash {rankHash}");
+                throw new Exception($"cachemanager could not find pawn {pawnId}");
             }
-            rankProofs.Add(hiddenRank);
+            hiddenRanks.Add(rankProof.hidden_rank);
+            merkleProofs.Add(rankProof.merkle_proof);
         }
-        _ = StellarManager.ProveRankRequest(cachedNetState.lobbyInfo.index, rankProofs.ToArray());
+        _ = StellarManager.ProveRankRequest(cachedNetState.lobbyInfo.index, hiddenRanks.ToArray(), merkleProofs.ToArray());
     }
     
     protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)

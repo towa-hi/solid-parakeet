@@ -136,7 +136,6 @@ public class HumanDebugNetworkInspector : MonoBehaviour
             _gameState.pawns = gameState.pawns?.Select(pawn => new SerializablePawnState
             {
                 alive = pawn.alive,
-                hiddenRankHash = pawn.hidden_rank_hash,
                 moved = pawn.moved,
                 movedScout = pawn.moved_scout,
                 pawnID = pawn.pawn_id.Value,
@@ -234,7 +233,6 @@ public class SerializableUserMove
 public class SerializablePawnState
 {
     public bool alive;
-    public byte[] hiddenRankHash;
     public bool moved;
     public bool movedScout;
     public uint pawnID;

@@ -178,22 +178,35 @@ public static class StellarManager
         return ProcessTransactionResult(result, simResult);
     }
     
-    public static async Task<int> CommitSetupRequest(LobbyId lobbyId, Setup setup)
+    public static async Task<int> CommitSetupRequest(LobbyId lobbyId, byte[] root, Setup setup, List<CachedRankProof> cached)
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"CommitSetupRequest");
         CommitSetupReq req = new()
         {
             lobby_id = lobbyId,
+            rank_commitment_root = root,
             setup = setup,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req, tracker);
+        (GetTransactionResult getResult, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req, tracker);
         EndTask(task);
         tracker.EndOperation();
+        if (getResult == null)
+        {
+            Debug.LogError("CallVoidFunction: timed out or failed to connect");
+        }
+        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
+        {
+            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
+        }
+        else
+        {
+            CacheManager.StoreHiddenRanksAndProofs(cached, networkState.address, lobbyId);
+        }
         Debug.Log(tracker.GetReport());
         await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        return ProcessTransactionResult(getResult, simResult);
     }
 
     public static async Task<int> CommitMoveRequest(LobbyId lobbyId, byte[] hiddenMoveHash, HiddenMove hiddenMove)
@@ -229,7 +242,9 @@ public static class StellarManager
                              (simulatedLobbyInfo.subphase == Subphase.Both || simulatedLobbyInfo.subphase == mySubphase);
         if (sendProveMove)
         {
-            (GetTransactionResult combinedTransactionResult, SimulateTransactionResult combinedSimResult) = await stellar.CallVoidFunctionWithTwoParameters(accountEntry,"commit_move_and_prove_move", commitMoveReq, proveMoveReq, tracker);
+            // it sucks but we have to get accountentry again or the tx seq wont be right 
+            AccountEntry accountEntry2 = await stellar.ReqAccountEntry(stellar.userAccount, tracker);
+            (GetTransactionResult combinedTransactionResult, SimulateTransactionResult combinedSimResult) = await stellar.CallVoidFunctionWithTwoParameters(accountEntry2,"commit_move_and_prove_move", commitMoveReq, proveMoveReq, tracker);
             if (combinedTransactionResult == null)
             {
                 Debug.LogError("CallVoidFunction: timed out or failed to connect");
@@ -247,7 +262,6 @@ public static class StellarManager
         else
         {
             GetTransactionResult getResult = await stellar.CallVoidFunctionWithoutSimulating(invokeContractTransaction, simResult, tracker);
-            //currentTracker.EndOperation();
             if (getResult == null)
             {
                 Debug.LogError("CallVoidFunction: timed out or failed to connect");
@@ -255,6 +269,10 @@ public static class StellarManager
             else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
             {
                 Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
+            }
+            else
+            {
+                CacheManager.StoreHiddenMove(hiddenMove, networkState.address, lobbyId);
             }
             EndTask(task);
             tracker.EndOperation();
@@ -285,7 +303,7 @@ public static class StellarManager
         return ProcessTransactionResult(result, simResult);
     }
 
-    public static async Task<int> ProveRankRequest(LobbyId lobbyId, HiddenRank[] hiddenRanks)
+    public static async Task<int> ProveRankRequest(LobbyId lobbyId, HiddenRank[] hiddenRanks, MerkleProof[] merkleProofs)
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"ProveRankRequest");
@@ -293,6 +311,7 @@ public static class StellarManager
         {
             lobby_id = lobbyId,
             hidden_ranks = hiddenRanks,
+            merkle_proofs = merkleProofs,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_rank", req, tracker);

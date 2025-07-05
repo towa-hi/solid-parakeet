@@ -147,7 +147,7 @@ public class StellarDotnet
             request1.ToScvMap(),
             request2.ToScvMap(),
         };
-        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray());
+        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
             new SimulateTransactionParams()
             {
@@ -166,6 +166,11 @@ public class StellarDotnet
         Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
         string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
         SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
+        if (sendResult.Status == SendTransactionResult_Status.ERROR)
+        {
+            tracker?.EndOperation();
+            return (null, simulateTransactionResult);
+        }
         GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000, tracker);
         tracker?.EndOperation();
         return (getResult, simulateTransactionResult);
@@ -203,7 +208,7 @@ public class StellarDotnet
             SCVal data = request.ToScvMap();
             argsList.Add(data);
         }
-        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray());
+        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
             new SimulateTransactionParams()
             {
@@ -255,7 +260,7 @@ public class StellarDotnet
             SCVal data = request.ToScvMap();
             argsList.Add(data);
         }
-        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray());
+        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
             new SimulateTransactionParams()
             {
@@ -406,7 +411,7 @@ public class StellarDotnet
     
     async Task<SendTransactionResult> InvokeContractFunctions(string encodedSignedTransaction, TimingTracker tracker = null)
     {
-        tracker?.StartOperation("SendTransactionAsync");
+        tracker?.StartOperation("InvokeContractFunctions");
         SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
         {
             Transaction = encodedSignedTransaction,
@@ -415,7 +420,7 @@ public class StellarDotnet
         return sendTransactionResult;
     }
     
-    Transaction InvokeContractTransaction(AccountEntry accountEntry, string functionName, SCVal[] args)
+    Transaction InvokeContractTransaction(AccountEntry accountEntry, string functionName, SCVal[] args, bool increment)
     {
         List<Operation> operations = new();
         Operation operation = new()
@@ -441,13 +446,17 @@ public class StellarDotnet
                 },
             },
         };
+        if (increment)
+        {
+            accountEntry.seqNum.Increment();
+        }
         operations.Add(operation);
         return new Transaction()
         {
             sourceAccount = userAccount,
-            fee = 100, // TODO: make this configurable
+            fee = 100000, // TODO: make this configurable
             memo = new Memo.MemoNone(),
-            seqNum = accountEntry.seqNum.Increment(), // TODO: sometimes we might not want to increment here
+            seqNum = accountEntry.seqNum, // TODO: sometimes we might not want to increment here
             cond = new Preconditions.PrecondNone(),
             ext = new Transaction.extUnion.case_0(),
             operations = operations.ToArray(),
@@ -499,7 +508,6 @@ public class StellarDotnet
             {
                 Hash = txHash,
             });
-            tracker?.EndOperation();
             tracker?.EndOperation();
             switch (completion.Status)
             {

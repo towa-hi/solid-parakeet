@@ -10,27 +10,25 @@ using UnityEngine;
 public static class CacheManager
 {
     
-    static Dictionary<string, HiddenRank> hiddenRankCache = new();
+    static Dictionary<PawnId, CachedRankProof> hiddenRanksAndMerkleProofs = new();
     static Dictionary<string, HiddenMove> hiddenMoveCache = new();
-    
     const ulong expirationTicks = 172800000000000UL; // 2 days in ticks
     
     public static void Initialize(AccountAddress address, LobbyId lobbyId)
     {
-        hiddenRankCache.Clear();
+        hiddenRanksAndMerkleProofs.Clear();
         hiddenMoveCache.Clear();
         
         // Cleanup expired caches for this address
         CleanupExpiredCaches(address);
-        // Load HiddenRanks
-        string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
+        // Load CachedRankProofs
+        string rankProofKey = GetRankProofKey(address, lobbyId);
         
-        HiddenRank[] hiddenRankArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
-        foreach (HiddenRank hiddenRank in hiddenRankArray)
+        CachedRankProof[] rankProofArray = LoadFromPlayerPrefs<CachedRankProof>(rankProofKey);
+        foreach (CachedRankProof rankProof in rankProofArray)
         {
-            string key = Convert.ToBase64String(SCUtility.Get16ByteHash(hiddenRank));
-            hiddenRankCache.Add(key, hiddenRank);
-            // Debug.Log($"hash {key} id {hiddenRank.pawn_id} rank {hiddenRank.rank}");
+            PawnId key = rankProof.hidden_rank.pawn_id;
+            hiddenRanksAndMerkleProofs.Add(key, rankProof);
         }
         
         // Load HiddenMoves
@@ -43,61 +41,83 @@ public static class CacheManager
         }
     }
     
-    public static void StoreHiddenRank(HiddenRank hiddenRank, AccountAddress address, LobbyId lobbyId)
-    {
-        string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
-        HiddenRank[] existingArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
-        
-        List<HiddenRank> hiddenRankList = existingArray.ToList();
-        hiddenRankList.Add(hiddenRank);
-        
-        HiddenRank[] hiddenRankArray = hiddenRankList.ToArray();
-        SaveToPlayerPrefs(hiddenRankArray, hiddenRanksKey, address);
-        
-        byte[] hash = SCUtility.Get16ByteHash(hiddenRank);
-        string key = Convert.ToBase64String(hash);
-        hiddenRankCache[key] = hiddenRank;
-    }
+    // public static void StoreHiddenRank(HiddenRank hiddenRank, AccountAddress address, LobbyId lobbyId)
+    // {
+    //     string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
+    //     HiddenRank[] existingArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
+    //     
+    //     List<HiddenRank> hiddenRankList = existingArray.ToList();
+    //     hiddenRankList.Add(hiddenRank);
+    //     
+    //     HiddenRank[] hiddenRankArray = hiddenRankList.ToArray();
+    //     SaveToPlayerPrefs(hiddenRankArray, hiddenRanksKey, address);
+    //     
+    //     byte[] hash = SCUtility.Get16ByteHash(hiddenRank);
+    //     string key = Convert.ToBase64String(hash);
+    //     hiddenRankCache[key] = hiddenRank;
+    // }
+
     
-    public static void StoreHiddenRanks(HiddenRank[] hiddenRanks, AccountAddress address, LobbyId lobbyId)
+    public static void StoreHiddenRanksAndProofs(List<CachedRankProof> ranksAndProofs, AccountAddress address, LobbyId lobbyId)
     {
-        string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
-        HiddenRank[] existingArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
-        
-        List<HiddenRank> hiddenRankList = existingArray.ToList();
-        hiddenRankList.AddRange(hiddenRanks);
-        
-        HiddenRank[] hiddenRankArray = hiddenRankList.ToArray();
-        SaveToPlayerPrefs(hiddenRankArray, hiddenRanksKey, address);
-        
-        foreach (HiddenRank hiddenRank in hiddenRanks)
+        string key = GetRankProofKey(address, lobbyId);
+        SaveToPlayerPrefs(ranksAndProofs.ToArray(), key, address);
+        foreach (CachedRankProof rankProof in ranksAndProofs)
         {
-            byte[] hash = SCUtility.Get16ByteHash(hiddenRank);
-            string key = Convert.ToBase64String(hash);
-            hiddenRankCache[key] = hiddenRank;
+            hiddenRanksAndMerkleProofs.Add(rankProof.hidden_rank.pawn_id, rankProof);
         }
     }
 
-    public static HiddenRank? GetHiddenRank(byte[] hash)
+    public static CachedRankProof? GetHiddenRankAndProof(PawnId pawnId)
     {
-        if (hash.Length != 16)
+        Debug.Log($"GetHiddenRankAndProof {pawnId}");
+        if (hiddenRanksAndMerkleProofs.TryGetValue(pawnId, out CachedRankProof rankProof))
         {
-            throw new ArgumentException("Invalid hidden rank hash length");
+            Debug.Log($"rankProof: {rankProof.hidden_rank.rank}");
+            return rankProof;
         }
-        if (hash.All(b => b == 0))
-        {
-            return null;
-        }
-        string key = Convert.ToBase64String(hash);
-        if (hiddenRankCache.TryGetValue(key, out HiddenRank rank))
-        {
-            return rank;
-        }
-        else
-        {
-            return null;
-        }
+        return null;
     }
+    
+    // public static void StoreHiddenRanks(HiddenRank[] hiddenRanks, AccountAddress address, LobbyId lobbyId)
+    // {
+    //     string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
+    //     HiddenRank[] existingArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
+    //     
+    //     List<HiddenRank> hiddenRankList = existingArray.ToList();
+    //     hiddenRankList.AddRange(hiddenRanks);
+    //     
+    //     HiddenRank[] hiddenRankArray = hiddenRankList.ToArray();
+    //     SaveToPlayerPrefs(hiddenRankArray, hiddenRanksKey, address);
+    //     
+    //     foreach (HiddenRank hiddenRank in hiddenRanks)
+    //     {
+    //         byte[] hash = SCUtility.Get16ByteHash(hiddenRank);
+    //         string key = Convert.ToBase64String(hash);
+    //         hiddenRankCache[key] = hiddenRank;
+    //     }
+    // }
+    //
+    // public static HiddenRank? GetHiddenRank(byte[] hash)
+    // {
+    //     if (hash.Length != 16)
+    //     {
+    //         throw new ArgumentException("Invalid hidden rank hash length");
+    //     }
+    //     if (hash.All(b => b == 0))
+    //     {
+    //         return null;
+    //     }
+    //     string key = Convert.ToBase64String(hash);
+    //     if (hiddenRankCache.TryGetValue(key, out HiddenRank rank))
+    //     {
+    //         return rank;
+    //     }
+    //     else
+    //     {
+    //         return null;
+    //     }
+    // }
     
     public static HiddenMove? GetHiddenMove(byte[] hash)
     {
@@ -156,9 +176,9 @@ public static class CacheManager
     }
 
 
-    static string GetHiddenRanksKey(AccountAddress address, LobbyId lobbyId)
+    static string GetRankProofKey(AccountAddress address, LobbyId lobbyId)
     {
-        return $"{address}_{lobbyId}_ranks";
+        return $"{address}_{lobbyId}_rank_proofs";
     }
     
     static string GetHiddenMovesKey(AccountAddress address, LobbyId lobbyId)

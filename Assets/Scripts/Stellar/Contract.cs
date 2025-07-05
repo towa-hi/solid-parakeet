@@ -409,6 +409,25 @@ namespace Contract
     
     // ReSharper disable InconsistentNaming
     
+    public enum Phase : uint
+    {
+        Lobby = 0,
+        SetupCommit = 1,
+        MoveCommit = 2,
+        MoveProve = 3,
+        RankProve = 4,
+        Finished = 5,
+        Aborted = 6,
+    }
+
+    public enum Subphase : uint
+    {
+        Host = 0,
+        Guest = 1,
+        Both = 2,
+        None = 3,
+    }
+    
     [Serializable]
     public readonly struct PawnId : IEquatable<PawnId>
     {
@@ -451,6 +470,7 @@ namespace Contract
         public static bool operator !=(PawnId left, PawnId right) => !left.Equals(right);
     }
     
+    [Serializable]
     public readonly struct LobbyId : IEquatable<LobbyId>
     {
         private readonly uint val;
@@ -564,7 +584,26 @@ namespace Contract
             };
         }
     }
+    
+    [Serializable]
+    public struct MerkleProof : IScvMapCompatable
+    {
+        public uint leaf_index;
+        public byte[][] siblings;
 
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap()
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("leaf_index", leaf_index),
+                    SCUtility.FieldToSCMapEntry("proofs", siblings),
+                }),
+            };
+        }
+    }
+    
     [Serializable]
     public struct User : IScvMapCompatable
     {
@@ -702,7 +741,7 @@ namespace Contract
     public struct PawnState : IScvMapCompatable, IEquatable<PawnState>
     {
         public bool alive;
-        public byte[] hidden_rank_hash;
+        // public byte[] hidden_rank_hash;
         public bool moved;
         public bool moved_scout;
         public PawnId pawn_id;
@@ -725,15 +764,14 @@ namespace Contract
             {
                 return knownRank;
             }
-            if (CacheManager.GetHiddenRank(hidden_rank_hash) is HiddenRank hiddenRank)
+
+            if (CacheManager.GetHiddenRankAndProof(pawn_id) is CachedRankProof rankProof)
             {
-                return hiddenRank.rank;
+                return rankProof.hidden_rank.rank;
             }
-            else
-            {
-                return null;
-            }
+            return null;
         }
+        
         public bool CanMove()
         {
             if (alive && GetKnownRank() is Rank knownRank)
@@ -753,7 +791,7 @@ namespace Contract
                 map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("alive", alive),
-                    SCUtility.FieldToSCMapEntry("hidden_rank_hash", hidden_rank_hash),
+                    //SCUtility.FieldToSCMapEntry("hidden_rank_hash", hidden_rank_hash),
                     SCUtility.FieldToSCMapEntry("moved", moved),
                     SCUtility.FieldToSCMapEntry("moved_scout", moved_scout),
                     SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
@@ -816,6 +854,7 @@ namespace Contract
     {
         public UserMove[] moves;
         public PawnState[] pawns;
+        public byte[][] rank_roots;
         public uint turn;
         public long liveUntilLedgerSeq;
 
@@ -952,6 +991,7 @@ namespace Contract
     public struct CommitSetupReq : IScvMapCompatable
     {
         public LobbyId lobby_id;
+        public byte[] rank_commitment_root;
         public Setup setup;
 
         public SCVal.ScvMap ToScvMap()
@@ -961,6 +1001,7 @@ namespace Contract
                 map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
+                    SCUtility.FieldToSCMapEntry("rank_commitment_root", rank_commitment_root),
                     SCUtility.FieldToSCMapEntry("setup", setup),
                 }),
             };
@@ -1010,6 +1051,7 @@ namespace Contract
     {
         public HiddenRank[] hidden_ranks;
         public LobbyId lobby_id;
+        public MerkleProof[] merkle_proofs;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -1019,27 +1061,28 @@ namespace Contract
                 {
                     SCUtility.FieldToSCMapEntry("hidden_ranks", hidden_ranks),
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
+                    SCUtility.FieldToSCMapEntry("merkle_proofs", merkle_proofs),
                 }),
             };
         }
     }
 
-    public enum Phase : uint
+    // not a contract struct but we serialize it as xdr to save
+    public struct CachedRankProof : IScvMapCompatable
     {
-        Lobby = 0,
-        SetupCommit = 1,
-        MoveCommit = 2,
-        MoveProve = 3,
-        RankProve = 4,
-        Finished = 5,
-        Aborted = 6,
-    }
-
-    public enum Subphase : uint
-    {
-        Host = 0,
-        Guest = 1,
-        Both = 2,
-        None = 3,
+        public HiddenRank hidden_rank;
+        public MerkleProof merkle_proof;
+        
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("hidden_rank", hidden_rank),
+                    SCUtility.FieldToSCMapEntry("merkle_proof", merkle_proof),
+                }),
+            };
+        }
     }
 }
