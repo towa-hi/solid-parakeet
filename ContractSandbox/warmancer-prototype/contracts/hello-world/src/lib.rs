@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{*, log};
 use soroban_sdk::xdr::*;
-const DEBUG_LOGGING: bool = true;
+const DEBUG_LOGGING: bool = false;
 macro_rules! debug_log {
     ($env:expr, $($arg:tt)*) => {
         if DEBUG_LOGGING {

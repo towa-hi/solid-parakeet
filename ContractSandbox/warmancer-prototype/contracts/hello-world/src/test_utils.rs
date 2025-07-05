@@ -738,6 +738,126 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
     
     (setup_proof, hidden_ranks)
 }
+
+pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Setup, Vec<HiddenRank>), (Setup, Vec<HiddenRank>)) {
+    let game_state_key = DataKey::GameState(lobby_id);
+    let game_state: GameState = env.storage()
+        .temporary()
+        .get(&game_state_key)
+        .expect("Game state should exist");
+    
+    let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
+    let lobby_parameters: LobbyParameters = env.storage()
+        .temporary()
+        .get(&lobby_parameters_key)
+        .expect("Lobby parameters should exist");
+    
+    // Create rank distribution - separate flags/bombs from movable pieces
+    let mut back_ranks = Vec::new(env);   // Flags and bombs for back row
+    let mut front_ranks = Vec::new(env);  // All other movable pieces
+    
+    for (rank, count) in lobby_parameters.max_ranks.iter().enumerate() {
+        let rank_u32 = rank as u32;
+        for _ in 0..count {
+            if rank_u32 == 0 || rank_u32 == 11 {  // Flag or Bomb - always in back
+                back_ranks.push_back(rank_u32);
+            } else {
+                front_ranks.push_back(rank_u32);
+            }
+        }
+    }
+    
+    // Separate pawns by team
+    let mut host_pawns = Vec::new(env);
+    let mut guest_pawns = Vec::new(env);
+    
+    for pawn in game_state.pawns.iter() {
+        let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+        if pawn_team == 0 {
+            host_pawns.push_back(pawn);
+        } else {
+            guest_pawns.push_back(pawn);
+        }
+    }
+    
+    // Process host team (team 0)
+    let mut host_setup_commits = Vec::new(env);
+    let mut host_hidden_ranks = Vec::new(env);
+    let host_salt = 0u64;
+    let back_count = back_ranks.len() as usize;
+    
+    for (i, pawn) in host_pawns.iter().enumerate() {
+        let rank = if i < back_count {
+            back_ranks.get(i as u32).unwrap_or(11u32)
+        } else {
+            let front_index = i - back_count;
+            front_ranks.get(front_index as u32).unwrap_or(4u32)
+        };
+        
+        let hidden_rank = HiddenRank {
+            pawn_id: pawn.pawn_id,
+            rank,
+            salt: pawn.pawn_id as u64,
+        };
+        
+        let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
+        let full_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
+        let hidden_rank_hash = HiddenRankHash::from_array(env, &full_hash[0..16].try_into().unwrap());
+        
+        host_hidden_ranks.push_back(hidden_rank.clone());
+        
+        let commit = SetupCommit {
+            pawn_id: pawn.pawn_id,
+            hidden_rank_hash: hidden_rank_hash.clone(),
+        };
+        host_setup_commits.push_back(commit);
+    }
+    
+    let host_setup = Setup {
+        setup_commits: host_setup_commits.clone(),
+        salt: host_salt,
+    };
+    
+    // Process guest team (team 1)
+    let mut guest_setup_commits = Vec::new(env);
+    let mut guest_hidden_ranks = Vec::new(env);
+    let guest_salt = 1u64;
+    
+    for (i, pawn) in guest_pawns.iter().enumerate() {
+        let rank = if i < back_count {
+            back_ranks.get(i as u32).unwrap_or(11u32)
+        } else {
+            let front_index = i - back_count;
+            front_ranks.get(front_index as u32).unwrap_or(4u32)
+        };
+        
+        let hidden_rank = HiddenRank {
+            pawn_id: pawn.pawn_id,
+            rank,
+            salt: pawn.pawn_id as u64,
+        };
+        
+        let serialized_hidden_rank = hidden_rank.clone().to_xdr(env);
+        let full_hash = env.crypto().sha256(&serialized_hidden_rank).to_bytes().to_array();
+        let hidden_rank_hash = HiddenRankHash::from_array(env, &full_hash[0..16].try_into().unwrap());
+        
+        guest_hidden_ranks.push_back(hidden_rank.clone());
+        
+        let commit = SetupCommit {
+            pawn_id: pawn.pawn_id,
+            hidden_rank_hash: hidden_rank_hash.clone(),
+        };
+        guest_setup_commits.push_back(commit);
+    }
+    
+    let guest_setup = Setup {
+        setup_commits: guest_setup_commits.clone(),
+        salt: guest_salt,
+    };
+    
+    ((host_setup, host_hidden_ranks), (guest_setup, guest_hidden_ranks))
+}
+
 //
 // pub fn create_deterministic_setup(env: &Env, pawns: Vec<PawnState>, team: u32, seed: u64) -> (Vec<SetupCommit>, Setup, u64, Vec<HiddenRank>, Vec<MerkleProof>, MerkleHash) {
 //     let mut setup_commits = Vec::new(env);

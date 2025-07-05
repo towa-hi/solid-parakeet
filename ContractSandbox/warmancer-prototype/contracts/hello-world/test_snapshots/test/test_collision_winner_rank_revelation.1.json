@@ -549,7 +549,7 @@
                         "symbol": "rank_commitment_root"
                       },
                       "val": {
-                        "bytes": "683816a8752a4de17864e6cc479357d5"
+                        "bytes": "c6be61ecebc45e701ee5d3341587e020"
                       }
                     },
                     {
@@ -1414,7 +1414,7 @@
                         "symbol": "rank_commitment_root"
                       },
                       "val": {
-                        "bytes": "eb2794e9024745087c7b8b06aa6ee4b9"
+                        "bytes": "92616f9dd20c8417d63ba3bd86a3e7c8"
                       }
                     },
                     {
@@ -7911,10 +7911,10 @@
                       "val": {
                         "vec": [
                           {
-                            "bytes": "683816a8752a4de17864e6cc479357d5"
+                            "bytes": "c6be61ecebc45e701ee5d3341587e020"
                           },
                           {
-                            "bytes": "eb2794e9024745087c7b8b06aa6ee4b9"
+                            "bytes": "92616f9dd20c8417d63ba3bd86a3e7c8"
                           }
                         ]
                       }
