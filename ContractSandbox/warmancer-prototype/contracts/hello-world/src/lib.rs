@@ -700,22 +700,13 @@ impl Contract {
     }
 
     pub fn prove_rank_test(e: &Env, address: Address, req: ProveRankReq) -> Result<bool, Error> {
-        let temporary = e.storage().temporary();
         let (lobby_info, game_state, lobby_parameters, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, true)?;
-        let mut lobby_info = lobby_info.unwrap();
-        let mut game_state = game_state.unwrap();
-        let lobby_parameters = lobby_parameters.unwrap();
+        let lobby_info = lobby_info.unwrap();
+        let game_state = game_state.unwrap();
         let u_index = Self::get_player_index(&address, &lobby_info)?;
         let rank_root = game_state.rank_roots.get_unchecked(u_index);
-        if !Self::validate_rank_proofs(e, &req.hidden_ranks, &req.merkle_proofs, &game_state, &rank_root) {
-            // abort the game
-            debug_log!(e, "prove_rank: Invalid rank proof! Setting phase to Aborted");
-            lobby_info.phase = Phase::Aborted;
-            lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
-            temporary.set(&lobby_info_key, &lobby_info);
-            return Ok(false)
-        }
-        Ok(true)
+        let valid = Self::validate_rank_proofs(e, &req.hidden_ranks, &req.merkle_proofs, &game_state, &rank_root);
+        Ok(valid)
     }
 
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
@@ -1589,5 +1580,5 @@ impl Contract {
 // endregion
 
 
-mod test;// run tests
 mod test_utils; // test utilities
+mod tests; // organized test modules

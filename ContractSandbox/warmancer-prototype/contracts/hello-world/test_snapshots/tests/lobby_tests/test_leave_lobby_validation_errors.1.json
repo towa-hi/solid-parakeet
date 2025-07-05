@@ -1,0 +1,1354 @@
+{
+  "generators": {
+    "address": 3,
+    "nonce": 0
+  },
+  "auth": [
+    [],
+    [],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "make_lobby",
+              "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "lobby_id"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "parameters"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "board"
+                            },
+                            "val": {
+                              "map": [
+                                {
+                                  "key": {
+                                    "symbol": "hex"
+                                  },
+                                  "val": {
+                                    "bool": false
+                                  }
+                                },
+                                {
+                                  "key": {
+                                    "symbol": "name"
+                                  },
+                                  "val": {
+                                    "string": "Default Stratego Board"
+                                  }
+                                },
+                                {
+                                  "key": {
+                                    "symbol": "size"
+                                  },
+                                  "val": {
+                                    "map": [
+                                      {
+                                        "key": {
+                                          "symbol": "x"
+                                        },
+                                        "val": {
+                                          "i32": 10
+                                        }
+                                      },
+                                      {
+                                        "key": {
+                                          "symbol": "y"
+                                        },
+                                        "val": {
+                                          "i32": 10
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "key": {
+                                    "symbol": "tiles"
+                                  },
+                                  "val": {
+                                    "vec": [
+                                      {
+                                        "u32": 4194305
+                                      },
+                                      {
+                                        "u32": 4194307
+                                      },
+                                      {
+                                        "u32": 4194309
+                                      },
+                                      {
+                                        "u32": 4194311
+                                      },
+                                      {
+                                        "u32": 4194313
+                                      },
+                                      {
+                                        "u32": 4194315
+                                      },
+                                      {
+                                        "u32": 4194317
+                                      },
+                                      {
+                                        "u32": 4194319
+                                      },
+                                      {
+                                        "u32": 4194321
+                                      },
+                                      {
+                                        "u32": 4194323
+                                      },
+                                      {
+                                        "u32": 4195329
+                                      },
+                                      {
+                                        "u32": 4195331
+                                      },
+                                      {
+                                        "u32": 4195333
+                                      },
+                                      {
+                                        "u32": 4195335
+                                      },
+                                      {
+                                        "u32": 4195337
+                                      },
+                                      {
+                                        "u32": 4195339
+                                      },
+                                      {
+                                        "u32": 4195341
+                                      },
+                                      {
+                                        "u32": 4195343
+                                      },
+                                      {
+                                        "u32": 4195345
+                                      },
+                                      {
+                                        "u32": 4195347
+                                      },
+                                      {
+                                        "u32": 4196353
+                                      },
+                                      {
+                                        "u32": 4196355
+                                      },
+                                      {
+                                        "u32": 4196357
+                                      },
+                                      {
+                                        "u32": 4196359
+                                      },
+                                      {
+                                        "u32": 4196361
+                                      },
+                                      {
+                                        "u32": 4196363
+                                      },
+                                      {
+                                        "u32": 4196365
+                                      },
+                                      {
+                                        "u32": 4196367
+                                      },
+                                      {
+                                        "u32": 4196369
+                                      },
+                                      {
+                                        "u32": 4196371
+                                      },
+                                      {
+                                        "u32": 4197377
+                                      },
+                                      {
+                                        "u32": 4197379
+                                      },
+                                      {
+                                        "u32": 4197381
+                                      },
+                                      {
+                                        "u32": 4197383
+                                      },
+                                      {
+                                        "u32": 4197385
+                                      },
+                                      {
+                                        "u32": 4197387
+                                      },
+                                      {
+                                        "u32": 4197389
+                                      },
+                                      {
+                                        "u32": 4197391
+                                      },
+                                      {
+                                        "u32": 4197393
+                                      },
+                                      {
+                                        "u32": 4197395
+                                      },
+                                      {
+                                        "u32": 5246977
+                                      },
+                                      {
+                                        "u32": 5246979
+                                      },
+                                      {
+                                        "u32": 5246980
+                                      },
+                                      {
+                                        "u32": 5246982
+                                      },
+                                      {
+                                        "u32": 5246985
+                                      },
+                                      {
+                                        "u32": 5246987
+                                      },
+                                      {
+                                        "u32": 5246988
+                                      },
+                                      {
+                                        "u32": 5246990
+                                      },
+                                      {
+                                        "u32": 5246993
+                                      },
+                                      {
+                                        "u32": 5246995
+                                      },
+                                      {
+                                        "u32": 5248001
+                                      },
+                                      {
+                                        "u32": 5248003
+                                      },
+                                      {
+                                        "u32": 5248004
+                                      },
+                                      {
+                                        "u32": 5248006
+                                      },
+                                      {
+                                        "u32": 5248009
+                                      },
+                                      {
+                                        "u32": 5248011
+                                      },
+                                      {
+                                        "u32": 5248012
+                                      },
+                                      {
+                                        "u32": 5248014
+                                      },
+                                      {
+                                        "u32": 5248017
+                                      },
+                                      {
+                                        "u32": 5248019
+                                      },
+                                      {
+                                        "u32": 4724737
+                                      },
+                                      {
+                                        "u32": 4724739
+                                      },
+                                      {
+                                        "u32": 4724741
+                                      },
+                                      {
+                                        "u32": 4724743
+                                      },
+                                      {
+                                        "u32": 4724745
+                                      },
+                                      {
+                                        "u32": 4724747
+                                      },
+                                      {
+                                        "u32": 4724749
+                                      },
+                                      {
+                                        "u32": 4724751
+                                      },
+                                      {
+                                        "u32": 4724753
+                                      },
+                                      {
+                                        "u32": 4724755
+                                      },
+                                      {
+                                        "u32": 4725761
+                                      },
+                                      {
+                                        "u32": 4725763
+                                      },
+                                      {
+                                        "u32": 4725765
+                                      },
+                                      {
+                                        "u32": 4725767
+                                      },
+                                      {
+                                        "u32": 4725769
+                                      },
+                                      {
+                                        "u32": 4725771
+                                      },
+                                      {
+                                        "u32": 4725773
+                                      },
+                                      {
+                                        "u32": 4725775
+                                      },
+                                      {
+                                        "u32": 4725777
+                                      },
+                                      {
+                                        "u32": 4725779
+                                      },
+                                      {
+                                        "u32": 4726785
+                                      },
+                                      {
+                                        "u32": 4726787
+                                      },
+                                      {
+                                        "u32": 4726789
+                                      },
+                                      {
+                                        "u32": 4726791
+                                      },
+                                      {
+                                        "u32": 4726793
+                                      },
+                                      {
+                                        "u32": 4726795
+                                      },
+                                      {
+                                        "u32": 4726797
+                                      },
+                                      {
+                                        "u32": 4726799
+                                      },
+                                      {
+                                        "u32": 4726801
+                                      },
+                                      {
+                                        "u32": 4726803
+                                      },
+                                      {
+                                        "u32": 4727809
+                                      },
+                                      {
+                                        "u32": 4727811
+                                      },
+                                      {
+                                        "u32": 4727813
+                                      },
+                                      {
+                                        "u32": 4727815
+                                      },
+                                      {
+                                        "u32": 4727817
+                                      },
+                                      {
+                                        "u32": 4727819
+                                      },
+                                      {
+                                        "u32": 4727821
+                                      },
+                                      {
+                                        "u32": 4727823
+                                      },
+                                      {
+                                        "u32": 4727825
+                                      },
+                                      {
+                                        "u32": 4727827
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "board_hash"
+                            },
+                            "val": {
+                              "bytes": "01010101010101010101010101010101"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "dev_mode"
+                            },
+                            "val": {
+                              "bool": true
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "host_team"
+                            },
+                            "val": {
+                              "u32": 0
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_ranks"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "u32": 1
+                                },
+                                {
+                                  "u32": 1
+                                },
+                                {
+                                  "u32": 8
+                                },
+                                {
+                                  "u32": 5
+                                },
+                                {
+                                  "u32": 4
+                                },
+                                {
+                                  "u32": 4
+                                },
+                                {
+                                  "u32": 4
+                                },
+                                {
+                                  "u32": 3
+                                },
+                                {
+                                  "u32": 2
+                                },
+                                {
+                                  "u32": 1
+                                },
+                                {
+                                  "u32": 1
+                                },
+                                {
+                                  "u32": 6
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "must_fill_all_tiles"
+                            },
+                            "val": {
+                              "bool": false
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "security_mode"
+                            },
+                            "val": {
+                              "bool": false
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "leave_lobby",
+              "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    []
+  ],
+  "ledger": {
+    "protocol_version": 22,
+    "sequence_number": 0,
+    "timestamp": 0,
+    "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
+    "base_reserve": 0,
+    "min_persistent_entry_ttl": 4096,
+    "min_temp_entry_ttl": 16,
+    "max_entry_ttl": 6312000,
+    "ledger_entries": [
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "History"
+                },
+                {
+                  "u32": 1
+                }
+              ]
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "History"
+                    },
+                    {
+                      "u32": 1
+                    }
+                  ]
+                },
+                "durability": "temporary",
+                "val": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "guest_moves"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "host_moves"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "lobby_id"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          15
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "LobbyInfo"
+                },
+                {
+                  "u32": 1
+                }
+              ]
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "LobbyInfo"
+                    },
+                    {
+                      "u32": 1
+                    }
+                  ]
+                },
+                "durability": "temporary",
+                "val": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "guest_address"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "host_address"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "index"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "phase"
+                      },
+                      "val": {
+                        "u32": 5
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "subphase"
+                      },
+                      "val": {
+                        "u32": 3
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          15
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "LobbyParameters"
+                },
+                {
+                  "u32": 1
+                }
+              ]
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "LobbyParameters"
+                    },
+                    {
+                      "u32": 1
+                    }
+                  ]
+                },
+                "durability": "temporary",
+                "val": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "board"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "hex"
+                            },
+                            "val": {
+                              "bool": false
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "name"
+                            },
+                            "val": {
+                              "string": "Default Stratego Board"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "size"
+                            },
+                            "val": {
+                              "map": [
+                                {
+                                  "key": {
+                                    "symbol": "x"
+                                  },
+                                  "val": {
+                                    "i32": 10
+                                  }
+                                },
+                                {
+                                  "key": {
+                                    "symbol": "y"
+                                  },
+                                  "val": {
+                                    "i32": 10
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "tiles"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "u32": 4194305
+                                },
+                                {
+                                  "u32": 4194307
+                                },
+                                {
+                                  "u32": 4194309
+                                },
+                                {
+                                  "u32": 4194311
+                                },
+                                {
+                                  "u32": 4194313
+                                },
+                                {
+                                  "u32": 4194315
+                                },
+                                {
+                                  "u32": 4194317
+                                },
+                                {
+                                  "u32": 4194319
+                                },
+                                {
+                                  "u32": 4194321
+                                },
+                                {
+                                  "u32": 4194323
+                                },
+                                {
+                                  "u32": 4195329
+                                },
+                                {
+                                  "u32": 4195331
+                                },
+                                {
+                                  "u32": 4195333
+                                },
+                                {
+                                  "u32": 4195335
+                                },
+                                {
+                                  "u32": 4195337
+                                },
+                                {
+                                  "u32": 4195339
+                                },
+                                {
+                                  "u32": 4195341
+                                },
+                                {
+                                  "u32": 4195343
+                                },
+                                {
+                                  "u32": 4195345
+                                },
+                                {
+                                  "u32": 4195347
+                                },
+                                {
+                                  "u32": 4196353
+                                },
+                                {
+                                  "u32": 4196355
+                                },
+                                {
+                                  "u32": 4196357
+                                },
+                                {
+                                  "u32": 4196359
+                                },
+                                {
+                                  "u32": 4196361
+                                },
+                                {
+                                  "u32": 4196363
+                                },
+                                {
+                                  "u32": 4196365
+                                },
+                                {
+                                  "u32": 4196367
+                                },
+                                {
+                                  "u32": 4196369
+                                },
+                                {
+                                  "u32": 4196371
+                                },
+                                {
+                                  "u32": 4197377
+                                },
+                                {
+                                  "u32": 4197379
+                                },
+                                {
+                                  "u32": 4197381
+                                },
+                                {
+                                  "u32": 4197383
+                                },
+                                {
+                                  "u32": 4197385
+                                },
+                                {
+                                  "u32": 4197387
+                                },
+                                {
+                                  "u32": 4197389
+                                },
+                                {
+                                  "u32": 4197391
+                                },
+                                {
+                                  "u32": 4197393
+                                },
+                                {
+                                  "u32": 4197395
+                                },
+                                {
+                                  "u32": 5246977
+                                },
+                                {
+                                  "u32": 5246979
+                                },
+                                {
+                                  "u32": 5246980
+                                },
+                                {
+                                  "u32": 5246982
+                                },
+                                {
+                                  "u32": 5246985
+                                },
+                                {
+                                  "u32": 5246987
+                                },
+                                {
+                                  "u32": 5246988
+                                },
+                                {
+                                  "u32": 5246990
+                                },
+                                {
+                                  "u32": 5246993
+                                },
+                                {
+                                  "u32": 5246995
+                                },
+                                {
+                                  "u32": 5248001
+                                },
+                                {
+                                  "u32": 5248003
+                                },
+                                {
+                                  "u32": 5248004
+                                },
+                                {
+                                  "u32": 5248006
+                                },
+                                {
+                                  "u32": 5248009
+                                },
+                                {
+                                  "u32": 5248011
+                                },
+                                {
+                                  "u32": 5248012
+                                },
+                                {
+                                  "u32": 5248014
+                                },
+                                {
+                                  "u32": 5248017
+                                },
+                                {
+                                  "u32": 5248019
+                                },
+                                {
+                                  "u32": 4724737
+                                },
+                                {
+                                  "u32": 4724739
+                                },
+                                {
+                                  "u32": 4724741
+                                },
+                                {
+                                  "u32": 4724743
+                                },
+                                {
+                                  "u32": 4724745
+                                },
+                                {
+                                  "u32": 4724747
+                                },
+                                {
+                                  "u32": 4724749
+                                },
+                                {
+                                  "u32": 4724751
+                                },
+                                {
+                                  "u32": 4724753
+                                },
+                                {
+                                  "u32": 4724755
+                                },
+                                {
+                                  "u32": 4725761
+                                },
+                                {
+                                  "u32": 4725763
+                                },
+                                {
+                                  "u32": 4725765
+                                },
+                                {
+                                  "u32": 4725767
+                                },
+                                {
+                                  "u32": 4725769
+                                },
+                                {
+                                  "u32": 4725771
+                                },
+                                {
+                                  "u32": 4725773
+                                },
+                                {
+                                  "u32": 4725775
+                                },
+                                {
+                                  "u32": 4725777
+                                },
+                                {
+                                  "u32": 4725779
+                                },
+                                {
+                                  "u32": 4726785
+                                },
+                                {
+                                  "u32": 4726787
+                                },
+                                {
+                                  "u32": 4726789
+                                },
+                                {
+                                  "u32": 4726791
+                                },
+                                {
+                                  "u32": 4726793
+                                },
+                                {
+                                  "u32": 4726795
+                                },
+                                {
+                                  "u32": 4726797
+                                },
+                                {
+                                  "u32": 4726799
+                                },
+                                {
+                                  "u32": 4726801
+                                },
+                                {
+                                  "u32": 4726803
+                                },
+                                {
+                                  "u32": 4727809
+                                },
+                                {
+                                  "u32": 4727811
+                                },
+                                {
+                                  "u32": 4727813
+                                },
+                                {
+                                  "u32": 4727815
+                                },
+                                {
+                                  "u32": 4727817
+                                },
+                                {
+                                  "u32": 4727819
+                                },
+                                {
+                                  "u32": 4727821
+                                },
+                                {
+                                  "u32": 4727823
+                                },
+                                {
+                                  "u32": 4727825
+                                },
+                                {
+                                  "u32": 4727827
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "board_hash"
+                      },
+                      "val": {
+                        "bytes": "01010101010101010101010101010101"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "dev_mode"
+                      },
+                      "val": {
+                        "bool": true
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "host_team"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "max_ranks"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 1
+                          },
+                          {
+                            "u32": 1
+                          },
+                          {
+                            "u32": 8
+                          },
+                          {
+                            "u32": 5
+                          },
+                          {
+                            "u32": 4
+                          },
+                          {
+                            "u32": 4
+                          },
+                          {
+                            "u32": 4
+                          },
+                          {
+                            "u32": 3
+                          },
+                          {
+                            "u32": 2
+                          },
+                          {
+                            "u32": 1
+                          },
+                          {
+                            "u32": 1
+                          },
+                          {
+                            "u32": 6
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "must_fill_all_tiles"
+                      },
+                      "val": {
+                        "bool": false
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "security_mode"
+                      },
+                      "val": {
+                        "bool": false
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          15
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "User"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "User"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "current_lobby"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "games_completed"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": "ledger_key_contract_instance",
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": "ledger_key_contract_instance",
+                "durability": "persistent",
+                "val": {
+                  "contract_instance": {
+                    "executable": {
+                      "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    "storage": null
+                  }
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 1033654523790656264
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 1033654523790656264
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 5541220902715666415
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 5541220902715666415
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_code": {
+            "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_code": {
+                "ext": "v0",
+                "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "code": ""
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ]
+    ]
+  },
+  "events": []
+}

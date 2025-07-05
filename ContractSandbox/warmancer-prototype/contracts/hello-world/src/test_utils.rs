@@ -2,8 +2,6 @@
 extern crate std;
 use super::*;
 use soroban_sdk::{Env, Address, Vec, Map};
-use crate::test;
-use crate::test::build_merkle_tree;
 // region ANSI color codes
 
 // ANSI color codes for terminal output
@@ -1190,4 +1188,289 @@ pub fn get_merkel(e: &Env, setup: &Setup, hidden_ranks: &Vec<HiddenRank>) -> (By
     }
     return (root, proofs);
 }
-// endregion 
+// endregion
+
+// Helper function to create the exact board configuration from user's input
+pub fn create_user_board_parameters(env: &Env) -> LobbyParameters {
+    let mut tiles = Vec::new(env);
+
+    // Add all 100 tiles exactly as specified in user's input
+    // Row 0
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 0 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 0 }, setup:2, setup_zone: 1 });
+
+    // Row 1
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 1 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 1 }, setup:2, setup_zone: 1 });
+
+    // Row 2
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 2 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 2 }, setup:2, setup_zone: 1 });
+
+    // Row 3
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 3 }, setup: 0, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 3 }, setup:2, setup_zone: 1 });
+
+    // Row 4 (neutral)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 4 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 4 }, setup:2, setup_zone: 1 });
+
+    // Row 5 (neutral)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 2, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 6, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 5 }, setup:2, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 5 }, setup:2, setup_zone: 1 });
+
+    // Row 6 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 6 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 6 }, setup:2, setup_zone: 1 });
+
+    // Row 7 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 7 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 7 }, setup:2, setup_zone: 1 });
+
+    // Row 8 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 8 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 8 }, setup:2, setup_zone: 1 });
+
+    // Row 9 (team 1)
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 0, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 1, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 2, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 3, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 4, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 5, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 6, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 7, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: true, pos: Pos { x: 8, y: 9 }, setup: 1, setup_zone: 1 });
+    tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 9 }, setup:2, setup_zone: 1 });
+    let mut packed_tiles = Vec::new(env);
+    for tile in tiles.iter() {
+        packed_tiles.push_back(Contract::pack_tile(&tile));
+    }
+    let board = Board {
+        hex: true,
+        name: String::from_str(env, "Narrow Hexagons"),
+        size: Pos { x: 10, y: 10 },
+        tiles: packed_tiles,
+    };
+
+    LobbyParameters {
+        board,
+        board_hash: BytesN::from_array(env, &[0u8; 16]),
+        dev_mode: false,
+        host_team: 0,
+        max_ranks: Vec::from_array(env, [1, 1, 8, 3, 4, 4, 4, 3, 2, 1, 1, 4, 0]),
+        must_fill_all_tiles: true,
+        security_mode: false,
+    }
+}
+
+pub struct Tree {
+    pub leaves: Vec<MerkleHash>,
+    pub levels: Vec<Vec<MerkleHash>>,
+}
+
+impl Tree {
+    pub fn generate_proof(&self, env: &Env, leaf_index: u32) -> MerkleProof {
+        std::println!("=== generate_proof START ===");
+        std::println!("Leaf index: {}", leaf_index);
+        std::println!("Tree levels: {}", self.levels.len());
+        
+        let mut siblings = Vec::new(env);
+        let mut current_index = leaf_index;
+        
+        for level in 0..(self.levels.len() - 1) {
+            let level_nodes = &self.levels.get(level).unwrap();
+            let sibling_index = if current_index % 2 == 0 {
+                current_index + 1
+            } else {
+                current_index - 1
+            };
+            
+            std::println!("Level {}: current_index={}, sibling_index={}, level_nodes_count={}", 
+                         level, current_index, sibling_index, level_nodes.len());
+            
+            let sibling_hash = level_nodes.get(sibling_index).unwrap();
+            std::println!("  Adding sibling: {:?}", sibling_hash.to_array());
+            siblings.push_back(sibling_hash);
+            
+            current_index = current_index / 2;
+            std::println!("  Next level index: {}", current_index);
+        }
+        
+        std::println!("Generated proof with {} siblings", siblings.len());
+        for (i, sibling) in siblings.iter().enumerate() {
+            std::println!("  Sibling {}: {:?}", i, sibling.to_array());
+        }
+        
+        let proof = MerkleProof {
+            leaf_index,
+            siblings,
+        };
+        
+        std::println!("=== generate_proof END ===");
+        proof
+    }
+    
+    pub fn root(&self) -> MerkleHash {
+        let root_level = self.levels.get(self.levels.len() as u32 - 1).unwrap();
+        root_level.get(0).unwrap()
+    }
+}
+
+pub fn build_merkle_tree(env: &Env, leaves: Vec<BytesN<16>>) -> (BytesN<16>, Tree) {
+    std::println!("=== build_merkle_tree START ===");
+    std::println!("Number of leaves: {}", leaves.len());
+    
+    for (i, leaf) in leaves.iter().enumerate() {
+        std::println!("Leaf {}: {:?}", i, leaf.to_array());
+    }
+    
+    if leaves.is_empty() {
+        let zero_root = MerkleHash::from_array(env, &[0u8; 16]);
+        let tree = Tree {
+            leaves: Vec::new(env),
+            levels: Vec::from_array(env, [Vec::from_array(env, [zero_root.clone()])]),
+        };
+        std::println!("Empty tree, returning zero root: {:?}", zero_root.to_array());
+        return (zero_root, tree);
+    }
+    
+    let mut padded_leaves = leaves.clone();
+    let empty_hash = MerkleHash::from_array(env, &[0u8; 16]);
+    
+    let mut target_size = 1;
+    while target_size < leaves.len() {
+        target_size *= 2;
+    }
+    
+    while padded_leaves.len() < target_size {
+        padded_leaves.push_back(empty_hash.clone());
+    }
+    
+    std::println!("Padded from {} to {} leaves", leaves.len(), padded_leaves.len());
+    
+    let mut levels: Vec<Vec<MerkleHash>> = Vec::new(env);
+    
+    levels.push_back(padded_leaves.clone());
+    std::println!("Level 0 (padded leaves): {} nodes", padded_leaves.len());
+    
+    let mut current_level = 0;
+    while levels.get(current_level).unwrap().len() > 1 {
+        let current_nodes = levels.get(current_level).unwrap();
+        let mut next_level = Vec::new(env);
+        
+        std::println!("Processing level {}, nodes: {}", current_level, current_nodes.len());
+        
+        let mut i = 0;
+        while i < current_nodes.len() {
+            let left = current_nodes.get(i).unwrap();
+            let right = current_nodes.get(i + 1).unwrap();
+            
+            std::println!("  Pair {}: left={:?}, right={:?}", i/2, left.to_array(), right.to_array());
+            
+            let mut combined_bytes = [0u8; 32];
+            combined_bytes[0..16].copy_from_slice(&left.to_array());
+            combined_bytes[16..32].copy_from_slice(&right.to_array());
+            
+            std::println!("  Combined bytes: {:?}", combined_bytes);
+            
+            let parent_full = env.crypto().sha256(&Bytes::from_array(env, &combined_bytes));
+            let parent_bytes = parent_full.to_array();
+            let parent_hash = MerkleHash::from_array(env, &parent_bytes[0..16].try_into().unwrap());
+            
+            std::println!("  Parent hash: {:?}", parent_hash.to_array());
+            
+            next_level.push_back(parent_hash);
+            i += 2;
+        }
+        
+        levels.push_back(next_level);
+        current_level += 1;
+        std::println!("Level {} complete, {} nodes", current_level, levels.get(current_level).unwrap().len());
+    }
+    
+    let root = levels.get(levels.len() as u32 - 1).unwrap().get(0).unwrap();
+    
+    std::println!("Final root: {:?}", root.to_array());
+    std::println!("Total levels: {}", levels.len());
+    
+    let tree = Tree {
+        leaves: leaves.clone(),
+        levels,
+    };
+    
+    std::println!("=== build_merkle_tree END ===");
+    (root, tree)
+}
