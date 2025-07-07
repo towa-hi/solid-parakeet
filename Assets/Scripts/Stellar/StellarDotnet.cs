@@ -272,9 +272,10 @@ public class StellarDotnet
         return getResult;
     }
 
-    public async Task<(Transaction, SimulateTransactionResult)> SimulateFunction(AccountEntry accountEntry, string functionName, IScvMapCompatable request, TimingTracker tracker = null)
+    public async Task<(Transaction, SimulateTransactionResult)> SimulateFunction(string functionName, IScvMapCompatable request, TimingTracker tracker = null)
     {
         tracker?.StartOperation($"SimulateFunction");
+        AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
         List<SCVal> argsList = new() { userAddressSCVal };
         if (request != null)
         {

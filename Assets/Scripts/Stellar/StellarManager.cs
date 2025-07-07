@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CA4RRTB5PMHPXWBW3YXND2NSIVNNJFCSE4NQM4AWONRSZMZFYPFTZFWI";
+    public static string testContract = "CA74D7XWTVJI3KQMQJVJAZSPWR7GCONAFXJSVOV2C6SMLCNKKIDRSWLM";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -203,25 +203,6 @@ public static class StellarManager
             EndTask(task);
         }
         TransactionResultCode code = ProcessTransactionResult(results.commitMoveResult, results.commitMoveSimResult);
-        if (code == TransactionResultCode.SUCCESS)
-        {
-            if (results.commitMoveResult.TransactionResult.result is TransactionResult.resultUnion.TxSUCCESS txSuccess)
-            {
-                foreach (OperationResult operationResult in txSuccess.results)
-                {
-                    if (operationResult is OperationResult.OpINNER opInner)
-                    {
-                        if (opInner.tr is OperationResult.trUnion.InvokeHostFunction invokeHostFunction)
-                        {
-                            if (invokeHostFunction.invokeHostFunctionResult is InvokeHostFunctionResult.InvokeHostFunctionSuccess invokeHostFunctionSuccess)
-                            {
-                                Debug.Log("success :)");
-                            }
-                        }
-                    }
-                }
-            }
-        }
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
         await UpdateState();
@@ -232,15 +213,58 @@ public static class StellarManager
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"ProveMoveRequest");
-        ProveMoveReq req = new()
+        ProveMoveReq proveMoveReq = new()
         {
             lobby_id = lobbyId,
             move_proof = hiddenMove,
         };
-        TaskInfo task = SetCurrentTask("Invoke prove_move");
-        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_move", req, tracker);
-        EndTask(task);
-        TransactionResultCode code = ProcessTransactionResult(result, simResult);
+        // NOTE: check simulate collision just to see if we should batch in prove_rank or not
+        TaskInfo reqLobbyInfoTask = SetCurrentTask("Simulate simulate_collisions");
+        (_, SimulateTransactionResult collisionResult) = await stellar.SimulateFunction("simulate_collisions", proveMoveReq, tracker);
+        EndTask(reqLobbyInfoTask);
+        if (collisionResult.Error != null)
+        {
+            throw new Exception($"collisionResult failed for some reason {collisionResult.Error}");
+        }
+        bool sendRankProofToo = false;
+        SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
+        UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
+        
+        List<HiddenRank> hiddenRanks = new();
+        List<MerkleProof> merkleProofs = new();
+        foreach (PawnId pawnId in move.needed_rank_proofs)
+        {
+            if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
+            {
+                throw new Exception($"cachemanager could not find pawn {pawnId}");
+            }
+            hiddenRanks.Add(cachedRankProof.hidden_rank);
+            merkleProofs.Add(cachedRankProof.merkle_proof);
+        }
+        ProveRankReq proveRankReq = new ProveRankReq
+        {
+            hidden_ranks = hiddenRanks.ToArray(),
+            lobby_id = lobbyId,
+            merkle_proofs = merkleProofs.ToArray(),
+        };
+        if (move.needed_rank_proofs.Length > 0)
+        {
+            sendRankProofToo = true;
+        }
+        (GetTransactionResult result, SimulateTransactionResult simResult) results;
+        if (sendRankProofToo)
+        {
+            TaskInfo task = SetCurrentTask("Invoke prove_move_and_prove_rank");
+            results = await stellar.CallVoidFunctionWithTwoParameters("prove_move_and_prove_rank", proveMoveReq, proveRankReq, tracker);
+            EndTask(task);
+        }
+        else
+        {
+            TaskInfo task = SetCurrentTask("Invoke prove_move");
+            results = await stellar.CallVoidFunction("prove_move", proveMoveReq, tracker);
+            EndTask(task);
+        }
+        TransactionResultCode code = ProcessTransactionResult(results.result, results.simResult);
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
         await UpdateState();
