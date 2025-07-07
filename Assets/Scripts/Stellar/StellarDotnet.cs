@@ -138,6 +138,37 @@ public class StellarDotnet
         contractAddress = inContractAddress;
     }
 
+    public async Task<bool> GetEvents(LobbyId lobbyId, string symbol)
+    {
+        TimingTracker tracker = new();
+        tracker.StartOperation("GetEvents");
+        SCVal val = SCUtility.NativeToSCVal(lobbyId);
+        Filters filter = new()
+        {
+            Type = "contract",
+            ContractIds = new string[] {contractAddress},
+            Topics = null,
+            AdditionalProperties = null,
+        };
+        GetEventsResult result = await GetEventsAsync(new GetEventsParams
+        {
+            StartLedger = latestLedger - 1000,
+            Filters = new Filters[] { filter },
+            Pagination = null,
+            AdditionalProperties = null,
+        });
+        foreach (Events ev in result.Events)
+        {
+            foreach (string topic in ev.Topic)
+            {
+                Debug.Log(topic);
+            }
+        }
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
+        return true;
+    }
+
     public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithTwoParameters(string functionName, IScvMapCompatable request1, IScvMapCompatable request2, TimingTracker tracker = null)
     {
         tracker?.StartOperation("CallVoidFunctionWithTwoParameters");
@@ -353,6 +384,8 @@ public class StellarDotnet
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
             networkState.gameState = mGameState;
+
+            await GetEvents(networkState.lobbyInfo.Value.index, "WEWLAD");
         }
         tracker?.EndOperation();
         return networkState;
@@ -628,6 +661,25 @@ public class StellarDotnet
         SendTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
         tracker?.EndOperation();
         return transactionResult;
+    }
+
+
+    async Task<GetEventsResult> GetEventsAsync(GetEventsParams parameters, TimingTracker tracker = null)
+    {
+        tracker?.StartOperation($"GetEventsAsync");
+        JsonRpcRequest request = new()
+        {
+            JsonRpc = "2.0",
+            Method = "getEvents",
+            Params = parameters,
+            Id = 1
+        };
+        string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
+        string content = await SendJsonRequest(requestJson, tracker);
+        JsonRpcResponse<GetEventsResult> rpcResponse = JsonConvert.DeserializeObject<JsonRpcResponse<GetEventsResult>>(content, jsonSettings);
+        latestLedger = rpcResponse.Result.LatestLedger;
+        tracker?.EndOperation();
+        return rpcResponse.Result;
     }
     
     // variant of StellarRPCClient.GetLedgerEntriesAsync()

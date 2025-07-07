@@ -9,58 +9,6 @@ use soroban_sdk::testutils::Address as _;
 // region setup tests
 
 #[test]
-fn test_prove_setup_invalid_pawn_ownership() {
-    let setup = TestSetup::new();
-    let host_address = setup.generate_address();
-    let guest_address = setup.generate_address();
-    let lobby_id = 1u32;
-
-    // Create and join lobby
-    let lobby_parameters = create_test_lobby_parameters(&setup.env);
-    let make_req = MakeLobbyReq {
-        lobby_id,
-        parameters: lobby_parameters,
-    };
-    setup.client.make_lobby(&host_address, &make_req);
-
-    let join_req = JoinLobbyReq { lobby_id };
-    setup.client.join_lobby(&guest_address, &join_req);
-
-    // Create setup with wrong team pawns for host (team 1 instead of 0)
-    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 1) // Wrong team!
-    });
-
-    // Create valid setup for guest (team 0 - also wrong, but different from host)
-    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
-    });
-
-    // Build merkle tree for host rank commitment
-    let mut host_leaves: Vec<HiddenRankHash> = Vec::new(&setup.env);
-    for commit in host_setup.setup_commits.iter() {
-        host_leaves.push_back(commit.hidden_rank_hash.clone());
-    }
-    let (host_rank_root, _) = super::test_utils::build_merkle_tree(&setup.env, host_leaves);
-
-    // Try to prove invalid setup - should end the game with host losing
-    let host_commit_req = CommitSetupReq {
-        lobby_id,
-        rank_commitment_root: host_rank_root,
-        setup: host_setup,
-    };
-
-    setup.client.commit_setup(&host_address, &host_commit_req);
-
-    // Verify game aborted with guest winning
-    {
-        let validation_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_eq!(validation_snapshot.phase, Phase::Aborted);
-        assert_eq!(validation_snapshot.subphase, Subphase::Guest); // Guest wins
-    }
-}
-
-#[test]
 fn test_rank_proving_simple() {
     let setup = TestSetup::new();
     let host_address = setup.generate_address();
@@ -89,12 +37,10 @@ fn test_rank_proving_simple() {
     let host_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: host_root.clone(),
-        setup: host_setup.clone(),
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: guest_root,
-        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);
@@ -172,12 +118,10 @@ fn test_collision_winner_rank_revelation() {
     let host_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: host_root,
-        setup: host_setup,
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: guest_root,
-        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);

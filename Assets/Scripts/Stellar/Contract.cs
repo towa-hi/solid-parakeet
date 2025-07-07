@@ -992,7 +992,6 @@ namespace Contract
     {
         public LobbyId lobby_id;
         public byte[] rank_commitment_root;
-        public Setup setup;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -1002,7 +1001,6 @@ namespace Contract
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                     SCUtility.FieldToSCMapEntry("rank_commitment_root", rank_commitment_root),
-                    SCUtility.FieldToSCMapEntry("setup", setup),
                 }),
             };
         }

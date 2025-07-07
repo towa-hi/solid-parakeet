@@ -283,12 +283,10 @@ pub fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (A
     let host_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: host_root,
-        setup: host_setup,
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: guest_root,
-        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);
@@ -348,12 +346,10 @@ pub fn advance_through_complete_setup_phase(setup: &TestSetup, lobby_id: u32, ho
     let host_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: host_root,
-        setup: host_setup,
     };
     let guest_commit_req = CommitSetupReq {
         lobby_id,
         rank_commitment_root: guest_root,
-        setup: guest_setup,
     };
 
     setup.client.commit_setup(&host_address, &host_commit_req);

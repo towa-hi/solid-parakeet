@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CA74D7XWTVJI3KQMQJVJAZSPWR7GCONAFXJSVOV2C6SMLCNKKIDRSWLM";
+    public static string testContract = "CDZNOMGUM5MKS4W7JSRSZPXQOFPPK53NPM3RBAJLQGAAEUBNUYYCBYNR";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -31,6 +31,9 @@ public static class StellarManager
 
     static TaskInfo currentTask;
 
+    
+    static bool pollNetworkState = false;
+    
     public static void Initialize()
     {
         currentTask = null;
@@ -38,6 +41,16 @@ public static class StellarManager
         stellar = new StellarDotnet(testHostSneed, testContract);
     }
 
+
+    public static void PollLobbyInfo(bool enable)
+    {
+        
+    }
+
+    static void GetEvents()
+    {
+        
+    }
     public static async Task<bool> UpdateState()
     {
         TimingTracker tracker = new TimingTracker();
@@ -138,7 +151,7 @@ public static class StellarManager
         return (int)code;
     }
     
-    public static async Task<int> CommitSetupRequest(LobbyId lobbyId, byte[] root, Setup setup, List<CachedRankProof> cached)
+    public static async Task<int> CommitSetupRequest(LobbyId lobbyId, byte[] root, List<CachedRankProof> cached)
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"CommitSetupRequest");
@@ -146,7 +159,6 @@ public static class StellarManager
         {
             lobby_id = lobbyId,
             rank_commitment_root = root,
-            setup = setup,
         };
         // store commit first
         CacheManager.StoreHiddenRanksAndProofs(cached, networkState.address, lobbyId);

@@ -134,12 +134,7 @@ pub struct HiddenMove {
     pub start_pos: Pos,
     pub target_pos: Pos,
 }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HiddenRank {
-    pub pawn_id: PawnId,
-    pub rank: Rank,
-    pub salt: u64,
-}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetupCommit {
     pub hidden_rank_hash: HiddenRankHash,
@@ -149,6 +144,13 @@ pub struct SetupCommit {
 pub struct Setup {
     pub salt: u64,
     pub setup_commits: Vec<SetupCommit>,
+}
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HiddenRank {
+    pub pawn_id: PawnId,
+    pub rank: Rank,
+    pub salt: u64,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PawnState {
@@ -206,6 +208,7 @@ pub struct MakeLobbyReq {
     pub lobby_id: LobbyId,
     pub parameters: LobbyParameters,
 }
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JoinLobbyReq {
     pub lobby_id: LobbyId,
@@ -214,8 +217,15 @@ pub struct JoinLobbyReq {
 pub struct CommitSetupReq {
     pub lobby_id: LobbyId,
     pub rank_commitment_root: MerkleHash,
-    pub setup: Setup,
 }
+
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CMR {
+    pub id: LobbyId,
+    pub rank_commitment_root: MerkleHash,
+    pub setup: BytesN<128>,
+}
+
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitMoveReq {
     pub lobby_id: LobbyId,
@@ -436,7 +446,7 @@ impl Contract {
         }
         // update
         user.current_lobby = req.lobby_id.clone();
-        lobby_info.guest_address = Vec::from_array(e, [address]);
+        lobby_info.guest_address = Vec::from_array(e, [address.clone()]);
         // start game automatically
         lobby_info.phase = Phase::SetupCommit;
         lobby_info.subphase = Subphase::Both;
@@ -450,7 +460,6 @@ impl Contract {
                 let pawn_id = Self::encode_pawn_id(&pos, &team);
                 let pawn_state = PawnState {
                     alive: true,
-//                    hidden_rank_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
                     moved: false,
                     moved_scout: false,
                     pawn_id: pawn_id,
@@ -472,6 +481,7 @@ impl Contract {
         persistent.set(&user_key, &user);
         temporary.set(&DataKey::GameState(req.lobby_id.clone()), &game_state);
         temporary.set(&lobby_info_key, &lobby_info);
+        e.events().publish((lobby_info.index.clone(), Symbol::new(e, "join_lobby")), address);
         Ok(())
     }
 
@@ -486,33 +496,8 @@ impl Contract {
             return Err(Error::WrongPhase)
         }
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-        // validate the proof
-        let mut setup_valid = true;
-        let pawns_map = Self::create_pawns_map(e, &game_state);
-        for commit in req.setup.setup_commits.iter() {
-            let pawn = match pawns_map.get(commit.pawn_id) {
-                Some(pawn) => pawn,
-                None => {
-                    setup_valid = false;
-                    break;
-                }
-            };
-            // pawn id ownership check
-            let (_, x_index) = Self::decode_pawn_id(&commit.pawn_id);
-            if x_index != u_index {
-                setup_valid = false;
-                break;
-            }
-        }
+
         game_state.rank_roots.set(u_index, req.rank_commitment_root);
-        if !setup_valid {
-            // immediately abort the game
-            debug_log!(e, "prove_setup: Invalid setup! Setting phase to Aborted");
-            lobby_info.phase = Phase::Aborted;
-            lobby_info.subphase = Self::opponent_subphase_from_player_index(&u_index);
-            temporary.set(&lobby_info_key, &lobby_info);
-            return Ok(())
-        }
         if next_subphase == Subphase::None {
             lobby_info.phase = Phase::MoveCommit;
             lobby_info.subphase = Subphase::Both;
@@ -523,6 +508,7 @@ impl Contract {
 
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
+        e.events().publish((lobby_info.index.clone(), Symbol::new(e, "commit_setup")), address);
         Ok(())
     }
 
@@ -563,6 +549,7 @@ impl Contract {
         game_state.moves.set(u_index, u_move);
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
+        e.events().publish((lobby_info.index.clone(), Symbol::new(e, "commit_move")), address);
         Ok(lobby_info)
     }
 
@@ -660,8 +647,10 @@ impl Contract {
 
     pub fn prove_move_and_prove_rank(e: &Env, address: Address, req: ProveMoveReq, req2: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
-        Self::prove_move_internal(e, address.clone(), req);
-        Self::prove_rank_internal(e, address, req2)
+        _ = Self::prove_move_internal(e, address.clone(), req.clone());
+        let result = Self::prove_rank_internal(e, address.clone(), req2);
+        e.events().publish((req.lobby_id.clone(), Symbol::new(e, "prove_rank")), address);
+        result
     }
 
     pub fn prove_rank_test(e: &Env, address: Address, req: ProveRankReq) -> Result<bool, Error> {
@@ -676,7 +665,9 @@ impl Contract {
 
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
-        Self::prove_rank_internal(e, address, req)
+        let result = Self::prove_rank_internal(e, address.clone(), req.clone());
+        e.events().publish((req.lobby_id.clone(), Symbol::new(e, "prove_rank")), address);
+        result
     }
 
     pub fn prove_rank_internal(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
@@ -1585,6 +1576,7 @@ impl Contract {
         let unpacked = Self::unpack_tile(packed);
         *tile == unpacked
     }
+
     // endregion
 
 }

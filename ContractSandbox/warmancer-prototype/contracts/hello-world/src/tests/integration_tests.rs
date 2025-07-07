@@ -268,8 +268,8 @@ fn test_compare_populated_vs_unpopulated_games() {
     for lobby_id in [lobby_a, lobby_b] {
         let (host_addr, guest_addr) = if lobby_id == lobby_a { (&host_a, &guest_a) } else { (&host_b, &guest_b) };
 
-        setup.client.commit_setup(host_addr, &CommitSetupReq { lobby_id, rank_commitment_root: host_root.clone(), setup: host_setup.clone() });
-        setup.client.commit_setup(guest_addr, &CommitSetupReq { lobby_id, rank_commitment_root: guest_root.clone(), setup: guest_setup.clone() });
+        setup.client.commit_setup(host_addr, &CommitSetupReq { lobby_id, rank_commitment_root: host_root.clone() });
+        setup.client.commit_setup(guest_addr, &CommitSetupReq { lobby_id, rank_commitment_root: guest_root.clone() });
     }
 
     // Populate ranks only in Game B

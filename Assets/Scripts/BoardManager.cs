@@ -394,11 +394,6 @@ public class SetupCommitPhase : PhaseBase
                 pawn_id = pawn.pawn_id,
             });
         }
-        Setup setup = new()
-        {
-            salt = Globals.RandomSalt(),
-            setup_commits = commits.ToArray(),
-        };
         List<byte[]> leaves = new();
         foreach (SetupCommit commit in commits)
         {
@@ -412,7 +407,7 @@ public class SetupCommitPhase : PhaseBase
             MerkleProof merkleProof = tree.GenerateProof((uint)i);
             ranksAndProofs.Add(new() {hidden_rank = hiddenRank, merkle_proof = merkleProof});
         }
-        _ = StellarManager.CommitSetupRequest(cachedNetState.lobbyInfo.index, root, setup, ranksAndProofs);
+        _ = StellarManager.CommitSetupRequest(cachedNetState.lobbyInfo.index, root, ranksAndProofs);
     }
 
     void OnEntryClicked(Rank clickedRank)
