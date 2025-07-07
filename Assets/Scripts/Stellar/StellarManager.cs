@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CA5RJCPHPL4VO75IEQZFJKVDJF27IRSY5NYNJRF6ZTWKJN6FFFAEJ64Y";
+    public static string testContract = "CA4RRTB5PMHPXWBW3YXND2NSIVNNJFCSE4NQM4AWONRSZMZFYPFTZFWI";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -88,49 +88,6 @@ public static class StellarManager
         return stellar.contractAddress;
     }
 
-    static int ProcessTransactionResult(GetTransactionResult result, SimulateTransactionResult simResult)
-    {
-        if (simResult == null)
-        {
-            return -1;
-        }
-        if (simResult.Error != null)
-        {
-            List<int> errorCodes = new();
-            foreach (DiagnosticEvent diag in simResult.DiagnosticEvents.Where(diag => !diag.inSuccessfulContractCall))
-            {
-                Debug.LogError(DiagnosticEventXdr.EncodeToBase64(diag)); 
-                Debug.LogError(JsonUtility.ToJson(diag));
-                ContractEvent.bodyUnion.case_0 body = (ContractEvent.bodyUnion.case_0)diag._event.body;
-                foreach (SCVal topic in body.v0.topics)
-                {
-                    if (topic is not SCVal.ScvError { error: SCError.SceContract contractError }) continue;
-                    int code = (int)contractError.contractCode.InnerValue;
-                    errorCodes.Add(code);
-                }
-            }
-            switch (errorCodes.Count)
-            {
-                case > 1:
-                    Debug.LogWarning("ProcessTransactionResult failed to simulate with more than 1 error");
-                    return errorCodes[0];
-                case 1:
-                    return errorCodes[0];
-                default:
-                    return -2;
-            }
-        }
-        if (result == null)
-        {
-            return -3;
-        }
-        if (result.Status != GetTransactionResult_Status.SUCCESS)
-        {
-            return -4;
-        }
-        return 0;
-    }
-
     public static async Task<int> MakeLobbyRequest(LobbyParameters parameters)
     {
         TimingTracker tracker = new TimingTracker();
@@ -140,26 +97,28 @@ public static class StellarManager
             lobby_id = GenerateLobbyId(),
             parameters = parameters,
         };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        TaskInfo task = SetCurrentTask("Invoke make_lobby");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("make_lobby", req, tracker);
         EndTask(task);
+        TransactionResultCode code = ProcessTransactionResult(result, simResult);
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
         await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        return (int)code;
     }
 
     public static async Task<int> LeaveLobbyRequest()
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"LeaveLobbyRequest");
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        TaskInfo task = SetCurrentTask("Invoke leave_lobby");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("leave_lobby", null, tracker);
         EndTask(task);
+        TransactionResultCode code = ProcessTransactionResult(result, simResult);
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
         await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        return (int)code;
     }
     
     public static async Task<int> JoinLobbyRequest(LobbyId lobbyId)
@@ -173,9 +132,10 @@ public static class StellarManager
         TaskInfo task = SetCurrentTask("CallVoidFunction");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("join_lobby", req, tracker);
         EndTask(task);
+        TransactionResultCode code = ProcessTransactionResult(result, simResult);
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
-        return ProcessTransactionResult(result, simResult);
+        return (int)code;
     }
     
     public static async Task<int> CommitSetupRequest(LobbyId lobbyId, byte[] root, Setup setup, List<CachedRankProof> cached)
@@ -188,25 +148,16 @@ public static class StellarManager
             rank_commitment_root = root,
             setup = setup,
         };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (GetTransactionResult getResult, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req, tracker);
+        // store commit first
+        CacheManager.StoreHiddenRanksAndProofs(cached, networkState.address, lobbyId);
+        TaskInfo task = SetCurrentTask("Invoke commit_setup");
+        (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("commit_setup", req, tracker);
         EndTask(task);
+        TransactionResultCode code = ProcessTransactionResult(result, simResult);
         tracker.EndOperation();
-        if (getResult == null)
-        {
-            Debug.LogError("CallVoidFunction: timed out or failed to connect");
-        }
-        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
-        {
-            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
-        }
-        else
-        {
-            CacheManager.StoreHiddenRanksAndProofs(cached, networkState.address, lobbyId);
-        }
         Debug.Log(tracker.GetReport());
         await UpdateState();
-        return ProcessTransactionResult(getResult, simResult);
+        return (int)code;
     }
 
     public static async Task<int> CommitMoveRequest(LobbyId lobbyId, byte[] hiddenMoveHash, HiddenMove hiddenMove)
@@ -223,66 +174,58 @@ public static class StellarManager
             lobby_id = lobbyId,
             move_proof = hiddenMove,
         };
-        // NOTE: voodoo to decide if we can get away with sending proveMoveReq in the same transaction
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        AccountEntry accountEntry = await stellar.ReqAccountEntry(stellar.userAccount, tracker);
-        (Transaction invokeContractTransaction, SimulateTransactionResult simResult) = await stellar.SimulateFunction(accountEntry, "commit_move", commitMoveReq, tracker);
-        if (simResult.Error != null)
+        
+        // NOTE: check lobbyInfo just to see if we should batch in prove_move or not
+        TaskInfo reqLobbyInfoTask = SetCurrentTask("ReqLobbyInfo");
+        LobbyInfo? preRequestLobbyInfoResult = await stellar.ReqLobbyInfo(lobbyId, tracker);
+        EndTask(reqLobbyInfoTask);
+        if (preRequestLobbyInfoResult is not LobbyInfo preRequestLobbyInfo)
         {
-            EndTask(task);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            return ProcessTransactionResult(null, simResult);
+            return -999;
         }
-        SCVal scVal = simResult.Results.FirstOrDefault()!.Result;
-        LobbyInfo simulatedLobbyInfo = SCUtility.SCValToNative<LobbyInfo>(scVal);
-        bool isHost = simulatedLobbyInfo.IsHost(stellar.userAddress);
+        bool isHost = preRequestLobbyInfo.IsHost(stellar.userAddress);
         Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
-        bool sendProveMove = simulatedLobbyInfo.phase == Phase.MoveProve &&
-                             (simulatedLobbyInfo.subphase == Subphase.Both || simulatedLobbyInfo.subphase == mySubphase);
-        if (sendProveMove)
+        // store hiddenMove before sending
+        CacheManager.StoreHiddenMove(hiddenMove, stellar.userAddress, lobbyId);
+        // we send prove_move too only if the server is waiting for us
+        bool sendProveMoveToo = preRequestLobbyInfo.phase == Phase.MoveCommit && preRequestLobbyInfo.subphase == mySubphase;
+        (GetTransactionResult commitMoveResult, SimulateTransactionResult commitMoveSimResult) results;
+        if (sendProveMoveToo)
         {
-            // it sucks but we have to get accountentry again or the tx seq wont be right 
-            AccountEntry accountEntry2 = await stellar.ReqAccountEntry(stellar.userAccount, tracker);
-            (GetTransactionResult combinedTransactionResult, SimulateTransactionResult combinedSimResult) = await stellar.CallVoidFunctionWithTwoParameters(accountEntry2,"commit_move_and_prove_move", commitMoveReq, proveMoveReq, tracker);
-            if (combinedTransactionResult == null)
-            {
-                Debug.LogError("CallVoidFunction: timed out or failed to connect");
-            }
-            else if (combinedTransactionResult.Status != GetTransactionResult_Status.SUCCESS)
-            {
-                Debug.LogWarning($"CallVoidFunction: status: {combinedTransactionResult.Status}");
-            }
+            TaskInfo task = SetCurrentTask("Invoke commit_move_and_prove_move");
+            results = await stellar.CallVoidFunctionWithTwoParameters("commit_move_and_prove_move", commitMoveReq, proveMoveReq, tracker);
             EndTask(task);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return ProcessTransactionResult(combinedTransactionResult, combinedSimResult);
         }
         else
         {
-            GetTransactionResult getResult = await stellar.CallVoidFunctionWithoutSimulating(invokeContractTransaction, simResult, tracker);
-            if (getResult == null)
-            {
-                Debug.LogError("CallVoidFunction: timed out or failed to connect");
-            }
-            else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
-            {
-                Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
-            }
-            else
-            {
-                CacheManager.StoreHiddenMove(hiddenMove, networkState.address, lobbyId);
-            }
+            TaskInfo task = SetCurrentTask("Invoke commit_move");
+            results = await stellar.CallVoidFunction("commit_move", commitMoveReq, tracker);
             EndTask(task);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return ProcessTransactionResult(getResult, simResult);
         }
-        
-        
-        
+        TransactionResultCode code = ProcessTransactionResult(results.commitMoveResult, results.commitMoveSimResult);
+        if (code == TransactionResultCode.SUCCESS)
+        {
+            if (results.commitMoveResult.TransactionResult.result is TransactionResult.resultUnion.TxSUCCESS txSuccess)
+            {
+                foreach (OperationResult operationResult in txSuccess.results)
+                {
+                    if (operationResult is OperationResult.OpINNER opInner)
+                    {
+                        if (opInner.tr is OperationResult.trUnion.InvokeHostFunction invokeHostFunction)
+                        {
+                            if (invokeHostFunction.invokeHostFunctionResult is InvokeHostFunctionResult.InvokeHostFunctionSuccess invokeHostFunctionSuccess)
+                            {
+                                Debug.Log("success :)");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        tracker.EndOperation();
+        Debug.Log(tracker.GetReport());
+        await UpdateState();
+        return (int)code;
     }
 
     public static async Task<int> ProveMoveRequest(LobbyId lobbyId, HiddenMove hiddenMove)
@@ -294,13 +237,14 @@ public static class StellarManager
             lobby_id = lobbyId,
             move_proof = hiddenMove,
         };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        TaskInfo task = SetCurrentTask("Invoke prove_move");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_move", req, tracker);
         EndTask(task);
+        TransactionResultCode code = ProcessTransactionResult(result, simResult);
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
         await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        return (int)code;
     }
 
     public static async Task<int> ProveRankRequest(LobbyId lobbyId, HiddenRank[] hiddenRanks, MerkleProof[] merkleProofs)
@@ -313,13 +257,14 @@ public static class StellarManager
             hidden_ranks = hiddenRanks,
             merkle_proofs = merkleProofs,
         };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
+        TaskInfo task = SetCurrentTask("Invoke Prove_rank");
         (GetTransactionResult result, SimulateTransactionResult simResult) = await stellar.CallVoidFunction("prove_rank", req, tracker);
         EndTask(task);
+        TransactionResultCode code = ProcessTransactionResult(result, simResult);
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
         await UpdateState();
-        return ProcessTransactionResult(result, simResult);
+        return (int)code;
     }
     
     public static async Task<AccountEntry> GetAccount(string key)
@@ -338,9 +283,8 @@ public static class StellarManager
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"GetAssets");
-        TaskInfo task = SetCurrentTask("ReqAccountEntry");
         MuxedAccount.KeyTypeEd25519 userAccount = MuxedAccount.FromAccountId(userId);
-
+        TaskInfo task = SetCurrentTask("ReqAccountEntry");
         LedgerEntry.dataUnion.Trustline result = await stellar.GetAssets(userAccount, tracker);
         EndTask(task);
         tracker.EndOperation();
@@ -387,10 +331,95 @@ public static class StellarManager
         uint value = (uint)Random.Range(100000, 1000000); // 6 digit number
         return new LobbyId(value);
     }
+    
+    
+    static TransactionResultCode ProcessTransactionResult(GetTransactionResult result, SimulateTransactionResult simResult)
+    {
+        if (simResult == null)
+        {
+            Debug.LogError("ProcessTransactionResult: simulation failed to send");
+            return TransactionResultCode.SIMULATION_FAILED_TO_SEND;
+        }
+        if (simResult.Error != null)
+        {
+            Debug.Log(simResult.Error);
+            List<int> errorCodes = new();
+            foreach (DiagnosticEvent diag in simResult.DiagnosticEvents.Where(diag => !diag.inSuccessfulContractCall))
+            {
+                Debug.LogError(JsonUtility.ToJson(diag));
+                ContractEvent.bodyUnion.case_0 body = (ContractEvent.bodyUnion.case_0)diag._event.body;
+                foreach (SCVal topic in body.v0.topics)
+                {
+                    if (topic is not SCVal.ScvError { error: SCError.SceContract contractError }) continue;
+                    int code = (int)contractError.contractCode.InnerValue;
+                    errorCodes.Add(code);
+                }
+            }
+            if (errorCodes.Count > 1)
+            {
+                Debug.LogError("ProcessTransactionResult failed to simulate with more than 1 error");
+            }
+            return TransactionResultCode.TRANSACTION_SIM_REJECTED_BY_CONTRACT;
+        }
+        if (result == null)
+        {
+            return TransactionResultCode.TRANSACTION_FAILED_TO_SEND;
+        }
+        switch (result.TransactionResult.result)
+        {
+            case TransactionResult.resultUnion.TxSUCCESS txSuccess:
+                return TransactionResultCode.SUCCESS;
+                break;
+            case TransactionResult.resultUnion.TxFAILED txFailed:
+                return TransactionResultCode.TRANSACTION_FAILED_MISC;
+                break;
+            case TransactionResult.resultUnion.TxfeeBumpInnerFailed txfeeBumpInnerFailed:
+                return TransactionResultCode.TRANSACTION_FAILED_MISC;
+                break;
+            case TransactionResult.resultUnion.TxfeeBumpInnerSuccess txfeeBumpInnerSuccess:
+                return TransactionResultCode.TRANSACTION_FAILED_MISC;
+                break;
+            case TransactionResult.resultUnion.TxinsufficientBalance txinsufficientBalance:
+                return TransactionResultCode.TRANSACTION_FAILED_MISC;
+                break;
+            case TransactionResult.resultUnion.TxinsufficientFee txinsufficientFee:
+                return TransactionResultCode.TRANSACTION_FAILED_MISC;
+                break;
+
+            case TransactionResult.resultUnion.TxbadAuth txbadAuth:
+            case TransactionResult.resultUnion.TxbadAuthExtra txbadAuthExtra:
+            case TransactionResult.resultUnion.TxbadMinSeqAgeOrGap txbadMinSeqAgeOrGap:
+            case TransactionResult.resultUnion.TxbadSeq txbadSeq:
+            case TransactionResult.resultUnion.TxbadSponsorship txbadSponsorship:
+            case TransactionResult.resultUnion.TxinternalError txinternalError:
+            case TransactionResult.resultUnion.TxMALFORMED txMalformed:
+            case TransactionResult.resultUnion.TxmissingOperation txmissingOperation:
+            case TransactionResult.resultUnion.TxnoAccount txnoAccount:
+            case TransactionResult.resultUnion.TxnotSupported txnotSupported:
+            case TransactionResult.resultUnion.TxsorobanInvalid txsorobanInvalid:
+            case TransactionResult.resultUnion.TxtooEarly txtooEarly:
+            case TransactionResult.resultUnion.TxtooLate txtooLate:
+                return TransactionResultCode.TRANSACTION_FAILED_MISC;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
 }
 
 public class TaskInfo
 {
     public Guid taskId;
     public string taskMessage;
+}
+
+public enum TransactionResultCode
+{
+    SUCCESS,
+    SIMULATION_FAILED_TO_SEND = -1,
+    TRANSACTION_FAILED_TO_SEND = -2,
+    TRANSACTION_NOT_FOUND = -3,
+    TRANSACTION_SIM_REJECTED_BY_CONTRACT = -4,
+    TRANSACTION_FAILED_MISC = -99,
 }

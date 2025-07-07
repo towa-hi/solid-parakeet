@@ -39,6 +39,7 @@ public static class CacheManager
             string key = Convert.ToBase64String(SCUtility.Get16ByteHash(hiddenMove));
             hiddenMoveCache.Add(key, hiddenMove);
         }
+        HumanDebugNetworkInspector.UpdateCache(hiddenRanksAndMerkleProofs, hiddenMoveCache);
     }
     
     // public static void StoreHiddenRank(HiddenRank hiddenRank, AccountAddress address, LobbyId lobbyId)
@@ -60,64 +61,23 @@ public static class CacheManager
     
     public static void StoreHiddenRanksAndProofs(List<CachedRankProof> ranksAndProofs, AccountAddress address, LobbyId lobbyId)
     {
-        string key = GetRankProofKey(address, lobbyId);
-        SaveToPlayerPrefs(ranksAndProofs.ToArray(), key, address);
+        string rankProofsKey = GetRankProofKey(address, lobbyId);
+        SaveToPlayerPrefs(ranksAndProofs.ToArray(), rankProofsKey, address);
         foreach (CachedRankProof rankProof in ranksAndProofs)
         {
             hiddenRanksAndMerkleProofs.Add(rankProof.hidden_rank.pawn_id, rankProof);
         }
+        HumanDebugNetworkInspector.UpdateCache(hiddenRanksAndMerkleProofs, hiddenMoveCache);
     }
 
     public static CachedRankProof? GetHiddenRankAndProof(PawnId pawnId)
     {
-        Debug.Log($"GetHiddenRankAndProof {pawnId}");
         if (hiddenRanksAndMerkleProofs.TryGetValue(pawnId, out CachedRankProof rankProof))
         {
-            Debug.Log($"rankProof: {rankProof.hidden_rank.rank}");
             return rankProof;
         }
         return null;
     }
-    
-    // public static void StoreHiddenRanks(HiddenRank[] hiddenRanks, AccountAddress address, LobbyId lobbyId)
-    // {
-    //     string hiddenRanksKey = GetHiddenRanksKey(address, lobbyId);
-    //     HiddenRank[] existingArray = LoadFromPlayerPrefs<HiddenRank>(hiddenRanksKey);
-    //     
-    //     List<HiddenRank> hiddenRankList = existingArray.ToList();
-    //     hiddenRankList.AddRange(hiddenRanks);
-    //     
-    //     HiddenRank[] hiddenRankArray = hiddenRankList.ToArray();
-    //     SaveToPlayerPrefs(hiddenRankArray, hiddenRanksKey, address);
-    //     
-    //     foreach (HiddenRank hiddenRank in hiddenRanks)
-    //     {
-    //         byte[] hash = SCUtility.Get16ByteHash(hiddenRank);
-    //         string key = Convert.ToBase64String(hash);
-    //         hiddenRankCache[key] = hiddenRank;
-    //     }
-    // }
-    //
-    // public static HiddenRank? GetHiddenRank(byte[] hash)
-    // {
-    //     if (hash.Length != 16)
-    //     {
-    //         throw new ArgumentException("Invalid hidden rank hash length");
-    //     }
-    //     if (hash.All(b => b == 0))
-    //     {
-    //         return null;
-    //     }
-    //     string key = Convert.ToBase64String(hash);
-    //     if (hiddenRankCache.TryGetValue(key, out HiddenRank rank))
-    //     {
-    //         return rank;
-    //     }
-    //     else
-    //     {
-    //         return null;
-    //     }
-    // }
     
     public static HiddenMove? GetHiddenMove(byte[] hash)
     {
@@ -139,6 +99,18 @@ public static class CacheManager
             return null;
         }
     }
+
+    public static bool RankProofsCacheExists(AccountAddress address, LobbyId lobbyId)
+    {
+        string rankProofsKey = GetRankProofKey(address, lobbyId);
+        return PlayerPrefs.HasKey(rankProofsKey);
+    }
+
+    public static bool HiddenMoveCacheExists(AccountAddress address, LobbyId lobbyId)
+    {
+        string hiddenMovesKey = GetHiddenMovesKey(address, lobbyId);
+        return PlayerPrefs.HasKey(hiddenMovesKey);
+    }
     
     public static void StoreHiddenMove(HiddenMove hiddenMove, AccountAddress address, LobbyId lobbyId)
     {
@@ -154,6 +126,7 @@ public static class CacheManager
         byte[] hash = SCUtility.Get16ByteHash(hiddenMove);
         string key = Convert.ToBase64String(hash);
         hiddenMoveCache[key] = hiddenMove;
+        HumanDebugNetworkInspector.UpdateCache(hiddenRanksAndMerkleProofs, hiddenMoveCache);
     }
     
     public static void StoreHiddenMoves(HiddenMove[] hiddenMoves, AccountAddress address, LobbyId lobbyId)
@@ -173,6 +146,7 @@ public static class CacheManager
             string key = Convert.ToBase64String(hash);
             hiddenMoveCache[key] = hiddenMove;
         }
+        HumanDebugNetworkInspector.UpdateCache(hiddenRanksAndMerkleProofs, hiddenMoveCache);
     }
 
 

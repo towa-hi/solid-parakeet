@@ -49,7 +49,7 @@ public class MerkleTree
         MerkleProof proof = new MerkleProof
         {
             leaf_index = leafIndex,
-            siblings = siblings.ToArray()
+            siblings = siblings.ToArray(),
         };
 
         //Debug.Log("=== generate_proof END ===");

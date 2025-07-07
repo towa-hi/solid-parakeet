@@ -138,9 +138,10 @@ public class StellarDotnet
         contractAddress = inContractAddress;
     }
 
-    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithTwoParameters(AccountEntry accountEntry, string functionName, IScvMapCompatable request1, IScvMapCompatable request2, TimingTracker tracker = null)
+    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithTwoParameters(string functionName, IScvMapCompatable request1, IScvMapCompatable request2, TimingTracker tracker = null)
     {
         tracker?.StartOperation("CallVoidFunctionWithTwoParameters");
+        AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
         List<SCVal> argsList = new()
         {
             userAddressSCVal,
@@ -155,7 +156,7 @@ public class StellarDotnet
                 ResourceConfig = new()
                 {
                     
-                    // TODO: setup resource config
+                    InstructionLeeway = 10000000,
                 },
             },
             tracker);
@@ -183,7 +184,13 @@ public class StellarDotnet
         (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await CallVoidFunctionWithoutWaiting(functionName, request, tracker);
         if (sendResult == null)
         {
-            Debug.LogError("CallVoidFunction: simulation failed, sendResult is null");
+            Debug.LogError("CallVoidFunction: simulation succeeded but transaction failed to send");
+            tracker?.EndOperation();
+            return (null, simResult);
+        }
+        else if (sendResult.ErrorResult != null)
+        {
+            Debug.LogError("CallVoidFunction: transaction rejected");
             tracker?.EndOperation();
             return (null, simResult);
         }
@@ -216,7 +223,7 @@ public class StellarDotnet
                 Transaction = EncodeTransaction(invokeContractTransaction),
                 ResourceConfig = new()
                 {
-                    // TODO: setup resource config
+                    InstructionLeeway = 10000000,
                 },
             },
             tracker);
@@ -225,7 +232,20 @@ public class StellarDotnet
             tracker?.EndOperation();
             return (null, simulateTransactionResult);
         }
+
         Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
+        Debug.Log($"assembledTransaction original fee: {assembledTransaction.fee.InnerValue}");
+        uint fee = assembledTransaction.fee.InnerValue;
+        assembledTransaction.fee = fee * 2;
+        if (assembledTransaction.ext is Transaction.extUnion.case_1 v1)
+        {
+            Debug.Log($"assembledTransaction original readBytes: {v1.sorobanData.resources.readBytes}");
+            v1.sorobanData.resources.readBytes *= 2;
+            Debug.Log($"assembledTransaction original writeBytes: {v1.sorobanData.resources.writeBytes}");
+            v1.sorobanData.resources.writeBytes *= 2;
+            Debug.Log($"assembledTransaction original resourceFee: {v1.sorobanData.resourceFee}");
+            v1.sorobanData.resourceFee *= 2;
+        }
         string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
         SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
         tracker?.EndOperation();
@@ -352,19 +372,42 @@ public class StellarDotnet
             tracker?.EndOperation();
             return null;
         }
-        else
+        Entries entries = getLedgerEntriesResult.Entries.First();
+        if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
         {
-            Entries entries = getLedgerEntriesResult.Entries.First();
-            if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
-            {
-                throw new Exception($"ReqUserData on {key} failed because data was not ContractData");
-            }
-            User user = SCUtility.SCValToNative<User>(data.contractData.val);
-            tracker?.EndOperation();
-            return user;
+            throw new Exception($"ReqUserData on {key} failed because data was not ContractData");
         }
+        User user = SCUtility.SCValToNative<User>(data.contractData.val);
+        tracker?.EndOperation();
+        return user;
     }
 
+    public async Task<LobbyInfo?> ReqLobbyInfo(uint key, TimingTracker tracker = null)
+    {
+        tracker?.StartOperation($"ReqLobbyStuff");
+        string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("LobbyInfo", key, ContractDataDurability.TEMPORARY));
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
+        {
+            Keys = new[]
+            {
+                lobbyInfoKey,
+            },
+        }, tracker);
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            tracker?.EndOperation();
+            return null;
+        }
+        Entries entries = getLedgerEntriesResult.Entries.First();
+        if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
+        {
+            throw new Exception($"ReqUserData on {key} failed because data was not ContractData");
+        }
+        LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
+        tracker?.EndOperation();
+        return lobbyInfo;
+    }
+    
     async Task<(LobbyInfo?, LobbyParameters?, GameState?)> ReqLobbyStuff(uint key, TimingTracker tracker = null)
     {
         tracker?.StartOperation($"ReqLobbyStuff");
@@ -546,16 +589,16 @@ public class StellarDotnet
             Id = 1,
         };
         string requestJson = JsonConvert.SerializeObject(request, jsonSettings);
-        
-        
         string content = await SendJsonRequest(requestJson, tracker);
-        
-        Debug.Log("Simulate transaction result contents: " + content);
         JObject jsonObject = JObject.Parse(content);
         try
         {
             JsonRpcResponse<SimulateTransactionResult> rpcResponse = jsonObject.ToObject<JsonRpcResponse<SimulateTransactionResult>>();
             SimulateTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
+            
+            SorobanResources resources = transactionResult.SorobanTransactionData.resources;
+            string jsonResources = JsonConvert.SerializeObject(resources, jsonSettings);
+            Debug.Log($"simulation resources: {jsonResources}");
             tracker?.EndOperation();
             return transactionResult;
         }

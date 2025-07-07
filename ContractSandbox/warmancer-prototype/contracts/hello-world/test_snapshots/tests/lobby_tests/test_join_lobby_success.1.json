@@ -576,7 +576,64 @@
                         "symbol": "moves"
                       },
                       "val": {
-                        "vec": []
+                        "vec": [
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "move_hash"
+                                },
+                                "val": {
+                                  "bytes": "00000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "move_proof"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "needed_rank_proofs"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "move_hash"
+                                },
+                                "val": {
+                                  "bytes": "00000000000000000000000000000000"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "move_proof"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "needed_rank_proofs"
+                                },
+                                "val": {
+                                  "vec": []
+                                }
+                              }
+                            ]
+                          }
+                        ]
                       }
                     },
                     {

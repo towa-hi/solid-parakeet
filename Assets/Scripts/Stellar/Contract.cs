@@ -598,7 +598,7 @@ namespace Contract
                 map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("leaf_index", leaf_index),
-                    SCUtility.FieldToSCMapEntry("proofs", siblings),
+                    SCUtility.FieldToSCMapEntry("siblings", siblings),
                 }),
             };
         }
@@ -1068,6 +1068,7 @@ namespace Contract
     }
 
     // not a contract struct but we serialize it as xdr to save
+    [Serializable]
     public struct CachedRankProof : IScvMapCompatable
     {
         public HiddenRank hidden_rank;

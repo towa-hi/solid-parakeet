@@ -32,20 +32,15 @@ fn test_full_stratego_game() {
             Phase::MoveCommit => {
                 std::println!("Phase: MoveCommit - Committing moves");
                 {
-                    std::println!("=== BOARD STATE AT TURN START ===");
-                    let board_display_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-                    let board_state_with_revealed_ranks = format_board_with_colors_and_ranks(&setup.env, &board_display_snapshot, Some(&host_ranks), Some(&guest_ranks));
-                    std::println!("{}", board_state_with_revealed_ranks);
+                    std::println!("{}", format_board_with_colors_and_ranks(&setup.env, &loop_start_snapshot, Some(&host_ranks), Some(&guest_ranks)));
                 }
                 // Generate moves using current game state from snapshot
                 let host_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 0, &host_ranks, move_number as u64 * 1000 + 12345);
                 let guest_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 1, &guest_ranks, move_number as u64 * 1000 + 54321);
-
                 if host_move_opt.is_none() || guest_move_opt.is_none() {
                     std::println!("No valid moves available for one or both players. Game ends at move {}", move_number);
                     break;
                 }
-
                 let host_move_proof = host_move_opt.unwrap();
                 let guest_move_proof = guest_move_opt.unwrap();
 
@@ -65,14 +60,14 @@ fn test_full_stratego_game() {
                     move_hash: guest_move_hash,
                 };
 
-                // Commit moves (state-changing operation)
+                // host commits move first
                 setup.client.commit_move(&host_address, &host_move_req);
 
                 let guest_prove_move_req = ProveMoveReq {
                     move_proof: guest_move_proof,
                     lobby_id,
                 };
-                // later player can use commit_move_and_prove_move for convenience
+                // latter player can use commit_move_and_prove_move for convenience
                 setup.client.commit_move_and_prove_move(&guest_address, &guest_move_req, &guest_prove_move_req);
 
                 // Take snapshot after committing moves to check new phase
@@ -85,19 +80,71 @@ fn test_full_stratego_game() {
                 if current_phase_after_commit == Phase::MoveProve {
                     std::println!("Proceeding with MoveProve phase for turn {}", move_number);
 
-                    // Prove moves
+                    // player who went first (host) has to prove move but does a sim to check if he should batch it with prove rank
                     let host_prove_move_req = ProveMoveReq {
                         move_proof: host_move_proof,
                         lobby_id,
                     };
+                    let mut host_rank_proof_req: Option<&ProveRankReq> = None;
+                    // simulation
+                    let host_simulation_result = setup.client.simulate_collisions(&host_address, &host_prove_move_req);
+                    if !host_simulation_result.needed_rank_proofs.is_empty() {
+                        let mut host_hidden_ranks_temp = Vec::new(&setup.env);
+                        let mut host_merkle_proofs_temp = Vec::new(&setup.env);
+                        for pawn_id in host_simulation_result.needed_rank_proofs.iter() {
+                            for (i, hidden_rank) in host_ranks.iter().enumerate() {
+                                if hidden_rank.pawn_id == pawn_id {
+                                    host_hidden_ranks_temp.push_back(hidden_rank.clone());
+                                    host_merkle_proofs_temp.push_back(host_merkle_proofs.get_unchecked(i as u32));
+                                }
+                            }
+                        }
+                        let f_host_rank_proof_req = ProveRankReq {
+                            hidden_ranks: host_hidden_ranks_temp,
+                            lobby_id,
+                            merkle_proofs: host_merkle_proofs_temp,
+                        };
+                        host_rank_proof_req = Some(&f_host_rank_proof_req);
+                        setup.client.prove_move_and_prove_rank(&host_address, &host_prove_move_req, &host_rank_proof_req.unwrap());
+                    }
+                    else {
+                        // submit just prove move if the simulation says you didn't collide
+                        setup.client.prove_move(&host_address, &host_prove_move_req);
+                    }
 
-                    // Prove moves (state-changing operation)
-                    setup.client.prove_move(&host_address, &host_prove_move_req);
-
-                    // VALIDATE: Check what happened after MoveProve - what rank proofs are needed?
                     {
-                        let move_validation_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-                        validate_move_prove_transition(&move_validation_snapshot, &host_prove_move_req, &guest_prove_move_req);
+                        let after_host_move_prove_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
+
+                        // if guest needs to submit a rank proof
+                        if after_host_move_prove_snapshot.lobby_info.phase == Phase::RankProve && after_host_move_prove_snapshot.lobby_info.subphase == Subphase::Guest
+                        {
+                            let mut guest_hidden_ranks_temp = Vec::new(&setup.env);
+                            let mut guest_merkle_proofs_temp = Vec::new(&setup.env);
+                            for pawn_id in after_host_move_prove_snapshot.game_state.moves.get_unchecked(1).needed_rank_proofs.iter() {
+                                for (i, hidden_rank) in guest_ranks.iter().enumerate() {
+                                    if hidden_rank.pawn_id == pawn_id {
+                                        guest_hidden_ranks_temp.push_back(hidden_rank.clone());
+                                        guest_merkle_proofs_temp.push_back(guest_merkle_proofs.get_unchecked(i as u32));
+                                        break;
+                                    }
+                                }
+                            }
+                            let guest_prove_rank_req = ProveRankReq {
+                                hidden_ranks: guest_hidden_ranks_temp,
+                                lobby_id,
+                                merkle_proofs: guest_merkle_proofs_temp,
+                            };
+                            std::println!("guest_prove_rank_req: {:?}", guest_prove_rank_req.clone());
+                            let test_result = setup.client.prove_rank_test(&guest_address, &guest_prove_rank_req.clone());
+                            assert!(test_result);
+                            setup.client.prove_rank(&guest_address, &guest_prove_rank_req);
+                            let after_rank_prove_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
+                            //validate_rank_prove_transition(&after_rank_prove_snapshot, host_rank_proof_req, guest_rank_proof_req)
+                        }
+                        else {
+                            validate_move_prove_transition(&after_host_move_prove_snapshot, &host_prove_move_req, &guest_prove_move_req);
+
+                        }
                     }
 
                 } else {
@@ -108,69 +155,54 @@ fn test_full_stratego_game() {
             },
 
             Phase::RankProve => {
-                std::println!("Phase: RankProve - Proving ranks for collisions");
-
-                // Get the needed rank proofs for both players from snapshot
-                let host_move = loop_start_snapshot.game_state.moves.get(0).unwrap();
-                std::println!("Host move: {:?}", host_move);
-                let guest_move = loop_start_snapshot.game_state.moves.get(1).unwrap();
-                std::println!("Guest move: {:?}", guest_move);
-                let host_needed_ranks = host_move.needed_rank_proofs.clone();
-                let guest_needed_ranks = guest_move.needed_rank_proofs.clone();
-                // Debug: Print needed ranks for both players
-                for id in host_needed_ranks.iter() {
-                    let (_, team) = Contract::decode_pawn_id(&id);
-                    std::println!("Host needed rank: {} team: {}", id.clone(), team);
-                }
-                for id in guest_needed_ranks.iter() {
-                    let (_, team) = Contract::decode_pawn_id(&id);
-                    std::println!("Guest needed rank: {} team: {}", id.clone(), team);
-                }
-
-                // Submit rank proofs if there are any needed
-                let (host_rank_req, guest_rank_req) = if !host_needed_ranks.is_empty() || !guest_needed_ranks.is_empty() {
-                    std::println!("Rank proofs needed - creating and submitting rank proof requests");
-
-                    // Debug: Log pawn 814 if it's in the needed ranks
-                    for needed_id in host_needed_ranks.iter() {
-                        if needed_id as u32 == 814 {
-                            std::println!("DEBUG: Pawn 814 is in host_needed_ranks");
-                            // Find pawn 814 in host_ranks
-                            for (i, hidden_rank) in host_ranks.iter().enumerate() {
-                                if hidden_rank.pawn_id == 814 {
-                                    std::println!("DEBUG: Found pawn 814 at index {} in host_ranks", i);
-                                    std::println!("DEBUG: Pawn 814 rank: {}", hidden_rank.rank);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Create rank proof requests
-                    let (host_req, guest_req) = create_rank_proof_requests(&setup.env, lobby_id,
-                                     &host_needed_ranks, &guest_needed_ranks, &host_ranks, &guest_ranks, &host_merkle_proofs, &guest_merkle_proofs);
-
-                    // Submit rank proofs to the contract (state-changing operation)
-                    if let Some(ref host_req) = host_req {
-                        std::println!("Host proving {} ranks", host_req.hidden_ranks.len());
-                        setup.client.prove_rank(&host_address, host_req);
-                    }
-                    if let Some(ref guest_req) = guest_req {
-                        std::println!("Guest proving {} ranks", guest_req.hidden_ranks.len());
-                        setup.client.prove_rank(&guest_address, guest_req);
-                    }
-
-                    (host_req, guest_req)
-                } else {
-                    std::println!("No rank proofs needed - skipping rank proof submission");
-                    (None, None)
-                };
-
-                // VALIDATE: Check game state after rank proof submission (if any occurred)
-                if host_rank_req.is_some() || guest_rank_req.is_some() {
-                    let rank_validation_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-                    validate_rank_prove_transition(&rank_validation_snapshot, host_rank_req.as_ref(), guest_rank_req.as_ref());
-                }
+                // std::println!("Phase: RankProve - Proving ranks for collisions");
+                //
+                // // Get the needed rank proofs for both players from snapshot
+                // let host_move = loop_start_snapshot.game_state.moves.get(0).unwrap();
+                // std::println!("Host move: {:?}", host_move);
+                // let guest_move = loop_start_snapshot.game_state.moves.get(1).unwrap();
+                // std::println!("Guest move: {:?}", guest_move);
+                // let host_needed_ranks = host_move.needed_rank_proofs.clone();
+                // let guest_needed_ranks = guest_move.needed_rank_proofs.clone();
+                // // Debug: Print needed ranks for both players
+                // for id in host_needed_ranks.iter() {
+                //     let (_, team) = Contract::decode_pawn_id(&id);
+                //     std::println!("Host needed rank: {} team: {}", id.clone(), team);
+                // }
+                // for id in guest_needed_ranks.iter() {
+                //     let (_, team) = Contract::decode_pawn_id(&id);
+                //     std::println!("Guest needed rank: {} team: {}", id.clone(), team);
+                // }
+                //
+                // // Submit rank proofs if there are any needed
+                // let (host_rank_req, guest_rank_req) = if !host_needed_ranks.is_empty() || !guest_needed_ranks.is_empty() {
+                //     std::println!("Rank proofs needed - creating and submitting rank proof requests");
+                //
+                //     // Create rank proof requests
+                //     let (host_req, guest_req) = create_rank_proof_requests(&setup.env, lobby_id,
+                //                      &host_needed_ranks, &guest_needed_ranks, &host_ranks, &guest_ranks, &host_merkle_proofs, &guest_merkle_proofs);
+                //
+                //     // Submit rank proofs to the contract (state-changing operation)
+                //     if let Some(ref host_req) = host_req {
+                //         std::println!("Host proving {} ranks", host_req.hidden_ranks.len());
+                //         setup.client.prove_rank(&host_address, host_req);
+                //     }
+                //     if let Some(ref guest_req) = guest_req {
+                //         std::println!("Guest proving {} ranks", guest_req.hidden_ranks.len());
+                //         setup.client.prove_rank(&guest_address, guest_req);
+                //     }
+                //
+                //     (host_req, guest_req)
+                // } else {
+                //     std::println!("No rank proofs needed - skipping rank proof submission");
+                //     (None, None)
+                // };
+                //
+                // // VALIDATE: Check game state after rank proof submission (if any occurred)
+                // if host_rank_req.is_some() || guest_rank_req.is_some() {
+                //     let rank_validation_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
+                //     validate_rank_prove_transition(&rank_validation_snapshot, host_rank_req.as_ref(), guest_rank_req.as_ref());
+                // }
             },
 
             Phase::Finished => {

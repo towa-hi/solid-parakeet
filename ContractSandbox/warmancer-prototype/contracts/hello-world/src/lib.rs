@@ -461,7 +461,7 @@ impl Contract {
             }
         }
         let game_state = GameState {
-            moves: Vec::new(e),
+            moves: Self::create_empty_moves(e),
             pawns: pawns,
             rank_roots: Vec::from_array(e, [MerkleHash::from_array(e, &[0u8; 16]), MerkleHash::from_array(e, &[0u8; 16]),]),
             turn: 0,
@@ -476,9 +476,6 @@ impl Contract {
     }
 
     pub fn commit_setup(e: &Env, address: Address, req: CommitSetupReq) -> Result<(), Error> {
-        // some state requirements:
-        // lobby_info.phase must be Phase::SetupCommit
-        // lobby_info.subphase must be Subphase::Both or invoker's Host/Guest
         address.require_auth();
         let temporary = e.storage().temporary();
         let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
@@ -516,15 +513,9 @@ impl Contract {
             temporary.set(&lobby_info_key, &lobby_info);
             return Ok(())
         }
-        // for commit in req.setup.setup_commits.iter() {
-        //     let (pawn_index, mut pawn_state) = pawns_map.get_unchecked(commit.pawn_id.clone());
-        //     // pawn_state.hidden_rank_hash = commit.hidden_rank_hash.clone();
-        //     game_state.pawns.set(pawn_index, pawn_state);
-        // }
         if next_subphase == Subphase::None {
             lobby_info.phase = Phase::MoveCommit;
             lobby_info.subphase = Subphase::Both;
-            game_state.moves = Self::create_empty_moves(e);
         }
         else {
             lobby_info.subphase = next_subphase;
@@ -596,7 +587,6 @@ impl Contract {
             debug_log!(e, "prove_move: WrongPhase - expected MoveProve, got {:?}", lobby_info.phase);
             return Err(Error::WrongPhase)
         }
-
         let u_index = Self::get_player_index(&address, &lobby_info)?;
         let o_index = Self::get_opponent_index(&address, &lobby_info)?;
         // validate and update user move
@@ -620,43 +610,18 @@ impl Contract {
             u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
             game_state.moves.set(u_index, u_move);
         }
-
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
         if next_subphase == Subphase::None {
-            // update pawns
-            {
-                let u_move_proof = game_state.moves.get_unchecked(u_index).move_proof.get_unchecked(0);
-                let o_move_proof = game_state.moves.get_unchecked(o_index).move_proof.get_unchecked(0);
-                let u_pawn_index = pawn_indexes.get_unchecked(u_move_proof.pawn_id.clone());
-                let o_pawn_index = pawn_indexes.get_unchecked(o_move_proof.pawn_id.clone());
-                let mut u_pawn = game_state.pawns.get_unchecked(u_pawn_index);
-                let mut o_pawn = game_state.pawns.get_unchecked(o_pawn_index);
-                Self::apply_move_to_pawn(e, &u_move_proof, &mut u_pawn);
-                Self::apply_move_to_pawn(e, &o_move_proof, &mut o_pawn);
-                game_state.pawns.set(u_pawn_index, u_pawn);
-                game_state.pawns.set(o_pawn_index, o_pawn);
-            }
-            // set needed rank proofs
-            {
-                let collision_detection = Self::detect_collisions(e, &game_state, &pawn_indexes, u_index, o_index);
-                let (u_proof_list, o_proof_list) = Self::get_needed_rank_proofs(e, &collision_detection, &game_state, &pawn_indexes);
-                let mut u_move = game_state.moves.get_unchecked(u_index);
-                let mut o_move = game_state.moves.get_unchecked(o_index);
-                u_move.needed_rank_proofs = u_proof_list.clone();
-                o_move.needed_rank_proofs = o_proof_list.clone();
-                game_state.moves.set(u_index, u_move);
-                game_state.moves.set(o_index, o_move);
-            }
+            Self::apply_moves(e, u_index, o_index, &mut game_state);
             // check if rank proofs are needed
             match (game_state.moves.get_unchecked(u_index).needed_rank_proofs.is_empty(), game_state.moves.get_unchecked(o_index).needed_rank_proofs.is_empty()) {
                 (true, true) => {
                     debug_log!(e, "prove_move: No rank proofs needed, using shared resolution function");
-                    Self::set_history(e, &req.lobby_id, &game_state)?;
+                    //Self::set_history(e, &req.lobby_id, &game_state)?;
                     Self::complete_move_resolution(e, &mut game_state);
                     if let Some(winner) = Self::check_game_over(e, &game_state, &lobby_parameters)? {
                         lobby_info.phase = Phase::Finished;
                         lobby_info.subphase = winner.clone();
-                        temporary.set(&lobby_info_key, &lobby_info);
                         debug_log!(e, "prove_move: Game over, winner={:?}", winner);
                     }
                     else {
@@ -791,12 +756,11 @@ impl Contract {
         if next_subphase == Subphase::None {
             // Both players have acted, check if we can transition to next phase
             debug_log!(e, "Both players completed rank proofs, resolving moves");
-            Self::set_history(e, &req.lobby_id, &game_state)?;
+            //Self::set_history(e, &req.lobby_id, &game_state)?;
             Self::complete_move_resolution(e, &mut game_state);
             if let Some(winner) = Self::check_game_over(e, &game_state, &lobby_parameters)? {
                 lobby_info.phase = Phase::Finished;
                 lobby_info.subphase = winner.clone();
-                temporary.set(&lobby_info_key, &lobby_info);
                 debug_log!(e, "prove_rank: Game over, winner={:?}", winner);
             }
             else {
@@ -818,6 +782,53 @@ impl Contract {
     }
     // region helper functions
 
+    pub fn simulate_collisions(e: &Env, address: Address, req: ProveMoveReq) -> Result<UserMove, Error> {
+        let (lobby_info, game_state, _, _, _, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
+        let mut lobby_info = lobby_info.unwrap();
+        let mut game_state = game_state.unwrap();
+        let u_index = Self::get_player_index(&address, &lobby_info)?;
+        let o_index = Self::get_opponent_index(&address, &lobby_info)?;
+        if lobby_info.phase != Phase::MoveProve {
+            return Err(Error::WrongPhase)
+        }
+        let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
+        if next_subphase != Subphase::None
+        {
+            return Err(Error::WrongSubphase)
+        }
+        // we don't bother to validate the move
+        let mut u_move = game_state.moves.get_unchecked(u_index);
+        u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
+        game_state.moves.set(u_index, u_move);
+        Self::apply_moves(e, u_index, o_index, &mut game_state);
+        Ok(game_state.moves.get_unchecked(u_index))
+    }
+
+    pub(crate) fn apply_moves(e: &Env, u_index: u32, o_index: u32, game_state: &mut GameState) -> (Vec<PawnId>, Vec<PawnId>){
+        let pawn_indexes = Self::create_pawn_indexes(e, &game_state.pawns);
+        let u_move_proof = game_state.moves.get_unchecked(u_index).move_proof.get_unchecked(0);
+        let o_move_proof = game_state.moves.get_unchecked(o_index).move_proof.get_unchecked(0);
+        let u_pawn_index = pawn_indexes.get_unchecked(u_move_proof.pawn_id.clone());
+        let o_pawn_index = pawn_indexes.get_unchecked(o_move_proof.pawn_id.clone());
+        let mut u_pawn = game_state.pawns.get_unchecked(u_pawn_index);
+        let mut o_pawn = game_state.pawns.get_unchecked(o_pawn_index);
+        Self::apply_move_to_pawn(e, &u_move_proof, &mut u_pawn);
+        Self::apply_move_to_pawn(e, &o_move_proof, &mut o_pawn);
+        game_state.pawns.set(u_pawn_index, u_pawn);
+        game_state.pawns.set(o_pawn_index, o_pawn);
+
+        // set needed rank proofs
+
+        let collision_detection = Self::detect_collisions(e, &game_state, &pawn_indexes, u_index, o_index);
+        let (u_proof_list, o_proof_list) = Self::get_needed_rank_proofs(e, &collision_detection, &game_state, &pawn_indexes);
+        let mut u_move = game_state.moves.get_unchecked(u_index);
+        let mut o_move = game_state.moves.get_unchecked(o_index);
+        u_move.needed_rank_proofs = u_proof_list.clone();
+        o_move.needed_rank_proofs = o_proof_list.clone();
+        game_state.moves.set(u_index, u_move);
+        game_state.moves.set(o_index, o_move);
+        (u_proof_list.clone(), o_proof_list.clone())
+    }
     pub(crate) fn create_pawns_map(e: &Env, game_state: &GameState) -> Map<PawnId, (u32, PawnState)> {
         // we never use this to mutate
         let mut pawns_map: Map<PawnId, (u32, PawnState)> = Map::new(e);

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Contract;
 using UnityEngine;
@@ -8,7 +9,7 @@ public class HumanDebugNetworkInspector : MonoBehaviour
     [Header("Client State")] 
     [SerializeField] public bool isRunning;
     [SerializeField] public bool isInitialized;
-    
+    [SerializeField] public SerializableCache cache;
     [Header("Network State")]
     [SerializeField] public string address = "";
     [SerializeField] public bool inLobby;
@@ -29,6 +30,39 @@ public class HumanDebugNetworkInspector : MonoBehaviour
     [SerializeField] public bool gameStateHasValue;
     [SerializeField] public SerializableGameState _gameState = new SerializableGameState();
 
+    static HumanDebugNetworkInspector instance;
+
+    void Awake()
+    {
+        instance = this;
+    }
+    
+    public static void UpdateCache(Dictionary<PawnId, CachedRankProof> hiddenRanksAndMerkleProofs, Dictionary<string, HiddenMove> hiddenMoveCache)
+    {
+        List<SerializableRankProofEntry> rankProofEntries = new();
+        foreach ((PawnId index, CachedRankProof rankProof) in hiddenRanksAndMerkleProofs)
+        {
+            rankProofEntries.Add(new SerializableRankProofEntry
+            {
+                index = index,
+                cachedRankProof = rankProof,
+            });
+        }
+        List<SerializableHiddenMoveEntry> hiddenMoveEntries = new();
+        foreach ((string index, HiddenMove hiddenMove) in hiddenMoveCache)
+        {
+            hiddenMoveEntries.Add(new SerializableHiddenMoveEntry
+            {
+                index = index,
+                hiddenMove = hiddenMove,
+            });
+        }
+        instance.cache = new()
+        {
+            hiddenRanks = rankProofEntries,
+            hiddenMoves = hiddenMoveEntries,
+        };
+    }
     public void UpdateDebugNetworkInspector(NetworkState networkState)
     {
         
@@ -277,4 +311,22 @@ public class SerializablePos
 {
     public int x;
     public int y;
+}
+[Serializable]
+public class SerializableCache
+{
+    public List<SerializableRankProofEntry> hiddenRanks;
+    public List<SerializableHiddenMoveEntry> hiddenMoves;
+}
+[Serializable]
+public class SerializableRankProofEntry
+{
+    public PawnId index;
+    public CachedRankProof cachedRankProof;
+}
+[Serializable]
+public class SerializableHiddenMoveEntry
+{
+    public string index;
+    public HiddenMove hiddenMove;
 }
