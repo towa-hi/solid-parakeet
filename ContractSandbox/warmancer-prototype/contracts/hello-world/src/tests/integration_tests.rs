@@ -35,8 +35,8 @@ fn test_full_stratego_game() {
                     std::println!("{}", format_board_with_colors_and_ranks(&setup.env, &loop_start_snapshot, Some(&host_ranks), Some(&guest_ranks)));
                 }
                 // Generate moves using current game state from snapshot
-                let host_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 0, &host_ranks, move_number as u64 * 1000 + 12345);
-                let guest_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 1, &guest_ranks, move_number as u64 * 1000 + 54321);
+                let host_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 0, &host_ranks, move_number as u64 * 1000 + 12345);
+                let guest_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 1, &guest_ranks, move_number as u64 * 1000 + 54321);
                 if host_move_opt.is_none() || guest_move_opt.is_none() {
                     std::println!("No valid moves available for one or both players. Game ends at move {}", move_number);
                     break;
@@ -277,9 +277,15 @@ fn test_compare_populated_vs_unpopulated_games() {
         let game_state_key = DataKey::GameState(lobby_b);
         let mut game_state: GameState = setup.env.storage().temporary().get(&game_state_key).expect("Game state should exist");
         for hidden_rank in host_hidden_ranks.iter().chain(guest_hidden_ranks.iter()) {
-            let (index, mut pawn) = game_state.pawns.iter().enumerate().find(|(_, p)| p.pawn_id == hidden_rank.pawn_id).unwrap();
-            pawn.rank = Vec::from_array(&setup.env, [hidden_rank.rank]);
-            game_state.pawns.set(index as u32, pawn);
+            for (index, packed_pawn) in game_state.pawns.iter().enumerate() {
+                let mut pawn = Contract::unpack_pawn(&setup.env, packed_pawn);
+                if pawn.pawn_id == hidden_rank.pawn_id {
+                    pawn.rank = Vec::from_array(&setup.env, [hidden_rank.rank]);
+                    let updated_packed = Contract::pack_pawn(pawn);
+                    game_state.pawns.set(index as u32, updated_packed);
+                    break;
+                }
+            }
         }
         setup.env.storage().temporary().set(&game_state_key, &game_state);
     });
@@ -293,8 +299,8 @@ fn test_compare_populated_vs_unpopulated_games() {
         // Take snapshot at start of loop to get current game state
         let loop_start_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_a);
 
-        let host_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 0, &host_hidden_ranks, salt_host);
-        let guest_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.game_state, &loop_start_snapshot.lobby_parameters, 1, &guest_hidden_ranks, salt_guest);
+        let host_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 0, &host_hidden_ranks, salt_host);
+        let guest_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 1, &guest_hidden_ranks, salt_guest);
 
         if host_move.is_none() || guest_move.is_none() {
             break; // No more valid moves
@@ -395,9 +401,9 @@ fn test_compare_populated_vs_unpopulated_games() {
         }
 
         // Verify both games have identical states
-        let game_state_a = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_a).game_state;
-        let game_state_b = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_b).game_state;
-        let states_match = verify_pawn_states_identical(&game_state_a, &game_state_b);
+        let snapshot_a = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_a);
+        let snapshot_b = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_b);
+        let states_match = verify_pawn_states_identical(&snapshot_a.pawns_map, &snapshot_b.pawns_map);
         assert!(states_match, "Game states diverged at move {}", move_number);
 
         // Verify both games are in the same phase (end of loop validation)

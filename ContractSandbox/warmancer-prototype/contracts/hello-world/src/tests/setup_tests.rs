@@ -136,11 +136,14 @@ fn test_collision_winner_rank_revelation() {
             .get(&game_state_key)
             .expect("Game state should exist");
 
+        // Create pawns map to access unpacked pawns
+        let pawns_map = Contract::create_pawns_map(&setup.env, &game_state.pawns);
+
         // Find a host pawn on front line (team 0) and a guest pawn on front line (team 1)
         let mut host_front_pawn_id = None;
         let mut guest_front_pawn_id = None;
 
-        for pawn in game_state.pawns.iter() {
+        for (_, (_, pawn)) in pawns_map.iter() {
             let (_, team) = Contract::decode_pawn_id(&pawn.pawn_id);
             if team == 0 && pawn.pos.y == 3 && host_front_pawn_id.is_none() {
                 host_front_pawn_id = Some(pawn.pawn_id);
@@ -155,18 +158,19 @@ fn test_collision_winner_rank_revelation() {
 
         // Set host pawn to Scout (rank 2) and guest pawn to Marshal (rank 10)
         // When Scout attacks Marshal, Marshal should win and stay revealed
-        for (index, pawn) in game_state.pawns.iter().enumerate() {
+        for (index, packed_pawn) in game_state.pawns.iter().enumerate() {
+            let mut pawn = Contract::unpack_pawn(&setup.env, packed_pawn);
             if pawn.pawn_id == host_pawn_id {
-                let mut updated_pawn = pawn.clone();
-                updated_pawn.rank = Vec::from_array(&setup.env, [2u32]); // Scout
-                game_state.pawns.set(index as u32, updated_pawn);
+                pawn.rank = Vec::from_array(&setup.env, [2u32]); // Scout
+                let updated_packed = Contract::pack_pawn(pawn.clone());
+                game_state.pawns.set(index as u32, updated_packed);
                 std::println!("Set host pawn {} to Scout (rank 2) at position ({},{})",
                              host_pawn_id, pawn.pos.x, pawn.pos.y);
             }
             if pawn.pawn_id == guest_pawn_id {
-                let mut updated_pawn = pawn.clone();
-                updated_pawn.rank = Vec::from_array(&setup.env, [10u32]); // Marshal
-                game_state.pawns.set(index as u32, updated_pawn);
+                pawn.rank = Vec::from_array(&setup.env, [10u32]); // Marshal
+                let updated_packed = Contract::pack_pawn(pawn.clone());
+                game_state.pawns.set(index as u32, updated_packed);
                 std::println!("Set guest pawn {} to Marshal (rank 10) at position ({},{})",
                              guest_pawn_id, pawn.pos.x, pawn.pos.y);
             }
@@ -185,11 +189,14 @@ fn test_collision_winner_rank_revelation() {
             .get(&game_state_key)
             .expect("Game state should exist");
 
+        // Create pawns map to access unpacked pawns
+        let pawns_map = Contract::create_pawns_map(&setup.env, &game_state.pawns);
+
         // Find the Marshal's position to attack it
         let mut marshal_pos = None;
         let mut scout_pos = None;
 
-        for pawn in game_state.pawns.iter() {
+        for (_, (_, pawn)) in pawns_map.iter() {
             if !pawn.rank.is_empty() {
                 if pawn.rank.get(0).unwrap() == 10 { // Marshal
                     marshal_pos = Some(pawn.pos);

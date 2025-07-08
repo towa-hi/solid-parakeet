@@ -51,7 +51,7 @@ pub fn format_board_with_colors_and_ranks(
     
     // Create a map of positions to pawns for quick lookup
     let mut pawn_map: std::collections::HashMap<(i32, i32), PawnState> = std::collections::HashMap::new();
-    for pawn in snapshot.game_state.pawns.iter() {
+    for (_, (_, pawn)) in snapshot.pawns_map.iter() {
         if pawn.alive {
             pawn_map.insert((pawn.pos.x, pawn.pos.y), pawn);
         }
@@ -213,15 +213,14 @@ pub fn rank_to_string(rank: Rank) -> &'static str {
 // region move validation
 
 /// Validates that pawns involved in collisions have their ranks properly revealed
-/// Takes game state as parameter instead of accessing storage
+/// Takes pawns_map as parameter instead of accessing storage
 pub fn assert_ranks_revealed_after_collision(
-    game_state: &GameState,
+    pawns_map: &Map<PawnId, (u32, PawnState)>,
     expected_revealed_pawns: &[PawnId],
 ) {
     std::println!("=== COLLISION RANK REVELATION VALIDATION ===");
     for expected_pawn_id in expected_revealed_pawns {
-        let pawn = game_state.pawns.iter()
-            .find(|p| p.pawn_id == *expected_pawn_id)
+        let (_, pawn) = pawns_map.get(*expected_pawn_id)
             .expect(&std::format!("Pawn {} should exist", expected_pawn_id));
         
         assert!(!pawn.rank.is_empty(), "Pawn {} should have its rank revealed", expected_pawn_id);
@@ -326,7 +325,7 @@ pub fn create_rank_proof_requests(
 /// 
 /// This ensures consistent move generation regardless of whether ranks are 
 /// populated in the game state or not.
-pub fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_parameters: &LobbyParameters, team: u32, team_ranks: &Vec<HiddenRank>, salt: u64) -> Option<HiddenMove> {
+pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters, team: u32, team_ranks: &Vec<HiddenRank>, salt: u64) -> Option<HiddenMove> {
     // Create a map of all tile positions for quick lookup
     let mut tile_map: Map<Pos, Tile> = Map::new(env);
     for packed_tile in lobby_parameters.board.tiles.iter() {
@@ -342,7 +341,7 @@ pub fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_paramete
     
     // Create a map of all pawn positions for quick lookup
     let mut pawn_position_map: Map<Pos, PawnState> = Map::new(env);
-    for pawn in game_state.pawns.iter() {
+    for (_, (_, pawn)) in pawns_map.iter() {
         if pawn.alive {
             pawn_position_map.set(pawn.pos, pawn);
         }
@@ -353,7 +352,7 @@ pub fn generate_valid_move_req(env: &Env, game_state: &GameState, lobby_paramete
     let mut forward_movable_pawns = Vec::new(env);
     let mut any_movable_pawns = Vec::new(env);
     
-    for pawn in game_state.pawns.iter() {
+    for (_, (_, pawn)) in pawns_map.iter() {
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
         
         // Skip if not our team or not alive
@@ -628,10 +627,13 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
         .get(&game_state_key)
         .expect("Game state should exist");
     
+    // Create pawns map for easier access
+    let pawns_map = Contract::create_pawns_map(env, &game_state.pawns);
+    
     let mut setup_commits = Vec::new(env);
     let mut team_pawns = Vec::new(env);
     
-    for pawn in game_state.pawns.iter() {
+    for (_, (_, pawn)) in pawns_map.iter() {
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
         if pawn_team == team {
             team_pawns.push_back(pawn);
@@ -697,7 +699,7 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
     let back_count = back_ranks.len() as usize;
     
     // Single pass: create HiddenRank structs and collect hashes
-    for (i, pawn) in game_state.pawns.iter().enumerate() {
+    for (i, (_, (_, pawn))) in pawns_map.iter().enumerate() {
         if Contract::decode_pawn_id(&pawn.pawn_id).1 != team {
             continue;
         }
@@ -744,6 +746,9 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Setu
         .get(&game_state_key)
         .expect("Game state should exist");
     
+    // Create pawns map for easier access
+    let pawns_map = Contract::create_pawns_map(env, &game_state.pawns);
+    
     let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
     let lobby_parameters: LobbyParameters = env.storage()
         .temporary()
@@ -769,7 +774,7 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Setu
     let mut host_pawns = Vec::new(env);
     let mut guest_pawns = Vec::new(env);
     
-    for pawn in game_state.pawns.iter() {
+    for (_, (_, pawn)) in pawns_map.iter() {
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
         if pawn_team == 0 {
             host_pawns.push_back(pawn);
@@ -965,11 +970,11 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Setu
 
 /// Compares all pawn states between two games to verify they're identical
 /// This is used to validate that populated vs unpopulated games converge to the same state
-/// Takes the specific game states it needs rather than accessing storage
-pub fn verify_pawn_states_identical(game_state_a: &GameState, game_state_b: &GameState) -> bool {
+/// Takes the specific pawns maps it needs rather than accessing storage
+pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>, pawns_map_b: &Map<PawnId, (u32, PawnState)>) -> bool {
     // First check: same number of pawns
-        if game_state_a.pawns.len() != game_state_b.pawns.len() {
-            std::println!("   ❌ Different number of pawns: A={}, B={}", game_state_a.pawns.len(), game_state_b.pawns.len());
+        if pawns_map_a.len() != pawns_map_b.len() {
+            std::println!("   ❌ Different number of pawns: A={}, B={}", pawns_map_a.len(), pawns_map_b.len());
             return false;
         }
         
@@ -977,12 +982,12 @@ pub fn verify_pawn_states_identical(game_state_a: &GameState, game_state_b: &Gam
         let mut pawns_a = std::collections::HashMap::new();
         let mut pawns_b = std::collections::HashMap::new();
         
-        for pawn in game_state_a.pawns.iter() {
-            pawns_a.insert(pawn.pawn_id, pawn);
+        for (pawn_id, (_, pawn)) in pawns_map_a.iter() {
+            pawns_a.insert(pawn_id, pawn);
         }
         
-        for pawn in game_state_b.pawns.iter() {
-            pawns_b.insert(pawn.pawn_id, pawn);
+        for (pawn_id, (_, pawn)) in pawns_map_b.iter() {
+            pawns_b.insert(pawn_id, pawn);
         }
         
         let mut differences_found = false;
@@ -1062,7 +1067,7 @@ pub fn verify_pawn_states_identical(game_state_a: &GameState, game_state_b: &Gam
             let mut revealed_count_a = 0;
             let mut revealed_count_b = 0;
             
-            for pawn in game_state_a.pawns.iter() {
+            for (_, (_, pawn)) in pawns_map_a.iter() {
                 if pawn.alive {
                     alive_count_a += 1;
                 } else {
@@ -1073,7 +1078,7 @@ pub fn verify_pawn_states_identical(game_state_a: &GameState, game_state_b: &Gam
                 }
             }
             
-            for pawn in game_state_b.pawns.iter() {
+            for (_, (_, pawn)) in pawns_map_b.iter() {
                 if !pawn.rank.is_empty() {
                     revealed_count_b += 1;
                 }
@@ -1107,6 +1112,7 @@ pub struct SnapshotFull {
     pub lobby_parameters: LobbyParameters,
     pub lobby_info: LobbyInfo,
     pub game_state: GameState,
+    pub pawns_map: Map<PawnId, (u32, PawnState)>,
 }
 
 /// Extract phase and subphase from storage for a given lobby
@@ -1167,10 +1173,14 @@ pub fn extract_full_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) ->
             .get(&game_state_key)
             .expect("Game state should exist");
         
+        // Create the pawns map from packed pawns
+        let pawns_map = Contract::create_pawns_map(env, &game_state.pawns);
+        
         SnapshotFull {
             lobby_parameters,
             lobby_info,
             game_state,
+            pawns_map,
         }
     })
 }

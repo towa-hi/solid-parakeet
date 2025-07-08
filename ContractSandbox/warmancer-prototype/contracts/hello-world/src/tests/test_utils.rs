@@ -407,8 +407,7 @@ pub fn validate_rank_prove_transition(
     if let Some(host_req) = host_rank_req {
         std::println!("✓ Validating host rank proofs...");
         for hidden_rank in host_req.hidden_ranks.iter() {
-            let pawn = snapshot.game_state.pawns.iter()
-                .find(|p| p.pawn_id == hidden_rank.pawn_id)
+            let (_, pawn) = snapshot.pawns_map.get(hidden_rank.pawn_id)
                 .expect(&std::format!("Host pawn {} should exist", hidden_rank.pawn_id));
 
             assert!(!pawn.rank.is_empty(), "Host pawn {} should have rank revealed", hidden_rank.pawn_id);
@@ -422,8 +421,7 @@ pub fn validate_rank_prove_transition(
     if let Some(guest_req) = guest_rank_req {
         std::println!("✓ Validating guest rank proofs...");
         for hidden_rank in guest_req.hidden_ranks.iter() {
-            let pawn = snapshot.game_state.pawns.iter()
-                .find(|p| p.pawn_id == hidden_rank.pawn_id)
+            let (_, pawn) = snapshot.pawns_map.get(hidden_rank.pawn_id)
                 .expect(&std::format!("Guest pawn {} should exist", hidden_rank.pawn_id));
 
             assert!(!pawn.rank.is_empty(), "Guest pawn {} should have rank revealed", hidden_rank.pawn_id);
