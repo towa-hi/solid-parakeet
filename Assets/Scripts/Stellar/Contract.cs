@@ -72,6 +72,8 @@ namespace Contract
                     return new SCVal.ScvU32() { u32 = new uint32(pawnId.Value) };
                 case LobbyId lobbyId:
                     return new SCVal.ScvU32() { u32 = new uint32(lobbyId.Value) };
+                case PawnState pawnState:
+                    return new SCVal.ScvU64() { u64 = new uint64(pawnState) };
                 case Array inputArray:
                     SCVal[] scValArray = new SCVal[inputArray.Length];
                     for (int i = 0; i < inputArray.Length; i++)
@@ -184,6 +186,12 @@ namespace Contract
                     if (scVal is SCVal.ScvU32 tileU32Val)
                     {
                         return (TileState)tileU32Val.u32.InnerValue;
+                    }
+                    break;
+                case var _ when targetType == typeof(PawnState):
+                    if (scVal is SCVal.ScvU64 pawnU64Val)
+                    {
+                        return (PawnState)pawnU64Val.u64.InnerValue;
                     }
                     break;
                 case var _ when targetType == typeof(byte[]):
@@ -738,7 +746,7 @@ namespace Contract
     }
 
     [Serializable]
-    public struct PawnState : IScvMapCompatable, IEquatable<PawnState>
+    public struct PawnState : IEquatable<PawnState>
     {
         public bool alive;
         // public byte[] hidden_rank_hash;
@@ -784,27 +792,64 @@ namespace Contract
             return false;
         }
         
-        public SCVal.ScvMap ToScvMap()
+
+        // Implicit conversion to ulong (packing) - matches Rust contract bitpacking
+        public static implicit operator ulong(PawnState pawn)
         {
-            return new SCVal.ScvMap
+            ulong packed = 0;
+            
+            // Pack pawn_id (bits 0-31)
+            packed |= (ulong)pawn.pawn_id.Value;
+            
+            // Pack flags (bits 32-34)
+            if (pawn.alive) packed |= 1UL << 32;
+            if (pawn.moved) packed |= 1UL << 33;
+            if (pawn.moved_scout) packed |= 1UL << 34;
+            
+            // Pack coordinates with offset to handle negative values (9 bits each)
+            packed |= ((ulong)(pawn.pos.x + 256) & 0x1FF) << 35;
+            packed |= ((ulong)(pawn.pos.y + 256) & 0x1FF) << 44;
+            
+            // Pack rank (4 bits) - use 12 for null/unknown rank
+            uint rankValue = pawn.rank.HasValue ? (uint)pawn.rank.Value : 12u;
+            packed |= ((ulong)rankValue & 0xF) << 53;
+            
+            return packed;
+        }
+
+        // Implicit conversion from ulong (unpacking) - matches Rust contract bitpacking
+        public static implicit operator PawnState(ulong packed)
+        {
+            // Extract pawn_id (bits 0-31)
+            uint pawnId = (uint)(packed & 0xFFFFFFFF);
+            
+            // Extract flags
+            bool alive = ((packed >> 32) & 1) != 0;
+            bool moved = ((packed >> 33) & 1) != 0;
+            bool movedScout = ((packed >> 34) & 1) != 0;
+            
+            // Extract coordinates and convert back to signed
+            int x = (int)((packed >> 35) & 0x1FF) - 256;
+            int y = (int)((packed >> 44) & 0x1FF) - 256;
+            
+            // Extract rank
+            uint rankVal = (uint)((packed >> 53) & 0xF);
+            Rank? rank = rankVal == 12 ? null : (Rank?)rankVal;
+            
+            return new PawnState
             {
-                map = new SCMap(new[]
-                {
-                    SCUtility.FieldToSCMapEntry("alive", alive),
-                    //SCUtility.FieldToSCMapEntry("hidden_rank_hash", hidden_rank_hash),
-                    SCUtility.FieldToSCMapEntry("moved", moved),
-                    SCUtility.FieldToSCMapEntry("moved_scout", moved_scout),
-                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
-                    SCUtility.FieldToSCMapEntry("pos", pos),
-                    SCUtility.FieldToSCMapEntry("rank", rank),
-                }),
+                alive = alive,
+                moved = moved,
+                moved_scout = movedScout,
+                pawn_id = new PawnId(pawnId),
+                pos = new Vector2Int(x, y),
+                rank = rank,
             };
         }
 
         public bool Equals(PawnState other)
         {
-            // TODO: change this to use bitpacked value when it gets implemented
-            return SCUtility.HashEqual(ToScvMap(), other.ToScvMap());
+            return (ulong)this == (ulong)other;
         }
 
         public override bool Equals(object obj)
@@ -814,7 +859,7 @@ namespace Contract
 
         public override int GetHashCode()
         {
-            return SCValXdr.EncodeToBase64(ToScvMap()).GetHashCode();
+            return ((ulong)this).GetHashCode();
         }
 
         public static bool operator ==(PawnState left, PawnState right)

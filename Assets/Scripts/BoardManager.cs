@@ -717,14 +717,14 @@ public class MoveProvePhase: PhaseBase
         
         guiMovement.OnRefreshButton = OnRefresh;
         LoadCachedData();
-
+        AutomaticallySendMoveProof();
     }
 
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
         LoadCachedData();
-
+        AutomaticallySendMoveProof();
     }
 
     void OnRefresh()
@@ -780,6 +780,7 @@ public class RankProvePhase: PhaseBase
             targetPos = hiddenMove.target_pos;
         }
 
+        AutomaticallySendRankProof();
     }
 
     void OnRefresh()
@@ -795,7 +796,7 @@ public class RankProvePhase: PhaseBase
             selectedPos = hiddenMove.start_pos;
             targetPos = hiddenMove.target_pos;
         }
-
+        AutomaticallySendRankProof();
     }
     
     void AutomaticallySendRankProof()
