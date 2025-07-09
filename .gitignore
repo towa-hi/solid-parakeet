@@ -82,3 +82,20 @@ package-lock.json
 # Development tools
 .claude/
 .vscode/
+
+# Claude configuration files
+CLAUDE.md
+CLAUDE.local.md
+
+# Cursor editor files
+.cursor/
+.cursorignore
+.cursorrules
+
+# Test output
+test-results/
+test-reports/
+*.test.log
+*.test.output
+test_snapshots/
+TestResults/
