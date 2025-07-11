@@ -51,7 +51,7 @@ public class GuiMovement : GameElement
         
     }
     
-    public void PhaseStateChanged(IPhaseChangeSet changes)
+    public void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
         bool? setShowElement = null;
@@ -60,8 +60,7 @@ public class GuiMovement : GameElement
         bool? setRefreshButton = null;
         string setStatus = "";
         // figure out what to do based on what happened
-        // for net changes
-        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
+        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             setInitialize = cachedNetState;
@@ -70,43 +69,40 @@ public class GuiMovement : GameElement
                 case Phase.MoveCommit:
                     setShowElement = true;
                     setSubmitButton = false;
+                    setRefreshButton = true;
                     if (cachedNetState.IsMySubphase())
                     {
                         setStatus = "Commit your move";
-                        setRefreshButton = false;
                     }
                     else
                     {
                         setStatus = "Awaiting opponent move";
-                        setRefreshButton = true;
                     }
                     break;
                 case Phase.MoveProve:
                     setShowElement = true;
                     setSubmitButton = false;
+                    setRefreshButton = true;
                     if (cachedNetState.IsMySubphase())
                     {
                         setStatus = "Commit your move proof (automatic)";
-                        setRefreshButton = false;
                     }
                     else
                     {
                         setStatus = "Awaiting opponent move proof";
-                        setRefreshButton = true;
                     }
                     break;
                 case Phase.RankProve:
                     setShowElement = true;
                     setSubmitButton = false;
+                    setRefreshButton = true;
                     if (cachedNetState.IsMySubphase())
                     {
                         setStatus = "Commit your rank proof (automatic)";
-                        setRefreshButton = false;
                     }
                     else
                     {
                         setStatus = "Awaiting opponent rank proof";
-                        setRefreshButton = true;
                     }
                     break;
                 case Phase.SetupCommit:

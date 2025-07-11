@@ -86,10 +86,7 @@ public class GuiMenuController: MonoBehaviour
     async void GotoLobbyMaker()
     {
         await StellarManager.UpdateState();
-        if (!StellarManager.networkState.lobbyInfo.HasValue)
-        {
-            ShowMenuElement(lobbyMakerElement, true);
-        }
+        ShowMenuElement(lobbyMakerElement, true);
     }
 
     void OptionsModal()
@@ -111,10 +108,7 @@ public class GuiMenuController: MonoBehaviour
     async void GotoJoinLobby()
     {
         await StellarManager.UpdateState();
-        if (!StellarManager.networkState.lobbyInfo.HasValue)
-        {
-            ShowMenuElement(lobbyJoinerElement, true);
-        }
+        ShowMenuElement(lobbyJoinerElement, true);
     }
 
     void GotoWallet()
@@ -130,10 +124,7 @@ public class GuiMenuController: MonoBehaviour
     async void ViewLobby()
     {
         await StellarManager.UpdateState();
-        if (StellarManager.networkState.lobbyInfo.HasValue)
-        {
-            ShowMenuElement(lobbyViewerElement, true);
-        }
+        ShowMenuElement(lobbyViewerElement, true);
     }
 
     async void JoinLobby(LobbyId lobbyId)

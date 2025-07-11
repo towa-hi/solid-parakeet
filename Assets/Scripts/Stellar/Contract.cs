@@ -18,6 +18,11 @@ namespace Contract
     {
         SCVal.ScvMap ToScvMap();
     }
+
+    public interface IReq
+    {
+        LobbyId lobby_id { get; }
+    }
     
     public static class SCUtility
     {
@@ -997,9 +1002,9 @@ namespace Contract
     }
 
     [Serializable]
-    public struct MakeLobbyReq : IScvMapCompatable
+    public struct MakeLobbyReq : IScvMapCompatable, IReq
     {
-        public LobbyId lobby_id;
+        public LobbyId lobby_id { get; set; }
         public LobbyParameters parameters;
 
         public SCVal.ScvMap ToScvMap()
@@ -1016,9 +1021,9 @@ namespace Contract
     }
 
     [Serializable]
-    public struct JoinLobbyReq : IScvMapCompatable
+    public struct JoinLobbyReq : IScvMapCompatable, IReq
     {
-        public LobbyId lobby_id;
+        public LobbyId lobby_id { get; set; }
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -1033,9 +1038,9 @@ namespace Contract
     }
 
     [Serializable]
-    public struct CommitSetupReq : IScvMapCompatable
+    public struct CommitSetupReq : IScvMapCompatable, IReq
     {
-        public LobbyId lobby_id;
+        public LobbyId lobby_id { get; set; }
         public byte[] rank_commitment_root;
 
         public SCVal.ScvMap ToScvMap()
@@ -1052,9 +1057,9 @@ namespace Contract
     }
 
     [Serializable]
-    public struct CommitMoveReq : IScvMapCompatable
+    public struct CommitMoveReq : IScvMapCompatable, IReq
     {
-        public LobbyId lobby_id;
+        public LobbyId lobby_id { get; set; }
         public byte[] move_hash;
 
         public SCVal.ScvMap ToScvMap()
@@ -1071,9 +1076,9 @@ namespace Contract
     }
 
     [Serializable]
-    public struct ProveMoveReq : IScvMapCompatable
+    public struct ProveMoveReq : IScvMapCompatable, IReq
     {
-        public LobbyId lobby_id;
+        public LobbyId lobby_id { get; set; }
         public HiddenMove move_proof;
 
         public SCVal.ScvMap ToScvMap()
@@ -1090,10 +1095,10 @@ namespace Contract
     }
 
     [Serializable]
-    public struct ProveRankReq : IScvMapCompatable
+    public struct ProveRankReq : IScvMapCompatable, IReq
     {
         public HiddenRank[] hidden_ranks;
-        public LobbyId lobby_id;
+        public LobbyId lobby_id { get; set; }
         public MerkleProof[] merkle_proofs;
 
         public SCVal.ScvMap ToScvMap()
@@ -1128,5 +1133,68 @@ namespace Contract
                 }),
             };
         }
+    }
+
+    [Serializable]
+    public enum ContractFunction
+    {
+        make_lobby,
+        leave_lobby,
+        join_lobby,
+        commit_setup,
+        commit_move,
+        commit_move_and_prove_move,
+        prove_move,
+        prove_move_and_prove_rank,
+        prove_rank,
+        simulate_collisions,
+    }
+
+    [Serializable]
+    public enum ErrorCodes
+    {
+        UserNotFound = 1,
+        InvalidUsername = 2,
+        AlreadyInitialized = 3,
+        InvalidAddress = 4,
+        InvalidExpirationLedger = 5,
+        InvalidArgs = 6,
+        InviteNotFound = 7,
+        LobbyNotFound = 8,
+        WrongPhase = 9,
+        HostAlreadyInLobby = 10,
+        GuestAlreadyInLobby = 11,
+        LobbyNotJoinable = 12,
+        TurnAlreadyInitialized = 13,
+        TurnHashConflict = 14,
+        LobbyAlreadyExists = 15,
+        LobbyHasNoHost = 16,
+        JoinerIsHost = 17,
+        SetupStateNotFound = 18,
+        GetPlayerIndexError = 19,
+        AlreadyCommittedSetup = 20,
+        NotInLobby = 21,
+        NoSetupCommitment = 22,
+        NoOpponentSetupCommitment = 23,
+        SetupHashFail = 24,
+        GameStateNotFound = 25,
+        GameNotInProgress = 26,
+        AlreadySubmittedSetup = 27,
+        InvalidContractState = 28,
+        WrongInstruction = 29,
+        HiddenMoveHashFail = 30,
+        PawnNotTeam = 31,
+        PawnNotFound = 32,
+        RedMoveInvalid = 33,
+        BlueMoveInvalid = 34,
+        BothMovesInvalid = 35,
+        HiddenRankHashFail = 36,
+        PawnCommitNotFound = 37,
+        WrongPawnId = 38,
+        InvalidPawnId = 39,
+        InvalidBoard = 40,
+        WrongSubphase = 41,
+        NoRankProofsNeeded = 42,
+        ParametersInvalid = 43,
     }
 }

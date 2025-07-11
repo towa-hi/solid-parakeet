@@ -99,7 +99,7 @@ public class TileView : MonoBehaviour
     }
 
     
-    public void PhaseStateChanged(IPhaseChangeSet changes)
+    public void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
         bool? setSetupEmission = null;
@@ -109,7 +109,7 @@ public class TileView : MonoBehaviour
         bool? setTargetEmission = null;
         // figure out what to do based on what happened
         // for net changes
-        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
+        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             switch (netStateUpdated.phase)
             {

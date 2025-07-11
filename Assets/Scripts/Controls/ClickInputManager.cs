@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class TestClickInputManager : MonoBehaviour
+public class ClickInputManager : MonoBehaviour
 {
     public Vector2Int hoveredPosition; // grid position that the pointer is hovered over after hit check
     public Vector2 screenPointerPosition; // raw position on screen
@@ -43,6 +43,7 @@ public class TestClickInputManager : MonoBehaviour
     void Update()
     {
         if (!isUpdating) return;
+        if (!Application.isFocused) return;
         // get screen pointer position
         screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
         PointerEventData eventData = new(EventSystem.current)

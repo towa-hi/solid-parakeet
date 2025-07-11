@@ -18,6 +18,8 @@ using Stellar.RPC;
 using Stellar.Utilities;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.Rendering;
+
 // ReSharper disable ArrangeObjectCreationWhenTypeNotEvident
 
 public class StellarDotnet
@@ -138,16 +140,15 @@ public class StellarDotnet
         contractAddress = inContractAddress;
     }
 
-    public async Task<bool> GetEvents(LobbyId lobbyId, string symbol)
+    async Task<bool> GetEvents(LobbyId lobbyId, string symbol, TimingTracker tracker = null)
     {
-        TimingTracker tracker = new();
-        tracker.StartOperation("GetEvents");
-        SCVal val = SCUtility.NativeToSCVal(lobbyId);
+        tracker?.StartOperation("GetEvents");
+        string lobbyIdTopic = SCValXdr.EncodeToBase64(SCUtility.NativeToSCVal(lobbyId));
         Filters filter = new()
         {
             Type = "contract",
             ContractIds = new string[] {contractAddress},
-            Topics = null,
+            Topics = new string[][] {new string[] {lobbyIdTopic, "*"}},
             AdditionalProperties = null,
         };
         GetEventsResult result = await GetEventsAsync(new GetEventsParams
@@ -161,166 +162,114 @@ public class StellarDotnet
         {
             foreach (string topic in ev.Topic)
             {
-                Debug.Log(topic);
+                SCVal topicSCVal = SCValXdr.DecodeFromBase64(topic);
+                Debug.Log(JsonConvert.SerializeObject(topicSCVal));
             }
+            SCVal eventSCVal = SCValXdr.DecodeFromBase64(ev.Value);
+            Debug.Log(JsonConvert.SerializeObject(eventSCVal));
         }
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
+        tracker?.EndOperation();
         return true;
     }
 
-    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithTwoParameters(string functionName, IScvMapCompatable request1, IScvMapCompatable request2, TimingTracker tracker = null)
+    // public async Task<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> CallVoidFunctionWithTwoParameters(string functionName, IScvMapCompatable request1, IScvMapCompatable request2, TimingTracker tracker = null)
+    // {
+    //     tracker?.StartOperation($"CallVoidFunctionWithTwoParameters {functionName}");
+    //     AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
+    //     List<SCVal> argsList = new()
+    //     {
+    //         userAddressSCVal,
+    //         request1.ToScvMap(),
+    //         request2.ToScvMap(),
+    //     };
+    //     Transaction invokeContractTransaction = BuildInvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
+    //     SimulateTransactionResult simResult = await SimulateTransactionAsync(
+    //         new SimulateTransactionParams()
+    //         {
+    //             Transaction = EncodeTransaction(invokeContractTransaction),
+    //             ResourceConfig = new()
+    //             {
+    //                 
+    //                 InstructionLeeway = 10000000,
+    //             },
+    //         }, tracker);
+    //     if (simResult is not {Error: null})
+    //     {
+    //         tracker?.EndOperation();
+    //         return (simResult, null, null);
+    //     }
+    //     Transaction assembledTransaction = simResult.ApplyTo(invokeContractTransaction);
+    //     string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+    //     SendTransactionResult sendResult = await SendTransactionAsync(new SendTransactionParams()
+    //     {
+    //         Transaction = encodedSignedTransaction,
+    //     }, tracker);
+    //     if (sendResult.Status == SendTransactionResult_Status.ERROR)
+    //     {
+    //         tracker?.EndOperation();
+    //         return (simResult, sendResult, null);
+    //     }
+    //     GetTransactionResult getResult = await WaitForGetTransactionResult(sendResult.Hash, 1000, tracker);
+    //     tracker?.EndOperation();
+    //     return (simResult, sendResult, getResult);
+    // }
+
+    public async Task<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> CallContractFunction(string functionName, IScvMapCompatable arg, TimingTracker tracker = null)
     {
-        tracker?.StartOperation("CallVoidFunctionWithTwoParameters");
-        AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
-        List<SCVal> argsList = new()
-        {
-            userAddressSCVal,
-            request1.ToScvMap(),
-            request2.ToScvMap(),
-        };
-        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
-        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
-            new SimulateTransactionParams()
-            {
-                Transaction = EncodeTransaction(invokeContractTransaction),
-                ResourceConfig = new()
-                {
-                    
-                    InstructionLeeway = 10000000,
-                },
-            },
-            tracker);
-        if (simulateTransactionResult.Error != null)
-        {
-            tracker?.EndOperation();
-            return (null, simulateTransactionResult);
-        }
-        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
-        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
-        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
-        if (sendResult.Status == SendTransactionResult_Status.ERROR)
-        {
-            tracker?.EndOperation();
-            return (null, simulateTransactionResult);
-        }
-        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000, tracker);
-        tracker?.EndOperation();
-        return (getResult, simulateTransactionResult);
+        return await CallContractFunction(functionName, new IScvMapCompatable[] {arg}, tracker);
     }
     
-    public async Task<(GetTransactionResult, SimulateTransactionResult)> CallVoidFunction(string functionName, IScvMapCompatable request, TimingTracker tracker = null)
+    public async Task<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> CallContractFunction(string functionName, IScvMapCompatable[] args, TimingTracker tracker = null)
     {
-        tracker?.StartOperation("CallVoidFunction");
-        (SendTransactionResult sendResult, SimulateTransactionResult simResult) = await CallVoidFunctionWithoutWaiting(functionName, request, tracker);
-        if (sendResult == null)
-        {
-            Debug.LogError("CallVoidFunction: simulation succeeded but transaction failed to send");
-            tracker?.EndOperation();
-            return (null, simResult);
-        }
-        else if (sendResult.ErrorResult != null)
-        {
-            Debug.LogError("CallVoidFunction: transaction rejected");
-            tracker?.EndOperation();
-            return (null, simResult);
-        }
-        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000, tracker);
-        if (getResult == null)
-        {
-            Debug.LogError("CallVoidFunction: timed out or failed to connect");
-        }
-        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
-        {
-            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
-        }
-        tracker?.EndOperation();
-        return (getResult, simResult);
-    }
-    async Task<(SendTransactionResult, SimulateTransactionResult)> CallVoidFunctionWithoutWaiting(string functionName, IScvMapCompatable request, TimingTracker tracker = null)
-    {
-        tracker?.StartOperation("CallVoidFunctionWithoutWaiting");
-        AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
-        List<SCVal> argsList = new() { userAddressSCVal };
-        if (request != null)
-        {
-            SCVal data = request.ToScvMap();
-            argsList.Add(data);
-        }
-        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
-        SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
-            new SimulateTransactionParams()
-            {
-                Transaction = EncodeTransaction(invokeContractTransaction),
-                ResourceConfig = new()
-                {
-                    InstructionLeeway = 10000000,
-                },
-            },
-            tracker);
-        if (simulateTransactionResult.Error != null)
+        tracker?.StartOperation($"CallContractFunction {functionName}");
+        (Transaction transaction, SimulateTransactionResult simResult) = await SimulateContractFunction(functionName, args, tracker);
+        if (simResult is not {Error: null})
         {
             tracker?.EndOperation();
-            return (null, simulateTransactionResult);
+            return (simResult, null, null);
         }
-
-        Transaction assembledTransaction = simulateTransactionResult.ApplyTo(invokeContractTransaction);
-        Debug.Log($"assembledTransaction original fee: {assembledTransaction.fee.InnerValue}");
+        Transaction assembledTransaction = simResult.ApplyTo(transaction);
+        // double all fees just to make sure the transaction actually goes through
         uint fee = assembledTransaction.fee.InnerValue;
         assembledTransaction.fee = fee * 2;
         if (assembledTransaction.ext is Transaction.extUnion.case_1 v1)
         {
-            Debug.Log($"assembledTransaction original readBytes: {v1.sorobanData.resources.readBytes}");
             v1.sorobanData.resources.readBytes *= 2;
-            Debug.Log($"assembledTransaction original writeBytes: {v1.sorobanData.resources.writeBytes}");
             v1.sorobanData.resources.writeBytes *= 2;
-            Debug.Log($"assembledTransaction original resourceFee: {v1.sorobanData.resourceFee}");
             v1.sorobanData.resourceFee *= 2;
         }
         string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
-        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
-        tracker?.EndOperation();
-        return (sendResult, simulateTransactionResult);
-    }
-
-    public async Task<GetTransactionResult> CallVoidFunctionWithoutSimulating(Transaction invokeContractTransaction, SimulateTransactionResult simResult, TimingTracker tracker = null)
-    {
-        tracker?.StartOperation("CallVoidFunctionWithoutSimulating");
-        Transaction assembledTransaction = simResult.ApplyTo(invokeContractTransaction);
-        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
-        SendTransactionResult sendResult = await InvokeContractFunctions(encodedSignedTransaction, tracker);
-        GetTransactionResult getResult = await WaitForTransaction(sendResult.Hash, 1000, tracker);
-        //currentTracker.EndOperation();
-        if (getResult == null)
+        SendTransactionResult sendResult = await SendTransactionAsync(new SendTransactionParams()
         {
-            Debug.LogError("CallVoidFunction: timed out or failed to connect");
-        }
-        else if (getResult.Status != GetTransactionResult_Status.SUCCESS)
+            Transaction = encodedSignedTransaction,
+        }, tracker);
+        if (sendResult is not { ErrorResult: null })
         {
-            Debug.LogWarning($"CallVoidFunction: status: {getResult.Status}");
+            tracker?.EndOperation();
+            return (simResult, sendResult, null);
         }
+        GetTransactionResult getResult = await WaitForGetTransactionResult(sendResult.Hash, 1000, tracker);
         tracker?.EndOperation();
-        return getResult;
+        return (simResult, sendResult, getResult);
     }
-
-    public async Task<(Transaction, SimulateTransactionResult)> SimulateFunction(string functionName, IScvMapCompatable request, TimingTracker tracker = null)
+    
+    public async Task<(Transaction, SimulateTransactionResult)> SimulateContractFunction(string functionName, IScvMapCompatable[] args, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"SimulateFunction");
+        tracker?.StartOperation($"SimulateContractFunction");
         AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
         List<SCVal> argsList = new() { userAddressSCVal };
-        if (request != null)
+        foreach (IScvMapCompatable arg in args)
         {
-            SCVal data = request.ToScvMap();
-            argsList.Add(data);
+            argsList.Add(arg.ToScvMap());
         }
-        Transaction invokeContractTransaction = InvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
+        Transaction invokeContractTransaction = BuildInvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
         SimulateTransactionResult simulateTransactionResult = await SimulateTransactionAsync(
             new SimulateTransactionParams()
             {
                 Transaction = EncodeTransaction(invokeContractTransaction),
                 ResourceConfig = new()
                 {
-                    // TODO: setup resource config
+                    InstructionLeeway = 10000000,
                 },
             },
             tracker);
@@ -384,8 +333,10 @@ public class StellarDotnet
             networkState.lobbyInfo = mLobbyInfo;
             networkState.lobbyParameters = mLobbyParameters;
             networkState.gameState = mGameState;
-
-            await GetEvents(networkState.lobbyInfo.Value.index, "WEWLAD");
+            if (networkState.lobbyInfo is LobbyInfo lobbyInfo)
+            {
+                // await GetEvents(lobbyInfo.index, "WEWLAD", tracker);
+            }
         }
         tracker?.EndOperation();
         return networkState;
@@ -487,18 +438,7 @@ public class StellarDotnet
         return tuple;
     }
     
-    async Task<SendTransactionResult> InvokeContractFunctions(string encodedSignedTransaction, TimingTracker tracker = null)
-    {
-        tracker?.StartOperation("InvokeContractFunctions");
-        SendTransactionResult sendTransactionResult = await SendTransactionAsync(new SendTransactionParams()
-        {
-            Transaction = encodedSignedTransaction,
-        }, tracker);
-        tracker?.EndOperation();
-        return sendTransactionResult;
-    }
-    
-    Transaction InvokeContractTransaction(AccountEntry accountEntry, string functionName, SCVal[] args, bool increment)
+    Transaction BuildInvokeContractTransaction(AccountEntry accountEntry, string functionName, SCVal[] args, bool increment)
     {
         List<Operation> operations = new();
         Operation operation = new()
@@ -568,9 +508,9 @@ public class StellarDotnet
         return TransactionEnvelopeXdr.EncodeToBase64(envelope);
     }
 
-    async Task<GetTransactionResult> WaitForTransaction(string txHash, int delayMS, TimingTracker tracker = null)
+    async Task<GetTransactionResult> WaitForGetTransactionResult(string txHash, int delayMS, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"WaitForTransaction");
+        tracker?.StartOperation($"WaitForGetTransactionResult");
         int attempts = 0;
         
         tracker?.StartOperation($"Initial delay ({delayMS}ms)");
@@ -629,10 +569,6 @@ public class StellarDotnet
         {
             JsonRpcResponse<SimulateTransactionResult> rpcResponse = jsonObject.ToObject<JsonRpcResponse<SimulateTransactionResult>>();
             SimulateTransactionResult transactionResult = rpcResponse.Error == null ? rpcResponse.Result : throw new JsonRpcException(rpcResponse.Error);
-            
-            SorobanResources resources = transactionResult.SorobanTransactionData.resources;
-            string jsonResources = JsonConvert.SerializeObject(resources, jsonSettings);
-            Debug.Log($"simulation resources: {jsonResources}");
             tracker?.EndOperation();
             return transactionResult;
         }

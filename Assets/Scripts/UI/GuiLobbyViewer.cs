@@ -80,12 +80,12 @@ public class GuiLobbyViewer : TestGuiElement
                 problems.Add("lobby.guest_address is empty");
                 lobbyStartable = false;
             }
-
-            // if (lobby.game_end_state != 3)
-            // {
-            //     problems.Add($"lobby.game_end_state is {lobby.game_end_state}");
-            //     lobbyStartable = false;
-            // }
+            if (lobbyInfo.phase != Phase.SetupCommit && !CacheManager.RankProofsCacheExists(StellarManager.networkState.address, lobbyInfo.index))
+            {
+                // TODO: more thurough cache check here
+                statusText.text = "this client does not have the required cached data to play this lobby";
+                lobbyStartable = false;
+            }
         }
         else
         {
@@ -97,6 +97,8 @@ public class GuiLobbyViewer : TestGuiElement
             string problemsString = string.Join("", problems);
             statusText.text = problemsString;
         }
+        
+        
         if (lobbyStartable)
         {
             startButton.interactable = true;

@@ -24,7 +24,7 @@ public class CursorController : MonoBehaviour
         ChangeCursor(CursorType.DEFAULT);
     }
 
-    public static void ChangeCursor(CursorType cursorType)
+    static void ChangeCursor(CursorType cursorType)
     {
         Texture2D newCursor;
         switch (cursorType)
@@ -51,6 +51,45 @@ public class CursorController : MonoBehaviour
         {
             currentCursor = newCursor;
             Cursor.SetCursor(currentCursor, instance.hotspot, instance.cursorMode);
+        }
+    }
+    
+    public static void UpdateCursor(SetupInputTool tool)
+    {
+        switch (tool)
+        {
+            case SetupInputTool.NONE:
+                ChangeCursor(CursorType.DEFAULT);
+                break;
+            case SetupInputTool.ADD:
+                ChangeCursor(CursorType.PLUS);
+                break;
+            case SetupInputTool.REMOVE:
+                ChangeCursor(CursorType.MINUS);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    public static void UpdateCursor(MoveInputTool tool)
+    {
+        switch (tool)
+        {
+            case MoveInputTool.NONE:
+                ChangeCursor(CursorType.DEFAULT);
+                break;
+            case MoveInputTool.SELECT:
+                ChangeCursor(CursorType.PLUS);
+                break;
+            case MoveInputTool.TARGET:
+                ChangeCursor(CursorType.TARGET);
+                break;
+            case MoveInputTool.CLEAR_SELECT:
+                ChangeCursor(CursorType.MINUS);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 }

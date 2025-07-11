@@ -52,7 +52,7 @@ public class PawnView : MonoBehaviour
         
     }
     
-    public void PhaseStateChanged(IPhaseChangeSet changes)
+    public void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
         bool? setAlive = null; // wether to display the pawn dead or alive 
@@ -60,8 +60,7 @@ public class PawnView : MonoBehaviour
         Rank? setRankView = null; // wether to display rank regardless of revealed rank
         (Vector2Int, TileView)? setPosView = null;
         // figure out what to do based on what happened
-        // for net changes
-        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
+        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
@@ -119,7 +118,6 @@ public class PawnView : MonoBehaviour
                         {
                             setRankView = setupCommitPhase.pendingCommits[pawnId] ?? Rank.UNKNOWN;
                             setVisible = setRankView.Value != Rank.UNKNOWN;
-                            Debug.Log($"set visible {setVisible.Value}");
                         }
                     }
                     else

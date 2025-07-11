@@ -1747,10 +1747,8 @@ public struct GameNetworkState
         {
             throw new ArgumentException($"address not in state: {address}");
         }
-        Debug.Log($"ishost {isHost} address: {address} host {lobbyInfo.host_address} guest {lobbyInfo.guest_address}");
         Team hostTeam = lobbyParameters.host_team;
         Team guestTeam = hostTeam == Team.RED ? Team.BLUE : Team.RED;
-        Debug.Log($"host team {hostTeam} gues team {guestTeam}");
         if (isHost)
         {
             userTeam = hostTeam;
@@ -1759,7 +1757,6 @@ public struct GameNetworkState
         else
         {
             userTeam = guestTeam;
-            Debug.Log($"userteam {userTeam}");
             opponentTeam = hostTeam;
         }
     }

@@ -51,8 +51,9 @@ public class GuiSetup : GameElement
     }
 
 
-    public void PhaseStateChanged(IPhaseChangeSet changes)
+    public void PhaseStateChanged(PhaseChangeSet changes)
     {
+
         // what to do
         bool? setShowElement = null;
         GameNetworkState? setInitialize = null;
@@ -62,8 +63,7 @@ public class GuiSetup : GameElement
         bool? setSubmitButton = null;
         bool? setClearButton = null;
         // figure out what to do based on what happened
-        // for net changes
-        if (changes.NetStateUpdated() is NetStateUpdated netStateUpdated)
+        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             setInitialize = cachedNetState;

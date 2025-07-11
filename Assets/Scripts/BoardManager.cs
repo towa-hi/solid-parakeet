@@ -1,9 +1,12 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using Contract;
+using JetBrains.Annotations;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -13,53 +16,59 @@ using Random = UnityEngine.Random;
 
 public class BoardManager : MonoBehaviour
 {
-    public bool activated;
-    public bool initialized;
-    // never mutate these externally
+    bool initialized;
+    
+    // assigned by inspector
     public Transform purgatory;
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
     public BoardGrid grid;
-    public TestClickInputManager clickInputManager;
+    public ClickInputManager clickInputManager;
     public Vortex vortex;
-    // UI stuff generally gets done in the phase
-    [FormerlySerializedAs("guiTestGame")] public GuiGame guiGame;
-    // generally doesn't change after lobby is set in StartGame
-    public BoardDef boardDef;
-    // internal game state. call OnStateChanged when updating these. only StartGame can make new views
-    public Dictionary<Vector2Int, TileView> tileViews = new();
-    public Dictionary<PawnId, PawnView> pawnViews = new();
-    // last known lobby
-    //public GameNetworkState cachedNetworkState;
-    public Phase lastPhase;
-    public PhaseBase currentPhase;
     public Transform cameraBounds;
-
     public Transform waveOrigin1;
     public Transform waveOrigin2;
 
-    public event Action<Vector2Int, TileView, PawnView, PhaseBase> OnGameHover;
+    // UI stuff generally gets done in the phase
+    public GuiGame guiGame;
+    // master references to board objects passed to state
+    Dictionary<Vector2Int, TileView> tileViews = new();
+    Dictionary<PawnId, PawnView> pawnViews = new();
     
-    void Start()
-    {
-        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
-    }
+    Task<bool> updateNetworkStateTask;
+    Task<int> currentContractTask;
+    PhaseBase currentPhase;
     
     public void StartBoardManager()
     {
-        activated = true;
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        GameNetworkState netState = new(StellarManager.networkState);
+        Initialize(netState);
         OnNetworkStateUpdated(); //only invoke this directly once on start
     }
 
-    void Initialize(GameNetworkState networkState)
+    void Initialize(GameNetworkState netState)
     {
+        updateNetworkStateTask = null;
+        currentContractTask = null;
+        currentPhase = null;
+        
+        clickInputManager.Initialize(this);
+        CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         // Clear existing tileviews and replace
         foreach (TileView tile in tileViews.Values)
         {
             Destroy(tile.gameObject);
         }
         tileViews.Clear();
-        Board board = networkState.lobbyParameters.board;
+        // Clear any existing pawnviews and replace
+        foreach (PawnView pawnView in pawnViews.Values)
+        {
+            Destroy(pawnView.gameObject);
+        }
+        pawnViews.Clear();
+        // set up board and pawns
+        Board board = netState.lobbyParameters.board;
         grid.SetBoard(board.hex);
         foreach (TileState tile in board.tiles)
         {
@@ -69,86 +78,47 @@ public class BoardManager : MonoBehaviour
             tileView.Initialize(tile, board.hex);
             tileViews.Add(tile.pos, tileView);
         }
-        // Clear any existing pawnviews and replace
-        foreach (PawnView pawnView in pawnViews.Values)
-        {
-            Destroy(pawnView.gameObject);
-        }
-        pawnViews.Clear();
-        foreach (PawnState pawn in networkState.gameState.pawns)
+        foreach (PawnState pawn in netState.gameState.pawns)
         {
             GameObject pawnObject = Instantiate(pawnPrefab, transform);
             PawnView pawnView = pawnObject.GetComponent<PawnView>();
             pawnView.Initialize(pawn, tileViews[pawn.pos]);
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
+        initialized = true;
     }
     
     void OnNetworkStateUpdated()
     {
-        if (!activated)
+        if (!initialized)
         {
             return;
         }
         Debug.Log("TestBoardManager::OnNetworkStateUpdated");
         GameNetworkState netState = new(StellarManager.networkState);
-        if (!initialized)
+        PhaseBase nextPhase = netState.lobbyInfo.phase switch
         {
-            Initialize(netState);
-            clickInputManager.Initialize(this);
-            CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
-            lastPhase = Phase.Lobby;
-            initialized = true;
-        }
-        Phase nextPhase = netState.lobbyInfo.phase;
-        if (nextPhase != lastPhase)
-        {
-            switch (netState.lobbyInfo.phase)
-            {
-                case Phase.SetupCommit:
-                    SetPhase(new SetupCommitPhase(this, guiGame.setup, netState, clickInputManager));
-                    break;
-                case Phase.MoveCommit:
-                    SetPhase(new MoveCommitPhase(this, guiGame.movement, netState, clickInputManager));
-                    break;
-                case Phase.MoveProve:
-                    SetPhase(new MoveProvePhase(this, guiGame.movement, netState, clickInputManager));
-                    break;
-                case Phase.RankProve:
-                    SetPhase(new RankProvePhase(this, guiGame.movement, netState, clickInputManager));
-                    break;
-                case Phase.Finished:
-                case Phase.Aborted:
-                case Phase.Lobby:
-                    throw new NotImplementedException();
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-            lastPhase = nextPhase;
-        }
-        else
-        {
-            currentPhase.UpdateNetworkState(netState);
-        }
+            Phase.SetupCommit => new SetupCommitPhase(),
+            Phase.MoveCommit => new MoveCommitPhase(),
+            Phase.MoveProve => new MoveProvePhase(),
+            Phase.RankProve => new RankProvePhase(),
+            Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+        // set phase
+        currentPhase?.ExitState(clickInputManager, guiGame);
+        currentPhase = nextPhase;
+        currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
+        currentPhase.UpdateNetworkState(netState);
         // directly invoke this
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
+        bool startPolling = !netState.IsMySubphase();
+        PollForPhaseChange(startPolling);
     }
     
-    void SetPhase(PhaseBase newPhase)
+    // passed to currentPhase
+    void PhaseStateChanged(PhaseChangeSet changes)
     {
-        currentPhase?.ExitState();
-        currentPhase = newPhase;
-        currentPhase.EnterState(PhaseStateChanged);
-    }
-    
-    void PhaseStateChanged(IPhaseChangeSet changes)
-    {
-        string debugString = "";
-        foreach (GameOperation operation in changes.operations)
-        {
-            debugString += $"{operation.GetType()},";
-        }
-        // Debug.Log($"PhaseStateChanged changes: {debugString}");
         // Central callback - receives all operations and broadcasts to views
         // boardmanager handles its own stuff first
         foreach (GameOperation operation in changes.operations)
@@ -156,10 +126,10 @@ public class BoardManager : MonoBehaviour
             switch (operation)
             {
                 case SetupHoverChanged setupHoverChanged:
-                    UpdateCursor(setupHoverChanged.phase.setupInputTool);
+                    CursorController.UpdateCursor(setupHoverChanged.phase.setupInputTool);
                     break;
                 case MoveHoverChanged moveHoverChanged:
-                    UpdateCursor(moveHoverChanged.phase.moveInputTool);
+                    CursorController.UpdateCursor(moveHoverChanged.phase.moveInputTool);
                     break;
             }
         }
@@ -176,159 +146,206 @@ public class BoardManager : MonoBehaviour
         guiGame.PhaseStateChanged(changes);
     }
     
-    static void UpdateCursor(SetupInputTool tool)
+    // passed to currentPhase
+    bool GetNetworkState()
     {
-        switch (tool)
+        if (updateNetworkStateTask != null)
         {
-            case SetupInputTool.NONE:
-                CursorController.ChangeCursor(CursorType.DEFAULT);
-                break;
-            case SetupInputTool.ADD:
-                CursorController.ChangeCursor(CursorType.PLUS);
-                break;
-            case SetupInputTool.REMOVE:
-                CursorController.ChangeCursor(CursorType.MINUS);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            Debug.LogWarning("GetNetworkState already has a task");
+            return false;
         }
+        updateNetworkStateTask = StellarManager.UpdateState();
+        return true;
+    }
+    
+    // passed to currentPhase
+    bool CallContract(IReq req, [CanBeNull] IReq req2 = null)
+    {
+        if (currentContractTask != null)
+        {
+            Debug.LogWarning("CallContract already has a task");
+            return false;
+        }
+        Task<int> contractTask = null;
+        switch (req)
+        {
+            case CommitSetupReq commitSetupReq:
+                contractTask = StellarManager.CommitSetupRequest(commitSetupReq);
+                break;
+            case CommitMoveReq commitMoveReq:
+                if (req2 is not ProveMoveReq followUpProveMoveReq)
+                {
+                    throw new ArgumentNullException();
+                }
+                contractTask = StellarManager.CommitMoveRequest(commitMoveReq, followUpProveMoveReq);
+                break;
+            case ProveMoveReq proveMoveReq:
+                contractTask = StellarManager.ProveMoveRequest(proveMoveReq);
+                break;
+            case ProveRankReq proveRankReq:
+                contractTask = StellarManager.ProveRankRequest(proveRankReq);
+                break;
+            case JoinLobbyReq:
+            case MakeLobbyReq:
+                throw new NotImplementedException();
+            default:
+                throw new ArgumentOutOfRangeException(nameof(req));
+        }
+        currentContractTask = contractTask;
+        return true;
     }
 
-    static void UpdateCursor(MoveInputTool tool)
+    bool polling;
+    Coroutine pollingCoroutine;
+    
+    public void PollForPhaseChange(bool poll)
     {
-        switch (tool)
+        polling = poll;
+        if (poll)
         {
-            case MoveInputTool.NONE:
-                CursorController.ChangeCursor(CursorType.DEFAULT);
-                break;
-            case MoveInputTool.SELECT:
-                CursorController.ChangeCursor(CursorType.PLUS);
-                break;
-            case MoveInputTool.TARGET:
-                CursorController.ChangeCursor(CursorType.TARGET);
-                break;
-            case MoveInputTool.CLEAR_SELECT:
-                CursorController.ChangeCursor(CursorType.MINUS);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            // Start polling if not already running
+            if (pollingCoroutine == null)
+            {
+                pollingCoroutine = CoroutineRunner.instance.StartCoroutine(PollCoroutine());
+            }
         }
+        else
+        {
+            // Stop polling
+            if (pollingCoroutine != null)
+            {
+                CoroutineRunner.instance.StopCoroutine(pollingCoroutine);
+                pollingCoroutine = null;
+            }
+        }
+    }
+    
+    IEnumerator PollCoroutine()
+    {
+        while (polling)
+        {
+            yield return new WaitForSeconds(2f);
+            
+            if (polling) // Check again in case it was stopped during the wait
+            {
+                Debug.Log($"[BoardManager] Polling for phase change... Current phase: {currentPhase?.cachedNetState.lobbyInfo.phase} {currentPhase?.cachedNetState.lobbyInfo.subphase}");
+                
+                // AIDEV-TODO: Add actual phase change detection logic here
+            }
+        }
+        
+        Debug.Log("[BoardManager] Polling stopped");
     }
 }
 
 public abstract class PhaseBase
 {
     public GameNetworkState cachedNetState;
-    public GameNetworkState oldNetState;
     public Vector2Int hoveredPos;
     
     public Dictionary<Vector2Int, TileView> tileViews;
     public Dictionary<PawnId, PawnView> pawnViews;
     
-    protected Action<IPhaseChangeSet> OnPhaseStateChanged;
+    Action<PhaseChangeSet> OnPhaseStateChanged;
+    Func<IReq, IReq, bool> OnCallContract;
+    Func<bool> OnGetNetworkState;
     
-    protected PhaseBase(BoardManager bm, GameNetworkState netState, TestClickInputManager clickInputManager)
+    protected PhaseBase()
     {
-        tileViews = bm.tileViews;
-        pawnViews = bm.pawnViews;
-        clickInputManager.OnMouseInput = OnMouseInput;
-        oldNetState = netState;
-        cachedNetState = netState;
+        //cachedNetState = netState;
     }
     
-    public virtual void EnterState(Action<IPhaseChangeSet> inOnPhaseStateChanged)
+    public void EnterState(
+        Action<PhaseChangeSet> inOnPhaseStateChanged, 
+        Func<IReq, IReq, bool> inOnCallContract, 
+        Func<bool> inOnGetNetworkState, 
+        ClickInputManager clickInputManager, 
+        Dictionary<Vector2Int, TileView> bmTileViews, 
+        Dictionary<PawnId, PawnView> bmPawnViews, 
+        GuiGame guiGame)
     {
         OnPhaseStateChanged = inOnPhaseStateChanged;
+        OnCallContract = inOnCallContract;
+        OnGetNetworkState = inOnGetNetworkState;
+        tileViews = bmTileViews;
+        pawnViews = bmPawnViews;
+        clickInputManager.OnMouseInput = OnMouseInput;
+        SetGui(guiGame, true);
     }
 
-    public virtual void ExitState()
-    {
-        OnPhaseStateChanged = null;
-    }
-
+    protected abstract void SetGui(GuiGame guiGame, bool set);
+    
     public virtual void UpdateNetworkState(GameNetworkState netState)
     {
-        oldNetState = cachedNetState;
         cachedNetState = netState;
     }
+    
+    public void ExitState(ClickInputManager clickInputManager, GuiGame guiGame)
+    {
+        OnPhaseStateChanged = null;
+        OnCallContract = null;
+        OnGetNetworkState = null;
+        clickInputManager.OnMouseInput = null;
+        SetGui(guiGame, false);
+    }
+    
+    protected bool InvokeOnGetNetworkState()
+    {
+        return OnGetNetworkState.Invoke();
+    }
 
+    protected bool InvokeOnCallContract(IReq req1, IReq req2 = null)
+    {
+        return OnCallContract.Invoke(req1, req2);
+    }
 
-    protected abstract void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState);
+    protected void InvokeOnPhaseStateChanged(PhaseChangeSet changes)
+    {
+        OnPhaseStateChanged.Invoke(changes);
+    }
+    
     protected abstract void OnMouseInput(Vector2Int hoveredPos, bool clicked);
 }
 public class SetupCommitPhase : PhaseBase
 {
-    public Dictionary<PawnId, Rank?> pendingCommits;
-    public Rank? selectedRank;
-    public SetupInputTool setupInputTool;
-    
-    public SetupCommitPhase(BoardManager bm, GuiSetup guiSetup, GameNetworkState inNetworkState, TestClickInputManager clickInputManager)
-        : base(bm, inNetworkState, clickInputManager)
+    public Dictionary<PawnId, Rank?> pendingCommits = null;
+    public Rank? selectedRank = null;
+    public SetupInputTool setupInputTool = SetupInputTool.NONE;
+
+    protected override void SetGui(GuiGame guiGame, bool set)
     {
-        pendingCommits = new();
-        foreach (PawnState pawn in cachedNetState.gameState.pawns.Where(p => p.GetTeam() == cachedNetState.userTeam))
-        {
-            pendingCommits[pawn.pawn_id] = null;
-        }
-        selectedRank = null;
-        setupInputTool = SetupInputTool.NONE;
-        guiSetup.OnClearButton = OnClear;
-        guiSetup.OnAutoSetupButton = OnAutoSetup;
-        guiSetup.OnRefreshButton = OnRefresh;
-        guiSetup.OnSubmitButton = OnSubmit;
-        guiSetup.OnEntryClicked = OnEntryClicked;
-        if (!cachedNetState.IsMySubphase())
-        {
-            LoadCachedData();
-        }
+        guiGame.setup.OnClearButton = set ? OnClear : null;
+        guiGame.setup.OnAutoSetupButton = set ? OnAutoSetup : null;
+        guiGame.setup.OnRefreshButton = set ? OnRefresh : null;
+        guiGame.setup.OnSubmitButton = set ? OnSubmit : null;
+        guiGame.setup.OnEntryClicked = set ? OnEntryClicked : null;
     }
     
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
-        if (!cachedNetState.IsMySubphase())
-        {
-            LoadCachedData();
-        }
-    }
-
-    void LoadCachedData()
-    {
         pendingCommits = new();
-        foreach (PawnState pawn in cachedNetState.gameState.pawns.Where(p => p.GetTeam() == cachedNetState.userTeam))
+        if (cachedNetState.IsMySubphase())
         {
-            if (CacheManager.GetHiddenRankAndProof(pawn.pawn_id) is not CachedRankProof rankProof)
+            foreach (PawnState pawn in cachedNetState.gameState.pawns.Where(p => p.GetTeam() == cachedNetState.userTeam))
             {
-                throw new Exception($"cachemanager could not find pawn {pawn.pawn_id}");
+                pendingCommits[pawn.pawn_id] = null;
             }
-            pendingCommits[pawn.pawn_id] = rankProof.hidden_rank.rank;
+        }
+        else
+        {
+            foreach (PawnState pawn in cachedNetState.gameState.pawns.Where(p => p.GetTeam() == cachedNetState.userTeam))
+            {
+                if (CacheManager.GetHiddenRankAndProof(pawn.pawn_id) is not CachedRankProof rankProof)
+                {
+                    throw new Exception($"cachemanager could not find pawn {pawn.pawn_id}");
+                }
+                pendingCommits[pawn.pawn_id] = rankProof.hidden_rank.rank;
+            }
         }
     }
     
-    public (Rank, int, int)[] RanksRemaining()
-    {
-        Rank[] ranks = (Rank[])Enum.GetValues(typeof(Rank));
-        (Rank, int, int)[] ranksRemaining = new (Rank, int, int)[ranks.Length];
-        if (ranks.Length != cachedNetState.lobbyParameters.max_ranks.Length)
-        {
-            throw new InvalidOperationException($"Rank enum count {ranks.Length} doesn't match max_ranks array length");
-        }
-        for (int i = 0; i < ranksRemaining.Length; i++)
-        {
-            Rank rank = ranks[i];
-            int max = cachedNetState.lobbyParameters.GetMax(rank);
-            int committed = pendingCommits.Values.Count(r => r == rank);
-            ranksRemaining[i] = (rank, max, committed);
-        }
-        return ranksRemaining;
-    }
 
-    int GetRemainingRank(Rank rank)
-    {
-        int max = cachedNetState.lobbyParameters.GetMax(rank);
-        int committed = pendingCommits.Values.Count(r => r == rank);
-        return max - committed;
-    }
     
     void OnClear()
     {
@@ -341,7 +358,7 @@ public class SetupCommitPhase : PhaseBase
         {
             pendingCommits[pawnId] = null;
         }
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
     }
 
     void OnAutoSetup()
@@ -357,13 +374,12 @@ public class SetupCommitPhase : PhaseBase
             PawnState pawn = cachedNetState.GetPawnFromPos(pos);
             pendingCommits[pawn.pawn_id] = rank;
         }
-        
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
     }
     
     void OnRefresh()
     {
-        _ = StellarManager.UpdateState();
+        InvokeOnGetNetworkState();
     }
 
     void OnSubmit()
@@ -407,12 +423,17 @@ public class SetupCommitPhase : PhaseBase
             MerkleProof merkleProof = tree.GenerateProof((uint)i);
             ranksAndProofs.Add(new() {hidden_rank = hiddenRank, merkle_proof = merkleProof});
         }
-        _ = StellarManager.CommitSetupRequest(cachedNetState.lobbyInfo.index, root, ranksAndProofs);
+        CacheManager.StoreHiddenRanksAndProofs(ranksAndProofs, cachedNetState.address, cachedNetState.lobbyInfo.index);
+        CommitSetupReq req = new()
+        {
+            lobby_id = cachedNetState.lobbyInfo.index,
+            rank_commitment_root = root,
+        };
+        InvokeOnCallContract(req, null);
     }
 
     void OnEntryClicked(Rank clickedRank)
     {
-        Debug.Log("OnEntryClicked" + clickedRank);
         Rank? oldSelectedRank = selectedRank;
         if (selectedRank is Rank rank && rank == clickedRank)
         {
@@ -422,7 +443,57 @@ public class SetupCommitPhase : PhaseBase
         {
             selectedRank = clickedRank;
         }
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(new SetupRankSelected(oldSelectedRank, this)));
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(new SetupRankSelected(oldSelectedRank, this)));
+    }
+
+    protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
+    {
+        //Debug.Log($"On Hover {hoveredPos}");
+        List<GameOperation> operations = new();
+        Vector2Int oldHoveredPos = hoveredPos;
+        hoveredPos = inHoveredPos;
+        if (clicked)
+        {
+            switch (setupInputTool)
+            {
+                case SetupInputTool.NONE:
+                    break;
+                case SetupInputTool.ADD:
+                    operations.Add(CommitPosition(hoveredPos));
+                    break;
+                case SetupInputTool.REMOVE:
+                    operations.Add(UncommitPosition(hoveredPos));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        setupInputTool = GetNextTool();
+        operations.Add(new SetupHoverChanged(oldHoveredPos, this));
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(operations));
+    }
+
+    SetupInputTool GetNextTool()
+    {
+        SetupInputTool tool = SetupInputTool.NONE;
+        if (!cachedNetState.IsMySubphase())
+        {
+            return SetupInputTool.NONE;
+        }
+        // if hovered over a already committed pawn
+        if (cachedNetState.GetPawnFromPosChecked(hoveredPos) is PawnState pawn && pendingCommits.ContainsKey(pawn.pawn_id) && pendingCommits[pawn.pawn_id] != null)
+        {
+            tool = SetupInputTool.REMOVE;
+        }
+        else if (selectedRank is Rank rank && cachedNetState.GetTileChecked(hoveredPos) is TileState tile && tile.setup == cachedNetState.userTeam && GetRemainingRank(rank) > 0)
+        {
+            if (GetRemainingRank(rank) > 0)
+            {
+                tool = SetupInputTool.ADD;
+            }
+            
+        }
+        return tool;
     }
 
     SetupRankCommitted CommitPosition(Vector2Int pos)
@@ -455,109 +526,60 @@ public class SetupCommitPhase : PhaseBase
         return new(oldPendingCommits, this);
     }
     
-    protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)
+    public (Rank, int, int)[] RanksRemaining()
     {
-        //throw new NotImplementedException();
+        Rank[] ranks = (Rank[])Enum.GetValues(typeof(Rank));
+        (Rank, int, int)[] ranksRemaining = new (Rank, int, int)[ranks.Length];
+        if (ranks.Length != cachedNetState.lobbyParameters.max_ranks.Length)
+        {
+            throw new InvalidOperationException($"Rank enum count {ranks.Length} doesn't match max_ranks array length");
+        }
+        for (int i = 0; i < ranksRemaining.Length; i++)
+        {
+            Rank rank = ranks[i];
+            int max = cachedNetState.lobbyParameters.GetMax(rank);
+            int committed = pendingCommits.Values.Count(r => r == rank);
+            ranksRemaining[i] = (rank, max, committed);
+        }
+        return ranksRemaining;
     }
 
-    protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
+    int GetRemainingRank(Rank rank)
     {
-        //Debug.Log($"On Hover {hoveredPos}");
-        List<GameOperation> operations = new();
-        Vector2Int oldHoveredPos = hoveredPos;
-        hoveredPos = inHoveredPos;
-        if (clicked)
-        {
-            switch (setupInputTool)
-            {
-                case SetupInputTool.NONE:
-                    break;
-                case SetupInputTool.ADD:
-                    SetupRankCommitted rankCommittedOperation = CommitPosition(hoveredPos);
-                    operations.Add(rankCommittedOperation);
-                    break;
-                case SetupInputTool.REMOVE:
-                    SetupRankCommitted rankUncommittedOperation = UncommitPosition(hoveredPos);
-                    operations.Add(rankUncommittedOperation);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
-        setupInputTool = GetNextTool();
-        operations.Add(new SetupHoverChanged(oldHoveredPos, this));
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(operations));
-    }
-
-    SetupInputTool GetNextTool()
-    {
-        SetupInputTool tool = SetupInputTool.NONE;
-        if (!cachedNetState.IsMySubphase())
-        {
-            return SetupInputTool.NONE;
-        }
-        // if hovered over a already committed pawn
-        if (cachedNetState.GetPawnFromPosChecked(hoveredPos) is PawnState pawn && pendingCommits.ContainsKey(pawn.pawn_id) && pendingCommits[pawn.pawn_id] != null)
-        {
-            tool = SetupInputTool.REMOVE;
-        }
-        else if (selectedRank is Rank rank && cachedNetState.GetTileChecked(hoveredPos) is TileState tile && tile.setup == cachedNetState.userTeam && GetRemainingRank(rank) > 0)
-        {
-            if (GetRemainingRank(rank) > 0)
-            {
-                tool = SetupInputTool.ADD;
-            }
-            
-        }
-        return tool;
+        int max = cachedNetState.lobbyParameters.GetMax(rank);
+        int committed = pendingCommits.Values.Count(r => r == rank);
+        return max - committed;
     }
 }
 
 public class MoveCommitPhase: PhaseBase
 {
-    public Vector2Int? selectedPos;
-    public Vector2Int? targetPos;
-    public MoveInputTool moveInputTool;
-    public HashSet<Vector2Int> targetablePositions;
-    bool polling;
-    
-    public MoveCommitPhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
-    {
-        tileViews = bm.tileViews;
-        selectedPos = null;
-        targetPos = null;
-        moveInputTool = MoveInputTool.NONE;
-        targetablePositions = new();
-        guiMovement.OnSubmitMoveButton = OnSubmit;
-        guiMovement.OnRefreshButton = OnRefresh;
-        if (!cachedNetState.IsMySubphase())
-        {
-            polling = true;
-            LoadCachedData();
-        }
-    }
+    public Vector2Int? selectedPos = null;
+    public Vector2Int? targetPos = null;
+    public MoveInputTool moveInputTool = MoveInputTool.NONE;
+    public HashSet<Vector2Int> targetablePositions = new();
 
+    protected override void SetGui(GuiGame guiGame, bool set)
+    {
+        guiGame.movement.OnSubmitMoveButton = set ? OnSubmit : null;
+        guiGame.movement.OnRefreshButton = set ? OnRefresh : null;
+    }
+    
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
         if (!cachedNetState.IsMySubphase())
         {
-            polling = true;
-            LoadCachedData();
+            // load cached data
+            byte[] moveHash = cachedNetState.GetUserMove().move_hash;
+            if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+            {
+                selectedPos = hiddenMove.start_pos;
+                targetPos = hiddenMove.target_pos;
+            }
         }
     }
 
-    void LoadCachedData()
-    {
-        byte[] moveHash = cachedNetState.GetUserMove().move_hash;
-        if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
-        {
-            selectedPos = hiddenMove.start_pos;
-            targetPos = hiddenMove.target_pos;
-        }
-    }
-    
     void OnSubmit()
     {
         if (!cachedNetState.IsMySubphase())
@@ -591,42 +613,26 @@ public class MoveCommitPhase: PhaseBase
             start_pos = selectedPawn.pos,
             target_pos = targetPosition,
         };
-        _ = StellarManager.CommitMoveRequest(cachedNetState.lobbyInfo.index, SCUtility.Get16ByteHash(hiddenMove), hiddenMove);
+        CacheManager.StoreHiddenMove(hiddenMove, cachedNetState.address, cachedNetState.lobbyInfo.index);
+        CommitMoveReq commitMoveReq = new()
+        {
+            lobby_id = cachedNetState.lobbyInfo.index,
+            move_hash = SCUtility.Get16ByteHash(hiddenMove),
+        };
+        ProveMoveReq proveMoveReq = new()
+        {
+            lobby_id = cachedNetState.lobbyInfo.index,
+            move_proof = hiddenMove,
+        };
+        InvokeOnCallContract(commitMoveReq, proveMoveReq);
     }
 
     void OnRefresh()
     {
-        _ = StellarManager.UpdateState();
-    }
-    
-    MovePosSelected SelectPosition(Vector2Int? pos)
-    {
-        Vector2Int? oldPos = selectedPos;
-        selectedPos = pos;
-        if (selectedPos is Vector2Int p && cachedNetState.GetAlivePawnFromPosChecked(p) is PawnState selectedPawn)
-        {
-            targetablePositions = cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id);
-        }
-        else
-        {
-            targetablePositions.Clear();
-        }
-        return new(oldPos, this);
+        InvokeOnGetNetworkState();
     }
 
-    MoveTargetSelected TargetPosition(Vector2Int? target)
-    {
-        Vector2Int? oldTarget = targetPos;
-        targetPos = target;
-        targetablePositions.Clear();
-        return new(oldTarget, this);
-    }
     
-    protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)
-    {
-        //throw new NotImplementedException();
-    }
-
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
         List<GameOperation> operations = new();
@@ -639,16 +645,13 @@ public class MoveCommitPhase: PhaseBase
                 case MoveInputTool.NONE:
                     break;
                 case MoveInputTool.SELECT:
-                    MovePosSelected posSelected = SelectPosition(hoveredPos);
-                    operations.Add(posSelected);
+                    operations.Add(SelectPosition(hoveredPos));
                     break;
                 case MoveInputTool.TARGET:
-                    MoveTargetSelected targetSelected = TargetPosition(hoveredPos);
-                    operations.Add(targetSelected);
+                    operations.Add(TargetPosition(hoveredPos));
                     break;
                 case MoveInputTool.CLEAR_SELECT:
-                    MovePosSelected posUnselected = SelectPosition(null);
-                    operations.Add(posUnselected);
+                    operations.Add(SelectPosition(null));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -656,10 +659,9 @@ public class MoveCommitPhase: PhaseBase
         }
         moveInputTool = GetNextTool(hoveredPos);
         operations.Add(new MoveHoverChanged(oldHoveredPos, this));
-        OnPhaseStateChanged?.Invoke(new PhaseChangeSet(operations));
-        
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(operations));
     }
-
+    
     MoveInputTool GetNextTool(Vector2Int pos)
     {
         if (!cachedNetState.IsMySubphase())
@@ -704,60 +706,78 @@ public class MoveCommitPhase: PhaseBase
             return MoveInputTool.NONE;
         }
     }
+    
+    MovePosSelected SelectPosition(Vector2Int? pos)
+    {
+        Vector2Int? oldPos = selectedPos;
+        selectedPos = pos;
+        if (selectedPos is Vector2Int p && cachedNetState.GetAlivePawnFromPosChecked(p) is PawnState selectedPawn)
+        {
+            targetablePositions = cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id);
+        }
+        else
+        {
+            targetablePositions.Clear();
+        }
+        return new(oldPos, this);
+    }
 
+    MoveTargetSelected TargetPosition(Vector2Int? target)
+    {
+        Vector2Int? oldTarget = targetPos;
+        targetPos = target;
+        targetablePositions.Clear();
+        return new(oldTarget, this);
+    }
 }
 
 public class MoveProvePhase: PhaseBase
 {
-    public Vector2Int? selectedPos;
-    public Vector2Int? targetPos;
+    public Vector2Int? selectedPos = null;
+    public Vector2Int? targetPos = null;
     
-    public MoveProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
+    protected override void SetGui(GuiGame guiGame, bool set)
     {
-        
-        guiMovement.OnRefreshButton = OnRefresh;
-        LoadCachedData();
-        AutomaticallySendMoveProof();
+        guiGame.movement.OnRefreshButton = set ? OnRefresh : null;
     }
-
+    
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
-        LoadCachedData();
-        AutomaticallySendMoveProof();
-    }
-
-    void OnRefresh()
-    {
-        _ = StellarManager.UpdateState();
-    }
-
-    void LoadCachedData()
-    {
         byte[] moveHash = cachedNetState.GetUserMove().move_hash;
         if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
         {
             selectedPos = hiddenMove.start_pos;
             targetPos = hiddenMove.target_pos;
         }
+        AutomaticallySendMoveProof();
     }
     
     void AutomaticallySendMoveProof()
     {
+        if (cachedNetState.lobbyInfo.phase != Phase.MoveProve || !cachedNetState.IsMySubphase())
+        {
+            return;
+        }
         Debug.Log("automatically send move proof");
         byte[] moveHash = cachedNetState.GetUserMove().move_hash;
-        if (CacheManager.GetHiddenMove(moveHash) is not HiddenMove move)
+        if (CacheManager.GetHiddenMove(moveHash) is not HiddenMove hiddenMove)
         {
             throw new Exception($"Could not find move with move hash {moveHash}");
         }
-        _ = StellarManager.ProveMoveRequest(cachedNetState.lobbyInfo.index, move);
+        ProveMoveReq proveMoveReq = new()
+        {
+            lobby_id = cachedNetState.lobbyInfo.index,
+            move_proof = hiddenMove,
+        };
+        InvokeOnCallContract(proveMoveReq, null);
     }
     
-    protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)
+    void OnRefresh()
     {
-        throw new NotImplementedException();
+        InvokeOnGetNetworkState();
     }
-
+    
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
     
@@ -768,26 +788,14 @@ public class MoveProvePhase: PhaseBase
 
 public class RankProvePhase: PhaseBase
 {
-    public Vector2Int? selectedPos;
-    public Vector2Int? targetPos;
+    public Vector2Int? selectedPos = null;
+    public Vector2Int? targetPos = null;
     
-    public RankProvePhase(BoardManager bm, GuiMovement guiMovement, GameNetworkState inNetworkState, TestClickInputManager clickInputManager): base(bm, inNetworkState, clickInputManager)
+    protected override void SetGui(GuiGame guiGame, bool set)
     {
-        guiMovement.OnRefreshButton += OnRefresh;
-        if (cachedNetState.GetUserMove().move_proof is HiddenMove hiddenMove)
-        {
-            selectedPos = hiddenMove.start_pos;
-            targetPos = hiddenMove.target_pos;
-        }
-
-        AutomaticallySendRankProof();
+        guiGame.movement.OnRefreshButton = set ? OnRefresh : null;
     }
-
-    void OnRefresh()
-    {
-        _ = StellarManager.UpdateState();
-    }
-
+    
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
@@ -801,6 +809,10 @@ public class RankProvePhase: PhaseBase
     
     void AutomaticallySendRankProof()
     {
+        if (cachedNetState.lobbyInfo.phase != Phase.RankProve || !cachedNetState.IsMySubphase())
+        {
+            return;
+        }
         Debug.Log("automatically send rank proof");
         List<HiddenRank> hiddenRanks = new();
         List<MerkleProof> merkleProofs = new();
@@ -813,20 +825,24 @@ public class RankProvePhase: PhaseBase
             hiddenRanks.Add(rankProof.hidden_rank);
             merkleProofs.Add(rankProof.merkle_proof);
         }
-        _ = StellarManager.ProveRankRequest(cachedNetState.lobbyInfo.index, hiddenRanks.ToArray(), merkleProofs.ToArray());
+        ProveRankReq proveRankReq = new()
+        {
+            hidden_ranks = hiddenRanks.ToArray(),
+            lobby_id = cachedNetState.lobbyInfo.index,
+            merkle_proofs = merkleProofs.ToArray(),
+        };
+        InvokeOnCallContract(proveRankReq, null);
     }
     
-    protected override void AddPhaseSpecificOperations(List<GameOperation> operations, GameNetworkState oldNetState, GameNetworkState netState)
+    void OnRefresh()
     {
-        throw new NotImplementedException();
+        InvokeOnGetNetworkState();
     }
 
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
         
     }
-
-
 }
 
 
@@ -834,6 +850,7 @@ namespace System.Runtime.CompilerServices
 {
     internal static class IsExternalInit {}
 }
+
 public abstract record GameOperation;
 
 public record SetupHoverChanged(Vector2Int oldHoveredPos, SetupCommitPhase phase) : GameOperation;
@@ -848,23 +865,13 @@ public record MoveTargetSelected(Vector2Int? oldTarget, MoveCommitPhase phase) :
 public record NetStateUpdated(PhaseBase phase) : GameOperation;
 
 
-public interface IPhaseChangeSet
-{
-    List<GameOperation> operations { get; }
-    bool phaseChanged { get; }
-
-    public NetStateUpdated NetStateUpdated();
-}
-
-public class PhaseChangeSet : IPhaseChangeSet
+public class PhaseChangeSet
 {
     public List<GameOperation> operations { get; }
-    public bool phaseChanged { get; }
 
-    public PhaseChangeSet(List<GameOperation> inOperations, bool inPhaseChanged = false)
+    public PhaseChangeSet(List<GameOperation> inOperations)
     {
         operations = inOperations;
-        phaseChanged = inPhaseChanged;
     }
 
     public PhaseChangeSet(GameOperation inOperation)
@@ -875,15 +882,16 @@ public class PhaseChangeSet : IPhaseChangeSet
         };
     }
 
-    public NetStateUpdated NetStateUpdated()
+    public NetStateUpdated GetNetStateUpdated()
     {
         foreach (GameOperation op in operations)
         {
-            if (op is NetStateUpdated netStateUpdated)
+            if (op is NetStateUpdated netStateUpdatedOp)
             {
-                return netStateUpdated;
+                return netStateUpdatedOp;
             }
         }
         return null;
     }
+
 }
