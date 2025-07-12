@@ -13,12 +13,9 @@ pub type BoardHash = BytesN<16>; // not used at the moment
 pub type MerkleHash = BytesN<16>;
 pub type Rank = u32;
 pub type PackedTile = u32;
-
 pub type PackedPawn = u32;
-pub type Pid = BytesN<2>;
-
 // endregion
-// region enums errors
+// region enums & errors
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Error {
@@ -36,7 +33,6 @@ pub enum Error {
     AlreadyExists = 7,
     LobbyNotJoinable = 8,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Phase {
     Lobby = 0,
@@ -47,7 +43,6 @@ pub enum Phase {
     Finished = 5,
     Aborted = 6,
 }
-
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Subphase {
     Host = 0, // the host must do something
@@ -55,20 +50,13 @@ pub enum Subphase {
     Both = 2, // both must do something
     None = 3, // either nothing needs to be done, or a flag where both players have done something
 }
-
 // endregion
-// region merkel structs
-
+// region structs
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerkleProof {
     pub leaf_index: u32,
     pub siblings: Vec<MerkleHash>,
 }
-
-// endregion
-
-// region structs
-
 #[contracttype]#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Pos {
     pub x: i32,
@@ -151,13 +139,6 @@ pub struct LobbyInfo {
     pub phase: Phase,
     pub subphase: Subphase,
 }
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct History {
-    pub guest_moves: Vec<HiddenMove>,
-    pub host_moves: Vec<HiddenMove>,
-    pub lobby_id: LobbyId,
-}
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CollisionDetection {
     pub has_double_collision: bool,
     pub has_o_collision: bool,
@@ -269,6 +250,7 @@ impl Contract {
         // parameter validation
         for (i, max) in req.parameters.max_ranks.iter().enumerate() {
             let index = i as u32;
+            // no throne
             if index == 0 {
                 if max == 0 {
                     parameters_invalid = true;
@@ -295,16 +277,9 @@ impl Contract {
             subphase: Subphase::None,
         };
         user.current_lobby = req.lobby_id.clone();
-        let history = History {
-            lobby_id: req.lobby_id.clone(),
-            host_moves: Vec::new(e),
-            guest_moves: Vec::new(e),
-        };
-        let history_key = DataKey::History(req.lobby_id.clone());
         // save
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&lobby_parameters_key, &req.parameters);
-        temporary.set(&history_key, &history);
         persistent.set(&user_key, &user);
         Ok(())
     }
@@ -359,17 +334,20 @@ impl Contract {
         let (lobby_info, _, lobby_parameters, lobby_info_key, _, _) = Self::get_lobby_data(e, &req.lobby_id, true, false, true)?;
         let mut lobby_info = lobby_info.unwrap();
         let lobby_parameters = lobby_parameters.unwrap();
-
+        let mut lobby_not_joinable = false;
         if lobby_info.phase != Phase::Lobby {
-            return Err(Error::LobbyNotJoinable)
+            lobby_not_joinable = true;
         }
         if lobby_info.host_address.is_empty() {
-            return Err(Error::LobbyNotJoinable)
+            lobby_not_joinable = true;
         }
         if lobby_info.host_address.contains(&address) {
-            return Err(Error::LobbyNotJoinable)
+            lobby_not_joinable = true;
         }
         if !lobby_info.guest_address.is_empty() {
+            lobby_not_joinable = true;
+        }
+        if lobby_not_joinable {
             return Err(Error::LobbyNotJoinable)
         }
         // update
@@ -419,7 +397,6 @@ impl Contract {
             return Err(Error::WrongPhase)
         }
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-
         game_state.rank_roots.set(u_index, req.rank_commitment_root);
         if next_subphase == Subphase::None {
             lobby_info.phase = Phase::MoveCommit;
@@ -428,7 +405,6 @@ impl Contract {
         else {
             lobby_info.subphase = next_subphase;
         }
-
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
         Ok(())
@@ -436,7 +412,6 @@ impl Contract {
     pub fn commit_move(e: &Env, address: Address, req: CommitMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
-
         // First, get lobby info only to check phase and player membership
         let (lobby_info, game_state, _, lobby_info_key, game_state_key, _) = Self::get_lobby_data(e, &req.lobby_id, true, true, false)?;
         let mut lobby_info = lobby_info.unwrap();
@@ -445,7 +420,6 @@ impl Contract {
         if lobby_info.phase != Phase::MoveCommit {
             return Err(Error::WrongPhase)
         }
-
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
         let mut u_move = game_state.moves.get_unchecked(u_index);
         // update
@@ -593,9 +567,7 @@ impl Contract {
             u_move.needed_rank_proofs = Vec::new(e);
             game_state.moves.set(u_index, u_move);
         }
-
         let next_subphase = Self::next_subphase(&lobby_info.subphase, &u_index)?;
-
         if next_subphase == Subphase::None {
             // Both players have acted, check if we can transition to next phase
             //Self::set_history(e, &req.lobby_id, &game_state)?;
