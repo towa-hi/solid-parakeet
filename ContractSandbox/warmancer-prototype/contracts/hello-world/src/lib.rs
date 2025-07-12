@@ -69,10 +69,10 @@ pub struct User {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Tile {           // packs into 32 bit PackedTile
-    pub passable: bool,     // bit 0
-    pub pos: Pos,           // bit 1-18, x & y range -256 to 255
-    pub setup: u32,         // bit 19-21 range 0-2 for now
-    pub setup_zone: u32,    // bit 22-24 range 0-4 for now
+    pub passable: bool,
+    pub pos: Pos,
+    pub setup: u32,         // user_index of the user that can use this for setup
+    pub setup_zone: u32,    // used by client for auto setup stuff
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Board {
@@ -817,8 +817,8 @@ impl Contract {
             return false
         }
         // cond: player is owner
-        let (_initial_pos, team) = Self::decode_pawn_id(&move_proof.pawn_id);
-        if team != *player_index {
+        let (_initial_pos, owner_index) = Self::decode_pawn_id(&move_proof.pawn_id);
+        if owner_index != *player_index {
             return false
         }
         // cond: pawn is not unmovable rank (flag or trap)
@@ -839,9 +839,9 @@ impl Contract {
                 continue
             }
             if n_pawn.pos == move_proof.target_pos {
-                // cond: pawn on target pos can't be same team
-                let other_owner = Self::decode_pawn_id(&n_pawn.pawn_id).1;
-                if other_owner == *player_index {
+                // cond: pawn on target pos can't be same owner
+                let other_owner_index = Self::decode_pawn_id(&n_pawn.pawn_id).1;
+                if other_owner_index == *player_index {
                     return false
                 }
             }
@@ -1000,8 +1000,8 @@ impl Contract {
             if !pawn.alive {
                 // normally this would be risky but all dead pawns should be revealed
                 if pawn.rank.get_unchecked(0) == 0 {
-                    let (_, team) = Self::decode_pawn_id(&pawn.pawn_id);
-                    if team == 0 {
+                    let (_, owner_index) = Self::decode_pawn_id(&pawn.pawn_id);
+                    if owner_index == 0 {
                         h_flag_alive = false;
                     }
                     else {
@@ -1110,21 +1110,21 @@ impl Contract {
     }
     // endregion
     // region compression
-    pub(crate) fn encode_pawn_id(pos: &Pos, team: &u32) -> u32 {
+    pub(crate) fn encode_pawn_id(pos: &Pos, user_index: &u32) -> u32 {
         let mut id: u32 = 0;
-        // New 9-bit encoding: bit 0=team, bits 1-5=x, bits 6-9=y
-        id |= *team & 1;                           // Bit 0: team
+        // New 9-bit encoding: bit 0=user_index, bits 1-5=x, bits 6-9=y
+        id |= *user_index & 1;                           // Bit 0: user_index
         id |= ((pos.x as u32) & 0x1F) << 1;       // Bits 1-5: x coordinate (5 bits)
         id |= ((pos.y as u32) & 0xF) << 6;        // Bits 6-9: y coordinate (4 bits)
         id
     }
     pub(crate) fn decode_pawn_id(pawn_id: &u32) -> (Pos, u32) {
-        // New 9-bit encoding: bit 0=team, bits 1-5=x, bits 6-9=y
-        let team = pawn_id & 1;                      // Bit 0: team
+        // New 9-bit encoding: bit 0=user_index, bits 1-5=x, bits 6-9=y
+        let user_index = pawn_id & 1;                      // Bit 0: user_index
         let x = ((pawn_id >> 1) & 0x1F_u32) as i32;     // Bits 1-5: x coordinate (5 bits)
         let y = ((pawn_id >> 6) & 0xF_u32) as i32;      // Bits 6-9: y coordinate (4 bits)
         let pos = Pos { x, y };
-        (pos, team)
+        (pos, user_index)
     }
     pub(crate) fn unpack_tile(packed: PackedTile) -> Tile {
         // Extract passable (bit 0)
