@@ -76,7 +76,7 @@ public class StellarDotnet
     
     // contract address and derived properties
     public string contractAddress;
-    const int maxAttempts = 10;
+    const int maxAttempts = 30;
     
     Uri networkUri;
     // ReSharper disable once InconsistentNaming
@@ -248,14 +248,14 @@ public class StellarDotnet
             tracker?.EndOperation();
             return (simResult, sendResult, null);
         }
-        GetTransactionResult getResult = await WaitForGetTransactionResult(sendResult.Hash, 1000, tracker);
+        GetTransactionResult getResult = await WaitForGetTransactionResult(sendResult.Hash, 200, tracker);
         tracker?.EndOperation();
         return (simResult, sendResult, getResult);
     }
     
     public async Task<(Transaction, SimulateTransactionResult)> SimulateContractFunction(string functionName, IScvMapCompatable[] args, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"SimulateContractFunction");
+        tracker?.StartOperation($"SimulateContractFunction {functionName}");
         AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
         List<SCVal> argsList = new() { userAddressSCVal };
         foreach (IScvMapCompatable arg in args)
@@ -520,7 +520,7 @@ public class StellarDotnet
         while (attempts < maxAttempts)
         {
             attempts++;
-            
+            //delayMS *= 2;
             tracker?.StartOperation($"GetTransactionAsync (attempt {attempts})");
             GetTransactionResult completion = await GetTransactionAsync(new GetTransactionParams()
             {

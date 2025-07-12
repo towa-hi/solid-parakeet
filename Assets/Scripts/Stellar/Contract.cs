@@ -78,7 +78,7 @@ namespace Contract
                 case LobbyId lobbyId:
                     return new SCVal.ScvU32() { u32 = new uint32(lobbyId.Value) };
                 case PawnState pawnState:
-                    return new SCVal.ScvU64() { u64 = new uint64(pawnState) };
+                    return new SCVal.ScvU32() { u32 = new uint32(pawnState) };
                 case Array inputArray:
                     SCVal[] scValArray = new SCVal[inputArray.Length];
                     for (int i = 0; i < inputArray.Length; i++)
@@ -175,9 +175,9 @@ namespace Contract
                     break;
                     
                 case var _ when targetType == typeof(PawnId):
-                    if (scVal is SCVal.ScvU32 pawnU32Val)
+                    if (scVal is SCVal.ScvU32 pawnIdU32Val)
                     {
-                        return new PawnId(pawnU32Val.u32.InnerValue);
+                        return new PawnId(pawnIdU32Val.u32.InnerValue);
                     }
                     break;
                     
@@ -194,9 +194,9 @@ namespace Contract
                     }
                     break;
                 case var _ when targetType == typeof(PawnState):
-                    if (scVal is SCVal.ScvU64 pawnU64Val)
+                    if (scVal is SCVal.ScvU32 pawnU32Val)
                     {
-                        return (PawnState)pawnU64Val.u64.InnerValue;
+                        return (PawnState)pawnU32Val.u32.InnerValue;
                     }
                     break;
                 case var _ when targetType == typeof(byte[]):
@@ -450,13 +450,12 @@ namespace Contract
 
         public (Vector2Int, Team) Decode()
         {
+            // New 9-bit encoding: bit 0=team, bits 1-5=x, bits 6-9=y
             bool isHost = (Value & 1) == 0;
-            uint baseId = Value >> 1;
-            Vector2Int startPos = new()
-            {
-                x = (int)baseId / 101,
-                y = (int)baseId % 101,
-            };
+            int x = (int)((Value >> 1) & 0x1F); // Extract bits 1-5 (5 bits)
+            int y = (int)((Value >> 6) & 0xF);  // Extract bits 6-9 (4 bits)
+            
+            Vector2Int startPos = new Vector2Int(x, y);
             Team t = isHost ? Team.RED : Team.BLUE;
             return (startPos, t);
         }
@@ -798,47 +797,48 @@ namespace Contract
         }
         
 
-        // Implicit conversion to ulong (packing) - matches Rust contract bitpacking
-        public static implicit operator ulong(PawnState pawn)
+        // Implicit conversion to uint (packing) - matches Rust contract bitpacking
+        public static implicit operator uint(PawnState pawn)
         {
-            ulong packed = 0;
+            uint packed = 0;
             
-            // Pack pawn_id (bits 0-31)
-            packed |= (ulong)pawn.pawn_id.Value;
+            // Pack pawn_id (9 bits at head): bit 0=team, bits 1-5=x, bits 6-9=y
+            uint pawnIdPacked = pawn.pawn_id.Value & 0x1FFu;
+            packed |= pawnIdPacked << 0;
             
-            // Pack flags (bits 32-34)
-            if (pawn.alive) packed |= 1UL << 32;
-            if (pawn.moved) packed |= 1UL << 33;
-            if (pawn.moved_scout) packed |= 1UL << 34;
-            
-            // Pack coordinates with offset to handle negative values (9 bits each)
-            packed |= ((ulong)(pawn.pos.x + 256) & 0x1FF) << 35;
-            packed |= ((ulong)(pawn.pos.y + 256) & 0x1FF) << 44;
-            
-            // Pack rank (4 bits) - use 12 for null/unknown rank
+            // Pack flags (bits 9-11)
+            if (pawn.alive) packed |= 1u << 9;
+            if (pawn.moved) packed |= 1u << 10;
+            if (pawn.moved_scout) packed |= 1u << 11;
+
+            // Pack coordinates (5 bits each, range 0-15)
+            packed |= ((uint)pawn.pos.x & 0x1Fu) << 12;
+            packed |= ((uint)pawn.pos.y & 0x1Fu) << 17;
+
+            // Pack rank (4 bits)
             uint rankValue = pawn.rank.HasValue ? (uint)pawn.rank.Value : 12u;
-            packed |= ((ulong)rankValue & 0xF) << 53;
+            packed |= (rankValue & 0xFu) << 22;
             
             return packed;
         }
 
-        // Implicit conversion from ulong (unpacking) - matches Rust contract bitpacking
-        public static implicit operator PawnState(ulong packed)
+        // Implicit conversion from uint (unpacking) - matches Rust contract bitpacking
+        public static implicit operator PawnState(uint packed)
         {
-            // Extract pawn_id (bits 0-31)
-            uint pawnId = (uint)(packed & 0xFFFFFFFF);
+            // Extract pawn_id (9 bits at head)
+            uint pawnId = packed & 0x1FFu;
             
             // Extract flags
-            bool alive = ((packed >> 32) & 1) != 0;
-            bool moved = ((packed >> 33) & 1) != 0;
-            bool movedScout = ((packed >> 34) & 1) != 0;
-            
-            // Extract coordinates and convert back to signed
-            int x = (int)((packed >> 35) & 0x1FF) - 256;
-            int y = (int)((packed >> 44) & 0x1FF) - 256;
-            
+            bool alive = ((packed >> 9) & 1) != 0;
+            bool moved = ((packed >> 10) & 1) != 0;
+            bool movedScout = ((packed >> 11) & 1) != 0;
+
+            // Extract coordinates (5 bits each, range 0-15)
+            int x = (int)((packed >> 12) & 0x1Fu);
+            int y = (int)((packed >> 17) & 0x1Fu);
+
             // Extract rank
-            uint rankVal = (uint)((packed >> 53) & 0xF);
+            uint rankVal = (packed >> 22) & 0xFu;
             Rank? rank = rankVal == 12 ? null : (Rank?)rankVal;
             
             return new PawnState
@@ -854,7 +854,7 @@ namespace Contract
 
         public bool Equals(PawnState other)
         {
-            return (ulong)this == (ulong)other;
+            return (uint)this == (uint)other;
         }
 
         public override bool Equals(object obj)
@@ -864,7 +864,7 @@ namespace Contract
 
         public override int GetHashCode()
         {
-            return ((ulong)this).GetHashCode();
+            return ((uint)this).GetHashCode();
         }
 
         public static bool operator ==(PawnState left, PawnState right)

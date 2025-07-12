@@ -1989,6 +1989,22 @@ public struct GameNetworkState
         return movablePositions;
     }
 
+    public static bool Compare(GameNetworkState a, GameNetworkState b)
+    {
+        string aLobbyInfo = SCValXdr.EncodeToBase64(a.lobbyInfo.ToScvMap());
+        string bLobbyInfo = SCValXdr.EncodeToBase64(b.lobbyInfo.ToScvMap());
+        if (aLobbyInfo != bLobbyInfo)
+        {
+            return false;
+        }
+        string aGameState = SCValXdr.EncodeToBase64(a.gameState.ToScvMap());
+        string bGameState = SCValXdr.EncodeToBase64(b.gameState.ToScvMap());
+        if (aGameState != bGameState)
+        {
+            return false;
+        }
+        return true;
+    }
 }
 
 public struct NetworkState

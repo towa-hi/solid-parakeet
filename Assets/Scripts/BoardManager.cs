@@ -39,6 +39,9 @@ public class BoardManager : MonoBehaviour
     Task<int> currentContractTask;
     PhaseBase currentPhase;
     
+    bool polling;
+    Coroutine pollingCoroutine;
+    
     public void StartBoardManager()
     {
         StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
@@ -90,30 +93,57 @@ public class BoardManager : MonoBehaviour
     
     void OnNetworkStateUpdated()
     {
+        
         if (!initialized)
         {
             return;
         }
         Debug.Log("TestBoardManager::OnNetworkStateUpdated");
         GameNetworkState netState = new(StellarManager.networkState);
-        PhaseBase nextPhase = netState.lobbyInfo.phase switch
+        bool shouldPoll = !netState.IsMySubphase();
+        if (currentPhase != null)
         {
-            Phase.SetupCommit => new SetupCommitPhase(),
-            Phase.MoveCommit => new MoveCommitPhase(),
-            Phase.MoveProve => new MoveProvePhase(),
-            Phase.RankProve => new RankProvePhase(),
-            Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),
-            _ => throw new ArgumentOutOfRangeException(),
-        };
-        // set phase
-        currentPhase?.ExitState(clickInputManager, guiGame);
-        currentPhase = nextPhase;
-        currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
+            if (GameNetworkState.Compare(netState, currentPhase.cachedNetState))
+            {
+                Debug.Log("OnNetworkStateUpdated skipped this nothingburger");
+                
+                PollForPhaseChange(shouldPoll);
+                return;
+            }
+        }
+        // Reset task references since we got the update
+        updateNetworkStateTask = null;
+        currentContractTask = null;
+
+        // Check if phase actually changed
+        Phase newPhase = netState.lobbyInfo.phase;
+        bool phaseChanged = currentPhase == null || 
+                          (currentPhase.cachedNetState.lobbyInfo.phase != newPhase) ||
+                          (currentPhase.cachedNetState.lobbyInfo.subphase != netState.lobbyInfo.subphase);
+        
+        if (phaseChanged)
+        {
+            PhaseBase nextPhase = newPhase switch
+            {
+                Phase.SetupCommit => new SetupCommitPhase(),
+                Phase.MoveCommit => new MoveCommitPhase(),
+                Phase.MoveProve => new MoveProvePhase(),
+                Phase.RankProve => new RankProvePhase(),
+                Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),
+                _ => throw new ArgumentOutOfRangeException(),
+            };
+            // set phase
+            currentPhase?.ExitState(clickInputManager, guiGame);
+            currentPhase = nextPhase;
+            currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
+        }
+        
+        // Always update the network state
         currentPhase.UpdateNetworkState(netState);
-        // directly invoke this
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
-        bool startPolling = !netState.IsMySubphase();
-        PollForPhaseChange(startPolling);
+        
+        // Manage polling based on whose turn it is
+        PollForPhaseChange(shouldPoll);
     }
     
     // passed to currentPhase
@@ -149,23 +179,29 @@ public class BoardManager : MonoBehaviour
     // passed to currentPhase
     bool GetNetworkState()
     {
-        if (updateNetworkStateTask != null)
+        if (updateNetworkStateTask != null && !updateNetworkStateTask.IsCompleted)
         {
-            Debug.LogWarning("GetNetworkState already has a task");
+            Debug.LogWarning("GetNetworkState already has a task in progress");
             return false;
         }
+        // Stop polling while network request is in progress
+        PollForPhaseChange(false);
         updateNetworkStateTask = StellarManager.UpdateState();
+        // Don't reset here - let OnNetworkStateUpdated handle cleanup
         return true;
     }
     
     // passed to currentPhase
     bool CallContract(IReq req, [CanBeNull] IReq req2 = null)
     {
-        if (currentContractTask != null)
+        if (currentContractTask != null && !currentContractTask.IsCompleted)
         {
-            Debug.LogWarning("CallContract already has a task");
+            Debug.LogWarning("CallContract already has a task in progress");
             return false;
         }
+        // Stop polling while contract call is in progress
+        PollForPhaseChange(false);
+        
         Task<int> contractTask = null;
         switch (req)
         {
@@ -195,8 +231,6 @@ public class BoardManager : MonoBehaviour
         return true;
     }
 
-    bool polling;
-    Coroutine pollingCoroutine;
     
     public void PollForPhaseChange(bool poll)
     {
@@ -224,13 +258,11 @@ public class BoardManager : MonoBehaviour
     {
         while (polling)
         {
-            yield return new WaitForSeconds(2f);
+            yield return new WaitForSeconds(0.2f);
             
             if (polling) // Check again in case it was stopped during the wait
             {
-                Debug.Log($"[BoardManager] Polling for phase change... Current phase: {currentPhase?.cachedNetState.lobbyInfo.phase} {currentPhase?.cachedNetState.lobbyInfo.subphase}");
-                
-                // AIDEV-TODO: Add actual phase change detection logic here
+                GetNetworkState();
             }
         }
         

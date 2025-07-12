@@ -443,3 +443,136 @@ pub fn validate_rank_prove_transition(
 
     (snapshot.lobby_info.phase.clone(), snapshot.lobby_info.subphase.clone(), remaining_host_proofs, remaining_guest_proofs)
 }
+
+pub(crate) fn validate_packed_tile(packed: &PackedTile) -> bool {
+    // Check if reserved bits (25-31) are zero
+    if (*packed >> 25) != 0 {
+        return false;
+    }
+
+    // Extract and validate setup field (bits 19-21)
+    let setup = (*packed >> 19) & 0x7;
+    if setup > 2 {
+        return false;
+    }
+
+    // Extract and validate setup_zone field (bits 22-24)
+    let setup_zone = (*packed >> 22) & 0x7;
+    if setup_zone > 4 {
+        return false;
+    }
+
+    // Extract coordinates and check reasonable bounds
+    let x = ((*packed >> 1) & 0x1FF) as i32;
+    let y = ((*packed >> 10) & 0x1FF) as i32;
+
+    // Check if coordinates are within reasonable range (-256 to 255)
+    if x > 255 || y > 255 {
+        return false;
+    }
+
+    true
+}
+
+pub(crate) fn validate_tile_consistency(tile: &Tile) -> bool {
+    // Validate setup field
+    if tile.setup > 2 {
+        return false;
+    }
+
+    // Validate setup_zone field
+    if tile.setup_zone > 4 {
+        return false;
+    }
+
+    // Validate that impassable tiles are only setup type 2
+    if !tile.passable && tile.setup != 2 {
+        return false;
+    }
+
+    // Validate coordinates are within signed 9-bit range (-256 to 255)
+    if tile.pos.x < -256 || tile.pos.x > 255 || tile.pos.y < -256 || tile.pos.y > 255 {
+        return false;
+    }
+
+    true
+}
+
+pub fn test_tile_packing_roundtrip(tile: &Tile) -> bool {
+    if !validate_tile_consistency(tile) {
+        return false;
+    }
+
+    let packed = pack_tile(tile);
+    if !validate_packed_tile(&packed) {
+        return false;
+    }
+
+    let unpacked = Contract::unpack_tile(packed);
+    *tile == unpacked
+}
+
+
+pub fn validate_packed_pawn(packed: PackedPawn) -> bool {
+    // Check if reserved bits (26-63) are zero
+    if (packed >> 26) != 0 {
+        return false;
+    }
+
+    // Extract and validate pawn_id field (bits 0-8)
+    let pawn_id = (packed & 0x1FF) as u32;
+    // Pawn ID should be valid (we don't validate specific format here)
+
+    // Extract and validate rank field (bits 22-25)
+    let rank = ((packed >> 22) & 0xF) as u32;
+    if rank > 12 {
+        return false;
+    }
+
+    // Extract coordinates and check reasonable bounds (5 bits each, range 0-15)
+    let x = ((packed >> 12) & 0x1F) as i32;
+    let y = ((packed >> 17) & 0x1F) as i32;
+
+    // Check if coordinates are within 5-bit range (0-15)
+    if x < 0 || x > 15 || y < 0 || y > 15 {
+        return false;
+    }
+
+    true
+}
+
+pub fn validate_pawn_consistency(pawn: &PawnState) -> bool {
+    // Validate rank field
+    if !pawn.rank.is_empty() {
+        let rank = pawn.rank.get(0).unwrap();
+        if rank > 11 {
+            return false;
+        }
+    }
+
+    // Validate coordinates are within 5-bit range (0-15)
+    if pawn.pos.x < 0 || pawn.pos.x > 15 || pawn.pos.y < 0 || pawn.pos.y > 15 {
+        return false;
+    }
+
+    // Validate that dead pawns haven't moved scout
+    if !pawn.alive && pawn.moved_scout {
+        return false;
+    }
+
+    true
+}
+
+pub fn test_pawn_packing_roundtrip(e: &Env, pawn: &PawnState) -> bool {
+    if !validate_pawn_consistency(pawn) {
+        return false;
+    }
+
+    let packed = Contract::pack_pawn(pawn.clone());
+    if !validate_packed_pawn(packed) {
+        return false;
+    }
+
+    let unpacked = Contract::unpack_pawn(e, packed);
+    *pawn == unpacked
+}

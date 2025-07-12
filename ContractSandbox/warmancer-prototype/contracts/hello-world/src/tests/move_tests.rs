@@ -16,10 +16,10 @@ fn test_commit_move_success_both_players() {
     let (host_address, guest_address) = create_and_advance_to_move_commit(&setup, lobby_id);
 
     // Create test move hashes for both players
-    let host_pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 0 }, &0);
+    let host_pawn_id = Contract::encode_pawn_id( &Pos { x: 0, y: 0 }, &0);
     let host_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
 
-    let guest_pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 3 }, &1);
+    let guest_pawn_id = Contract::encode_pawn_id( &Pos { x: 0, y: 3 }, &1);
     let guest_move_hash = create_test_move_hash(&setup.env, guest_pawn_id, Pos { x: 0, y: 3 }, Pos { x: 0, y: 2 }, 54321);
 
     let host_commit_req = CommitMoveReq {
@@ -90,7 +90,7 @@ fn test_commit_move_validation_errors() {
     assert_eq!(result.unwrap_err().unwrap(), Error::WrongPhase);
 
     // Test: Wrong subphase (commit one move, then try to commit another)
-    let host_pawn_id = Contract::encode_pawn_id(&Pos { x: 0, y: 0 }, &0);
+    let host_pawn_id = Contract::encode_pawn_id( &Pos { x: 0, y: 0 }, &0);
     let host_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
 
     let host_commit_req = CommitMoveReq {

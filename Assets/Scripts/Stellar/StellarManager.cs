@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CAUO7IT5XEI5QWBIWHGCHCGCIBUT7QCRCFGZ6ENPVIU6UI47RJ7RGQKK";
+    public static string testContract = "CDTZLSCKJFDHSHCKVX3HVRRQTYJB7K3KIUTK6RAVRP5EQMV4ARM5EM4X";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -30,9 +30,7 @@ public static class StellarManager
     public static NetworkState networkState;
 
     static TaskInfo currentTask;
-
     
-    static bool pollNetworkState = false;
     
     public static void Initialize()
     {
@@ -40,17 +38,7 @@ public static class StellarManager
         networkState = new NetworkState();
         stellar = new StellarDotnet(testHostSneed, testContract);
     }
-
-
-    public static void PollLobbyInfo(bool enable)
-    {
-        
-    }
-
-    static void GetEvents()
-    {
-        
-    }
+    
     public static async Task<bool> UpdateState()
     {
         TimingTracker tracker = new TimingTracker();
@@ -206,6 +194,9 @@ public static class StellarManager
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"ProveMoveRequest");
+        bool sendRankProofToo = false;
+        GameNetworkState gameNetworkState = new GameNetworkState(networkState);
+
         // NOTE: check simulate collision just to see if we should batch in prove_rank or not
         TaskInfo reqLobbyInfoTask = SetCurrentTask("Simulate simulate_collisions");
         (_, SimulateTransactionResult collisionResult) = await stellar.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] {proveMoveReq}, tracker);
@@ -214,27 +205,13 @@ public static class StellarManager
         {
             throw new Exception($"collisionResult failed for some reason {collisionResult.Error}");
         }
-        bool sendRankProofToo = false;
         SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
         UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
-        
-        List<HiddenRank> hiddenRanks = new();
-        List<MerkleProof> merkleProofs = new();
-        foreach (PawnId pawnId in move.needed_rank_proofs)
+        // when simulate_collisions is called too early, the move.needed_rank_proofs is deliberately empty
+        if (!move.move_hash.Equals(gameNetworkState.GetUserMove().move_hash))
         {
-            if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
-            {
-                throw new Exception($"cachemanager could not find pawn {pawnId}");
-            }
-            hiddenRanks.Add(cachedRankProof.hidden_rank);
-            merkleProofs.Add(cachedRankProof.merkle_proof);
+            Debug.LogWarning("ProveMoveRequest simulate_collisions returned a dummy object because it was invoked too soon (when subphase is BOTH)");
         }
-        ProveRankReq proveRankReq = new()
-        {
-            hidden_ranks = hiddenRanks.ToArray(),
-            lobby_id = proveMoveReq.lobby_id,
-            merkle_proofs = merkleProofs.ToArray(),
-        };
         if (move.needed_rank_proofs.Length > 0)
         {
             sendRankProofToo = true;
@@ -242,6 +219,23 @@ public static class StellarManager
         (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
         if (sendRankProofToo)
         {
+            List<HiddenRank> hiddenRanks = new();
+            List<MerkleProof> merkleProofs = new();
+            foreach (PawnId pawnId in move.needed_rank_proofs)
+            {
+                if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
+                {
+                    throw new Exception($"cachemanager could not find pawn {pawnId}");
+                }
+                hiddenRanks.Add(cachedRankProof.hidden_rank);
+                merkleProofs.Add(cachedRankProof.merkle_proof);
+            }
+            ProveRankReq proveRankReq = new()
+            {
+                hidden_ranks = hiddenRanks.ToArray(),
+                lobby_id = proveMoveReq.lobby_id,
+                merkle_proofs = merkleProofs.ToArray(),
+            };
             TaskInfo task = SetCurrentTask("Invoke prove_move_and_prove_rank");
             results = await stellar.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] {proveMoveReq, proveRankReq}, tracker);
             EndTask(task);

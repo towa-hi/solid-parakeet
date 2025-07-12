@@ -541,7 +541,7 @@ pub fn create_default_board(env: &Env) -> Board {
     }
     let mut packed_tiles = Vec::new(env);
     for tile in tiles.iter() {
-        packed_tiles.push_back(Contract::pack_tile(&tile));
+        packed_tiles.push_back(pack_tile(&tile));
     }
     Board {
         hex: false,
@@ -576,7 +576,7 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
     ]);
     let mut packed_tiles = Vec::new(env);
     for tile in tiles.iter() {
-        packed_tiles.push_back(Contract::pack_tile(&tile));
+        packed_tiles.push_back(pack_tile(&tile));
     }
     let board = Board {
         name: String::from_str(env, "Invalid Board"),
@@ -1326,7 +1326,7 @@ pub fn create_user_board_parameters(env: &Env) -> LobbyParameters {
     tiles.push_back(Tile { passable: false, pos: Pos { x: 9, y: 9 }, setup:2, setup_zone: 1 });
     let mut packed_tiles = Vec::new(env);
     for tile in tiles.iter() {
-        packed_tiles.push_back(Contract::pack_tile(&tile));
+        packed_tiles.push_back(pack_tile(&tile));
     }
     let board = Board {
         hex: true,
@@ -1483,4 +1483,26 @@ pub fn build_merkle_tree(env: &Env, leaves: Vec<BytesN<16>>) -> (BytesN<16>, Tre
     
     std::println!("=== build_merkle_tree END ===");
     (root, tree)
+}
+
+// Tile Packing Functions
+pub fn pack_tile(tile: &Tile) -> PackedTile {
+    let mut packed: u32 = 0;
+    // Pack passable (1 bit) - bit 0
+    if tile.passable {
+        packed |= 1;
+    }
+    // Pack x coordinate (9 bits) - bits 1-9
+    let x_val = (tile.pos.x as u32) & 0x1FF; // Mask to 9 bits
+    packed |= x_val << 1;
+    // Pack y coordinate (9 bits) - bits 10-18
+    let y_val = (tile.pos.y as u32) & 0x1FF; // Mask to 9 bits
+    packed |= y_val << 10;
+    // Pack setup (3 bits) - bits 19-21
+    let setup_val = tile.setup & 0x7; // Mask to 3 bits
+    packed |= setup_val << 19;
+    // Pack setup_zone (3 bits) - bits 22-24
+    let setup_zone_val = tile.setup_zone & 0x7; // Mask to 3 bits
+    packed |= setup_zone_val << 22;
+    packed
 }
