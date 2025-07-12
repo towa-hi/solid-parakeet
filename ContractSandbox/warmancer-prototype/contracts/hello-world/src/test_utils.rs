@@ -620,7 +620,7 @@ pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
 
 // region setup generation
 
-pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Setup, Vec<HiddenRank>) {
+pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Vec<HiddenRank>) {
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()
@@ -660,38 +660,6 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
             }
         }
     }
-    //
-    // // Sort pawns by position to ensure consistent placement
-    // // For team 0 (host): y=0,1,2,3 where y=0 is back row
-    // // For team 1 (guest): y=9,8,7,6 where y=9 is back row
-    // let mut pawn_vec: std::vec::Vec<PawnState> = std::vec::Vec::new();
-    // for pawn in team_pawns.iter() {
-    //     pawn_vec.push(pawn.clone());
-    // }
-    //
-    // if team == 0 {
-    //     // Host team: sort by y first (ascending), then by x
-    //     pawn_vec.sort_by(|a, b| {
-    //         match a.pos.y.cmp(&b.pos.y) {
-    //             std::cmp::Ordering::Equal => a.pos.x.cmp(&b.pos.x),
-    //             other => other,
-    //         }
-    //     });
-    // } else {
-    //     // Guest team: sort by y first (descending), then by x
-    //     pawn_vec.sort_by(|a, b| {
-    //         match b.pos.y.cmp(&a.pos.y) {
-    //             std::cmp::Ordering::Equal => a.pos.x.cmp(&b.pos.x),
-    //             other => other,
-    //         }
-    //     });
-    // }
-    //
-    // std::println!("create_setup_commits_from_game_state: Sorted {} pawns for team {}", pawn_vec.len(), team);
-    // for (i, pawn) in pawn_vec.iter().enumerate() {
-    //     std::println!("  Index {}: pawn_id={} at ({},{})", i, pawn.pawn_id, pawn.pos.x, pawn.pos.y);
-    // }
-    
     let salt = team as u64;
     let mut hidden_ranks = Vec::new(env);
     
@@ -731,15 +699,10 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
         };
         setup_commits.push_back(commit);
     }
-    let setup_proof = Setup {
-        setup_commits: setup_commits.clone(),
-        salt,
-    };
-    
-    (setup_proof, hidden_ranks)
+    (setup_commits, hidden_ranks)
 }
 
-pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Setup, Vec<HiddenRank>), (Setup, Vec<HiddenRank>)) {
+pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Vec<SetupCommit>, Vec<HiddenRank>), (Vec<SetupCommit>, Vec<HiddenRank>)) {
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()
@@ -815,12 +778,6 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Setu
         };
         host_setup_commits.push_back(commit);
     }
-    
-    let host_setup = Setup {
-        setup_commits: host_setup_commits.clone(),
-        salt: host_salt,
-    };
-    
     // Process guest team (team 1)
     let mut guest_setup_commits = Vec::new(env);
     let mut guest_hidden_ranks = Vec::new(env);
@@ -852,13 +809,7 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Setu
         };
         guest_setup_commits.push_back(commit);
     }
-    
-    let guest_setup = Setup {
-        setup_commits: guest_setup_commits.clone(),
-        salt: guest_salt,
-    };
-    
-    ((host_setup, host_hidden_ranks), (guest_setup, guest_hidden_ranks))
+    ((host_setup_commits, host_hidden_ranks), (guest_setup_commits, guest_hidden_ranks))
 }
 
 //
@@ -1185,9 +1136,9 @@ pub fn extract_full_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) ->
     })
 }
 
-pub fn get_merkel(e: &Env, setup: &Setup, hidden_ranks: &Vec<HiddenRank>) -> (BytesN<16>, Vec<MerkleProof>) {
+pub fn get_merkel(e: &Env, setup_commits: &Vec<SetupCommit>, hidden_ranks: &Vec<HiddenRank>) -> (BytesN<16>, Vec<MerkleProof>) {
     let mut leaves: Vec<HiddenRankHash> = Vec::new(e);
-    for commit in setup.setup_commits.iter() {
+    for commit in setup_commits.iter() {
         leaves.push_back(commit.hidden_rank_hash.clone())
     }
     let mut proofs: Vec<MerkleProof> = Vec::new(e);

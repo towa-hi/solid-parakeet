@@ -134,9 +134,6 @@ fn test_full_stratego_game() {
                                 lobby_id,
                                 merkle_proofs: guest_merkle_proofs_temp,
                             };
-                            std::println!("guest_prove_rank_req: {:?}", guest_prove_rank_req.clone());
-                            let test_result = setup.client.prove_rank_test(&guest_address, &guest_prove_rank_req.clone());
-                            assert!(test_result);
                             setup.client.prove_rank(&guest_address, &guest_prove_rank_req);
                             let after_rank_prove_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
                             //validate_rank_prove_transition(&after_rank_prove_snapshot, host_rank_proof_req, guest_rank_proof_req)
