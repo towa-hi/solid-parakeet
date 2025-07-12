@@ -63,7 +63,7 @@ fn test_commit_move_validation_errors() {
     };
     let result = setup.client.try_commit_move(&user_address, &commit_req);
     assert!(result.is_err(), "Should fail: lobby not found");
-    assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
+    assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
 
     // Create a lobby and advance to move commit phase for further tests
     let (lobby_id, host_address, _guest_address, _host_ranks, _guest_ranks, _host_merkle_proofs, _guest_merkle_proofs) = setup_lobby_for_commit_move(&setup, 100);
@@ -76,7 +76,7 @@ fn test_commit_move_validation_errors() {
     };
     let result = setup.client.try_commit_move(&outsider_address, &commit_req);
     assert!(result.is_err(), "Should fail: not in lobby");
-    assert_eq!(result.unwrap_err().unwrap(), Error::NotInLobby);
+    assert_eq!(result.unwrap_err().unwrap(), Error::Unauthorized);
 
     // Test: Wrong phase (create a new lobby in wrong phase)
     let (wrong_phase_lobby_id, wrong_phase_host, _) = setup_lobby_for_commit_setup(&setup, 200);

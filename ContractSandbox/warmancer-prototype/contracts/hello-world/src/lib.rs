@@ -22,49 +22,19 @@ pub type Pid = BytesN<2>;
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Error {
-    UserNotFound = 1,
-    InvalidUsername = 2,
-    AlreadyInitialized = 3,
-    InvalidAddress = 4,
-    InvalidExpirationLedger = 5,
-    InvalidArgs = 6,
-    InviteNotFound = 7,
-    LobbyNotFound = 8,
-    WrongPhase = 9,
-    HostAlreadyInLobby = 10,
-    GuestAlreadyInLobby = 11,
-    LobbyNotJoinable = 12,
-    TurnAlreadyInitialized = 13,
-    TurnHashConflict = 14,
-    LobbyAlreadyExists = 15,
-    LobbyHasNoHost = 16,
-    JoinerIsHost = 17,
-    SetupStateNotFound = 18,
-    GetPlayerIndexError = 19,
-    AlreadyCommittedSetup = 20,
-    NotInLobby = 21,
-    NoSetupCommitment = 22,
-    NoOpponentSetupCommitment = 23,
-    SetupHashFail = 24,
-    GameStateNotFound = 25,
-    GameNotInProgress = 26,
-    AlreadySubmittedSetup = 27,
-    InvalidContractState = 28,
-    WrongInstruction = 29,
-    HiddenMoveHashFail = 30,
-    PawnNotTeam = 31,
-    PawnNotFound = 32,
-    RedMoveInvalid = 33,
-    BlueMoveInvalid = 34,
-    BothMovesInvalid = 35,
-    HiddenRankHashFail = 36,
-    PawnCommitNotFound = 37,
-    WrongPawnId = 38,
-    InvalidPawnId = 39,
-    InvalidBoard = 40,
-    WrongSubphase = 41,
-    NoRankProofsNeeded = 42,
-    ParametersInvalid = 43,
+    // Category 1: Malformed request - client should fix and retry
+    InvalidArgs = 1,
+    HashFail = 2,
+    // Category 2: Timing/state - client should check state
+    WrongPhase = 3,
+    WrongSubphase = 4,
+    // Category 3: Resource not found - permanent failure
+    NotFound = 5,
+    // Category 4: Authorization - user not allowed
+    Unauthorized = 6,
+    // Category 5: Action conflicts
+    AlreadyExists = 7,
+    LobbyNotJoinable = 8,
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -215,13 +185,6 @@ pub struct CommitSetupReq {
 }
 
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CMR {
-    pub id: LobbyId,
-    pub rank_commitment_root: MerkleHash,
-    pub setup: BytesN<128>,
-}
-
-#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitMoveReq {
     pub lobby_id: LobbyId,
     pub move_hash: HiddenMoveHash,
@@ -272,16 +235,6 @@ pub struct CollisionDetection {
 #[contractimpl]
 impl Contract {
 
-    pub fn test_easy(_e: &Env, address: Address) -> Result<(), Error> {
-        address.require_auth();
-        Ok(())
-    }
-
-    pub fn test_function(_e: &Env, address: Address, _req: MakeLobbyReq) -> Result<(), Error> {
-        address.require_auth();
-        Ok(())
-    }
-
     pub fn make_lobby(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -295,7 +248,7 @@ impl Contract {
         });
         let lobby_info_key = DataKey::LobbyInfo(req.lobby_id.clone());
         if temporary.has(&lobby_info_key) {
-            return Err(Error::LobbyAlreadyExists)
+            return Err(Error::AlreadyExists)
         }
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id.clone());
         // light validation on boards just to make sure they make sense
@@ -328,7 +281,7 @@ impl Contract {
             }
         }
         if board_invalid {
-            return Err(Error::InvalidBoard)
+            return Err(Error::InvalidArgs)
         }
         let mut parameters_invalid = false;
         // parameter validation
@@ -349,7 +302,7 @@ impl Contract {
             }
         }
         if parameters_invalid {
-            return Err(Error::ParametersInvalid)
+            return Err(Error::InvalidArgs)
         }
         // update
         let lobby_info = LobbyInfo {
@@ -381,10 +334,10 @@ impl Contract {
         let user_key = DataKey::User(address.clone());
         let mut user: User = match persistent.get(&user_key) {
             Some(user) => user,
-            None => return Err(Error::UserNotFound),
+            None => return Err(Error::NotFound),
         };
         if user.current_lobby == 0 {
-            return Err(Error::LobbyNotFound)
+            return Err(Error::NotFound)
         }
         let (lobby_info, _, _, lobby_info_key, _, _) = Self::get_lobby_data(e, &user.current_lobby, true, false, false)?;
         let mut lobby_info = lobby_info.unwrap();
@@ -421,7 +374,7 @@ impl Contract {
         });
         let old_lobby_id = user.current_lobby;
         if temporary.has(&DataKey::LobbyInfo(old_lobby_id.clone())) {
-            return Err(Error::GuestAlreadyInLobby)
+            return Err(Error::Unauthorized)
         }
         let (lobby_info, _, lobby_parameters, lobby_info_key, _, _) = Self::get_lobby_data(e, &req.lobby_id, true, false, true)?;
         let mut lobby_info = lobby_info.unwrap();
@@ -431,10 +384,10 @@ impl Contract {
             return Err(Error::LobbyNotJoinable)
         }
         if lobby_info.host_address.is_empty() {
-            return Err(Error::LobbyHasNoHost)
+            return Err(Error::LobbyNotJoinable)
         }
         if lobby_info.host_address.contains(&address) {
-            return Err(Error::JoinerIsHost)
+            return Err(Error::LobbyNotJoinable)
         }
         if !lobby_info.guest_address.is_empty() {
             return Err(Error::LobbyNotJoinable)
@@ -473,7 +426,6 @@ impl Contract {
         persistent.set(&user_key, &user);
         temporary.set(&DataKey::GameState(req.lobby_id.clone()), &game_state);
         temporary.set(&lobby_info_key, &lobby_info);
-        e.events().publish((lobby_info.index.clone(), Symbol::new(e, "join_lobby")), address);
         Ok(())
     }
 
@@ -500,7 +452,6 @@ impl Contract {
 
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
-        e.events().publish((lobby_info.index.clone(), Symbol::new(e, "commit_setup")), address);
         Ok(())
     }
 
@@ -531,7 +482,6 @@ impl Contract {
         game_state.moves.set(u_index, u_move);
         temporary.set(&lobby_info_key, &lobby_info);
         temporary.set(&game_state_key, &game_state);
-        e.events().publish((lobby_info.index.clone(), Symbol::new(e, "commit_move")), address);
         Ok(lobby_info)
     }
 
@@ -563,7 +513,7 @@ impl Contract {
             let full_hash = e.crypto().sha256(&serialized_move_proof).to_bytes().to_array();
             let submitted_hash = HiddenMoveHash::from_array(e, &full_hash[0..16].try_into().unwrap());
             if u_move.move_hash != submitted_hash {
-                return Err(Error::HiddenMoveHashFail)
+                return Err(Error::HashFail)
             }
             let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
             let u_move_valid = Self::validate_move_proof(&req.move_proof, &u_index, &pawns_map, &lobby_parameters);
@@ -622,7 +572,6 @@ impl Contract {
         address.require_auth();
         _ = Self::prove_move_internal(e, address.clone(), req.clone());
         let result = Self::prove_rank_internal(e, address.clone(), req2);
-        e.events().publish((req.lobby_id.clone(), Symbol::new(e, "prove_rank")), address);
         result
     }
 
@@ -640,7 +589,6 @@ impl Contract {
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let result = Self::prove_rank_internal(e, address.clone(), req.clone());
-        e.events().publish((req.lobby_id.clone(), Symbol::new(e, "prove_rank")), address);
         result
     }
 
@@ -656,7 +604,7 @@ impl Contract {
         }
         let u_move = game_state.moves.get_unchecked(u_index);
         if u_move.needed_rank_proofs.is_empty() {
-            return Err(Error::NoRankProofsNeeded)
+            return Err(Error::InvalidArgs)
         }
         if u_move.needed_rank_proofs.len() != req.hidden_ranks.len() {
             return Err(Error::InvalidArgs)
@@ -813,7 +761,7 @@ impl Contract {
         if lobby_info.guest_address.contains(address) {
             return Ok(1)
         }
-        Err(Error::NotInLobby)
+        Err(Error::Unauthorized)
     }
 
     pub(crate) fn get_opponent_index(address: &Address, lobby_info: &LobbyInfo) -> Result<u32, Error> {
@@ -823,7 +771,7 @@ impl Contract {
         if lobby_info.guest_address.contains(address) {
             return Ok(0)
         }
-        Err(Error::NotInLobby)
+        Err(Error::Unauthorized)
     }
 
     pub(crate) fn encode_pawn_id(pos: &Pos, team: &u32) -> u32 {
@@ -1110,12 +1058,6 @@ impl Contract {
     }
 
     pub(crate) fn resolve_collision(a_pawn: &mut PawnState, b_pawn: &mut PawnState) -> () {
-        if a_pawn.rank.is_empty() || b_pawn.rank.is_empty() {
-            panic!("a_pawn or b_pawn has no rank");
-        }
-        if !a_pawn.alive || !b_pawn.alive {
-            panic!("a_pawn or b_pawn is not alive");
-        }
         let a_pawn_rank = a_pawn.rank.get_unchecked(0);
         let b_pawn_rank = b_pawn.rank.get_unchecked(0);
         // special case for trap vs seer
@@ -1161,10 +1103,6 @@ impl Contract {
         let o_index = 1;
         let u_move = game_state.moves.get_unchecked(u_index);
         let o_move = game_state.moves.get_unchecked(o_index);
-        if !u_move.needed_rank_proofs.is_empty() || !o_move.needed_rank_proofs.is_empty() {
-            panic!("complete_move_resolution: Needed rank proofs are not empty");
-        }
-
         // Now perform collision resolution using the updated game state
         let u_move_proof = u_move.move_proof.get_unchecked(0);
         let o_move_proof = o_move.move_proof.get_unchecked(0);
@@ -1252,7 +1190,7 @@ impl Contract {
     //     let history_key = DataKey::History(lobby_id.clone());
     //     let mut history: History = match temporary.get(&history_key) {
     //         Some(h) => h,
-    //         None => return Err(Error::LobbyNotFound),
+    //         None => return Err(Error::NotFound),
     //     };
     //     history.host_moves.push_back(game_state.moves.get_unchecked(0).move_proof.get_unchecked(0).clone());
     //     history.guest_moves.push_back(game_state.moves.get_unchecked(1).move_proof.get_unchecked(0).clone());
@@ -1276,7 +1214,7 @@ impl Contract {
         let lobby_info = if need_lobby_info {
             match temporary.get(&lobby_info_key) {
                 Some(info) => Some(info),
-                None => return Err(Error::LobbyNotFound),
+                None => return Err(Error::NotFound),
             }
         } else {
             None
@@ -1285,7 +1223,7 @@ impl Contract {
         let game_state = if need_game_state {
             match temporary.get(&game_state_key) {
                 Some(state) => Some(state),
-                None => return Err(Error::GameStateNotFound),
+                None => return Err(Error::NotFound),
             }
         } else {
             None
@@ -1294,7 +1232,7 @@ impl Contract {
         let lobby_parameters = if need_lobby_parameters {
             match temporary.get(&lobby_parameters_key) {
                 Some(params) => Some(params),
-                None => return Err(Error::LobbyNotFound),
+                None => return Err(Error::NotFound),
             }
         } else {
             None

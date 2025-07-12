@@ -6,8 +6,6 @@ using UnityEngine;
 
 public class GuiGame : TestGuiElement
 {
-    public Chatbox chatbox;
-    
     public GuiSetup setup;
     public GuiMovement movement;
     
@@ -27,8 +25,6 @@ public class GuiGame : TestGuiElement
             AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
             GameManager.instance.cameraManager.enableCameraMovement = true;
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
-            // TODO: get rid of chatbox
-            chatbox.gameObject.SetActive(false);
             setup.ShowElement(false);
             movement.ShowElement(false);
         }

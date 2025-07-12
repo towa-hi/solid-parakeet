@@ -90,8 +90,8 @@ fn test_make_lobby_with_user_board_configuration() {
         Err(err) => {
             match err {
                 Ok(contract_error) => {
-                    assert!(matches!(contract_error, Error::InvalidBoard),
-                           "Expected InvalidBoard error, got: {:?}", contract_error);
+                    assert!(matches!(contract_error, Error::InvalidArgs),
+                           "Expected InvalidArgs error, got: {:?}", contract_error);
                 },
                 Err(_host_error) => {
                     panic!("Contract panicked with UnreachableCodeReached - this is the bug we found!");
@@ -141,7 +141,7 @@ fn test_leave_lobby_validation_errors() {
     let non_existent_user = setup.generate_address();
     let result = setup.client.try_leave_lobby(&non_existent_user);
     assert!(result.is_err(), "Should fail: user not found");
-    assert_eq!(result.unwrap_err().unwrap(), Error::UserNotFound);
+    assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
 
     // Create a user and lobby, then have them leave to test "no current lobby"
     let lobby_parameters = create_test_lobby_parameters(&setup.env);
@@ -156,7 +156,7 @@ fn test_leave_lobby_validation_errors() {
     // Test: No current lobby (after leaving)
     let result = setup.client.try_leave_lobby(&user_address);
     assert!(result.is_err(), "Should fail: no current lobby");
-    assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
+    assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
 }
 
 // endregion
@@ -201,7 +201,7 @@ fn test_join_lobby_validation_errors() {
     let join_req_nonexistent = JoinLobbyReq { lobby_id: 999 };
     let result = setup.client.try_join_lobby(&guest_address, &join_req_nonexistent);
     assert!(result.is_err(), "Should fail: lobby not found");
-    assert_eq!(result.unwrap_err().unwrap(), Error::LobbyNotFound);
+    assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
 
     // Create a lobby for further tests
     let lobby_parameters = create_test_lobby_parameters(&setup.env);

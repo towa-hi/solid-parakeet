@@ -27,27 +27,24 @@ impl TestSetup {
 
     pub fn is_user_conflict_error(error: &Error) -> bool {
         matches!(error,
-            Error::GuestAlreadyInLobby |
-            Error::HostAlreadyInLobby |
-            Error::JoinerIsHost |
-            Error::NotInLobby
+            Error::Unauthorized |      // Covers GuestAlreadyInLobby, NotInLobby
+            Error::LobbyNotJoinable |  // Covers JoinerIsHost
+            Error::AlreadyExists       // Covers attempting to create lobby when in one
         )
     }
 
     pub fn is_lobby_state_error(error: &Error) -> bool {
         matches!(error,
-            Error::LobbyNotJoinable |
+            Error::LobbyNotJoinable |  // Covers LobbyHasNoHost, JoinerIsHost
             Error::WrongPhase |
-            Error::LobbyNotFound |
-            Error::LobbyHasNoHost
+            Error::NotFound           // Covers LobbyNotFound
         )
     }
 
     pub fn is_validation_error(error: &Error) -> bool {
         matches!(error,
-            Error::InvalidBoard |
-            Error::InvalidArgs |
-            Error::LobbyAlreadyExists
+            Error::InvalidArgs |      // Covers InvalidBoard, ParametersInvalid
+            Error::AlreadyExists      // Covers LobbyAlreadyExists
         )
     }
 
