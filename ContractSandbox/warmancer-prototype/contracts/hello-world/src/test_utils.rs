@@ -122,7 +122,7 @@ pub fn format_board_with_colors_and_ranks(
                 };
                 
                 // Use different colors and formatting for different teams
-                if team == 0 {
+                if team == UserIndex::Host {
                     // Host team 
                     if is_revealed_in_game { 
                         result.push_str(&std::format!("{}{{{}}}{}", 
@@ -325,7 +325,7 @@ pub fn create_rank_proof_requests(
 /// 
 /// This ensures consistent move generation regardless of whether ranks are 
 /// populated in the game state or not.
-pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters, team: u32, team_ranks: &Vec<HiddenRank>, salt: u64) -> Option<HiddenMove> {
+pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters, team: &UserIndex, team_ranks: &Vec<HiddenRank>, salt: u64) -> Option<HiddenMove> {
     // Create a map of all tile positions for quick lookup
     let mut tile_map: Map<Pos, Tile> = Map::new(env);
     for packed_tile in lobby_parameters.board.tiles.iter() {
@@ -356,7 +356,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
         
         // Skip if not our team or not alive
-        if pawn_team != team || !pawn.alive {
+        if pawn_team != *team || !pawn.alive {
             continue;
         }
         
@@ -369,7 +369,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
         
         // Team check is legitimate - ensure we only move our own pieces
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
-        if pawn_team != team {
+        if pawn_team != *team {
             continue; // Skip if pawn doesn't belong to this team
         }
         
@@ -403,7 +403,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
             // Check if position is occupied by same team pawn
             if let Some(occupying_pawn) = pawn_position_map.get(target_pos) {
                 let (_, occupying_team) = Contract::decode_pawn_id(&occupying_pawn.pawn_id);
-                if occupying_team == team {
+                if occupying_team == *team {
                     continue; // Skip if occupied by same team
                 }
             }
@@ -413,8 +413,8 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
             
             // Check if this is a "forward" move
             let is_forward = match team {
-                0 => target_pos.y > pawn.pos.y, // Team 0 moves up (increasing y)
-                1 => target_pos.y < pawn.pos.y, // Team 1 moves down (decreasing y)
+                UserIndex::Host => target_pos.y > pawn.pos.y, // Team 0 moves up (increasing y)
+                UserIndex::Guest => target_pos.y < pawn.pos.y, // Team 1 moves down (decreasing y)
                 _ => false,
             };
             
@@ -454,7 +454,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
     // Double-check the move is valid by re-verifying no same-team pawn is at target
     if let Some(occupying_pawn) = pawn_position_map.get(target_pos) {
         let (_, occupying_team) = Contract::decode_pawn_id(&occupying_pawn.pawn_id);
-        if occupying_team == team {
+        if occupying_team == *team {
             // This shouldn't happen, but if it does, return None instead of an invalid move
             return None;
         }
@@ -620,7 +620,7 @@ pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
 
 // region setup generation
 
-pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32) -> (Vec<SetupCommit>, Vec<HiddenRank>) {
+pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: &UserIndex) -> (Vec<SetupCommit>, Vec<HiddenRank>) {
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()
@@ -635,7 +635,7 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
     
     for (_, (_, pawn)) in pawns_map.iter() {
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
-        if pawn_team == team {
+        if pawn_team == *team {
             team_pawns.push_back(pawn);
         }
     }
@@ -660,7 +660,6 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
             }
         }
     }
-    let salt = team as u64;
     let mut hidden_ranks = Vec::new(env);
     
     // Assign ranks: flags/bombs to back positions, others to front
@@ -668,7 +667,7 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: u32)
     
     // Single pass: create HiddenRank structs and collect hashes
     for (i, (_, (_, pawn))) in pawns_map.iter().enumerate() {
-        if Contract::decode_pawn_id(&pawn.pawn_id).1 != team {
+        if Contract::decode_pawn_id(&pawn.pawn_id).1 != *team {
             continue;
         }
         let rank = if i < back_count {
@@ -739,7 +738,7 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Vec<
     
     for (_, (_, pawn)) in pawns_map.iter() {
         let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
-        if pawn_team == 0 {
+        if pawn_team == UserIndex::Host {
             host_pawns.push_back(pawn);
         } else {
             guest_pawns.push_back(pawn);
@@ -950,16 +949,16 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
                     // Compare position
                     if pawn_a.pos.x != pawn_b.pos.x || pawn_a.pos.y != pawn_b.pos.y {
                         let (_, team) = Contract::decode_pawn_id(&pawn_id);
-                        std::println!("   ❌ Pawn {} (team {}) position differs: A=({},{}) vs B=({},{})", 
-                                     pawn_id, team, pawn_a.pos.x, pawn_a.pos.y, pawn_b.pos.x, pawn_b.pos.y);
+                        std::println!("   ❌ Pawn {} (team {}) position differs: A=({},{}) vs B=({},{})",
+                                      pawn_id, team.u32(), pawn_a.pos.x, pawn_a.pos.y, pawn_b.pos.x, pawn_b.pos.y);
                         differences_found = true;
                     }
                     
                     // Compare alive status
                     if pawn_a.alive != pawn_b.alive {
                         let (_, team) = Contract::decode_pawn_id(&pawn_id);
-                        std::println!("   ❌ Pawn {} (team {}) alive status differs: A={} vs B={}", 
-                                     pawn_id, team, pawn_a.alive, pawn_b.alive);
+                        std::println!("   ❌ Pawn {} (team {}) alive status differs: A={} vs B={}",
+                                      pawn_id, team.u32(), pawn_a.alive, pawn_b.alive);
                         differences_found = true;
                     }
                     
@@ -973,30 +972,30 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
                     // If Game A has no rank but Game B does, that's expected (B is pre-populated)
                     if rank_a.is_some() && rank_a != rank_b {
                         let (_, team) = Contract::decode_pawn_id(&pawn_id);
-                        std::println!("   ❌ Pawn {} (team {}) revealed rank differs: A={:?} vs B={:?}", 
-                                     pawn_id, team, rank_a, rank_b);
+                        std::println!("   ❌ Pawn {} (team {}) revealed rank differs: A={:?} vs B={:?}",
+                                      pawn_id, team.u32(), rank_a, rank_b);
                         differences_found = true;
                     }
                     
                     // Compare moved status
                     if pawn_a.moved != pawn_b.moved {
                         let (_, team) = Contract::decode_pawn_id(&pawn_id);
-                        std::println!("   ❌ Pawn {} (team {}) moved status differs: A={} vs B={}", 
-                                     pawn_id, team, pawn_a.moved, pawn_b.moved);
+                        std::println!("   ❌ Pawn {} (team {}) moved status differs: A={} vs B={}",
+                                      pawn_id, team.u32(), pawn_a.moved, pawn_b.moved);
                         differences_found = true;
                     }
                     
                     // Compare moved_scout status
                     if pawn_a.moved_scout != pawn_b.moved_scout {
                         let (_, team) = Contract::decode_pawn_id(&pawn_id);
-                        std::println!("   ❌ Pawn {} (team {}) moved_scout status differs: A={} vs B={}", 
-                                     pawn_id, team, pawn_a.moved_scout, pawn_b.moved_scout);
+                        std::println!("   ❌ Pawn {} (team {}) moved_scout status differs: A={} vs B={}",
+                                      pawn_id, team.u32(), pawn_a.moved_scout, pawn_b.moved_scout);
                         differences_found = true;
                     }
                 },
                 None => {
                     let (_, team) = Contract::decode_pawn_id(&pawn_id);
-                    std::println!("   ❌ Pawn {} (team {}) exists in Game A but not in Game B", pawn_id, team);
+                    std::println!("   ❌ Pawn {} (team {}) exists in Game A but not in Game B", pawn_id, team.u32());
                     differences_found = true;
                 }
             }
@@ -1006,7 +1005,7 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
         for (pawn_id, _) in pawns_b.iter() {
             if !pawns_a.contains_key(pawn_id) {
                 let (_, team) = Contract::decode_pawn_id(&pawn_id);
-                std::println!("   ❌ Pawn {} (team {}) exists in Game B but not in Game A", pawn_id, team);
+                std::println!("   ❌ Pawn {} (team {}) exists in Game B but not in Game A", pawn_id, team.u32());
                 differences_found = true;
             }
         }

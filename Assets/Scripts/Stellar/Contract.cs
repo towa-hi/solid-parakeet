@@ -450,11 +450,10 @@ namespace Contract
 
         public (Vector2Int, Team) Decode()
         {
-            // New 9-bit encoding: bit 0=team, bits 1-5=x, bits 6-9=y
+            // Must match Rust encoding: bit 0=team, bits 1-4=x, bits 5-8=y
             bool isHost = (Value & 1) == 0;
-            int x = (int)((Value >> 1) & 0x1F); // Extract bits 1-5 (5 bits)
-            int y = (int)((Value >> 6) & 0xF);  // Extract bits 6-9 (4 bits)
-            
+            int x = (int)((Value >> 1) & 0xF); // Extract bits 1-4 (4 bits)
+            int y = (int)((Value >> 5) & 0xF); // Extract bits 5-8 (4 bits)
             Vector2Int startPos = new Vector2Int(x, y);
             Team t = isHost ? Team.RED : Team.BLUE;
             return (startPos, t);
@@ -731,29 +730,9 @@ namespace Contract
     }
 
     [Serializable]
-    public struct Setup : IScvMapCompatable
-    {
-        public ulong salt;
-        public SetupCommit[] setup_commits;
-
-        public SCVal.ScvMap ToScvMap()
-        {
-            return new SCVal.ScvMap
-            {
-                map = new SCMap(new[]
-                {
-                    SCUtility.FieldToSCMapEntry("salt", salt),
-                    SCUtility.FieldToSCMapEntry("setup_commits", setup_commits),
-                }),
-            };
-        }
-    }
-
-    [Serializable]
     public struct PawnState : IEquatable<PawnState>
     {
         public bool alive;
-        // public byte[] hidden_rank_hash;
         public bool moved;
         public bool moved_scout;
         public PawnId pawn_id;
@@ -801,24 +780,19 @@ namespace Contract
         public static implicit operator uint(PawnState pawn)
         {
             uint packed = 0;
-            
-            // Pack pawn_id (9 bits at head): bit 0=team, bits 1-5=x, bits 6-9=y
+            // Pack pawn_id (9 bits at head)
             uint pawnIdPacked = pawn.pawn_id.Value & 0x1FFu;
             packed |= pawnIdPacked << 0;
-            
             // Pack flags (bits 9-11)
             if (pawn.alive) packed |= 1u << 9;
             if (pawn.moved) packed |= 1u << 10;
             if (pawn.moved_scout) packed |= 1u << 11;
-
-            // Pack coordinates (5 bits each, range 0-15)
-            packed |= ((uint)pawn.pos.x & 0x1Fu) << 12;
-            packed |= ((uint)pawn.pos.y & 0x1Fu) << 17;
-
-            // Pack rank (4 bits)
+            // Pack coordinates (4 bits each, range 0-15) - MUST match Rust contract
+            packed |= ((uint)pawn.pos.x & 0xFu) << 12;
+            packed |= ((uint)pawn.pos.y & 0xFu) << 16;
+            // Pack rank (4 bits at position 20)
             uint rankValue = pawn.rank.HasValue ? (uint)pawn.rank.Value : 12u;
-            packed |= (rankValue & 0xFu) << 22;
-            
+            packed |= (rankValue & 0xFu) << 20;
             return packed;
         }
 
@@ -827,20 +801,16 @@ namespace Contract
         {
             // Extract pawn_id (9 bits at head)
             uint pawnId = packed & 0x1FFu;
-            
             // Extract flags
             bool alive = ((packed >> 9) & 1) != 0;
             bool moved = ((packed >> 10) & 1) != 0;
             bool movedScout = ((packed >> 11) & 1) != 0;
-
-            // Extract coordinates (5 bits each, range 0-15)
-            int x = (int)((packed >> 12) & 0x1Fu);
-            int y = (int)((packed >> 17) & 0x1Fu);
-
-            // Extract rank
-            uint rankVal = (packed >> 22) & 0xFu;
+            // Extract coordinates (4 bits each, range 0-15) - MUST match Rust contract
+            int x = (int)((packed >> 12) & 0xFu);
+            int y = (int)((packed >> 16) & 0xFu);
+            // Extract rank (4 bits at position 20)
+            uint rankVal = (packed >> 20) & 0xFu;
             Rank? rank = rankVal == 12 ? null : (Rank?)rankVal;
-            
             return new PawnState
             {
                 alive = alive,

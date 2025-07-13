@@ -27,10 +27,10 @@ fn test_collision_winner_rank_revelation() {
 
     // Create setups but manually assign specific ranks for testing
     let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Host)
     });
     let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Guest)
     });
     let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
     let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
@@ -65,10 +65,10 @@ fn test_collision_winner_rank_revelation() {
 
         for (_, (_, pawn)) in pawns_map.iter() {
             let (_, team) = Contract::decode_pawn_id(&pawn.pawn_id);
-            if team == 0 && pawn.pos.y == 3 && host_front_pawn_id.is_none() {
+            if team == UserIndex::Host && pawn.pos.y == 3 && host_front_pawn_id.is_none() {
                 host_front_pawn_id = Some(pawn.pawn_id);
             }
-            if team == 1 && pawn.pos.y == 6 && guest_front_pawn_id.is_none() {
+            if team == UserIndex::Guest && pawn.pos.y == 6 && guest_front_pawn_id.is_none() {
                 guest_front_pawn_id = Some(pawn.pawn_id);
             }
         }

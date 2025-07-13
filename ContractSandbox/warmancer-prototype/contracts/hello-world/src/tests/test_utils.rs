@@ -269,10 +269,10 @@ pub fn create_and_advance_to_move_commit(setup: &TestSetup, lobby_id: u32) -> (A
     setup.client.join_lobby(&guest_address, &join_req);
 
     let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Host)
     });
     let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Guest)
     });
     let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
     let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
@@ -330,11 +330,11 @@ pub fn setup_lobby_for_commit_move(setup: &TestSetup, lobby_id: u32) -> (u32, Ad
 
 pub fn advance_through_complete_setup_phase(setup: &TestSetup, lobby_id: u32, host_address: &Address, guest_address: &Address) -> (Vec<HiddenRank>, Vec<HiddenRank>, Vec<MerkleProof>, Vec<MerkleProof>) {
     let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 0)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Host)
     });
 
     let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, 1)
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Guest)
     });
 
     let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
@@ -381,12 +381,12 @@ pub fn validate_move_prove_transition(
     std::println!("Host needed rank proofs: {} pawns", host_needed_ranks.len());
     for pawn_id in host_needed_ranks.iter() {
         let (_, team) = Contract::decode_pawn_id(&pawn_id);
-        std::println!("  - Pawn {} (team {})", pawn_id, team);
+        std::println!("  - Pawn {} (team {})", pawn_id, team as u32);
     }
     std::println!("Guest needed rank proofs: {} pawns", guest_needed_ranks.len());
     for pawn_id in guest_needed_ranks.iter() {
         let (_, team) = Contract::decode_pawn_id(&pawn_id);
-        std::println!("  - Pawn {} (team {})", pawn_id, team);
+        std::println!("  - Pawn {} (team {})", pawn_id, team as u32);
     }
     std::println!("=== END VALIDATION ===");
 

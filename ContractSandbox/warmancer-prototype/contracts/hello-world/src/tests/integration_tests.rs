@@ -35,8 +35,8 @@ fn test_full_stratego_game() {
                     std::println!("{}", format_board_with_colors_and_ranks(&setup.env, &loop_start_snapshot, Some(&host_ranks), Some(&guest_ranks)));
                 }
                 // Generate moves using current game state from snapshot
-                let host_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 0, &host_ranks, move_number as u64 * 1000 + 12345);
-                let guest_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 1, &guest_ranks, move_number as u64 * 1000 + 54321);
+                let host_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, &UserIndex::Host, &host_ranks, move_number as u64 * 1000 + 12345);
+                let guest_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, &UserIndex::Guest, &guest_ranks, move_number as u64 * 1000 + 54321);
                 if host_move_opt.is_none() || guest_move_opt.is_none() {
                     std::println!("No valid moves available for one or both players. Game ends at move {}", move_number);
                     break;
@@ -252,11 +252,11 @@ fn test_compare_populated_vs_unpopulated_games() {
 
     // Generate identical setups using fixed seed
     let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_a, 0)
+        create_setup_commits_from_game_state(&setup.env, lobby_a, &UserIndex::Host)
     });
 
     let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_b, 1)
+        create_setup_commits_from_game_state(&setup.env, lobby_b, &UserIndex::Guest)
     });
     let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
     let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
@@ -296,8 +296,8 @@ fn test_compare_populated_vs_unpopulated_games() {
         // Take snapshot at start of loop to get current game state
         let loop_start_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_a);
 
-        let host_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 0, &host_hidden_ranks, salt_host);
-        let guest_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, 1, &guest_hidden_ranks, salt_guest);
+        let host_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, &UserIndex::Host, &host_hidden_ranks, salt_host);
+        let guest_move = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, &UserIndex::Guest, &guest_hidden_ranks, salt_guest);
 
         if host_move.is_none() || guest_move.is_none() {
             break; // No more valid moves

@@ -95,7 +95,6 @@ public class GuiLobbyMaker : TestGuiElement
             maxRanks[(int)maxPawn.rank] = (uint)maxPawn.max;
         }
         List<TileState> tilesList = new();
-        List<byte[]> pawnIds = new();
         foreach (Tile tile in boardDef.tiles)
         {
             TileState tileDef = new()
@@ -110,25 +109,6 @@ public class GuiLobbyMaker : TestGuiElement
                 Debug.LogError($"{tileDef.pos} is invalid");
             }
             tilesList.Add(tileDef);
-            if (tile.setupTeam == Team.RED || tile.setupTeam == Team.BLUE)
-            {
-                byte[] id = new byte[2];
-                int x = tile.pos.x;
-                int y = tile.pos.y;
-                
-                // Pack team (1 bit), x (4 bits), and y (4 bits) into 9 bits
-                // Bit 0: team (0 = RED, 1 = BLUE)
-                // Bits 1-4: x coordinate
-                // Bits 5-8: y coordinate
-                int teamBit = (tile.setupTeam == Team.BLUE) ? 1 : 0;
-                int packedValue = teamBit | ((x & 0xF) << 1) | ((y & 0xF) << 5);
-                
-                // Store packed value in first 2 bytes of the id array
-                id[0] = (byte)(packedValue & 0xFF);
-                id[1] = (byte)((packedValue >> 8) & 0x01);
-                
-                pawnIds.Add(id);
-            }
         }
         Board board = new()
         {
