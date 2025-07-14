@@ -1,10 +1,9 @@
 #![cfg(test)]
+#[allow(unused_variables)]
 extern crate std;
 use super::super::*;
 use super::super::test_utils::*;
 use super::test_utils::*;
-use soroban_sdk::{Env, Address};
-use soroban_sdk::testutils::Address as _;
 
 // region integration tests
 

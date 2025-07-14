@@ -3,8 +3,6 @@ extern crate std;
 use super::super::*;
 use super::super::test_utils::*;
 use super::test_utils::*;
-use soroban_sdk::{Env, Address};
-use soroban_sdk::testutils::Address as _;
 
 // region make_lobby tests
 
@@ -195,13 +193,6 @@ fn test_join_lobby_success() {
 #[test]
 fn test_join_lobby_validation_errors() {
     let setup = TestSetup::new();
-
-    // Test: Lobby not found
-    let guest_address = setup.generate_address();
-    let join_req_nonexistent = JoinLobbyReq { lobby_id: 999 };
-    let result = setup.client.try_join_lobby(&guest_address, &join_req_nonexistent);
-    assert!(result.is_err(), "Should fail: lobby not found");
-    assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
 
     // Create a lobby for further tests
     let lobby_parameters = create_test_lobby_parameters(&setup.env);

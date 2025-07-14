@@ -1,4 +1,5 @@
 #![cfg(test)]
+#[allow(unused_variables)]
 extern crate std;
 use super::*;
 use soroban_sdk::{Env, Address, Vec, Map};
@@ -1350,11 +1351,11 @@ impl Tree {
 }
 
 pub fn build_merkle_tree(env: &Env, leaves: Vec<BytesN<16>>) -> (BytesN<16>, Tree) {
-    std::println!("=== build_merkle_tree START ===");
-    std::println!("Number of leaves: {}", leaves.len());
+    //std::println!("=== build_merkle_tree START ===");
+    //std::println!("Number of leaves: {}", leaves.len());
     
     for (i, leaf) in leaves.iter().enumerate() {
-        std::println!("Leaf {}: {:?}", i, leaf.to_array());
+        //std::println!("Leaf {}: {:?}", i, leaf.to_array());
     }
     
     if leaves.is_empty() {
@@ -1363,7 +1364,7 @@ pub fn build_merkle_tree(env: &Env, leaves: Vec<BytesN<16>>) -> (BytesN<16>, Tre
             leaves: Vec::new(env),
             levels: Vec::from_array(env, [Vec::from_array(env, [zero_root.clone()])]),
         };
-        std::println!("Empty tree, returning zero root: {:?}", zero_root.to_array());
+        //std::println!("Empty tree, returning zero root: {:?}", zero_root.to_array());
         return (zero_root, tree);
     }
     
@@ -1379,38 +1380,38 @@ pub fn build_merkle_tree(env: &Env, leaves: Vec<BytesN<16>>) -> (BytesN<16>, Tre
         padded_leaves.push_back(empty_hash.clone());
     }
     
-    std::println!("Padded from {} to {} leaves", leaves.len(), padded_leaves.len());
+    //std::println!("Padded from {} to {} leaves", leaves.len(), padded_leaves.len());
     
     let mut levels: Vec<Vec<MerkleHash>> = Vec::new(env);
     
     levels.push_back(padded_leaves.clone());
-    std::println!("Level 0 (padded leaves): {} nodes", padded_leaves.len());
+    //std::println!("Level 0 (padded leaves): {} nodes", padded_leaves.len());
     
     let mut current_level = 0;
     while levels.get(current_level).unwrap().len() > 1 {
         let current_nodes = levels.get(current_level).unwrap();
         let mut next_level = Vec::new(env);
         
-        std::println!("Processing level {}, nodes: {}", current_level, current_nodes.len());
+        //std::println!("Processing level {}, nodes: {}", current_level, current_nodes.len());
         
         let mut i = 0;
         while i < current_nodes.len() {
             let left = current_nodes.get(i).unwrap();
             let right = current_nodes.get(i + 1).unwrap();
             
-            std::println!("  Pair {}: left={:?}, right={:?}", i/2, left.to_array(), right.to_array());
+            //std::println!("  Pair {}: left={:?}, right={:?}", i/2, left.to_array(), right.to_array());
             
             let mut combined_bytes = [0u8; 32];
             combined_bytes[0..16].copy_from_slice(&left.to_array());
             combined_bytes[16..32].copy_from_slice(&right.to_array());
             
-            std::println!("  Combined bytes: {:?}", combined_bytes);
+            //std::println!("  Combined bytes: {:?}", combined_bytes);
             
             let parent_full = env.crypto().sha256(&Bytes::from_array(env, &combined_bytes));
             let parent_bytes = parent_full.to_array();
             let parent_hash = MerkleHash::from_array(env, &parent_bytes[0..16].try_into().unwrap());
             
-            std::println!("  Parent hash: {:?}", parent_hash.to_array());
+            //std::println!("  Parent hash: {:?}", parent_hash.to_array());
             
             next_level.push_back(parent_hash);
             i += 2;
@@ -1418,20 +1419,20 @@ pub fn build_merkle_tree(env: &Env, leaves: Vec<BytesN<16>>) -> (BytesN<16>, Tre
         
         levels.push_back(next_level);
         current_level += 1;
-        std::println!("Level {} complete, {} nodes", current_level, levels.get(current_level).unwrap().len());
+        //std::println!("Level {} complete, {} nodes", current_level, levels.get(current_level).unwrap().len());
     }
     
     let root = levels.get(levels.len() as u32 - 1).unwrap().get(0).unwrap();
     
-    std::println!("Final root: {:?}", root.to_array());
-    std::println!("Total levels: {}", levels.len());
+    //std::println!("Final root: {:?}", root.to_array());
+    //std::println!("Total levels: {}", levels.len());
     
     let tree = Tree {
         leaves: leaves.clone(),
         levels,
     };
     
-    std::println!("=== build_merkle_tree END ===");
+    //std::println!("=== build_merkle_tree END ===");
     (root, tree)
 }
 

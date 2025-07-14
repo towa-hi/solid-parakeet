@@ -1,4 +1,5 @@
 #![cfg(test)]
+#[allow(unused_variables)]
 extern crate std;
 use super::super::*;
 use super::super::test_utils::*;
