@@ -84,7 +84,6 @@ fn test_full_stratego_game() {
                         move_proof: host_move_proof,
                         lobby_id,
                     };
-                    let mut host_rank_proof_req: Option<&ProveRankReq> = None;
                     // simulation
                     let host_simulation_result = setup.client.simulate_collisions(&host_address, &host_prove_move_req);
                     if !host_simulation_result.needed_rank_proofs.is_empty() {
@@ -103,8 +102,7 @@ fn test_full_stratego_game() {
                             lobby_id,
                             merkle_proofs: host_merkle_proofs_temp,
                         };
-                        host_rank_proof_req = Some(&f_host_rank_proof_req);
-                        setup.client.prove_move_and_prove_rank(&host_address, &host_prove_move_req, &host_rank_proof_req.unwrap());
+                        setup.client.prove_move_and_prove_rank(&host_address, &host_prove_move_req, &f_host_rank_proof_req);
                     }
                     else {
                         // submit just prove move if the simulation says you didn't collide
@@ -135,7 +133,6 @@ fn test_full_stratego_game() {
                             };
                             setup.client.prove_rank(&guest_address, &guest_prove_rank_req);
                             let after_rank_prove_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-                            //validate_rank_prove_transition(&after_rank_prove_snapshot, host_rank_proof_req, guest_rank_proof_req)
                         }
                         else {
                             validate_move_prove_transition(&after_host_move_prove_snapshot, &host_prove_move_req, &guest_prove_move_req);

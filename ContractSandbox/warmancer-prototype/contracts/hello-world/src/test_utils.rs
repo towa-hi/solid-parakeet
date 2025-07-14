@@ -88,7 +88,7 @@ pub fn format_board_with_colors_and_ranks(
             
             if let Some(pawn) = pawn_map.get(&pos) {
                 // There's a pawn here
-                let (_, team) = Contract::decode_pawn_id(&pawn.pawn_id);
+                let (_, team) = Contract::decode_pawn_id(pawn.pawn_id);
                 
                 // Determine the rank to display and whether it's revealed in game state
                 let (display_rank, is_revealed_in_game) = if !pawn.rank.is_empty() {
@@ -354,7 +354,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
     let mut any_movable_pawns = Vec::new(env);
     
     for (_, (_, pawn)) in pawns_map.iter() {
-        let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+        let (_, pawn_team) = Contract::decode_pawn_id(pawn.pawn_id);
         
         // Skip if not our team or not alive
         if pawn_team != *team || !pawn.alive {
@@ -369,7 +369,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
         }
         
         // Team check is legitimate - ensure we only move our own pieces
-        let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+        let (_, pawn_team) = Contract::decode_pawn_id(pawn.pawn_id);
         if pawn_team != *team {
             continue; // Skip if pawn doesn't belong to this team
         }
@@ -403,7 +403,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
             
             // Check if position is occupied by same team pawn
             if let Some(occupying_pawn) = pawn_position_map.get(target_pos) {
-                let (_, occupying_team) = Contract::decode_pawn_id(&occupying_pawn.pawn_id);
+                let (_, occupying_team) = Contract::decode_pawn_id(occupying_pawn.pawn_id);
                 if occupying_team == *team {
                     continue; // Skip if occupied by same team
                 }
@@ -454,7 +454,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
     
     // Double-check the move is valid by re-verifying no same-team pawn is at target
     if let Some(occupying_pawn) = pawn_position_map.get(target_pos) {
-        let (_, occupying_team) = Contract::decode_pawn_id(&occupying_pawn.pawn_id);
+        let (_, occupying_team) = Contract::decode_pawn_id(occupying_pawn.pawn_id);
         if occupying_team == *team {
             // This shouldn't happen, but if it does, return None instead of an invalid move
             return None;
@@ -635,7 +635,7 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: &Use
     let mut team_pawns = Vec::new(env);
     
     for (_, (_, pawn)) in pawns_map.iter() {
-        let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+        let (_, pawn_team) = Contract::decode_pawn_id(pawn.pawn_id);
         if pawn_team == *team {
             team_pawns.push_back(pawn);
         }
@@ -668,7 +668,7 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: &Use
     
     // Single pass: create HiddenRank structs and collect hashes
     for (i, (_, (_, pawn))) in pawns_map.iter().enumerate() {
-        if Contract::decode_pawn_id(&pawn.pawn_id).1 != *team {
+        if Contract::decode_pawn_id(pawn.pawn_id).1 != *team {
             continue;
         }
         let rank = if i < back_count {
@@ -738,7 +738,7 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Vec<
     let mut guest_pawns = Vec::new(env);
     
     for (_, (_, pawn)) in pawns_map.iter() {
-        let (_, pawn_team) = Contract::decode_pawn_id(&pawn.pawn_id);
+        let (_, pawn_team) = Contract::decode_pawn_id(pawn.pawn_id);
         if pawn_team == UserIndex::Host {
             host_pawns.push_back(pawn);
         } else {
@@ -948,7 +948,7 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
                 Some(pawn_b) => {
                     // Compare position
                     if pawn_a.pos.x != pawn_b.pos.x || pawn_a.pos.y != pawn_b.pos.y {
-                        let (_, team) = Contract::decode_pawn_id(&pawn_id);
+                        let (_, team) = Contract::decode_pawn_id(*pawn_id);
                         std::println!("   ❌ Pawn {} (team {}) position differs: A=({},{}) vs B=({},{})",
                                       pawn_id, team.u32(), pawn_a.pos.x, pawn_a.pos.y, pawn_b.pos.x, pawn_b.pos.y);
                         differences_found = true;
@@ -956,7 +956,7 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
                     
                     // Compare alive status
                     if pawn_a.alive != pawn_b.alive {
-                        let (_, team) = Contract::decode_pawn_id(&pawn_id);
+                        let (_, team) = Contract::decode_pawn_id(*pawn_id);
                         std::println!("   ❌ Pawn {} (team {}) alive status differs: A={} vs B={}",
                                       pawn_id, team.u32(), pawn_a.alive, pawn_b.alive);
                         differences_found = true;
@@ -971,7 +971,7 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
                     // Only compare ranks if Game A has a revealed rank (meaning it was revealed through gameplay)
                     // If Game A has no rank but Game B does, that's expected (B is pre-populated)
                     if rank_a.is_some() && rank_a != rank_b {
-                        let (_, team) = Contract::decode_pawn_id(&pawn_id);
+                        let (_, team) = Contract::decode_pawn_id(*pawn_id);
                         std::println!("   ❌ Pawn {} (team {}) revealed rank differs: A={:?} vs B={:?}",
                                       pawn_id, team.u32(), rank_a, rank_b);
                         differences_found = true;
@@ -979,7 +979,7 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
                     
                     // Compare moved status
                     if pawn_a.moved != pawn_b.moved {
-                        let (_, team) = Contract::decode_pawn_id(&pawn_id);
+                        let (_, team) = Contract::decode_pawn_id(*pawn_id);
                         std::println!("   ❌ Pawn {} (team {}) moved status differs: A={} vs B={}",
                                       pawn_id, team.u32(), pawn_a.moved, pawn_b.moved);
                         differences_found = true;
@@ -987,14 +987,14 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
                     
                     // Compare moved_scout status
                     if pawn_a.moved_scout != pawn_b.moved_scout {
-                        let (_, team) = Contract::decode_pawn_id(&pawn_id);
+                        let (_, team) = Contract::decode_pawn_id(*pawn_id);
                         std::println!("   ❌ Pawn {} (team {}) moved_scout status differs: A={} vs B={}",
                                       pawn_id, team.u32(), pawn_a.moved_scout, pawn_b.moved_scout);
                         differences_found = true;
                     }
                 },
                 None => {
-                    let (_, team) = Contract::decode_pawn_id(&pawn_id);
+                    let (_, team) = Contract::decode_pawn_id(*pawn_id);
                     std::println!("   ❌ Pawn {} (team {}) exists in Game A but not in Game B", pawn_id, team.u32());
                     differences_found = true;
                 }
@@ -1004,7 +1004,7 @@ pub fn verify_pawn_states_identical(pawns_map_a: &Map<PawnId, (u32, PawnState)>,
         // Check for pawns that exist in B but not in A
         for (pawn_id, _) in pawns_b.iter() {
             if !pawns_a.contains_key(pawn_id) {
-                let (_, team) = Contract::decode_pawn_id(&pawn_id);
+                let (_, team) = Contract::decode_pawn_id(*pawn_id);
                 std::println!("   ❌ Pawn {} (team {}) exists in Game B but not in Game A", pawn_id, team.u32());
                 differences_found = true;
             }
@@ -1303,9 +1303,9 @@ pub struct Tree {
 
 impl Tree {
     pub fn generate_proof(&self, env: &Env, leaf_index: u32) -> MerkleProof {
-        std::println!("=== generate_proof START ===");
-        std::println!("Leaf index: {}", leaf_index);
-        std::println!("Tree levels: {}", self.levels.len());
+        // std::println!("=== generate_proof START ===");
+        // std::println!("Leaf index: {}", leaf_index);
+        // std::println!("Tree levels: {}", self.levels.len());
         
         let mut siblings = Vec::new(env);
         let mut current_index = leaf_index;
@@ -1317,21 +1317,21 @@ impl Tree {
             } else {
                 current_index - 1
             };
-            
-            std::println!("Level {}: current_index={}, sibling_index={}, level_nodes_count={}", 
-                         level, current_index, sibling_index, level_nodes.len());
+            //
+            // std::println!("Level {}: current_index={}, sibling_index={}, level_nodes_count={}",
+            //              level, current_index, sibling_index, level_nodes.len());
             
             let sibling_hash = level_nodes.get(sibling_index).unwrap();
-            std::println!("  Adding sibling: {:?}", sibling_hash.to_array());
+            // std::println!("  Adding sibling: {:?}", sibling_hash.to_array());
             siblings.push_back(sibling_hash);
             
             current_index = current_index / 2;
-            std::println!("  Next level index: {}", current_index);
+            // std::println!("  Next level index: {}", current_index);
         }
         
-        std::println!("Generated proof with {} siblings", siblings.len());
+        // std::println!("Generated proof with {} siblings", siblings.len());
         for (i, sibling) in siblings.iter().enumerate() {
-            std::println!("  Sibling {}: {:?}", i, sibling.to_array());
+            // std::println!("  Sibling {}: {:?}", i, sibling.to_array());
         }
         
         let proof = MerkleProof {
@@ -1339,7 +1339,7 @@ impl Tree {
             siblings,
         };
         
-        std::println!("=== generate_proof END ===");
+        // std::println!("=== generate_proof END ===");
         proof
     }
     

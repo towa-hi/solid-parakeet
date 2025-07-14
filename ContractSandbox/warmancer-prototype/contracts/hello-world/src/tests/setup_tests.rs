@@ -63,7 +63,7 @@ fn test_collision_winner_rank_revelation() {
         let mut guest_front_pawn_id = None;
 
         for (_, (_, pawn)) in pawns_map.iter() {
-            let (_, team) = Contract::decode_pawn_id(&pawn.pawn_id);
+            let (_, team) = Contract::decode_pawn_id(pawn.pawn_id);
             if team == UserIndex::Host && pawn.pos.y == 3 && host_front_pawn_id.is_none() {
                 host_front_pawn_id = Some(pawn.pawn_id);
             }

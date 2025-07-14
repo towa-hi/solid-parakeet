@@ -111,10 +111,10 @@ pub struct Tree {
 
 impl Tree {
     pub fn generate_proof(&self, env: &Env, leaf_index: u32) -> MerkleProof {
-        std::println!("=== generate_proof START ===");
-        std::println!("Leaf index: {}", leaf_index);
-        std::println!("Tree levels: {}", self.levels.len());
-        
+        // std::println!("=== generate_proof START ===");
+        // std::println!("Leaf index: {}", leaf_index);
+        // std::println!("Tree levels: {}", self.levels.len());
+        //
         let mut siblings = Vec::new(env);
         let mut current_index = leaf_index;
         
@@ -126,20 +126,20 @@ impl Tree {
                 current_index - 1
             };
             
-            std::println!("Level {}: current_index={}, sibling_index={}, level_nodes_count={}", 
-                         level, current_index, sibling_index, level_nodes.len());
-            
+            // std::println!("Level {}: current_index={}, sibling_index={}, level_nodes_count={}",
+            //              level, current_index, sibling_index, level_nodes.len());
+            //
             let sibling_hash = level_nodes.get(sibling_index).unwrap();
-            std::println!("  Adding sibling: {:?}", sibling_hash.to_array());
+            // std::println!("  Adding sibling: {:?}", sibling_hash.to_array());
             siblings.push_back(sibling_hash);
             
             current_index = current_index / 2;
-            std::println!("  Next level index: {}", current_index);
+            // std::println!("  Next level index: {}", current_index);
         }
         
-        std::println!("Generated proof with {} siblings", siblings.len());
+        // std::println!("Generated proof with {} siblings", siblings.len());
         for (i, sibling) in siblings.iter().enumerate() {
-            std::println!("  Sibling {}: {:?}", i, sibling.to_array());
+            // std::println!("  Sibling {}: {:?}", i, sibling.to_array());
         }
         
         let proof = MerkleProof {
@@ -147,7 +147,7 @@ impl Tree {
             siblings,
         };
         
-        std::println!("=== generate_proof END ===");
+        // std::println!("=== generate_proof END ===");
         proof
     }
     
@@ -381,12 +381,12 @@ pub fn validate_move_prove_transition(
     std::println!("✓ Move processing completed successfully");
     std::println!("Host needed rank proofs: {} pawns", host_needed_ranks.len());
     for pawn_id in host_needed_ranks.iter() {
-        let (_, team) = Contract::decode_pawn_id(&pawn_id);
+        let (_, team) = Contract::decode_pawn_id(pawn_id);
         std::println!("  - Pawn {} (team {})", pawn_id, team as u32);
     }
     std::println!("Guest needed rank proofs: {} pawns", guest_needed_ranks.len());
     for pawn_id in guest_needed_ranks.iter() {
-        let (_, team) = Contract::decode_pawn_id(&pawn_id);
+        let (_, team) = Contract::decode_pawn_id(pawn_id);
         std::println!("  - Pawn {} (team {})", pawn_id, team as u32);
     }
     std::println!("=== END VALIDATION ===");
