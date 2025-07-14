@@ -242,35 +242,7 @@ impl Contract {
         }
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id);
         // light validation on boards just to make sure they make sense
-        let mut board_invalid = false;
-        let board = req.parameters.board.clone();
-        if board.tiles.len() as i32 != board.size.x * board.size.y {
-            board_invalid = true;
-        }
-        let mut used_positions: Map<Pos, bool> = Map::new(e);
-        for packed_tile in board.tiles.iter() {
-            let tile = Self::unpack_tile(packed_tile);
-            if used_positions.contains_key(tile.pos.clone()) {
-                board_invalid = true;
-                break;
-            }
-            used_positions.set(tile.pos.clone(), true);
-            if tile.setup != 0 && tile.setup != 1 && tile.setup != 2 {
-                board_invalid = true;
-                break;
-            }
-            if tile.setup != 2 {
-                if !tile.passable {
-                    board_invalid = true;
-                    break;
-                }
-            }
-            if tile.setup_zone != 0 && tile.setup_zone != 1 && tile.setup_zone != 2 && tile.setup_zone != 3 && tile.setup_zone != 4 {
-                board_invalid = true;
-                break;
-            }
-        }
-        if board_invalid {
+        if !Self::validate_board(e, &req.parameters.board) {
             return Err(Error::InvalidArgs)
         }
         let mut parameters_invalid = false;
@@ -450,7 +422,7 @@ impl Contract {
         if commit_move_result.is_err() {
             return commit_move_result
         }
-        let prove_move_result = Self::prove_move_internal(e, address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters);
+        let prove_move_result = Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters);
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         prove_move_result
@@ -461,7 +433,7 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let prove_move_result = Self::prove_move_internal(e, address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
+        let prove_move_result = Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         prove_move_result
@@ -472,11 +444,11 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let prove_move_result = Self::prove_move_internal(e, address.clone(), &req, &mut lobby_info, &mut game_state, &lobby_parameters);
+        let prove_move_result = Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
         if prove_move_result.is_err() {
             return prove_move_result
         }
-        let prove_rank_result = Self::prove_rank_internal(e, address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters);
+        let prove_rank_result = Self::prove_rank_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters);
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         prove_rank_result
@@ -487,7 +459,7 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let prove_rank_result = Self::prove_rank_internal(e, address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
+        let prove_rank_result = Self::prove_rank_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         prove_rank_result
@@ -513,13 +485,13 @@ impl Contract {
         game_state.moves.set(u_index.u32(), u_move);
         Ok(lobby_info.clone())
     }
-    pub(crate) fn prove_move_internal(e: &Env, address: Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
+    pub(crate) fn prove_move_internal(e: &Env, address: &Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
         log!(e, "prove_move_internal");
         if lobby_info.phase != Phase::MoveProve {
             return Err(Error::WrongPhase)
         }
-        let u_index = Self::get_player_index(&address, &lobby_info);
-        let o_index = Self::get_opponent_index(&address, &lobby_info);
+        let u_index = Self::get_player_index(address, &lobby_info);
+        let o_index = Self::get_opponent_index(address, &lobby_info);
         // validate and update user move
         {
             let mut u_move = game_state.moves.get_unchecked(u_index.u32());
@@ -577,9 +549,9 @@ impl Contract {
         }
         Ok(lobby_info.clone())
     }
-    pub(crate) fn prove_rank_internal(e: &Env, address: Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
+    pub(crate) fn prove_rank_internal(e: &Env, address: &Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
         log!(e, "prove_rank_internal{}", req.hidden_ranks);
-        let u_index = Self::get_player_index(&address, &lobby_info);
+        let u_index = Self::get_player_index(address, &lobby_info);
         if lobby_info.phase != Phase::RankProve {
             return Err(Error::WrongPhase)
         }
@@ -797,13 +769,25 @@ impl Contract {
     // endregion
     // region validation
     pub(crate) fn validate_board(e: &Env, board: &Board) -> bool {
-        let mut used_positions: Map<Pos, bool> = Map::new(e);
+        if board.tiles.len() as i32 != board.size.x * board.size.y {
+            return false;
+        }
+        let mut used_positions: Map<Pos, Tile> = Map::new(e);
         for packed_tile in board.tiles.iter() {
             let tile = Self::unpack_tile(packed_tile);
             if used_positions.contains_key(tile.pos) {
                 return false;
             }
-
+            if ![0, 1, 2].contains(&tile.setup) {
+                return false;
+            }
+            if [0, 1].contains(&tile.setup) && !tile.passable {
+                return false;
+            }
+            if ![0, 1, 2, 3, 4].contains(&tile.setup_zone) {
+                return false;
+            }
+            used_positions.set(tile.pos.clone(), tile);
         }
 
         true
