@@ -242,7 +242,7 @@ impl Contract {
         }
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id);
         // light validation on boards just to make sure they make sense
-        if !Self::validate_board(e, &req.parameters.board) {
+        if !Self::validate_board(e, &req.parameters) {
             return Err(Error::InvalidArgs)
         }
         let mut parameters_invalid = false;
@@ -609,7 +609,7 @@ impl Contract {
         }
         Ok(lobby_info.clone())
     }
-    pub fn redeem_win(e: &Env, address: Address, req: RedeemWinReq) -> Result<bool, Error> {
+    pub fn redeem_win(e: &Env, address: Address, req: RedeemWinReq) -> Result<LobbyInfo, Error> {
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         if [Phase::Lobby, Phase::SetupCommit, Phase::Finished, Phase::Aborted].contains(&lobby_info.phase) {
@@ -623,7 +623,7 @@ impl Contract {
         lobby_info.phase = Phase::Finished;
         lobby_info.subphase = Self::user_subphase_from_player_index(&u_index);
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
-        Ok(true)
+        Ok(lobby_info)
     }
     // endregion
     // region read-only contract simulation
@@ -690,7 +690,7 @@ impl Contract {
         }
     }
     pub(crate) fn apply_move_to_pawn(move_proof: &HiddenMove, pawn: &mut PawnState) -> () {
-        if pawn.pos != move_proof.start_pos {
+        if move_proof.start_pos != move_proof.target_pos {
             pawn.moved = true;
         }
         if Self::is_scout_move(move_proof) {
@@ -768,14 +768,18 @@ impl Contract {
     }
     // endregion
     // region validation
-    pub(crate) fn validate_board(e: &Env, board: &Board) -> bool {
-        if board.tiles.len() as i32 != board.size.x * board.size.y {
+    pub(crate) fn validate_board(e: &Env, lobby_parameters: &LobbyParameters) -> bool {
+        if lobby_parameters.board.tiles.len() as i32 != lobby_parameters.board.size.x * lobby_parameters.board.size.y {
             return false;
         }
-        let mut used_positions: Map<Pos, Tile> = Map::new(e);
-        for packed_tile in board.tiles.iter() {
+        let mut tiles_map: Map<Pos, Tile> = Map::new(e);
+        let mut total_passable = 0;
+        let mut start_pos: Option<Pos> = None;
+        let mut host_setup = 0;
+        let mut guest_setup = 0;
+        for packed_tile in lobby_parameters.board.tiles.iter() {
             let tile = Self::unpack_tile(packed_tile);
-            if used_positions.contains_key(tile.pos) {
+            if tiles_map.contains_key(tile.pos) {
                 return false;
             }
             if ![0, 1, 2].contains(&tile.setup) {
@@ -787,9 +791,62 @@ impl Contract {
             if ![0, 1, 2, 3, 4].contains(&tile.setup_zone) {
                 return false;
             }
-            used_positions.set(tile.pos.clone(), tile);
+            if tile.setup == 0 {
+                host_setup += 1;
+            }
+            if tile.setup == 1 {
+                guest_setup += 1;
+            }
+            if tile.passable {
+                total_passable += 1;
+                if start_pos.is_none() {
+                    start_pos = Some(tile.pos.clone())
+                }
+            }
+            tiles_map.set(tile.pos.clone(), tile);
         }
-
+        if start_pos.is_none() {
+            return false;
+        }
+        if host_setup == 0 {
+            return false;
+        }
+        if guest_setup == 0 {
+            return false;
+        }
+        // Check board connectivity
+        let start_pos = start_pos.unwrap();
+        let mut visited: Map<Pos, ()> = Map::new(e); // Use unit type to save space
+        let mut queue: Vec<Pos> = Vec::new(e);
+        visited.set(start_pos.clone(), ());
+        queue.push_back(start_pos);
+        let mut visited_count = 1u32;
+        while let Some(current) = queue.pop_front() {
+            // Early termination when all passable tiles found
+            if visited_count == total_passable {
+                break;
+            }
+            // Get neighbors using the array-based function
+            let neighbors = Self::get_neighbors(&current, lobby_parameters.board.hex);
+            for neighbor in neighbors.iter() {
+                if neighbor.x == -42069 && neighbor.y == -42069 {
+                    break;
+                }
+                if !visited.contains_key(*neighbor) {
+                    if let Some(tile) = tiles_map.get(*neighbor) {
+                        if tile.passable {
+                            visited.set(neighbor.clone(), ());
+                            queue.push_back(neighbor.clone());
+                            visited_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+        if visited_count != total_passable
+        {
+            return false;
+        }
         true
     }
     pub(crate) fn is_scout_move(hidden_move: &HiddenMove) -> bool {
@@ -928,6 +985,45 @@ impl Contract {
     }
     // endregion
     // region questions
+    pub(crate) fn get_neighbors(pos: &Pos, is_hex: bool) -> [Pos; 6] {
+        const UNUSED:Pos = Pos {x: -42069, y: -42069};
+        let mut neighbors = [
+            UNUSED,
+            UNUSED,
+            UNUSED,
+            UNUSED,
+            UNUSED,
+            UNUSED,
+        ];
+        if is_hex {
+            // Hex grid has 6 neighbors
+            if pos.x % 2 == 0 {
+                // Even columns
+                neighbors[0] = Pos { x: pos.x, y: pos.y - 1 };      // N
+                neighbors[1] = Pos { x: pos.x + 1, y: pos.y - 1 };  // NE
+                neighbors[2] = Pos { x: pos.x + 1, y: pos.y };      // SE
+                neighbors[3] = Pos { x: pos.x, y: pos.y + 1 };      // S
+                neighbors[4] = Pos { x: pos.x - 1, y: pos.y };      // SW
+                neighbors[5] = Pos { x: pos.x - 1, y: pos.y - 1 };  // NW
+            } else {
+                // Odd columns
+                neighbors[0] = Pos { x: pos.x, y: pos.y - 1 };      // N
+                neighbors[1] = Pos { x: pos.x + 1, y: pos.y };      // NE
+                neighbors[2] = Pos { x: pos.x + 1, y: pos.y + 1 };  // SE
+                neighbors[3] = Pos { x: pos.x, y: pos.y + 1 };      // S
+                neighbors[4] = Pos { x: pos.x - 1, y: pos.y + 1 };  // SW
+                neighbors[5] = Pos { x: pos.x - 1, y: pos.y };      // NW
+            }
+        } else {
+            // Square grid has 4 neighbors (orthogonal only)
+            neighbors[0] = Pos { x: pos.x, y: pos.y - 1 };      // N
+            neighbors[1] = Pos { x: pos.x + 1, y: pos.y };      // E
+            neighbors[2] = Pos { x: pos.x, y: pos.y + 1 };      // S
+            neighbors[3] = Pos { x: pos.x - 1, y: pos.y };      // W
+            // neighbors[4] and neighbors[5] remain as sentinel values
+        }
+        neighbors
+    }
     pub(crate) fn detect_collisions(game_state: &GameState, pawns_map: &Map<PawnId, (u32, PawnState)>, u_index: &UserIndex, o_index: &UserIndex, ) -> CollisionDetection {
         let mut has_double_collision = false;
         let mut has_swap_collision = false;

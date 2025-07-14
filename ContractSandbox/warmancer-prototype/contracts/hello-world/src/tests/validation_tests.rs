@@ -1,5 +1,5 @@
 #![cfg(test)]
-#[allow(unused_variables)]
+#![allow(unused_variables)]
 extern crate std;
 use super::super::*;
 use super::test_utils::*;
@@ -121,6 +121,124 @@ fn test_verify_merkle_proof_direct() {
     });
     assert!(is_valid, "Merkle proof 2 should be valid");
     std::println!("✓ Direct merkle proof verification successful!");
+}
+
+#[test]
+fn test_board_connectivity_connected() {
+    let setup = TestSetup::new();
+    let env = &setup.env;
+    
+    // Create a simple 3x3 connected board
+    let tiles = Vec::from_array(env, [
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 0, y: 0 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 1, y: 0 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 2, y: 0 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 0, y: 1 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: false, pos: Pos { x: 1, y: 1 }, setup: 2, setup_zone: 0 }), // impassable center
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 2, y: 1 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 0, y: 2 }, setup: 1, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 1, y: 2 }, setup: 1, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 2, y: 2 }, setup: 1, setup_zone: 0 }),
+    ]);
+    
+    let board = Board {
+        hex: false,
+        name: String::from_str(env, "Connected Board"),
+        size: Pos { x: 3, y: 3 },
+        tiles: tiles,
+    };
+    let lobby_parameters = LobbyParameters {
+        board,
+        board_hash: BytesN::from_array(env, &[1u8; 16]),
+        dev_mode: false,
+        host_team: 0,
+        max_ranks: Vec::new(env),
+        must_fill_all_tiles: false,
+        security_mode: false,
+    };
+    let is_valid = env.as_contract(&setup.contract_id, || {
+        Contract::validate_board(env, &lobby_parameters)
+    });
+    
+    assert!(is_valid, "Connected board should be valid");
+    std::println!("✓ Connected board validation passed");
+}
+
+#[test]
+fn test_board_connectivity_disconnected() {
+    let setup = TestSetup::new();
+    let env = &setup.env;
+    
+    // Create a 3x3 board with two disconnected islands
+    let tiles = Vec::from_array(env, [
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 0, y: 0 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 1, y: 0 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: false, pos: Pos { x: 2, y: 0 }, setup: 2, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 0, y: 1 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: false, pos: Pos { x: 1, y: 1 }, setup: 2, setup_zone: 0 }), // barrier
+        crate::test_utils::pack_tile(&Tile { passable: false, pos: Pos { x: 2, y: 1 }, setup: 2, setup_zone: 0 }), // barrier
+        crate::test_utils::pack_tile(&Tile { passable: false, pos: Pos { x: 0, y: 2 }, setup: 2, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 1, y: 2 }, setup: 1, setup_zone: 0 }), // isolated island
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 2, y: 2 }, setup: 1, setup_zone: 0 }), // isolated island
+    ]);
+    
+    let board = Board {
+        hex: false,
+        name: String::from_str(env, "Disconnected Board"),
+        size: Pos { x: 3, y: 3 },
+        tiles: tiles,
+    };
+    let lobby_parameters = LobbyParameters {
+        board,
+        board_hash: BytesN::from_array(env, &[1u8; 16]),
+        dev_mode: false,
+        host_team: 0,
+        max_ranks: Vec::new(env),
+        must_fill_all_tiles: false,
+        security_mode: false,
+    };
+    let is_valid = env.as_contract(&setup.contract_id, || {
+        Contract::validate_board(env, &lobby_parameters)
+    });
+    
+    assert!(!is_valid, "Disconnected board should be invalid");
+    std::println!("✓ Disconnected board validation correctly failed");
+}
+
+#[test]
+fn test_board_connectivity_hex() {
+    let setup = TestSetup::new();
+    let env = &setup.env;
+    
+    // Create a small hex board to test hex connectivity
+    let tiles = Vec::from_array(env, [
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 0, y: 0 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 1, y: 0 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 0, y: 1 }, setup: 0, setup_zone: 0 }),
+        crate::test_utils::pack_tile(&Tile { passable: true, pos: Pos { x: 1, y: 1 }, setup: 1, setup_zone: 0 }),
+    ]);
+    
+    let board = Board {
+        hex: true,
+        name: String::from_str(env, "Hex Board"),
+        size: Pos { x: 2, y: 2 },
+        tiles: tiles,
+    };
+    let lobby_parameters = LobbyParameters {
+        board,
+        board_hash: BytesN::from_array(env, &[1u8; 16]),
+        dev_mode: false,
+        host_team: 0,
+        max_ranks: Vec::new(env),
+        must_fill_all_tiles: false,
+        security_mode: false,
+    };
+    let is_valid = env.as_contract(&setup.contract_id, || {
+        Contract::validate_board(env, &lobby_parameters)
+    });
+    
+    assert!(is_valid, "Hex board should be valid");
+    std::println!("✓ Hex board connectivity validation passed");
 }
 
 // endregion

@@ -1,5 +1,5 @@
 #![cfg(test)]
-#[allow(unused_variables)]
+#![allow(unused)]
 extern crate std;
 use super::*;
 use soroban_sdk::{Env, Address, Vec, Map};
@@ -749,7 +749,6 @@ pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Vec<
     // Process host team (team 0)
     let mut host_setup_commits = Vec::new(env);
     let mut host_hidden_ranks = Vec::new(env);
-    let host_salt = 0u64;
     let back_count = back_ranks.len() as usize;
     
     for (i, pawn) in host_pawns.iter().enumerate() {
