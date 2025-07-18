@@ -1,0 +1,2274 @@
+{
+  "address": {},
+  "user": {
+    "current_lobby": {
+      "Value": 864275
+    },
+    "games_completed": 0
+  },
+  "lobbyInfo": {
+    "guest_address": {},
+    "host_address": {},
+    "index": {
+      "Value": 864275
+    },
+    "phase": 6,
+    "subphase": 0,
+    "liveUntilLedgerSeq": 530186
+  },
+  "lobbyParameters": {
+    "board": {
+      "hex": true,
+      "name": "Narrow Hexagons",
+      "size": {
+        "x": 10,
+        "y": 10,
+        "magnitude": 14.1421356,
+        "sqrMagnitude": 200
+      },
+      "tiles": [
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 0,
+            "magnitude": 0.0,
+            "sqrMagnitude": 0
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 0,
+            "magnitude": 1.0,
+            "sqrMagnitude": 1
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 0,
+            "magnitude": 2.0,
+            "sqrMagnitude": 4
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 0,
+            "magnitude": 3.0,
+            "sqrMagnitude": 9
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 0,
+            "magnitude": 4.0,
+            "sqrMagnitude": 16
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 0,
+            "magnitude": 5.0,
+            "sqrMagnitude": 25
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 0,
+            "magnitude": 6.0,
+            "sqrMagnitude": 36
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 0,
+            "magnitude": 7.0,
+            "sqrMagnitude": 49
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 0,
+            "magnitude": 8.0,
+            "sqrMagnitude": 64
+          },
+          "setup": 0,
+          "setup_zone": 3
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 0,
+            "magnitude": 9.0,
+            "sqrMagnitude": 81
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 1,
+            "magnitude": 1.0,
+            "sqrMagnitude": 1
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 1,
+            "magnitude": 1.41421354,
+            "sqrMagnitude": 2
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 1,
+            "magnitude": 2.236068,
+            "sqrMagnitude": 5
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 1,
+            "magnitude": 3.1622777,
+            "sqrMagnitude": 10
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 1,
+            "magnitude": 4.12310553,
+            "sqrMagnitude": 17
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 1,
+            "magnitude": 5.09901953,
+            "sqrMagnitude": 26
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 1,
+            "magnitude": 6.08276272,
+            "sqrMagnitude": 37
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 1,
+            "magnitude": 7.071068,
+            "sqrMagnitude": 50
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 1,
+            "magnitude": 8.062258,
+            "sqrMagnitude": 65
+          },
+          "setup": 0,
+          "setup_zone": 2
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 1,
+            "magnitude": 9.055386,
+            "sqrMagnitude": 82
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 2,
+            "magnitude": 2.0,
+            "sqrMagnitude": 4
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 2,
+            "magnitude": 2.236068,
+            "sqrMagnitude": 5
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 2,
+            "magnitude": 2.828427,
+            "sqrMagnitude": 8
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 2,
+            "magnitude": 3.60555124,
+            "sqrMagnitude": 13
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 2,
+            "magnitude": 4.472136,
+            "sqrMagnitude": 20
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 2,
+            "magnitude": 5.38516474,
+            "sqrMagnitude": 29
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 2,
+            "magnitude": 6.3245554,
+            "sqrMagnitude": 40
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 2,
+            "magnitude": 7.28011,
+            "sqrMagnitude": 53
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 2,
+            "magnitude": 8.246211,
+            "sqrMagnitude": 68
+          },
+          "setup": 0,
+          "setup_zone": 1
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 2,
+            "magnitude": 9.219544,
+            "sqrMagnitude": 85
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 3,
+            "magnitude": 3.0,
+            "sqrMagnitude": 9
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 3,
+            "magnitude": 3.1622777,
+            "sqrMagnitude": 10
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 3,
+            "magnitude": 3.60555124,
+            "sqrMagnitude": 13
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 3,
+            "magnitude": 4.2426405,
+            "sqrMagnitude": 18
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 3,
+            "magnitude": 5.0,
+            "sqrMagnitude": 25
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 3,
+            "magnitude": 5.83095169,
+            "sqrMagnitude": 34
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 3,
+            "magnitude": 6.708204,
+            "sqrMagnitude": 45
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 3,
+            "magnitude": 7.615773,
+            "sqrMagnitude": 58
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 3,
+            "magnitude": 8.54400349,
+            "sqrMagnitude": 73
+          },
+          "setup": 0,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 3,
+            "magnitude": 9.486833,
+            "sqrMagnitude": 90
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 4,
+            "magnitude": 4.0,
+            "sqrMagnitude": 16
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 4,
+            "magnitude": 4.12310553,
+            "sqrMagnitude": 17
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 2,
+            "y": 4,
+            "magnitude": 4.472136,
+            "sqrMagnitude": 20
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 4,
+            "magnitude": 5.0,
+            "sqrMagnitude": 25
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 4,
+            "magnitude": 5.656854,
+            "sqrMagnitude": 32
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 4,
+            "magnitude": 6.40312433,
+            "sqrMagnitude": 41
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 6,
+            "y": 4,
+            "magnitude": 7.21110249,
+            "sqrMagnitude": 52
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 4,
+            "magnitude": 8.062258,
+            "sqrMagnitude": 65
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 4,
+            "magnitude": 8.944272,
+            "sqrMagnitude": 80
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 4,
+            "magnitude": 9.848858,
+            "sqrMagnitude": 97
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 5,
+            "magnitude": 5.0,
+            "sqrMagnitude": 25
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 5,
+            "magnitude": 5.09901953,
+            "sqrMagnitude": 26
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 2,
+            "y": 5,
+            "magnitude": 5.38516474,
+            "sqrMagnitude": 29
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 5,
+            "magnitude": 5.83095169,
+            "sqrMagnitude": 34
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 5,
+            "magnitude": 6.40312433,
+            "sqrMagnitude": 41
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 5,
+            "magnitude": 7.071068,
+            "sqrMagnitude": 50
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 6,
+            "y": 5,
+            "magnitude": 7.81025,
+            "sqrMagnitude": 61
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 5,
+            "magnitude": 8.602325,
+            "sqrMagnitude": 74
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 5,
+            "magnitude": 9.433981,
+            "sqrMagnitude": 89
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 5,
+            "magnitude": 10.29563,
+            "sqrMagnitude": 106
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 6,
+            "magnitude": 6.0,
+            "sqrMagnitude": 36
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 6,
+            "magnitude": 6.08276272,
+            "sqrMagnitude": 37
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 6,
+            "magnitude": 6.3245554,
+            "sqrMagnitude": 40
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 6,
+            "magnitude": 6.708204,
+            "sqrMagnitude": 45
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 6,
+            "magnitude": 7.21110249,
+            "sqrMagnitude": 52
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 6,
+            "magnitude": 7.81025,
+            "sqrMagnitude": 61
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 6,
+            "magnitude": 8.485281,
+            "sqrMagnitude": 72
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 6,
+            "magnitude": 9.219544,
+            "sqrMagnitude": 85
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 6,
+            "magnitude": 10.0,
+            "sqrMagnitude": 100
+          },
+          "setup": 1,
+          "setup_zone": 0
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 6,
+            "magnitude": 10.8166542,
+            "sqrMagnitude": 117
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 7,
+            "magnitude": 7.0,
+            "sqrMagnitude": 49
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 7,
+            "magnitude": 7.071068,
+            "sqrMagnitude": 50
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 7,
+            "magnitude": 7.28011,
+            "sqrMagnitude": 53
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 7,
+            "magnitude": 7.615773,
+            "sqrMagnitude": 58
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 7,
+            "magnitude": 8.062258,
+            "sqrMagnitude": 65
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 7,
+            "magnitude": 8.602325,
+            "sqrMagnitude": 74
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 7,
+            "magnitude": 9.219544,
+            "sqrMagnitude": 85
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 7,
+            "magnitude": 9.899495,
+            "sqrMagnitude": 98
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 7,
+            "magnitude": 10.630146,
+            "sqrMagnitude": 113
+          },
+          "setup": 1,
+          "setup_zone": 1
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 7,
+            "magnitude": 11.4017544,
+            "sqrMagnitude": 130
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 8,
+            "magnitude": 8.0,
+            "sqrMagnitude": 64
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 8,
+            "magnitude": 8.062258,
+            "sqrMagnitude": 65
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 8,
+            "magnitude": 8.246211,
+            "sqrMagnitude": 68
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 8,
+            "magnitude": 8.54400349,
+            "sqrMagnitude": 73
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 8,
+            "magnitude": 8.944272,
+            "sqrMagnitude": 80
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 8,
+            "magnitude": 9.433981,
+            "sqrMagnitude": 89
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 8,
+            "magnitude": 10.0,
+            "sqrMagnitude": 100
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 8,
+            "magnitude": 10.630146,
+            "sqrMagnitude": 113
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 8,
+            "magnitude": 11.3137083,
+            "sqrMagnitude": 128
+          },
+          "setup": 1,
+          "setup_zone": 2
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 8,
+            "magnitude": 12.0415945,
+            "sqrMagnitude": 145
+          },
+          "setup": 2,
+          "setup_zone": 0
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 0,
+            "y": 9,
+            "magnitude": 9.0,
+            "sqrMagnitude": 81
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 1,
+            "y": 9,
+            "magnitude": 9.055386,
+            "sqrMagnitude": 82
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 2,
+            "y": 9,
+            "magnitude": 9.219544,
+            "sqrMagnitude": 85
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 3,
+            "y": 9,
+            "magnitude": 9.486833,
+            "sqrMagnitude": 90
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 4,
+            "y": 9,
+            "magnitude": 9.848858,
+            "sqrMagnitude": 97
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 5,
+            "y": 9,
+            "magnitude": 10.29563,
+            "sqrMagnitude": 106
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 6,
+            "y": 9,
+            "magnitude": 10.8166542,
+            "sqrMagnitude": 117
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 7,
+            "y": 9,
+            "magnitude": 11.4017544,
+            "sqrMagnitude": 130
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": true,
+          "pos": {
+            "x": 8,
+            "y": 9,
+            "magnitude": 12.0415945,
+            "sqrMagnitude": 145
+          },
+          "setup": 1,
+          "setup_zone": 3
+        },
+        {
+          "passable": false,
+          "pos": {
+            "x": 9,
+            "y": 9,
+            "magnitude": 12.7279224,
+            "sqrMagnitude": 162
+          },
+          "setup": 2,
+          "setup_zone": 0
+        }
+      ]
+    },
+    "board_hash": "6TYwpSq8Pzt/Ay8OF+n6bA==",
+    "dev_mode": false,
+    "host_team": 0,
+    "max_ranks": [
+      1,
+      1,
+      8,
+      3,
+      4,
+      4,
+      4,
+      3,
+      2,
+      1,
+      1,
+      4,
+      0
+    ],
+    "must_fill_all_tiles": true,
+    "security_mode": true,
+    "liveUntilLedgerSeq": 530186
+  },
+  "gameState": {
+    "moves": [
+      {
+        "move_hash": "NtJv+T3f7OxVEMlNqCHu/A==",
+        "move_proof": {
+          "pawn_id": {
+            "Value": 106
+          },
+          "salt": 16724528812434846543,
+          "start_pos": {
+            "x": 5,
+            "y": 4,
+            "magnitude": 6.40312433,
+            "sqrMagnitude": 41
+          },
+          "target_pos": {
+            "x": 5,
+            "y": 5,
+            "magnitude": 7.071068,
+            "sqrMagnitude": 50
+          }
+        },
+        "needed_rank_proofs": []
+      },
+      {
+        "move_hash": "wM3tqFGPWOuRc2jHiEPzFw==",
+        "move_proof": null,
+        "needed_rank_proofs": []
+      }
+    ],
+    "pawns": [
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 0
+        },
+        "pos": {
+          "x": 0,
+          "y": 0,
+          "magnitude": 0.0,
+          "sqrMagnitude": 0
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 2
+        },
+        "pos": {
+          "x": 1,
+          "y": 0,
+          "magnitude": 1.0,
+          "sqrMagnitude": 1
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 4
+        },
+        "pos": {
+          "x": 2,
+          "y": 0,
+          "magnitude": 2.0,
+          "sqrMagnitude": 4
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 6
+        },
+        "pos": {
+          "x": 3,
+          "y": 0,
+          "magnitude": 3.0,
+          "sqrMagnitude": 9
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 8
+        },
+        "pos": {
+          "x": 4,
+          "y": 0,
+          "magnitude": 4.0,
+          "sqrMagnitude": 16
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 10
+        },
+        "pos": {
+          "x": 5,
+          "y": 0,
+          "magnitude": 5.0,
+          "sqrMagnitude": 25
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 12
+        },
+        "pos": {
+          "x": 6,
+          "y": 0,
+          "magnitude": 6.0,
+          "sqrMagnitude": 36
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 14
+        },
+        "pos": {
+          "x": 7,
+          "y": 0,
+          "magnitude": 7.0,
+          "sqrMagnitude": 49
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 16
+        },
+        "pos": {
+          "x": 8,
+          "y": 0,
+          "magnitude": 8.0,
+          "sqrMagnitude": 64
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 32
+        },
+        "pos": {
+          "x": 0,
+          "y": 1,
+          "magnitude": 1.0,
+          "sqrMagnitude": 1
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 34
+        },
+        "pos": {
+          "x": 1,
+          "y": 1,
+          "magnitude": 1.41421354,
+          "sqrMagnitude": 2
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 36
+        },
+        "pos": {
+          "x": 2,
+          "y": 1,
+          "magnitude": 2.236068,
+          "sqrMagnitude": 5
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 38
+        },
+        "pos": {
+          "x": 3,
+          "y": 1,
+          "magnitude": 3.1622777,
+          "sqrMagnitude": 10
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 40
+        },
+        "pos": {
+          "x": 4,
+          "y": 1,
+          "magnitude": 4.12310553,
+          "sqrMagnitude": 17
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 42
+        },
+        "pos": {
+          "x": 5,
+          "y": 1,
+          "magnitude": 5.09901953,
+          "sqrMagnitude": 26
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 44
+        },
+        "pos": {
+          "x": 6,
+          "y": 1,
+          "magnitude": 6.08276272,
+          "sqrMagnitude": 37
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 46
+        },
+        "pos": {
+          "x": 7,
+          "y": 1,
+          "magnitude": 7.071068,
+          "sqrMagnitude": 50
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 48
+        },
+        "pos": {
+          "x": 8,
+          "y": 1,
+          "magnitude": 8.062258,
+          "sqrMagnitude": 65
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 64
+        },
+        "pos": {
+          "x": 0,
+          "y": 2,
+          "magnitude": 2.0,
+          "sqrMagnitude": 4
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 66
+        },
+        "pos": {
+          "x": 1,
+          "y": 2,
+          "magnitude": 2.236068,
+          "sqrMagnitude": 5
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 68
+        },
+        "pos": {
+          "x": 2,
+          "y": 2,
+          "magnitude": 2.828427,
+          "sqrMagnitude": 8
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 70
+        },
+        "pos": {
+          "x": 3,
+          "y": 2,
+          "magnitude": 3.60555124,
+          "sqrMagnitude": 13
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 72
+        },
+        "pos": {
+          "x": 4,
+          "y": 2,
+          "magnitude": 4.472136,
+          "sqrMagnitude": 20
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 74
+        },
+        "pos": {
+          "x": 5,
+          "y": 2,
+          "magnitude": 5.38516474,
+          "sqrMagnitude": 29
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 76
+        },
+        "pos": {
+          "x": 6,
+          "y": 2,
+          "magnitude": 6.3245554,
+          "sqrMagnitude": 40
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 78
+        },
+        "pos": {
+          "x": 7,
+          "y": 2,
+          "magnitude": 7.28011,
+          "sqrMagnitude": 53
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 80
+        },
+        "pos": {
+          "x": 8,
+          "y": 2,
+          "magnitude": 8.246211,
+          "sqrMagnitude": 68
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 96
+        },
+        "pos": {
+          "x": 0,
+          "y": 3,
+          "magnitude": 3.0,
+          "sqrMagnitude": 9
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 98
+        },
+        "pos": {
+          "x": 1,
+          "y": 3,
+          "magnitude": 3.1622777,
+          "sqrMagnitude": 10
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 100
+        },
+        "pos": {
+          "x": 2,
+          "y": 3,
+          "magnitude": 3.60555124,
+          "sqrMagnitude": 13
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 102
+        },
+        "pos": {
+          "x": 3,
+          "y": 3,
+          "magnitude": 4.2426405,
+          "sqrMagnitude": 18
+        },
+        "rank": null
+      },
+      {
+        "alive": false,
+        "moved": true,
+        "moved_scout": true,
+        "pawn_id": {
+          "Value": 104
+        },
+        "pos": {
+          "x": 4,
+          "y": 5,
+          "magnitude": 6.40312433,
+          "sqrMagnitude": 41
+        },
+        "rank": 2
+      },
+      {
+        "alive": true,
+        "moved": true,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 106
+        },
+        "pos": {
+          "x": 5,
+          "y": 4,
+          "magnitude": 6.40312433,
+          "sqrMagnitude": 41
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 108
+        },
+        "pos": {
+          "x": 6,
+          "y": 3,
+          "magnitude": 6.708204,
+          "sqrMagnitude": 45
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 110
+        },
+        "pos": {
+          "x": 7,
+          "y": 3,
+          "magnitude": 7.615773,
+          "sqrMagnitude": 58
+        },
+        "rank": 7
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 112
+        },
+        "pos": {
+          "x": 8,
+          "y": 3,
+          "magnitude": 8.54400349,
+          "sqrMagnitude": 73
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 193
+        },
+        "pos": {
+          "x": 0,
+          "y": 6,
+          "magnitude": 6.0,
+          "sqrMagnitude": 36
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 195
+        },
+        "pos": {
+          "x": 1,
+          "y": 6,
+          "magnitude": 6.08276272,
+          "sqrMagnitude": 37
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 197
+        },
+        "pos": {
+          "x": 2,
+          "y": 6,
+          "magnitude": 6.3245554,
+          "sqrMagnitude": 40
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 199
+        },
+        "pos": {
+          "x": 3,
+          "y": 6,
+          "magnitude": 6.708204,
+          "sqrMagnitude": 45
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 201
+        },
+        "pos": {
+          "x": 4,
+          "y": 6,
+          "magnitude": 7.21110249,
+          "sqrMagnitude": 52
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": true,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 203
+        },
+        "pos": {
+          "x": 5,
+          "y": 5,
+          "magnitude": 7.071068,
+          "sqrMagnitude": 50
+        },
+        "rank": 4
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 205
+        },
+        "pos": {
+          "x": 6,
+          "y": 6,
+          "magnitude": 8.485281,
+          "sqrMagnitude": 72
+        },
+        "rank": null
+      },
+      {
+        "alive": false,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 207
+        },
+        "pos": {
+          "x": 7,
+          "y": 6,
+          "magnitude": 9.219544,
+          "sqrMagnitude": 85
+        },
+        "rank": 2
+      },
+      {
+        "alive": true,
+        "moved": true,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 209
+        },
+        "pos": {
+          "x": 7,
+          "y": 6,
+          "magnitude": 9.219544,
+          "sqrMagnitude": 85
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 225
+        },
+        "pos": {
+          "x": 0,
+          "y": 7,
+          "magnitude": 7.0,
+          "sqrMagnitude": 49
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 227
+        },
+        "pos": {
+          "x": 1,
+          "y": 7,
+          "magnitude": 7.071068,
+          "sqrMagnitude": 50
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 229
+        },
+        "pos": {
+          "x": 2,
+          "y": 7,
+          "magnitude": 7.28011,
+          "sqrMagnitude": 53
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 231
+        },
+        "pos": {
+          "x": 3,
+          "y": 7,
+          "magnitude": 7.615773,
+          "sqrMagnitude": 58
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 233
+        },
+        "pos": {
+          "x": 4,
+          "y": 7,
+          "magnitude": 8.062258,
+          "sqrMagnitude": 65
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 235
+        },
+        "pos": {
+          "x": 5,
+          "y": 7,
+          "magnitude": 8.602325,
+          "sqrMagnitude": 74
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 237
+        },
+        "pos": {
+          "x": 6,
+          "y": 7,
+          "magnitude": 9.219544,
+          "sqrMagnitude": 85
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 239
+        },
+        "pos": {
+          "x": 7,
+          "y": 7,
+          "magnitude": 9.899495,
+          "sqrMagnitude": 98
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 241
+        },
+        "pos": {
+          "x": 8,
+          "y": 7,
+          "magnitude": 10.630146,
+          "sqrMagnitude": 113
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 257
+        },
+        "pos": {
+          "x": 0,
+          "y": 8,
+          "magnitude": 8.0,
+          "sqrMagnitude": 64
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 259
+        },
+        "pos": {
+          "x": 1,
+          "y": 8,
+          "magnitude": 8.062258,
+          "sqrMagnitude": 65
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 261
+        },
+        "pos": {
+          "x": 2,
+          "y": 8,
+          "magnitude": 8.246211,
+          "sqrMagnitude": 68
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 263
+        },
+        "pos": {
+          "x": 3,
+          "y": 8,
+          "magnitude": 8.54400349,
+          "sqrMagnitude": 73
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 265
+        },
+        "pos": {
+          "x": 4,
+          "y": 8,
+          "magnitude": 8.944272,
+          "sqrMagnitude": 80
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 267
+        },
+        "pos": {
+          "x": 5,
+          "y": 8,
+          "magnitude": 9.433981,
+          "sqrMagnitude": 89
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 269
+        },
+        "pos": {
+          "x": 6,
+          "y": 8,
+          "magnitude": 10.0,
+          "sqrMagnitude": 100
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 271
+        },
+        "pos": {
+          "x": 7,
+          "y": 8,
+          "magnitude": 10.630146,
+          "sqrMagnitude": 113
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 273
+        },
+        "pos": {
+          "x": 8,
+          "y": 8,
+          "magnitude": 11.3137083,
+          "sqrMagnitude": 128
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 289
+        },
+        "pos": {
+          "x": 0,
+          "y": 9,
+          "magnitude": 9.0,
+          "sqrMagnitude": 81
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 291
+        },
+        "pos": {
+          "x": 1,
+          "y": 9,
+          "magnitude": 9.055386,
+          "sqrMagnitude": 82
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 293
+        },
+        "pos": {
+          "x": 2,
+          "y": 9,
+          "magnitude": 9.219544,
+          "sqrMagnitude": 85
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 295
+        },
+        "pos": {
+          "x": 3,
+          "y": 9,
+          "magnitude": 9.486833,
+          "sqrMagnitude": 90
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 297
+        },
+        "pos": {
+          "x": 4,
+          "y": 9,
+          "magnitude": 9.848858,
+          "sqrMagnitude": 97
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 299
+        },
+        "pos": {
+          "x": 5,
+          "y": 9,
+          "magnitude": 10.29563,
+          "sqrMagnitude": 106
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 301
+        },
+        "pos": {
+          "x": 6,
+          "y": 9,
+          "magnitude": 10.8166542,
+          "sqrMagnitude": 117
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 303
+        },
+        "pos": {
+          "x": 7,
+          "y": 9,
+          "magnitude": 11.4017544,
+          "sqrMagnitude": 130
+        },
+        "rank": null
+      },
+      {
+        "alive": true,
+        "moved": false,
+        "moved_scout": false,
+        "pawn_id": {
+          "Value": 305
+        },
+        "pos": {
+          "x": 8,
+          "y": 9,
+          "magnitude": 12.0415945,
+          "sqrMagnitude": 145
+        },
+        "rank": null
+      }
+    ],
+    "rank_roots": [
+      "p5lqNvNzwO0/ZzDh9z1HOA==",
+      "h83huab+PtOYJ5LOa+drIQ=="
+    ],
+    "turn": 3,
+    "liveUntilLedgerSeq": 530188
+  },
+  "inLobby": true
+}

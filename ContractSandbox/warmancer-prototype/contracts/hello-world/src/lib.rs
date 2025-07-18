@@ -486,7 +486,6 @@ impl Contract {
         Ok(lobby_info.clone())
     }
     pub(crate) fn prove_move_internal(e: &Env, address: &Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
-        log!(e, "prove_move_internal");
         if lobby_info.phase != Phase::MoveProve {
             return Err(Error::WrongPhase)
         }
@@ -556,7 +555,6 @@ impl Contract {
         Ok(lobby_info.clone())
     }
     pub(crate) fn prove_rank_internal(e: &Env, address: &Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
-        log!(e, "prove_rank_internal{}", req.hidden_ranks);
         let u_index = Self::get_player_index(address, &lobby_info);
         if lobby_info.phase != Phase::RankProve {
             return Err(Error::WrongPhase)
@@ -744,12 +742,10 @@ impl Contract {
         }
         if h_pawn.alive
         {
-            log!(e, "moving h_pawn {}", h_move_proof.target_pos);
             Self::apply_move_to_pawn(&h_move_proof, &mut h_pawn);
         }
         if g_pawn.alive
         {
-            log!(e, "moving g_pawn {}", g_move_proof.target_pos);
             Self::apply_move_to_pawn(&g_move_proof, &mut g_pawn);
         }
         game_state.pawns.set(h_pawn_index, Self::pack_pawn(h_pawn));
@@ -757,67 +753,6 @@ impl Contract {
         // Reset moves for next turn
         game_state.moves = Self::create_empty_moves(e);
     }
-    // pub(crate) fn apply_moves_to_pawns_and_set_rank_proofs(e: &Env, game_state: &mut GameState) -> (Vec<PawnId>, Vec<PawnId>){
-    //     let mut pawns_map = Self::create_pawns_map(e, &game_state.pawns);
-    //     let h_move_proof = game_state.moves.get_unchecked(UserIndex::Host.u32()).move_proof.get_unchecked(0);
-    //     let g_move_proof = game_state.moves.get_unchecked(UserIndex::Guest.u32()).move_proof.get_unchecked(0);
-    //     let (h_pawn_index, mut h_pawn) = pawns_map.get_unchecked(h_move_proof.pawn_id);
-    //     let (g_pawn_index, mut g_pawn) = pawns_map.get_unchecked(g_move_proof.pawn_id);
-    //     // Self::apply_move_to_pawn(&h_move_proof, &mut h_pawn);
-    //     // Self::apply_move_to_pawn(&g_move_proof, &mut g_pawn);
-    //     // game_state.pawns.set(h_pawn_index, Self::pack_pawn(h_pawn.clone()));
-    //     // game_state.pawns.set(g_pawn_index, Self::pack_pawn(g_pawn.clone()));
-    //     // pawns_map.set(h_pawn.pawn_id, (h_pawn_index, h_pawn.clone()));
-    //     // pawns_map.set(g_pawn.pawn_id, (g_pawn_index, g_pawn.clone()));
-    //     // set needed rank proofs
-    //     let (h_proof_list, g_proof_list) = Self::detect_collisions_with_target_pos(game_state, &pawns_map);
-    //     let mut h_proof_list: Vec<PawnId> = Vec::new(e);
-    //     let mut g_proof_list: Vec<PawnId> = Vec::new(e);
-    //     if collision_detection.has_double_collision || collision_detection.has_swap_collision {
-    //         // Both pawns involved in double/swap collision need rank proofs if they don't have ranks
-    //         if let Some(h_pawn_id) = collision_detection.h_pawn_id {
-    //             if h_pawn.rank.is_empty() {
-    //                 h_proof_list.push_back(h_pawn_id);
-    //             }
-    //         }
-    //         if let Some(g_pawn_id) = collision_detection.g_pawn_id {
-    //             if g_pawn.rank.is_empty() {
-    //                 g_proof_list.push_back(g_pawn_id);
-    //             }
-    //         }
-    //     } else {
-    //         // Handle individual collisions with stationary pawns
-    //         if let Some(h_collision_target) = collision_detection.h_collision_target {
-    //             if let Some(h_pawn_id) = collision_detection.h_pawn_id {
-    //                 if h_pawn.rank.is_empty() {
-    //                     h_proof_list.push_back(h_pawn_id);
-    //                 }
-    //             }
-    //             let (_, hx_pawn) = pawns_map.get_unchecked(h_collision_target);
-    //             if hx_pawn.rank.is_empty() {
-    //                 g_proof_list.push_back(h_collision_target);
-    //             }
-    //         }
-    //         if let Some(g_collision_target) = collision_detection.g_collision_target {
-    //             if let Some(g_pawn_id) = collision_detection.g_pawn_id {
-    //                 if g_pawn.rank.is_empty() {
-    //                     g_proof_list.push_back(g_pawn_id);
-    //                 }
-    //             }
-    //             let (_, gx_pawn) = pawns_map.get_unchecked(g_collision_target);
-    //             if gx_pawn.rank.is_empty() {
-    //                 h_proof_list.push_back(g_collision_target);
-    //             }
-    //         }
-    //     }
-    //     let mut h_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
-    //     let mut g_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
-    //     h_move.needed_rank_proofs = h_proof_list.clone();
-    //     g_move.needed_rank_proofs = g_proof_list.clone();
-    //     game_state.moves.set(UserIndex::Host.u32(), h_move);
-    //     game_state.moves.set(UserIndex::Guest.u32(), g_move);
-    //     (h_proof_list, g_proof_list)
-    // }
     // endregion
     // region validation
     pub(crate) fn validate_board(e: &Env, lobby_parameters: &LobbyParameters) -> bool {
@@ -866,37 +801,49 @@ impl Contract {
         if guest_setup == 0 {
             return false;
         }
-        // Check board connectivity
+        // Check board connectivity using fixed iteration
         let start_pos = start_pos.unwrap();
         let mut visited: Map<Pos, ()> = Map::new(e); // Use unit type to save space
-        let mut queue: Vec<Pos> = Vec::new(e);
+        let mut current_wave: Vec<Pos> = Vec::new(e);
+        let mut next_wave: Vec<Pos> = Vec::new(e);
+        
         visited.set(start_pos.clone(), ());
-        queue.push_back(start_pos);
+        current_wave.push_back(start_pos);
         let mut visited_count = 1u32;
-        while let Some(current) = queue.pop_front() {
-            // Early termination when all passable tiles found
-            if visited_count == total_passable {
+        
+        // Maximum iterations = board size (worst case: snake-like path)
+        let max_iterations = lobby_parameters.board.size.x * lobby_parameters.board.size.y;
+        
+        for _ in 0..max_iterations {
+            if current_wave.is_empty() || visited_count == total_passable {
                 break;
             }
-            // Get neighbors using the array-based function
-            let neighbors = Self::get_neighbors(&current, lobby_parameters.board.hex);
-            for neighbor in neighbors.iter() {
-                if neighbor.x == -42069 && neighbor.y == -42069 {
-                    break;
-                }
-                if !visited.contains_key(*neighbor) {
-                    if let Some(tile) = tiles_map.get(*neighbor) {
-                        if tile.passable {
-                            visited.set(neighbor.clone(), ());
-                            queue.push_back(neighbor.clone());
-                            visited_count += 1;
+            
+            // Process all positions in current wave
+            for current in current_wave.iter() {
+                let neighbors = Self::get_neighbors(&current, lobby_parameters.board.hex);
+                for neighbor in neighbors.iter() {
+                    if neighbor.x == -42069 && neighbor.y == -42069 {
+                        break;
+                    }
+                    if !visited.contains_key(*neighbor) {
+                        if let Some(tile) = tiles_map.get(*neighbor) {
+                            if tile.passable {
+                                visited.set(neighbor.clone(), ());
+                                next_wave.push_back(neighbor.clone());
+                                visited_count += 1;
+                            }
                         }
                     }
                 }
             }
+            
+            // Swap waves for next iteration
+            current_wave = next_wave;
+            next_wave = Vec::new(e);
         }
-        if visited_count != total_passable
-        {
+        
+        if visited_count != total_passable {
             return false;
         }
         true
@@ -928,24 +875,29 @@ impl Contract {
         valid_rank_proof
     }
     pub(crate) fn validate_move_proof(move_proof: &HiddenMove, player_index: UserIndex, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters) -> bool {
+        // AIDEV-NOTE: Debug logging for validate_move_proof
         // cond: player is owner
         let (_initial_pos, owner_index) = Self::decode_pawn_id(move_proof.pawn_id);
         if owner_index != player_index {
+            // DEBUG: Failed - wrong owner
             return false
         }
         // cond: pawn must exist in game state
         let (_, pawn) = match pawns_map.get(move_proof.pawn_id) {
             Some(tuple) => tuple,
             None => {
+                // DEBUG: Failed - pawn not found
                 return false;
             }
         };
         // cond: pawn must be alive
         if !pawn.alive {
+            // DEBUG: Failed - pawn not alive
             return false
         }
         // cond: start pos must match
         if move_proof.start_pos != pawn.pos {
+            // DEBUG: Failed - start pos mismatch. Expected: pawn.pos, Got: move_proof.start_pos
             return false
         }
         // cond: start and target tiles must exist and be passable
@@ -965,17 +917,20 @@ impl Contract {
             }
         }
         if !start_tile_passable || !target_tile_passable {
+            // DEBUG: Failed - tiles not passable. Start: start_tile_passable, Target: target_tile_passable
             return false
         }
         // validate move based on rank
         if let Some(rank) = pawn.rank.get(0) {
             // cond: pawn is not unmovable rank flag (0) or trap (11)
             if [0, 11].contains(&rank){
+                // DEBUG: Failed - unmovable rank
                 return false
             }
-            // cond: if pawn not a scout (3) it cant move more than one neighboring tile
+            // cond: if pawn not a scout (2) it cant move more than one neighboring tile
             if rank != 2 {
                 if !Self::get_neighbors(&move_proof.start_pos, lobby_parameters.board.hex).contains(&move_proof.target_pos) {
+                    // DEBUG: Failed - non-scout long move
                     return false;
                 }
             }
@@ -988,10 +943,13 @@ impl Contract {
                 // cond: pawn on target pos can't be same owner
                 let other_owner_index = Self::decode_pawn_id(n_pawn.pawn_id).1;
                 if other_owner_index == player_index {
+                    // DEBUG: Failed - friendly pawn at target
                     return false
                 }
+                // DEBUG: Enemy pawn at target - this is allowed
             }
         }
+        // DEBUG: Validation passed
         true
     }
     pub(crate) fn verify_merkle_proof(e: &Env, leaf: &MerkleHash, proof: &MerkleProof, root: &MerkleHash) -> bool {
@@ -1034,23 +992,24 @@ impl Contract {
             UNUSED,
         ];
         if is_hex {
+            // AIDEV-NOTE: Fixed hex neighbors to match client GetDirections in Shared.cs
             // Hex grid has 6 neighbors
             if pos.x % 2 == 0 {
                 // Even columns
-                neighbors[0] = Pos { x: pos.x, y: pos.y - 1 };      // N
-                neighbors[1] = Pos { x: pos.x + 1, y: pos.y - 1 };  // NE
-                neighbors[2] = Pos { x: pos.x + 1, y: pos.y };      // SE
-                neighbors[3] = Pos { x: pos.x, y: pos.y + 1 };      // S
-                neighbors[4] = Pos { x: pos.x - 1, y: pos.y };      // SW
-                neighbors[5] = Pos { x: pos.x - 1, y: pos.y - 1 };  // NW
+                neighbors[0] = Pos { x: pos.x, y: pos.y + 1 };      // top
+                neighbors[1] = Pos { x: pos.x - 1, y: pos.y + 1 };  // top right
+                neighbors[2] = Pos { x: pos.x - 1, y: pos.y };      // bot right
+                neighbors[3] = Pos { x: pos.x, y: pos.y - 1 };      // bot
+                neighbors[4] = Pos { x: pos.x + 1, y: pos.y };      // bot left
+                neighbors[5] = Pos { x: pos.x + 1, y: pos.y + 1 };  // top left
             } else {
                 // Odd columns
-                neighbors[0] = Pos { x: pos.x, y: pos.y - 1 };      // N
-                neighbors[1] = Pos { x: pos.x + 1, y: pos.y };      // NE
-                neighbors[2] = Pos { x: pos.x + 1, y: pos.y + 1 };  // SE
-                neighbors[3] = Pos { x: pos.x, y: pos.y + 1 };      // S
-                neighbors[4] = Pos { x: pos.x - 1, y: pos.y + 1 };  // SW
-                neighbors[5] = Pos { x: pos.x - 1, y: pos.y };      // NW
+                neighbors[0] = Pos { x: pos.x, y: pos.y + 1 };      // top
+                neighbors[1] = Pos { x: pos.x - 1, y: pos.y };      // top right
+                neighbors[2] = Pos { x: pos.x - 1, y: pos.y - 1 };  // bot right
+                neighbors[3] = Pos { x: pos.x, y: pos.y - 1 };      // bot
+                neighbors[4] = Pos { x: pos.x + 1, y: pos.y - 1 };  // bot left
+                neighbors[5] = Pos { x: pos.x + 1, y: pos.y };      // top left
             }
         } else {
             // Square grid has 4 neighbors (orthogonal only)
@@ -1062,58 +1021,6 @@ impl Contract {
         }
         neighbors
     }
-    // pub(crate) fn detect_collisions(game_state: &GameState, pawns_map: &Map<PawnId, (u32, PawnState)>) -> CollisionDetection {
-    //     let mut has_double_collision = false;
-    //     let mut has_swap_collision = false;
-    //     let mut has_h_collision = false;
-    //     let mut has_g_collision = false;
-    //     let h_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
-    //     let g_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
-    //     let h_move_proof = h_move.move_proof.get_unchecked(0);
-    //     let g_move_proof = g_move.move_proof.get_unchecked(0);
-    //     let (_, h_pawn) = pawns_map.get_unchecked(h_move_proof.pawn_id);
-    //     let (_, g_pawn) = pawns_map.get_unchecked(g_move_proof.pawn_id);
-    //     let mut h_collision_target: Option<PawnId> = None;
-    //     let mut g_collision_target: Option<PawnId> = None;
-    //     if h_move_proof.target_pos == g_move_proof.target_pos {
-    //         has_double_collision = true;
-    //     }
-    //     else if h_move_proof.target_pos == g_move_proof.start_pos && g_move_proof.target_pos == h_move_proof.start_pos {
-    //         has_swap_collision = true;
-    //     }
-    //     else {
-    //         // Check for collisions with stationary pawns
-    //         for (_, (_, x_pawn)) in pawns_map.iter() {
-    //             if h_pawn.pawn_id == x_pawn.pawn_id || g_pawn.pawn_id == x_pawn.pawn_id || !x_pawn.alive {
-    //                 continue;
-    //             }
-    //             if h_pawn.pos == x_pawn.pos {
-    //                 has_h_collision = true;
-    //                 h_collision_target = Some(x_pawn.pawn_id);
-    //             }
-    //             if g_pawn.pos == x_pawn.pos {
-    //                 has_g_collision = true;
-    //                 g_collision_target = Some(x_pawn.pawn_id);
-    //             }
-    //             if has_h_collision && has_g_collision {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     // Only set pawn IDs if they're involved in collisions
-    //     let h_pawn_involved = has_double_collision || has_swap_collision || has_h_collision;
-    //     let g_pawn_involved = has_double_collision || has_swap_collision || has_g_collision;
-    //     CollisionDetection {
-    //         has_double_collision,
-    //         has_g_collision,
-    //         has_swap_collision,
-    //         has_h_collision,
-    //         g_pawn_id: if g_pawn_involved { Some(g_move_proof.pawn_id) } else { None },
-    //         h_pawn_id: if h_pawn_involved { Some(h_move_proof.pawn_id) } else { None },
-    //         h_collision_target,
-    //         g_collision_target,
-    //     }
-    // }
     pub(crate) fn detect_collisions_with_target_pos(e: &Env, game_state: &GameState, pawns_map: &Map<PawnId, (u32, PawnState)>) -> (CollisionDetection, Vec<PawnId>, Vec<PawnId>) {
         let mut has_double_collision = false;
         let mut has_swap_collision = false;
