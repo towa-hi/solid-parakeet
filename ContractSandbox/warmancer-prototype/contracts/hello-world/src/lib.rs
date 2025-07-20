@@ -298,12 +298,11 @@ impl Contract {
     /// # Requirements
     /// - User must be in a lobby
     /// # State Changes
-    /// - Clears user's `current_lobby`
+    /// - Always clears user's `current_lobby`
     /// - **Result**:
-    ///   - If host leaves: `Phase::Aborted`, `Subphase::None`, clears host_address
-    ///   - If guest leaves during Lobby phase: `Phase::Lobby`, `Subphase::Guest`, clears guest_address
-    ///   - If left during active game: `Phase::Finished`, subphase = opponent (opponent wins)
-    ///   - Otherwise: `Phase::Finished`, `Subphase::Both` (no winner)
+    ///   - During Lobby phase: `Phase::Aborted`, `Subphase::None`, kicks both players out
+    ///   - During active game phases: `Phase::Finished`, opponent wins
+    ///   - During Finished/Aborted: No game state changes
     /// # Errors
     /// - `NotFound`: User not in lobby
     pub fn leave_lobby(e: &Env, address: Address) -> Result<(), Error> {
@@ -324,28 +323,40 @@ impl Contract {
         let user_index = Self::get_player_index(&address, &lobby_info);
         user.current_lobby = 0;
         
-        // Handle different cases based on who is leaving and current phase
+        // Always clear the leaving player's address from lobby
         if lobby_info.host_address.contains(&address) {
-            // Host is leaving - lobby becomes aborted
             lobby_info.host_address = Vec::new(e);
-            lobby_info.phase = Phase::Aborted;
-            lobby_info.subphase = Subphase::None;
-        } else if lobby_info.guest_address.contains(&address) && original_phase == Phase::Lobby {
-            // Guest is leaving during lobby phase - lobby stays open for new guest
+        } else if lobby_info.guest_address.contains(&address) {
             lobby_info.guest_address = Vec::new(e);
-            lobby_info.subphase = Subphase::Guest;
-        } else {
-            // Someone is leaving during active game
-            lobby_info.phase = Phase::Finished;
-            // if left while game is ongoing, assign winner else assign Both (no winner, no loser)
-            if [Phase::SetupCommit, Phase::MoveCommit, Phase::MoveProve, Phase::RankProve].contains(&original_phase) {
+        }
+        
+        // Handle different phases
+        match original_phase {
+            Phase::Lobby => {
+                // In lobby phase: any user leaving aborts the game
+                lobby_info.phase = Phase::Aborted;
+                lobby_info.subphase = Subphase::None;
+                // Clear the other player too (kick everyone out)
+                if lobby_info.host_address.len() > 0 {
+                    lobby_info.host_address = Vec::new(e);
+                }
+                if lobby_info.guest_address.len() > 0 {
+                    lobby_info.guest_address = Vec::new(e);
+                }
+            },
+            Phase::SetupCommit | Phase::MoveCommit | Phase::MoveProve | Phase::RankProve => {
+                // Game in progress: leaving player loses, opponent wins
+                lobby_info.phase = Phase::Finished;
                 lobby_info.subphase = Self::opponent_subphase_from_player_index(user_index);
-            } else {
-                lobby_info.subphase = Subphase::Both;
+            },
+            Phase::Finished | Phase::Aborted => {
+                // Game already ended: just remove the user, don't change game state
+                // Address was already cleared above
             }
         }
-        // save
+        // save user (always clear their current_lobby)
         persistent.set(&user_key, &user);
+        // always save lobby_info since we always clear the address
         temporary.set(&DataKey::LobbyInfo(lobby_id), &lobby_info);
         Ok(())
     }
@@ -1192,53 +1203,6 @@ impl Contract {
         };
         (collision, h_needed_rank_proofs, g_needed_rank_proofs)
     }
-    pub(crate) fn get_needed_rank_proofs(e: &Env, collision_detection: &CollisionDetection, pawns_map: &Map<PawnId, (u32, PawnState)>) -> (Vec<PawnId>, Vec<PawnId>) {
-         let mut h_proof_list: Vec<PawnId> = Vec::new(e);
-         let mut g_proof_list: Vec<PawnId> = Vec::new(e);
-         if collision_detection.has_double_collision || collision_detection.has_swap_collision {
-             // Both pawns involved in double/swap collision need rank proofs if they don't have ranks
-             if let Some(h_pawn_id) = collision_detection.h_pawn_id {
-                 let (_, h_pawn) = pawns_map.get_unchecked(h_pawn_id);
-                 if h_pawn.rank.is_empty() {
-                     h_proof_list.push_back(h_pawn_id);
-                 }
-             }
-             if let Some(g_pawn_id) = collision_detection.g_pawn_id {
-                 let (_, g_pawn) = pawns_map.get_unchecked(g_pawn_id);
-                 if g_pawn.rank.is_empty() {
-                     g_proof_list.push_back(g_pawn_id);
-                 }
-             }
-         }
-         else {
-             // Handle individual collisions with stationary pawns
-             if let Some(h_collision_target) = collision_detection.h_collision_target {
-                 if let Some(h_pawn_id) = collision_detection.h_pawn_id {
-                     let (_, h_pawn) = pawns_map.get_unchecked(h_pawn_id);
-                     if h_pawn.rank.is_empty() {
-                         h_proof_list.push_back(h_pawn_id);
-                     }
-                 }
-                 let (_, hx_pawn) = pawns_map.get_unchecked(h_collision_target);
-                 if hx_pawn.rank.is_empty() {
-                     g_proof_list.push_back(h_collision_target);
-                 }
-             }
-             if let Some(g_collision_target) = collision_detection.g_collision_target {
-                 if let Some(g_pawn_id) = collision_detection.g_pawn_id {
-                     let (_, g_pawn) = pawns_map.get_unchecked(g_pawn_id);
-                     if g_pawn.rank.is_empty() {
-                         g_proof_list.push_back(g_pawn_id);
-                     }
-                 }
-                 let (_, gx_pawn) = pawns_map.get_unchecked(g_collision_target);
-                 if gx_pawn.rank.is_empty() {
-                     h_proof_list.push_back(g_collision_target);
-                 }
-             }
-         }
-         (h_proof_list, g_proof_list)
-     }
     pub(crate) fn check_game_over(e: &Env, game_state: &GameState, _lobby_parameters: &LobbyParameters) -> Subphase {
         // game over check happens at the end of turn resolution
         // returns winner. Subphase::None means tie, Subphase::Both means not game over
