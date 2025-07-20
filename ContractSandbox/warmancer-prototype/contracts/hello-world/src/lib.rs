@@ -1,9 +1,7 @@
 #![no_std]
 use soroban_sdk::{*};
 use soroban_sdk::xdr::*;
-
 // region global state defs
-
 pub type LobbyId = u32;
 pub type PawnId = u32;
 pub type HiddenRankHash = BytesN<16>; // always the hash of HiddenRank struct
@@ -225,6 +223,20 @@ pub struct Contract;
 
 #[contractimpl]
 impl Contract {
+    /// # Parameters
+    /// - `address`: Creator's address (becomes host)
+    /// - `req.lobby_id`: Unique lobby identifier
+    /// - `req.parameters`: `LobbyParameters` with board, rank limits, game modes
+    /// # Requirements
+    /// - User must not be in an unexpired lobby
+    /// # State Changes
+    /// - Creates `LobbyInfo` in `Phase::Lobby`
+    /// - Stores `LobbyParameters`
+    /// - Updates user's `current_lobby`
+    /// - **Result**: `Phase::Lobby`, `Subphase::None` (waiting for guest to call `join_lobby`)
+    /// # Errors
+    /// - `AlreadyExists`: Lobby ID taken
+    /// - `InvalidArgs`: Invalid board or parameters
     pub fn make_lobby(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -282,6 +294,16 @@ impl Contract {
         persistent.set(&user_key, &user);
         Ok(())
     }
+    /// Exit current lobby, ending the lobby if a match is in progress.
+    /// # Requirements
+    /// - User must be in a lobby
+    /// # State Changes
+    /// - Clears user's `current_lobby`
+    /// - **Result**: `Phase::Finished`
+    ///   - If left during active game: subphase = opponent (opponent wins)
+    ///   - If left during lobby/setup: `Subphase::Both` (no winner)
+    /// # Errors
+    /// - `NotFound`: User not in lobby
     pub fn leave_lobby(e: &Env, address: Address) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -312,6 +334,21 @@ impl Contract {
         temporary.set(&DataKey::LobbyInfo(lobby_id), &lobby_info);
         Ok(())
     }
+    /// Join as guest, automatically starting the game.
+    /// # Parameters
+    /// - `address`: Joining player (becomes guest)
+    /// - `req.lobby_id`: Target lobby
+    /// # Requirements
+    /// - Phase is Lobby
+    /// - User must not be in an unexpired lobby
+    /// - Lobby guest is empty
+    /// # State Changes
+    /// - Sets guest address
+    /// - Initializes `GameState` with pawns on setup tiles
+    /// - **Result**: `Phase::SetupCommit`, `Subphase::Both` (both players must call `commit_setup`)
+    /// # Errors
+    /// - `Unauthorized`: Already in a lobby
+    /// - `LobbyNotJoinable`: Not joinable state
     pub fn join_lobby(e: &Env, address: Address, req: JoinLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -381,6 +418,19 @@ impl Contract {
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         Ok(())
     }
+    /// Submit Merkle root of all owned pawn rank HiddenRanks.
+    /// # Parameters
+    /// - `req.rank_commitment_root`: Merkle root hash
+    /// # Requirements
+    /// - Phase is `Phase::SetupCommit` and subphase is user's UserIndex or Both
+    /// # State Changes
+    /// - Stores rank root for player
+    /// - **Result**:
+    ///   - If first to commit: `Phase::SetupCommit`, subphase = opponent (waiting for opponent to call `commit_setup`)
+    ///   - If both committed: `Phase::MoveCommit`, `Subphase::Both` (both must call `commit_move`)
+    /// # Errors
+    /// - `WrongPhase`: Not in setup phase
+    /// - `WrongSubphase`: Already committed or not your turn
     pub fn commit_setup(e: &Env, address: Address, req: CommitSetupReq) -> Result<(), Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -403,6 +453,18 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(())
     }
+    /// Submit hashed move for current turn.
+    /// # Parameters
+    /// - `req.move_hash`: Hash of `HiddenMove`
+    /// # Requirements
+    /// - Phase is `Phase::MoveCommit` and subphase is user's UserIndex or Both
+    /// # State Changes
+    /// - Stores move hash
+    /// - **Result**:
+    ///   - If first to commit: `Phase::MoveCommit`, subphase = opponent (waiting for opponent to call `commit_move`)
+    ///   - If both committed: `Phase::MoveProve`, `Subphase::Both` (both must call `prove_move`)
+    /// # Errors
+    /// - `WrongSubphase`: Not your turn or already committed
     pub fn commit_move(e: &Env, address: Address, req: CommitMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -427,6 +489,23 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         prove_move_result
     }
+    /// Reveal and validate committed move.
+    /// # Parameters
+    /// - `req.move_proof`: Actual `HiddenMove`
+    /// # Requirements
+    /// - Current phase is `Phase::ProveMove` and subphase is user's UserIndex or Both
+    /// # State Changes
+    /// - Validates move
+    /// - Invalid move → **Result**: `Phase::Aborted`, subphase = opponent (opponent wins)
+    /// - Valid move:
+    ///   - If first to prove: `Phase::MoveProve`, subphase = opponent (waiting for opponent to call `prove_move`)
+    ///   - If both proved:
+    ///     - Collision detected → `Phase::RankProve`, subphase indicates who must call `prove_rank` (Host/Guest/Both)
+    ///     - No collision, victory condition met → `Phase::Finished`, subphase = winner (Host/Guest) or None (tie)
+    ///     - No collision, game continues → `Phase::MoveCommit`, `Subphase::Both` (both must call `commit_move`)
+    /// # Errors
+    /// - `HashFail`: Proof doesn't match hash
+    /// - `WrongSubphase`: Not your turn or already proved
     pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -453,6 +532,24 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         prove_rank_result
     }
+    /// Reveal ranks for collision resolution.
+    ///
+    /// # Parameters
+    /// - `req.hidden_ranks`: Array of rank reveals
+    /// - `req.merkle_proofs`: Validation proofs
+    ///
+    /// # Requirements
+    /// - Current phase is `Phase::ProveRank` and subphase is user's UserIndex or Both
+    /// # State Changes
+    /// - Validates rank proofs
+    /// - Invalid proof → **Result**: `Phase::Aborted`, subphase = opponent (opponent wins)
+    /// - Valid proofs:
+    ///   - If more ranks needed: `Phase::RankProve`, subphase = opponent (waiting for opponent to call `prove_rank`)
+    ///   - If all ranks revealed:
+    ///     - Victory condition met → `Phase::Finished`, subphase = winner (Host/Guest) or None (tie)
+    ///     - Game continues → `Phase::MoveCommit`, `Subphase::Both` (both must call `commit_move`)
+    /// # Errors
+    /// - `WrongSubphase`: Not your turn or already proved
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -463,6 +560,31 @@ impl Contract {
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         prove_rank_result
+    }
+    /// Claim victory due to opponent timeout. WIP
+    /// # Requirements
+    /// - Game is in progress
+    /// # State Changes
+    /// **Result**: `Phase::Finished`, subphase = caller (caller wins)
+    ///
+    /// # Errors
+    /// - `WrongPhase`: Invalid game state
+    /// - `WrongSubphase`: Not opponent's turn (opponent must be required to act)
+    pub fn redeem_win(e: &Env, address: Address, req: RedeemWinReq) -> Result<LobbyInfo, Error> {
+        let temporary = e.storage().temporary();
+        let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
+        if [Phase::Lobby, Phase::SetupCommit, Phase::Finished, Phase::Aborted].contains(&lobby_info.phase) {
+            return Err(Error::WrongPhase)
+        }
+        let u_index = Self::get_player_index(&address, &lobby_info);
+        if lobby_info.subphase != Self::opponent_subphase_from_player_index(u_index) {
+            return Err(Error::WrongSubphase)
+        }
+        // TODO: add a time limit check from the last time lobby_info got updated
+        lobby_info.phase = Phase::Finished;
+        lobby_info.subphase = Self::user_subphase_from_player_index(u_index);
+        temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
+        Ok(lobby_info)
     }
     // endregion
     // region internal
@@ -607,24 +729,9 @@ impl Contract {
         }
         Ok(lobby_info.clone())
     }
-    pub fn redeem_win(e: &Env, address: Address, req: RedeemWinReq) -> Result<LobbyInfo, Error> {
-        let temporary = e.storage().temporary();
-        let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
-        if [Phase::Lobby, Phase::SetupCommit, Phase::Finished, Phase::Aborted].contains(&lobby_info.phase) {
-            return Err(Error::WrongPhase)
-        }
-        let u_index = Self::get_player_index(&address, &lobby_info);
-        if lobby_info.subphase != Self::opponent_subphase_from_player_index(u_index) {
-            return Err(Error::WrongSubphase)
-        }
-        // TODO: add a time limit check from the last time lobby_info got updated
-        lobby_info.phase = Phase::Finished;
-        lobby_info.subphase = Self::user_subphase_from_player_index(u_index);
-        temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
-        Ok(lobby_info)
-    }
     // endregion
     // region read-only contract simulation
+    /// Preview collision detection without state change. Used by client to determine whether to call `prove_move` or `prove_move_and_prove_rank`.
     pub fn simulate_collisions(e: &Env, address: Address, req: ProveMoveReq) -> Result<UserMove, Error> {
         let temporary = e.storage().temporary();
         let lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
@@ -875,29 +982,24 @@ impl Contract {
         valid_rank_proof
     }
     pub(crate) fn validate_move_proof(move_proof: &HiddenMove, player_index: UserIndex, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters) -> bool {
-        // AIDEV-NOTE: Debug logging for validate_move_proof
         // cond: player is owner
         let (_initial_pos, owner_index) = Self::decode_pawn_id(move_proof.pawn_id);
         if owner_index != player_index {
-            // DEBUG: Failed - wrong owner
             return false
         }
         // cond: pawn must exist in game state
         let (_, pawn) = match pawns_map.get(move_proof.pawn_id) {
             Some(tuple) => tuple,
             None => {
-                // DEBUG: Failed - pawn not found
                 return false;
             }
         };
         // cond: pawn must be alive
         if !pawn.alive {
-            // DEBUG: Failed - pawn not alive
             return false
         }
         // cond: start pos must match
         if move_proof.start_pos != pawn.pos {
-            // DEBUG: Failed - start pos mismatch. Expected: pawn.pos, Got: move_proof.start_pos
             return false
         }
         // cond: start and target tiles must exist and be passable
@@ -917,20 +1019,17 @@ impl Contract {
             }
         }
         if !start_tile_passable || !target_tile_passable {
-            // DEBUG: Failed - tiles not passable. Start: start_tile_passable, Target: target_tile_passable
             return false
         }
         // validate move based on rank
         if let Some(rank) = pawn.rank.get(0) {
             // cond: pawn is not unmovable rank flag (0) or trap (11)
             if [0, 11].contains(&rank){
-                // DEBUG: Failed - unmovable rank
                 return false
             }
             // cond: if pawn not a scout (2) it cant move more than one neighboring tile
             if rank != 2 {
                 if !Self::get_neighbors(&move_proof.start_pos, lobby_parameters.board.hex).contains(&move_proof.target_pos) {
-                    // DEBUG: Failed - non-scout long move
                     return false;
                 }
             }
@@ -943,13 +1042,10 @@ impl Contract {
                 // cond: pawn on target pos can't be same owner
                 let other_owner_index = Self::decode_pawn_id(n_pawn.pawn_id).1;
                 if other_owner_index == player_index {
-                    // DEBUG: Failed - friendly pawn at target
                     return false
                 }
-                // DEBUG: Enemy pawn at target - this is allowed
             }
         }
-        // DEBUG: Validation passed
         true
     }
     pub(crate) fn verify_merkle_proof(e: &Env, leaf: &MerkleHash, proof: &MerkleProof, root: &MerkleHash) -> bool {
@@ -1232,19 +1328,19 @@ impl Contract {
     }
     // endregion
     // region compression
-    pub(crate) fn encode_pawn_id(pos: Pos, user_index: u32) -> u32 {
+    pub(crate) fn encode_pawn_id(setup_pos: Pos, user_index: u32) -> u32 {
         let mut id: u32 = 0;
         id |= user_index & 1;                    // Bit 0: user_index (0=host, 1=guest)
-        id |= ((pos.x as u32) & 0xF) << 1;       // Bits 1-4: x coordinate (4 bits, range 0-15)
-        id |= ((pos.y as u32) & 0xF) << 5;       // Bits 5-8: y coordinate (4 bits, range 0-15)
+        id |= ((setup_pos.x as u32) & 0xF) << 1;       // Bits 1-4: x coordinate (4 bits, range 0-15)
+        id |= ((setup_pos.y as u32) & 0xF) << 5;       // Bits 5-8: y coordinate (4 bits, range 0-15)
         id
     }
     pub(crate) fn decode_pawn_id(pawn_id: PawnId) -> (Pos, UserIndex) {
         let user = pawn_id & 1;                      // Bit 0: user_index (0=host, 1=guest)
         let x = ((pawn_id >> 1) & 0xF_u32) as i32;  // Bits 1-4: x coordinate (4 bits, range 0-15)
         let y = ((pawn_id >> 5) & 0xF_u32) as i32;  // Bits 5-8: y coordinate (4 bits, range 0-15)
-        let pos = Pos { x, y };
-        (pos, UserIndex::from_u32(user))
+        let setup_pos = Pos { x, y };
+        (setup_pos, UserIndex::from_u32(user))
     }
     pub(crate) fn unpack_tile(packed: PackedTile) -> Tile {
         // Extract passable (bit 0)
@@ -1310,7 +1406,5 @@ impl Contract {
     // endregion
 }
 // endregion
-
-
 mod test_utils; // test utilities
 mod tests; // organized test modules
