@@ -233,7 +233,7 @@ impl Contract {
     /// - Creates `LobbyInfo` in `Phase::Lobby`
     /// - Stores `LobbyParameters`
     /// - Updates user's `current_lobby`
-    /// - **Result**: `Phase::Lobby`, `Subphase::None` (waiting for guest to call `join_lobby`)
+    /// - **Result**: `Phase::Lobby`, `Subphase::Guest` (waiting for guest to call `join_lobby`)
     /// # Errors
     /// - `AlreadyExists`: Lobby ID taken
     /// - `InvalidArgs`: Invalid board or parameters
@@ -285,7 +285,7 @@ impl Contract {
             guest_address: Vec::new(e),
             host_address: Vec::from_array(e, [address.clone()]),
             phase: Phase::Lobby,
-            subphase: Subphase::None,
+            subphase: Subphase::Guest,
         };
         user.current_lobby = req.lobby_id;
         // save
@@ -299,9 +299,11 @@ impl Contract {
     /// - User must be in a lobby
     /// # State Changes
     /// - Clears user's `current_lobby`
-    /// - **Result**: `Phase::Finished`
-    ///   - If left during active game: subphase = opponent (opponent wins)
-    ///   - If left during lobby/setup: `Subphase::Both` (no winner)
+    /// - **Result**:
+    ///   - If host leaves: `Phase::Aborted`, `Subphase::None`, clears host_address
+    ///   - If guest leaves during Lobby phase: `Phase::Lobby`, `Subphase::Guest`, clears guest_address
+    ///   - If left during active game: `Phase::Finished`, subphase = opponent (opponent wins)
+    ///   - Otherwise: `Phase::Finished`, `Subphase::Both` (no winner)
     /// # Errors
     /// - `NotFound`: User not in lobby
     pub fn leave_lobby(e: &Env, address: Address) -> Result<(), Error> {
@@ -318,16 +320,29 @@ impl Contract {
         }
         let lobby_id = user.current_lobby;
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(lobby_id)).unwrap();
+        let original_phase = lobby_info.phase.clone();
         let user_index = Self::get_player_index(&address, &lobby_info);
         user.current_lobby = 0;
-        lobby_info.phase = Phase::Finished;
-        // if left while game is ongoing, assign winner else assign Both (no winner, no loser)
-        if [Phase::SetupCommit, Phase::MoveCommit, Phase::MoveProve, Phase::RankProve].contains(&lobby_info.phase) {
-            lobby_info.subphase = Self::opponent_subphase_from_player_index(user_index);
-        }
-        else
-        {
-            lobby_info.subphase = Subphase::Both;
+        
+        // Handle different cases based on who is leaving and current phase
+        if lobby_info.host_address.contains(&address) {
+            // Host is leaving - lobby becomes aborted
+            lobby_info.host_address = Vec::new(e);
+            lobby_info.phase = Phase::Aborted;
+            lobby_info.subphase = Subphase::None;
+        } else if lobby_info.guest_address.contains(&address) && original_phase == Phase::Lobby {
+            // Guest is leaving during lobby phase - lobby stays open for new guest
+            lobby_info.guest_address = Vec::new(e);
+            lobby_info.subphase = Subphase::Guest;
+        } else {
+            // Someone is leaving during active game
+            lobby_info.phase = Phase::Finished;
+            // if left while game is ongoing, assign winner else assign Both (no winner, no loser)
+            if [Phase::SetupCommit, Phase::MoveCommit, Phase::MoveProve, Phase::RankProve].contains(&original_phase) {
+                lobby_info.subphase = Self::opponent_subphase_from_player_index(user_index);
+            } else {
+                lobby_info.subphase = Subphase::Both;
+            }
         }
         // save
         persistent.set(&user_key, &user);
@@ -339,9 +354,8 @@ impl Contract {
     /// - `address`: Joining player (becomes guest)
     /// - `req.lobby_id`: Target lobby
     /// # Requirements
-    /// - Phase is Lobby
+    /// - Phase is Lobby and subphase is Guest (indicates lobby is waiting for a guest)
     /// - User must not be in an unexpired lobby
-    /// - Lobby guest is empty
     /// # State Changes
     /// - Sets guest address
     /// - Initializes `GameState` with pawns on setup tiles
@@ -366,20 +380,8 @@ impl Contract {
         }
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let mut lobby_not_joinable = false;
-        if lobby_info.phase != Phase::Lobby {
-            lobby_not_joinable = true;
-        }
-        if lobby_info.host_address.is_empty() {
-            lobby_not_joinable = true;
-        }
-        if lobby_info.host_address.contains(&address) {
-            lobby_not_joinable = true;
-        }
-        if !lobby_info.guest_address.is_empty() {
-            lobby_not_joinable = true;
-        }
-        if lobby_not_joinable {
+        // Simple validation: lobby must be in Lobby phase with Guest subphase
+        if lobby_info.phase != Phase::Lobby || lobby_info.subphase != Subphase::Guest {
             return Err(Error::LobbyNotJoinable)
         }
         // update

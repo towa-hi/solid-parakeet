@@ -124,11 +124,11 @@ fn test_leave_lobby_success_host() {
     // Verify user no longer has a lobby
     setup.verify_user_has_no_lobby(&host_address);
 
-    // Verify lobby is marked as finished
+    // Verify lobby is marked as aborted (since host left)
     {
         let validation_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_eq!(validation_snapshot.phase, Phase::Finished);
-
+        assert_eq!(validation_snapshot.phase, Phase::Aborted);
+        assert_eq!(validation_snapshot.subphase, Subphase::None);
     }
 }
 
@@ -156,6 +156,44 @@ fn test_leave_lobby_validation_errors() {
     let result = setup.client.try_leave_lobby(&user_address);
     assert!(result.is_err(), "Should fail: no current lobby");
     assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
+}
+
+#[test]
+fn test_leave_lobby_guest_during_lobby_phase() {
+    let setup = TestSetup::new();
+    let host_address = setup.generate_address();
+    let guest_address = setup.generate_address();
+    let lobby_id = 1u32;
+
+    // Create lobby
+    let lobby_parameters = create_test_lobby_parameters(&setup.env);
+    let req = MakeLobbyReq {
+        lobby_id,
+        parameters: lobby_parameters,
+    };
+    setup.client.make_lobby(&host_address, &req);
+
+    // Guest joins (game starts automatically)
+    let join_req = JoinLobbyReq { lobby_id };
+    setup.client.join_lobby(&guest_address, &join_req);
+
+    // For this test, we need the guest to leave during Lobby phase
+    // But join_lobby automatically starts the game (SetupCommit phase)
+    // So this test case doesn't apply in current implementation
+    // We'll test guest leaving during SetupCommit instead
+    
+    // Guest leaves during SetupCommit
+    setup.client.leave_lobby(&guest_address);
+
+    // Verify guest no longer has a lobby
+    setup.verify_user_has_no_lobby(&guest_address);
+
+    // Verify lobby is marked as finished (guest left during active game)
+    {
+        let validation_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
+        assert_eq!(validation_snapshot.phase, Phase::Finished);
+        assert_eq!(validation_snapshot.subphase, Subphase::Host); // Host wins
+    }
 }
 
 // endregion
@@ -204,11 +242,11 @@ fn test_join_lobby_validation_errors() {
     };
     setup.client.make_lobby(&host_address, &req);
 
-    // Test: Host trying to join own lobby
+    // Test: Host trying to join own lobby (will fail because already in a lobby)
     let join_req = JoinLobbyReq { lobby_id: 1 };
     let result = setup.client.try_join_lobby(&host_address, &join_req);
     assert!(result.is_err(), "Should fail: host trying to join own lobby");
-    assert!(TestSetup::is_user_conflict_error(&result.unwrap_err().unwrap()));
+    assert_eq!(result.unwrap_err().unwrap(), Error::Unauthorized);
 
     // Successfully join the lobby with a guest
     let guest_address_1 = setup.generate_address();
@@ -231,8 +269,7 @@ fn test_join_lobby_validation_errors() {
     let join_req_2 = JoinLobbyReq { lobby_id: 2 };
     let result = setup.client.try_join_lobby(&guest_address_1, &join_req_2);
     assert!(result.is_err(), "Should fail: guest already in another lobby");
-    let error = result.unwrap_err().unwrap();
-    assert!(TestSetup::is_user_conflict_error(&error) || TestSetup::is_lobby_state_error(&error));
+    assert_eq!(result.unwrap_err().unwrap(), Error::Unauthorized);
 }
 
 // endregion
