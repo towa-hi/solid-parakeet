@@ -5,93 +5,65 @@ mod unit_tests {
     use super::*;
     // region get_neighbors tests
     #[test]
-    fn test_get_neighbors_square_board_center() {
-        let pos = Pos { x: 5, y: 5 };
-        let is_hex = false;
-        let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
-        Contract::get_neighbors(&pos, is_hex, &mut neighbors);
-        let expected = [
-            Pos { x: 5, y: 4 },
-            Pos { x: 6, y: 5 },
-            Pos { x: 5, y: 6 },
-            Pos { x: 4, y: 5 },
-            Pos { x: -42069, y: -42069 },
-            Pos { x: -42069, y: -42069 },
+    fn test_get_neighbors() {
+        let test_cases = [
+            (Pos { x: 5, y: 5 }, false, [
+                Pos { x: 5, y: 4 },
+                Pos { x: 6, y: 5 },
+                Pos { x: 5, y: 6 },
+                Pos { x: 4, y: 5 },
+                Pos { x: -42069, y: -42069 },
+                Pos { x: -42069, y: -42069 },
+            ]),
+            (Pos { x: 0, y: 0 }, false, [
+                Pos { x: 0, y: -1 },
+                Pos { x: 1, y: 0 },
+                Pos { x: 0, y: 1 },
+                Pos { x: -1, y: 0 },
+                Pos { x: -42069, y: -42069 },
+                Pos { x: -42069, y: -42069 },
+            ]),
+            (Pos { x: 2, y: 2 }, true, [
+                Pos { x: 2, y: 3 },
+                Pos { x: 1, y: 3 },
+                Pos { x: 1, y: 2 },
+                Pos { x: 2, y: 1 },
+                Pos { x: 3, y: 2 },
+                Pos { x: 3, y: 3 },
+            ]),
+            (Pos { x: 3, y: 3 }, true, [
+                Pos { x: 3, y: 4 },
+                Pos { x: 2, y: 3 },
+                Pos { x: 2, y: 2 },
+                Pos { x: 3, y: 2 },
+                Pos { x: 4, y: 2 },
+                Pos { x: 4, y: 3 },
+            ]),
+            (Pos { x: 0, y: 0 }, true, [
+                Pos { x: 0, y: 1 },
+                Pos { x: -1, y: 1 },
+                Pos { x: -1, y: 0 },
+                Pos { x: 0, y: -1 },
+                Pos { x: 1, y: 0 },
+                Pos { x: 1, y: 1 },
+            ]),
+            (Pos { x: 1, y: 1 }, true, [
+                Pos { x: 1, y: 2 },
+                Pos { x: 0, y: 1 },
+                Pos { x: 0, y: 0 },
+                Pos { x: 1, y: 0 },
+                Pos { x: 2, y: 0 },
+                Pos { x: 2, y: 1 },
+            ]),
         ];
-        for i in 0..6 {
-            assert_eq!(neighbors[i].x, expected[i].x, "Neighbor {} x mismatch", i);
-            assert_eq!(neighbors[i].y, expected[i].y, "Neighbor {} y mismatch", i);
+        for (pos, is_hex, expected) in test_cases.iter() {
+            let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
+            Contract::get_neighbors(pos, *is_hex, &mut neighbors);
+            for i in 0..6 {
+                assert_eq!(neighbors[i].x, expected[i].x, "Position ({},{}) is_hex={} neighbor {} x mismatch", pos.x, pos.y, is_hex, i);
+                assert_eq!(neighbors[i].y, expected[i].y, "Position ({},{}) is_hex={} neighbor {} y mismatch", pos.x, pos.y, is_hex, i);
+            }
         }
-    }
-    #[test]
-    fn test_get_neighbors_square_board_corners() {
-        let pos = Pos { x: 0, y: 0 };
-        let is_hex = false;
-        let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
-        Contract::get_neighbors(&pos, is_hex, &mut neighbors);
-        assert_eq!(neighbors[0], Pos { x: 0, y: -1 });
-        assert_eq!(neighbors[1], Pos { x: 1, y: 0 });
-        assert_eq!(neighbors[2], Pos { x: 0, y: 1 });
-        assert_eq!(neighbors[3], Pos { x: -1, y: 0 });
-        assert_eq!(neighbors[4], Pos { x: -42069, y: -42069 });
-        assert_eq!(neighbors[5], Pos { x: -42069, y: -42069 });
-    }
-    #[test]
-    fn test_get_neighbors_hex_even_column() {
-        let pos = Pos { x: 2, y: 2 };
-        let is_hex = true;
-        let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
-        Contract::get_neighbors(&pos, is_hex, &mut neighbors);
-        let expected = [
-            Pos { x: 2, y: 3 },
-            Pos { x: 1, y: 3 },
-            Pos { x: 1, y: 2 },
-            Pos { x: 2, y: 1 },
-            Pos { x: 3, y: 2 },
-            Pos { x: 3, y: 3 },
-        ];
-        for i in 0..6 {
-            assert_eq!(neighbors[i].x, expected[i].x, "Even column neighbor {} x mismatch", i);
-            assert_eq!(neighbors[i].y, expected[i].y, "Even column neighbor {} y mismatch", i);
-        }
-    }
-    #[test]
-    fn test_get_neighbors_hex_odd_column() {
-        let pos = Pos { x: 3, y: 3 };
-        let is_hex = true;
-        let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
-        Contract::get_neighbors(&pos, is_hex, &mut neighbors);
-        let expected = [
-            Pos { x: 3, y: 4 },
-            Pos { x: 2, y: 3 },
-            Pos { x: 2, y: 2 },
-            Pos { x: 3, y: 2 },
-            Pos { x: 4, y: 2 },
-            Pos { x: 4, y: 3 },
-        ];
-        for i in 0..6 {
-            assert_eq!(neighbors[i].x, expected[i].x, "Odd column neighbor {} x mismatch", i);
-            assert_eq!(neighbors[i].y, expected[i].y, "Odd column neighbor {} y mismatch", i);
-        }
-    }
-    #[test]
-    fn test_get_neighbors_hex_specific_positions() {
-        let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
-        Contract::get_neighbors(&Pos { x: 0, y: 0 }, true, &mut neighbors);
-        assert_eq!(neighbors[0], Pos { x: 0, y: 1 });
-        assert_eq!(neighbors[1], Pos { x: -1, y: 1 });
-        assert_eq!(neighbors[2], Pos { x: -1, y: 0 });
-        assert_eq!(neighbors[3], Pos { x: 0, y: -1 });
-        assert_eq!(neighbors[4], Pos { x: 1, y: 0 });
-        assert_eq!(neighbors[5], Pos { x: 1, y: 1 });
-        let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
-        Contract::get_neighbors(&Pos { x: 1, y: 1 }, true, &mut neighbors);
-        assert_eq!(neighbors[0], Pos { x: 1, y: 2 });
-        assert_eq!(neighbors[1], Pos { x: 0, y: 1 });
-        assert_eq!(neighbors[2], Pos { x: 0, y: 0 });
-        assert_eq!(neighbors[3], Pos { x: 1, y: 0 });
-        assert_eq!(neighbors[4], Pos { x: 2, y: 0 });
-        assert_eq!(neighbors[5], Pos { x: 2, y: 1 });
     }
     // endregion
     // region validate_board tests
@@ -124,7 +96,7 @@ mod unit_tests {
         }
     }
     #[test]
-    fn test_validate_board_valid_boards() {
+    fn test_validate_board() {
         let env = Env::default();
         let baseline = create_baseline_valid_params(&env);
         assert!(Contract::validate_board(&env, &baseline));
@@ -132,17 +104,9 @@ mod unit_tests {
         assert!(Contract::validate_board(&env, &square_board));
         let hex_board = crate::test_utils::create_user_board_parameters(&env);
         assert!(Contract::validate_board(&env, &hex_board));
-    }
-    #[test]
-    fn test_validate_board_tile_count_mismatch() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         params.board.size = Pos { x: 2, y: 2 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_duplicate_positions() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -150,10 +114,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: 1, y: 2 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_invalid_setup_value() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -162,10 +122,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: 3, y: 1 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_invalid_setup_zone() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -174,10 +130,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: 3, y: 1 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_setup_tile_not_passable() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: false, setup: 0, setup_zone: 1 }));
@@ -186,10 +138,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: 3, y: 1 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_no_passable_tiles() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: false, setup: 2, setup_zone: 1 }));
@@ -197,10 +145,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: 2, y: 1 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_no_host_setup() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 1, setup_zone: 1 }));
@@ -208,10 +152,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: 2, y: 1 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_no_guest_setup() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -219,10 +159,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: 2, y: 1 };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_oversized() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let board_size = 17;
         let mut tiles = Vec::new(&env);
@@ -235,10 +171,6 @@ mod unit_tests {
         params.board.tiles = tiles;
         params.board.size = Pos { x: board_size, y: board_size };
         assert!(!Contract::validate_board(&env, &params));
-    }
-    #[test]
-    fn test_validate_board_disconnected() {
-        let env = Env::default();
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -252,7 +184,7 @@ mod unit_tests {
     // endregion
     // region verify_merkle_proof tests
     #[test]
-    fn test_verify_merkle_proof_multiple() {
+    fn test_verify_merkle_proof() {
         let env = Env::default();
         let hidden_ranks = Vec::from_array(&env, [
             HiddenRank { pawn_id: 1, rank: 5, salt: 100 },
@@ -277,10 +209,6 @@ mod unit_tests {
             let is_valid = Contract::verify_merkle_proof(&env, &calculated_hash, &proof, &root);
             assert!(is_valid);
         }
-    }
-    #[test]
-    fn test_verify_merkle_proof_single() {
-        let env = Env::default();
         let hidden_rank = HiddenRank { pawn_id: 100, rank: 5, salt: 1234 };
         let hidden_rank2 = HiddenRank{ pawn_id: 101, rank: 7, salt: 1234 };
         let serialized = hidden_rank.clone().to_xdr(&env);
@@ -301,14 +229,15 @@ mod unit_tests {
     // endregion
 // region encode_pawn_id/decode_pawn_id tests
 #[test]
-fn test_encode_decode_pawn_id_roundtrip() {
+fn test_encode_decode_pawn_id() {
     let test_cases = [
-        (Pos { x: 0, y: 0 }, 0u32), // Host at origin
-        (Pos { x: 0, y: 0 }, 1u32), // Guest at origin
-        (Pos { x: 15, y: 15 }, 0u32), // Host at max coordinates
-        (Pos { x: 15, y: 15 }, 1u32), // Guest at max coordinates
-        (Pos { x: 5, y: 3 }, 0u32), // Host at arbitrary position
-        (Pos { x: 5, y: 6 }, 1u32), // Guest at arbitrary position
+        (Pos { x: 0, y: 0 }, 0u32),
+        (Pos { x: 0, y: 0 }, 1u32),
+        (Pos { x: 15, y: 15 }, 0u32),
+        (Pos { x: 15, y: 15 }, 1u32),
+        (Pos { x: 5, y: 3 }, 0u32),
+        (Pos { x: 5, y: 6 }, 1u32),
+        (Pos { x: 7, y: 3 }, 1u32),
     ];
     for (pos, user_index) in test_cases.iter() {
         let encoded = Contract::encode_pawn_id(*pos, *user_index);
@@ -317,9 +246,6 @@ fn test_encode_decode_pawn_id_roundtrip() {
         assert_eq!(decoded_pos.y, pos.y);
         assert_eq!(decoded_user as u32, *user_index);
     }
-}
-#[test]
-fn test_encode_pawn_id_bit_layout() {
     let pos = Pos { x: 7, y: 3 };
     let user_index = 1u32;
     let encoded = Contract::encode_pawn_id(pos, user_index);
@@ -330,7 +256,7 @@ fn test_encode_pawn_id_bit_layout() {
 // endregion
 // region pack_pawn/unpack_pawn tests
 #[test]
-fn test_pack_unpack_pawn_roundtrip() {
+fn test_pack_unpack_pawn() {
     let env = Env::default();
     let test_cases = [
         PawnState {
@@ -357,6 +283,14 @@ fn test_pack_unpack_pawn_roundtrip() {
             pos: Pos { x: 15, y: 15 },
             rank: Vec::new(&env),
         },
+        PawnState {
+            pawn_id: 50,
+            alive: true,
+            moved: false,
+            moved_scout: false,
+            pos: Pos { x: 2, y: 3 },
+            rank: Vec::new(&env),
+        },
     ];
     for original_pawn in test_cases.iter() {
         let packed = Contract::pack_pawn(original_pawn.clone());
@@ -373,11 +307,7 @@ fn test_pack_unpack_pawn_roundtrip() {
             assert_eq!(unpacked.rank.get(0).unwrap(), original_pawn.rank.get(0).unwrap());
         }
     }
-}
-#[test]
-fn test_pack_pawn_empty_rank() {
-    let env = Env::default();
-    let pawn = PawnState {
+    let empty_rank_pawn = PawnState {
         pawn_id: 50,
         alive: true,
         moved: false,
@@ -385,16 +315,14 @@ fn test_pack_pawn_empty_rank() {
         pos: Pos { x: 2, y: 3 },
         rank: Vec::new(&env),
     };
-    let packed = Contract::pack_pawn(pawn.clone());
+    let packed = Contract::pack_pawn(empty_rank_pawn.clone());
     let rank_bits = (packed >> 20) & 0xF;
     assert_eq!(rank_bits, 12);
-    let unpacked = Contract::unpack_pawn(&env, packed);
-    assert!(unpacked.rank.is_empty());
 }
 // endregion
 // region resolve_collision tests
 #[test]
-fn test_resolve_collision_normal_ranks() {
+fn test_resolve_collision() {
     let env = Env::default();
     let mut higher_rank = PawnState {
         pawn_id: 1,
@@ -415,10 +343,6 @@ fn test_resolve_collision_normal_ranks() {
     Contract::resolve_collision(&mut higher_rank, &mut lower_rank);
     assert!(higher_rank.alive);
     assert!(!lower_rank.alive);
-}
-#[test]
-fn test_resolve_collision_equal_ranks() {
-    let env = Env::default();
     let mut pawn_a = PawnState {
         pawn_id: 1,
         alive: true,
@@ -438,10 +362,6 @@ fn test_resolve_collision_equal_ranks() {
     Contract::resolve_collision(&mut pawn_a, &mut pawn_b);
     assert!(!pawn_a.alive);
     assert!(!pawn_b.alive);
-}
-#[test]
-fn test_resolve_collision_assassin_vs_warlord() {
-    let env = Env::default();
     let mut assassin = PawnState {
         pawn_id: 1,
         alive: true,
@@ -480,10 +400,6 @@ fn test_resolve_collision_assassin_vs_warlord() {
     Contract::resolve_collision(&mut warlord2, &mut assassin2);
     assert!(assassin2.alive);
     assert!(!warlord2.alive);
-}
-#[test]
-fn test_resolve_collision_seer_vs_trap() {
-    let env = Env::default();
     let mut seer = PawnState {
         pawn_id: 1,
         alive: true,
@@ -526,7 +442,7 @@ fn test_resolve_collision_seer_vs_trap() {
 // endregion
 // region is_scout_move tests
 #[test]
-fn test_is_scout_move_single_step() {
+fn test_is_scout_move() {
     let single_step_moves = [
         HiddenMove { pawn_id: 1, salt: 123, start_pos: Pos { x: 5, y: 5 }, target_pos: Pos { x: 6, y: 5 } },
         HiddenMove { pawn_id: 1, salt: 123, start_pos: Pos { x: 5, y: 5 }, target_pos: Pos { x: 5, y: 6 } },
@@ -536,9 +452,6 @@ fn test_is_scout_move_single_step() {
     for mv in single_step_moves.iter() {
         assert!(!Contract::is_scout_move(mv));
     }
-}
-#[test]
-fn test_is_scout_move_multi_step() {
     let multi_step_moves = [
         HiddenMove { pawn_id: 1, salt: 123, start_pos: Pos { x: 5, y: 5 }, target_pos: Pos { x: 7, y: 5 } },
         HiddenMove { pawn_id: 1, salt: 123, start_pos: Pos { x: 5, y: 5 }, target_pos: Pos { x: 5, y: 8 } },
@@ -550,37 +463,104 @@ fn test_is_scout_move_multi_step() {
     }
 }
 // endregion
-// region next_subphase/user_subphase_from_player_index tests
+// region subphase management tests
 #[test]
-fn test_user_subphase_from_player_index() {
+fn test_subphase_management() {
     assert_eq!(Contract::user_subphase_from_player_index(UserIndex::Host), Subphase::Host);
     assert_eq!(Contract::user_subphase_from_player_index(UserIndex::Guest), Subphase::Guest);
-}
-#[test]
-fn test_next_subphase_both_to_individual() {
     let result_host = Contract::next_subphase(&Subphase::Both, UserIndex::Host);
     assert_eq!(result_host.unwrap(), Subphase::Guest);
     let result_guest = Contract::next_subphase(&Subphase::Both, UserIndex::Guest);
     assert_eq!(result_guest.unwrap(), Subphase::Host);
-}
-#[test]
-fn test_next_subphase_individual_to_none() {
     let result_host = Contract::next_subphase(&Subphase::Host, UserIndex::Host);
     assert_eq!(result_host.unwrap(), Subphase::None);
     let result_guest = Contract::next_subphase(&Subphase::Guest, UserIndex::Guest);
     assert_eq!(result_guest.unwrap(), Subphase::None);
-}
-#[test]
-fn test_next_subphase_wrong_user() {
     let result = Contract::next_subphase(&Subphase::Host, UserIndex::Guest);
     assert_eq!(result.unwrap_err(), Error::WrongSubphase);
     let result = Contract::next_subphase(&Subphase::Guest, UserIndex::Host);
     assert_eq!(result.unwrap_err(), Error::WrongSubphase);
-}
-#[test]
-fn test_next_subphase_from_none_fails() {
     let result = Contract::next_subphase(&Subphase::None, UserIndex::Host);
     assert_eq!(result.unwrap_err(), Error::WrongSubphase);
+}
+// endregion
+// region check_game_over tests
+fn create_test_game_state(env: &Env, host_flag_alive: bool, guest_flag_alive: bool) -> GameState {
+    let mut pawns = Vec::new(env);
+    let host_flag_id = Contract::encode_pawn_id(Pos { x: 0, y: 0 }, 0);
+    let guest_flag_id = Contract::encode_pawn_id(Pos { x: 0, y: 1 }, 1);
+    let host_flag = PawnState {
+        pawn_id: host_flag_id,
+        alive: host_flag_alive,
+        moved: false,
+        moved_scout: false,
+        pos: Pos { x: 0, y: 0 },
+        rank: Vec::from_array(env, [0u32]),
+    };
+    let guest_flag = PawnState {
+        pawn_id: guest_flag_id,
+        alive: guest_flag_alive,
+        moved: false,
+        moved_scout: false,
+        pos: Pos { x: 0, y: 1 },
+        rank: Vec::from_array(env, [0u32]),
+    };
+    let other_pawn = PawnState {
+        pawn_id: Contract::encode_pawn_id(Pos { x: 1, y: 0 }, 0),
+        alive: true,
+        moved: false,
+        moved_scout: false,
+        pos: Pos { x: 1, y: 0 },
+        rank: Vec::from_array(env, [5u32]),
+    };
+    pawns.push_back(Contract::pack_pawn(host_flag));
+    pawns.push_back(Contract::pack_pawn(guest_flag));
+    pawns.push_back(Contract::pack_pawn(other_pawn));
+    GameState {
+        moves: Contract::create_empty_moves(env),
+        pawns,
+        rank_roots: Vec::new(env),
+        turn: 1,
+    }
+}
+#[test]
+fn test_check_game_over() {
+    let env = Env::default();
+    let game_state = create_test_game_state(&env, true, true);
+    let lobby_params = create_baseline_valid_params(&env);
+    let result = Contract::check_game_over(&env, &game_state, &lobby_params);
+    assert_eq!(result, Subphase::Both);
+    let game_state = create_test_game_state(&env, true, false);
+    let lobby_params = create_baseline_valid_params(&env);
+    let result = Contract::check_game_over(&env, &game_state, &lobby_params);
+    assert_eq!(result, Subphase::Host);
+    let game_state = create_test_game_state(&env, false, true);
+    let lobby_params = create_baseline_valid_params(&env);
+    let result = Contract::check_game_over(&env, &game_state, &lobby_params);
+    assert_eq!(result, Subphase::Guest);
+    let game_state = create_test_game_state(&env, false, false);
+    let lobby_params = create_baseline_valid_params(&env);
+    let result = Contract::check_game_over(&env, &game_state, &lobby_params);
+    assert_eq!(result, Subphase::None);
+    let mut pawns = Vec::new(&env);
+    let other_pawn = PawnState {
+        pawn_id: Contract::encode_pawn_id(Pos { x: 1, y: 0 }, 0),
+        alive: true,
+        moved: false,
+        moved_scout: false,
+        pos: Pos { x: 1, y: 0 },
+        rank: Vec::from_array(&env, [5u32]),
+    };
+    pawns.push_back(Contract::pack_pawn(other_pawn));
+    let game_state = GameState {
+        moves: Contract::create_empty_moves(&env),
+        pawns,
+        rank_roots: Vec::new(&env),
+        turn: 1,
+    };
+    let lobby_params = create_baseline_valid_params(&env);
+    let result = Contract::check_game_over(&env, &game_state, &lobby_params);
+    assert_eq!(result, Subphase::Both);
 }
 // endregion
 }
