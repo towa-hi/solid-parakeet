@@ -5,7 +5,7 @@ mod unit_tests {
     use super::*;
     // region get_neighbors tests
     #[test]
-    fn test_get_neighbors() {
+    fn test_get_neighbors_square_and_hex_grids() {
         let test_cases = [
             (Pos { x: 5, y: 5 }, false, [
                 Pos { x: 5, y: 4 },
@@ -96,7 +96,7 @@ mod unit_tests {
         }
     }
     #[test]
-    fn test_validate_board() {
+    fn test_validate_board_all_conditions() {
         let env = Env::default();
         let baseline = create_baseline_valid_params(&env);
         assert!(Contract::validate_board(&env, &baseline));
@@ -184,7 +184,7 @@ mod unit_tests {
     // endregion
     // region verify_merkle_proof tests
     #[test]
-    fn test_verify_merkle_proof() {
+    fn test_verify_merkle_proof_single_and_multiple() {
         let env = Env::default();
         let hidden_ranks = Vec::from_array(&env, [
             HiddenRank { pawn_id: 1, rank: 5, salt: 100 },
@@ -322,7 +322,7 @@ fn test_pack_unpack_pawn() {
 // endregion
 // region resolve_collision tests
 #[test]
-fn test_resolve_collision() {
+fn test_resolve_collision_all_scenarios() {
     let env = Env::default();
     let mut higher_rank = PawnState {
         pawn_id: 1,
@@ -442,7 +442,7 @@ fn test_resolve_collision() {
 // endregion
 // region is_scout_move tests
 #[test]
-fn test_is_scout_move() {
+fn test_is_scout_move_distance_detection() {
     let single_step_moves = [
         HiddenMove { pawn_id: 1, salt: 123, start_pos: Pos { x: 5, y: 5 }, target_pos: Pos { x: 6, y: 5 } },
         HiddenMove { pawn_id: 1, salt: 123, start_pos: Pos { x: 5, y: 5 }, target_pos: Pos { x: 5, y: 6 } },
@@ -465,7 +465,7 @@ fn test_is_scout_move() {
 // endregion
 // region subphase management tests
 #[test]
-fn test_subphase_management() {
+fn test_subphase_transitions_and_validation() {
     assert_eq!(Contract::user_subphase_from_player_index(UserIndex::Host), Subphase::Host);
     assert_eq!(Contract::user_subphase_from_player_index(UserIndex::Guest), Subphase::Guest);
     let result_host = Contract::next_subphase(&Subphase::Both, UserIndex::Host);
@@ -524,7 +524,7 @@ fn create_test_game_state(env: &Env, host_flag_alive: bool, guest_flag_alive: bo
     }
 }
 #[test]
-fn test_check_game_over() {
+fn test_check_game_over_all_conditions() {
     let env = Env::default();
     let game_state = create_test_game_state(&env, true, true);
     let lobby_params = create_baseline_valid_params(&env);
