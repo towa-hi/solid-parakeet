@@ -188,7 +188,9 @@ fn test_move_to_enemy_occupied_tile() {
         
         // Debug hex neighbors
         let neighbors = setup.env.as_contract(&setup.contract_id, || {
-            Contract::get_neighbors(&Pos { x: 5, y: 5 }, true)
+            let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
+            Contract::get_neighbors(&Pos { x: 5, y: 5 }, true, &mut neighbors);
+            neighbors
         });
         
         std::println!("\nNeighbors of (5,5) in hex grid:");

@@ -95,7 +95,7 @@ pub struct Tile {           // packs into 32 bit PackedTile
 pub struct Board {
     pub hex: bool,
     pub name: String,
-    pub size: Pos,
+    pub size: Pos, // max supported size (16, 16)
     pub tiles: Vec<PackedTile>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -877,6 +877,7 @@ impl Contract {
     // region validation
     pub(crate) fn validate_board(e: &Env, lobby_parameters: &LobbyParameters) -> bool {
         if lobby_parameters.board.tiles.len() as i32 != lobby_parameters.board.size.x * lobby_parameters.board.size.y {
+            log!(e, "validate_board: failed [tiles count must match board size]");
             return false;
         }
         let mut tiles_map: Map<Pos, Tile> = Map::new(e);
@@ -887,15 +888,19 @@ impl Contract {
         for packed_tile in lobby_parameters.board.tiles.iter() {
             let tile = Self::unpack_tile(packed_tile);
             if tiles_map.contains_key(tile.pos) {
+                log!(e, "validate_board: failed [pos is unique]");
                 return false;
             }
             if ![0, 1, 2].contains(&tile.setup) {
+                log!(e, "validate_board: failed [setup is within bounds]");
                 return false;
             }
             if [0, 1].contains(&tile.setup) && !tile.passable {
+                log!(e, "validate_board: failed [setup tiles are passable]");
                 return false;
             }
             if ![0, 1, 2, 3, 4].contains(&tile.setup_zone) {
+                log!(e, "validate_board: failed [setup zone within bounds]");
                 return false;
             }
             if tile.setup == 0 {
@@ -913,57 +918,75 @@ impl Contract {
             tiles_map.set(tile.pos.clone(), tile);
         }
         if start_pos.is_none() {
+            log!(e, "validate_board: failed [must have a passable tile]");
             return false;
         }
         if host_setup == 0 {
+            log!(e, "validate_board: failed [has a host setup tile]");
             return false;
         }
         if guest_setup == 0 {
+            log!(e, "validate_board: failed [has a guest setup tile]");
             return false;
         }
-        // Check board connectivity using fixed iteration
+        const MAX_BOARD_SIZE: usize = 256;
+        const MAX_WAVE_SIZE: usize = 256;
         let start_pos = start_pos.unwrap();
-        let mut visited: Map<Pos, ()> = Map::new(e); // Use unit type to save space
-        let mut current_wave: Vec<Pos> = Vec::new(e);
-        let mut next_wave: Vec<Pos> = Vec::new(e);
-        
-        visited.set(start_pos.clone(), ());
-        current_wave.push_back(start_pos);
+        let board_width = lobby_parameters.board.size.x;
+        let board_size = (board_width * lobby_parameters.board.size.y) as usize;
+        if board_size > MAX_BOARD_SIZE {
+            log!(e, "validate_board: failed [board too large]");
+            return false;
+        }
+        let mut visited = [false; MAX_BOARD_SIZE];
+        let mut current_wave = [Pos { x: -42069, y: -42069 }; MAX_WAVE_SIZE];
+        let mut next_wave = [Pos { x: -42069, y: -42069 }; MAX_WAVE_SIZE];
+        let mut current_len = 0usize;
+        let mut next_len = 0usize;
+        let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
+        visited[(start_pos.y * board_width + start_pos.x) as usize] = true;
+        current_wave[0] = start_pos;
+        current_len = 1;
         let mut visited_count = 1u32;
-        
-        // Maximum iterations = board size (worst case: snake-like path)
-        let max_iterations = lobby_parameters.board.size.x * lobby_parameters.board.size.y;
-        
+        let neighbor_count: usize = if lobby_parameters.board.hex { 6 } else { 4 };
+        let max_iterations = board_size as i32;
         for _ in 0..max_iterations {
-            if current_wave.is_empty() || visited_count == total_passable {
+            if current_len == 0 || visited_count == total_passable {
                 break;
             }
-            
-            // Process all positions in current wave
-            for current in current_wave.iter() {
-                let neighbors = Self::get_neighbors(&current, lobby_parameters.board.hex);
-                for neighbor in neighbors.iter() {
-                    if neighbor.x == -42069 && neighbor.y == -42069 {
-                        break;
+            next_len = 0;
+            for i in 0..current_len {
+                let pos = current_wave[i];
+                Self::get_neighbors(&pos, lobby_parameters.board.hex, &mut neighbors);
+                for j in 0..neighbor_count {
+                    let neighbor = neighbors[j];
+                    if neighbor.x < 0 || neighbor.y < 0 || 
+                       neighbor.x >= board_width || neighbor.y >= lobby_parameters.board.size.y {
+                        continue;
                     }
-                    if !visited.contains_key(*neighbor) {
-                        if let Some(tile) = tiles_map.get(*neighbor) {
-                            if tile.passable {
-                                visited.set(neighbor.clone(), ());
-                                next_wave.push_back(neighbor.clone());
-                                visited_count += 1;
+                    let idx = (neighbor.y * board_width + neighbor.x) as usize;
+                    if visited[idx] {
+                        continue;
+                    }
+                    if let Some(tile) = tiles_map.get(neighbor) {
+                        if tile.passable {
+                            visited[idx] = true;
+                            visited_count += 1;
+                            if next_len < MAX_WAVE_SIZE {
+                                next_wave[next_len] = neighbor;
+                                next_len += 1;
                             }
                         }
                     }
                 }
             }
-            
-            // Swap waves for next iteration
+            let (temp_wave, _temp_len) = (current_wave, current_len);
             current_wave = next_wave;
-            next_wave = Vec::new(e);
+            current_len = next_len;
+            next_wave = temp_wave;
         }
-        
         if visited_count != total_passable {
+            log!(e, "validate_board: failed [passable tiles must be connected]");
             return false;
         }
         true
@@ -1042,7 +1065,9 @@ impl Contract {
             }
             // cond: if pawn not a scout (2) it cant move more than one neighboring tile
             if rank != 2 {
-                if !Self::get_neighbors(&move_proof.start_pos, lobby_parameters.board.hex).contains(&move_proof.target_pos) {
+                let mut temp_neighbors = [Pos { x: -42069, y: -42069 }; 6];
+                Self::get_neighbors(&move_proof.start_pos, lobby_parameters.board.hex, &mut temp_neighbors);
+                if !temp_neighbors.contains(&move_proof.target_pos) {
                     return false;
                 }
             }
@@ -1090,18 +1115,13 @@ impl Contract {
     }
     // endregion
     // region questions
-    pub(crate) fn get_neighbors(pos: &Pos, is_hex: bool) -> [Pos; 6] {
+    pub(crate) fn get_neighbors(pos: &Pos, is_hex: bool, neighbors: &mut [Pos; 6]) {
         const UNUSED:Pos = Pos {x: -42069, y: -42069};
-        let mut neighbors = [
-            UNUSED,
-            UNUSED,
-            UNUSED,
-            UNUSED,
-            UNUSED,
-            UNUSED,
-        ];
+        // Initialize with sentinel values
+        for i in 0..6 {
+            neighbors[i] = UNUSED;
+        }
         if is_hex {
-            // AIDEV-NOTE: Fixed hex neighbors to match client GetDirections in Shared.cs
             // Hex grid has 6 neighbors
             if pos.x % 2 == 0 {
                 // Even columns
@@ -1128,7 +1148,6 @@ impl Contract {
             neighbors[3] = Pos { x: pos.x - 1, y: pos.y };      // W
             // neighbors[4] and neighbors[5] remain as sentinel values
         }
-        neighbors
     }
     pub(crate) fn detect_collisions_with_target_pos(e: &Env, game_state: &GameState, pawns_map: &Map<PawnId, (u32, PawnState)>) -> (CollisionDetection, Vec<PawnId>, Vec<PawnId>) {
         let mut has_double_collision = false;
