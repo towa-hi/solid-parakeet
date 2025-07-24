@@ -14,6 +14,20 @@
 			window.xdr = { decode, encode, guess, types, schema };
 		});
 	</script>
+	<style>
+		/* force 1080×720 → 3∶2 aspect ratio, scale responsively */
+		#unity-container {
+			max-width: 100%;
+			margin: 0 auto;
+			aspect-ratio: 3/2;
+		}
+		#unity-canvas {
+			width: 100%;
+			height: 100%;
+			object-fit: contain;  /* letterbox where needed */
+			display: block;
+		}
+</style>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -106,8 +120,8 @@
 
       } else {
         // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-        canvas.style.width = "1440px";
-        canvas.style.height = "1080px";
+        // canvas.style.width = "1440px";
+        // canvas.style.height = "1080px";
       }
 
       document.querySelector("#unity-loading-bar").style.display = "block";

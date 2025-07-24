@@ -794,26 +794,26 @@ public class CoroutineRunner : MonoBehaviour
 
 public class TimingNode
 {
-    public string Name { get; set; }
-    public long StartTime { get; set; }
+    public string Name { get; init; }
+    public long StartTime { get; init; }
     public long EndTime { get; set; }
     public long ElapsedMs => EndTime - StartTime;
-    public List<TimingNode> Children { get; set; } = new List<TimingNode>();
-    public TimingNode Parent { get; set; }
+    public List<TimingNode> Children { get; } = new();
+    public TimingNode Parent { get; init; }
 }
 
 public class TimingTracker
 {
-    private TimingNode root;
-    private TimingNode current;
+    TimingNode root;
+    TimingNode current;
     
     public void StartOperation(string name)
     {
-        var node = new TimingNode 
+        TimingNode node = new()
         { 
             Name = name, 
             StartTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Parent = current
+            Parent = current,
         };
         
         if (root == null)
@@ -850,7 +850,7 @@ public class TimingTracker
         return sb.ToString();
     }
     
-    private void PrintNode(StringBuilder sb, TimingNode node, string indent, bool isLast)
+    void PrintNode(StringBuilder sb, TimingNode node, string indent, bool isLast)
     {
         if (node != root)
         {

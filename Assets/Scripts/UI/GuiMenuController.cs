@@ -18,10 +18,7 @@ public class GuiMenuController: MonoBehaviour
     public GuiLobbyJoiner lobbyJoinerElement;
     public GuiWallet walletElement;
     public GuiGame gameElement;
-    public GameObject blockerObject;
-    public TextMeshProUGUI blockerText;
-    static GameObject blocker;
-    static Image blockerImage;
+    public TopBar topBar;
     
     // state
     public TestGuiElement currentElement;
@@ -29,13 +26,11 @@ public class GuiMenuController: MonoBehaviour
     
     void Start()
     {
-        blocker = blockerObject;
-        blockerImage = blockerObject.GetComponent<Image>();
         StellarManager.Initialize();
 
-        StellarManager.OnTaskStarted += EnableBlocker;
-        StellarManager.OnTaskEnded += DisableBlocker;
-
+        StellarManager.OnTaskStarted += ShowTopBar;
+        StellarManager.OnTaskEnded += HideTopBar;
+        
         startMenuElement.OnStartButton += GotoMainMenu;
         
         mainMenuElement.OnJoinLobbyButton += GotoJoinLobby;
@@ -176,35 +171,17 @@ public class GuiMenuController: MonoBehaviour
         await StellarManager.UpdateState();
     }
 
-    void EnableBlocker(TaskInfo task)
+    void ShowTopBar(TaskInfo task)
     {
-        blocker.SetActive(true);
-        blockerText.text = task.taskMessage;
+        topBar.Show(true);
         string address = StellarManager.GetUserAddress();
-        if (address == StellarManager.testHost)
-        {
-            Color color = Color.red;
-            color.a = 0.5f;
-            blockerImage.color = color;
-        }
-        else if (address == StellarManager.testGuest)
-        {
-            Color color = Color.blue;
-            color.a = 0.5f;
-            blockerImage.color = color;
-        }
-        else
-        {
-            Color color = Color.white;
-            color.a = 0.5f;
-            blockerImage.color = color;
-        }
+        Color backgroundColor = address == StellarManager.testHost ? Color.red : Color.blue;
+        topBar.SetView(backgroundColor, task.taskMessage);
     }
     
-    void DisableBlocker(TaskInfo task)
+    void HideTopBar(TaskInfo task)
     {
-        blocker.SetActive(false);
-        blockerText.text = "";
+        topBar.Show(false);
     }
 }
 
