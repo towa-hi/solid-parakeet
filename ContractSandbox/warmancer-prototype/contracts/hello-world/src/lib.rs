@@ -424,7 +424,7 @@ impl Contract {
         }
         let game_state = GameState {
             moves: Self::create_empty_moves(e),
-            pawns: pawns,
+            pawns,
             rank_roots: Vec::from_array(e, [MerkleHash::from_array(e, &[0u8; 16]), MerkleHash::from_array(e, &[0u8; 16]),]),
             turn: 0,
         };
@@ -472,6 +472,7 @@ impl Contract {
                     // this will panic on purpose if the user hasn't provided every hidden_rank
                     let hidden_rank = hidden_rank_map.get_unchecked(pawn.pawn_id);
                     pawn.rank = Vec::from_array(e, [hidden_rank.rank]);
+                    log!(e, "commit_setup: pawn rank set to ", pawn.pawn_id, hidden_rank.rank);
                     // update game_state.pawns
                     game_state.pawns.set(index as u32, Self::pack_pawn(pawn));
                 }
@@ -484,7 +485,11 @@ impl Contract {
                 }
             }
         }
-        // TODO: reject non empty zz_hidden_ranks when security_mode true
+        else {
+            if (!req.zz_hidden_ranks.is_empty()) {
+                return Err(Error::InvalidArgs)
+            }
+        }
         let next_subphase = Self::next_subphase(&lobby_info.subphase, u_index)?;
         game_state.rank_roots.set(u_index.u32(), req.rank_commitment_root);
         if next_subphase == Subphase::None {
@@ -520,7 +525,7 @@ impl Contract {
         if !lobby_parameters.security_mode {
             return Err(Error::WrongSecurityMode)
         }
-        Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state)?;
+        Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
@@ -531,7 +536,7 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state)?;
+        Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
@@ -643,7 +648,7 @@ impl Contract {
     }
     // endregion
     // region internal
-    pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState) -> Result<(), Error> {
+pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<(), Error> {
         let u_index = Self::get_player_index(address, &lobby_info);
         if lobby_info.phase != Phase::MoveCommit {
             return Err(Error::WrongPhase)
@@ -653,8 +658,14 @@ impl Contract {
         // update
         u_move.move_hash = req.move_hash.clone();
         if next_subphase == Subphase::None {
-            lobby_info.phase = Phase::MoveProve;
-            lobby_info.subphase = Subphase::Both;
+            if lobby_parameters.security_mode {
+                lobby_info.phase = Phase::MoveProve;
+                lobby_info.subphase = Subphase::Both;
+            } else {
+                // In no-security mode, both players call commit_move_and_prove_move simultaneously
+                // So we stay in MoveCommit phase until both have called commit_move_and_prove_move
+                lobby_info.subphase = Subphase::Both;
+            }
         }
         else {
             lobby_info.subphase = next_subphase;
@@ -684,17 +695,30 @@ impl Contract {
                 return Err(Error::HashFail)
             }
             let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
-            let u_move_valid = Self::validate_move_proof(&req.move_proof, u_index, &pawns_map, &lobby_parameters);
+            let u_move_valid = Self::validate_move_proof(e, &req.move_proof, u_index, &pawns_map, &lobby_parameters);
             if !u_move_valid {
                 // immediately abort the game
                 lobby_info.phase = Phase::Aborted;
                 lobby_info.subphase = Self::opponent_subphase_from_player_index(u_index);
+                log!(e, "prove_move_internal: move not valid");
                 return Ok(())
             }
             u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
             game_state.moves.set(u_index.u32(), u_move);
         }
-        let next_subphase = Self::next_subphase(&lobby_info.subphase, u_index)?;
+        let next_subphase = if lobby_parameters.security_mode {
+            Self::next_subphase(&lobby_info.subphase, u_index)?
+        } else {
+            // In no-security mode, both players can prove moves simultaneously
+            // Check if both players have proved moves to determine if we're done
+            let host_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
+            let guest_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
+            if !host_move.move_proof.is_empty() && !guest_move.move_proof.is_empty() {
+                Subphase::None // Both have proved, ready to resolve
+            } else {
+                lobby_info.subphase.clone() // Not both proved yet, keep current subphase
+            }
+        };
         if next_subphase == Subphase::None {
             let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
             let (collision_detection, h_needed_rank_proofs, g_needed_rank_proofs) = Self::detect_collisions_with_target_pos(e, game_state, &pawns_map);
@@ -761,6 +785,7 @@ impl Contract {
             for hidden_rank in req.hidden_ranks.iter() {
                 let (pawn_index, mut pawn) = pawns_map.get_unchecked(hidden_rank.pawn_id);
                 pawn.rank = Vec::from_array(e, [hidden_rank.rank.clone()]);
+                log!(e, "prove_rank_internal: pawn rank set to ", pawn.pawn_id, hidden_rank.rank);
                 game_state.pawns.set(pawn_index, Self::pack_pawn(pawn));
             }
         }
@@ -933,6 +958,7 @@ impl Contract {
         }
         game_state.pawns.set(h_pawn_index, Self::pack_pawn(h_pawn));
         game_state.pawns.set(g_pawn_index, Self::pack_pawn(g_pawn));
+        
         // Reset moves for next turn
         game_state.moves = Self::create_empty_moves(e);
     }
@@ -1098,25 +1124,29 @@ impl Contract {
         }
         valid_rank_proof
     }
-    pub(crate) fn validate_move_proof(move_proof: &HiddenMove, player_index: UserIndex, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters) -> bool {
+    pub(crate) fn validate_move_proof(e: &Env, move_proof: &HiddenMove, player_index: UserIndex, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters) -> bool {
         // cond: player is owner
         let (_initial_pos, owner_index) = Self::decode_pawn_id(move_proof.pawn_id);
         if owner_index != player_index {
+            log!(e, "cond: player is owner");
             return false
         }
         // cond: pawn must exist in game state
         let (_, pawn) = match pawns_map.get(move_proof.pawn_id) {
             Some(tuple) => tuple,
             None => {
+                log!(e, "cond: pawn must exist in game state");
                 return false;
             }
         };
         // cond: pawn must be alive
         if !pawn.alive {
+            log!(e, "cond: pawn must be alive");
             return false
         }
         // cond: start pos must match
         if move_proof.start_pos != pawn.pos {
+            log!(e, "cond: pawn must be alive");
             return false
         }
         // cond: start and target tiles must exist and be passable
@@ -1136,12 +1166,14 @@ impl Contract {
             }
         }
         if !start_tile_passable || !target_tile_passable {
+            log!(e, "cond: start and target tiles must exist and be passable");
             return false
         }
         // validate move based on rank
         if let Some(rank) = pawn.rank.get(0) {
             // cond: pawn is not unmovable rank flag (0) or trap (11)
-            if [0, 11].contains(&rank){
+            if [0u32, 11u32].contains(&rank){
+                log!(e, "pawn is not unmovable rank flag (0) or trap (11) (pawnid, rank)", pawn.pawn_id, rank);
                 return false
             }
             // cond: if pawn not a scout (2) it cant move more than one neighboring tile
@@ -1149,6 +1181,7 @@ impl Contract {
                 let mut temp_neighbors = [Pos { x: -42069, y: -42069 }; 6];
                 Self::get_neighbors(&move_proof.start_pos, lobby_parameters.board.hex, &mut temp_neighbors);
                 if !temp_neighbors.contains(&move_proof.target_pos) {
+                    log!(e, "cond: if pawn not a scout (2) it cant move more than one neighboring tile");
                     return false;
                 }
             }
@@ -1161,6 +1194,7 @@ impl Contract {
                 // cond: pawn on target pos can't be same owner
                 let other_owner_index = Self::decode_pawn_id(n_pawn.pawn_id).1;
                 if other_owner_index == player_index {
+                    log!(e, "cond: pawn on target pos can't be same owner");
                     return false
                 }
             }
@@ -1313,8 +1347,8 @@ impl Contract {
         let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
         for (_, (_, pawn)) in pawns_map.iter() {
             if !pawn.alive {
-                // normally this would be risky but all dead pawns should be revealed
-                if pawn.rank.get_unchecked(0) == 0 {
+                // Check if pawn has a rank before accessing it
+                if !pawn.rank.is_empty() && pawn.rank.get_unchecked(0) == 0 {
                     let (_, owner_index) = Self::decode_pawn_id(pawn.pawn_id);
                     if owner_index == UserIndex::Host {
                         h_flag_alive = false;
@@ -1441,8 +1475,8 @@ impl Contract {
         // Pack rank (4 bits)
         let rank = if pawn.rank.is_empty() { 12 } else { pawn.rank.get(0).unwrap() };
         packed |= (rank as u32 & 0xF) << 20;
-        // pack zz_revealed (bit 21)
-        if pawn.zz_revealed { packed |= 1 << 21; }
+        // pack zz_revealed (bit 24)
+        if pawn.zz_revealed { packed |= 1 << 24; }
         packed
     }
     pub(crate) fn unpack_pawn(e: &Env, packed: PackedPawn) -> PawnState {
@@ -1462,7 +1496,8 @@ impl Contract {
         if rank_val != 12 {
             rank.push_back(rank_val);
         }
-        let zz_revealed = (packed >> 21) & 1 != 0;
+        // unpack revealed flag
+        let zz_revealed = (packed >> 24) & 1 != 0;
         PawnState {
             alive,
             moved,

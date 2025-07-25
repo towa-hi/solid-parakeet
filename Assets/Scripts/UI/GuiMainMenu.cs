@@ -7,7 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiMainMenu : TestGuiElement
+public class GuiMainMenu : MenuElement
 {
     public TMP_InputField contractField;
     public Button setContractButton;
@@ -91,30 +91,11 @@ public class GuiMainMenu : TestGuiElement
             AudioManager.instance.PlaySmallButtonClick();
             OnAssetButton?.Invoke();
         });
-        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
         StellarManager.OnAssetsUpdated += OnAssetsUpdated;
-    }
-    
-    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
-    {
-        base.SetIsEnabled(inIsEnabled, networkUpdated);
-        if (isEnabled && networkUpdated)
-        {
-            sneedField.text = string.Empty;
-            currentContractText.text = string.Empty;
-            OnNetworkStateUpdated();
-        }
-    }
-    
-    void OnNetworkStateUpdated()
-    {
-        if (!isEnabled) return;
-        Refresh();
     }
 
     void OnAssetsUpdated(TrustLineEntry entry)
     {
-        if (!isEnabled) return;
         if (entry == null)
         {
             string message = $"No SCRY could be found for account {StellarManager.GetUserAddress()}";
@@ -130,7 +111,7 @@ public class GuiMainMenu : TestGuiElement
         Refresh();
     }
     
-    void Refresh()
+    public override void Refresh()
     {
         Debug.Log("Refresh");
         setContractButton.interactable = StellarManager.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);

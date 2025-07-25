@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiWallet : TestGuiElement
+public class GuiWallet : MenuElement
 {
     public TextMeshProUGUI walletText;
     public TextMeshProUGUI networkText;
@@ -45,7 +45,7 @@ public class GuiWallet : TestGuiElement
 
     void OnAssetsUpdated(TrustLineEntry entry)
     {
-        if (!isEnabled) return;
+        if (!gameObject.activeSelf) return;
         if (entry == null)
         {
             string message = $"No SCRY could be found for account {WalletManager.address}";
@@ -60,17 +60,7 @@ public class GuiWallet : TestGuiElement
         }
     }
 
-    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
-    {
-        base.SetIsEnabled(inIsEnabled, networkUpdated);
-        cardArea.SetActive(inIsEnabled);
-        if (inIsEnabled)
-        {
-            Refresh();
-        }
-    }
-
-    void Refresh()
+    public override void Refresh()
     {
         walletText.text = string.IsNullOrEmpty(WalletManager.address) ? "Not connected" : WalletManager.address;
         networkText.text = WalletManager.networkDetails == null ? "Not connected" : WalletManager.networkDetails.networkPassphrase;
@@ -118,5 +108,4 @@ public class GuiWallet : TestGuiElement
         }
         Refresh();
     }
-
 }

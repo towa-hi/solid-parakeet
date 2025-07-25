@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiStartMenu : TestGuiElement
+public class GuiStartMenu : MenuElement
 {
     public Button startButton;
 
@@ -14,6 +14,11 @@ public class GuiStartMenu : TestGuiElement
             AudioManager.instance.PlayButtonClick();
             OnStartButton?.Invoke();
         });
+    }
+
+    public override void Refresh()
+    {
+        
     }
 }
 

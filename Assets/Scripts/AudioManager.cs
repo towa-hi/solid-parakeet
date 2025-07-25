@@ -22,6 +22,8 @@ public class AudioManager : MonoBehaviour
     public AudioClip mainMenuMusicClip;
     public AudioClip startMusicClip;
     public AudioClip battleMusicClip;
+    public AudioClip battleMusicClip2;
+    
     public float musicVolume;
     
     void Awake()

@@ -258,59 +258,125 @@ fn test_encode_decode_pawn_id() {
 #[test]
 fn test_pack_unpack_pawn() {
     let env = Env::default();
-    let test_cases = [
-        PawnState {
-            pawn_id: 100,
+    
+    // Test all possible ranks (0-11) with various flag combinations
+    let mut test_cases = Vec::new(&env);
+    
+    // Add basic test cases with different flags
+    for rank in 0u32..=11u32 {
+        test_cases.push_back(PawnState {
+            pawn_id: rank * 10,
             alive: true,
             moved: false,
             moved_scout: false,
-            pos: Pos { x: 5, y: 7 },
-            rank: Vec::from_array(&env, [3u32]),
+            pos: Pos { x: (rank % 16) as i32, y: (rank / 16) as i32 },
+            rank: Vec::from_array(&env, [rank]),
             zz_revealed: false,
-        },
-        PawnState {
-            pawn_id: 200,
-            alive: false,
-            moved: true,
-            moved_scout: true,
-            pos: Pos { x: 0, y: 0 },
-            rank: Vec::from_array(&env, [10u32]),
-            zz_revealed: false,
-        },
-        PawnState {
-            pawn_id: 511,
+        });
+    }
+    
+    // Critical test case: rank 9 with zz_revealed=true (the bug we fixed)
+    test_cases.push_back(PawnState {
+        pawn_id: 305,
+        alive: true,
+        moved: true,
+        moved_scout: false,
+        pos: Pos { x: 8, y: 9 },
+        rank: Vec::from_array(&env, [9u32]),
+        zz_revealed: true,
+    });
+    
+    // Test all ranks with zz_revealed=true
+    for rank in 0u32..=11u32 {
+        test_cases.push_back(PawnState {
+            pawn_id: 400 + rank,
             alive: true,
             moved: true,
             moved_scout: false,
-            pos: Pos { x: 15, y: 15 },
-            rank: Vec::new(&env),
-            zz_revealed: false,
-        },
-        PawnState {
-            pawn_id: 50,
-            alive: true,
-            moved: false,
-            moved_scout: false,
-            pos: Pos { x: 2, y: 3 },
-            rank: Vec::new(&env),
-            zz_revealed: false,
-        },
-    ];
+            pos: Pos { x: (rank % 8) as i32, y: (rank % 8) as i32 },
+            rank: Vec::from_array(&env, [rank]),
+            zz_revealed: true,
+        });
+    }
+    
+    // Edge cases
+    test_cases.push_back(PawnState {
+        pawn_id: 511,  // max pawn_id (9 bits)
+        alive: true,
+        moved: true,
+        moved_scout: true,
+        pos: Pos { x: 15, y: 15 },  // max coordinates
+        rank: Vec::from_array(&env, [11u32]),  // max rank
+        zz_revealed: true,
+    });
+    
+    test_cases.push_back(PawnState {
+        pawn_id: 0,
+        alive: false,
+        moved: false,
+        moved_scout: false,
+        pos: Pos { x: 0, y: 0 },
+        rank: Vec::new(&env),  // no rank
+        zz_revealed: false,
+    });
+    
+    // Test all cases
     for original_pawn in test_cases.iter() {
         let packed = Contract::pack_pawn(original_pawn.clone());
         let unpacked = Contract::unpack_pawn(&env, packed);
-        assert_eq!(unpacked.pawn_id, original_pawn.pawn_id);
-        assert_eq!(unpacked.alive, original_pawn.alive);
-        assert_eq!(unpacked.moved, original_pawn.moved);
-        assert_eq!(unpacked.moved_scout, original_pawn.moved_scout);
-        assert_eq!(unpacked.pos.x, original_pawn.pos.x);
-        assert_eq!(unpacked.pos.y, original_pawn.pos.y);
+        
+        // Check complete equality
+        assert_eq!(unpacked.pawn_id, original_pawn.pawn_id, 
+            "pawn_id mismatch for pawn {}", original_pawn.pawn_id);
+        assert_eq!(unpacked.alive, original_pawn.alive,
+            "alive mismatch for pawn {}", original_pawn.pawn_id);
+        assert_eq!(unpacked.moved, original_pawn.moved,
+            "moved mismatch for pawn {}", original_pawn.pawn_id);
+        assert_eq!(unpacked.moved_scout, original_pawn.moved_scout,
+            "moved_scout mismatch for pawn {}", original_pawn.pawn_id);
+        assert_eq!(unpacked.pos.x, original_pawn.pos.x,
+            "pos.x mismatch for pawn {}", original_pawn.pawn_id);
+        assert_eq!(unpacked.pos.y, original_pawn.pos.y,
+            "pos.y mismatch for pawn {}", original_pawn.pawn_id);
+        assert_eq!(unpacked.zz_revealed, original_pawn.zz_revealed,
+            "zz_revealed mismatch for pawn {}", original_pawn.pawn_id);
+        
+        // Check rank
         if original_pawn.rank.is_empty() {
-            assert!(unpacked.rank.is_empty());
+            assert!(unpacked.rank.is_empty(),
+                "rank should be empty for pawn {}", original_pawn.pawn_id);
         } else {
-            assert_eq!(unpacked.rank.get(0).unwrap(), original_pawn.rank.get(0).unwrap());
+            assert_eq!(unpacked.rank.len(), original_pawn.rank.len(),
+                "rank length mismatch for pawn {}", original_pawn.pawn_id);
+            assert_eq!(unpacked.rank.get(0).unwrap(), original_pawn.rank.get(0).unwrap(),
+                "rank value mismatch for pawn {}: expected {}, got {}", 
+                original_pawn.pawn_id, original_pawn.rank.get(0).unwrap(), unpacked.rank.get(0).unwrap());
         }
     }
+    
+    // Test bit layout to ensure no overlaps
+    let test_pawn = PawnState {
+        pawn_id: 0x1FF,  // 9 bits all 1s
+        alive: true,
+        moved: true,
+        moved_scout: true,
+        pos: Pos { x: 0xF, y: 0xF },  // 4 bits each all 1s
+        rank: Vec::from_array(&env, [0xBu32]),  // 4 bits: 1011 (11)
+        zz_revealed: true,
+    };
+    let packed = Contract::pack_pawn(test_pawn);
+    
+    // Verify bit positions don't overlap
+    assert_eq!(packed & 0x1FF, 0x1FF, "pawn_id bits incorrect");
+    assert_eq!((packed >> 9) & 1, 1, "alive bit incorrect");
+    assert_eq!((packed >> 10) & 1, 1, "moved bit incorrect");
+    assert_eq!((packed >> 11) & 1, 1, "moved_scout bit incorrect");
+    assert_eq!((packed >> 12) & 0xF, 0xF, "x coordinate bits incorrect");
+    assert_eq!((packed >> 16) & 0xF, 0xF, "y coordinate bits incorrect");
+    assert_eq!((packed >> 20) & 0xF, 0xB, "rank bits incorrect");
+    assert_eq!((packed >> 24) & 1, 1, "zz_revealed bit incorrect");
+    
+    // Verify empty rank encoding
     let empty_rank_pawn = PawnState {
         pawn_id: 50,
         alive: true,
@@ -322,7 +388,7 @@ fn test_pack_unpack_pawn() {
     };
     let packed = Contract::pack_pawn(empty_rank_pawn.clone());
     let rank_bits = (packed >> 20) & 0xF;
-    assert_eq!(rank_bits, 12);
+    assert_eq!(rank_bits, 12, "empty rank should encode as 12");
 }
 // endregion
 // region resolve_collision tests

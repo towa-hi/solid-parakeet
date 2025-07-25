@@ -724,7 +724,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 83c0dcf720026c84fb7703fa015288f5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isVisible: 0
   statusText: {fileID: 8856659293709921469}
   menuButton: {fileID: 9002721858944881423}
   extraButton: {fileID: 2337299572026436661}
@@ -1732,7 +1731,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5838cff146d1e64c985746812789a4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isVisible: 0
   rankEntryListRoot: {fileID: 1922663373496533812}
   clearButton: {fileID: 418349972929020694}
   autoSetupButton: {fileID: 374486424872604344}
@@ -4272,6 +4270,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2235769121652481676}
   - component: {fileID: 7232157828981243203}
+  - component: {fileID: 3705650479071755313}
   m_Layer: 5
   m_Name: GameGuiController
   m_TagString: Untagged
@@ -4312,10 +4311,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 691e9f3e46a30ec4f9ba07bcc94d33bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  chatbox: {fileID: 0}
+  canvasGroup: {fileID: 3705650479071755313}
   setup: {fileID: 2357161617163206493}
   movement: {fileID: 7966010754862713443}
   boardAnchor: {fileID: 0}
+--- !u!225 &3705650479071755313
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6651357311157992481}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7041036051722262160
 GameObject:
   m_ObjectHideFlags: 0

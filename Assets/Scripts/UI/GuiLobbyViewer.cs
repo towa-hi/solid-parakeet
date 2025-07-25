@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiLobbyViewer : TestGuiElement
+public class GuiLobbyViewer : MenuElement
 {
     public GuiLobbyView lobbyView;
     
@@ -42,26 +42,16 @@ public class GuiLobbyViewer : TestGuiElement
             AudioManager.instance.PlayMidButtonClick();
             OnStartButton?.Invoke();
         });
-        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
-    }
-
-    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
-    {
-        base.SetIsEnabled(inIsEnabled, networkUpdated);
-        if (isEnabled && networkUpdated)
-        {
-            OnNetworkStateUpdated();
-        }
     }
 
     void OnNetworkStateUpdated()
     {
-        if (!isEnabled) return;
+        if (!gameObject.activeSelf) return;
         Refresh();
         
     }
     
-    void Refresh()
+    public override void Refresh()
     {
         lobbyView.Refresh(StellarManager.networkState.lobbyInfo);
         startButton.interactable = false;

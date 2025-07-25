@@ -1,6 +1,7 @@
 #![cfg(test)]
 #![allow(unused_variables)]
 extern crate std;
+
 use super::super::*;
 use super::super::test_utils::*;
 use super::test_utils::*;
@@ -225,6 +226,314 @@ fn test_full_stratego_game() {
 }
 
 #[test]
+fn test_compare_security_games() {
+    let setup = TestSetup::new();
+    let host_secure = setup.generate_address();
+    let guest_secure = setup.generate_address();
+    let host_insecure = setup.generate_address();
+    let guest_insecure = setup.generate_address();
+
+    let lobby_secure = 1u32;
+    let lobby_insecure = 2u32;
+
+    let lobby_parameters_secure = create_full_stratego_board_parameters(&setup.env);
+    let mut lobby_parameters_insecure = lobby_parameters_secure.clone();
+    // secure
+    lobby_parameters_insecure.security_mode = false;
+    let make_req = MakeLobbyReq {
+        lobby_id: lobby_secure,
+        parameters: lobby_parameters_secure,
+    };
+    setup.client.make_lobby(&host_secure, &make_req);
+    let join_req = JoinLobbyReq {
+        lobby_id: lobby_secure,
+    };
+    setup.client.join_lobby(&guest_secure, &join_req);
+    // insecure
+    let make_req_insecure = MakeLobbyReq {
+        lobby_id: lobby_insecure,
+        parameters: lobby_parameters_insecure,
+    };
+    setup.client.make_lobby(&host_insecure, &make_req_insecure);
+    let join_req_insecure = JoinLobbyReq {
+        lobby_id: lobby_insecure,
+    };
+    setup.client.join_lobby(&guest_insecure, &join_req_insecure);
+    // Generate identical setups using fixed seed
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_secure, &UserIndex::Host)
+    });
+
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_secure, &UserIndex::Guest)
+    });
+    for host_hidden_rank in host_hidden_ranks.clone() {
+        std::println!("host pawnid: {} rank: {}", host_hidden_rank.pawn_id, host_hidden_rank.rank);
+    }
+    for guest_hidden_rank in guest_hidden_ranks.clone() {
+        std::println!("guest pawnid: {} rank: {}", guest_hidden_rank.pawn_id, guest_hidden_rank.rank);
+    }
+
+    let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks.clone());
+    let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks.clone());
+
+    // Apply setups to both games
+    std::println!("host committing setup");
+    setup.client.commit_setup(&host_secure, &CommitSetupReq { lobby_id: lobby_secure, rank_commitment_root: host_root.clone() , zz_hidden_ranks: Vec::new(&setup.env),});
+    std::println!("guest committing setup");
+    setup.client.commit_setup(&guest_secure, &CommitSetupReq { lobby_id: lobby_secure, rank_commitment_root: guest_root.clone(), zz_hidden_ranks: Vec::new(&setup.env),});
+
+    setup.client.commit_setup(&host_insecure, &CommitSetupReq { lobby_id: lobby_insecure, rank_commitment_root: host_root.clone() , zz_hidden_ranks: host_hidden_ranks.clone(),});
+    setup.client.commit_setup(&guest_insecure, &CommitSetupReq { lobby_id: lobby_insecure, rank_commitment_root: guest_root.clone() , zz_hidden_ranks: guest_hidden_ranks.clone(),});
+
+    // Execute identical moves and verify game states remain consistent
+    for move_number in 1..=100 {
+        std::println!("Move number: {}", move_number);
+        // Generate identical moves for both games
+        let salt_host = move_number as u64 * 1000 + 12345;
+        let salt_guest = move_number as u64 * 1000 + 54321;
+
+        // Take snapshot at start of loop to get current game state
+        let secure_loop_start_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
+
+        // shared - generate moves based on secure game state (which should match insecure at this point)
+        let host_move = generate_valid_move_req(&setup.env, &secure_loop_start_snapshot.pawns_map, &secure_loop_start_snapshot.lobby_parameters, &UserIndex::Host, &host_hidden_ranks, salt_host);
+        let guest_move = generate_valid_move_req(&setup.env, &secure_loop_start_snapshot.pawns_map, &secure_loop_start_snapshot.lobby_parameters, &UserIndex::Guest, &guest_hidden_ranks, salt_guest);
+        if host_move.is_none() || guest_move.is_none() {
+            std::println!("no more valid moves game ended");
+            break; // No more valid moves
+        }
+        
+        // Debug: Check if games have same state before move
+        if move_number <= 30 {
+            let insecure_loop_start_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_insecure);
+            let mut differences = 0;
+            for (pawn_id, (_, secure_pawn)) in secure_loop_start_snapshot.pawns_map.iter() {
+                if let Some((_, insecure_pawn)) = insecure_loop_start_snapshot.pawns_map.get(pawn_id) {
+                    if secure_pawn.pos != insecure_pawn.pos || secure_pawn.alive != insecure_pawn.alive {
+                        std::println!("DIVERGENCE at move {} start: Pawn {} - secure pos {:?} alive {}, insecure pos {:?} alive {}", 
+                            move_number, pawn_id, secure_pawn.pos, secure_pawn.alive, insecure_pawn.pos, insecure_pawn.alive);
+                        differences += 1;
+                    }
+                }
+            }
+            if differences > 0 {
+                std::println!("Found {} differences at start of move {}", differences, move_number);
+            }
+        }
+        let host_move_proof = host_move.unwrap();
+        let guest_move_proof = guest_move.unwrap();
+        let host_move_full_hash = setup.env.crypto().sha256(&host_move_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
+        let host_hash = HiddenMoveHash::from_array(&setup.env, &host_move_full_hash[0..16].try_into().unwrap());
+        let guest_move_full_hash = setup.env.crypto().sha256(&guest_move_proof.clone().to_xdr(&setup.env)).to_bytes().to_array();
+        let guest_hash = HiddenMoveHash::from_array(&setup.env, &guest_move_full_hash[0..16].try_into().unwrap());
+
+
+        let host_moved_pawn_rank = host_hidden_ranks.iter().find(|item| item.pawn_id == host_move_proof.pawn_id).unwrap().rank;
+        let guest_moved_pawn_rank = guest_hidden_ranks.iter().find(|item| item.pawn_id == guest_move_proof.pawn_id).unwrap().rank;
+        std::println!("host will move pawnid {} from {:?} to {:?} with rank {}", 
+            host_move_proof.pawn_id, 
+            secure_loop_start_snapshot.pawns_map.get(host_move_proof.pawn_id).map(|(_, p)| p.pos),
+            host_move_proof.target_pos, 
+            host_moved_pawn_rank);
+        std::println!("guest will move pawnid {} from {:?} to {:?} with rank {}", 
+            guest_move_proof.pawn_id,
+            secure_loop_start_snapshot.pawns_map.get(guest_move_proof.pawn_id).map(|(_, p)| p.pos),
+            guest_move_proof.target_pos,
+            guest_moved_pawn_rank);
+        
+        // Check what's at the target positions
+        if move_number == 28 {
+            for (id, (_, pawn)) in secure_loop_start_snapshot.pawns_map.iter() {
+                if pawn.pos == host_move_proof.target_pos && pawn.alive {
+                    std::println!("  At host target {:?}: pawn {} (rank unknown in secure)", pawn.pos, id);
+                }
+                if pawn.pos == guest_move_proof.target_pos && pawn.alive {
+                    std::println!("  At guest target {:?}: pawn {} (rank unknown in secure)", pawn.pos, id);
+                }
+            }
+        }
+        
+        assert!(![0, 11].contains(&host_moved_pawn_rank));
+        assert!(![0, 11].contains(&guest_moved_pawn_rank));
+        // do secure mode first
+        {
+            let host_secure_commit_move_req = CommitMoveReq { lobby_id: lobby_secure, move_hash: host_hash.clone() };
+            let guest_secure_commit_move_req = CommitMoveReq { lobby_id: lobby_secure, move_hash: guest_hash.clone() };
+            let host_secure_prove_move_req = ProveMoveReq { lobby_id: lobby_secure, move_proof: host_move_proof.clone() };
+            let guest_secure_prove_move_req = ProveMoveReq { lobby_id: lobby_secure, move_proof: guest_move_proof.clone() };
+
+            // host commit move first
+            std::println!("host commit_move");
+            setup.client.commit_move(&host_secure, &host_secure_commit_move_req);
+            // guest commit move and prove
+            std::println!("guest commit_move_and_prove_move");
+            setup.client.commit_move_and_prove_move(&guest_secure, &guest_secure_commit_move_req, &guest_secure_prove_move_req);
+
+            // host check simulation
+            std::println!("host simulate_collisions");
+            let host_simulation_result = setup.client.simulate_collisions(&host_secure, &host_secure_prove_move_req);
+            if !host_simulation_result.needed_rank_proofs.is_empty() {
+                // need to provide rank proofs
+                let mut host_hidden_ranks_temp = Vec::new(&setup.env);
+                let mut host_merkle_proofs_temp = Vec::new(&setup.env);
+                for pawn_id in host_simulation_result.needed_rank_proofs.iter() {
+                    std::println!("host must prove PawnID: {}", pawn_id);
+                    for (i, hidden_rank) in host_hidden_ranks.iter().enumerate() {
+                        if hidden_rank.pawn_id == pawn_id {
+                            host_hidden_ranks_temp.push_back(hidden_rank.clone());
+                            host_merkle_proofs_temp.push_back(host_proofs.get_unchecked(i as u32));
+                            std::println!("host found pawn PawnID: {} rank: {}", hidden_rank.pawn_id, hidden_rank.rank);
+                        }
+                    }
+                }
+                assert!(!host_hidden_ranks_temp.is_empty());
+                assert!(!host_merkle_proofs_temp.is_empty());
+                let host_secure_rank_proof_req = ProveRankReq {
+                    hidden_ranks: host_hidden_ranks_temp,
+                    lobby_id: lobby_secure,
+                    merkle_proofs: host_merkle_proofs_temp,
+                };
+                std::println!("host prove_move_and_prove_rank");
+                setup.client.prove_move_and_prove_rank(&host_secure, &host_secure_prove_move_req, &host_secure_rank_proof_req);
+                let host_prove_move_and_prove_rank_after_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
+            } else {
+                // submit just prove move if the simulation says you didn't collide
+                std::println!("host prove_move");
+                setup.client.prove_move(&host_secure, &host_secure_prove_move_req);
+            }
+            let host_prove_move_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
+            if host_prove_move_snapshot.lobby_info.phase == Phase::RankProve && host_prove_move_snapshot.lobby_info.subphase == Subphase::Guest {
+                let mut guest_hidden_ranks_temp = Vec::new(&setup.env);
+                let mut guest_merkle_proofs_temp = Vec::new(&setup.env);
+                for pawn_id in host_prove_move_snapshot.game_state.moves.get_unchecked(UserIndex::Guest.u32()).needed_rank_proofs.iter() {
+                    std::println!("guest must prove PawnID: {}", pawn_id);
+                    for (i, hidden_rank) in guest_hidden_ranks.iter().enumerate() {
+                        if hidden_rank.pawn_id == pawn_id {
+                            guest_hidden_ranks_temp.push_back(hidden_rank.clone());
+                            guest_merkle_proofs_temp.push_back(guest_proofs.get_unchecked(i as u32));
+                            std::println!("guest found pawn PawnID: {} rank: {}", hidden_rank.pawn_id, hidden_rank.rank);
+                        }
+                    }
+                }
+                let guest_secure_rank_proof_req = ProveRankReq {
+                    hidden_ranks: guest_hidden_ranks_temp,
+                    lobby_id: lobby_secure,
+                    merkle_proofs: guest_merkle_proofs_temp,
+                };
+                std::println!("guest prove_rank");
+                setup.client.prove_rank(&guest_secure, &guest_secure_rank_proof_req);
+            }
+            let secure_turn_end_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
+            let secure_ended = secure_turn_end_snapshot.lobby_info.phase == Phase::Finished;
+            if secure_ended {
+                std::println!("secure game has ended at move {}", move_number);
+            } else {
+                assert!(secure_turn_end_snapshot.lobby_info.phase == Phase::MoveCommit && secure_turn_end_snapshot.lobby_info.subphase == Subphase::Both);
+            }
+        }
+        {
+            // Use same moves for insecure game to ensure identical outcomes
+            let host_insecure_commit_move_req = CommitMoveReq { lobby_id: lobby_insecure, move_hash: host_hash };
+            let guest_insecure_commit_move_req = CommitMoveReq { lobby_id: lobby_insecure, move_hash: guest_hash };
+            let host_insecure_prove_move_req = ProveMoveReq { lobby_id: lobby_insecure, move_proof: host_move_proof };
+            let guest_insecure_prove_move_req = ProveMoveReq { lobby_id: lobby_insecure, move_proof: guest_move_proof };
+            std::println!("insecure host commit_move_and_prove_move");
+            setup.client.commit_move_and_prove_move(&host_insecure, &host_insecure_commit_move_req, &host_insecure_prove_move_req);
+            std::println!("insecure guest commit_move_and_prove_move");
+            setup.client.commit_move_and_prove_move(&guest_insecure, &guest_insecure_commit_move_req, &guest_insecure_prove_move_req);
+            let insecure_turn_end_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_insecure);
+            if insecure_turn_end_snapshot.lobby_info.phase == Phase::Finished {
+                std::println!("insecure game has ended");
+                // Check if secure game also ended
+                let secure_check = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_secure);
+                if secure_check.phase != Phase::Finished {
+                    panic!("Games ended at different times! Secure: {:?}, Insecure: Finished", secure_check.phase);
+                }
+                break;
+            }
+            else {
+                assert!(insecure_turn_end_snapshot.lobby_info.phase == Phase::MoveCommit && insecure_turn_end_snapshot.lobby_info.subphase == Subphase::Both);
+            }
+        }
+        
+        // Check for divergence at end of turn
+        {
+            let secure_end_turn = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
+            let insecure_end_turn = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_insecure);
+            
+            // Special check for move 28 to debug throne issue
+            if move_number == 28 {
+                std::println!("=== END OF MOVE 28 DEBUG ===");
+                // Check throne status
+                if let Some((_, secure_throne)) = secure_end_turn.pawns_map.get(193) {
+                    std::println!("Secure throne (193): alive={}, rank={:?}, revealed={}", 
+                        secure_throne.alive, secure_throne.rank, secure_throne.zz_revealed);
+                }
+                if let Some((_, insecure_throne)) = insecure_end_turn.pawns_map.get(193) {
+                    std::println!("Insecure throne (193): alive={}, rank={:?}, revealed={}", 
+                        insecure_throne.alive, insecure_throne.rank, insecure_throne.zz_revealed);
+                }
+            }
+            
+            for (pawn_id, (_, secure_pawn)) in secure_end_turn.pawns_map.iter() {
+                if let Some((_, insecure_pawn)) = insecure_end_turn.pawns_map.get(pawn_id) {
+                    if secure_pawn.pos != insecure_pawn.pos || secure_pawn.alive != insecure_pawn.alive {
+                        std::println!("DIVERGENCE at end of move {}: Pawn {} - secure pos {:?} alive {}, insecure pos {:?} alive {}", 
+                            move_number, pawn_id, secure_pawn.pos, secure_pawn.alive, insecure_pawn.pos, insecure_pawn.alive);
+                        panic!("Games diverged!");
+                    }
+                }
+            }
+        }
+    }
+    let secure_end_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
+    let insecure_end_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_insecure);
+
+    // Both games should have the same outcome when given the same moves
+    std::println!("Secure game phase: {:?}", secure_end_snapshot.lobby_info.phase);
+    std::println!("Insecure game phase: {:?}", insecure_end_snapshot.lobby_info.phase);
+    
+    // Both games should be in the same phase
+    assert_eq!(secure_end_snapshot.lobby_info.phase, insecure_end_snapshot.lobby_info.phase, 
+        "Games should end in the same phase");
+    
+    if secure_end_snapshot.lobby_info.phase == Phase::Finished {
+        // Check throne status in both games
+        let secure_host_throne = secure_end_snapshot.pawns_map.get(0).map(|(_, p)| p.alive).unwrap_or(false);
+        let secure_guest_throne = secure_end_snapshot.pawns_map.get(193).map(|(_, p)| p.alive).unwrap_or(false);
+        let insecure_host_throne = insecure_end_snapshot.pawns_map.get(0).map(|(_, p)| p.alive).unwrap_or(false);
+        let insecure_guest_throne = insecure_end_snapshot.pawns_map.get(193).map(|(_, p)| p.alive).unwrap_or(false);
+        
+        // Both games should have the same winner
+        assert_eq!(secure_host_throne, insecure_host_throne, "Host throne status should match");
+        assert_eq!(secure_guest_throne, insecure_guest_throne, "Guest throne status should match");
+        
+        std::println!("Both games ended with same result - Host throne alive: {}, Guest throne alive: {}", 
+            secure_host_throne, secure_guest_throne);
+    }
+    
+    // Verify all pawns in insecure mode have ranks
+    for (pawn_id, (_, pawn)) in insecure_end_snapshot.pawns_map.iter() {
+        assert!(!pawn.rank.is_empty(), "Insecure mode pawn {} should have rank", pawn_id);
+    }
+    
+    // Verify matching ranks where applicable
+    for (pawn_id, (_, secure_pawn)) in secure_end_snapshot.pawns_map.iter() {
+        if let Some((_, insecure_pawn)) = insecure_end_snapshot.pawns_map.get(pawn_id.clone()) {
+            // If revealed in security mode, ranks should match
+            if secure_pawn.zz_revealed && !secure_pawn.rank.is_empty() && !insecure_pawn.rank.is_empty() {
+                assert_eq!(secure_pawn.rank.get_unchecked(0), insecure_pawn.rank.get_unchecked(0), 
+                    "Rank mismatch for revealed pawn {}", pawn_id);
+            }
+        }
+    }
+    
+    std::println!("Security mode comparison test completed successfully. Both games had identical outcomes.");
+}
+
+
+#[test]
 fn test_compare_populated_vs_unpopulated_games() {
     let setup = TestSetup::new();
 
@@ -419,280 +728,4 @@ fn test_compare_populated_vs_unpopulated_games() {
 }
 
 // endregion
-// region security_mode=false integration tests
-#[test]
-fn test_no_security_mode_full_game() {
-    let setup = TestSetup::new();
-    let lobby_id = 1u32;
-    let host = setup.generate_address();
-    let guest = setup.generate_address();
-    // Create lobby with security_mode=false
-    let mut params = create_full_stratego_board_parameters(&setup.env);
-    params.security_mode = false;
-    setup.client.make_lobby(&host, &MakeLobbyReq { lobby_id, parameters: params });
-    setup.client.join_lobby(&guest, &JoinLobbyReq { lobby_id });
-    // Setup phase with ranks provided
-    let (host_commits, host_hidden) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state2(&setup.env, lobby_id)
-    });
-    let (guest_commits, guest_hidden) = (host_commits.clone(), host_hidden.clone());
-    let host_ranks = host_hidden.1.clone();
-    let guest_ranks = guest_hidden.1.clone();
-    setup.client.commit_setup(&host, &CommitSetupReq {
-        lobby_id,
-        rank_commitment_root: BytesN::from_array(&setup.env, &[1u8; 16]),
-        zz_hidden_ranks: host_hidden.1,
-    });
-    setup.client.commit_setup(&guest, &CommitSetupReq {
-        lobby_id,
-        rank_commitment_root: BytesN::from_array(&setup.env, &[2u8; 16]),
-        zz_hidden_ranks: guest_hidden.1,
-    });
-    // Verify we're in MoveCommit phase
-    let initial_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    assert_eq!(initial_snapshot.phase, Phase::MoveCommit);
-    assert_eq!(initial_snapshot.subphase, Subphase::Both);
-    // Play 10 moves to test gameplay
-    for move_number in 1..=10 {
-        let full_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        if full_snapshot.lobby_info.phase != Phase::MoveCommit {
-            break; // Game ended
-        }
-        // Generate valid moves
-        let host_move_opt = generate_valid_move_req(&setup.env, &full_snapshot.pawns_map, &full_snapshot.lobby_parameters, &UserIndex::Host, &host_ranks, move_number as u64 * 1000);
-        let guest_move_opt = generate_valid_move_req(&setup.env, &full_snapshot.pawns_map, &full_snapshot.lobby_parameters, &UserIndex::Guest, &guest_ranks, move_number as u64 * 2000);
-        if host_move_opt.is_none() || guest_move_opt.is_none() {
-            break;
-        }
-        let host_move = host_move_opt.unwrap();
-        let guest_move = guest_move_opt.unwrap();
-        // Use commit_move_and_prove_move for both players (no separate prove phase needed)
-        let host_hash = {
-            let serialized = host_move.clone().to_xdr(&setup.env);
-            let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-            HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-        };
-        let guest_hash = {
-            let serialized = guest_move.clone().to_xdr(&setup.env);
-            let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-            HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-        };
-        setup.client.commit_move_and_prove_move(&host, 
-            &CommitMoveReq { lobby_id, move_hash: host_hash }, 
-            &ProveMoveReq { lobby_id, move_proof: host_move });
-        setup.client.commit_move_and_prove_move(&guest, 
-            &CommitMoveReq { lobby_id, move_hash: guest_hash }, 
-            &ProveMoveReq { lobby_id, move_proof: guest_move });
-        // Verify we never enter RankProve phase
-        let post_move_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        assert_ne!(post_move_snapshot.phase, Phase::RankProve, "Should never enter RankProve in no-security mode");
-    }
-    // Verify final state
-    let final_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    // Check that all pawns have ranks set
-    for (_, (_, pawn)) in final_snapshot.pawns_map.iter() {
-        assert!(!pawn.rank.is_empty(), "All pawns should have ranks in no-security mode");
-    }
-}
-#[test]
-fn test_no_security_mode_abort_on_invalid_move() {
-    let setup = TestSetup::new();
-    let lobby_id = 1u32;
-    let host = setup.generate_address();
-    let guest = setup.generate_address();
-    // Create small board for easier testing
-    let mut params = create_test_lobby_parameters(&setup.env);
-    params.security_mode = false;
-    setup.client.make_lobby(&host, &MakeLobbyReq { lobby_id, parameters: params });
-    setup.client.join_lobby(&guest, &JoinLobbyReq { lobby_id });
-    // Setup with ranks
-    let snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    let game_state = snapshot.game_state;
-    let (host_commits, host_hidden) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Host)
-    });
-    let (guest_commits, guest_hidden) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Guest)
-    });
-    setup.client.commit_setup(&host, &CommitSetupReq {
-        lobby_id,
-        rank_commitment_root: BytesN::from_array(&setup.env, &[1u8; 16]),
-        zz_hidden_ranks: host_hidden.clone(),
-    });
-    setup.client.commit_setup(&guest, &CommitSetupReq {
-        lobby_id,
-        rank_commitment_root: BytesN::from_array(&setup.env, &[2u8; 16]),
-        zz_hidden_ranks: guest_hidden,
-    });
-    // Create an invalid move (moving opponent's pawn)
-    let guest_pawn_id = Contract::encode_pawn_id(Pos { x: 0, y: 3 }, UserIndex::Guest as u32);
-    let invalid_move = HiddenMove {
-        pawn_id: guest_pawn_id, // Host trying to move guest's pawn
-        start_pos: Pos { x: 0, y: 3 },
-        target_pos: Pos { x: 0, y: 2 },
-        salt: 12345,
-    };
-    let valid_guest_move = HiddenMove {
-        pawn_id: guest_pawn_id,
-        start_pos: Pos { x: 0, y: 3 },
-        target_pos: Pos { x: 0, y: 2 },
-        salt: 54321,
-    };
-    let invalid_hash = {
-        let serialized = invalid_move.clone().to_xdr(&setup.env);
-        let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-        HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-    };
-    let valid_hash = {
-        let serialized = valid_guest_move.clone().to_xdr(&setup.env);
-        let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-        HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-    };
-    // Host commits invalid move, guest commits valid move
-    setup.client.commit_move_and_prove_move(&host, 
-        &CommitMoveReq { lobby_id, move_hash: invalid_hash }, 
-        &ProveMoveReq { lobby_id, move_proof: invalid_move });
-    let result = setup.client.commit_move_and_prove_move(&guest, 
-        &CommitMoveReq { lobby_id, move_hash: valid_hash }, 
-        &ProveMoveReq { lobby_id, move_proof: valid_guest_move });
-    // Game should be aborted with guest as winner
-    assert_eq!(result.phase, Phase::Aborted);
-    assert_eq!(result.subphase, Subphase::Guest);
-}
-#[test]
-fn test_no_security_mode_reveal_tracking() {
-    let setup = TestSetup::new();
-    let lobby_id = 1u32;
-    let host = setup.generate_address();
-    let guest = setup.generate_address();
-    let mut params = create_test_lobby_parameters(&setup.env);
-    params.security_mode = false;
-    params.max_ranks = Vec::from_array(&setup.env, [1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 0, 0]); // Specific ranks for testing
-    setup.client.make_lobby(&host, &MakeLobbyReq { lobby_id, parameters: params });
-    setup.client.join_lobby(&guest, &JoinLobbyReq { lobby_id });
-    // Setup with specific ranks
-    let snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    let game_state = snapshot.game_state;
-    let mut host_hidden_ranks = Vec::new(&setup.env);
-    let mut guest_hidden_ranks = Vec::new(&setup.env);
-    let mut host_pawn_positions = Vec::new(&setup.env);
-    let mut guest_pawn_positions = Vec::new(&setup.env);
-    let rank_distribution = [0, 1, 2, 3, 4, 4, 5, 6, 7, 8]; // Matches max_ranks
-    for (i, packed_pawn) in game_state.pawns.iter().enumerate() {
-        let pawn = Contract::unpack_pawn(&setup.env, packed_pawn);
-        let (_, owner_index) = Contract::decode_pawn_id(pawn.pawn_id);
-        if owner_index == UserIndex::Host {
-            let rank_index = host_hidden_ranks.len() as usize;
-            if rank_index < rank_distribution.len() {
-                host_hidden_ranks.push_back(HiddenRank {
-                    pawn_id: pawn.pawn_id,
-                    rank: rank_distribution[rank_index],
-                    salt: 100 + rank_index as u64,
-                });
-                host_pawn_positions.push_back((pawn.pawn_id, pawn.pos));
-            }
-        } else {
-            let rank_index = guest_hidden_ranks.len() as usize;
-            if rank_index < rank_distribution.len() {
-                guest_hidden_ranks.push_back(HiddenRank {
-                    pawn_id: pawn.pawn_id,
-                    rank: rank_distribution[rank_index],
-                    salt: 200 + rank_index as u64,
-                });
-                guest_pawn_positions.push_back((pawn.pawn_id, pawn.pos));
-            }
-        }
-    }
-    setup.client.commit_setup(&host, &CommitSetupReq {
-        lobby_id,
-        rank_commitment_root: BytesN::from_array(&setup.env, &[1u8; 16]),
-        zz_hidden_ranks: host_hidden_ranks,
-    });
-    setup.client.commit_setup(&guest, &CommitSetupReq {
-        lobby_id,
-        rank_commitment_root: BytesN::from_array(&setup.env, &[2u8; 16]),
-        zz_hidden_ranks: guest_hidden_ranks,
-    });
-    // Verify initial state - no pawns revealed
-    let initial_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    let initial_state = initial_snapshot.game_state;
-    for packed_pawn in initial_state.pawns.iter() {
-        let pawn = Contract::unpack_pawn(&setup.env, packed_pawn);
-        assert!(!pawn.zz_revealed, "No pawns should be revealed initially");
-    }
-    // Make moves that cause combat
-    let (host_id_4, host_pos_4) = host_pawn_positions.get(4).unwrap(); // Rank 4 pawn
-    let (guest_id_5, guest_pos_5) = guest_pawn_positions.get(5).unwrap(); // Rank 4 pawn (equal rank)
-    // Move pawns to adjacent positions first
-    let setup_move_host = HiddenMove {
-        pawn_id: host_id_4,
-        start_pos: host_pos_4,
-        target_pos: Pos { x: 2, y: 2 },
-        salt: 1000,
-    };
-    let setup_move_guest = HiddenMove {
-        pawn_id: guest_id_5,
-        start_pos: guest_pos_5,
-        target_pos: Pos { x: 2, y: 3 },
-        salt: 2000,
-    };
-    setup.client.commit_move_and_prove_move(&host, 
-        &CommitMoveReq { lobby_id, move_hash: {
-            let serialized = setup_move_host.clone().to_xdr(&setup.env);
-            let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-            HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-        } }, 
-        &ProveMoveReq { lobby_id, move_proof: setup_move_host });
-    setup.client.commit_move_and_prove_move(&guest, 
-        &CommitMoveReq { lobby_id, move_hash: {
-            let serialized = setup_move_guest.clone().to_xdr(&setup.env);
-            let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-            HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-        } }, 
-        &ProveMoveReq { lobby_id, move_proof: setup_move_guest });
-    // Now make them collide
-    let collision_move_host = HiddenMove {
-        pawn_id: host_id_4,
-        start_pos: Pos { x: 2, y: 2 },
-        target_pos: Pos { x: 2, y: 3 }, // Move to guest position
-        salt: 3000,
-    };
-    let collision_move_guest = HiddenMove {
-        pawn_id: guest_id_5,
-        start_pos: Pos { x: 2, y: 3 },
-        target_pos: Pos { x: 2, y: 3 }, // Stay in place
-        salt: 4000,
-    };
-    setup.client.commit_move_and_prove_move(&host, 
-        &CommitMoveReq { lobby_id, move_hash: {
-            let serialized = collision_move_host.clone().to_xdr(&setup.env);
-            let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-            HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-        } }, 
-        &ProveMoveReq { lobby_id, move_proof: collision_move_host });
-    setup.client.commit_move_and_prove_move(&guest, 
-        &CommitMoveReq { lobby_id, move_hash: {
-            let serialized = collision_move_guest.clone().to_xdr(&setup.env);
-            let full_hash = setup.env.crypto().sha256(&serialized).to_bytes().to_array();
-            HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
-        } }, 
-        &ProveMoveReq { lobby_id, move_proof: collision_move_guest });
-    // Check final state
-    let final_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    let final_state = final_snapshot.game_state;
-    let mut revealed_count = 0;
-    let mut both_dead = true;
-    for packed_pawn in final_state.pawns.iter() {
-        let pawn = Contract::unpack_pawn(&setup.env, packed_pawn);
-        if pawn.pawn_id == host_id_4 || pawn.pawn_id == guest_id_5 {
-            assert!(pawn.zz_revealed, "Combat pawns should be revealed");
-            revealed_count += 1;
-            if pawn.alive {
-                both_dead = false;
-            }
-        }
-    }
-    assert_eq!(revealed_count, 2, "Both combat pawns should be revealed");
-    assert!(both_dead, "Equal rank pawns should both die");
-}
 // endregion

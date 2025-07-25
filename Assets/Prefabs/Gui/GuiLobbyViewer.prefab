@@ -1385,6 +1385,7 @@ GameObject:
   m_Component:
   - component: {fileID: 422156690362632642}
   - component: {fileID: 2365935577894278302}
+  - component: {fileID: 7556149408165256310}
   m_Layer: 5
   m_Name: GuiLobbyViewer
   m_TagString: Untagged
@@ -1426,12 +1427,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2977750601597548b87057b58be39a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canvasGroup: {fileID: 7556149408165256310}
   lobbyView: {fileID: 9007745788402626850}
   statusText: {fileID: 7357745485642203848}
   backButton: {fileID: 8379830662694017798}
   deleteButton: {fileID: 7372421392248591948}
   refreshButton: {fileID: 104012464366019187}
   startButton: {fileID: 3882068982930812357}
+--- !u!225 &7556149408165256310
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6153711198681074895}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &6540188147431019209
 GameObject:
   m_ObjectHideFlags: 0

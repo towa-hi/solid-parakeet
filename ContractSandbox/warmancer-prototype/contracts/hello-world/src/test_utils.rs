@@ -717,6 +717,7 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: &Use
 }
 
 pub fn create_setup_commits_from_game_state2(env: &Env, lobby_id: u32) -> ((Vec<SetupCommit>, Vec<HiddenRank>), (Vec<SetupCommit>, Vec<HiddenRank>)) {
+    // DEPRECATED
     let game_state_key = DataKey::GameState(lobby_id);
     let game_state: GameState = env.storage()
         .temporary()

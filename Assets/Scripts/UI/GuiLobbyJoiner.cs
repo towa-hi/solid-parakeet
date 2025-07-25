@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiLobbyJoiner : TestGuiElement
+public class GuiLobbyJoiner : MenuElement
 {
 
     public TextMeshProUGUI statusText;
@@ -31,25 +31,15 @@ public class GuiLobbyJoiner : TestGuiElement
             OnJoinButton?.Invoke(new LobbyId(uint.Parse(lobbyIdInputField.text)));
         });
         lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdInputFieldChanged);
-        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
-    }
-
-    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
-    {
-        base.SetIsEnabled(inIsEnabled, networkUpdated);
-        if (isEnabled && networkUpdated)
-        {
-            OnNetworkStateUpdated();
-        }
     }
 
     void OnNetworkStateUpdated()
     {
-        if (!isEnabled) return;
+        if (!gameObject.activeSelf) return;
         Refresh();
     }
 
-    void Refresh()
+    public override void Refresh()
     {
         contractAddressText.text = StellarManager.GetContractAddress();
         joinButton.interactable = lobbyIdInputField.text.Length > 0;

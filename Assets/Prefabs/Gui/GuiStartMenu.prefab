@@ -46,6 +46,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3297694043668624070}
   - component: {fileID: 5310972577077759242}
+  - component: {fileID: 1590467846186605970}
   m_Layer: 5
   m_Name: GuiStartMenu
   m_TagString: Untagged
@@ -85,7 +86,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc952f505d0b15c4f8d3fdb93a01b5aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canvasGroup: {fileID: 1590467846186605970}
   startButton: {fileID: 266193606095908066}
+--- !u!225 &1590467846186605970
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233697858857968274}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &8094992110906939333
 GameObject:
   m_ObjectHideFlags: 0

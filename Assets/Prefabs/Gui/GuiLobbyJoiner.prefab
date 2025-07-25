@@ -3068,6 +3068,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6572663311720771079}
   - component: {fileID: 8565205243337443451}
+  - component: {fileID: 501715673144028667}
   m_Layer: 5
   m_Name: GuiLobbyJoiner
   m_TagString: Untagged
@@ -3109,11 +3110,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1866434d70c335b46a182a1a9f57e25f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canvasGroup: {fileID: 501715673144028667}
   statusText: {fileID: 5679475073488577073}
   contractAddressText: {fileID: 6382122292861563626}
   lobbyIdInputField: {fileID: 4164669850365022635}
   backButton: {fileID: 8166428476293757536}
   joinButton: {fileID: 1080686734544051855}
+--- !u!225 &501715673144028667
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8131117307351897083}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &8246126154915342558
 GameObject:
   m_ObjectHideFlags: 0

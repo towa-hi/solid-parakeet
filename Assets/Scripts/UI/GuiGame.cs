@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using TMPro;
 using UnityEngine;
 
-public class GuiGame : TestGuiElement
+public class GuiGame : MenuElement
 {
     public GuiSetup setup;
     public GuiMovement movement;
@@ -16,11 +16,16 @@ public class GuiGame : TestGuiElement
         Debug.Log("GuiGame.Start()");
     }
     
-    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
+    public void PhaseStateChanged(PhaseChangeSet changes)
     {
-        Debug.Log($"GuiGame.SetIsEnabled(inIsEnabled: {inIsEnabled}, networkUpdated: {networkUpdated})");
-        base.SetIsEnabled(inIsEnabled, networkUpdated);
-        if (isEnabled)
+        setup.PhaseStateChanged(changes);
+        movement.PhaseStateChanged(changes);
+    }
+
+    public override void ShowElement(bool show)
+    {
+        base.ShowElement(show);
+        if (show)
         {
             AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
             GameManager.instance.cameraManager.enableCameraMovement = true;
@@ -30,9 +35,8 @@ public class GuiGame : TestGuiElement
         }
     }
 
-    public void PhaseStateChanged(PhaseChangeSet changes)
+    public override void Refresh()
     {
-        setup.PhaseStateChanged(changes);
-        movement.PhaseStateChanged(changes);
+        
     }
 }

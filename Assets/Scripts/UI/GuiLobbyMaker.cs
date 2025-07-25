@@ -8,7 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class GuiLobbyMaker : TestGuiElement
+public class GuiLobbyMaker : MenuElement
 {
     public TMP_Dropdown boardDropdown;
     public Toggle mustFillAllSetupTilesToggle;
@@ -22,8 +22,8 @@ public class GuiLobbyMaker : TestGuiElement
     BoardDef[] boardDefs;
 
     public event Action OnBackButton;
-    public event Action<Contract.LobbyParameters> OnSubmitLobbyButton;
-    public event Action<Contract.LobbyParameters> OnSinglePlayerButton;
+    public event Action<LobbyParameters> OnSubmitLobbyButton;
+    public event Action<LobbyParameters> OnSinglePlayerButton;
 
     void Start()
     {
@@ -42,27 +42,18 @@ public class GuiLobbyMaker : TestGuiElement
             AudioManager.instance.PlayMidButtonClick();
             OnSinglePlayerButton?.Invoke(GetLobbyParameters());
         });
-        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
     }
 
-    public override void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
-    {
-        base.SetIsEnabled(inIsEnabled, networkUpdated);
-        if (isEnabled && networkUpdated)
-        {
-            ResetBoardDropdown();
-            OnNetworkStateUpdated();
-        }
-    }
-    
     void OnNetworkStateUpdated()
     {
-        if (!isEnabled) return;
+        if (!gameObject.activeSelf) return;
+        ResetBoardDropdown();
         Refresh();
     }
     
-    void Refresh()
+    public override void Refresh()
     {
+        ResetBoardDropdown();
         hostAddressField.text = StellarManager.GetUserAddress();
         statusText.text = "Making a new lobby";
     }

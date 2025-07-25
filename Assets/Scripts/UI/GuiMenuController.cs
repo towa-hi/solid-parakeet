@@ -21,13 +21,13 @@ public class GuiMenuController: MonoBehaviour
     public TopBar topBar;
     
     // state
-    public TestGuiElement currentElement;
+    public MenuElement currentElement;
     public string currentProcedure;
     
     void Start()
     {
         StellarManager.Initialize();
-
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
         StellarManager.OnTaskStarted += ShowTopBar;
         StellarManager.OnTaskEnded += HideTopBar;
         
@@ -55,33 +55,39 @@ public class GuiMenuController: MonoBehaviour
         walletElement.OnBackButton += GotoMainMenu;
 
     }
-    
+
+    void OnNetworkStateUpdated()
+    {
+        
+    }
+
     public void Initialize()
     {
-        startMenuElement.SetIsEnabled(false, false);
-        mainMenuElement.SetIsEnabled(false, false);
-        lobbyMakerElement.SetIsEnabled(false, false);
-        lobbyJoinerElement.SetIsEnabled(false, false);
-        lobbyViewerElement.SetIsEnabled(false, false);
-        gameElement.SetIsEnabled(false, false);
-        walletElement.SetIsEnabled(false, false);
+        startMenuElement.ShowElement(false);
+        mainMenuElement.ShowElement(false);
+        lobbyMakerElement.ShowElement(false);
+        lobbyJoinerElement.ShowElement(false);
+        lobbyViewerElement.ShowElement(false);
+        gameElement.ShowElement(false);
+        walletElement.ShowElement(false);
         GotoStartMenu();
     }
     
-    void ShowMenuElement(TestGuiElement element, bool networkUpdated)
+    void ShowMenuElement(MenuElement element)
     {
         if (currentElement != null)
         {
-            currentElement.SetIsEnabled(false, networkUpdated);
+            currentElement.ShowElement(false);
         }
         currentElement = element;
-        currentElement.SetIsEnabled(true, networkUpdated);
+        currentElement.ShowElement(true);
+        currentElement.Refresh();
     }
     
     async void GotoLobbyMaker()
     {
         await StellarManager.UpdateState();
-        ShowMenuElement(lobbyMakerElement, true);
+        ShowMenuElement(lobbyMakerElement);
     }
 
     void OptionsModal()
@@ -91,24 +97,24 @@ public class GuiMenuController: MonoBehaviour
 
     void GotoStartMenu()
     {
-        ShowMenuElement(startMenuElement, false);
+        ShowMenuElement(startMenuElement);
     }
     
     async void GotoMainMenu()
     {
         await StellarManager.UpdateState();
-        ShowMenuElement(mainMenuElement, true);
+        ShowMenuElement(mainMenuElement);
     }
 
     async void GotoJoinLobby()
     {
         await StellarManager.UpdateState();
-        ShowMenuElement(lobbyJoinerElement, true);
+        ShowMenuElement(lobbyJoinerElement);
     }
 
     void GotoWallet()
     {
-        ShowMenuElement(walletElement, false);
+        ShowMenuElement(walletElement);
     }
 
     void CheckAssets()
@@ -119,7 +125,7 @@ public class GuiMenuController: MonoBehaviour
     async void ViewLobby()
     {
         await StellarManager.UpdateState();
-        ShowMenuElement(lobbyViewerElement, true);
+        ShowMenuElement(lobbyViewerElement);
     }
 
     async void JoinLobby(LobbyId lobbyId)
@@ -128,7 +134,7 @@ public class GuiMenuController: MonoBehaviour
         await StellarManager.UpdateState();
         if (code == 0)
         {
-            ShowMenuElement(lobbyViewerElement, true);
+            ShowMenuElement(lobbyViewerElement);
         }
     }
 
@@ -137,7 +143,7 @@ public class GuiMenuController: MonoBehaviour
         await StellarManager.UpdateState();
         if (StellarManager.networkState.inLobby)
         {
-            ShowMenuElement(gameElement, true);
+            ShowMenuElement(gameElement);
             GameManager.instance.boardManager.StartBoardManager();
         }
     }
@@ -147,7 +153,7 @@ public class GuiMenuController: MonoBehaviour
         int code = await StellarManager.MakeLobbyRequest(parameters);
         if (code == 0)
         {
-            ShowMenuElement(lobbyViewerElement, true);
+            ShowMenuElement(lobbyViewerElement);
         }
     }
 
@@ -160,49 +166,56 @@ public class GuiMenuController: MonoBehaviour
     async void DeleteLobby()
     {
         int code = await StellarManager.LeaveLobbyRequest();
-        if (code == 0)
-        {
-            ShowMenuElement(mainMenuElement, true);
-        }
+        ShowMenuElement(mainMenuElement);
     }
     
     async void RefreshNetworkState()
     {
+        currentElement?.EnableInput(false);
         await StellarManager.UpdateState();
+        currentElement?.Refresh();
     }
 
     void ShowTopBar(TaskInfo task)
     {
+        currentElement?.EnableInput(false);
         topBar.Show(true);
         string address = StellarManager.GetUserAddress();
         Color backgroundColor = address == StellarManager.testHost ? Color.red : Color.blue;
         topBar.SetView(backgroundColor, task.taskMessage);
+        
     }
     
     void HideTopBar(TaskInfo task)
     {
+        
+        currentElement?.EnableInput(true);
         topBar.Show(false);
     }
 }
 
-public class TestGuiElement: MonoBehaviour
+public abstract class MenuElement: MonoBehaviour
 {
-    protected bool isEnabled;
+    public CanvasGroup canvasGroup;
     
-    public virtual void SetIsEnabled(bool inIsEnabled, bool networkUpdated)
+    public virtual void ShowElement(bool show)
     {
-        isEnabled = inIsEnabled;
-        gameObject.SetActive(inIsEnabled);
+        gameObject.SetActive(show);
     }
+
+    public virtual void EnableInput(bool input)
+    {
+        canvasGroup.interactable = input;
+    }
+
+    public abstract void Refresh();
 }
 
 public class GameElement: MonoBehaviour
 {
-    public bool isVisible;
 
     public void ShowElement(bool show)
     {
-        isVisible = show;
         gameObject.SetActive(show);
     }
     

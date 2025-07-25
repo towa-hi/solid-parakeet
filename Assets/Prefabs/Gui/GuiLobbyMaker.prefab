@@ -1372,6 +1372,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3873494825450585746}
   - component: {fileID: 3590590147092697687}
+  - component: {fileID: 1457404528103101306}
   m_Layer: 5
   m_Name: GuiLobbyMaker
   m_TagString: Untagged
@@ -1413,6 +1414,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b62808877a25f57448f26698af10a560, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canvasGroup: {fileID: 1457404528103101306}
   boardDropdown: {fileID: 2998812456440102020}
   mustFillAllSetupTilesToggle: {fileID: 7602520916886968187}
   securityModeToggle: {fileID: 3039236430267590304}
@@ -1421,6 +1423,18 @@ MonoBehaviour:
   backButton: {fileID: 6106917331026352080}
   singlePlayerButton: {fileID: 8354657667891026573}
   makeLobbyButton: {fileID: 2013601007951561039}
+--- !u!225 &1457404528103101306
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2656982308094758008}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &2744953095279336746
 GameObject:
   m_ObjectHideFlags: 0

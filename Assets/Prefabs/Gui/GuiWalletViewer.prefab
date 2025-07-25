@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4029867067252619344}
   - component: {fileID: 4393429837804577597}
+  - component: {fileID: 3973726447479715037}
   m_Layer: 5
   m_Name: GuiWalletViewer
   m_TagString: Untagged
@@ -51,6 +52,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9c2e156d27af1e4bbe91541e329c25b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canvasGroup: {fileID: 3973726447479715037}
   walletText: {fileID: 4305022717309634194}
   networkText: {fileID: 7487500218934797291}
   balanceText: {fileID: 6737527927204514765}
@@ -85,6 +87,18 @@ MonoBehaviour:
     RefIds:
     - rid: -2
       type: {class: , ns: , asm: }
+--- !u!225 &3973726447479715037
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 62233273553787469}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &247993490828335871
 GameObject:
   m_ObjectHideFlags: 0
@@ -1510,10 +1524,10 @@ RectTransform:
   - {fileID: 4688552956494120263}
   m_Father: {fileID: 5739578390963403169}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 783.3334, y: -25}
-  m_SizeDelta: {x: 313.33334, y: 50}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8784432214716137995
 CanvasRenderer:
@@ -1988,10 +2002,10 @@ RectTransform:
   - {fileID: 5829081473734932746}
   m_Father: {fileID: 5739578390963403169}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 470, y: -25}
-  m_SizeDelta: {x: 313.33334, y: 50}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1869923979323398060
 CanvasRenderer:
@@ -3092,10 +3106,10 @@ RectTransform:
   - {fileID: 9173547548562274414}
   m_Father: {fileID: 5739578390963403169}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 156.66667, y: -25}
-  m_SizeDelta: {x: 313.33334, y: 50}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1780784476948199196
 CanvasRenderer:
