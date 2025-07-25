@@ -36,10 +36,12 @@ fn test_move_to_enemy_occupied_tile() {
     setup.client.commit_setup(&host_address, &CommitSetupReq {
         lobby_id,
         rank_commitment_root: host_merkle_root,
+        zz_hidden_ranks: Vec::new(&setup.env),
     });
     setup.client.commit_setup(&guest_address, &CommitSetupReq {
         lobby_id,
         rank_commitment_root: guest_merkle_root,
+        zz_hidden_ranks: Vec::new(&setup.env),
     });
     
     // Now we should be in MoveCommit phase

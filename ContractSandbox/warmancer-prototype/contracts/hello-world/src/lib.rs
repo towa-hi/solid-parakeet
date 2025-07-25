@@ -30,6 +30,8 @@ pub enum Error {
     // Category 5: Action conflicts
     AlreadyExists = 7,
     LobbyNotJoinable = 8,
+    // Category 6: Security mode
+    WrongSecurityMode = 0,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Phase {
@@ -124,6 +126,7 @@ pub struct PawnState {
     pub pawn_id: PawnId,
     pub pos: Pos,
     pub rank: Vec<Rank>,
+    pub zz_revealed: bool,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserMove {
@@ -181,6 +184,7 @@ pub struct JoinLobbyReq {
 pub struct CommitSetupReq {
     pub lobby_id: LobbyId,
     pub rank_commitment_root: MerkleHash,
+    pub zz_hidden_ranks: Vec<HiddenRank>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitMoveReq {
@@ -413,6 +417,7 @@ impl Contract {
                     pawn_id: Self::encode_pawn_id(tile.pos, tile.setup),
                     pos: tile.pos,
                     rank: Vec::new(e),
+                    zz_revealed: false,
                 };
                 pawns.push_back(Self::pack_pawn(pawn_state));
             }
@@ -448,11 +453,38 @@ impl Contract {
         address.require_auth();
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
+        let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let u_index = Self::get_player_index(&address, &lobby_info);
         if lobby_info.phase != Phase::SetupCommit {
             return Err(Error::WrongPhase)
         }
+        if !lobby_parameters.security_mode {
+            // set the provided setup from zz_hidden_ranks
+            let mut hidden_rank_map: Map<PawnId, HiddenRank> = Map::new(e);
+            for hidden_rank in req.zz_hidden_ranks {
+                hidden_rank_map.set(hidden_rank.pawn_id, hidden_rank);
+            }
+            for (index, packed_pawn) in game_state.pawns.iter().enumerate() {
+                let mut pawn = Self::unpack_pawn(e, packed_pawn);
+                let (_, owner_index) = Self::decode_pawn_id(pawn.pawn_id);
+                if owner_index == u_index {
+                    // this will panic on purpose if the user hasn't provided every hidden_rank
+                    let hidden_rank = hidden_rank_map.get_unchecked(pawn.pawn_id);
+                    pawn.rank = Vec::from_array(e, [hidden_rank.rank]);
+                    // update game_state.pawns
+                    game_state.pawns.set(index as u32, Self::pack_pawn(pawn));
+                }
+            }
+            let revealed_rank_counts = Self::get_revealed_rank_counts(e, u_index, &game_state);
+            for (rank_index, max_rank) in lobby_parameters.max_ranks.iter().enumerate() {
+                let revealed_rank_count = revealed_rank_counts[rank_index];
+                if revealed_rank_count > max_rank {
+                    return Err(Error::InvalidArgs)
+                }
+            }
+        }
+        // TODO: reject non empty zz_hidden_ranks when security_mode true
         let next_subphase = Self::next_subphase(&lobby_info.subphase, u_index)?;
         game_state.rank_roots.set(u_index.u32(), req.rank_commitment_root);
         if next_subphase == Subphase::None {
@@ -471,6 +503,7 @@ impl Contract {
     /// - `req.move_hash`: Hash of `HiddenMove`
     /// # Requirements
     /// - Phase is `Phase::MoveCommit` and subphase is user's UserIndex or Both
+    /// - security_mode is true (non security_mode lobbies should have clients only call commit_move_and_prove_move)
     /// # State Changes
     /// - Stores move hash
     /// - **Result**:
@@ -483,24 +516,26 @@ impl Contract {
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
-        let move_result = Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state);
+        let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
+        if !lobby_parameters.security_mode {
+            return Err(Error::WrongSecurityMode)
+        }
+        Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state)?;
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        move_result
+        Ok(lobby_info)
     }
     pub fn commit_move_and_prove_move(e: &Env, address: Address, req: CommitMoveReq, req2: ProveMoveReq) -> Result<LobbyInfo, Error> {
+        address.require_auth();
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let commit_move_result = Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state);
-        if commit_move_result.is_err() {
-            return commit_move_result
-        }
-        let prove_move_result = Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters);
+        Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state)?;
+        Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        prove_move_result
+        Ok(lobby_info)
     }
     /// Reveal and validate committed move.
     /// # Parameters
@@ -525,10 +560,13 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let prove_move_result = Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
+        if !lobby_parameters.security_mode {
+            return Err(Error::WrongSecurityMode)
+        }
+        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        prove_move_result
+        Ok(lobby_info)
     }
     pub fn prove_move_and_prove_rank(e: &Env, address: Address, req: ProveMoveReq, req2: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
@@ -536,14 +574,17 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let prove_move_result = Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
-        if prove_move_result.is_err() {
-            return prove_move_result
+        if !lobby_parameters.security_mode {
+            return Err(Error::WrongSecurityMode)
         }
-        let prove_rank_result = Self::prove_rank_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters);
+        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        // skip if game was aborted due to an illegal move
+        if lobby_info.phase != Phase::Aborted {
+            Self::prove_rank_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        }
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        prove_rank_result
+        Ok(lobby_info)
     }
     /// Reveal ranks for collision resolution.
     ///
@@ -553,6 +594,7 @@ impl Contract {
     ///
     /// # Requirements
     /// - Current phase is `Phase::ProveRank` and subphase is user's UserIndex or Both
+    /// - security_mode is true
     /// # State Changes
     /// - Validates rank proofs
     /// - Invalid proof → **Result**: `Phase::Aborted`, subphase = opponent (opponent wins)
@@ -569,10 +611,10 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        let prove_rank_result = Self::prove_rank_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters);
+        Self::prove_rank_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        prove_rank_result
+        Ok(lobby_info)
     }
     /// Claim victory due to opponent timeout. WIP
     /// # Requirements
@@ -601,7 +643,7 @@ impl Contract {
     }
     // endregion
     // region internal
-    pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState) -> Result<LobbyInfo, Error> {
+    pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState) -> Result<(), Error> {
         let u_index = Self::get_player_index(address, &lobby_info);
         if lobby_info.phase != Phase::MoveCommit {
             return Err(Error::WrongPhase)
@@ -618,11 +660,17 @@ impl Contract {
             lobby_info.subphase = next_subphase;
         }
         game_state.moves.set(u_index.u32(), u_move);
-        Ok(lobby_info.clone())
+        Ok(())
     }
-    pub(crate) fn prove_move_internal(e: &Env, address: &Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
-        if lobby_info.phase != Phase::MoveProve {
-            return Err(Error::WrongPhase)
+    pub(crate) fn prove_move_internal(e: &Env, address: &Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<(), Error> {
+        if lobby_parameters.security_mode {
+            if lobby_info.phase != Phase::MoveProve {
+                return Err(Error::WrongPhase)
+            }
+        } else {
+            if lobby_info.phase != Phase::MoveProve && lobby_info.phase != Phase::MoveCommit {
+                return Err(Error::WrongPhase)
+            }
         }
         let u_index = Self::get_player_index(address, &lobby_info);
         let o_index = Self::get_opponent_index(address, &lobby_info);
@@ -641,7 +689,7 @@ impl Contract {
                 // immediately abort the game
                 lobby_info.phase = Phase::Aborted;
                 lobby_info.subphase = Self::opponent_subphase_from_player_index(u_index);
-                return Ok(lobby_info.clone())
+                return Ok(())
             }
             u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
             game_state.moves.set(u_index.u32(), u_move);
@@ -687,9 +735,9 @@ impl Contract {
         } else {
             lobby_info.subphase = next_subphase;
         }
-        Ok(lobby_info.clone())
+        Ok(())
     }
-    pub(crate) fn prove_rank_internal(e: &Env, address: &Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<LobbyInfo, Error> {
+    pub(crate) fn prove_rank_internal(e: &Env, address: &Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<(), Error> {
         let u_index = Self::get_player_index(address, &lobby_info);
         if lobby_info.phase != Phase::RankProve {
             return Err(Error::WrongPhase)
@@ -708,12 +756,25 @@ impl Contract {
                 // abort the game
                 lobby_info.phase = Phase::Aborted;
                 lobby_info.subphase = Self::opponent_subphase_from_player_index(u_index);
-                return Ok(lobby_info.clone())
+                return Ok(())
             }
             for hidden_rank in req.hidden_ranks.iter() {
                 let (pawn_index, mut pawn) = pawns_map.get_unchecked(hidden_rank.pawn_id);
                 pawn.rank = Vec::from_array(e, [hidden_rank.rank.clone()]);
                 game_state.pawns.set(pawn_index, Self::pack_pawn(pawn));
+            }
+        }
+        {
+            // check to see if user has committed more ranks than allowed
+            let revealed_rank_counts = Self::get_revealed_rank_counts(e, u_index, &game_state);
+            for (rank_index, max_rank) in lobby_parameters.max_ranks.iter().enumerate() {
+                let revealed_rank_count = revealed_rank_counts[rank_index];
+                if revealed_rank_count > max_rank {
+                    // abort the game
+                    lobby_info.phase = Phase::Aborted;
+                    lobby_info.subphase = Self::opponent_subphase_from_player_index(u_index);
+                    return Ok(())
+                }
             }
         }
         // clear needed_rank_proofs
@@ -740,7 +801,7 @@ impl Contract {
             // Standard case: advance to next player's turn
             lobby_info.subphase = next_subphase;
         }
-        Ok(lobby_info.clone())
+        Ok(())
     }
     // endregion
     // region read-only contract simulation
@@ -787,6 +848,8 @@ impl Contract {
     pub(crate) fn resolve_collision(a_pawn: &mut PawnState, b_pawn: &mut PawnState) -> () {
         let a_pawn_rank = a_pawn.rank.get_unchecked(0);
         let b_pawn_rank = b_pawn.rank.get_unchecked(0);
+        a_pawn.zz_revealed = true;
+        b_pawn.zz_revealed = true;
         // special case for trap vs seer
         if a_pawn_rank == 11 && b_pawn_rank == 3 {
             a_pawn.alive = false;
@@ -875,6 +938,24 @@ impl Contract {
     }
     // endregion
     // region validation
+
+    pub(crate) fn get_revealed_rank_counts(e: &Env, player_index: UserIndex, game_state: &GameState) -> [u32; 13] {
+        let mut revealed_ranks_counts = [0u32; 13];
+        for packed_pawn in game_state.pawns.iter() {
+            let pawn = Self::unpack_pawn(e, packed_pawn);
+            let (_, owner_index) = Self::decode_pawn_id(pawn.pawn_id);
+            if player_index != owner_index {
+                continue
+            }
+            if pawn.rank.is_empty() {
+                continue
+            }
+            let rank_index = pawn.rank.get_unchecked(0) as u32;
+            revealed_ranks_counts[rank_index as usize] += 1;
+        }
+        revealed_ranks_counts
+    }
+
     pub(crate) fn validate_board(e: &Env, lobby_parameters: &LobbyParameters) -> bool {
         if lobby_parameters.board.tiles.len() as i32 != lobby_parameters.board.size.x * lobby_parameters.board.size.y {
             log!(e, "validate_board: failed [tiles count must match board size]");
@@ -1360,6 +1441,8 @@ impl Contract {
         // Pack rank (4 bits)
         let rank = if pawn.rank.is_empty() { 12 } else { pawn.rank.get(0).unwrap() };
         packed |= (rank as u32 & 0xF) << 20;
+        // pack zz_revealed (bit 21)
+        if pawn.zz_revealed { packed |= 1 << 21; }
         packed
     }
     pub(crate) fn unpack_pawn(e: &Env, packed: PackedPawn) -> PawnState {
@@ -1379,6 +1462,7 @@ impl Contract {
         if rank_val != 12 {
             rank.push_back(rank_val);
         }
+        let zz_revealed = (packed >> 21) & 1 != 0;
         PawnState {
             alive,
             moved,
@@ -1386,6 +1470,7 @@ impl Contract {
             pawn_id,
             pos: Pos { x, y },
             rank,
+            zz_revealed,
         }
     }
     // endregion

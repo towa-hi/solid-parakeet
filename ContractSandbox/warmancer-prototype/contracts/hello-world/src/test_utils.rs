@@ -563,7 +563,7 @@ pub fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
         host_team: 0,
         max_ranks: Vec::from_array(env, DEFAULT_MAX_RANKS),
         must_fill_all_tiles: false,
-        security_mode: false,
+        security_mode: true,
     }
 }
 
@@ -593,7 +593,7 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
         host_team: 0,
         max_ranks: Vec::from_array(env, [1u32]),
         must_fill_all_tiles: false,
-        security_mode: false,
+        security_mode: true,
     }
 }
 
@@ -666,19 +666,33 @@ pub fn create_setup_commits_from_game_state(env: &Env, lobby_id: u32, team: &Use
     // Assign ranks: flags/bombs to back positions, others to front
     let back_count = back_ranks.len() as usize;
     
+    // Create valid rank distribution by cycling through available ranks
+    let mut all_ranks = Vec::new(env);
+    for rank in back_ranks.iter() {
+        all_ranks.push_back(rank);
+    }
+    for rank in front_ranks.iter() {
+        all_ranks.push_back(rank);
+    }
+    
+    let mut team_pawn_count = 0;
+    for (_, (_, pawn)) in pawns_map.iter() {
+        if Contract::decode_pawn_id(pawn.pawn_id).1 == *team {
+            team_pawn_count += 1;
+        }
+    }
+    
     // Single pass: create HiddenRank structs and collect hashes
-    for (i, (_, (_, pawn))) in pawns_map.iter().enumerate() {
+    let mut team_pawn_index = 0;
+    for (_, (_, pawn)) in pawns_map.iter() {
         if Contract::decode_pawn_id(pawn.pawn_id).1 != *team {
             continue;
         }
-        let rank = if i < back_count {
-            // Assign flags and bombs to back positions (first positions in sorted order)
-            back_ranks.get(i as u32).unwrap_or(11u32) // Fallback to bomb if somehow out of bounds
-        } else {
-            // Assign movable ranks to front positions
-            let front_index = i - back_count;
-            front_ranks.get(front_index as u32).unwrap_or(4u32) // Fallback to rank 4 (Sergeant)
-        };
+        
+        // Use modulo to cycle through available ranks if we have more pawns than ranks
+        let rank_index = team_pawn_index % all_ranks.len() as u32;
+        let rank = all_ranks.get(rank_index).unwrap_or(4u32);
+        team_pawn_index += 1;
         
         // Create hidden rank
         let hidden_rank = HiddenRank {
@@ -1292,7 +1306,7 @@ pub fn create_user_board_parameters(env: &Env) -> LobbyParameters {
         host_team: 0,
         max_ranks: Vec::from_array(env, [1, 1, 8, 3, 4, 4, 4, 3, 2, 1, 1, 4, 0]),
         must_fill_all_tiles: true,
-        security_mode: false,
+        security_mode: true,
     }
 }
 

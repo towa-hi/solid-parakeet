@@ -92,7 +92,7 @@ mod unit_tests {
             host_team: 0,
             max_ranks: Vec::from_array(env, [1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 0u32]),
             must_fill_all_tiles: false,
-            security_mode: false,
+            security_mode: true,
         }
     }
     #[test]
@@ -266,6 +266,7 @@ fn test_pack_unpack_pawn() {
             moved_scout: false,
             pos: Pos { x: 5, y: 7 },
             rank: Vec::from_array(&env, [3u32]),
+            zz_revealed: false,
         },
         PawnState {
             pawn_id: 200,
@@ -274,6 +275,7 @@ fn test_pack_unpack_pawn() {
             moved_scout: true,
             pos: Pos { x: 0, y: 0 },
             rank: Vec::from_array(&env, [10u32]),
+            zz_revealed: false,
         },
         PawnState {
             pawn_id: 511,
@@ -282,6 +284,7 @@ fn test_pack_unpack_pawn() {
             moved_scout: false,
             pos: Pos { x: 15, y: 15 },
             rank: Vec::new(&env),
+            zz_revealed: false,
         },
         PawnState {
             pawn_id: 50,
@@ -290,6 +293,7 @@ fn test_pack_unpack_pawn() {
             moved_scout: false,
             pos: Pos { x: 2, y: 3 },
             rank: Vec::new(&env),
+            zz_revealed: false,
         },
     ];
     for original_pawn in test_cases.iter() {
@@ -314,6 +318,7 @@ fn test_pack_unpack_pawn() {
         moved_scout: false,
         pos: Pos { x: 2, y: 3 },
         rank: Vec::new(&env),
+        zz_revealed: false,
     };
     let packed = Contract::pack_pawn(empty_rank_pawn.clone());
     let rank_bits = (packed >> 20) & 0xF;
@@ -331,6 +336,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [8u32]),
+        zz_revealed: false,
     };
     let mut lower_rank = PawnState {
         pawn_id: 2,
@@ -339,6 +345,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [4u32]),
+        zz_revealed: false,
     };
     Contract::resolve_collision(&mut higher_rank, &mut lower_rank);
     assert!(higher_rank.alive);
@@ -350,6 +357,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [5u32]),
+        zz_revealed: false,
     };
     let mut pawn_b = PawnState {
         pawn_id: 2,
@@ -358,6 +366,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [5u32]),
+        zz_revealed: false,
     };
     Contract::resolve_collision(&mut pawn_a, &mut pawn_b);
     assert!(!pawn_a.alive);
@@ -369,6 +378,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [1u32]),
+        zz_revealed: false,
     };
     let mut warlord = PawnState {
         pawn_id: 2,
@@ -377,6 +387,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [10u32]),
+        zz_revealed: false,
     };
     Contract::resolve_collision(&mut assassin, &mut warlord);
     assert!(assassin.alive);
@@ -388,6 +399,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [1u32]),
+        zz_revealed: false,
     };
     let mut warlord2 = PawnState {
         pawn_id: 4,
@@ -396,6 +408,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [10u32]),
+        zz_revealed: false,
     };
     Contract::resolve_collision(&mut warlord2, &mut assassin2);
     assert!(assassin2.alive);
@@ -407,6 +420,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [3u32]),
+        zz_revealed: false,
     };
     let mut trap = PawnState {
         pawn_id: 2,
@@ -415,6 +429,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [11u32]),
+        zz_revealed: false,
     };
     Contract::resolve_collision(&mut seer, &mut trap);
     assert!(seer.alive);
@@ -426,6 +441,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [3u32]),
+        zz_revealed: false,
     };
     let mut trap2 = PawnState {
         pawn_id: 4,
@@ -434,6 +450,7 @@ fn test_resolve_collision_all_scenarios() {
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(&env, [11u32]),
+        zz_revealed: false,
     };
     Contract::resolve_collision(&mut trap2, &mut seer2);
     assert!(seer2.alive);
@@ -496,6 +513,7 @@ fn create_test_game_state(env: &Env, host_flag_alive: bool, guest_flag_alive: bo
         moved_scout: false,
         pos: Pos { x: 0, y: 0 },
         rank: Vec::from_array(env, [0u32]),
+        zz_revealed: false,
     };
     let guest_flag = PawnState {
         pawn_id: guest_flag_id,
@@ -504,6 +522,7 @@ fn create_test_game_state(env: &Env, host_flag_alive: bool, guest_flag_alive: bo
         moved_scout: false,
         pos: Pos { x: 0, y: 1 },
         rank: Vec::from_array(env, [0u32]),
+        zz_revealed: false,
     };
     let other_pawn = PawnState {
         pawn_id: Contract::encode_pawn_id(Pos { x: 1, y: 0 }, 0),
@@ -512,6 +531,7 @@ fn create_test_game_state(env: &Env, host_flag_alive: bool, guest_flag_alive: bo
         moved_scout: false,
         pos: Pos { x: 1, y: 0 },
         rank: Vec::from_array(env, [5u32]),
+        zz_revealed: false,
     };
     pawns.push_back(Contract::pack_pawn(host_flag));
     pawns.push_back(Contract::pack_pawn(guest_flag));
@@ -550,6 +570,7 @@ fn test_check_game_over_all_conditions() {
         moved_scout: false,
         pos: Pos { x: 1, y: 0 },
         rank: Vec::from_array(&env, [5u32]),
+        zz_revealed: false,
     };
     pawns.push_back(Contract::pack_pawn(other_pawn));
     let game_state = GameState {

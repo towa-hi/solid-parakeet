@@ -117,3 +117,114 @@ fn test_commit_move_validation_errors() {
 }
 
 // endregion
+// region security_mode=false tests
+#[test]
+fn test_no_security_mode_basic_functionality() {
+    let setup = TestSetup::new();
+    let lobby_id = 1u32;
+    let host = setup.generate_address();
+    let guest = setup.generate_address();
+    let mut params = create_test_lobby_parameters(&setup.env);
+    params.security_mode = false;
+    setup.client.make_lobby(&host, &MakeLobbyReq { lobby_id, parameters: params });
+    setup.client.join_lobby(&guest, &JoinLobbyReq { lobby_id });
+    // Use the same setup logic as security mode tests
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Host)
+    });
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Guest)
+    });
+    let (host_root, _host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
+    let (guest_root, _guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
+    // Commit setup (in no-security mode, provide the hidden ranks directly)
+    setup.client.commit_setup(&host, &CommitSetupReq {
+        lobby_id,
+        rank_commitment_root: host_root,
+        zz_hidden_ranks: host_hidden_ranks,
+    });
+    setup.client.commit_setup(&guest, &CommitSetupReq {
+        lobby_id,
+        rank_commitment_root: guest_root,
+        zz_hidden_ranks: guest_hidden_ranks,
+    });
+    // Verify game moved to MoveCommit phase
+    let phase_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
+    assert_eq!(phase_snapshot.phase, Phase::MoveCommit);
+    assert_eq!(phase_snapshot.subphase, Subphase::Both);
+    // Use existing helper to create valid test moves
+    let host_pawn_id = Contract::encode_pawn_id(Pos { x: 0, y: 0 }, UserIndex::Host as u32);
+    let guest_pawn_id = Contract::encode_pawn_id(Pos { x: 0, y: 3 }, UserIndex::Guest as u32);
+    let host_move = HiddenMove {
+        pawn_id: host_pawn_id,
+        start_pos: Pos { x: 0, y: 0 },
+        target_pos: Pos { x: 0, y: 1 },
+        salt: 12345,
+    };
+    let guest_move = HiddenMove {
+        pawn_id: guest_pawn_id,
+        start_pos: Pos { x: 0, y: 3 },
+        target_pos: Pos { x: 0, y: 2 },
+        salt: 54321,
+    };
+    let host_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 0 }, Pos { x: 0, y: 1 }, 12345);
+    let guest_move_hash = create_test_move_hash(&setup.env, guest_pawn_id, Pos { x: 0, y: 3 }, Pos { x: 0, y: 2 }, 54321);
+    // This is the key test - commit_move_and_prove_move should work in no-security mode
+    setup.client.commit_move_and_prove_move(&host, &CommitMoveReq { lobby_id, move_hash: host_move_hash }, &ProveMoveReq { lobby_id, move_proof: host_move });
+    setup.client.commit_move_and_prove_move(&guest, &CommitMoveReq { lobby_id, move_hash: guest_move_hash }, &ProveMoveReq { lobby_id, move_proof: guest_move });
+    // Verify the game continues normally (should skip RankProve and go to next MoveCommit)
+    let final_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
+    assert_eq!(final_snapshot.phase, Phase::MoveCommit, "Should skip RankProve phase in no-security mode");
+    assert_eq!(final_snapshot.subphase, Subphase::Both);
+}
+#[test]
+fn test_no_security_mode_forbidden_functions() {
+    let setup = TestSetup::new();
+    let lobby_id = 1u32;
+    let host = setup.generate_address();
+    let guest = setup.generate_address();
+    let mut params = create_test_lobby_parameters(&setup.env);
+    params.security_mode = false;
+    setup.client.make_lobby(&host, &MakeLobbyReq { lobby_id, parameters: params });
+    setup.client.join_lobby(&guest, &JoinLobbyReq { lobby_id });
+    // Use the same setup logic as security mode tests
+    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Host)
+    });
+    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Guest)
+    });
+    let (host_root, _host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
+    let (guest_root, _guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
+    setup.client.commit_setup(&host, &CommitSetupReq {
+        lobby_id,
+        rank_commitment_root: host_root,
+        zz_hidden_ranks: host_hidden_ranks,
+    });
+    setup.client.commit_setup(&guest, &CommitSetupReq {
+        lobby_id,
+        rank_commitment_root: guest_root,
+        zz_hidden_ranks: guest_hidden_ranks,
+    });
+    // Test that security-mode-only functions are rejected
+    let fake_move_hash = BytesN::from_array(&setup.env, &[1u8; 16]);
+    let result = setup.client.try_commit_move(&host, &CommitMoveReq {
+        lobby_id,
+        move_hash: fake_move_hash,
+    });
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().unwrap(), Error::WrongSecurityMode);
+    let fake_move = HiddenMove {
+        pawn_id: 1,
+        start_pos: Pos { x: 0, y: 0 },
+        target_pos: Pos { x: 0, y: 1 },
+        salt: 12345,
+    };
+    let result = setup.client.try_prove_move(&host, &ProveMoveReq {
+        lobby_id,
+        move_proof: fake_move,
+    });
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().unwrap(), Error::WrongSecurityMode);
+}
+// endregion
