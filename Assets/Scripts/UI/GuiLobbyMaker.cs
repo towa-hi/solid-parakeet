@@ -43,19 +43,16 @@ public class GuiLobbyMaker : MenuElement
             OnSinglePlayerButton?.Invoke(GetLobbyParameters());
         });
     }
-
-    void OnNetworkStateUpdated()
-    {
-        if (!gameObject.activeSelf) return;
-        ResetBoardDropdown();
-        Refresh();
-    }
     
     public override void Refresh()
     {
         ResetBoardDropdown();
         hostAddressField.text = StellarManager.GetUserAddress();
         statusText.text = "Making a new lobby";
+        securityModeToggle.SetIsOnWithoutNotify(true);
+        mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(true);
+        // disabled for now
+        mustFillAllSetupTilesToggle.interactable = false;
     }
     
     void ResetBoardDropdown()
@@ -113,7 +110,7 @@ public class GuiLobbyMaker : MenuElement
         {
             board = board,
             board_hash = hash,
-            dev_mode = false,
+            dev_mode = true,
             host_team = Team.RED,
             max_ranks = maxRanks,
             must_fill_all_tiles = mustFillAllSetupTilesToggle.isOn,

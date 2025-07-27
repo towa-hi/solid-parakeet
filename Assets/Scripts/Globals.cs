@@ -1863,23 +1863,13 @@ public struct GameNetworkState
         {
             if (pawnId.GetTeam() == userTeam)
             {
-                return CanPawnMove(pawnId);
+                HashSet<Vector2Int> targetList = GetValidMoveTargetList(pawnId);
+                return targetList.Count > 0;
             }
         }
         return false;
     }
     
-    public bool CanPawnMove(PawnId pawnId)
-    {
-        PawnState pawn = GetPawnFromId(pawnId);
-        if (pawn.CanMove())
-        {
-            // TODO check adjacent tiles
-            return true;
-        }
-        return false;
-    }
-
     public PawnState GetPawnFromId(PawnId pawnId)
     {
         if (gameState.pawns.Any(pawn => pawn.pawn_id == pawnId))
@@ -1891,37 +1881,34 @@ public struct GameNetworkState
 
     public PawnState? GetAlivePawnFromPosChecked(Vector2Int pos)
     {
-        PawnState? pawn = GetPawnFromPosChecked(pos);
-        return pawn is { alive: true } ? pawn : null;
-    }
-    public PawnState? GetPawnFromPosChecked(Vector2Int pos)
-    {
-        if (gameState.pawns.Any(pawn => pawn.pos == pos))
-        {
-            return gameState.pawns.First(pawn => pawn.pos == pos);
-        }
-        return null;
+        PawnState[] pawns = GetDeadAndAlivePawnsFromPos(pos);
+        return pawns.Where(pawn => pawn.alive).Cast<PawnState?>().FirstOrDefault();
     }
     
-    public PawnState GetPawnFromPos(Vector2Int pos)
+    public PawnState GetAlivePawnFromPosUnchecked(Vector2Int pos)
     {
-        if (GetPawnFromPosChecked(pos) is PawnState pawnState)
+        if (GetAlivePawnFromPosChecked(pos) is PawnState pawnState)
         {
             return pawnState;
         }
         throw new ArgumentOutOfRangeException();
     }
-    
+
+    PawnState[] GetDeadAndAlivePawnsFromPos(Vector2Int pos)
+    {
+        return gameState.pawns.Where(pawn => pawn.pos == pos).ToArray();
+    }
+
     public TileState? GetTileChecked(Vector2Int pos)
     {
-        if (lobbyParameters.board.GetTileFromPosition(pos) is Contract.TileState tile)
+        if (lobbyParameters.board.GetTileFromPosition(pos) is TileState tile)
         {
             return tile;
         }
         return null;
     }
     
-    public TileState GetTile(Vector2Int pos)
+    public TileState GetTileUnchecked(Vector2Int pos)
     {
         if (GetTileChecked(pos) is Contract.TileState tile)
         {
@@ -1947,11 +1934,17 @@ public struct GameNetworkState
     public HashSet<Vector2Int> GetValidMoveTargetList(PawnId pawnId)
     {
         PawnState pawn = GetPawnFromId(pawnId);
+        if (!pawn.alive)
+        {
+            Debug.LogError("should not be calling GetValidMoveTargetList on a dead pawn");
+            return new();
+        }
         bool isHex = lobbyParameters.board.hex;
         Vector2Int[] initialDirections = Shared.GetDirections(pawn.pos, isHex);
         // if rank is unknown just return empty
         if (pawn.GetKnownRank() is not Rank rank)
         {
+            Debug.LogError("should not be calling GetValidMoveTargetList on a unknown rank pawn");
             return new();
         }
         HashSet<Vector2Int> movablePositions = new();

@@ -34,7 +34,6 @@ namespace Contract
         {
             if (input == null)
             {
-                Debug.LogError("input is null!!!!");
                 throw new ArgumentNullException(nameof(input));
             }
             Type type = input.GetType();
@@ -97,11 +96,9 @@ namespace Contract
         {
             if (scVal == null)
             {
-                Debug.LogError("input is null!!!!");
                 throw new ArgumentNullException();
             }
             DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
-            
             switch (targetType)
             {
                 case var _ when targetType.IsEnum:
@@ -148,12 +145,7 @@ namespace Contract
                         DebugLog($"SCValToNative: Found SCVal.ScvString with value '{strVal.str.InnerValue}'.");
                         return strVal.str.InnerValue;
                     }
-                    else
-                    {
-                        Debug.LogError("SCValToNative: Failed string conversion. SCVal is not SCvString.");
-                        throw new NotSupportedException("Expected SCVal.ScvString for string conversion.");
-                    }
-                    
+                    break;
                 case var _ when targetType == typeof(bool):
                     DebugLog("SCValToNative: Target type is bool.");
                     if (scVal is SCVal.ScvBool boolVal)
@@ -161,19 +153,13 @@ namespace Contract
                         DebugLog($"SCValToNative: Found SCVal.ScvBool with value {boolVal.b}.");
                         return boolVal.b;
                     }
-                    else
-                    {
-                        Debug.LogError("SCValToNative: Failed bool conversion. SCVal is not SCvBool.");
-                        throw new NotSupportedException("Expected SCVal.ScvBool for bool conversion.");
-                    }
-                    
+                    break;
                 case var _ when targetType == typeof(AccountAddress):
                     if (scVal is SCVal.ScvAddress scvAddress)
                     {
                         return new AccountAddress(scvAddress);
                     }
                     break;
-                    
                 case var _ when targetType == typeof(PawnId):
                     if (scVal is SCVal.ScvU32 pawnIdU32Val)
                     {
@@ -207,6 +193,7 @@ namespace Contract
                         return scvBytes.bytes.InnerValue;
                     }
                     break;
+                // when dealing with collections or byte arrays, we need to decide what to do based on the scVal type
                 default:
                     switch (scVal)
                     {
@@ -738,7 +725,8 @@ namespace Contract
         public PawnId pawn_id;
         public Vector2Int pos;
         public Rank? rank;
-
+        public bool zz_revealed;
+        
         public Team GetTeam()
         {
             return pawn_id.Decode().Item2;
@@ -793,6 +781,7 @@ namespace Contract
             // Pack rank (4 bits at position 20)
             uint rankValue = pawn.rank.HasValue ? (uint)pawn.rank.Value : 12u;
             packed |= (rankValue & 0xFu) << 20;
+            if (pawn.zz_revealed) packed |= 1u << 24;
             return packed;
         }
 
@@ -811,6 +800,7 @@ namespace Contract
             // Extract rank (4 bits at position 20)
             uint rankVal = (packed >> 20) & 0xFu;
             Rank? rank = rankVal == 12 ? null : (Rank?)rankVal;
+            bool zz_revealed = ((packed >> 24) & 1) != 0;
             return new PawnState
             {
                 alive = alive,
@@ -819,6 +809,7 @@ namespace Contract
                 pawn_id = new PawnId(pawnId),
                 pos = new Vector2Int(x, y),
                 rank = rank,
+                zz_revealed = zz_revealed,
             };
         }
 
@@ -1012,7 +1003,8 @@ namespace Contract
     {
         public LobbyId lobby_id { get; set; }
         public byte[] rank_commitment_root;
-
+        public HiddenRank[] zz_hidden_ranks;
+        
         public SCVal.ScvMap ToScvMap()
         {
             return new SCVal.ScvMap
@@ -1021,6 +1013,7 @@ namespace Contract
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                     SCUtility.FieldToSCMapEntry("rank_commitment_root", rank_commitment_root),
+                    SCUtility.FieldToSCMapEntry("zz_hidden_ranks", zz_hidden_ranks),
                 }),
             };
         }

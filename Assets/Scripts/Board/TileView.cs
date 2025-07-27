@@ -148,25 +148,25 @@ public class TileView : MonoBehaviour
         {
             switch (operation)
             {
-                case SetupHoverChanged(var oldHoveredPos, var setupCommitPhase):
+                case SetupHoverChanged(_, var newHoveredPos, var setupCommitPhase):
                 {
-                    setHoverOutline = setupCommitPhase.cachedNetState.IsMySubphase() && posView == setupCommitPhase.hoveredPos;
+                    setHoverOutline = setupCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
                     break;
                 }
-                case MoveHoverChanged(var oldHoveredPos, var moveCommitPhase):
+                case MoveHoverChanged(_, var newHoveredPos, var moveCommitPhase):
                 {
-                    setHoverOutline = moveCommitPhase.cachedNetState.IsMySubphase() && posView == moveCommitPhase.hoveredPos;
+                    setHoverOutline = moveCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
                     break;
                 }
-                case MovePosSelected(var oldPos, var moveCommitPhase):
-                    setSelectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
-                    setTargetableFill = moveCommitPhase.selectedPos.HasValue && moveCommitPhase.targetablePositions.Contains(posView);
+                case MovePosSelected(_, var newPos, var targetablePositions):
+                    setSelectOutline = newPos.HasValue && posView == newPos.Value;
+                    setTargetableFill = newPos.HasValue && targetablePositions.Contains(posView);
                     setTargetEmission = false;
                     break;
-                case MoveTargetSelected(var oldPos, var moveCommitPhase):
-                    setSelectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
+                case MoveTargetSelected(_, var newTarget):
+                    setSelectOutline = newTarget.HasValue && posView == newTarget.Value;
                     setTargetableFill = false;
-                    setTargetEmission =  moveCommitPhase.targetPos.HasValue && posView == moveCommitPhase.targetPos.Value;
+                    setTargetEmission =  newTarget.HasValue && posView == newTarget.Value;
                     break;
                     
             }

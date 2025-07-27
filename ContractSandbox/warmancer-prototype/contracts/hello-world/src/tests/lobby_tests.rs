@@ -39,21 +39,6 @@ fn test_lobby_id_collision() {
     assert_eq!(result.unwrap_err().unwrap(), Error::AlreadyExists);
 }
 #[test]
-fn test_leave_lobby_errors() {
-    let setup = TestSetup::new();
-    let user = setup.generate_address();
-    let result = setup.client.try_leave_lobby(&user);
-    assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
-    let params = create_test_lobby_parameters(&setup.env);
-    setup.client.make_lobby(&user, &MakeLobbyReq {
-        lobby_id: 1,
-        parameters: params,
-    });
-    setup.client.leave_lobby(&user);
-    let result = setup.client.try_leave_lobby(&user);
-    assert_eq!(result.unwrap_err().unwrap(), Error::NotFound);
-}
-#[test]
 fn test_join_lobby_access_control() {
     let setup = TestSetup::new();
     let params = create_test_lobby_parameters(&setup.env);

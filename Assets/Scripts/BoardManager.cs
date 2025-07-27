@@ -120,9 +120,9 @@ public class BoardManager : MonoBehaviour
         // Check if phase actually changed
         Phase newPhase = netState.lobbyInfo.phase;
         bool phaseChanged = currentPhase == null || 
-                          (currentPhase.cachedNetState.lobbyInfo.phase != newPhase) ||
-                          (currentPhase.cachedNetState.lobbyInfo.subphase != netState.lobbyInfo.subphase);
-        
+                          currentPhase.cachedNetState.lobbyInfo.phase != newPhase ||
+                          currentPhase.cachedNetState.lobbyInfo.subphase != netState.lobbyInfo.subphase ||
+                          currentPhase.cachedNetState.gameState.turn != netState.gameState.turn;
         if (phaseChanged)
         {
             PhaseBase nextPhase = newPhase switch
@@ -234,7 +234,7 @@ public class BoardManager : MonoBehaviour
     }
 
     
-    public void PollForPhaseChange(bool poll)
+    void PollForPhaseChange(bool poll)
     {
         polling = poll;
         if (poll)
@@ -260,15 +260,12 @@ public class BoardManager : MonoBehaviour
     {
         while (polling)
         {
-            yield return new WaitForSeconds(0.2f);
-            
+            yield return new WaitForSeconds(0.5f);
             if (polling) // Check again in case it was stopped during the wait
             {
                 GetNetworkState();
             }
         }
-        
-        Debug.Log("[BoardManager] Polling stopped");
     }
 }
 
@@ -405,7 +402,7 @@ public class SetupCommitPhase : PhaseBase
         Dictionary<Vector2Int, Rank> autoCommitments = cachedNetState.AutoSetup(cachedNetState.userTeam);
         foreach ((Vector2Int pos, Rank rank) in autoCommitments)
         {
-            PawnState pawn = cachedNetState.GetPawnFromPos(pos);
+            PawnState pawn = cachedNetState.GetAlivePawnFromPosUnchecked(pos);
             pendingCommits[pawn.pawn_id] = rank;
         }
         InvokeOnPhaseStateChanged(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
@@ -458,10 +455,12 @@ public class SetupCommitPhase : PhaseBase
             ranksAndProofs.Add(new() {hidden_rank = hiddenRank, merkle_proof = merkleProof});
         }
         CacheManager.StoreHiddenRanksAndProofs(ranksAndProofs, cachedNetState.address, cachedNetState.lobbyInfo.index);
+        
         CommitSetupReq req = new()
         {
             lobby_id = cachedNetState.lobbyInfo.index,
             rank_commitment_root = root,
+            zz_hidden_ranks = cachedNetState.lobbyParameters.security_mode ? new HiddenRank[]{} : hiddenRanks.ToArray(),
         };
         InvokeOnCallContract(req, null);
     }
@@ -503,7 +502,7 @@ public class SetupCommitPhase : PhaseBase
             }
         }
         setupInputTool = GetNextTool();
-        operations.Add(new SetupHoverChanged(oldHoveredPos, this));
+        operations.Add(new SetupHoverChanged(oldHoveredPos, hoveredPos, this));
         InvokeOnPhaseStateChanged(new PhaseChangeSet(operations));
     }
 
@@ -515,7 +514,7 @@ public class SetupCommitPhase : PhaseBase
             return SetupInputTool.NONE;
         }
         // if hovered over a already committed pawn
-        if (cachedNetState.GetPawnFromPosChecked(hoveredPos) is PawnState pawn && pendingCommits.ContainsKey(pawn.pawn_id) && pendingCommits[pawn.pawn_id] != null)
+        if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPos) is PawnState pawn && pendingCommits.ContainsKey(pawn.pawn_id) && pendingCommits[pawn.pawn_id] != null)
         {
             tool = SetupInputTool.REMOVE;
         }
@@ -545,7 +544,7 @@ public class SetupCommitPhase : PhaseBase
             throw new InvalidOperationException("too many pawns of this rank committed");
         }
         Dictionary<PawnId, Rank?> oldPendingCommits = new(pendingCommits);
-        PawnState pawn = cachedNetState.GetPawnFromPos(pos);
+        PawnState pawn = cachedNetState.GetAlivePawnFromPosUnchecked(pos);
         pendingCommits[pawn.pawn_id] = selectedRank;
         Debug.Log($"commit position {pawn.pawn_id} {pos} {selectedRank}");
         return new(oldPendingCommits, this);
@@ -554,7 +553,7 @@ public class SetupCommitPhase : PhaseBase
     SetupRankCommitted UncommitPosition(Vector2Int pos)
     {
         Dictionary<PawnId, Rank?> oldPendingCommits = new(pendingCommits);
-        PawnState pawn = cachedNetState.GetPawnFromPos(pos);
+        PawnState pawn = cachedNetState.GetAlivePawnFromPosUnchecked(pos);
         pendingCommits[pawn.pawn_id] = null;
         Debug.Log($"uncommit position regardless of selected rank {pawn.pawn_id} {pos} {selectedRank}");
         return new(oldPendingCommits, this);
@@ -692,7 +691,7 @@ public class MoveCommitPhase: PhaseBase
             }
         }
         moveInputTool = GetNextTool(hoveredPos);
-        operations.Add(new MoveHoverChanged(oldHoveredPos, this));
+        operations.Add(new MoveHoverChanged(oldHoveredPos, hoveredPos, this));
         InvokeOnPhaseStateChanged(new PhaseChangeSet(operations));
     }
     
@@ -753,7 +752,7 @@ public class MoveCommitPhase: PhaseBase
         {
             targetablePositions.Clear();
         }
-        return new(oldPos, this);
+        return new(oldPos, selectedPos, targetablePositions);
     }
 
     MoveTargetSelected TargetPosition(Vector2Int? target)
@@ -761,7 +760,7 @@ public class MoveCommitPhase: PhaseBase
         Vector2Int? oldTarget = targetPos;
         targetPos = target;
         targetablePositions.Clear();
-        return new(oldTarget, this);
+        return new(oldTarget, targetPos);
     }
 }
 
@@ -887,14 +886,14 @@ namespace System.Runtime.CompilerServices
 
 public abstract record GameOperation;
 
-public record SetupHoverChanged(Vector2Int oldHoveredPos, SetupCommitPhase phase) : GameOperation;
+public record SetupHoverChanged(Vector2Int oldHoveredPos, Vector2Int newHoveredPos, SetupCommitPhase phase) : GameOperation;
 
 public record SetupRankCommitted(Dictionary<PawnId, Rank?> oldPendingCommits, SetupCommitPhase phase) : GameOperation;
 public record SetupRankSelected(Rank? oldSelectedRank, SetupCommitPhase phase) : GameOperation;
 
-public record MoveHoverChanged(Vector2Int oldPos, MoveCommitPhase phase) : GameOperation;
-public record MovePosSelected(Vector2Int? oldPos, MoveCommitPhase phase) : GameOperation;
-public record MoveTargetSelected(Vector2Int? oldTarget, MoveCommitPhase phase) : GameOperation;
+public record MoveHoverChanged(Vector2Int oldPos, Vector2Int newPos, MoveCommitPhase phase) : GameOperation;
+public record MovePosSelected(Vector2Int? oldPos, Vector2Int? newPos, HashSet<Vector2Int> targetablePositions) : GameOperation;
+public record MoveTargetSelected(Vector2Int? oldTarget, Vector2Int? newTarget) : GameOperation;
 
 public record NetStateUpdated(PhaseBase phase) : GameOperation;
 

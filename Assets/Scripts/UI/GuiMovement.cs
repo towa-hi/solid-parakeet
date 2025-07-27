@@ -18,11 +18,9 @@ public class GuiMovement : GameElement
     public Button submitMoveButton;
     public Button graveyardButton;
     public Button refreshButton;
-    public Image redCheck;
-    public Image blueCheck;
     public Toggle autoSubmitToggle;
-    public TextMeshProUGUI turnText;
     public GuiGameOverModal gameOverModal;
+    public PhaseInfoDisplay phaseInfoDisplay;
     
     public Action OnMenuButton;
     public Action OnExtraButton;
@@ -56,14 +54,16 @@ public class GuiMovement : GameElement
         // what to do
         bool? setShowElement = null;
         GameNetworkState? setInitialize = null;
+        GameNetworkState? setPhaseInfoDisplay = null;
         bool? setSubmitButton = null;
         bool? setRefreshButton = null;
-        string setStatus = "";
+        string setStatus = null;
         // figure out what to do based on what happened
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             setInitialize = cachedNetState;
+            setPhaseInfoDisplay = cachedNetState;
             switch (cachedNetState.lobbyInfo.phase)
             {
                 case Phase.MoveCommit:
@@ -119,12 +119,15 @@ public class GuiMovement : GameElement
         {
             switch (operation)
             {
-                case MovePosSelected(_, var moveCommitPhase):
+                case MovePosSelected(_, var selectedPos, _):
                     setSubmitButton = false;
-                    setStatus = "Select a target position";
+                    if (selectedPos.HasValue)
+                    {
+                        setStatus = "Select a target position";
+                    }
                     break;
-                case MoveTargetSelected(_, var moveCommitPhase):
-                    if (moveCommitPhase.targetPos.HasValue)
+                case MoveTargetSelected(_, var newTarget):
+                    if (newTarget.HasValue)
                     {
                         setStatus = "Submit move";
                         setSubmitButton = true;
@@ -137,93 +140,29 @@ public class GuiMovement : GameElement
             }
         }
         // now do the stuff
-        if (setShowElement.HasValue)
+        if (setShowElement is bool showElementVal)
         {
-            ShowElement(setShowElement.Value);
+            ShowElement(showElementVal);
         }
-        if (setInitialize.HasValue)
+        if (setInitialize is GameNetworkState initializeVal)
         {
-            Initialize(setInitialize.Value);
+            Initialize(initializeVal);
         }
-        if (setSubmitButton.HasValue)
+        if (setPhaseInfoDisplay is GameNetworkState phaseInfoDisplayVal)
         {
-            submitMoveButton.interactable = setSubmitButton.Value;
+            phaseInfoDisplay.Set(phaseInfoDisplayVal);
         }
-        if (setRefreshButton.HasValue)
+        if (setSubmitButton is bool submitButtonVal)
         {
-            refreshButton.interactable = setRefreshButton.Value;
+            submitMoveButton.interactable = submitButtonVal;
         }
-        if (setStatus.Length > 0)
+        if (setRefreshButton is bool refreshButtonVal)
+        {
+            refreshButton.interactable = refreshButtonVal;
+        }
+        if (setStatus is not null)
         {
             statusText.text = setStatus;
         }
     }
-    
-    
-    //
-    // public override void Initialize(BoardManager boardManager, GameNetworkState networkState)
-    // {
-    //     base.Initialize(boardManager, networkState);
-    //     //boardManager.OnClientGameStateChanged += OnClientGameStateChanged;
-    //     autoSubmitToggle.SetIsOnWithoutNotify(MovementClientState.autoSubmit);
-    // }
-    //
-    // public void Refresh(MovementClientState state)
-    // {
-    //     autoSubmitToggle.SetIsOnWithoutNotify(MovementClientState.autoSubmit);
-    //     switch (state.team)
-    //     {
-    //         // Update team checks
-    //         case Team.RED:
-    //             redCheck.enabled = state.myTurnMove.initialized;
-    //             blueCheck.enabled = state.otherTurnMove.initialized;
-    //             break;
-    //         case Team.BLUE:
-    //             redCheck.enabled = state.otherTurnMove.initialized;
-    //             blueCheck.enabled = state.myTurnMove.initialized;
-    //             break;
-    //     }
-    //     turnText.text = "Turn: " + state.myTurnMove.turn;
-    //     cheatButtonText.text = PlayerPrefs.GetInt("CHEATMODE") == 1 ? "Hide Enemy Pieces" : "Reveal Enemy Pieces";
-    //     badgeButtonText.text = PlayerPrefs.GetInt("DISPLAYBADGE") == 1 ? "Hide Display Rank Badges" : "Display Rank Badges";
-    //     // Update UI based on current substate
-    //     switch (state.subState)
-    //     {
-    //         case SelectingPawnMovementClientSubState selectingPawnSubState:
-    //             submitMoveButton.interactable = selectingPawnSubState.selectedPawnId.HasValue;
-    //             statusText.text = selectingPawnSubState.selectedPawnId.HasValue 
-    //                 ? "Click submit to confirm move" 
-    //                 : "Select a pawn to move";
-    //             break;
-    //         case SelectingPosMovementClientSubState:
-    //             submitMoveButton.interactable = false;
-    //             statusText.text = "Select a destination";
-    //             break;
-    //
-    //         case WaitingUserHashMovementClientSubState:
-    //             submitMoveButton.interactable = false;
-    //             statusText.text = "Automatically sending move hash please wait warmly";
-    //             break;
-    //
-    //         case WaitingOpponentMoveMovementClientSubState:
-    //             submitMoveButton.interactable = false;
-    //             statusText.text = $"You committed move {state.myTurnMove.pawn_id} to {state.myTurnMove.pos}, click refresh to check opponent status";
-    //             break;
-    //
-    //         case WaitingOpponentHashMovementClientSubState:
-    //             submitMoveButton.interactable = false;
-    //             statusText.text = "Waiting for other user to send move hash... click refresh to check";
-    //             break;
-    //
-    //         case ResolvingMovementClientSubState:
-    //             submitMoveButton.interactable = false;
-    //             statusText.text = "Turn is not valid. you shouldn't be seeing this";
-    //             break;
-    //         case GameOverMovementClientSubState gameOverSubState:
-    //             statusText.text = gameOverSubState.EndStateMessage();
-    //             gameOverModal.Initialize(gameOverSubState.endState, state.team);
-    //             gameOverModal.gameObject.SetActive(true);
-    //             break;
-    //     }
-    // }
 }

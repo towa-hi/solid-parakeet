@@ -308,7 +308,7 @@ impl Contract {
     ///   - During active game phases: `Phase::Finished`, opponent wins
     ///   - During Finished/Aborted: No game state changes
     /// # Errors
-    /// - `NotFound`: User not in lobby
+    /// - `NotFound`: User not found
     pub fn leave_lobby(e: &Env, address: Address) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -319,10 +319,12 @@ impl Contract {
             None => return Err(Error::NotFound),
         };
         if user.current_lobby == 0 {
-            return Err(Error::NotFound)
+            return Ok(())
         }
         let lobby_id = user.current_lobby;
-        let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(lobby_id)).unwrap();
+        let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(lobby_id)).unwrap_or_else(|| {
+            return Ok(())
+        });
         let original_phase = lobby_info.phase.clone();
         let user_index = Self::get_player_index(&address, &lobby_info);
         user.current_lobby = 0;
@@ -486,7 +488,7 @@ impl Contract {
             }
         }
         else {
-            if (!req.zz_hidden_ranks.is_empty()) {
+            if !req.zz_hidden_ranks.is_empty() {
                 return Err(Error::InvalidArgs)
             }
         }

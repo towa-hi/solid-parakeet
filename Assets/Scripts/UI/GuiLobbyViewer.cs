@@ -43,23 +43,15 @@ public class GuiLobbyViewer : MenuElement
             OnStartButton?.Invoke();
         });
     }
-
-    void OnNetworkStateUpdated()
-    {
-        if (!gameObject.activeSelf) return;
-        Refresh();
-        
-    }
     
     public override void Refresh()
     {
         lobbyView.Refresh(StellarManager.networkState.lobbyInfo);
         startButton.interactable = false;
-        List<string> problems = new List<string>();
+        List<string> problems = new();
         bool lobbyStartable = true;
-        if (StellarManager.networkState.lobbyInfo.HasValue)
+        if (StellarManager.networkState.lobbyInfo is LobbyInfo lobbyInfo && StellarManager.networkState.lobbyParameters is LobbyParameters lobbyParameters)
         {
-            LobbyInfo lobbyInfo = StellarManager.networkState.lobbyInfo.Value;
             if (lobbyInfo.host_address == null)
             {
                 problems.Add("lobby.host_address is empty");
@@ -70,7 +62,7 @@ public class GuiLobbyViewer : MenuElement
                 problems.Add("lobby.guest_address is empty");
                 lobbyStartable = false;
             }
-            if (lobbyInfo.phase != Phase.SetupCommit && !CacheManager.RankProofsCacheExists(StellarManager.networkState.address, lobbyInfo.index))
+            if (lobbyParameters.security_mode && lobbyInfo.phase != Phase.SetupCommit && !CacheManager.RankProofsCacheExists(StellarManager.networkState.address, lobbyInfo.index))
             {
                 // TODO: more thurough cache check here
                 statusText.text = "this client does not have the required cached data to play this lobby";

@@ -17,7 +17,7 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CB6YO34VDIKVMDLINFA42X4S2NEFBOKEUBIC34P6NADOI4PWFMFB2CGC";
+    public static string testContract = "CBRZUTME4ZHNEG7EO63RXJKSFER4RFZL4N65EG77DZULIL7QKG7FITE6";
     public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
     public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
     public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
@@ -168,10 +168,10 @@ public static class StellarManager
         }
         bool isHost = preRequestLobbyInfo.IsHost(stellar.userAddress);
         Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
-        // we send prove_move too only if the server is waiting for us
+        // we send prove_move too only if the server is waiting for us or if secure_mode false
         bool sendProveMoveToo = preRequestLobbyInfo.phase == Phase.MoveCommit && preRequestLobbyInfo.subphase == mySubphase;
         (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
-        if (sendProveMoveToo)
+        if (sendProveMoveToo || networkState.lobbyParameters?.security_mode == false)
         {
             TaskInfo task = SetCurrentTask("Invoke commit_move_and_prove_move");
             results = await stellar.CallContractFunction("commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, tracker);
