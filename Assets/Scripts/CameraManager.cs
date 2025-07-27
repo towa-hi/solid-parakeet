@@ -114,7 +114,7 @@ public class CameraManager : MonoBehaviour
     Tween currentTween;
     void Update()
     {
-        if (rotateOnMouse && PlayerPrefs.GetInt("ROTATECAMERA") == 1)
+        if (rotateOnMouse && SettingsManager.GetPref(SettingsKey.MOVECAMERA) == 1)
         {
             screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
             if (!IsPointerWithinScreen(screenPointerPosition))

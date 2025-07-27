@@ -25,13 +25,13 @@ public class GuiMainMenu : MenuElement
     public Button joinLobbyButton;
     public Button makeLobbyButton;
     public Button viewLobbyButton;
-    public Button cancelButton;
+    public Button settingsButton;
     public Button walletButton;
     
 
     public event Action OnJoinLobbyButton;
     public event Action OnMakeLobbyButton;
-    public event Action OnOptionsButton;
+    public event Action OnSettingsButton;
     public event Action OnViewLobbyButton;
     public event Action OnWalletButton;
 
@@ -71,10 +71,10 @@ public class GuiMainMenu : MenuElement
             AudioManager.instance.PlaySmallButtonClick();
             OnMakeLobbyButton?.Invoke();
         });
-        cancelButton.onClick.AddListener(() =>
+        settingsButton.onClick.AddListener(() =>
         {
             AudioManager.instance.PlaySmallButtonClick();
-            OnOptionsButton?.Invoke();
+            OnSettingsButton?.Invoke();
         });
         viewLobbyButton.onClick.AddListener(() =>
         {
@@ -110,7 +110,14 @@ public class GuiMainMenu : MenuElement
         }
         Refresh();
     }
-    
+    public override void ShowElement(bool show)
+    {
+        base.ShowElement(show);
+        if (show)
+        {
+            AudioManager.instance.PlayMusic(MusicTrack.MAIN_MENU_MUSIC);
+        }
+    }
     public override void Refresh()
     {
         Debug.Log("Refresh");

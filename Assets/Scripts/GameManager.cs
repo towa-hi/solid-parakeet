@@ -23,7 +23,6 @@ public class GameManager : MonoBehaviour
     public CameraManager cameraManager;
     public AudioManager audioManager;
     public PoolManager poolManager;
-    public SettingsManager settingsManager;
 
     public List<PawnDef> orderedPawnDefList;
 
@@ -132,22 +131,17 @@ public class GameManager : MonoBehaviour
     
     void SetDefaultPlayerPrefs()
     {
-        if (!PlayerPrefs.HasKey("CHEATMODE"))
+        Dictionary<SettingsKey, int> defaultSettings = new()
         {
-            settingsManager.SetCheatMode(false);
-        }
-        if (!PlayerPrefs.HasKey("FASTMODE"))
-        {
-            settingsManager.SetFastMode(true);
-        }
-        if (!PlayerPrefs.HasKey("DISPLAYBADGE"))
-        {
-            settingsManager.SetDisplayBadge(true);
-        }
-        if (!PlayerPrefs.HasKey("ROTATECAMERA"))
-        {
-            settingsManager.SetRotateCamera(false);
-        }
+            { SettingsKey.CHEATMODE, 0 },
+            { SettingsKey.FASTMODE, 1 },
+            { SettingsKey.DISPLAYBADGES, 1 },
+            { SettingsKey.MOVECAMERA, 1 },
+            { SettingsKey.MASTERVOLUME, 50 },
+            { SettingsKey.MUSICVOLUME, 50 },
+            { SettingsKey.EFFECTSVOLUME, 50 },
+        };
+        SettingsManager.SetPrefs(defaultSettings);
     }
     
     public void QuitGame()

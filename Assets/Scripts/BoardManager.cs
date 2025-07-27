@@ -16,7 +16,7 @@ using Random = UnityEngine.Random;
 
 public class BoardManager : MonoBehaviour
 {
-    bool initialized;
+    public bool initialized;
     
     // assigned by inspector
     public Transform purgatory;
@@ -50,14 +50,13 @@ public class BoardManager : MonoBehaviour
         OnNetworkStateUpdated(); //only invoke this directly once on start
     }
 
-    void Initialize(GameNetworkState netState)
+    public void CloseBoardManager()
     {
+        //StellarManager.OnNetworkStateUpdated -= OnNetworkStateUpdated;
         updateNetworkStateTask = null;
         currentContractTask = null;
+        currentPhase?.ExitState(clickInputManager, guiGame);
         currentPhase = null;
-        
-        clickInputManager.Initialize(this);
-        CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         // Clear existing tileviews and replace
         foreach (TileView tile in tileViews.Values)
         {
@@ -70,6 +69,16 @@ public class BoardManager : MonoBehaviour
             Destroy(pawnView.gameObject);
         }
         pawnViews.Clear();
+        clickInputManager.SetUpdating(false);
+        initialized = false;
+    }
+    
+    void Initialize(GameNetworkState netState)
+    {
+        CloseBoardManager();
+        
+        clickInputManager.SetUpdating(true);
+        CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         // set up board and pawns
         Board board = netState.lobbyParameters.board;
         grid.SetBoard(board.hex);
@@ -90,12 +99,12 @@ public class BoardManager : MonoBehaviour
             pawnView.Initialize(pawn, tileViews[pawn.pos]);
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
+        AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
         initialized = true;
     }
     
     void OnNetworkStateUpdated()
     {
-        
         if (!initialized)
         {
             return;

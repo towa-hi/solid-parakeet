@@ -19,13 +19,15 @@ public class GuiMenuController: MonoBehaviour
     public GuiWallet walletElement;
     public GuiGame gameElement;
     public TopBar topBar;
-    
+    public GameObject modalLayer;
+    public GameObject modalEscapePrefab;
+    public GameObject modalSettingsPrefab;
     // state
     public MenuElement currentElement;
-    public string currentProcedure;
-    
+    public Stack<ModalElement> modalStack;
     void Start()
     {
+        modalStack = new();
         StellarManager.Initialize();
         StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
         StellarManager.OnTaskStarted += ShowTopBar;
@@ -35,7 +37,7 @@ public class GuiMenuController: MonoBehaviour
         
         mainMenuElement.OnJoinLobbyButton += GotoJoinLobby;
         mainMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
-        mainMenuElement.OnOptionsButton += OptionsModal;
+        mainMenuElement.OnSettingsButton += OpenSettingsModal;
         mainMenuElement.OnViewLobbyButton += ViewLobby;
         mainMenuElement.OnWalletButton += GotoWallet;
         mainMenuElement.OnAssetButton += CheckAssets;
@@ -53,6 +55,8 @@ public class GuiMenuController: MonoBehaviour
         lobbyJoinerElement.OnJoinButton += JoinLobby;
         
         walletElement.OnBackButton += GotoMainMenu;
+
+        gameElement.movement.OnMenuButton = OpenEscapeModal;
 
     }
 
@@ -83,18 +87,82 @@ public class GuiMenuController: MonoBehaviour
         currentElement.ShowElement(true);
         currentElement.Refresh();
     }
-    
+
     async void GotoLobbyMaker()
     {
         await StellarManager.UpdateState();
         ShowMenuElement(lobbyMakerElement);
     }
 
-    void OptionsModal()
+    void OpenSettingsModal()
+    {
+        OpenModal(modalSettingsPrefab);
+        
+        
+    }
+
+    void OpenEscapeModal()
+    {
+        OpenModal(modalEscapePrefab);
+    }
+
+    void ResignGame()
     {
         
     }
 
+    void OpenModal(GameObject modalPrefab)
+    {
+        foreach (ModalElement element in modalStack)
+        {
+            element.OnFocus(false);
+        }
+        ModalElement topModal = Instantiate(modalPrefab, modalLayer.transform).GetComponent<ModalElement>();
+        modalStack.Push(topModal);
+        topModal.OnFocus(true);
+        SetModalEvents(topModal, true);
+    }
+    void CloseModal()
+    {
+        if (modalStack.Count > 0)
+        {
+            ModalElement modal = modalStack.Pop();
+            modal.OnFocus(false);
+            SetModalEvents(modal, false);
+            Destroy(modal.gameObject);
+            if (modalStack.TryPeek(out ModalElement topModal))
+            {
+                topModal.OnFocus(true);
+                SetModalEvents(topModal, true);
+            }
+        }
+    }
+
+    void CloseAllModals()
+    {
+        while (modalStack.Count > 0)
+        {
+            CloseModal();
+        }
+    }
+    void SetModalEvents(ModalElement modal, bool set)
+    {
+        switch (modal)
+        {
+            case ModalEscape modalEscape:
+                modalEscape.OnSettingsButton = set ? OpenSettingsModal : null;
+                modalEscape.OnBackButton = set ? CloseModal : null;
+                modalEscape.OnMainMenuButton = set ? GotoMainMenu : null;
+                modalEscape.OnResignButton = set ? ResignGame : null;
+                break;
+            case ModalSettings modalSettings:
+                modalSettings.OnBackButton = set ? CloseModal : null;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(modal));
+
+        }
+    }
     void GotoStartMenu()
     {
         ShowMenuElement(startMenuElement);
@@ -102,6 +170,11 @@ public class GuiMenuController: MonoBehaviour
     
     async void GotoMainMenu()
     {
+        CloseAllModals();
+        if (GameManager.instance.boardManager.initialized)
+        {
+            GameManager.instance.boardManager.CloseBoardManager();
+        }
         await StellarManager.UpdateState();
         ShowMenuElement(mainMenuElement);
     }
@@ -192,6 +265,8 @@ public class GuiMenuController: MonoBehaviour
         currentElement?.EnableInput(true);
         topBar.Show(false);
     }
+    
+    
 }
 
 public abstract class MenuElement: MonoBehaviour
@@ -214,9 +289,20 @@ public abstract class MenuElement: MonoBehaviour
 public class GameElement: MonoBehaviour
 {
 
-    public void ShowElement(bool show)
+    public virtual void ShowElement(bool show)
     {
         gameObject.SetActive(show);
     }
     
+}
+
+public class ModalElement : MonoBehaviour
+{
+    public GameObject blockerPanel;
+    public CanvasGroup canvasGroup;
+    
+    public virtual void OnFocus(bool focused)
+    {
+        canvasGroup.interactable = focused;
+    }
 }

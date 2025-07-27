@@ -1,29 +1,62 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class SettingsManager : MonoBehaviour
+public static class SettingsManager
 {
-
-    public void SetCheatMode(bool cheat)
+    public static event Action<SettingsKey, int> OnSettingChanged;
+    
+    static void SetPref(SettingsKey key, int val)
     {
-        Debug.Log($"Set CHEATMODE to {cheat}");
-        PlayerPrefs.SetInt("CHEATMODE", cheat ? 1 : 0);
+        string stringKey = key.ToString();
+        switch (key)
+        {
+            case SettingsKey.CHEATMODE:
+            case SettingsKey.FASTMODE:
+            case SettingsKey.DISPLAYBADGES:
+            case SettingsKey.MOVECAMERA:
+                if (val != 0 && val != 1)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(val));
+                }
+                break;
+            case SettingsKey.MASTERVOLUME:
+            case SettingsKey.MUSICVOLUME:
+            case SettingsKey.EFFECTSVOLUME:
+                if (val is < 0 or > 100)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(val));
+                }
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(key), key, null);
+        }
+        PlayerPrefs.SetInt(stringKey, val);
+        Debug.Log($"Set {stringKey} to {val}");
+        OnSettingChanged?.Invoke(key, val);
     }
 
-    public void SetFastMode(bool fast)
+    public static int GetPref(SettingsKey key)
     {
-        Debug.Log($"Set FASTMODE to {fast}");
-        PlayerPrefs.SetInt("FASTMODE", fast ? 1 : 0);
+        return PlayerPrefs.GetInt(key.ToString());
     }
 
-    public void SetDisplayBadge(bool displayBadge)
+    public static void SetPrefs(Dictionary<SettingsKey, int> settings)
     {
-        Debug.Log($"Set DISPLAYBADGE to {displayBadge}");
-        PlayerPrefs.SetInt("DISPLAYBADGE", displayBadge ? 1 : 0);
+        foreach (KeyValuePair<SettingsKey, int> setting in settings)
+        {
+            SetPref(setting.Key, setting.Value);
+        }
     }
+}
 
-    public void SetRotateCamera(bool rotate)
-    {
-        Debug.Log($"Set ROTATECAMERA to {rotate}");
-        PlayerPrefs.SetInt("ROTATECAMERA", rotate ? 1 : 0);
-    }
+public enum SettingsKey
+{
+    CHEATMODE,
+    FASTMODE,
+    DISPLAYBADGES,
+    MOVECAMERA,
+    MASTERVOLUME,
+    MUSICVOLUME,
+    EFFECTSVOLUME,
 }

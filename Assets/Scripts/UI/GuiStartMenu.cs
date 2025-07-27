@@ -6,7 +6,7 @@ public class GuiStartMenu : MenuElement
 {
     public Button startButton;
 
-    public event Action OnStartButton; 
+    public Action OnStartButton; 
     void Start()
     {
         startButton.onClick.AddListener(() =>

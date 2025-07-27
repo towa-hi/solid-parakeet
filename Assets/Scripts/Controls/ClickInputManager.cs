@@ -21,7 +21,6 @@ public class ClickInputManager : MonoBehaviour
     public Action<Vector2Int, bool> OnMouseInput;
     //public Action<Vector2Int> OnClick;
 
-    BoardManager bm;
     void Awake()
     {
         layerPriorities = new()
@@ -34,10 +33,9 @@ public class ClickInputManager : MonoBehaviour
         };
     }
     
-    public void Initialize(BoardManager inBoardManager)
+    public void SetUpdating(bool inIsUpdating)
     {
-        bm = inBoardManager;
-        isUpdating = true;
+        isUpdating = inIsUpdating;
     }
     
     void Update()

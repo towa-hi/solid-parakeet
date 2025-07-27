@@ -5,7 +5,7 @@ using UnityEngine;
 public class AudioManager : MonoBehaviour
 {
     public AudioListener listener;
-
+    public AudioClip currentMusicClip;
     public AudioSource musicSource1;
     public AudioSource musicSource2;
     public AudioSource activeSource;
@@ -52,7 +52,12 @@ public class AudioManager : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException(nameof(trackName), trackName, null);
         }
-        StartCoroutine(FadeToNewTrack(clip, 2f));
+
+        if (clip != currentMusicClip)
+        {
+            StartCoroutine(FadeToNewTrack(clip, 2f));
+        }
+        clip = currentMusicClip;
     }
 
     IEnumerator FadeToNewTrack(AudioClip newClip, float duration)

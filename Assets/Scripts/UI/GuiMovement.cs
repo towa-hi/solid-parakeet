@@ -31,10 +31,9 @@ public class GuiMovement : GameElement
     public Action OnGraveyardButton;
     public Action OnRefreshButton;
     public Action<bool> OnAutoSubmitToggle;
-
     void Start()
     {
-        menuButton.onClick.AddListener(() => OnMenuButton?.Invoke());
+        menuButton.onClick.AddListener(HandleEscapeMenuButton);
         extraButton.onClick.AddListener(() => OnExtraButton?.Invoke());
         submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
         graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
@@ -164,5 +163,12 @@ public class GuiMovement : GameElement
         {
             statusText.text = setStatus;
         }
+    }
+    
+    
+    void HandleEscapeMenuButton()
+    {
+        AudioManager.instance.PlayMidButtonClick();
+        OnMenuButton?.Invoke();
     }
 }

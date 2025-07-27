@@ -27,7 +27,6 @@ public class GuiGame : MenuElement
         base.ShowElement(show);
         if (show)
         {
-            AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
             GameManager.instance.cameraManager.enableCameraMovement = true;
             GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
             setup.ShowElement(false);
