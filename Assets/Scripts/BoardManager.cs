@@ -94,8 +94,6 @@ public class BoardManager : MonoBehaviour
         {
             GameObject pawnObject = Instantiate(pawnPrefab, transform);
             PawnView pawnView = pawnObject.GetComponent<PawnView>();
-            Debug.Log(pawn.pos);
-            Debug.Log(tileViews[pawn.pos].posView);
             pawnView.Initialize(pawn, tileViews[pawn.pos]);
             pawnViews.Add(pawn.pawn_id, pawnView);
         }

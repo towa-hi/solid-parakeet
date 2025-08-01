@@ -6990,6 +6990,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   listener: {fileID: 1942059858}
+  currentMusicClip: {fileID: 0}
   musicSource1: {fileID: 775911718}
   musicSource2: {fileID: 1723325738}
   activeSource: {fileID: 0}
@@ -11027,6 +11028,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f8073f9701a79c4bb3af2b6e151548d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  initialized: 0
   purgatory: {fileID: 835277602}
   tilePrefab: {fileID: 8479329327937393150, guid: 78d00e7c8d847a14fbec45dab43e1bde, type: 3}
   pawnPrefab: {fileID: 6569549633362740824, guid: 601190ac36873374f89fa423ef86fe51, type: 3}

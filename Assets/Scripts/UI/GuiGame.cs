@@ -10,11 +10,28 @@ public class GuiGame : MenuElement
     public GuiMovement movement;
     
     public CameraAnchor boardAnchor;
+    bool isUpdating;
+
+    public event Action EscapePressed;
     
     void Start()
     {
         Debug.Log("GuiGame.Start()");
+        isUpdating = false;
     }
+
+    void Update()
+    {
+        if (!isUpdating) return;
+        if (!Application.isFocused) return;
+        bool pressed = Globals.InputActions.Game.Escape.WasPressedThisFrame();
+        if (pressed)
+        {
+            EscapePressed?.Invoke();
+        }
+    }
+    
+    
     
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
@@ -25,6 +42,7 @@ public class GuiGame : MenuElement
     public override void ShowElement(bool show)
     {
         base.ShowElement(show);
+        isUpdating = show;
         if (show)
         {
             GameManager.instance.cameraManager.enableCameraMovement = true;

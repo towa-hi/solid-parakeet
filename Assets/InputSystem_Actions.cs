@@ -560,6 +560,15 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Escape"",
+                    ""type"": ""Button"",
+                    ""id"": ""bdd3f17f-cb7a-4c32-982a-6d739f9474bd"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -615,6 +624,17 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": ""XR"",
                     ""action"": ""Click"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""658b8334-209e-4fcf-94aa-76de099e3565"",
+                    ""path"": ""<Keyboard>/escape"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Escape"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -700,6 +720,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Game = asset.FindActionMap("Game", throwIfNotFound: true);
         m_Game_PointerPosition = m_Game.FindAction("PointerPosition", throwIfNotFound: true);
         m_Game_Click = m_Game.FindAction("Click", throwIfNotFound: true);
+        m_Game_Escape = m_Game.FindAction("Escape", throwIfNotFound: true);
     }
 
     ~@InputSystem_Actions()
@@ -887,12 +908,14 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private List<IGameActions> m_GameActionsCallbackInterfaces = new List<IGameActions>();
     private readonly InputAction m_Game_PointerPosition;
     private readonly InputAction m_Game_Click;
+    private readonly InputAction m_Game_Escape;
     public struct GameActions
     {
         private @InputSystem_Actions m_Wrapper;
         public GameActions(@InputSystem_Actions wrapper) { m_Wrapper = wrapper; }
         public InputAction @PointerPosition => m_Wrapper.m_Game_PointerPosition;
         public InputAction @Click => m_Wrapper.m_Game_Click;
+        public InputAction @Escape => m_Wrapper.m_Game_Escape;
         public InputActionMap Get() { return m_Wrapper.m_Game; }
         public void Enable() { Get().Enable(); }
         public void Disable() { Get().Disable(); }
@@ -908,6 +931,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Click.started += instance.OnClick;
             @Click.performed += instance.OnClick;
             @Click.canceled += instance.OnClick;
+            @Escape.started += instance.OnEscape;
+            @Escape.performed += instance.OnEscape;
+            @Escape.canceled += instance.OnEscape;
         }
 
         private void UnregisterCallbacks(IGameActions instance)
@@ -918,6 +944,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Click.started -= instance.OnClick;
             @Click.performed -= instance.OnClick;
             @Click.canceled -= instance.OnClick;
+            @Escape.started -= instance.OnEscape;
+            @Escape.performed -= instance.OnEscape;
+            @Escape.canceled -= instance.OnEscape;
         }
 
         public void RemoveCallbacks(IGameActions instance)
@@ -997,5 +1026,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     {
         void OnPointerPosition(InputAction.CallbackContext context);
         void OnClick(InputAction.CallbackContext context);
+        void OnEscape(InputAction.CallbackContext context);
     }
 }

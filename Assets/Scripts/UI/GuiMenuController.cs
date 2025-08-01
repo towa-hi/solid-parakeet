@@ -57,12 +57,13 @@ public class GuiMenuController: MonoBehaviour
         walletElement.OnBackButton += GotoMainMenu;
 
         gameElement.movement.OnMenuButton = OpenEscapeModal;
-
+        gameElement.EscapePressed += OpenEscapeModal;
     }
 
     void OnNetworkStateUpdated()
     {
-        
+        Debug.Log("GuiMenuController OnNetworkStateUpdated");
+        currentElement?.Refresh();
     }
 
     public void Initialize()
@@ -103,7 +104,14 @@ public class GuiMenuController: MonoBehaviour
 
     void OpenEscapeModal()
     {
-        OpenModal(modalEscapePrefab);
+        if (modalStack.TryPeek(out ModalElement topModal))
+        {
+            CloseModal();
+        }
+        else
+        {
+            OpenModal(modalEscapePrefab);
+        }
     }
 
     void ResignGame()
