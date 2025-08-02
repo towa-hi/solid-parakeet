@@ -737,23 +737,30 @@ namespace Contract
             return pawn_id.Decode().Item1;
         }
 
-        public Rank? GetKnownRank()
+        public Rank? GetKnownRank(Team userTeam)
         {
-            if (rank is Rank knownRank)
+            if (GetTeam() == userTeam)
+            {
+                if (rank is Rank myTeamKnownRank)
+                {
+                    return myTeamKnownRank;
+                }
+                // own pawn rank being empty only happens in secure mode
+                if (CacheManager.GetHiddenRankAndProof(pawn_id) is CachedRankProof rankProof)
+                {
+                    return rankProof.hidden_rank.rank;
+                }
+            }
+            else if (zz_revealed && rank is Rank knownRank)
             {
                 return knownRank;
-            }
-
-            if (CacheManager.GetHiddenRankAndProof(pawn_id) is CachedRankProof rankProof)
-            {
-                return rankProof.hidden_rank.rank;
             }
             return null;
         }
         
-        public bool CanMove()
+        public bool CanMove(Team userTeam)
         {
-            if (alive && GetKnownRank() is Rank knownRank)
+            if (alive && GetKnownRank(userTeam) is Rank knownRank)
             {
                 if (knownRank != Rank.TRAP && knownRank != Rank.THRONE)
                 {

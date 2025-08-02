@@ -64,7 +64,7 @@ public class PawnView : MonoBehaviour
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
-            setRankView = pawn.GetKnownRank() ?? Rank.UNKNOWN;
+            setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
             setAlive = pawn.alive;
             if (setAlive.Value)
             {

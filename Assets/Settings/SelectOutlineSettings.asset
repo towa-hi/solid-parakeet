@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   injectionPoint: 450
   showInSceneView: 1
-  clearStencil: 0
-  debugStage: 0
   outlines:
   - {fileID: 6884994871569634814}
-  scaling: 0
-  width: 4
-  minWidth: 0
+  materialType: 0
+  customMaterial: {fileID: 0}
+  widthControl: 0
+  sharedWidth: 20
+  gap: 0
   blendMode: 0
   customDepthBuffer: 0
   occludedColor: {r: 1, g: 0, b: 0, a: 1}
@@ -36,15 +36,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8345be34a994929ba7ca6c0b1a5c5c7, type: 3}
   m_Name: Outline
   m_EditorClassIdentifier: 
-  material: {fileID: 0}
+  silhouetteMaterial: {fileID: 0}
+  silhouetteMaterialInstanced: {fileID: 0}
+  informationMaterial: {fileID: 0}
+  informationMaterialInstanced: {fileID: 0}
   isActive: 1
   customDepthEnabled: 0
+  disableWidthControl: 1
   RenderingLayer:
     serializedVersion: 0
     m_Bits: 256
+  layerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  renderQueue: 2
   occlusion: 2
+  cullingMode: 0
   closedLoop: 1
   alphaCutout: 0
   alphaCutoutTexture: {fileID: 0}
   alphaCutoutThreshold: 0.5
+  alphaCutoutUVTransform: {x: 0, y: 0, z: 0, w: 0}
+  gpuInstancing: 0
+  vertexAnimation: 0
   color: {r: 0, g: 1, b: 0.11251116, a: 1}
+  width: 20

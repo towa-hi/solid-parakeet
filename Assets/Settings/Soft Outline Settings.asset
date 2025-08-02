@@ -14,14 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   injectionPoint: 600
   showInSceneView: 1
-  clearStencil: 0
-  debugStage: 0
   outlines:
   - {fileID: 7467506834692079761}
   type: 0
   hardness: 1
-  color: {r: 0, g: 1, b: 0, a: 1}
+  sharedColor: {r: 0, g: 1, b: 0, a: 1}
   intensity: 1
+  gap: 0
   blendMode: 2
   dilationMethod: 0
   kernelSize: 20
@@ -43,14 +42,23 @@ MonoBehaviour:
   m_Name: Outline
   m_EditorClassIdentifier: 
   material: {fileID: 0}
+  materialInstanced: {fileID: 0}
   isActive: 1
   disableColor: 0
   RenderingLayer:
     serializedVersion: 0
     m_Bits: 256
+  layerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  renderQueue: 2
   occlusion: 2
+  cullingMode: 0
   closedLoop: 0
   alphaCutout: 0
   alphaCutoutTexture: {fileID: 0}
   alphaCutoutThreshold: 0.5
+  alphaCutoutUVTransform: {x: 0, y: 0, z: 0, w: 0}
+  gpuInstancing: 0
+  vertexAnimation: 0
   color: {r: 1, g: 0.9059249, b: 0, a: 1}
