@@ -174,8 +174,9 @@ public class HumanDebugNetworkInspector : MonoBehaviour
                 movedScout = pawn.moved_scout,
                 pawnID = pawn.pawn_id.Value,
                 pos = new SerializablePos { x = pawn.pos.x, y = pawn.pos.y },
-                rank = pawn.rank ?? (Rank)42069,
-                rankHasValue = pawn.rank.HasValue
+                rank = pawn.rank ?? Rank.UNKNOWN,
+                rankHasValue = pawn.rank.HasValue,
+                zz_revealed = pawn.zz_revealed,
             }).ToArray();
             
             // Convert UserSetups
@@ -272,7 +273,8 @@ public class SerializablePawnState
     public uint pawnID;
     public SerializablePos pos = new SerializablePos();
     public bool rankHasValue;
-    public Rank rank = (Rank)42069;
+    public Rank rank = (Rank)12;
+    public bool zz_revealed;
 }
 
 [Serializable]

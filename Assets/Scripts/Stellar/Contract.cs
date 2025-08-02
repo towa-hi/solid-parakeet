@@ -746,8 +746,10 @@ namespace Contract
                     return myTeamKnownRank;
                 }
                 // own pawn rank being empty only happens in secure mode
+                Debug.Log("GetKnownRank checking cache");
                 if (CacheManager.GetHiddenRankAndProof(pawn_id) is CachedRankProof rankProof)
                 {
+                    Debug.Log($"cached rank: {rankProof.hidden_rank.rank}");
                     return rankProof.hidden_rank.rank;
                 }
             }

@@ -28,6 +28,8 @@ public class PawnView : MonoBehaviour
     public Vector2Int posView;
     bool visible;
 
+    // debug
+    [SerializeField] SerializablePawnState debugPawnState;
     public void Initialize(PawnState pawn, TileView tileView)
     {
         // never changes
@@ -39,6 +41,18 @@ public class PawnView : MonoBehaviour
         rankView = Rank.UNKNOWN;
         posView = Vector2Int.zero;
         SetConstraintToTile(tileView);
+
+        debugPawnState = new SerializablePawnState()
+        {
+            alive = pawn.alive,
+            moved = pawn.moved,
+            movedScout = pawn.moved_scout,
+            pawnID = pawn.pawn_id.Value,
+            pos = new SerializablePos { x = pawn.pos.x, y = pawn.pos.y },
+            rank = pawn.rank ?? Rank.UNKNOWN,
+            rankHasValue = pawn.rank.HasValue,
+            zz_revealed = pawn.zz_revealed,
+        };
     }
 
 
@@ -103,6 +117,18 @@ public class PawnView : MonoBehaviour
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+            
+            debugPawnState = new SerializablePawnState()
+            {
+                alive = pawn.alive,
+                moved = pawn.moved,
+                movedScout = pawn.moved_scout,
+                pawnID = pawn.pawn_id.Value,
+                pos = new SerializablePos { x = pawn.pos.x, y = pawn.pos.y },
+                rank = pawn.rank ?? Rank.UNKNOWN,
+                rankHasValue = pawn.rank.HasValue,
+                zz_revealed = pawn.zz_revealed,
+            };
         }
         // for local changes
         foreach (GameOperation operation in changes.operations)
@@ -156,7 +182,6 @@ public class PawnView : MonoBehaviour
             posView = pos;
             DisplayPosView(tile);
         }
-        
     }
     
     void DisplayPosView(TileView tileView = null)

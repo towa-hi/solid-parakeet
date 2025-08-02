@@ -1942,7 +1942,7 @@ public struct GameNetworkState
         bool isHex = lobbyParameters.board.hex;
         Vector2Int[] initialDirections = Shared.GetDirections(pawn.pos, isHex);
         // if rank is unknown just return empty
-        if (pawn.rank is not Rank rank)
+        if (pawn.GetKnownRank(userTeam) is not Rank rank)
         {
             Debug.LogError("should not be calling GetValidMoveTargetList on a unknown rank pawn");
             return new();
