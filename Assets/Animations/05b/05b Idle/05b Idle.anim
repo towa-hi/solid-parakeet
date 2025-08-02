@@ -22,16 +22,16 @@ AnimationClip:
     curve:
     - time: 0
       value: {fileID: 21300000, guid: 058804092d5fb2344a08e7421968282f, type: 3}
-    - time: 0.8666667
+    - time: 0.033333335
       value: {fileID: 21300000, guid: 9b0b2076e892a7d4f83911ac1d002ebf, type: 3}
-    - time: 1.5
+    - time: 0.06666667
       value: {fileID: 21300000, guid: 3817b6bb51379f647b220979d75862f5, type: 3}
-    - time: 1.9666667
+    - time: 0.1
       value: {fileID: 21300000, guid: a089ed0b9bff4984f89908e47d56adfc, type: 3}
-    attribute: m_Sprite
+    attribute: currentSprite
     path: Model/Billboard/PawnSprite
-    classID: 212
-    script: {fileID: 0}
+    classID: 114
+    script: {fileID: 11500000, guid: c466be0df6cd09b42a289d4d00442295, type: 3}
     flags: 2
   m_SampleRate: 30
   m_WrapMode: 0
@@ -42,10 +42,10 @@ AnimationClip:
     genericBindings:
     - serializedVersion: 2
       path: 1298430420
-      attribute: 0
-      script: {fileID: 0}
-      typeID: 212
-      customType: 23
+      attribute: 479662384
+      script: {fileID: 11500000, guid: c466be0df6cd09b42a289d4d00442295, type: 3}
+      typeID: 114
+      customType: 0
       isPPtrCurve: 1
       isIntCurve: 0
       isSerializeReferenceCurve: 0
@@ -59,7 +59,7 @@ AnimationClip:
     m_AdditiveReferencePoseClip: {fileID: 0}
     m_AdditiveReferencePoseTime: 0
     m_StartTime: 0
-    m_StopTime: 2
+    m_StopTime: 0.13333334
     m_OrientationOffsetY: 0
     m_Level: 0
     m_CycleOffset: 0
