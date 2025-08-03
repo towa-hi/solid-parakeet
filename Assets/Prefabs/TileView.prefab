@@ -42,7 +42,7 @@ GameObject:
   - component: {fileID: 2889650082716426222}
   - component: {fileID: 2041168187664226138}
   m_Layer: 0
-  m_Name: TestTileView
+  m_Name: TileView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

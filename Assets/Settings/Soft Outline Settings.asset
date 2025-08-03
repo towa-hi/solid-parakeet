@@ -61,4 +61,4 @@ MonoBehaviour:
   alphaCutoutUVTransform: {x: 0, y: 0, z: 0, w: 0}
   gpuInstancing: 0
   vertexAnimation: 0
-  color: {r: 1, g: 0.9059249, b: 0, a: 1}
+  color: {r: 1, g: 0.9403075, b: 0, a: 1}

@@ -757,7 +757,7 @@ GameObject:
   - component: {fileID: 236010443059273928}
   - component: {fileID: 5543228733878367094}
   m_Layer: 0
-  m_Name: TestPawnView
+  m_Name: PawnView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
