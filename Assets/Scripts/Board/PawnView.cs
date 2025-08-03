@@ -160,6 +160,7 @@ public class PawnView : MonoBehaviour
                 rankHasValue = pawn.rank.HasValue,
                 zz_revealed = pawn.zz_revealed,
             };
+            setAnimatorIsSelected = false;
         }
         // for local changes
         foreach (GameOperation operation in changes.operations)

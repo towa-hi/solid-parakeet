@@ -91,6 +91,7 @@ public class GuiMenuController: MonoBehaviour
 
     async void GotoLobbyMaker()
     {
+        GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
         await StellarManager.UpdateState();
         ShowMenuElement(lobbyMakerElement);
     }
@@ -183,6 +184,7 @@ public class GuiMenuController: MonoBehaviour
         {
             GameManager.instance.boardManager.CloseBoardManager();
         }
+        GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_INNER, false);
         await StellarManager.UpdateState();
         ShowMenuElement(mainMenuElement);
     }
@@ -196,6 +198,7 @@ public class GuiMenuController: MonoBehaviour
     void GotoWallet()
     {
         ShowMenuElement(walletElement);
+        GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
     }
 
     void CheckAssets()
@@ -205,6 +208,7 @@ public class GuiMenuController: MonoBehaviour
     
     async void ViewLobby()
     {
+        GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
         await StellarManager.UpdateState();
         ShowMenuElement(lobbyViewerElement);
     }

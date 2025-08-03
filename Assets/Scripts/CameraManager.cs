@@ -6,14 +6,13 @@ using UnityEngine.Animations;
 
 public class CameraManager : MonoBehaviour
 {
-    public CameraAnchor startAnchor;
-    public CameraAnchor networkAnchor;
+    public CameraAnchor outsideAnchor;
+    public CameraAnchor lairOuterAnchor;
+    public CameraAnchor lairInnerAnchor;
+    public CameraAnchor lairAltarAnchor;
+    public CameraAnchor lairDungeonAnchor;
     public CameraAnchor boardAnchor;
-    public CameraAnchor gateAnchor;
-    public CameraAnchor lobbySetupAnchor;
-    public CameraAnchor lobbyAnchor;
-    public CameraAnchor settingsAnchor;
-    public CameraAnchor galleryAnchor;
+    
     public Camera mainCamera;
     public float baseTransitionDuration = 1.5f;
     public ParentConstraint parentConstraint;
@@ -30,9 +29,9 @@ public class CameraManager : MonoBehaviour
     
     public void Initialize()
     {
-        mainCamera.transform.position = startAnchor.GetPosition();
-        mainCamera.transform.rotation = startAnchor.GetQuaternion();
-        mainCamera.fieldOfView = startAnchor.fov;
+        mainCamera.transform.position = outsideAnchor.GetPosition();
+        mainCamera.transform.rotation = outsideAnchor.GetQuaternion();
+        mainCamera.fieldOfView = outsideAnchor.fov;
         originalOrientation = mainCamera.transform.rotation;
         Vector3 euler = originalOrientation.eulerAngles;
         //SetRotateOnMouse(PlayerPrefs.GetInt("ROTATECAMERA") == 1);
@@ -55,8 +54,18 @@ public class CameraManager : MonoBehaviour
     CameraAnchor currentTarget;
     public bool enableCameraMovement;
     
-    public void MoveCameraTo(CameraAnchor target, bool inRotateOnMouse)
+    public void MoveCameraTo(Area area, bool inRotateOnMouse)
     {
+        CameraAnchor target = area switch
+        {
+            Area.OUTSIDE => outsideAnchor,
+            Area.LAIR_OUTER => lairOuterAnchor,
+            Area.LAIR_INNER => lairInnerAnchor,
+            Area.LAIR_ALTAR => lairAltarAnchor,
+            Area.LAIR_DUNGEON => lairDungeonAnchor,
+            Area.BOARD => boardAnchor,
+            _ => throw new ArgumentOutOfRangeException(nameof(area), area, null)
+        };
         if (target.GetPosition() == mainCamera.transform.position)
         {
             Debug.Log("MoveCameraTo: already here");
@@ -158,4 +167,14 @@ public class CameraManager : MonoBehaviour
         return pointerPosition.x >= 0 && pointerPosition.x <= Screen.width &&
                pointerPosition.y >= 0 && pointerPosition.y <= Screen.height;
     }
+}
+
+public enum Area
+{
+    OUTSIDE,
+    LAIR_OUTER,
+    LAIR_INNER,
+    LAIR_ALTAR,
+    LAIR_DUNGEON,
+    BOARD,
 }

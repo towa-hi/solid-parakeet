@@ -46,7 +46,7 @@ public class GuiGame : MenuElement
         if (show)
         {
             GameManager.instance.cameraManager.enableCameraMovement = true;
-            GameManager.instance.cameraManager.MoveCameraTo(boardAnchor, false);
+            GameManager.instance.cameraManager.MoveCameraTo(Area.BOARD, false);
             setup.ShowElement(false);
             movement.ShowElement(false);
         }

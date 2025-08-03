@@ -64,15 +64,12 @@ public class GuiWallet : MenuElement
     {
         walletText.text = string.IsNullOrEmpty(WalletManager.address) ? "Not connected" : WalletManager.address;
         networkText.text = WalletManager.networkDetails == null ? "Not connected" : WalletManager.networkDetails.networkPassphrase;
-        if (accountEntry != null)
-        {
-            balanceText.text = accountEntry.balance.InnerValue.ToString() + " XLM";
-        }
         refreshButton.interactable = WalletManager.webGL;
         connectWalletButton.interactable = WalletManager.webGL;
         if (accountEntry != null)
         {
             statusText.text = "Freighter wallet connected!";
+            //balanceText.text = accountEntry.balance.InnerValue.ToString() + " XLM";
         }
         else
         {
