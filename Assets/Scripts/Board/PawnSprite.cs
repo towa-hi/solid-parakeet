@@ -47,7 +47,7 @@ public class PawnSprite : MonoBehaviour
         mesh.triangles = System.Array.ConvertAll(currentSprite.triangles, i => (int)i);
         mesh.uv        = currentSprite.uv;
         mesh.RecalculateBounds();
-
+        mesh.RecalculateNormals();
         mr.GetPropertyBlock(props);
         props.SetTexture(BaseTexture, currentSprite.texture);
         mr.SetPropertyBlock(props);

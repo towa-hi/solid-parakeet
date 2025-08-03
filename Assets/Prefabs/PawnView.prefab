@@ -30,7 +30,7 @@ Transform:
   m_GameObject: {fileID: 380051592765890922}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.32, z: 0.05}
+  m_LocalPosition: {x: 0, y: 0.4, z: 0.05}
   m_LocalScale: {x: 0.2, y: 0.2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -456,11 +456,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c466be0df6cd09b42a289d4d00442295, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentSprite: {fileID: 21300000, guid: b30da73a8ba1a45488f5edd75f16f9de, type: 3}
+  currentSprite: {fileID: 0}
   mf: {fileID: 5235799610913991527}
   mr: {fileID: 3836750072252311227}
   mesh: {fileID: 0}
-  last: {fileID: 21300000, guid: 38008ca078d700e4c864aef19483966a, type: 3}
+  last: {fileID: 0}
 --- !u!23 &3836750072252311227
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -481,7 +481,7 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
-  m_RenderingLayerMask: 385
+  m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: afb6c4753ee35e349921f35a7ac49ed6, type: 2}
@@ -598,7 +598,7 @@ Transform:
   m_GameObject: {fileID: 3667117983206892468}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.265, y: 0.285, z: -0.348}
+  m_LocalPosition: {x: 0.265, y: 0.285, z: -0.36}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -799,6 +799,17 @@ MonoBehaviour:
   startPos: {x: 0, y: 0}
   team: 0
   posView: {x: 0, y: 0}
+  debugPawnState:
+    alive: 0
+    moved: 0
+    movedScout: 0
+    pawnID: 0
+    pos:
+      x: 0
+      y: 0
+    rankHasValue: 0
+    rank: 12
+    zz_revealed: 0
 --- !u!1773428102 &6554624529676426233
 ParentConstraint:
   m_ObjectHideFlags: 0
@@ -861,7 +872,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   renderers:
-  - {fileID: 7182271131643982360}
   - {fileID: 3836750072252311227}
 --- !u!1 &7754084331963413363
 GameObject:
