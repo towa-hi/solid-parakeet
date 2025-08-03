@@ -58,8 +58,8 @@ public class GameManager : MonoBehaviour
     
     void Start()
     {
-        cameraManager.Initialize();
-        guiMenuController.Initialize();
+        cameraManager?.Initialize();
+        guiMenuController?.Initialize();
         Debug.Log("Enable input action");
         Globals.InputActions.Game.Enable();
     }

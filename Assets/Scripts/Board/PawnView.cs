@@ -8,6 +8,7 @@ using Random = UnityEngine.Random;
 
 public class PawnView : MonoBehaviour
 {
+    static readonly int animatorIsSelected = Animator.StringToHash("IsSelected");
     Billboard billboard;
 
     public Badge badge;
@@ -28,8 +29,37 @@ public class PawnView : MonoBehaviour
     public Vector2Int posView;
     bool visible;
 
+    public bool graphicsTest;
+
+    public Rank graphicsTestRank;
+
+    public Team graphicsTestTeam;
+
     // debug
     [SerializeField] SerializablePawnState debugPawnState;
+
+    void Start()
+    {
+        if (graphicsTest)
+        {
+            team = graphicsTestTeam;
+            DisplayRankView(graphicsTestRank);
+            model.SetActive(true);
+        }
+    }
+
+    void Update()
+    {
+        if (graphicsTest)
+        {
+            if (team != graphicsTestTeam || rankView != graphicsTestRank)
+            {
+                team = graphicsTestTeam;
+                rankView = graphicsTestRank;
+                DisplayRankView(graphicsTestRank);
+            }
+        }
+    }
     public void Initialize(PawnState pawn, TileView tileView)
     {
         // never changes
@@ -72,6 +102,7 @@ public class PawnView : MonoBehaviour
         bool? setAlive = null; // wether to display the pawn dead or alive 
         bool? setVisible = null; // wether to show the pawn regardless of aliveness
         Rank? setRankView = null; // wether to display rank regardless of revealed rank
+        bool? setAnimatorIsSelected = null;
         (Vector2Int, TileView)? setPosView = null;
         // figure out what to do based on what happened
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
@@ -154,6 +185,12 @@ public class PawnView : MonoBehaviour
                 case MoveHoverChanged moveHoverChanged:
                     break;
                 case MovePosSelected movePosSelected:
+                    bool shouldBeSelected = movePosSelected.newPos.HasValue && movePosSelected.newPos.Value == posView;
+                    if (shouldBeSelected != animator.GetBool(animatorIsSelected))
+                    {
+                        Debug.Log($"setAnimatorIsSelected {shouldBeSelected}");
+                        setAnimatorIsSelected = shouldBeSelected;
+                    }
                     break;
                 case MoveTargetSelected moveTargetSelected:
                     break;
@@ -181,6 +218,11 @@ public class PawnView : MonoBehaviour
             (Vector2Int pos, TileView tile) = setPosView.Value;
             posView = pos;
             DisplayPosView(tile);
+        }
+
+        if (setAnimatorIsSelected != null)
+        {
+            animator.SetBool(animatorIsSelected, setAnimatorIsSelected.Value);
         }
     }
     
