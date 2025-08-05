@@ -648,8 +648,12 @@ impl Contract {
     /// - `WrongPhase`: Invalid game state (Lobby, Finished, or Aborted)
     /// - `WrongSubphase`: Not opponent's turn (opponent must be required to act)
     pub fn redeem_win(e: &Env, address: Address, req: RedeemWinReq) -> Result<LobbyInfo, Error> {
+        address.require_auth();
         let temporary = e.storage().temporary();
-        let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
+        let mut lobby_info: LobbyInfo = match temporary.get(&DataKey::LobbyInfo(req.lobby_id)) {
+            Some(info) => info,
+            None => return Err(Error::NotFound),
+        };
         let time_limit_ledger_seq = match &lobby_info.phase {
             Phase::Lobby | Phase::Finished | Phase::Aborted => {
                 return Err(Error::WrongPhase)
