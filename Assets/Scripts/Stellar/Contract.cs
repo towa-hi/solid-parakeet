@@ -936,6 +936,7 @@ namespace Contract
         public AccountAddress? guest_address;
         public AccountAddress? host_address;
         public LobbyId index;
+        public uint last_edited_ledger_seq;
         public Phase phase;
         public Subphase subphase;
         public long liveUntilLedgerSeq;
@@ -949,6 +950,7 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("guest_address", guest_address),
                     SCUtility.FieldToSCMapEntry("host_address", host_address),
                     SCUtility.FieldToSCMapEntry("index", index),
+                    SCUtility.FieldToSCMapEntry("last_edited_ledger_seq", last_edited_ledger_seq),
                     SCUtility.FieldToSCMapEntry("phase", phase),
                     SCUtility.FieldToSCMapEntry("subphase", subphase),
                 }),

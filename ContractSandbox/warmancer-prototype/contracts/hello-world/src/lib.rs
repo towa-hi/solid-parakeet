@@ -156,6 +156,7 @@ pub struct LobbyInfo {
     pub guest_address: Vec<Address>,
     pub host_address: Vec<Address>,
     pub index: LobbyId,
+    pub last_edited_ledger_seq: u32,
     pub phase: Phase,
     pub subphase: Subphase,
 }
@@ -285,9 +286,10 @@ impl Contract {
         }
         // update
         let lobby_info = LobbyInfo {
-            index: req.lobby_id,
             guest_address: Vec::new(e),
             host_address: Vec::from_array(e, [address.clone()]),
+            index: req.lobby_id,
+            last_edited_ledger_seq: e.ledger().sequence(),
             phase: Phase::Lobby,
             subphase: Subphase::Guest,
         };
@@ -322,9 +324,10 @@ impl Contract {
             return Ok(())
         }
         let lobby_id = user.current_lobby;
-        let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(lobby_id)).unwrap_or_else(|| {
-            return Ok(())
-        });
+        let mut lobby_info: LobbyInfo = match temporary.get(&DataKey::LobbyInfo(lobby_id)) {
+            Some(info) => info,
+            None => return Ok(()),
+        };
         let original_phase = lobby_info.phase.clone();
         let user_index = Self::get_player_index(&address, &lobby_info);
         user.current_lobby = 0;
@@ -363,6 +366,7 @@ impl Contract {
         // save user (always clear their current_lobby)
         persistent.set(&user_key, &user);
         // always save lobby_info since we always clear the address
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(lobby_id), &lobby_info);
         Ok(())
     }
@@ -433,9 +437,10 @@ impl Contract {
         lobby_info.phase = Phase::SetupCommit;
         lobby_info.subphase = Subphase::Both;
         // save
-        persistent.set(&user_key, &user);
-        temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
+        temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        persistent.set(&user_key, &user);
         Ok(())
     }
     /// Submit Merkle root of all owned pawn rank HiddenRanks.
@@ -501,6 +506,7 @@ impl Contract {
         else {
             lobby_info.subphase = next_subphase;
         }
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(())
@@ -528,6 +534,7 @@ impl Contract {
             return Err(Error::WrongSecurityMode)
         }
         Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
@@ -540,6 +547,7 @@ impl Contract {
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
@@ -571,6 +579,7 @@ impl Contract {
             return Err(Error::WrongSecurityMode)
         }
         Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
@@ -589,6 +598,7 @@ impl Contract {
         if lobby_info.phase != Phase::Aborted {
             Self::prove_rank_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         }
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
@@ -619,32 +629,53 @@ impl Contract {
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         Self::prove_rank_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
     }
     /// Claim victory due to opponent timeout. WIP
     /// # Requirements
-    /// - Game is in progress
+    /// - Game is in progress (SetupCommit or later phases)
+    /// - Opponent must be the one required to act (subphase indicates opponent)
     /// # State Changes
-    /// **Result**: `Phase::Finished`, subphase = caller (caller wins)
+    /// **Result**: 
+    /// - During SetupCommit: `Phase::Aborted`, `Subphase::None` (game aborted, no winner)
+    /// - During game phases (MoveCommit/MoveProve/RankProve): `Phase::Finished`, subphase = caller (caller wins)
     ///
     /// # Errors
-    /// - `WrongPhase`: Invalid game state
+    /// - `InvalidArgs`: Called before phase time limit
+    /// - `WrongPhase`: Invalid game state (Lobby, Finished, or Aborted)
     /// - `WrongSubphase`: Not opponent's turn (opponent must be required to act)
     pub fn redeem_win(e: &Env, address: Address, req: RedeemWinReq) -> Result<LobbyInfo, Error> {
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
-        if [Phase::Lobby, Phase::SetupCommit, Phase::Finished, Phase::Aborted].contains(&lobby_info.phase) {
-            return Err(Error::WrongPhase)
-        }
+        let time_limit_ledger_seq = match &lobby_info.phase {
+            Phase::Lobby | Phase::Finished | Phase::Aborted => {
+                return Err(Error::WrongPhase)
+            }
+            Phase::SetupCommit => 100,
+            Phase::MoveCommit => 100,
+            Phase::MoveProve => 40,
+            Phase::RankProve => 40,
+        };
         let u_index = Self::get_player_index(&address, &lobby_info);
         if lobby_info.subphase != Self::opponent_subphase_from_player_index(u_index) {
             return Err(Error::WrongSubphase)
         }
-        // TODO: add a time limit check from the last time lobby_info got updated
-        lobby_info.phase = Phase::Finished;
-        lobby_info.subphase = Self::user_subphase_from_player_index(u_index);
+        // check if called too early
+        if e.ledger().sequence() < lobby_info.last_edited_ledger_seq + time_limit_ledger_seq {
+            return Err(Error::InvalidArgs)
+        }
+        // Handle SetupCommit differently - abort the game instead of declaring winner
+        if lobby_info.phase == Phase::SetupCommit {
+            lobby_info.phase = Phase::Aborted;
+            lobby_info.subphase = Subphase::None;
+        } else {
+            lobby_info.phase = Phase::Finished;
+            lobby_info.subphase = Self::user_subphase_from_player_index(u_index);
+        }
+        lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         Ok(lobby_info)
     }
