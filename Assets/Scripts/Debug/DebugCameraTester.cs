@@ -3,6 +3,7 @@ using UnityEngine.UI;
 
 public class DebugCameraTester : MonoBehaviour
 {
+    public Button boardAnchorButton;
     public Button startAnchorButton;
     public Button lairOuterAnchorButton;
     public Button lairInnerAnchorButton;
@@ -11,6 +12,10 @@ public class DebugCameraTester : MonoBehaviour
 
     void Start()
     {
+        boardAnchorButton.onClick.AddListener(() =>
+        {
+            GameManager.instance.cameraManager.MoveCameraTo(Area.BOARD, false);
+        });
         startAnchorButton.onClick.AddListener(() =>
         {
             GameManager.instance.cameraManager.MoveCameraTo(Area.OUTSIDE, false);
