@@ -22,19 +22,19 @@ AnimationClip:
     curve:
     - time: 0
       value: {fileID: 21300000, guid: d78cc46fb4c28fd4487f84d725665c94, type: 3}
-    - time: 0.083333336
-      value: {fileID: 21300000, guid: 57adb0ea07a5107498928484fbdf30f8, type: 3}
     - time: 0.16666667
-      value: {fileID: 21300000, guid: d6b7ff28404d4c24ab085144a9a5beda, type: 3}
-    - time: 0.25
-      value: {fileID: 21300000, guid: a55fa5d440273a249a67614cd3e6933d, type: 3}
+      value: {fileID: 21300000, guid: 57adb0ea07a5107498928484fbdf30f8, type: 3}
     - time: 0.33333334
-      value: {fileID: 21300000, guid: 81ff4c51add5c944a9c8f56f8b2ae0b1, type: 3}
-    - time: 0.41666666
-      value: {fileID: 21300000, guid: 4bea08023c7b5bc4a8c67bdc9d0bbf66, type: 3}
+      value: {fileID: 21300000, guid: d6b7ff28404d4c24ab085144a9a5beda, type: 3}
     - time: 0.5
+      value: {fileID: 21300000, guid: a55fa5d440273a249a67614cd3e6933d, type: 3}
+    - time: 0.6666667
+      value: {fileID: 21300000, guid: 81ff4c51add5c944a9c8f56f8b2ae0b1, type: 3}
+    - time: 0.8333333
+      value: {fileID: 21300000, guid: 4bea08023c7b5bc4a8c67bdc9d0bbf66, type: 3}
+    - time: 1
       value: {fileID: 21300000, guid: a04e8e60e336877409f952efc8faa61c, type: 3}
-    - time: 0.5833333
+    - time: 1.0833334
       value: {fileID: 21300000, guid: a04e8e60e336877409f952efc8faa61c, type: 3}
     attribute: currentSprite
     path: Model/Billboard/PawnSprite
@@ -71,7 +71,7 @@ AnimationClip:
     m_AdditiveReferencePoseClip: {fileID: 0}
     m_AdditiveReferencePoseTime: 0
     m_StartTime: 0
-    m_StopTime: 0.6666666
+    m_StopTime: 1.1666667
     m_OrientationOffsetY: 0
     m_Level: 0
     m_CycleOffset: 0
