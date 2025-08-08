@@ -172,6 +172,10 @@ pub struct CollisionDetection {
     pub h_collision_target: Option<PawnId>,
     pub h_pawn_id: Option<PawnId>,
 }
+pub struct Collision {
+    pub involved_pawns: Vec<PawnId>,
+    pub target_pos: Pos,
+}
 // // endregion
 // // region requests
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -434,7 +438,7 @@ impl Contract {
             moves: Self::create_empty_moves(e),
             pawns,
             rank_roots: Vec::from_array(e, [MerkleHash::from_array(e, &[0u8; 16]), MerkleHash::from_array(e, &[0u8; 16]),]),
-            turn: 0,
+            turn: 1, // turn has to start from 1
         };
         lobby_info.phase = Phase::SetupCommit;
         lobby_info.subphase = Subphase::Both;
@@ -693,6 +697,19 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             return Err(Error::WrongPhase)
         }
         let next_subphase = Self::next_subphase(&lobby_info.subphase, u_index)?;
+        // Validate move count based on blitz mode
+        let is_blitz = Self::is_blitz_turn(game_state, lobby_parameters);
+        if is_blitz {
+            // On blitz turns, allow up to blitz_max_simultaneous_moves
+            if req.move_hashes.len() == 0 || req.move_hashes.len() > lobby_parameters.blitz_max_simultaneous_moves {
+                return Err(Error::InvalidArgs)
+            }
+        } else {
+            // On regular turns, only allow exactly 1 move
+            if req.move_hashes.len() != 1 {
+                return Err(Error::InvalidArgs)
+            }
+        }
         let mut u_move = game_state.moves.get_unchecked(u_index.u32());
         // update
         u_move.move_hashes = req.move_hashes.clone();
@@ -1280,6 +1297,9 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
     }
     // endregion
     // region questions
+    pub(crate) fn is_blitz_turn(game_state: &GameState, lobby_parameters: &LobbyParameters) -> bool {
+        lobby_parameters.blitz_interval > 0 && game_state.turn % lobby_parameters.blitz_interval == 0
+    }
     pub(crate) fn get_neighbors(pos: &Pos, is_hex: bool, neighbors: &mut [Pos; 6]) {
         const UNUSED:Pos = Pos {x: -42069, y: -42069};
         // Initialize with sentinel values
