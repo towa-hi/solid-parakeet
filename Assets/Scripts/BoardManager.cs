@@ -52,23 +52,34 @@ public class BoardManager : MonoBehaviour
 
     public void CloseBoardManager()
     {
-        //StellarManager.OnNetworkStateUpdated -= OnNetworkStateUpdated;
+        // Stop polling immediately
+        PollForPhaseChange(false);
+        
+        // Unsubscribe from events
+        StellarManager.OnNetworkStateUpdated -= OnNetworkStateUpdated;
+        
+        // Cancel any pending tasks by clearing references
         updateNetworkStateTask = null;
         currentContractTask = null;
+        
+        // Clean up current phase
         currentPhase?.ExitState(clickInputManager, guiGame);
         currentPhase = null;
+        
         // Clear existing tileviews and replace
         foreach (TileView tile in tileViews.Values)
         {
             Destroy(tile.gameObject);
         }
         tileViews.Clear();
+        
         // Clear any existing pawnviews and replace
         foreach (PawnView pawnView in pawnViews.Values)
         {
             Destroy(pawnView.gameObject);
         }
         pawnViews.Clear();
+        
         clickInputManager.SetUpdating(false);
         initialized = false;
     }
@@ -104,6 +115,12 @@ public class BoardManager : MonoBehaviour
     void OnNetworkStateUpdated()
     {
         if (!initialized)
+        {
+            return;
+        }
+        
+        // Check if we're being destroyed or closed
+        if (!gameObject || !enabled)
         {
             return;
         }
@@ -188,6 +205,12 @@ public class BoardManager : MonoBehaviour
     // passed to currentPhase
     bool GetNetworkState()
     {
+        // Don't start new tasks if we're not initialized
+        if (!initialized)
+        {
+            return false;
+        }
+        
         if (updateNetworkStateTask != null && !updateNetworkStateTask.IsCompleted)
         {
             Debug.LogWarning("GetNetworkState already has a task in progress");
@@ -203,6 +226,12 @@ public class BoardManager : MonoBehaviour
     // passed to currentPhase
     bool CallContract(IReq req, [CanBeNull] IReq req2 = null)
     {
+        // Don't start new tasks if we're not initialized
+        if (!initialized)
+        {
+            return false;
+        }
+        
         if (currentContractTask != null && !currentContractTask.IsCompleted)
         {
             Debug.LogWarning("CallContract already has a task in progress");
@@ -265,14 +294,17 @@ public class BoardManager : MonoBehaviour
     
     IEnumerator PollCoroutine()
     {
-        while (polling)
+        while (polling && initialized)
         {
             yield return new WaitForSeconds(0.5f);
-            if (polling) // Check again in case it was stopped during the wait
+            if (polling && initialized) // Check again in case it was stopped during the wait
             {
                 GetNetworkState();
             }
         }
+        
+        // Clean up coroutine reference when done
+        pollingCoroutine = null;
     }
 }
 
