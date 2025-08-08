@@ -82,6 +82,7 @@ mod unit_tests {
         }
         LobbyParameters {
             blitz_interval: 0,
+            blitz_max_simultaneous_moves: 1,
             board: Board {
                 hex: false,
                 name: String::from_str(env, "Baseline"),

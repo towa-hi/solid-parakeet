@@ -559,6 +559,7 @@ pub fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
     
     LobbyParameters {
         blitz_interval: 0,
+        blitz_max_simultaneous_moves: 1,
         board_hash,
         board,
         dev_mode: true,
@@ -590,6 +591,7 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
     
     LobbyParameters {
         blitz_interval: 0,
+        blitz_max_simultaneous_moves: 1,
         board_hash,
         board,
         dev_mode: true,
@@ -611,6 +613,7 @@ pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
     
     LobbyParameters {
         blitz_interval: 0,
+        blitz_max_simultaneous_moves: 1,
         board_hash,
         board,
         dev_mode: false,
@@ -1318,6 +1321,7 @@ pub fn create_user_board_parameters(env: &Env) -> LobbyParameters {
 
     LobbyParameters {
         blitz_interval: 0,
+        blitz_max_simultaneous_moves: 1,
         board,
         board_hash: BytesN::from_array(env, &[0u8; 16]),
         dev_mode: false,

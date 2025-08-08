@@ -144,6 +144,7 @@ pub struct GameState {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyParameters {
     pub blitz_interval: u32,
+    pub blitz_max_simultaneous_moves: u32,
     pub board: Board,
     pub board_hash: BoardHash,
     pub dev_mode: bool,
@@ -1222,7 +1223,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         if let Some(rank) = pawn.rank.get(0) {
             // cond: pawn is not unmovable rank flag (0) or trap (11)
             if [0u32, 11u32].contains(&rank){
-                log!(e, "pawn is not unmovable rank flag (0) or trap (11) (pawnid, rank)", pawn.pawn_id, rank);
+                log!(e, "pawn is not unmovable rank flag (0) or trap (11) (pawnId, rank)", pawn.pawn_id, rank);
                 return false
             }
             // cond: if pawn not a scout (2) it cant move more than one neighboring tile
