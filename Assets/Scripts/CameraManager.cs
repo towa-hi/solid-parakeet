@@ -75,6 +75,7 @@ public class CameraManager : MonoBehaviour
         }
         currentTarget = target;
         SetRotateOnMouse(false);
+        parentConstraint.constraintActive = false;
         moveSettings.settings.duration = GetTransitionDuration();
         moveSettings.startValue = mainCamera.transform.position;
         moveSettings.endValue = target.GetPosition();
@@ -108,13 +109,12 @@ public class CameraManager : MonoBehaviour
     void OnTransitionFinished()
     {
         //GameManager.instance.guiManager.OnTransitionFinished();
-        if (currentTarget != null && currentTarget == boardAnchor)
+        if (currentTarget is CameraAnchor currentTargetValue)
         {
-            //GameManager.instance.boardManager.OnGameStartTransitionFinished();
-            if (enableCameraMovement)
+            SetRotateOnMouse(enableCameraMovement);
+            if (currentTargetValue == boardAnchor)
             {
-                parentConstraint.constraintActive = true;
-                SetRotateOnMouse(true);
+                parentConstraint.constraintActive = enableCameraMovement;
             }
         }
     }

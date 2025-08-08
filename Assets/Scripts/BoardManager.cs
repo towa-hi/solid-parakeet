@@ -44,7 +44,6 @@ public class BoardManager : MonoBehaviour
     
     public void StartBoardManager()
     {
-        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
         GameNetworkState netState = new(StellarManager.networkState);
         Initialize(netState);
         OnNetworkStateUpdated(); //only invoke this directly once on start
@@ -109,6 +108,9 @@ public class BoardManager : MonoBehaviour
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
         AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
+        
+        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        
         initialized = true;
     }
     
@@ -424,7 +426,7 @@ public class SetupCommitPhase : PhaseBase
             throw new InvalidOperationException("not my turn to act");
         }
         Dictionary<PawnId, Rank?> oldPendingCommits = new(pendingCommits);
-        foreach ((PawnId pawnId, Rank? _) in pendingCommits)
+        foreach (PawnId pawnId in pendingCommits.Keys.ToList())
         {
             pendingCommits[pawnId] = null;
         }
@@ -626,8 +628,9 @@ public class SetupCommitPhase : PhaseBase
 
 public class MoveCommitPhase: PhaseBase
 {
-    public Vector2Int? selectedPos = null;
-    public Vector2Int? targetPos = null;
+    public List<(Vector2Int, Vector2Int)> movePairs = new();
+    // public List<Vector2Int> selectedPos = new();
+    // public List<Vector2Int> targetPos = new();
     public MoveInputTool moveInputTool = MoveInputTool.NONE;
     public HashSet<Vector2Int> targetablePositions = new();
 
@@ -643,12 +646,15 @@ public class MoveCommitPhase: PhaseBase
         if (!cachedNetState.IsMySubphase())
         {
             // load cached data
-            byte[] moveHash = cachedNetState.GetUserMove().move_hash;
-            if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+            byte[][] moveHashes = cachedNetState.GetUserMove().move_hashes;
+            foreach (byte[] moveHash in moveHashes)
             {
-                selectedPos = hiddenMove.start_pos;
-                targetPos = hiddenMove.target_pos;
+                if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+                {
+                    movePairs.Add((hiddenMove.start_pos, hiddenMove.target_pos));
+                }
             }
+            
         }
     }
 
@@ -658,43 +664,50 @@ public class MoveCommitPhase: PhaseBase
         {
             throw new InvalidOperationException("not my turn to act");
         }
-        if (selectedPos is not Vector2Int selectedPosition)
+
+        if (movePairs.Count == 0)
         {
-            throw new InvalidOperationException("selectedPos must exist");
+            throw new InvalidOperationException("movePairs can't be empty");
         }
-        if (cachedNetState.GetAlivePawnFromPosChecked(selectedPosition) is not PawnState selectedPawn)
+
+        List<HiddenMove> hiddenMoves = new();
+        List<byte[]> hiddenMoveHashes = new();
+        foreach ((Vector2Int startPos, Vector2Int targetPos) in movePairs)
         {
-            throw new InvalidOperationException("selectedPawn must exist and be alive");
+            if (cachedNetState.GetAlivePawnFromPosChecked(startPos) is not PawnState selectedPawn)
+            {
+                throw new InvalidOperationException("selectedPawn must exist and be alive");
+            }
+            if (selectedPawn.GetTeam() != cachedNetState.userTeam)
+            {
+                throw new InvalidOperationException("selectedPawn team is invalid");
+            }
+            if (!cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id).Contains(targetPos))
+            {
+                throw new InvalidOperationException("targetpos is out of range");
+            }
+
+            HiddenMove hiddenMove = new HiddenMove()
+            {
+                pawn_id = selectedPawn.pawn_id,
+                salt = Globals.RandomSalt(),
+                start_pos = selectedPawn.pos,
+                target_pos = targetPos,
+            };
+            CacheManager.StoreHiddenMove(hiddenMove, cachedNetState.address, cachedNetState.lobbyInfo.index);
+            hiddenMoves.Add(hiddenMove);
+            hiddenMoveHashes.Add(SCUtility.Get16ByteHash(hiddenMove));
         }
-        if (targetPos is not Vector2Int targetPosition)
-        {
-            throw new InvalidOperationException("TargetPos must exist");
-        }
-        if (selectedPawn.GetTeam() != cachedNetState.userTeam)
-        {
-            throw new InvalidOperationException("selectedPawn team is invalid");
-        }
-        if (!cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id).Contains(targetPosition))
-        {
-            throw new InvalidOperationException("targetpos is out of range");
-        }
-        HiddenMove hiddenMove = new()
-        {
-            pawn_id = selectedPawn.pawn_id,
-            salt = Globals.RandomSalt(),
-            start_pos = selectedPawn.pos,
-            target_pos = targetPosition,
-        };
-        CacheManager.StoreHiddenMove(hiddenMove, cachedNetState.address, cachedNetState.lobbyInfo.index);
+        
         CommitMoveReq commitMoveReq = new()
         {
             lobby_id = cachedNetState.lobbyInfo.index,
-            move_hash = SCUtility.Get16ByteHash(hiddenMove),
+            move_hashes = hiddenMoveHashes.ToArray(),
         };
         ProveMoveReq proveMoveReq = new()
         {
             lobby_id = cachedNetState.lobbyInfo.index,
-            move_proof = hiddenMove,
+            move_proofs = hiddenMoves.ToArray(),
         };
         InvokeOnCallContract(commitMoveReq, proveMoveReq);
     }
@@ -800,8 +813,8 @@ public class MoveCommitPhase: PhaseBase
 
 public class MoveProvePhase: PhaseBase
 {
-    public Vector2Int? selectedPos = null;
-    public Vector2Int? targetPos = null;
+    public List<Vector2Int> selectedPos = null;
+    public List<Vector2Int> targetPos = null;
     
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -811,12 +824,16 @@ public class MoveProvePhase: PhaseBase
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
-        byte[] moveHash = cachedNetState.GetUserMove().move_hash;
-        if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+        byte[][] moveHashes = cachedNetState.GetUserMove().move_hashes;
+        foreach (byte[] moveHash in moveHashes)
         {
-            selectedPos = hiddenMove.start_pos;
-            targetPos = hiddenMove.target_pos;
+            if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+            {
+                selectedPos.Add(hiddenMove.start_pos);
+                targetPos.Add(hiddenMove.target_pos);
+            }
         }
+        
         AutomaticallySendMoveProof();
     }
     
@@ -827,15 +844,21 @@ public class MoveProvePhase: PhaseBase
             return;
         }
         Debug.Log("automatically send move proof");
-        byte[] moveHash = cachedNetState.GetUserMove().move_hash;
-        if (CacheManager.GetHiddenMove(moveHash) is not HiddenMove hiddenMove)
+        byte[][] moveHashes = cachedNetState.GetUserMove().move_hashes;
+        List<HiddenMove> moveProofs = new List<HiddenMove>();
+        foreach (byte[] moveHash in moveHashes)
         {
-            throw new Exception($"Could not find move with move hash {moveHash}");
+            if (CacheManager.GetHiddenMove(moveHash) is not HiddenMove hiddenMove)
+            {
+                throw new Exception($"Could not find move with move hash {moveHash}");
+            }
+            moveProofs.Add(hiddenMove);
         }
+        
         ProveMoveReq proveMoveReq = new()
         {
             lobby_id = cachedNetState.lobbyInfo.index,
-            move_proof = hiddenMove,
+            move_proofs = moveProofs.ToArray(),
         };
         InvokeOnCallContract(proveMoveReq, null);
     }
@@ -855,8 +878,8 @@ public class MoveProvePhase: PhaseBase
 
 public class RankProvePhase: PhaseBase
 {
-    public Vector2Int? selectedPos = null;
-    public Vector2Int? targetPos = null;
+    public List<Vector2Int> selectedPos = new();
+    public List<Vector2Int> targetPos = new();
     
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -866,10 +889,10 @@ public class RankProvePhase: PhaseBase
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
-        if (cachedNetState.GetUserMove().move_proof is HiddenMove hiddenMove)
+        foreach (HiddenMove hiddenMove in cachedNetState.GetUserMove().move_proofs)
         {
-            selectedPos = hiddenMove.start_pos;
-            targetPos = hiddenMove.target_pos;
+            selectedPos.Add(hiddenMove.start_pos);
+            targetPos.Add(hiddenMove.target_pos);
         }
         AutomaticallySendRankProof();
     }

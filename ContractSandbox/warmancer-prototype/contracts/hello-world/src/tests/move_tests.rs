@@ -23,13 +23,13 @@ fn test_commit_move_success_both_players() {
 
     let host_commit_req = CommitMoveReq {
         lobby_id,
-        move_hash: host_move_hash.clone(),
+        move_hashes: Vec::from_array(&setup.env, [host_move_hash.clone()]),
     };
     setup.client.commit_move(&host_address, &host_commit_req);
 
     let guest_commit_req = CommitMoveReq {
         lobby_id,
-        move_hash: guest_move_hash.clone(),
+        move_hashes: Vec::from_array(&setup.env, [guest_move_hash.clone()]),
     };
     setup.client.commit_move(&guest_address, &guest_commit_req);
 
@@ -44,8 +44,8 @@ fn test_commit_move_success_both_players() {
         let host_move = validation_snapshot.game_state.moves.get(0).unwrap();
         let guest_move = validation_snapshot.game_state.moves.get(1).unwrap();
 
-        assert_eq!(host_move.move_hash, host_move_hash);
-        assert_eq!(guest_move.move_hash, guest_move_hash);
+        assert_eq!(host_move.move_hashes.get(0).unwrap(), host_move_hash);
+        assert_eq!(guest_move.move_hashes.get(0).unwrap(), guest_move_hash);
     }
 }
 
@@ -58,7 +58,7 @@ fn test_commit_move_validation_errors() {
     let user_address = setup.generate_address();
     let commit_req = CommitMoveReq {
         lobby_id: 999,
-        move_hash: move_hash.clone(),
+        move_hashes: Vec::from_array(&setup.env, [move_hash.clone()]),
     };
 
     // Create a lobby and advance to move commit phase for further tests
@@ -68,7 +68,7 @@ fn test_commit_move_validation_errors() {
     let outsider_address = setup.generate_address();
     let commit_req = CommitMoveReq {
         lobby_id,
-        move_hash: move_hash.clone(),
+        move_hashes: Vec::from_array(&setup.env, [move_hash.clone()]),
     };
     let result = setup.client.try_commit_move(&outsider_address, &commit_req);
     //assert!(result.is_err(), "Should fail: not in lobby");
@@ -78,7 +78,7 @@ fn test_commit_move_validation_errors() {
 
     let commit_req = CommitMoveReq {
         lobby_id: wrong_phase_lobby_id,
-        move_hash: move_hash.clone(),
+        move_hashes: Vec::from_array(&setup.env, [move_hash.clone()]),
     };
     let result = setup.client.try_commit_move(&wrong_phase_host, &commit_req);
     assert!(result.is_err(), "Should fail: wrong phase");
@@ -90,14 +90,14 @@ fn test_commit_move_validation_errors() {
 
     let host_commit_req = CommitMoveReq {
         lobby_id,
-        move_hash: host_move_hash,
+        move_hashes: Vec::from_array(&setup.env, [host_move_hash]),
     };
     setup.client.commit_move(&host_address, &host_commit_req);
 
     let another_move_hash = create_test_move_hash(&setup.env, host_pawn_id, Pos { x: 0, y: 0 }, Pos { x: 1, y: 0 }, 67890);
     let another_commit_req = CommitMoveReq {
         lobby_id,
-        move_hash: another_move_hash,
+        move_hashes: Vec::from_array(&setup.env, [another_move_hash]),
     };
     let result = setup.client.try_commit_move(&host_address, &another_commit_req);
     assert!(result.is_err(), "Should fail: wrong subphase (already committed)");
@@ -109,7 +109,7 @@ fn test_commit_move_validation_errors() {
 
     let commit_req = CommitMoveReq {
         lobby_id: finished_lobby_id,
-        move_hash,
+        move_hashes: Vec::from_array(&setup.env, [move_hash]),
     };
     let result = setup.client.try_commit_move(&finished_guest, &commit_req);
     assert!(result.is_err(), "Should fail: game finished");
@@ -173,7 +173,7 @@ fn test_no_security_mode_basic_functionality() {
         HiddenMoveHash::from_array(&setup.env, &full_hash[0..16].try_into().unwrap())
     };
     // Check if host move succeeds
-    setup.client.commit_move_and_prove_move(&host, &CommitMoveReq { lobby_id, move_hash: host_move_hash }, &ProveMoveReq { lobby_id, move_proof: host_move });
+    setup.client.commit_move_and_prove_move(&host, &CommitMoveReq { lobby_id, move_hashes: Vec::from_array(&setup.env, [host_move_hash]) }, &ProveMoveReq { lobby_id, move_proofs: Vec::from_array(&setup.env, [host_move]) });
     let after_host_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
     if after_host_snapshot.phase == Phase::Aborted {
         // Game was aborted, probably due to invalid move
@@ -181,7 +181,7 @@ fn test_no_security_mode_basic_functionality() {
         return;
     }
     // Try guest move
-    let result = setup.client.try_commit_move_and_prove_move(&guest, &CommitMoveReq { lobby_id, move_hash: guest_move_hash }, &ProveMoveReq { lobby_id, move_proof: guest_move });
+    let result = setup.client.try_commit_move_and_prove_move(&guest, &CommitMoveReq { lobby_id, move_hashes: Vec::from_array(&setup.env, [guest_move_hash]) }, &ProveMoveReq { lobby_id, move_proofs: Vec::from_array(&setup.env, [guest_move]) });
     if result.is_err() {
         let final_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
         std::println!("Guest move failed, final phase: {:?}, subphase: {:?}", final_snapshot.phase, final_snapshot.subphase);
@@ -227,7 +227,7 @@ fn test_no_security_mode_forbidden_functions() {
     let fake_move_hash = BytesN::from_array(&setup.env, &[1u8; 16]);
     let result = setup.client.try_commit_move(&host, &CommitMoveReq {
         lobby_id,
-        move_hash: fake_move_hash,
+        move_hashes: Vec::from_array(&setup.env, [fake_move_hash]),
     });
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().unwrap(), Error::WrongSecurityMode);
@@ -239,7 +239,7 @@ fn test_no_security_mode_forbidden_functions() {
     };
     let result = setup.client.try_prove_move(&host, &ProveMoveReq {
         lobby_id,
-        move_proof: fake_move,
+        move_proofs: Vec::from_array(&setup.env, [fake_move]),
     });
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().unwrap(), Error::WrongSecurityMode);

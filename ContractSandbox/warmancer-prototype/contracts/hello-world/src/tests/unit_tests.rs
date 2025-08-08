@@ -81,6 +81,7 @@ mod unit_tests {
             packed_tiles.push_back(crate::test_utils::pack_tile(&tile));
         }
         LobbyParameters {
+            blitz_interval: 0,
             board: Board {
                 hex: false,
                 name: String::from_str(env, "Baseline"),

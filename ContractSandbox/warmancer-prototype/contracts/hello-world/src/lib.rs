@@ -130,8 +130,8 @@ pub struct PawnState {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserMove {
-    pub move_hash: HiddenMoveHash,
-    pub move_proof: Vec<HiddenMove>,
+    pub move_hashes: Vec<HiddenMoveHash>,
+    pub move_proofs: Vec<HiddenMove>,
     pub needed_rank_proofs: Vec<PawnId>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -143,6 +143,7 @@ pub struct GameState {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LobbyParameters {
+    pub blitz_interval: u32,
     pub board: Board,
     pub board_hash: BoardHash,
     pub dev_mode: bool,
@@ -190,12 +191,12 @@ pub struct CommitSetupReq {
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitMoveReq {
     pub lobby_id: LobbyId,
-    pub move_hash: HiddenMoveHash,
+    pub move_hashes: Vec<HiddenMoveHash>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProveMoveReq {
     pub lobby_id: LobbyId,
-    pub move_proof: HiddenMove,
+    pub move_proofs: Vec<HiddenMove>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProveRankReq {
@@ -693,7 +694,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         let next_subphase = Self::next_subphase(&lobby_info.subphase, u_index)?;
         let mut u_move = game_state.moves.get_unchecked(u_index.u32());
         // update
-        u_move.move_hash = req.move_hash.clone();
+        u_move.move_hashes = req.move_hashes.clone();
         if next_subphase == Subphase::None {
             if lobby_parameters.security_mode {
                 lobby_info.phase = Phase::MoveProve;
@@ -725,22 +726,33 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         // validate and update user move
         {
             let mut u_move = game_state.moves.get_unchecked(u_index.u32());
-            let serialized_move_proof = req.move_proof.clone().to_xdr(e);
-            let full_hash = e.crypto().sha256(&serialized_move_proof).to_bytes().to_array();
-            let submitted_hash = HiddenMoveHash::from_array(e, &full_hash[0..16].try_into().unwrap());
-            if u_move.move_hash != submitted_hash {
+            // Check that the number of proofs matches the number of hashes
+            if req.move_proofs.len() != u_move.move_hashes.len() {
                 return Err(Error::HashFail)
             }
+            // Validate each move proof against its corresponding hash
             let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
-            let u_move_valid = Self::validate_move_proof(e, &req.move_proof, u_index, &pawns_map, &lobby_parameters);
-            if !u_move_valid {
-                // immediately abort the game
-                lobby_info.phase = Phase::Aborted;
-                lobby_info.subphase = Self::opponent_subphase_from_player_index(u_index);
-                log!(e, "prove_move_internal: move not valid");
-                return Ok(())
+            let mut validated_proofs = Vec::new(e);
+            for i in 0..req.move_proofs.len() {
+                let move_proof = req.move_proofs.get_unchecked(i);
+                let expected_hash = u_move.move_hashes.get_unchecked(i);
+                let serialized_move_proof = move_proof.clone().to_xdr(e);
+                let full_hash = e.crypto().sha256(&serialized_move_proof).to_bytes().to_array();
+                let submitted_hash = HiddenMoveHash::from_array(e, &full_hash[0..16].try_into().unwrap());
+                if expected_hash != submitted_hash {
+                    return Err(Error::HashFail)
+                }
+                let u_move_valid = Self::validate_move_proof(e, &move_proof, u_index, &pawns_map, &lobby_parameters);
+                if !u_move_valid {
+                    // immediately abort the game
+                    lobby_info.phase = Phase::Aborted;
+                    lobby_info.subphase = Self::opponent_subphase_from_player_index(u_index);
+                    log!(e, "prove_move_internal: move not valid");
+                    return Ok(())
+                }
+                validated_proofs.push_back(move_proof);
             }
-            u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
+            u_move.move_proofs = validated_proofs;
             game_state.moves.set(u_index.u32(), u_move);
         }
         let next_subphase = if lobby_parameters.security_mode {
@@ -750,7 +762,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             // Check if both players have proved moves to determine if we're done
             let host_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
             let guest_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
-            if !host_move.move_proof.is_empty() && !guest_move.move_proof.is_empty() {
+            if !host_move.move_proofs.is_empty() && !guest_move.move_proofs.is_empty() {
                 Subphase::None // Both have proved, ready to resolve
             } else {
                 lobby_info.subphase.clone() // Not both proved yet, keep current subphase
@@ -880,8 +892,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         {
             // move_hash with all 8s and empty needed_rank_proofs signifies that simulate_collisions is being called too early
             return Ok(UserMove {
-                move_hash: HiddenRankHash::from_array(e, &[8u8; 16]),
-                move_proof: Vec::new(e),
+                move_hashes: Vec::from_array(e, [HiddenRankHash::from_array(e, &[8u8; 16])]),
+                move_proofs: Vec::new(e),
                 needed_rank_proofs: Vec::new(e),
             })
         }
@@ -892,7 +904,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         }
         // we don't bother to validate the move
         let mut u_move = game_state.moves.get_unchecked(u_index.u32());
-        u_move.move_proof = Vec::from_array(e, [req.move_proof.clone()]);
+        u_move.move_proofs = req.move_proofs.clone();
         game_state.moves.set(u_index.u32(), u_move.clone());
         let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
         let (_, h_needed_rank_proofs, g_needed_rank_proofs) = Self::detect_collisions_with_target_pos(e, &game_state, &pawns_map);
@@ -954,8 +966,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         if !h_move.needed_rank_proofs.is_empty() || !g_move.needed_rank_proofs.is_empty() {
             panic!()
         }
-        let h_move_proof = h_move.move_proof.get_unchecked(0);
-        let g_move_proof = g_move.move_proof.get_unchecked(0);
+        let h_move_proof = h_move.move_proofs.get_unchecked(0);
+        let g_move_proof = g_move.move_proofs.get_unchecked(0);
         let (h_pawn_index, mut h_pawn) = pawns_map.get_unchecked(h_move_proof.pawn_id);
         let (g_pawn_index, mut g_pawn) = pawns_map.get_unchecked(g_move_proof.pawn_id);
         // Now perform collision resolution using the updated game state
@@ -1308,8 +1320,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         let mut has_g_collision = false;
         let h_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
         let g_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
-        let h_move_proof = h_move.move_proof.get_unchecked(0);
-        let g_move_proof = g_move.move_proof.get_unchecked(0);
+        let h_move_proof = h_move.move_proofs.get_unchecked(0);
+        let g_move_proof = g_move.move_proofs.get_unchecked(0);
         let (_, h_pawn) = pawns_map.get_unchecked(h_move_proof.pawn_id);
         let (_, g_pawn) = pawns_map.get_unchecked(g_move_proof.pawn_id);
         let mut h_collision_target: Option<PawnId> = None;
@@ -1429,13 +1441,13 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
     pub(crate) fn create_empty_moves(e: &Env) -> Vec<UserMove> {
         Vec::from_array(e, [
             UserMove {
-                move_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
-                move_proof: Vec::new(e),
+                move_hashes: Vec::new(e),
+                move_proofs: Vec::new(e),
                 needed_rank_proofs: Vec::new(e),
             },
             UserMove {
-                move_hash: HiddenRankHash::from_array(e, &[0u8; 16]),
-                move_proof: Vec::new(e),
+                move_hashes: Vec::new(e),
+                move_proofs: Vec::new(e),
                 needed_rank_proofs: Vec::new(e),
             },
         ])

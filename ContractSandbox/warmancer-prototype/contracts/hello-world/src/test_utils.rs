@@ -3,6 +3,7 @@
 extern crate std;
 use super::*;
 use soroban_sdk::{Env, Address, Vec, Map};
+use crate::tests::test_utils::TestSetup;
 // region ANSI color codes
 
 // ANSI color codes for terminal output
@@ -557,6 +558,7 @@ pub fn create_test_lobby_parameters(env: &Env) -> LobbyParameters {
     let board = create_default_board(env);
     
     LobbyParameters {
+        blitz_interval: 0,
         board_hash,
         board,
         dev_mode: true,
@@ -587,6 +589,7 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
     };
     
     LobbyParameters {
+        blitz_interval: 0,
         board_hash,
         board,
         dev_mode: true,
@@ -607,6 +610,7 @@ pub fn create_full_stratego_board_parameters(env: &Env) -> LobbyParameters {
     board.name = String::from_str(env, "Full Stratego Board");
     
     LobbyParameters {
+        blitz_interval: 0,
         board_hash,
         board,
         dev_mode: false,
@@ -1070,8 +1074,16 @@ pub struct SnapshotPhase {
 pub struct SnapshotLobby {
     pub lobby_parameters: LobbyParameters,
     pub lobby_info: LobbyInfo,
-}
 
+}
+impl SnapshotLobby {
+    pub fn print_snapshot_info(&self, lobby_id: LobbyId, labels: &[&str]) {
+        let combined_label = labels.join("");
+        let host_address_string: bool = self.lobby_info.host_address.len() > 0;
+        let guest_address_string: bool = self.lobby_info.guest_address.len() > 0;
+        std::println!("{} = lobby_id: {} guest_address: {:?} host_address: {:?} phase: {:?} subphase: {:?}", combined_label, lobby_id, host_address_string, guest_address_string, self.lobby_info.phase, self.lobby_info.subphase);
+    }
+}
 /// Full snapshot of lobby state including parameters, info, and game state
 pub struct SnapshotFull {
     pub lobby_parameters: LobbyParameters,
@@ -1080,6 +1092,12 @@ pub struct SnapshotFull {
     pub pawns_map: Map<PawnId, (u32, PawnState)>,
 }
 
+impl SnapshotFull {
+    pub fn print_snapshot_info(&self, lobby_id: LobbyId, labels: &[&str]) {
+        let combined_label = labels.join("");
+        std::println!("{} = turn: {} phase: {:?} subphase: {:?}", combined_label, self.game_state.turn, self.lobby_info.phase, self.lobby_info.subphase);
+    }
+}
 /// Extract phase and subphase from storage for a given lobby
 pub fn extract_phase_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) -> SnapshotPhase {
     env.as_contract(contract_id, || {
@@ -1301,6 +1319,7 @@ pub fn create_user_board_parameters(env: &Env) -> LobbyParameters {
     };
 
     LobbyParameters {
+        blitz_interval: 0,
         board,
         board_hash: BytesN::from_array(env, &[0u8; 16]),
         dev_mode: false,

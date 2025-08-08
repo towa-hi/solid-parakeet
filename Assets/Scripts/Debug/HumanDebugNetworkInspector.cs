@@ -75,6 +75,7 @@ public class HumanDebugNetworkInspector : MonoBehaviour
             _user.currentLobbyHasValue = user.current_lobby != 0;
             _user.currentLobby = user.current_lobby;
             _user.gamesCompleted = user.games_completed;
+            _user.index = networkState.address;
         }
         else
         {

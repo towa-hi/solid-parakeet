@@ -849,8 +849,8 @@ namespace Contract
     [Serializable]
     public struct UserMove : IScvMapCompatable
     {
-        public byte[] move_hash; // is all zeros when empty
-        public HiddenMove? move_proof;
+        public byte[][] move_hashes; // is all zeros when empty
+        public HiddenMove[] move_proofs;
         public PawnId[] needed_rank_proofs;
 
         public SCVal.ScvMap ToScvMap()
@@ -859,8 +859,8 @@ namespace Contract
             {
                 map = new SCMap(new[]
                 {
-                    SCUtility.FieldToSCMapEntry("move_hash", move_hash),
-                    SCUtility.FieldToSCMapEntry("move_proof", move_proof),
+                    SCUtility.FieldToSCMapEntry("move_hashes", move_hashes),
+                    SCUtility.FieldToSCMapEntry("move_proofs", move_proofs),
                     SCUtility.FieldToSCMapEntry("needed_rank_proofs", needed_rank_proofs),
                 }),
             };
@@ -898,6 +898,7 @@ namespace Contract
     [Serializable]
     public struct LobbyParameters : IScvMapCompatable
     {
+        public uint blitz_interval;
         public Board board;
         public byte[] board_hash;
         public bool dev_mode;
@@ -913,6 +914,7 @@ namespace Contract
             {
                 map = new SCMap(new[]
                 {
+                    SCUtility.FieldToSCMapEntry("blitz_interval", blitz_interval),
                     SCUtility.FieldToSCMapEntry("board", board),
                     SCUtility.FieldToSCMapEntry("board_hash", board_hash),
                     SCUtility.FieldToSCMapEntry("dev_mode", dev_mode),
@@ -1032,7 +1034,7 @@ namespace Contract
     public struct CommitMoveReq : IScvMapCompatable, IReq
     {
         public LobbyId lobby_id { get; set; }
-        public byte[] move_hash;
+        public byte[][] move_hashes;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -1041,7 +1043,7 @@ namespace Contract
                 map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
-                    SCUtility.FieldToSCMapEntry("move_hash", move_hash),
+                    SCUtility.FieldToSCMapEntry("move_hashes", move_hashes),
                 }),
             };
         }
@@ -1051,7 +1053,7 @@ namespace Contract
     public struct ProveMoveReq : IScvMapCompatable, IReq
     {
         public LobbyId lobby_id { get; set; }
-        public HiddenMove move_proof;
+        public HiddenMove[] move_proofs;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -1060,7 +1062,7 @@ namespace Contract
                 map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
-                    SCUtility.FieldToSCMapEntry("move_proof", move_proof),
+                    SCUtility.FieldToSCMapEntry("move_proofs", move_proofs),
                 }),
             };
         }

@@ -100,12 +100,12 @@ fn test_move_to_enemy_occupied_tile() {
     
     setup.client.commit_move(&host_address, &CommitMoveReq {
         lobby_id,
-        move_hash: host_move_hash,
+        move_hashes: Vec::from_array(&setup.env, [host_move_hash]),
     });
     
     setup.client.commit_move(&guest_address, &CommitMoveReq {
         lobby_id,
-        move_hash: guest_move_hash,
+        move_hashes: Vec::from_array(&setup.env, [guest_move_hash]),
     });
     
     // Now prove moves - this replicates the exact scenario from weird.txt
@@ -114,7 +114,7 @@ fn test_move_to_enemy_occupied_tile() {
     // Host proves first
     let host_result = setup.client.try_prove_move(&host_address, &ProveMoveReq {
         lobby_id,
-        move_proof: host_move.clone(),
+        move_proofs: Vec::from_array(&setup.env, [host_move.clone()]),
     });
     
     if host_result.is_err() {
@@ -139,7 +139,7 @@ fn test_move_to_enemy_occupied_tile() {
     std::println!("\nGuest attempting to move from (5,5) to (4,4)...");
     let guest_result = setup.client.try_prove_move(&guest_address, &ProveMoveReq {
         lobby_id,
-        move_proof: guest_move.clone(),
+        move_proofs: Vec::from_array(&setup.env, [guest_move.clone()]),
     });
     
     // Check final state

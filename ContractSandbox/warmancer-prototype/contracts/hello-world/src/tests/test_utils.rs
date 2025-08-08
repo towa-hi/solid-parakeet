@@ -25,6 +25,60 @@ impl TestSetup {
             client,
         }
     }
+    pub fn join_lobby(&self, address: &Address, req: &JoinLobbyReq, labels: &[&str]) -> () {
+        let fn_name = ">join_lobby()";
+        let pre_snapshot = extract_lobby_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
+        self.client.join_lobby(address, &req);
+        let post_snapshot = extract_lobby_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+
+    }
+
+    pub fn commit_move(&self, address: &Address, req: &CommitMoveReq, labels: &[&str]) -> () {
+        let fn_name = ">commit_move()";
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
+        self.client.commit_move(address, &req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+    }
+
+    pub fn prove_move(&self, address: &Address, req: &ProveMoveReq, labels: &[&str]) -> () {
+        let fn_name = ">prove_move()";
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
+        self.client.prove_move(address, &req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+    }
+
+    pub fn prove_rank(&self, address: &Address, req: &ProveRankReq, labels: &[&str]) -> () {
+        let fn_name = ">prove_rank()";
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
+        self.client.prove_rank(address, &req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+    }
+
+    pub fn commit_move_and_prove_move(&self, address: &Address, commit_req: &CommitMoveReq, prove_req: &ProveMoveReq, labels: &[&str]) -> () {
+        let fn_name = ">commit_move_and_prove_move()";
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, commit_req.lobby_id);
+        pre_snapshot.print_snapshot_info(commit_req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
+        self.client.commit_move_and_prove_move(address, &commit_req, &prove_req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, commit_req.lobby_id);
+        post_snapshot.print_snapshot_info(commit_req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+    }
+
+    pub fn prove_move_and_prove_rank(&self, address: &Address, move_req: &ProveMoveReq, rank_req: &ProveRankReq, labels: &[&str]) -> () {
+        let fn_name = ">prove_move_and_prove_rank()";
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, move_req.lobby_id);
+        pre_snapshot.print_snapshot_info(move_req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
+        self.client.prove_move_and_prove_rank(address, &move_req, &rank_req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, move_req.lobby_id);
+        post_snapshot.print_snapshot_info(move_req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+    }
 
     pub fn is_user_conflict_error(error: &Error) -> bool {
         matches!(error,
@@ -373,13 +427,13 @@ pub fn validate_move_prove_transition(
     std::println!("=== POST-MOVEPROVE VALIDATION ===");
     std::println!("Phase: {:?}, Subphase: {:?}", snapshot.lobby_info.phase, snapshot.lobby_info.subphase);
     std::println!("✓ Host move submitted: {} from ({},{}) to ({},{})",
-                 host_move_req.move_proof.pawn_id,
-                 host_move_req.move_proof.start_pos.x, host_move_req.move_proof.start_pos.y,
-                 host_move_req.move_proof.target_pos.x, host_move_req.move_proof.target_pos.y);
+                 host_move_req.move_proofs.get(0).unwrap().pawn_id,
+                 host_move_req.move_proofs.get(0).unwrap().start_pos.x, host_move_req.move_proofs.get(0).unwrap().start_pos.y,
+                 host_move_req.move_proofs.get(0).unwrap().target_pos.x, host_move_req.move_proofs.get(0).unwrap().target_pos.y);
     std::println!("✓ Guest move submitted: {} from ({},{}) to ({},{})",
-                 guest_move_req.move_proof.pawn_id,
-                 guest_move_req.move_proof.start_pos.x, guest_move_req.move_proof.start_pos.y,
-                 guest_move_req.move_proof.target_pos.x, guest_move_req.move_proof.target_pos.y);
+                 guest_move_req.move_proofs.get(0).unwrap().pawn_id,
+                 guest_move_req.move_proofs.get(0).unwrap().start_pos.x, guest_move_req.move_proofs.get(0).unwrap().start_pos.y,
+                 guest_move_req.move_proofs.get(0).unwrap().target_pos.x, guest_move_req.move_proofs.get(0).unwrap().target_pos.y);
 
     assert!(snapshot.game_state.moves.len() >= 2, "Game state should have moves for both players");
     std::println!("✓ Move processing completed successfully");
