@@ -18,381 +18,6 @@ fn extend_lobby_ttl(setup: &TestSetup, lobby_id: u32) {
 
 // region integration tests
 
-#[test]
-fn test_full_stratego_game() {
-    let setup = TestSetup::new();
-
-    // Use helper function to set up lobby and advance to MoveCommit phase, getting ranks
-    let (lobby_id, host_address, guest_address, host_ranks, guest_ranks, host_merkle_proofs, guest_merkle_proofs) = setup_lobby_for_commit_move(&setup, 400);
-
-    // Verify we're in MoveCommit phase (helper function should guarantee this)
-    let initial_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    assert_eq!(initial_snapshot.phase, Phase::MoveCommit);
-    assert_eq!(initial_snapshot.subphase, Subphase::Both);
-
-    // Perform up to 50 moves or until no valid moves are possible
-    for move_number in 1..=100 {
-        std::println!("=== MOVE {} ===", move_number);
-
-        // Take fresh snapshot at start of each loop iteration
-        let loop_start_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        let current_phase = loop_start_snapshot.lobby_info.phase.clone();
-
-        match current_phase {
-            Phase::MoveCommit => {
-                std::println!("Phase: MoveCommit - Committing moves");
-                {
-                    std::println!("{}", format_board_with_colors_and_ranks(&setup.env, &loop_start_snapshot, Some(&host_ranks), Some(&guest_ranks)));
-                }
-                // Generate moves using current game state from snapshot
-                let host_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, &UserIndex::Host, &host_ranks, move_number as u64 * 1000 + 12345);
-                let guest_move_opt = generate_valid_move_req(&setup.env, &loop_start_snapshot.pawns_map, &loop_start_snapshot.lobby_parameters, &UserIndex::Guest, &guest_ranks, move_number as u64 * 1000 + 54321);
-                if host_move_opt.is_none() || guest_move_opt.is_none() {
-                    std::println!("No valid moves available for one or both players. Game ends at move {}", move_number);
-                    break;
-                }
-                let host_move_proof = host_move_opt.unwrap();
-                let guest_move_proof = guest_move_opt.unwrap();
-
-                let host_move_serialized = host_move_proof.clone().to_xdr(&setup.env);
-                let host_move_full_hash = setup.env.crypto().sha256(&host_move_serialized).to_bytes().to_array();
-                let host_move_hash = HiddenMoveHash::from_array(&setup.env, &host_move_full_hash[0..16].try_into().unwrap());
-                let guest_move_serialized = guest_move_proof.clone().to_xdr(&setup.env);
-                let guest_move_full_hash = setup.env.crypto().sha256(&guest_move_serialized).to_bytes().to_array();
-                let guest_move_hash = HiddenMoveHash::from_array(&setup.env, &guest_move_full_hash[0..16].try_into().unwrap());
-
-                let host_move_req = CommitMoveReq {
-                    move_hashes: Vec::from_array(&setup.env, [host_move_hash]),
-                    lobby_id,
-                };
-                let guest_move_req = CommitMoveReq {
-                    move_hashes: Vec::from_array(&setup.env, [guest_move_hash]),
-                    lobby_id,
-                };
-
-                // Debug: Print move details
-                std::println!("Host move: {:?}", host_move_proof);
-                std::println!("Guest move: {:?}", guest_move_proof);
-
-                // Commit both moves (state-changing operation)
-                setup.client.commit_move(&host_address, &host_move_req);
-                setup.client.commit_move(&guest_address, &guest_move_req);
-
-                // Take snapshot after committing moves to check new phase
-                let post_commit_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-                let current_phase_after_commit = post_commit_snapshot.phase.clone();
-
-                match current_phase_after_commit {
-                    Phase::MoveProve => {
-                        std::println!("Phase transitioned to MoveProve after commits - proving moves");
-
-                        let host_prove_move_req = ProveMoveReq {
-                            move_proofs: Vec::from_array(&setup.env, [host_move_proof]),
-                            lobby_id,
-                        };
-                        let guest_prove_move_req = ProveMoveReq {
-                            move_proofs: Vec::from_array(&setup.env, [guest_move_proof]),
-                            lobby_id,
-                        };
-
-                        // Prove both moves (state-changing operation)
-                        setup.client.prove_move(&host_address, &host_prove_move_req);
-                        setup.client.prove_move(&guest_address, &guest_prove_move_req);
-                    }
-                    _ => {
-                        std::println!("Unexpected phase after commit: {:?}", current_phase_after_commit);
-                    }
-                }
-            }
-
-            Phase::RankProve => {
-                std::println!("Phase: RankProve - Proving ranks");
-
-                // Get needed rank proofs from snapshot at this phase
-                let rank_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
-                let host_move_state = rank_snapshot.game_state.moves.get(UserIndex::Host.u32()).unwrap();
-                let guest_move_state = rank_snapshot.game_state.moves.get(UserIndex::Guest.u32()).unwrap();
-
-                let host_needed_ids = host_move_state.needed_rank_proofs.clone();
-                let guest_needed_ids = guest_move_state.needed_rank_proofs.clone();
-
-                std::println!("Host needs to prove {} ranks", host_needed_ids.len());
-                std::println!("Guest needs to prove {} ranks", guest_needed_ids.len());
-
-                // Provide host rank proofs if needed
-                if !host_needed_ids.is_empty() {
-                    let mut host_proof_ranks = Vec::new(&setup.env);
-                    let mut host_needed_merkle_proofs = Vec::new(&setup.env);
-
-                    for needed_id in host_needed_ids.iter() {
-                        for (i, rank) in host_ranks.iter().enumerate() {
-                            if rank.pawn_id == needed_id {
-                                host_proof_ranks.push_back(rank.clone());
-                                host_needed_merkle_proofs.push_back(host_merkle_proofs.get(i as u32).unwrap());
-                                std::println!("Found host pawn {} rank {}", rank.pawn_id, rank.rank);
-                                break;
-                            }
-                        }
-                    }
-
-                    // Prove host ranks (state-changing operation)
-                    setup.client.prove_rank(&host_address, &ProveRankReq {
-                        lobby_id,
-                        hidden_ranks: host_proof_ranks,
-                        merkle_proofs: host_needed_merkle_proofs,
-                    });
-                }
-
-                // Provide guest rank proofs if needed
-                if !guest_needed_ids.is_empty() {
-                    let mut guest_proof_ranks = Vec::new(&setup.env);
-                    let mut guest_needed_merkle_proofs = Vec::new(&setup.env);
-
-                    for needed_id in guest_needed_ids.iter() {
-                        for (i, rank) in guest_ranks.iter().enumerate() {
-                            if rank.pawn_id == needed_id {
-                                guest_proof_ranks.push_back(rank.clone());
-                                guest_needed_merkle_proofs.push_back(guest_merkle_proofs.get(i as u32).unwrap());
-                                std::println!("Found guest pawn {} rank {}", rank.pawn_id, rank.rank);
-                                break;
-                            }
-                        }
-                    }
-
-                    // Prove guest ranks (state-changing operation)
-                    setup.client.prove_rank(&guest_address, &ProveRankReq {
-                        lobby_id,
-                        hidden_ranks: guest_proof_ranks,
-                        merkle_proofs: guest_needed_merkle_proofs,
-                    });
-                }
-            }
-
-            Phase::Finished => {
-                std::println!("Game finished! Winner: {:?}", loop_start_snapshot.lobby_info.subphase);
-                break;
-            }
-
-            Phase::Aborted => {
-                std::println!("Game aborted!");
-                break;
-            }
-
-            _ => {
-                std::println!("Unexpected phase: {:?}", current_phase);
-                break;
-            }
-        }
-
-        // Check if game ended (using fresh snapshot)
-        let end_check_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-        if end_check_snapshot.phase == Phase::Finished || end_check_snapshot.phase == Phase::Aborted {
-            std::println!("Game ended at move {} with phase {:?}", move_number, end_check_snapshot.phase);
-            break;
-        }
-    }
-
-    // Take final snapshot
-    let final_snapshot = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_id);
-    std::println!("Final game phase: {:?}", final_snapshot.phase);
-}
-
-#[test]
-fn test_split_security_and_non_security_modes() {
-    let setup = TestSetup::new();
-    let lobby_secure = 499;
-    let lobby_insecure = 500;
-
-    let host_secure = setup.generate_address();
-    let guest_secure = setup.generate_address();
-    let host_insecure = setup.generate_address();
-    let guest_insecure = setup.generate_address();
-
-    // Create secure mode lobby (default parameters)
-    let secure_params = create_test_lobby_parameters(&setup.env);
-    setup.client.make_lobby(&host_secure, &MakeLobbyReq {
-        lobby_id: lobby_secure,
-        parameters: secure_params,
-    });
-
-    // Create insecure mode lobby
-    let mut insecure_params = create_test_lobby_parameters(&setup.env);
-    insecure_params.security_mode = false;
-    setup.client.make_lobby(&host_insecure, &MakeLobbyReq {
-        lobby_id: lobby_insecure,
-        parameters: insecure_params,
-    });
-
-    // Join lobbies
-    setup.client.join_lobby(&guest_secure, &JoinLobbyReq { lobby_id: lobby_secure });
-    setup.client.join_lobby(&guest_insecure, &JoinLobbyReq { lobby_id: lobby_insecure });
-
-    // Commit setups for both games
-    let (host_setup, host_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_secure, &UserIndex::Host)
-    });
-    let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
-        create_setup_commits_from_game_state(&setup.env, lobby_secure, &UserIndex::Guest)
-    });
-    let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
-    let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
-
-    // Commit setups for secure game
-    setup.client.commit_setup(&host_secure, &CommitSetupReq {
-        lobby_id: lobby_secure,
-        rank_commitment_root: host_root.clone(),
-        zz_hidden_ranks: Vec::new(&setup.env),
-    });
-    setup.client.commit_setup(&guest_secure, &CommitSetupReq {
-        lobby_id: lobby_secure,
-        rank_commitment_root: guest_root.clone(),
-        zz_hidden_ranks: Vec::new(&setup.env),
-    });
-
-    // Commit setups for insecure game (must provide hidden_ranks)
-    setup.client.commit_setup(&host_insecure, &CommitSetupReq {
-        lobby_id: lobby_insecure,
-        rank_commitment_root: host_root,
-        zz_hidden_ranks: host_hidden_ranks.clone(),
-    });
-    setup.client.commit_setup(&guest_insecure, &CommitSetupReq {
-        lobby_id: lobby_insecure,
-        rank_commitment_root: guest_root,
-        zz_hidden_ranks: guest_hidden_ranks.clone(),
-    });
-
-    // Test different move scenarios
-    for move_number in 1..=5 {
-        std::println!("=== MOVE {} ===", move_number);
-
-        // Generate valid moves for both games
-        let secure_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
-        let insecure_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_insecure);
-
-        let host_move = generate_valid_move_req(&setup.env, &secure_snapshot.pawns_map, &secure_snapshot.lobby_parameters, &UserIndex::Host, &host_hidden_ranks, move_number as u64 * 1000);
-        let guest_move = generate_valid_move_req(&setup.env, &secure_snapshot.pawns_map, &secure_snapshot.lobby_parameters, &UserIndex::Guest, &guest_hidden_ranks, move_number as u64 * 1000 + 1);
-
-        if host_move.is_none() || guest_move.is_none() {
-            std::println!("No valid moves available");
-            break;
-        }
-
-        let host_move_proof = host_move.unwrap();
-        let guest_move_proof = guest_move.unwrap();
-
-        // Hash moves
-        let host_serialized = host_move_proof.clone().to_xdr(&setup.env);
-        let host_hash_full = setup.env.crypto().sha256(&host_serialized).to_bytes().to_array();
-        let host_hash = HiddenMoveHash::from_array(&setup.env, &host_hash_full[0..16].try_into().unwrap());
-
-        let guest_serialized = guest_move_proof.clone().to_xdr(&setup.env);
-        let guest_hash_full = setup.env.crypto().sha256(&guest_serialized).to_bytes().to_array();
-        let guest_hash = HiddenMoveHash::from_array(&setup.env, &guest_hash_full[0..16].try_into().unwrap());
-
-        // Secure mode: commit then prove separately
-        setup.client.commit_move(&host_secure, &CommitMoveReq {
-            lobby_id: lobby_secure,
-            move_hashes: Vec::from_array(&setup.env, [host_hash.clone()]),
-        });
-        setup.client.commit_move(&guest_secure, &CommitMoveReq {
-            lobby_id: lobby_secure,
-            move_hashes: Vec::from_array(&setup.env, [guest_hash.clone()]),
-        });
-
-        setup.client.prove_move(&host_secure, &ProveMoveReq {
-            lobby_id: lobby_secure,
-            move_proofs: Vec::from_array(&setup.env, [host_move_proof.clone()]),
-        });
-        setup.client.prove_move(&guest_secure, &ProveMoveReq {
-            lobby_id: lobby_secure,
-            move_proofs: Vec::from_array(&setup.env, [guest_move_proof.clone()]),
-        });
-
-        // Insecure mode: commit and prove together
-        setup.client.commit_move_and_prove_move(&host_insecure, 
-            &CommitMoveReq {
-                lobby_id: lobby_insecure,
-                move_hashes: Vec::from_array(&setup.env, [host_hash]),
-            },
-            &ProveMoveReq {
-                lobby_id: lobby_insecure,
-                move_proofs: Vec::from_array(&setup.env, [host_move_proof]),
-            }
-        );
-        setup.client.commit_move_and_prove_move(&guest_insecure,
-            &CommitMoveReq {
-                lobby_id: lobby_insecure,
-                move_hashes: Vec::from_array(&setup.env, [guest_hash]),
-            },
-            &ProveMoveReq {
-                lobby_id: lobby_insecure,
-                move_proofs: Vec::from_array(&setup.env, [guest_move_proof]),
-            }
-        );
-
-        // Handle rank proofs if needed
-        let secure_after = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_secure);
-        let insecure_after = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_insecure);
-
-        if secure_after.phase == Phase::RankProve {
-            // Handle rank proofs for secure game
-            let rank_data = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_secure);
-            let host_needed = rank_data.game_state.moves.get(0).unwrap().needed_rank_proofs.clone();
-            let guest_needed = rank_data.game_state.moves.get(1).unwrap().needed_rank_proofs.clone();
-
-            if !host_needed.is_empty() {
-                let mut host_proof_ranks = Vec::new(&setup.env);
-                let mut host_needed_merkle = Vec::new(&setup.env);
-                for needed_id in host_needed.iter() {
-                    for (i, rank) in host_hidden_ranks.iter().enumerate() {
-                        if rank.pawn_id == needed_id {
-                            host_proof_ranks.push_back(rank.clone());
-                            host_needed_merkle.push_back(host_proofs.get(i as u32).unwrap());
-                        }
-                    }
-                }
-                setup.client.prove_rank(&host_secure, &ProveRankReq {
-                    lobby_id: lobby_secure,
-                    hidden_ranks: host_proof_ranks,
-                    merkle_proofs: host_needed_merkle,
-                });
-            }
-
-            if !guest_needed.is_empty() {
-                let mut guest_proof_ranks = Vec::new(&setup.env);
-                let mut guest_needed_merkle = Vec::new(&setup.env);
-                for needed_id in guest_needed.iter() {
-                    for (i, rank) in guest_hidden_ranks.iter().enumerate() {
-                        if rank.pawn_id == needed_id {
-                            guest_proof_ranks.push_back(rank.clone());
-                            guest_needed_merkle.push_back(guest_proofs.get(i as u32).unwrap());
-                        }
-                    }
-                }
-                setup.client.prove_rank(&guest_secure, &ProveRankReq {
-                    lobby_id: lobby_secure,
-                    hidden_ranks: guest_proof_ranks,
-                    merkle_proofs: guest_needed_merkle,
-                });
-            }
-        }
-
-        // Check if games ended
-        let secure_final = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_secure);
-        let insecure_final = extract_phase_snapshot(&setup.env, &setup.contract_id, lobby_insecure);
-
-        if secure_final.phase == Phase::Finished || secure_final.phase == Phase::Aborted {
-            std::println!("Secure game ended");
-        }
-        if insecure_final.phase == Phase::Finished || insecure_final.phase == Phase::Aborted {
-            std::println!("Insecure game ended");
-        }
-
-        // Both games should be in same phase
-        assert_eq!(secure_final.phase, insecure_final.phase, "Games diverged at move {}", move_number);
-    }
-}
-
 fn execute_commit_and_prove_atomic_pattern(
     setup: &TestSetup,
     host: &soroban_sdk::Address,
@@ -407,9 +32,10 @@ fn execute_commit_and_prove_atomic_pattern(
     guest_merkle_proofs: &Vec<MerkleProof>,
     host_label: &str,
     guest_label: &str,
-    labels: &[&str],
 ) {
     let fn_name = ">execute_commit_and_prove_atomic_pattern()";
+    let host_label = &[host_label, fn_name].concat();
+    let guest_label = &[guest_label, fn_name].concat();
     //only secure mode lobbies can do this
     let lobby_id = host_commit_req.lobby_id;
     let pre_turn_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
@@ -417,11 +43,11 @@ fn execute_commit_and_prove_atomic_pattern(
     assert_eq!(pre_turn_snapshot.lobby_info.phase, Phase::MoveCommit);
     assert_eq!(pre_turn_snapshot.lobby_info.subphase, Subphase::Both);
     // Step 1: Both players commit
-    setup.commit_move(host, host_commit_req, &[labels, &[fn_name, host_label]].concat());
-    setup.commit_move(guest, guest_commit_req, &[labels, &[fn_name, guest_label]].concat());
+    setup.commit_move(host, host_commit_req, host_label);
+    setup.commit_move(guest, guest_commit_req, guest_label);
     // Step 2: Both players prove
-    setup.prove_move(host, host_prove_req, &[fn_name, host_label]);
-    setup.prove_move(guest, guest_prove_req, &[fn_name, guest_label]);
+    setup.prove_move(host, host_prove_req, host_label);
+    setup.prove_move(guest, guest_prove_req, guest_label);
     // Step 3: Handle rank proofs if needed
     let post_prove_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
     if post_prove_snapshot.lobby_info.phase == Phase::RankProve {
@@ -448,7 +74,7 @@ fn execute_commit_and_prove_atomic_pattern(
                 hidden_ranks: host_proof_ranks.clone(),
                 merkle_proofs: host_needed_merkle.clone(),
             };
-            setup.prove_rank(host, &host_rank_proof_req, &[labels, &[fn_name, host_label]].concat());
+            setup.prove_rank(host, &host_rank_proof_req, host_label);
         }
         
         if !guest_needed.is_empty() {
@@ -467,7 +93,7 @@ fn execute_commit_and_prove_atomic_pattern(
                 hidden_ranks: guest_proof_ranks.clone(),
                 merkle_proofs: guest_needed_merkle.clone(),
             };
-            setup.prove_rank(guest, &guest_rank_proof_req, &[labels, &[fn_name, guest_label]].concat());
+            setup.prove_rank(guest, &guest_rank_proof_req, guest_label);
         }
     }
     
@@ -494,19 +120,19 @@ fn execute_commit_and_prove_batch_pattern(
     second_merkle_proofs: &Vec<MerkleProof>,
     first_label: &str,
     second_label: &str,
-    labels: &[&str],
 ) {
     let fn_name = ">execute_commit_and_prove_batch_pattern()";
+    let first_label = &[first_label, fn_name].concat();
+    let second_label = &[second_label, fn_name].concat();
     let lobby_id = first_prove_req.lobby_id;
     // Step 1: First player commits
-    setup.commit_move(first_player, first_commit_req, &[fn_name, first_label]);
+    setup.commit_move(first_player, first_commit_req, first_label);
     
     // Step 2: Second player commits and proves
-    setup.commit_move_and_prove_move(second_player, second_commit_req, second_prove_req, &[fn_name, second_label]);
+    setup.commit_move_and_prove_move(second_player, second_commit_req, second_prove_req, second_label);
     
     // Step 3: First player checks simulation to decide whether to use prove_move or prove_move_and_prove_rank
-    std::println!("{} simulate_collisions", first_label);
-    let first_simulation_result = setup.client.simulate_collisions(first_player, first_prove_req);
+    let first_simulation_result = setup.simulate_collisions(first_player, first_prove_req, first_label);
     let first_needs_rank_proofs = !first_simulation_result.needed_rank_proofs.is_empty();
     
     if first_needs_rank_proofs {
@@ -531,10 +157,10 @@ fn execute_commit_and_prove_batch_pattern(
         };
         
         // Use prove_move_and_prove_rank
-        setup.prove_move_and_prove_rank(first_player, first_prove_req, &first_rank_proof_req, &[fn_name, first_label]);
+        setup.prove_move_and_prove_rank(first_player, first_prove_req, &first_rank_proof_req, first_label);
     } else {
         // Just prove move
-        setup.prove_move(first_player, first_prove_req, &[fn_name, first_label]);
+        setup.prove_move(first_player, first_prove_req, first_label);
     }
     
     // Step 4: Second player reads state to see if they need to prove_rank
@@ -566,7 +192,7 @@ fn execute_commit_and_prove_batch_pattern(
                 merkle_proofs: second_needed_merkle,
             };
             
-            setup.prove_rank(second_player, &second_rank_proof_req, &[fn_name, second_label]);
+            setup.prove_rank(second_player, &second_rank_proof_req, second_label);
         }
     }
     
@@ -588,48 +214,48 @@ fn execute_insecure_batch_pattern(
     second_prove_req: &ProveMoveReq,
     first_label: &str,
     second_label: &str,
-    labels: &[&str],
 ) {
     let fn_name = ">execute_insecure_batch_pattern";
-    setup.commit_move_and_prove_move(first_player, first_commit_req, first_prove_req, &[fn_name, first_label]);
-    setup.commit_move_and_prove_move(second_player, second_commit_req, second_prove_req, &[fn_name, second_label]);
+    let first_label = &[first_label, fn_name].concat();
+    let second_label = &[second_label, fn_name].concat();
+    setup.commit_move_and_prove_move(first_player, first_commit_req, first_prove_req, first_label);
+    setup.commit_move_and_prove_move(second_player, second_commit_req, second_prove_req, second_label);
 
 }
 #[test]
 fn test_compare_move_submission_methods() {
     let fn_name = ">test_compare_move_submission_methods()";
+    let host_secure_label = "secure host";
+    let guest_secure_label = "secure guest";
+    let host_insecure_label = "insecure host";
+    let guest_insecure_label = "insecure guest";
     let setup = TestSetup::new();
-    
+    // made up lobby ids
     let lobby_secure = 301;
     let lobby_insecure = 302;
-    
+    // four unique addresses
     let host_secure = setup.generate_address();
     let guest_secure = setup.generate_address();  
     let host_insecure = setup.generate_address();
     let guest_insecure = setup.generate_address();
-    
-    // Create secure mode lobby
+    // Create identical lobby params but one has security mode false
     let secure_params = create_test_lobby_parameters(&setup.env);
-    let make_req_secure = MakeLobbyReq {
-        lobby_id: lobby_secure,
-        parameters: secure_params,
-    };
-    setup.client.make_lobby(&host_secure, &make_req_secure);
-    
-    // Create insecure mode lobby
     let mut insecure_params = create_test_lobby_parameters(&setup.env);
     insecure_params.security_mode = false;
-    let make_req_insecure = MakeLobbyReq {
+    setup.make_lobby(&host_secure, &MakeLobbyReq {
+        lobby_id: lobby_secure,
+        parameters: secure_params,
+    }, host_secure_label);
+    setup.make_lobby(&host_insecure, &MakeLobbyReq {
         lobby_id: lobby_insecure,
         parameters: insecure_params,
-    };
-    setup.client.make_lobby(&host_insecure, &make_req_insecure);
+    }, host_insecure_label);
     
     // Join lobbies
     let join_req_secure = JoinLobbyReq {
         lobby_id: lobby_secure,
     };
-    setup.join_lobby(&guest_secure, &join_req_secure, &[fn_name, "-secure guest"]);
+    setup.join_lobby(&guest_secure, &join_req_secure, guest_secure_label);
     
     let join_req_insecure = JoinLobbyReq {
         lobby_id: lobby_insecure,
@@ -643,40 +269,32 @@ fn test_compare_move_submission_methods() {
     let (guest_setup, guest_hidden_ranks) = setup.env.as_contract(&setup.contract_id, || {
         create_setup_commits_from_game_state(&setup.env, lobby_secure, &UserIndex::Guest)
     });
-    // for host_hidden_rank in host_hidden_ranks.clone() {
-    //     std::println!("host pawnid: {} rank: {}", host_hidden_rank.pawn_id, host_hidden_rank.rank);
-    // }
-    // for guest_hidden_rank in guest_hidden_ranks.clone() {
-    //     std::println!("guest pawnid: {} rank: {}", guest_hidden_rank.pawn_id, guest_hidden_rank.rank);
-    // }
     let (host_root, host_proofs) = get_merkel(&setup.env, &host_setup, &host_hidden_ranks);
     let (guest_root, guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_hidden_ranks);
     
     // Commit setups for secure game
-    std::println!("host committing setup");
-    setup.client.commit_setup(&host_secure, &CommitSetupReq {
+    setup.commit_setup(&host_secure, &CommitSetupReq {
         lobby_id: lobby_secure,
         rank_commitment_root: host_root.clone(),
         zz_hidden_ranks: Vec::new(&setup.env),
-    });
-    std::println!("guest committing setup");
-    setup.client.commit_setup(&guest_secure, &CommitSetupReq {
+    }, host_secure_label);
+    setup.commit_setup(&guest_secure, &CommitSetupReq {
         lobby_id: lobby_secure,
         rank_commitment_root: guest_root.clone(),
         zz_hidden_ranks: Vec::new(&setup.env),
-    });
+    }, guest_secure_label);
     
     // Commit setups for insecure game (must provide hidden_ranks)
-    setup.client.commit_setup(&host_insecure, &CommitSetupReq {
+    setup.commit_setup(&host_insecure, &CommitSetupReq {
         lobby_id: lobby_insecure,
         rank_commitment_root: host_root,
         zz_hidden_ranks: host_hidden_ranks.clone(), // In insecure mode, provide actual ranks
-    });
-    setup.client.commit_setup(&guest_insecure, &CommitSetupReq {
+    }, host_insecure_label);
+    setup.commit_setup(&guest_insecure, &CommitSetupReq {
         lobby_id: lobby_insecure,
         rank_commitment_root: guest_root,
         zz_hidden_ranks: guest_hidden_ranks.clone(), // In insecure mode, provide actual ranks
-    });
+    }, guest_insecure_label);
     
     // Test different move submission methods
     for move_number in 1..=100 {
@@ -720,9 +338,8 @@ fn test_compare_move_submission_methods() {
                         &guest_hidden_ranks,
                         &host_proofs,
                         &guest_proofs,
-                        "-secure host",
-                        "-secure guest",
-                        &[fn_name],
+                        host_secure_label,
+                        guest_secure_label,
                     );
                 }
                 1 => {
@@ -739,9 +356,8 @@ fn test_compare_move_submission_methods() {
                         &guest_hidden_ranks,
                         &host_proofs,
                         &guest_proofs,
-                        "-secure host",
-                        "-secure guest",
-                        &[fn_name],
+                        host_secure_label,
+                        guest_secure_label,
                     );
                 }
                 2 => {
@@ -758,9 +374,8 @@ fn test_compare_move_submission_methods() {
                         &host_hidden_ranks,
                         &guest_proofs,
                         &host_proofs,
-                        "-secure host",
-                        "-secure guest",
-                        &[fn_name],
+                        host_secure_label,
+                        guest_secure_label,
                     );
                 }
                 _ => unreachable!(),
@@ -780,9 +395,8 @@ fn test_compare_move_submission_methods() {
                 &guest_insecure_commit_move_req,
                 &host_insecure_prove_move_req,
                 &guest_insecure_prove_move_req,
-                "-insecure host",
-                "-insecure guest",
-                &[fn_name],
+                host_insecure_label,
+                guest_insecure_label,
             );
         }
 

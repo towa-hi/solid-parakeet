@@ -1077,11 +1077,10 @@ pub struct SnapshotLobby {
 
 }
 impl SnapshotLobby {
-    pub fn print_snapshot_info(&self, lobby_id: LobbyId, labels: &[&str]) {
-        let combined_label = labels.join("");
+    pub fn print_snapshot_info(&self, lobby_id: LobbyId, label: &str) {
         let host_address_string: bool = self.lobby_info.host_address.len() > 0;
         let guest_address_string: bool = self.lobby_info.guest_address.len() > 0;
-        std::println!("{} = lobby_id: {} guest_address: {:?} host_address: {:?} phase: {:?} subphase: {:?}", combined_label, lobby_id, host_address_string, guest_address_string, self.lobby_info.phase, self.lobby_info.subphase);
+        std::println!("{} = lobby_id: {} guest_address: {:?} host_address: {:?} phase: {:?} subphase: {:?}", label, lobby_id, host_address_string, guest_address_string, self.lobby_info.phase, self.lobby_info.subphase);
     }
 }
 /// Full snapshot of lobby state including parameters, info, and game state
@@ -1093,9 +1092,8 @@ pub struct SnapshotFull {
 }
 
 impl SnapshotFull {
-    pub fn print_snapshot_info(&self, lobby_id: LobbyId, labels: &[&str]) {
-        let combined_label = labels.join("");
-        std::println!("{} = turn: {} phase: {:?} subphase: {:?}", combined_label, self.game_state.turn, self.lobby_info.phase, self.lobby_info.subphase);
+    pub fn print_snapshot_info(&self, lobby_id: LobbyId, label: &str) {
+        std::println!("{} = turn: {} phase: {:?} subphase: {:?}", label, self.game_state.turn, self.lobby_info.phase, self.lobby_info.subphase);
     }
 }
 /// Extract phase and subphase from storage for a given lobby

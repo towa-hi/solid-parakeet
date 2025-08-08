@@ -25,61 +25,102 @@ impl TestSetup {
             client,
         }
     }
-    pub fn join_lobby(&self, address: &Address, req: &JoinLobbyReq, labels: &[&str]) -> () {
-        let fn_name = ">join_lobby()";
-        let pre_snapshot = extract_lobby_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
-        self.client.join_lobby(address, &req);
+    pub fn make_lobby(&self, address: &Address, req: &MakeLobbyReq, label: &str) -> () {
+        let fn_name = ">make_lobby()";
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
+        std::println!("{} = A lobby will be made, security_mode {} host team {}", pre_label, req.parameters.security_mode, req.parameters.host_team);
+        self.client.make_lobby(address, req);
         let post_snapshot = extract_lobby_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
+    }
+    pub fn join_lobby(&self, address: &Address, req: &JoinLobbyReq, label: &str) -> () {
+        let fn_name = ">join_lobby()";
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
+        let pre_snapshot = extract_lobby_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        self.client.join_lobby(address, req);
+        let post_snapshot = extract_lobby_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
+    }
+    pub fn commit_setup(&self, address: &Address, req: &CommitSetupReq, label: &str) -> () {
+        let fn_name = ">commit_setup()";
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        self.client.commit_setup(address, req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
 
     }
-
-    pub fn commit_move(&self, address: &Address, req: &CommitMoveReq, labels: &[&str]) -> () {
+    pub fn commit_move(&self, address: &Address, req: &CommitMoveReq, label: &str) -> () {
         let fn_name = ">commit_move()";
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
         let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
-        self.client.commit_move(address, &req);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        self.client.commit_move(address, req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
     }
 
-    pub fn prove_move(&self, address: &Address, req: &ProveMoveReq, labels: &[&str]) -> () {
+    pub fn prove_move(&self, address: &Address, req: &ProveMoveReq, label: &str) -> () {
         let fn_name = ">prove_move()";
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
         let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
-        self.client.prove_move(address, &req);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        self.client.prove_move(address, req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
     }
 
-    pub fn prove_rank(&self, address: &Address, req: &ProveRankReq, labels: &[&str]) -> () {
+    pub fn prove_rank(&self, address: &Address, req: &ProveRankReq, label: &str) -> () {
         let fn_name = ">prove_rank()";
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
         let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        pre_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
-        self.client.prove_rank(address, &req);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        self.client.prove_rank(address, req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
-        post_snapshot.print_snapshot_info(req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
     }
 
-    pub fn commit_move_and_prove_move(&self, address: &Address, commit_req: &CommitMoveReq, prove_req: &ProveMoveReq, labels: &[&str]) -> () {
+    pub fn commit_move_and_prove_move(&self, address: &Address, req: &CommitMoveReq, prove_req: &ProveMoveReq, label: &str) -> () {
         let fn_name = ">commit_move_and_prove_move()";
-        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, commit_req.lobby_id);
-        pre_snapshot.print_snapshot_info(commit_req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
-        self.client.commit_move_and_prove_move(address, &commit_req, &prove_req);
-        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, commit_req.lobby_id);
-        post_snapshot.print_snapshot_info(commit_req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        self.client.commit_move_and_prove_move(address, req, prove_req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
     }
 
-    pub fn prove_move_and_prove_rank(&self, address: &Address, move_req: &ProveMoveReq, rank_req: &ProveRankReq, labels: &[&str]) -> () {
+    pub fn prove_move_and_prove_rank(&self, address: &Address, req: &ProveMoveReq, rank_req: &ProveRankReq, label: &str) -> () {
         let fn_name = ">prove_move_and_prove_rank()";
-        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, move_req.lobby_id);
-        pre_snapshot.print_snapshot_info(move_req.lobby_id, &[labels, &[fn_name, "-pre"]].concat());
-        self.client.prove_move_and_prove_rank(address, &move_req, &rank_req);
-        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, move_req.lobby_id);
-        post_snapshot.print_snapshot_info(move_req.lobby_id, &[labels, &[fn_name, "-post"]].concat());
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        self.client.prove_move_and_prove_rank(address, req, rank_req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, post_label);
     }
 
+    pub fn simulate_collisions(&self, address: &Address, req: &ProveMoveReq, label: &str) -> UserMove {
+        let fn_name = ">simulate_collisions()";
+        let pre_label = &[label, fn_name, "-pre"].concat();
+        let post_label = &[label, fn_name, "-post"].concat();
+        let pre_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        pre_snapshot.print_snapshot_info(req.lobby_id, pre_label);
+        let result = self.client.simulate_collisions(address, req);
+        let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
+        post_snapshot.print_snapshot_info(req.lobby_id, &post_label);
+        result
+    }
     pub fn is_user_conflict_error(error: &Error) -> bool {
         matches!(error,
             Error::Unauthorized |      // Covers GuestAlreadyInLobby, NotInLobby
