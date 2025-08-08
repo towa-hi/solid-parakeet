@@ -29,37 +29,20 @@ public class PawnView : MonoBehaviour
     public Vector2Int posView;
     bool visible;
 
-    public bool graphicsTest;
-
-    public Rank graphicsTestRank;
-
-    public Team graphicsTestTeam;
-
     // debug
     [SerializeField] SerializablePawnState debugPawnState;
 
-    void Start()
+    public void TestSetSprite(Rank testRank, Team testTeam)
     {
-        if (graphicsTest)
-        {
-            team = graphicsTestTeam;
-            DisplayRankView(graphicsTestRank);
-            model.SetActive(true);
-        }
+        team = testTeam;
+        rankView = testRank;
+        DisplayRankView(testRank);
     }
-
-    void Update()
+    public void TestSpriteSelectTransition(bool newAnimationState)
     {
-        if (graphicsTest)
-        {
-            if (team != graphicsTestTeam || rankView != graphicsTestRank)
-            {
-                team = graphicsTestTeam;
-                rankView = graphicsTestRank;
-                DisplayRankView(graphicsTestRank);
-            }
-        }
+        animator.SetBool(animatorIsSelected, newAnimationState);
     }
+    
     public void Initialize(PawnState pawn, TileView tileView)
     {
         // never changes

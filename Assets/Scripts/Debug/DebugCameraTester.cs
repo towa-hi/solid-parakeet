@@ -10,6 +10,10 @@ public class DebugCameraTester : MonoBehaviour
     public Button lairAltarAnchorButton;
     public Button lairDungeonAnchorButton;
 
+    public PawnView testPawnView;
+    public Rank testPawnRank;
+    public Team testPawnTeam;
+    public bool testPawnIsSelected;
     void Start()
     {
         boardAnchorButton.onClick.AddListener(() =>
@@ -36,5 +40,18 @@ public class DebugCameraTester : MonoBehaviour
         {
             GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
         });
+        testPawnRank = Rank.THRONE;
+        testPawnTeam = Team.RED;
+        UpdateTestPawn();
+    }
+
+    void UpdateTestPawn()
+    {
+        testPawnView.TestSetSprite(testPawnRank, testPawnTeam);
+    }
+
+    void UpdateTestPawnAnimationState()
+    {
+        testPawnView.TestSpriteSelectTransition(testPawnIsSelected);
     }
 }

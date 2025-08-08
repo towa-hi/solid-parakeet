@@ -21,13 +21,13 @@ AnimationClip:
   - serializedVersion: 2
     curve:
     - time: 0
-      value: {fileID: 21300000, guid: f6996964e461f4c48855b0194426b22e, type: 3}
+      value: {fileID: 21300000, guid: 38ac33c177588cd449ec8904b763cfef, type: 3}
     - time: 0.16666667
-      value: {fileID: 21300000, guid: d23130045d2c4984e998401ac4d56b3e, type: 3}
+      value: {fileID: 21300000, guid: 2d61b0eb1eab5b84fb1beb3a69eef7df, type: 3}
     - time: 0.33333334
-      value: {fileID: 21300000, guid: 95a490e7312ee0549b02f2c024120824, type: 3}
+      value: {fileID: 21300000, guid: dec19ce81022eb147b9c17c11390c8b9, type: 3}
     - time: 0.41666666
-      value: {fileID: 21300000, guid: 95a490e7312ee0549b02f2c024120824, type: 3}
+      value: {fileID: 21300000, guid: dec19ce81022eb147b9c17c11390c8b9, type: 3}
     attribute: currentSprite
     path: Model/Billboard/PawnSprite
     classID: 114
@@ -50,10 +50,10 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     pptrCurveMapping:
-    - {fileID: 21300000, guid: f6996964e461f4c48855b0194426b22e, type: 3}
-    - {fileID: 21300000, guid: d23130045d2c4984e998401ac4d56b3e, type: 3}
-    - {fileID: 21300000, guid: 95a490e7312ee0549b02f2c024120824, type: 3}
-    - {fileID: 21300000, guid: 95a490e7312ee0549b02f2c024120824, type: 3}
+    - {fileID: 21300000, guid: 38ac33c177588cd449ec8904b763cfef, type: 3}
+    - {fileID: 21300000, guid: 2d61b0eb1eab5b84fb1beb3a69eef7df, type: 3}
+    - {fileID: 21300000, guid: dec19ce81022eb147b9c17c11390c8b9, type: 3}
+    - {fileID: 21300000, guid: dec19ce81022eb147b9c17c11390c8b9, type: 3}
   m_AnimationClipSettings:
     serializedVersion: 2
     m_AdditiveReferencePoseClip: {fileID: 0}
