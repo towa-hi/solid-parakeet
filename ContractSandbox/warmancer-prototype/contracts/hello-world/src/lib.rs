@@ -888,18 +888,12 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                             if next_pos.x == -42069 { break; }
                             if next_pos == move_proof.target_pos { found_straight_path = true; break 'direction_scan; }
                             if match passable_map.get(next_pos) { Some(p) => !p, None => true } { break; }
-                            // Existing occupant blocks unless allied and moving away
-                            if let Some(occupant_id) = pos_to_pawn_id.get(next_pos) {
-                                let occupant_owner = Self::decode_pawn_id(occupant_id).1;
-                                if occupant_owner != u_index {
-                                    break;
-                                }
-                                let mut ally_is_moving = false;
-                                for mid in moving_ids.iter() { if mid == occupant_id { ally_is_moving = true; break; } }
-                                if !ally_is_moving { break; }
+                            // Existing occupant blocks
+                            if let Some(_occupant_id) = pos_to_pawn_id.get(next_pos) { break; }
+                            // Allied incoming move to this tile blocks line-of-sight only for single-step movers
+                            if max_traversal_steps == 1 {
+                                if let Some(cnt) = target_counts.get(next_pos) { if cnt > 0 { break; } }
                             }
-                            // Allied incoming move to this tile also blocks line-of-sight
-                            if let Some(cnt) = target_counts.get(next_pos) { if cnt > 0 { break; } }
                             current_pos = next_pos;
                         }
                     }
@@ -911,24 +905,12 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 Self::abort_illegal_move(lobby_info, u_index);
                 return Ok(())
             }
-            // allied occupancy requires the ally to move this turn (allows allied swaps)
+            // disallow targeting ally-occupied tiles
             {
                 let mut violation = false;
                 for mp in validated_proofs.iter() {
                     if let Some(occupant_id) = pos_to_pawn_id.get(mp.target_pos) {
-                        if Self::decode_pawn_id(occupant_id).1 == u_index {
-                            let mut ally_moves = false;
-                            for mid in moving_ids.iter() {
-                                if mid == occupant_id {
-                                    ally_moves = true;
-                                    break;
-                                }
-                            }
-                            if !ally_moves {
-                                violation = true;
-                                break;
-                            }
-                        }
+                        if Self::decode_pawn_id(occupant_id).1 == u_index { violation = true; break; }
                     }
                 }
                 if violation {
