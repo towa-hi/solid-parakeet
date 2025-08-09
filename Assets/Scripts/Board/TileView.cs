@@ -107,6 +107,7 @@ public class TileView : MonoBehaviour
         bool? setSelectOutline = null;
         bool? setTargetableFill = null;
         bool? setTargetEmission = null;
+        Color? overrideTargetEmissionColor = null;
         // figure out what to do based on what happened
         // for net changes
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
@@ -121,9 +122,40 @@ public class TileView : MonoBehaviour
                     break;
                 case MoveCommitPhase moveCommitPhase:
                     setSetupEmission = false;
-                    setSelectOutline = moveCommitPhase.selectedPos.HasValue && posView == moveCommitPhase.selectedPos.Value;
-                    setTargetableFill = moveCommitPhase.selectedPos.HasValue && moveCommitPhase.targetablePositions.Contains(posView);
-                    setTargetEmission = moveCommitPhase.targetPos.HasValue && posView == moveCommitPhase.targetPos.Value;
+                    setSelectOutline = moveCommitPhase.selectedStartPosition.HasValue && posView == moveCommitPhase.selectedStartPosition.Value;
+                    setTargetableFill = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.validTargetPositions.Contains(posView);
+                    {
+                        bool isSelectedStart = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.selectedStartPosition.Value == posView;
+                        bool isPlannedStart = moveCommitPhase.movePairs.Any(pair => pair.Item1 == posView);
+                        bool isPlannedTarget = moveCommitPhase.movePairs.Any(pair => pair.Item2 == posView);
+                        if (isSelectedStart)
+                        {
+                            overrideTargetEmissionColor = Color.blue;
+                            setTargetEmission = true;
+                        }
+                        else if (isPlannedStart && isPlannedTarget)
+                        {
+                            // Purple when both a start and a target in planned moves
+                            overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
+                            setTargetEmission = true;
+                        }
+                        else if (isPlannedStart)
+                        {
+                            // Darker blue for planned start positions
+                            overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
+                            setTargetEmission = true;
+                        }
+                        else if (isPlannedTarget)
+                        {
+                            // Darker green for planned targets
+                            overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
+                            setTargetEmission = true;
+                        }
+                        else
+                        {
+                            setTargetEmission = false;
+                        }
+                    }
                     break;
                 case MoveProvePhase moveProvePhase:
                     setSetupEmission = false;
@@ -158,15 +190,42 @@ public class TileView : MonoBehaviour
                     setHoverOutline = moveCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
                     break;
                 }
-                case MovePosSelected(_, var newPos, var targetablePositions):
+                case MovePosSelected(_, var newPos, var targetablePositions, var movePairsSnapshot):
                     setSelectOutline = newPos.HasValue && posView == newPos.Value;
                     setTargetableFill = newPos.HasValue && targetablePositions.Contains(posView);
-                    setTargetEmission = false;
+                    if (newPos.HasValue && posView == newPos.Value)
+                    {
+                        overrideTargetEmissionColor = Color.blue;
+                        setTargetEmission = true;
+                    }
+                    else
+                    {
+                        setTargetEmission = false;
+                    }
                     break;
-                case MoveTargetSelected(_, var newTarget):
-                    setSelectOutline = newTarget.HasValue && posView == newTarget.Value;
-                    setTargetableFill = false;
-                    setTargetEmission =  newTarget.HasValue && posView == newTarget.Value;
+                case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
+                    // Recompute planned start/target coloring from snapshot
+                    bool isPlannedStart = movePairsSnapshot2.Any(kv => kv.Value.Item1 == posView);
+                    bool isPlannedTarget = movePairsSnapshot2.Any(kv => kv.Value.Item2 == posView);
+                    if (isPlannedStart && isPlannedTarget)
+                    {
+                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isPlannedStart)
+                    {
+                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isPlannedTarget)
+                    {
+                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else
+                    {
+                        setTargetEmission = false;
+                    }
                     break;
                     
             }
@@ -189,7 +248,12 @@ public class TileView : MonoBehaviour
         {
             tileModel.renderEffect.SetEffect(EffectType.FILL, setTargetableFill.Value);
         }
-        if (setTargetEmission.HasValue)
+        if (overrideTargetEmissionColor.HasValue)
+        {
+            cachedTargetEmissionColor = overrideTargetEmissionColor.Value;
+            SetTopEmission(cachedTargetEmissionColor);
+        }
+        else if (setTargetEmission.HasValue)
         {
             cachedTargetEmissionColor = setTargetEmission.Value ? Color.green : Color.clear;
             SetTopEmission(cachedTargetEmissionColor);

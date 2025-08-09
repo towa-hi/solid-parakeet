@@ -120,6 +120,8 @@ public class HumanDebugNetworkInspector : MonoBehaviour
         {
             LobbyParameters lobbyParams = networkState.lobbyParameters.Value;
             _lobbyParameters.hasValue = true;
+            _lobbyParameters.blitzInterval = lobbyParams.blitz_interval;
+            _lobbyParameters.blitzMaxSimultaneousMoves = lobbyParams.blitz_max_simultaneous_moves;
             _lobbyParameters.board = lobbyParams.board;
             _lobbyParameters.boardHash = lobbyParams.board_hash;
             _lobbyParameters.devMode = lobbyParams.dev_mode;
@@ -132,6 +134,8 @@ public class HumanDebugNetworkInspector : MonoBehaviour
         else
         {
             _lobbyParameters.hasValue = false;
+            _lobbyParameters.blitzInterval = 42069;
+            _lobbyParameters.blitzMaxSimultaneousMoves = 42069;
             _lobbyParameters.board = new Board { name = "NULL_BOARD", hex = false, size = new Vector2Int { x = 42069, y = 42069 }, tiles = Array.Empty<Contract.TileState>() };
             _lobbyParameters.boardHash = new byte[] { 42, 0, 69 };
             _lobbyParameters.devMode = false;
@@ -151,20 +155,19 @@ public class HumanDebugNetworkInspector : MonoBehaviour
             _gameState.turn = gameState.turn;
             _gameState.liveUntilLedgerSeq = gameState.liveUntilLedgerSeq;
             
-            // Convert UserMoves
+            // Convert UserMoves (arrays for blitz / multi-move)
             _gameState.moves = gameState.moves?.Select(move => new SerializableUserMove
             {
-                moveHash = move.move_hash,
-                moveProofHasValue = move.move_proof.HasValue,
-                moveProof = move.move_proof.HasValue ? new SerializableHiddenMove
+                moveHashes = move.move_hashes,
+                moveProofs = move.move_proofs?.Select(mp => new SerializableHiddenMove
                 {
                     hasValue = true,
-                    pawnID = move.move_proof.Value.pawn_id.Value,
-                    salt = move.move_proof.Value.salt,
-                    startPos = new SerializablePos { x = move.move_proof.Value.start_pos.x, y = move.move_proof.Value.start_pos.y },
-                    targetPos = new SerializablePos { x = move.move_proof.Value.target_pos.x, y = move.move_proof.Value.target_pos.y }
-                } : new SerializableHiddenMove { hasValue = false, pawnID = 42069 },
-                neededRankProofs = move.needed_rank_proofs?.Select(id => id.Value).ToArray()
+                    pawnID = mp.pawn_id.Value,
+                    salt = mp.salt,
+                    startPos = new SerializablePos { x = mp.start_pos.x, y = mp.start_pos.y },
+                    targetPos = new SerializablePos { x = mp.target_pos.x, y = mp.target_pos.y },
+                }).ToArray() ?? Array.Empty<SerializableHiddenMove>(),
+                neededRankProofs = move.needed_rank_proofs?.Select(id => id.Value).ToArray(),
             }).ToArray();
             
             // Convert PawnStates
@@ -235,6 +238,8 @@ public class SerializableLobbyInfo
 public class SerializableLobbyParameters
 {
     public bool hasValue;
+    public uint blitzInterval;
+    public uint blitzMaxSimultaneousMoves;
     public Board board;
     public byte[] boardHash;
     public bool devMode;
@@ -259,9 +264,8 @@ public class SerializableGameState
 [Serializable]
 public class SerializableUserMove
 {
-    public byte[] moveHash;
-    public bool moveProofHasValue;
-    public SerializableHiddenMove moveProof = new SerializableHiddenMove();
+    public byte[][] moveHashes;
+    public SerializableHiddenMove[] moveProofs;
     public uint[] neededRankProofs;
 }
 

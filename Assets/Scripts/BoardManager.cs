@@ -628,11 +628,11 @@ public class SetupCommitPhase : PhaseBase
 
 public class MoveCommitPhase: PhaseBase
 {
-    public List<(Vector2Int, Vector2Int)> movePairs = new();
-    // public List<Vector2Int> selectedPos = new();
-    // public List<Vector2Int> targetPos = new();
+    public Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairs = new();
+    public Vector2Int? selectedStartPosition = null;
+    Vector2Int? pendingTargetPosition = null;
     public MoveInputTool moveInputTool = MoveInputTool.NONE;
-    public HashSet<Vector2Int> targetablePositions = new();
+    public HashSet<Vector2Int> validTargetPositions = new();
 
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -643,18 +643,10 @@ public class MoveCommitPhase: PhaseBase
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
+        // movePairs is a local-only plan for the current submission; do not populate from network
         if (!cachedNetState.IsMySubphase())
         {
-            // load cached data
-            byte[][] moveHashes = cachedNetState.GetUserMove().move_hashes;
-            foreach (byte[] moveHash in moveHashes)
-            {
-                if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
-                {
-                    movePairs.Add((hiddenMove.start_pos, hiddenMove.target_pos));
-                }
-            }
-            
+            movePairs.Clear();
         }
     }
 
@@ -670,11 +662,13 @@ public class MoveCommitPhase: PhaseBase
             throw new InvalidOperationException("movePairs can't be empty");
         }
 
-        List<HiddenMove> hiddenMoves = new();
-        List<byte[]> hiddenMoveHashes = new();
-        foreach ((Vector2Int startPos, Vector2Int targetPos) in movePairs)
+        List<HiddenMove> hiddenMoves = new List<HiddenMove>();
+        List<byte[]> hiddenMoveHashes = new List<byte[]>();
+        foreach (KeyValuePair<PawnId, (Vector2Int, Vector2Int)> entry in movePairs)
         {
-            if (cachedNetState.GetAlivePawnFromPosChecked(startPos) is not PawnState selectedPawn)
+            PawnState selectedPawn = cachedNetState.GetPawnFromId(entry.Key);
+            Vector2Int targetPos = entry.Value.Item2;
+            if (!selectedPawn.alive)
             {
                 throw new InvalidOperationException("selectedPawn must exist and be alive");
             }
@@ -720,7 +714,7 @@ public class MoveCommitPhase: PhaseBase
     
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
-        List<GameOperation> operations = new();
+        List<GameOperation> operations = new List<GameOperation>();
         Vector2Int oldHoveredPos = hoveredPos;
         hoveredPos = inHoveredPos;
         if (clicked)
@@ -730,8 +724,20 @@ public class MoveCommitPhase: PhaseBase
                 case MoveInputTool.NONE:
                     break;
                 case MoveInputTool.SELECT:
-                    operations.Add(SelectPosition(hoveredPos));
-                    break;
+                    {
+                        // Remove any existing staged move whose start position equals the clicked position
+                        List<PawnId> keysToRemove = movePairs.Where(kv => kv.Value.Item1 == hoveredPos).Select(kv => kv.Key).ToList();
+                        if (keysToRemove.Count > 0)
+                        {
+                            foreach (PawnId key in keysToRemove)
+                            {
+                                movePairs.Remove(key);
+                            }
+                            operations.Add(new MovePairUpdated(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), null, this));
+                        }
+                        operations.Add(SelectPosition(hoveredPos));
+                        break;
+                    }
                 case MoveInputTool.TARGET:
                     operations.Add(TargetPosition(hoveredPos));
                     break;
@@ -747,27 +753,27 @@ public class MoveCommitPhase: PhaseBase
         InvokeOnPhaseStateChanged(new PhaseChangeSet(operations));
     }
     
-    MoveInputTool GetNextTool(Vector2Int pos)
+    MoveInputTool GetNextTool(Vector2Int hoveredPosition)
     {
         if (!cachedNetState.IsMySubphase())
         {
             return MoveInputTool.NONE;
         }
-        if (cachedNetState.GetTileChecked(hoveredPos) == null)
+        if (cachedNetState.GetTileChecked(hoveredPosition) == null)
         {
             return MoveInputTool.NONE;
         }
         // a pawn is already selected and target hasn't been selected yet
-        if (selectedPos is Vector2Int selectedPos2 && cachedNetState.GetAlivePawnFromPosChecked(selectedPos2) is PawnState selectedPawn)
+        if (selectedStartPosition is Vector2Int selectedStart && cachedNetState.GetAlivePawnFromPosChecked(selectedStart) is PawnState selectedPawn)
         {
             // check if hovering over another selectable pawn
-            if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPos) is PawnState hoveredPawn 
+            if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn 
                 && cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
             {
                 return MoveInputTool.SELECT;
             }
             // check if hovering over a valid target
-            if (targetablePositions.Contains(hoveredPos))
+            if (validTargetPositions.Contains(hoveredPosition))
             {
                 return MoveInputTool.TARGET;
             }
@@ -778,7 +784,7 @@ public class MoveCommitPhase: PhaseBase
         else
         {
             // check if hovering over another selectable pawn
-            if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPos) is PawnState hoveredPawn 
+            if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn 
                 && cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
             {
                 return MoveInputTool.SELECT;
@@ -787,27 +793,93 @@ public class MoveCommitPhase: PhaseBase
         }
     }
     
-    MovePosSelected SelectPosition(Vector2Int? pos)
+    MovePosSelected SelectPosition(Vector2Int? startPosition)
     {
-        Vector2Int? oldPos = selectedPos;
-        selectedPos = pos;
-        if (selectedPos is Vector2Int p && cachedNetState.GetAlivePawnFromPosChecked(p) is PawnState selectedPawn)
-        {
-            targetablePositions = cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id);
-        }
-        else
-        {
-            targetablePositions.Clear();
-        }
-        return new(oldPos, selectedPos, targetablePositions);
+        Vector2Int? previousSelectedStartPosition = selectedStartPosition;
+        selectedStartPosition = startPosition;
+        validTargetPositions = ComputeTargetablePositionsForSelected();
+        return new(previousSelectedStartPosition, selectedStartPosition, validTargetPositions, new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs));
     }
 
-    MoveTargetSelected TargetPosition(Vector2Int? target)
+    MovePairUpdated TargetPosition(Vector2Int? targetPosition)
     {
-        Vector2Int? oldTarget = targetPos;
-        targetPos = target;
-        targetablePositions.Clear();
-        return new(oldTarget, targetPos);
+        Vector2Int? previousTargetPosition = pendingTargetPosition;
+        pendingTargetPosition = targetPosition;
+        PawnId? changedPawnId = null;
+        if (selectedStartPosition is Vector2Int start && pendingTargetPosition is Vector2Int end)
+        {
+            // Prevent duplicate pawn moves; replace if start already present
+            if (cachedNetState.GetAlivePawnFromPosChecked(start) is PawnState selectedPawn)
+            {
+                movePairs[selectedPawn.pawn_id] = (start, end);
+                changedPawnId = selectedPawn.pawn_id;
+            }
+        }
+        // Clear selection after creating/setting a pair
+        selectedStartPosition = null;
+        pendingTargetPosition = null;
+        validTargetPositions.Clear();
+        return new(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), changedPawnId, this);
+    }
+
+    HashSet<Vector2Int> ComputeTargetablePositionsForSelected()
+    {
+        HashSet<Vector2Int> computedTargets = new HashSet<Vector2Int>();
+        if (selectedStartPosition is not Vector2Int selectedPosition)
+        {
+            return computedTargets;
+        }
+        PawnState? maybeSelectedPawn = cachedNetState.GetAlivePawnFromPosChecked(selectedPosition);
+        if (maybeSelectedPawn is not PawnState selectedPawn)
+        {
+            return computedTargets;
+        }
+        // Base legal targets from current state
+        HashSet<Vector2Int> baseLegalTargetPositions = cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id);
+        // Planned moves bookkeeping
+        HashSet<Vector2Int> plannedMovingStartPositions = new HashSet<Vector2Int>();
+        HashSet<Vector2Int> plannedTargetPositions = new HashSet<Vector2Int>();
+        foreach (KeyValuePair<PawnId, (Vector2Int, Vector2Int)> kv in movePairs)
+        {
+            Vector2Int plannedStart = kv.Value.Item1;
+            plannedMovingStartPositions.Add(plannedStart);
+            plannedTargetPositions.Add(kv.Value.Item2);
+        }
+        // Start with base targets
+        foreach (Vector2Int baseTarget in baseLegalTargetPositions)
+        {
+            computedTargets.Add(baseTarget);
+        }
+        // Allow stepping into allied-occupied tiles if that ally is moving away this turn
+        // and no friendly move targets that tile already
+        // (Only applies to immediate neighbor targets; scouts LOS handling is kept server-side)
+        Vector2Int[] neighborDirections = Shared.GetDirections(selectedPosition, cachedNetState.lobbyParameters.board.hex);
+        foreach (Vector2Int direction in neighborDirections)
+        {
+            Vector2Int neighborPosition = selectedPosition + direction;
+            // Skip out-of-board
+            if (cachedNetState.GetTileChecked(neighborPosition) is not Contract.TileState neighborTile || !neighborTile.passable)
+            {
+                continue;
+            }
+            // If an allied pawn occupies neighbor
+            if (cachedNetState.GetAlivePawnFromPosChecked(neighborPosition) is PawnState ally && ally.GetTeam() == cachedNetState.userTeam)
+            {
+                // Include neighbor if ally is moving away and no friendly move is targeting neighbor
+                bool allyIsMovingAway = plannedMovingStartPositions.Contains(neighborPosition);
+                bool someoneTargetsNeighbor = plannedTargetPositions.Contains(neighborPosition);
+                if (allyIsMovingAway && !someoneTargetsNeighbor)
+                {
+                    computedTargets.Add(neighborPosition);
+                }
+            }
+        }
+        // Disallow any tiles that are already targeted by our own planned moves
+        foreach (Vector2Int blockedByPlannedMovePosition in plannedTargetPositions)
+        {
+            computedTargets.Remove(blockedByPlannedMovePosition);
+        }
+        return computedTargets;
     }
 }
 
@@ -949,8 +1021,8 @@ public record SetupRankCommitted(Dictionary<PawnId, Rank?> oldPendingCommits, Se
 public record SetupRankSelected(Rank? oldSelectedRank, SetupCommitPhase phase) : GameOperation;
 
 public record MoveHoverChanged(Vector2Int oldPos, Vector2Int newPos, MoveCommitPhase phase) : GameOperation;
-public record MovePosSelected(Vector2Int? oldPos, Vector2Int? newPos, HashSet<Vector2Int> targetablePositions) : GameOperation;
-public record MoveTargetSelected(Vector2Int? oldTarget, Vector2Int? newTarget) : GameOperation;
+public record MovePosSelected(Vector2Int? oldPos, Vector2Int? newPos, HashSet<Vector2Int> targetablePositions, Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairsSnapshot) : GameOperation;
+public record MovePairUpdated(Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairsSnapshot, PawnId? changedPawnId, MoveCommitPhase phase) : GameOperation;
 
 public record NetStateUpdated(PhaseBase phase) : GameOperation;
 

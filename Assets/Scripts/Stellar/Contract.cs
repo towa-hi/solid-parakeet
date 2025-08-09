@@ -899,6 +899,7 @@ namespace Contract
     public struct LobbyParameters : IScvMapCompatable
     {
         public uint blitz_interval;
+        public uint blitz_max_simultaneous_moves;
         public Board board;
         public byte[] board_hash;
         public bool dev_mode;
@@ -915,6 +916,7 @@ namespace Contract
                 map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("blitz_interval", blitz_interval),
+                    SCUtility.FieldToSCMapEntry("blitz_max_simultaneous_moves", blitz_max_simultaneous_moves),
                     SCUtility.FieldToSCMapEntry("board", board),
                     SCUtility.FieldToSCMapEntry("board_hash", board_hash),
                     SCUtility.FieldToSCMapEntry("dev_mode", dev_mode),
@@ -1084,6 +1086,23 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("hidden_ranks", hidden_ranks),
                     SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                     SCUtility.FieldToSCMapEntry("merkle_proofs", merkle_proofs),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct RedeemWinReq : IScvMapCompatable, IReq
+    {
+        public LobbyId lobby_id { get; set; }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("lobby_id", lobby_id),
                 }),
             };
         }
