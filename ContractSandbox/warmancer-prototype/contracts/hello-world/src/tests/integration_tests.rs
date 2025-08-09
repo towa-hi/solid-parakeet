@@ -223,6 +223,112 @@ fn execute_insecure_batch_pattern(
 
 }
 #[test]
+fn test_insecure_blitz_multi_move_resolution() {
+    let setup = TestSetup::new();
+    let lobby_id = 5001;
+    let host = setup.generate_address();
+    let guest = setup.generate_address();
+    let mut params = create_test_lobby_parameters(&setup.env);
+    params.security_mode = false;
+    params.blitz_interval = 1;
+    params.blitz_max_simultaneous_moves = 3;
+    setup.make_lobby(&host, &MakeLobbyReq { lobby_id, parameters: params.clone() }, ">blitz host");
+    setup.join_lobby(&guest, &JoinLobbyReq { lobby_id }, ">blitz guest");
+    let (host_setup, host_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Host)
+    });
+    let (guest_setup, guest_ranks) = setup.env.as_contract(&setup.contract_id, || {
+        create_setup_commits_from_game_state(&setup.env, lobby_id, &UserIndex::Guest)
+    });
+    let (host_root, _host_proofs) = get_merkel(&setup.env, &host_setup, &host_ranks);
+    let (guest_root, _guest_proofs) = get_merkel(&setup.env, &guest_setup, &guest_ranks);
+    setup.commit_setup(&host, &CommitSetupReq { lobby_id, rank_commitment_root: host_root, zz_hidden_ranks: host_ranks.clone() }, ">blitz host");
+    setup.commit_setup(&guest, &CommitSetupReq { lobby_id, rank_commitment_root: guest_root, zz_hidden_ranks: guest_ranks.clone() }, ">blitz guest");
+    for turn in 1..=100u32 {
+        let snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
+        if snapshot.lobby_info.phase == Phase::Finished { break; }
+        assert_eq!(snapshot.lobby_info.phase, Phase::MoveCommit);
+        assert_eq!(snapshot.lobby_info.subphase, Subphase::Both);
+        let host_prove = generate_valid_blitz_move_req(&setup.env, &snapshot.pawns_map, &params, &UserIndex::Host, &host_ranks, 4242 + turn as u64, lobby_id);
+        let guest_prove = generate_valid_blitz_move_req(&setup.env, &snapshot.pawns_map, &params, &UserIndex::Guest, &guest_ranks, 4243 + turn as u64, lobby_id);
+        let host_hashes = {
+            let mut hashes = Vec::new(&setup.env);
+            for mv in host_prove.move_proofs.iter() {
+                let ser = mv.clone().to_xdr(&setup.env);
+                let full = setup.env.crypto().sha256(&ser).to_bytes().to_array();
+                hashes.push_back(HiddenMoveHash::from_array(&setup.env, &full[0..16].try_into().unwrap()));
+            }
+            hashes
+        };
+        let guest_hashes = {
+            let mut hashes = Vec::new(&setup.env);
+            for mv in guest_prove.move_proofs.iter() {
+                let ser = mv.clone().to_xdr(&setup.env);
+                let full = setup.env.crypto().sha256(&ser).to_bytes().to_array();
+                hashes.push_back(HiddenMoveHash::from_array(&setup.env, &full[0..16].try_into().unwrap()));
+            }
+            hashes
+        };
+        let host_commit = CommitMoveReq { lobby_id, move_hashes: host_hashes };
+        let guest_commit = CommitMoveReq { lobby_id, move_hashes: guest_hashes };
+        execute_insecure_batch_pattern(
+            &setup, &host, &guest, &host_commit, &guest_commit, &host_prove, &guest_prove, ">blitz host", ">blitz guest",
+        );
+        let end_snapshot = extract_full_snapshot(&setup.env, &setup.contract_id, lobby_id);
+        if end_snapshot.lobby_info.phase == Phase::Finished { break; }
+        assert_eq!(end_snapshot.lobby_info.phase, Phase::MoveCommit);
+        assert_eq!(end_snapshot.lobby_info.subphase, Subphase::Both);
+    }
+}
+
+fn generate_valid_blitz_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters, team: &UserIndex, team_ranks: &Vec<HiddenRank>, salt: u64, lobby_id: u32) -> ProveMoveReq {
+    let mut chosen: Vec<HiddenMove> = Vec::new(env);
+    let mut used_targets: Map<Pos, bool> = Map::new(env);
+    let mut rng = salt;
+    let max_moves = lobby_parameters.blitz_max_simultaneous_moves;
+    for (_, (_, pawn)) in pawns_map.iter() {
+        if chosen.len() >= max_moves { break; }
+        let (_, owner) = Contract::decode_pawn_id(pawn.pawn_id);
+        if owner != *team || !pawn.alive { continue; }
+        // immobile check from provided ranks
+        if let Some(rank) = team_ranks.iter().find(|r| r.pawn_id == pawn.pawn_id).map(|r| r.rank) {
+            if rank == 0 || rank == 11 { continue; }
+        }
+        // Try directions in pseudo-random order
+        let start_dir = (rng as u32) % 4;
+        rng = rng.wrapping_mul(1103515245).wrapping_add(12345);
+        for k in 0..4u32 {
+            let dir_idx = (start_dir + k) % 4;
+            let dir = match dir_idx { 0 => Pos { x: 0, y: 1 }, 1 => Pos { x: 0, y: -1 }, 2 => Pos { x: 1, y: 0 }, _ => Pos { x: -1, y: 0 } };
+            let target = Pos { x: pawn.pos.x + dir.x, y: pawn.pos.y + dir.y };
+            // Bounds
+            if target.x < 0 || target.x >= lobby_parameters.board.size.x || target.y < 0 || target.y >= lobby_parameters.board.size.y { continue; }
+            // Passable
+            let mut passable = false;
+            for packed_tile in lobby_parameters.board.tiles.iter() { let t = Contract::unpack_tile(packed_tile); if t.pos == target { passable = t.passable; break; } }
+            if !passable { continue; }
+            // Unique target per user
+            if used_targets.contains_key(target) { continue; }
+            // Same-team occupancy blocks (we do not attempt allied swap here)
+            let mut same_team_block = false;
+            for (_, (_, p2)) in pawns_map.iter() { if p2.alive && p2.pos == target { let (_, o2) = Contract::decode_pawn_id(p2.pawn_id); if o2 == *team { same_team_block = true; break; } } }
+            if same_team_block { continue; }
+            // Accept this move
+            let hm = HiddenMove { pawn_id: pawn.pawn_id, salt: rng as u64, start_pos: pawn.pos, target_pos: target };
+            chosen.push_back(hm);
+            used_targets.set(target, true);
+            break;
+        }
+    }
+    // Fallback to at least 1 move if none found
+    if chosen.is_empty() {
+        if let Some(single) = generate_valid_move_req(env, pawns_map, lobby_parameters, team, team_ranks, rng) {
+            chosen.push_back(single);
+        }
+    }
+    ProveMoveReq { lobby_id, move_proofs: chosen }
+}
+#[test]
 fn test_compare_move_submission_methods() {
     let fn_name = ">test_compare_move_submission_methods()";
     let host_secure_label = "secure host";
