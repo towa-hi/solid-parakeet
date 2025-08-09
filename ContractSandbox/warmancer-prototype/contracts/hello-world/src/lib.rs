@@ -517,14 +517,17 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(())
     }
-    /// Submit hashed move for current turn.
+    /// Submit hashed moves for the current turn (security mode only).
     /// # Parameters
-    /// - `req.move_hash`: Hash of `HiddenMove`
+    /// - `req.move_hashes`: One or more hashes of `HiddenMove`
     /// # Requirements
     /// - Phase is `Phase::MoveCommit` and subphase is user's UserIndex or Both
-    /// - security_mode is true (non security_mode lobbies should have clients only call commit_move_and_prove_move)
+    /// - `security_mode` is true (for non-security lobbies, call `commit_move_and_prove_move` instead)
+    /// - Blitz rules:
+    ///   - If `is_blitz_turn` → 1..=`blitz_max_simultaneous_moves` hashes are allowed
+    ///   - Otherwise → exactly 1 hash is required
     /// # State Changes
-    /// - Stores move hash
+    /// - Stores move hash(es)
     /// - **Result**:
     ///   - If first to commit: `Phase::MoveCommit`, subphase = opponent (waiting for opponent to call `commit_move`)
     ///   - If both committed: `Phase::MoveProve`, `Subphase::Both` (both must call `prove_move`)
@@ -545,6 +548,23 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
     }
+    /// Submit and immediately prove moves in one call.
+    ///
+    /// Intended for non-security lobbies; also works in security mode as a convenience wrapper
+    /// around `commit_move` followed by `prove_move`.
+    /// # Parameters
+    /// - `req.move_hashes`: One or more hashes of `HiddenMove`
+    /// - `req2.move_proofs`: Matching `HiddenMove` proofs
+    /// # Requirements
+    /// - Phase is `Phase::MoveCommit`
+    /// - Blitz rules:
+    ///   - If `is_blitz_turn` → 1..=`blitz_max_simultaneous_moves` move hashes/proofs
+    ///   - Otherwise → exactly 1 move hash/proof
+    /// # State Changes
+    /// - Commits and validates moves; may transition to `MoveProve`, `RankProve`, `Finished`, or `MoveCommit` for next turn
+    ///   depending on collisions and proof results
+    /// # Errors
+    /// - Same as `commit_move` and `prove_move`
     pub fn commit_move_and_prove_move(e: &Env, address: Address, req: CommitMoveReq, req2: ProveMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -558,11 +578,12 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
     }
-    /// Reveal and validate committed move.
+    /// Reveal and validate committed moves.
     /// # Parameters
-    /// - `req.move_proof`: Actual `HiddenMove`
+    /// - `req.move_proofs`: Actual `HiddenMove` entries (must match committed hash count)
     /// # Requirements
-    /// - Current phase is `Phase::ProveMove` and subphase is user's UserIndex or Both
+    /// - In security mode: `Phase::MoveProve` and subphase is user's UserIndex or Both
+    /// - In non-security mode: may be called while phase is `MoveCommit` (both players can prove simultaneously)
     /// # State Changes
     /// - Validates move
     /// - Invalid move → **Result**: `Phase::Aborted`, subphase = opponent (opponent wins)
@@ -590,6 +611,16 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(lobby_info)
     }
+    /// Prove moves and any required rank proofs in a single call (security mode only).
+    ///
+    /// If move proofs abort the game due to illegal moves, rank proving is skipped.
+    /// # Parameters
+    /// - `req.move_proofs`: Move proofs for this turn
+    /// - `req2.hidden_ranks`/`req2.merkle_proofs`: Rank reveals and Merkle validations if needed
+    /// # Requirements
+    /// - `security_mode` is true; phase is `MoveProve`
+    /// # State Changes
+    /// - Validates moves; if collisions need ranks, validates ranks; then either finishes the game or advances turn
     pub fn prove_move_and_prove_rank(e: &Env, address: Address, req: ProveMoveReq, req2: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -1030,7 +1061,11 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
     }
     // endregion
     // region read-only contract simulation
-    /// Preview collision detection without state change. Used by client to determine whether to call `prove_move` or `prove_move_and_prove_rank`.
+    /// Preview collision detection without state change.
+    ///
+    /// Used by clients to decide whether rank proofs will be needed after both players have proved
+    /// moves. Only valid during `Phase::MoveProve` and not while subphase is `Both`.
+    /// On blitz turns, multiple provided proofs are simulated together.
     pub fn simulate_collisions(e: &Env, address: Address, req: ProveMoveReq) -> Result<UserMove, Error> {
         let temporary = e.storage().temporary();
         let lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
