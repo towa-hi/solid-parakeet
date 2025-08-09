@@ -38,6 +38,8 @@ public class TileView : MonoBehaviour
 
     Color cachedSetupEmissionColor = Color.clear;
     Color cachedTargetEmissionColor = Color.clear;
+    static Vector2Int? latestOverlayStartPos = null;
+    static Vector2Int? latestOverlayTargetPos = null;
     
     public void Initialize(TileState tile, bool hex)
     {
@@ -108,6 +110,10 @@ public class TileView : MonoBehaviour
         bool? setTargetableFill = null;
         bool? setTargetEmission = null;
         Color? overrideTargetEmissionColor = null;
+        bool? markBasePlannedStart = null;
+        bool? markBasePlannedTarget = null;
+        bool? markOverlayStart = null;
+        bool? markOverlayTarget = null;
         // figure out what to do based on what happened
         // for net changes
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
@@ -119,6 +125,8 @@ public class TileView : MonoBehaviour
                     setSelectOutline = false;
                     setTargetableFill = false;
                     // setTargetEmission = false;
+                    latestOverlayStartPos = null;
+                    latestOverlayTargetPos = null;
                     break;
                 case MoveCommitPhase moveCommitPhase:
                 {
@@ -128,32 +136,19 @@ public class TileView : MonoBehaviour
                     bool isSelectedStart = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.selectedStartPosition.Value == posView;
                     bool isPlannedStart = moveCommitPhase.movePairs.Any(kv => kv.Value.Item1 == posView);
                     bool isPlannedTarget = moveCommitPhase.movePairs.Any(kv => kv.Value.Item2 == posView);
-                    if (isSelectedStart)
+                    // base layer flags from planned pairs
+                    markBasePlannedStart = isPlannedStart;
+                    markBasePlannedTarget = isPlannedTarget;
+                    // overlay flags: most recent pair if present, otherwise selected start
+                    if (latestOverlayStartPos.HasValue || latestOverlayTargetPos.HasValue)
                     {
-                        overrideTargetEmissionColor = Color.blue;
-                        setTargetEmission = true;
-                    }
-                    else if (isPlannedStart && isPlannedTarget)
-                    {
-                        // Purple when both a start and a target in planned moves
-                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isPlannedStart)
-                    {
-                        // Darker blue for planned start positions
-                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isPlannedTarget)
-                    {
-                        // Darker green for planned targets
-                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
-                        setTargetEmission = true;
+                        markOverlayStart = latestOverlayStartPos.HasValue && posView == latestOverlayStartPos.Value;
+                        markOverlayTarget = latestOverlayTargetPos.HasValue && posView == latestOverlayTargetPos.Value;
                     }
                     else
                     {
-                        setTargetEmission = false;
+                        markOverlayStart = isSelectedStart;
+                        markOverlayTarget = false;
                     }
                     break;
                 }
@@ -162,27 +157,14 @@ public class TileView : MonoBehaviour
                     setSetupEmission = false;
                     setSelectOutline = false;
                     setTargetableFill = false;
+                    latestOverlayStartPos = null;
+                    latestOverlayTargetPos = null;
                     bool isStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
                     bool isTarget = moveProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
-                    if (isStart && isTarget)
-                    {
-                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isStart)
-                    {
-                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isTarget)
-                    {
-                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else
-                    {
-                        setTargetEmission = false;
-                    }
+                    markBasePlannedStart = isStart;
+                    markBasePlannedTarget = isTarget;
+                    markOverlayStart = false;
+                    markOverlayTarget = false;
                     break;
                 }
                 case RankProvePhase rankProvePhase:
@@ -190,27 +172,14 @@ public class TileView : MonoBehaviour
                     setSetupEmission = false;
                     setSelectOutline = false;
                     setTargetableFill = false;
+                    latestOverlayStartPos = null;
+                    latestOverlayTargetPos = null;
                     bool isStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
                     bool isTarget = rankProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
-                    if (isStart && isTarget)
-                    {
-                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isStart)
-                    {
-                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isTarget)
-                    {
-                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else
-                    {
-                        setTargetEmission = false;
-                    }
+                    markBasePlannedStart = isStart;
+                    markBasePlannedTarget = isTarget;
+                    markOverlayStart = false;
+                    markOverlayTarget = false;
                     break;
                 }
                 default:
@@ -237,38 +206,51 @@ public class TileView : MonoBehaviour
                 case MovePosSelected(_, var newPos, var targetablePositions, var movePairsSnapshot):
                     setSelectOutline = newPos.HasValue && posView == newPos.Value;
                     setTargetableFill = newPos.HasValue && targetablePositions.Contains(posView);
-                    if (newPos.HasValue && posView == newPos.Value)
+                    bool isSelectedStartPos = newPos.HasValue && posView == newPos.Value;
+                    // base flags from snapshot pairs
+                    bool isPlannedStartMps = movePairsSnapshot.Any(kv => kv.Value.Item1 == posView);
+                    bool isPlannedTargetMps = movePairsSnapshot.Any(kv => kv.Value.Item2 == posView);
+                    markBasePlannedStart = isPlannedStartMps;
+                    markBasePlannedTarget = isPlannedTargetMps;
+                    // overlay latest pair if present; otherwise overlay selected start
+                    if (latestOverlayStartPos.HasValue || latestOverlayTargetPos.HasValue)
                     {
-                        overrideTargetEmissionColor = Color.blue;
-                        setTargetEmission = true;
+                        markOverlayStart = latestOverlayStartPos.HasValue && posView == latestOverlayStartPos.Value;
+                        markOverlayTarget = latestOverlayTargetPos.HasValue && posView == latestOverlayTargetPos.Value;
                     }
                     else
                     {
-                        setTargetEmission = false;
+                        markOverlayStart = isSelectedStartPos;
+                        markOverlayTarget = false;
                     }
                     break;
                 case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
-                    // Recompute planned start/target coloring from snapshot
+                    // Targetable fill should not be shown for pair updates (only when a start position is selected)
+                    setTargetableFill = false;
+                    // Recompute base planned flags from snapshot
                     bool isPlannedStart = movePairsSnapshot2.Any(kv => kv.Value.Item1 == posView);
                     bool isPlannedTarget = movePairsSnapshot2.Any(kv => kv.Value.Item2 == posView);
-                    if (isPlannedStart && isPlannedTarget)
+                    markBasePlannedStart = isPlannedStart;
+                    markBasePlannedTarget = isPlannedTarget;
+                    // Overlay the most recently changed move pair, if provided
+                    if (changedPawnId.HasValue && movePairsSnapshot2.TryGetValue(changedPawnId.Value, out var latestPair))
                     {
-                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isPlannedStart)
-                    {
-                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
-                        setTargetEmission = true;
-                    }
-                    else if (isPlannedTarget)
-                    {
-                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
-                        setTargetEmission = true;
+                        latestOverlayStartPos = latestPair.Item1;
+                        latestOverlayTargetPos = latestPair.Item2;
+                        markOverlayStart = latestPair.Item1 == posView;
+                        markOverlayTarget = latestPair.Item2 == posView;
                     }
                     else
                     {
-                        setTargetEmission = false;
+                        // If change is a removal (changedPawnId is null), retain overlay only if the same pair still exists
+                        if (!(latestOverlayStartPos.HasValue && latestOverlayTargetPos.HasValue &&
+                              movePairsSnapshot2.Any(kv => kv.Value.Item1 == latestOverlayStartPos.Value && kv.Value.Item2 == latestOverlayTargetPos.Value)))
+                        {
+                            latestOverlayStartPos = null;
+                            latestOverlayTargetPos = null;
+                        }
+                        markOverlayStart = false;
+                        markOverlayTarget = false;
                     }
                     break;
                     
@@ -292,15 +274,50 @@ public class TileView : MonoBehaviour
         {
             tileModel.renderEffect.SetEffect(EffectType.FILL, setTargetableFill.Value);
         }
-        if (overrideTargetEmissionColor.HasValue)
+        // Consolidated display: decide final color from flags
+        if (markOverlayStart.HasValue || markOverlayTarget.HasValue || markBasePlannedStart.HasValue || markBasePlannedTarget.HasValue)
         {
-            cachedTargetEmissionColor = overrideTargetEmissionColor.Value;
+            bool overlayStart = markOverlayStart ?? false;
+            bool overlayTarget = markOverlayTarget ?? false;
+            bool baseStart = markBasePlannedStart ?? false;
+            bool baseTarget = markBasePlannedTarget ?? false;
+
+            Color finalColor = Color.clear;
+            if (overlayStart)
+            {
+                finalColor = Color.blue;
+            }
+            else if (overlayTarget)
+            {
+                finalColor = Color.green;
+            }
+            else if (baseStart && baseTarget)
+            {
+                finalColor = new Color(0.5f, 0f, 0.5f);
+            }
+            else if (baseStart)
+            {
+                finalColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
+            }
+            else if (baseTarget)
+            {
+                finalColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
+            }
+            cachedTargetEmissionColor = finalColor;
             SetTopEmission(cachedTargetEmissionColor);
         }
-        else if (setTargetEmission.HasValue)
+        else
         {
-            cachedTargetEmissionColor = setTargetEmission.Value ? Color.green : Color.clear;
-            SetTopEmission(cachedTargetEmissionColor);
+            if (overrideTargetEmissionColor.HasValue)
+            {
+                cachedTargetEmissionColor = overrideTargetEmissionColor.Value;
+                SetTopEmission(cachedTargetEmissionColor);
+            }
+            else if (setTargetEmission.HasValue)
+            {
+                cachedTargetEmissionColor = setTargetEmission.Value ? Color.green : Color.clear;
+                SetTopEmission(cachedTargetEmissionColor);
+            }
         }
     }
     public void StartPulse()

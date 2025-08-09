@@ -634,6 +634,22 @@ public class MoveCommitPhase: PhaseBase
     public MoveInputTool moveInputTool = MoveInputTool.NONE;
     public HashSet<Vector2Int> validTargetPositions = new();
 
+    bool IsBlitzTurn()
+    {
+        uint interval = cachedNetState.lobbyParameters.blitz_interval;
+        return interval > 0 && cachedNetState.gameState.turn % interval == 0;
+    }
+
+    int GetMaxMovesThisTurn()
+    {
+        return IsBlitzTurn() ? (int)cachedNetState.lobbyParameters.blitz_max_simultaneous_moves : 1;
+    }
+
+    bool IsAtMoveLimit()
+    {
+        return movePairs.Count >= GetMaxMovesThisTurn();
+    }
+
     protected override void SetGui(GuiGame guiGame, bool set)
     {
         guiGame.movement.OnSubmitMoveButton = set ? OnSubmit : null;
@@ -657,9 +673,21 @@ public class MoveCommitPhase: PhaseBase
             throw new InvalidOperationException("not my turn to act");
         }
 
-        if (movePairs.Count == 0)
+        int count = movePairs.Count;
+        int maxAllowed = GetMaxMovesThisTurn();
+        if (IsBlitzTurn())
         {
-            throw new InvalidOperationException("movePairs can't be empty");
+            if (count == 0 || count > maxAllowed)
+            {
+                throw new InvalidOperationException($"invalid number of moves for blitz turn: {count} (max {maxAllowed})");
+            }
+        }
+        else
+        {
+            if (count != 1)
+            {
+                throw new InvalidOperationException($"exactly 1 move required on non-blitz turns (got {count})");
+            }
         }
 
         List<HiddenMove> hiddenMoves = new List<HiddenMove>();
@@ -787,7 +815,13 @@ public class MoveCommitPhase: PhaseBase
             if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn 
                 && cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
             {
-                return MoveInputTool.SELECT;
+                // Enforce move limit: allow selecting only if under limit or editing an existing pair for this start
+                bool isEditingExisting = movePairs.Any(kv => kv.Value.Item1 == hoveredPosition);
+                if (!IsAtMoveLimit() || isEditingExisting)
+                {
+                    return MoveInputTool.SELECT;
+                }
+                return MoveInputTool.NONE;
             }
             return MoveInputTool.NONE;
         }
@@ -810,15 +844,23 @@ public class MoveCommitPhase: PhaseBase
             // Prevent duplicate pawn moves; replace if start already present
             if (cachedNetState.GetAlivePawnFromPosChecked(start) is PawnState selectedPawn)
             {
-                movePairs[selectedPawn.pawn_id] = (start, end);
-                changedPawnId = selectedPawn.pawn_id;
+                bool alreadyPlanned = movePairs.ContainsKey(selectedPawn.pawn_id);
+                if (alreadyPlanned || !IsAtMoveLimit())
+                {
+                    movePairs[selectedPawn.pawn_id] = (start, end);
+                    changedPawnId = selectedPawn.pawn_id;
+                    // Clear selection after creating/setting a pair
+                    selectedStartPosition = null;
+                    pendingTargetPosition = null;
+                    validTargetPositions.Clear();
+                    return new(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), changedPawnId, this);
+                }
+                // At move limit and attempting to add a new pair: do nothing (keep selection active)
+                return new(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), null, this);
             }
         }
-        // Clear selection after creating/setting a pair
-        selectedStartPosition = null;
-        pendingTargetPosition = null;
-        validTargetPositions.Clear();
-        return new(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), changedPawnId, this);
+        // No valid selection/target: no-op update
+        return new(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), null, this);
     }
 
     HashSet<Vector2Int> ComputeTargetablePositionsForSelected()
@@ -897,9 +939,6 @@ public class MoveProvePhase: PhaseBase
 public class RankProvePhase: PhaseBase
 {
     public List<HiddenMove> turnHiddenMoves = new List<HiddenMove>();
-    // Transitional: keep these until UI is updated to read from turnHiddenMoves
-    public List<Vector2Int> selectedPos = new List<Vector2Int>();
-    public List<Vector2Int> targetPos = new List<Vector2Int>();
     
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -914,14 +953,6 @@ public class RankProvePhase: PhaseBase
         foreach (HiddenMove hiddenMove in cachedNetState.GetUserMove().move_proofs)
         {
             turnHiddenMoves.Add(hiddenMove);
-        }
-        // Populate transitional lists for existing UI
-        selectedPos.Clear();
-        targetPos.Clear();
-        foreach (HiddenMove hm in turnHiddenMoves)
-        {
-            selectedPos.Add(hm.start_pos);
-            targetPos.Add(hm.target_pos);
         }
         AutomaticallySendRankProof();
     }

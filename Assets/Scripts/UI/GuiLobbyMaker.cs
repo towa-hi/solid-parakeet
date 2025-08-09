@@ -105,9 +105,12 @@ public class GuiLobbyMaker : MenuElement
             size = boardDef.boardSize,
             tiles = tilesList.ToArray(),
         };
-        byte[] hash = boardDef.GetHash();
+        // Contract expects BoardHash = BytesN<16>
+        byte[] hash = SCUtility.Get16ByteHash(board);
         return new()
         {
+            blitz_interval = 1,
+            blitz_max_simultaneous_moves = 3,
             board = board,
             board_hash = hash,
             dev_mode = true,

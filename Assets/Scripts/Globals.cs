@@ -1974,10 +1974,13 @@ public struct GameNetworkState
                 {
                     break;
                 }
-                // allied incoming move to this tile blocks LOS and cannot target
-                if (plannedTargetPositions.Contains(nextPos))
+                // allied incoming move to this tile blocks LOS only for single-step movers
+                if (maxSteps == 1)
                 {
-                    break;
+                    if (plannedTargetPositions.Contains(nextPos))
+                    {
+                        break;
+                    }
                 }
                 // occupancy rules
                 PawnState? occ = GetAlivePawnFromPosChecked(nextPos);
@@ -1992,14 +1995,8 @@ public struct GameNetworkState
                     }
                     else
                     {
-                        // ally: allowed only if ally is moving away and no ally targets this tile (already checked above)
-                        bool allyIsMovingAway = plannedMovingStartPositions.Contains(nextPos);
-                        if (!allyIsMovingAway)
-                        {
-                            break;
-                        }
-                        // can end on this tile (swap/chain), and can continue scanning
-                        movablePositions.Add(nextPos);
+                        // ally: always blocks; cannot target or pass through (no swap/chain)
+                        break;
                     }
                 }
                 else
