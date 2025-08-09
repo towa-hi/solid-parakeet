@@ -172,8 +172,10 @@ pub struct CollisionDetection {
     pub h_collision_target: Option<PawnId>,
     pub h_pawn_id: Option<PawnId>,
 }
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Collision {
-    pub involved_pawns: Vec<PawnId>,
+    pub h_pawn_id: PawnId,
+    pub g_pawn_id: PawnId,
     pub target_pos: Pos,
 }
 // // endregion
@@ -744,32 +746,145 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         // validate and update user move
         {
             let mut u_move = game_state.moves.get_unchecked(u_index.u32());
-            // Check that the number of proofs matches the number of hashes
+            // Inline comments allowed for this session
+            // 1) Hash count must match
             if req.move_proofs.len() != u_move.move_hashes.len() {
-                return Err(Error::HashFail)
+                Self::abort_illegal_move(lobby_info, u_index);
+                return Ok(())
             }
-            // Validate each move proof against its corresponding hash
+            // Precompute maps for quick lookups
             let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
+            let mut passable_map: Map<Pos, bool> = Map::new(e);
+            for packed_tile in lobby_parameters.board.tiles.iter() {
+                let tile = Self::unpack_tile(packed_tile);
+                passable_map.set(tile.pos, tile.passable);
+            }
+            let mut pos_to_pawn_id: Map<Pos, PawnId> = Map::new(e);
+            for (_, (_, ps)) in pawns_map.iter() {
+                if ps.alive {
+                    pos_to_pawn_id.set(ps.pos, ps.pawn_id);
+                }
+            }
+            // Single-pass validation
             let mut validated_proofs = Vec::new(e);
+            let mut seen_ids: Vec<PawnId> = Vec::new(e);
+            let mut target_counts: Map<Pos, u32> = Map::new(e);
+            let mut moving_ids: Vec<PawnId> = Vec::new(e);
+            let mut are_moves_valid = true;
             for i in 0..req.move_proofs.len() {
                 let move_proof = req.move_proofs.get_unchecked(i);
-                let expected_hash = u_move.move_hashes.get_unchecked(i);
-                let serialized_move_proof = move_proof.clone().to_xdr(e);
-                let full_hash = e.crypto().sha256(&serialized_move_proof).to_bytes().to_array();
+                // hash check first
+                let expected_hash_opt = u_move.move_hashes.get(i as u32);
+                if expected_hash_opt.is_none() {
+                    are_moves_valid = false;
+                    break;
+                }
+                let expected_hash = expected_hash_opt.unwrap();
+                let serialized = move_proof.clone().to_xdr(e);
+                let full_hash = e.crypto().sha256(&serialized).to_bytes().to_array();
                 let submitted_hash = HiddenMoveHash::from_array(e, &full_hash[0..16].try_into().unwrap());
                 if expected_hash != submitted_hash {
-                    return Err(Error::HashFail)
+                    are_moves_valid = false;
+                    break;
                 }
-                let u_move_valid = Self::validate_move_proof(e, &move_proof, u_index, &pawns_map, &lobby_parameters);
-                if !u_move_valid {
-                    // immediately abort the game
-                    lobby_info.phase = Phase::Aborted;
-                    lobby_info.subphase = Self::opponent_subphase_from_player_index(u_index);
-                    log!(e, "prove_move_internal: move not valid");
-                    return Ok(())
+                // unique pawn and unique target per user
+                let mut dupe = false;
+                for pid in seen_ids.iter() {
+                    if pid == move_proof.pawn_id {
+                        dupe = true;
+                        break;
+                    }
+                }
+                if dupe {
+                    are_moves_valid = false;
+                    break;
+                }
+                seen_ids.push_back(move_proof.pawn_id);
+                moving_ids.push_back(move_proof.pawn_id);
+                let tc = match target_counts.get(move_proof.target_pos) {
+                    Some(c) => c,
+                    None => 0u32,
+                };
+                if tc > 0 {
+                    are_moves_valid = false;
+                    break;
+                }
+                target_counts.set(move_proof.target_pos, tc + 1);
+                // ownership and existence
+                if Self::decode_pawn_id(move_proof.pawn_id).1 != u_index {
+                    are_moves_valid = false;
+                    break;
+                }
+                let pawn_opt = pawns_map.get(move_proof.pawn_id);
+                if pawn_opt.is_none() {
+                    are_moves_valid = false;
+                    break;
+                }
+                let (_, pawn) = pawn_opt.unwrap();
+                if !pawn.alive {
+                    are_moves_valid = false;
+                    break;
+                }
+                if move_proof.start_pos != pawn.pos {
+                    are_moves_valid = false;
+                    break;
+                }
+                // tiles passable
+                if match passable_map.get(move_proof.start_pos) { Some(p) => !p, None => true } {
+                    are_moves_valid = false;
+                    break;
+                }
+                if match passable_map.get(move_proof.target_pos) { Some(p) => !p, None => true } {
+                    are_moves_valid = false;
+                    break;
+                }
+                // rank-based legality
+                if let Some(rank) = pawn.rank.get(0) {
+                    if [0u32, 11u32].contains(&rank) {
+                        are_moves_valid = false;
+                        break;
+                    }
+                    if rank != 2 {
+                        let mut temp_neighbors = [Pos { x: -42069, y: -42069 }; 6];
+                        Self::get_neighbors(&move_proof.start_pos, lobby_parameters.board.hex, &mut temp_neighbors);
+                        if !temp_neighbors.contains(&move_proof.target_pos) {
+                            are_moves_valid = false;
+                            break;
+                        }
+                    }
                 }
                 validated_proofs.push_back(move_proof);
             }
+            if !are_moves_valid {
+                Self::abort_illegal_move(lobby_info, u_index);
+                return Ok(())
+            }
+            // allied occupancy requires the ally to move this turn (allows allied swaps)
+            {
+                let mut violation = false;
+                for mp in validated_proofs.iter() {
+                    if let Some(occupant_id) = pos_to_pawn_id.get(mp.target_pos) {
+                        if Self::decode_pawn_id(occupant_id).1 == u_index {
+                            let mut ally_moves = false;
+                            for mid in moving_ids.iter() {
+                                if mid == occupant_id {
+                                    ally_moves = true;
+                                    break;
+                                }
+                            }
+                            if !ally_moves {
+                                violation = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if violation {
+                    Self::abort_illegal_move(lobby_info, u_index);
+                    return Ok(())
+                }
+            }
+            // finalize
             u_move.move_proofs = validated_proofs;
             game_state.moves.set(u_index.u32(), u_move);
         }
@@ -788,7 +903,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         };
         if next_subphase == Subphase::None {
             let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
-            let (collision_detection, h_needed_rank_proofs, g_needed_rank_proofs) = Self::detect_collisions_with_target_pos(e, game_state, &pawns_map);
+            let collisions = Self::compute_collisions(e, game_state, &pawns_map);
+            let (h_needed_rank_proofs, g_needed_rank_proofs) = Self::derive_needed_rank_proofs(e, &collisions, &pawns_map);
             let mut h_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
             let mut g_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
             h_move.needed_rank_proofs = h_needed_rank_proofs.clone();
@@ -798,7 +914,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             // check if rank proofs are needed
             match (game_state.moves.get_unchecked(u_index.u32()).needed_rank_proofs.is_empty(), game_state.moves.get_unchecked(o_index.u32()).needed_rank_proofs.is_empty()) {
                 (true, true) => {
-                    Self::complete_move_resolution(e, game_state, Some(collision_detection), &pawns_map);
+                    Self::complete_move_resolution(e, game_state, Some(collisions), &pawns_map);
                     let winner = Self::check_game_over(e, &game_state, &lobby_parameters);
                     if winner != Subphase::Both {
                         lobby_info.phase = Phase::Finished;
@@ -925,7 +1041,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         u_move.move_proofs = req.move_proofs.clone();
         game_state.moves.set(u_index.u32(), u_move.clone());
         let pawns_map = Self::create_pawns_map(e, &game_state.pawns);
-        let (_, h_needed_rank_proofs, g_needed_rank_proofs) = Self::detect_collisions_with_target_pos(e, &game_state, &pawns_map);
+        let collisions = Self::compute_collisions(e, &game_state, &pawns_map);
+        let (h_needed_rank_proofs, g_needed_rank_proofs) = Self::derive_needed_rank_proofs(e, &collisions, &pawns_map);
         if u_index == UserIndex::Host {
             u_move.needed_rank_proofs = h_needed_rank_proofs;
         }
@@ -978,7 +1095,11 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         }
         pawn.pos = move_proof.target_pos;
     }
-    pub(crate) fn complete_move_resolution(e: &Env, game_state: &mut GameState, collision_detection: Option<CollisionDetection>, pawns_map: &Map<PawnId, (u32, PawnState)>) -> () {
+    pub(crate) fn abort_illegal_move(lobby_info: &mut LobbyInfo, offending_index: UserIndex) -> () {
+        lobby_info.phase = Phase::Aborted;
+        lobby_info.subphase = Self::opponent_subphase_from_player_index(offending_index);
+    }
+    pub(crate) fn complete_move_resolution(e: &Env, game_state: &mut GameState, collisions_opt: Option<Vec<Collision>>, pawns_map: &Map<PawnId, (u32, PawnState)>) -> () {
         let h_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
         let g_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
         if !h_move.needed_rank_proofs.is_empty() || !g_move.needed_rank_proofs.is_empty() {
@@ -988,39 +1109,41 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         let g_move_proof = g_move.move_proofs.get_unchecked(0);
         let (h_pawn_index, mut h_pawn) = pawns_map.get_unchecked(h_move_proof.pawn_id);
         let (g_pawn_index, mut g_pawn) = pawns_map.get_unchecked(g_move_proof.pawn_id);
-        // Now perform collision resolution using the updated game state
-        // Get the updated pawns from game state for collision resolution
-        // check collisions
-        let collision_detection =  collision_detection.unwrap_or_else(|| {
-            Self::detect_collisions_with_target_pos(e, game_state, pawns_map).0
+        let collisions = collisions_opt.unwrap_or_else(|| {
+            Self::compute_collisions(e, game_state, pawns_map)
         });
-        if collision_detection.has_double_collision {
-            Self::resolve_collision(&mut h_pawn, &mut g_pawn);
-        }
-        else if collision_detection.has_swap_collision {
-            Self::resolve_collision(&mut h_pawn, &mut g_pawn);
-        }
-        else {
-            if let Some(hx_collided_id) = collision_detection.g_collision_target {
-                // hx is the host pawn that guest collided into
-                let (hx_pawn_index, mut hx_pawn) = pawns_map.get_unchecked(hx_collided_id);
-                Self::resolve_collision(&mut g_pawn, &mut hx_pawn);
-                game_state.pawns.set(hx_pawn_index, Self::pack_pawn(hx_pawn));
-            }
-
-            if let Some(gx_collided_id) = collision_detection.h_collision_target {
-                // gx is the guest pawn that host collided into
-                let (gx_pawn_index, mut gx_pawn) = pawns_map.get_unchecked(gx_collided_id);
-                Self::resolve_collision(&mut h_pawn, &mut gx_pawn);
-                game_state.pawns.set(gx_pawn_index, Self::pack_pawn(gx_pawn));
+        let mut direct_pair_resolved = false;
+        for collision in collisions.iter() {
+            let involves_h = collision.h_pawn_id == h_move_proof.pawn_id;
+            let involves_g = collision.g_pawn_id == g_move_proof.pawn_id;
+            if involves_h && involves_g {
+                Self::resolve_collision(&mut h_pawn, &mut g_pawn);
+                direct_pair_resolved = true;
+                break;
             }
         }
-        if h_pawn.alive
-        {
+        if !direct_pair_resolved {
+            for collision in collisions.iter() {
+                if collision.h_pawn_id == h_move_proof.pawn_id {
+                    let (gx_index, mut gx_pawn) = pawns_map.get_unchecked(collision.g_pawn_id);
+                    Self::resolve_collision(&mut h_pawn, &mut gx_pawn);
+                    game_state.pawns.set(gx_index, Self::pack_pawn(gx_pawn));
+                    break;
+                }
+            }
+            for collision in collisions.iter() {
+                if collision.g_pawn_id == g_move_proof.pawn_id {
+                    let (hx_index, mut hx_pawn) = pawns_map.get_unchecked(collision.h_pawn_id);
+                    Self::resolve_collision(&mut g_pawn, &mut hx_pawn);
+                    game_state.pawns.set(hx_index, Self::pack_pawn(hx_pawn));
+                    break;
+                }
+            }
+        }
+        if h_pawn.alive {
             Self::apply_move_to_pawn(&h_move_proof, &mut h_pawn);
         }
-        if g_pawn.alive
-        {
+        if g_pawn.alive {
             Self::apply_move_to_pawn(&g_move_proof, &mut g_pawn);
         }
         game_state.pawns.set(h_pawn_index, Self::pack_pawn(h_pawn));
@@ -1031,6 +1154,17 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
     }
     // endregion
     // region validation
+    pub(crate) fn derive_needed_rank_proofs(e: &Env, collisions: &Vec<Collision>, pawns_map: &Map<PawnId, (u32, PawnState)>) -> (Vec<PawnId>, Vec<PawnId>) {
+        let mut h_needed: Vec<PawnId> = Vec::new(e);
+        let mut g_needed: Vec<PawnId> = Vec::new(e);
+        for collision in collisions.iter() {
+            let (_, h_pawn) = pawns_map.get_unchecked(collision.h_pawn_id);
+            let (_, g_pawn) = pawns_map.get_unchecked(collision.g_pawn_id);
+            if h_pawn.rank.is_empty() { h_needed.push_back(h_pawn.pawn_id); }
+            if g_pawn.rank.is_empty() { g_needed.push_back(g_pawn.pawn_id); }
+        }
+        (h_needed, g_needed)
+    }
 
     pub(crate) fn get_revealed_rank_counts(e: &Env, player_index: UserIndex, game_state: &GameState) -> [u32; 13] {
         let mut revealed_ranks_counts = [0u32; 13];
@@ -1191,83 +1325,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         }
         valid_rank_proof
     }
-    pub(crate) fn validate_move_proof(e: &Env, move_proof: &HiddenMove, player_index: UserIndex, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters) -> bool {
-        // cond: player is owner
-        let (_initial_pos, owner_index) = Self::decode_pawn_id(move_proof.pawn_id);
-        if owner_index != player_index {
-            log!(e, "cond: player is owner");
-            return false
-        }
-        // cond: pawn must exist in game state
-        let (_, pawn) = match pawns_map.get(move_proof.pawn_id) {
-            Some(tuple) => tuple,
-            None => {
-                log!(e, "cond: pawn must exist in game state");
-                return false;
-            }
-        };
-        // cond: pawn must be alive
-        if !pawn.alive {
-            log!(e, "cond: pawn must be alive");
-            return false
-        }
-        // cond: start pos must match
-        if move_proof.start_pos != pawn.pos {
-            log!(e, "cond: pawn must be alive");
-            return false
-        }
-        // cond: start and target tiles must exist and be passable
-        let mut start_tile_passable = false;
-        let mut target_tile_passable = false;
-        for packed_tile in lobby_parameters.board.tiles.iter() {
-            let tile = Self::unpack_tile(packed_tile);
-            if tile.pos == move_proof.start_pos {
-                if tile.passable {
-                    start_tile_passable = true;
-                }
-            }
-            if tile.pos == move_proof.target_pos {
-                if tile.passable {
-                    target_tile_passable = true;
-                }
-            }
-        }
-        if !start_tile_passable || !target_tile_passable {
-            log!(e, "cond: start and target tiles must exist and be passable");
-            return false
-        }
-        // validate move based on rank
-        if let Some(rank) = pawn.rank.get(0) {
-            // cond: pawn is not unmovable rank flag (0) or trap (11)
-            if [0u32, 11u32].contains(&rank){
-                log!(e, "pawn is not unmovable rank flag (0) or trap (11) (pawnId, rank)", pawn.pawn_id, rank);
-                return false
-            }
-            // cond: if pawn not a scout (2) it cant move more than one neighboring tile
-            if rank != 2 {
-                let mut temp_neighbors = [Pos { x: -42069, y: -42069 }; 6];
-                Self::get_neighbors(&move_proof.start_pos, lobby_parameters.board.hex, &mut temp_neighbors);
-                if !temp_neighbors.contains(&move_proof.target_pos) {
-                    log!(e, "cond: if pawn not a scout (2) it cant move more than one neighboring tile");
-                    return false;
-                }
-            }
-        }
-        for (_, (_, n_pawn)) in pawns_map.iter() {
-            if n_pawn.pawn_id == pawn.pawn_id || !n_pawn.alive {
-                continue
-            }
-            if n_pawn.pos == move_proof.target_pos {
-                // cond: pawn on target pos can't be same owner
-                let other_owner_index = Self::decode_pawn_id(n_pawn.pawn_id).1;
-                if other_owner_index == player_index {
-                    log!(e, "cond: pawn on target pos can't be same owner");
-                    return false
-                }
-            }
-        }
-        true
-    }
+    // validate_move_proof is temporarily unused; inlined in prove_move_internal to access full state and both players' moves
     pub(crate) fn verify_merkle_proof(e: &Env, leaf: &MerkleHash, proof: &MerkleProof, root: &MerkleHash) -> bool {
         let mut current_hash = leaf.clone();
         let mut index = proof.leaf_index;
@@ -1335,77 +1393,179 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         }
     }
     pub(crate) fn detect_collisions_with_target_pos(e: &Env, game_state: &GameState, pawns_map: &Map<PawnId, (u32, PawnState)>) -> (CollisionDetection, Vec<PawnId>, Vec<PawnId>) {
+        // Multi-move blitz support: scan all moves from both sides, detect collisions, and aggregate needed rank proofs.
         let mut has_double_collision = false;
         let mut has_swap_collision = false;
         let mut has_h_collision = false;
         let mut has_g_collision = false;
         let h_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
         let g_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
-        let h_move_proof = h_move.move_proofs.get_unchecked(0);
-        let g_move_proof = g_move.move_proofs.get_unchecked(0);
-        let (_, h_pawn) = pawns_map.get_unchecked(h_move_proof.pawn_id);
-        let (_, g_pawn) = pawns_map.get_unchecked(g_move_proof.pawn_id);
         let mut h_collision_target: Option<PawnId> = None;
         let mut g_collision_target: Option<PawnId> = None;
-        if h_move_proof.target_pos == g_move_proof.target_pos {
-            has_double_collision = true;
+        let mut first_h_pawn_id: Option<PawnId> = None;
+        let mut first_g_pawn_id: Option<PawnId> = None;
+        let mut h_involved_ids: Vec<PawnId> = Vec::new(e);
+        let mut g_involved_ids: Vec<PawnId> = Vec::new(e);
+        let mut h_stationary_targets: Vec<PawnId> = Vec::new(e);
+        let mut g_stationary_targets: Vec<PawnId> = Vec::new(e);
+        let mut moving_ids: Vec<PawnId> = Vec::new(e);
+        // Gather ids of all pawns that are moving this turn to exclude them from stationary collision checks.
+        for move_proof in h_move.move_proofs.iter().chain(g_move.move_proofs.iter()) {
+            moving_ids.push_back(move_proof.pawn_id);
         }
-        else if h_move_proof.target_pos == g_move_proof.start_pos && g_move_proof.target_pos == h_move_proof.start_pos {
-            has_swap_collision = true;
+        // Detect double-target and swap collisions across all host vs guest move pairs; store first representatives.
+        for hm in h_move.move_proofs.iter() {
+            let hmp = hm;
+            for gm in g_move.move_proofs.iter() {
+                let gmp = gm;
+                if hmp.target_pos == gmp.target_pos {
+                    has_double_collision = true;
+                    if first_h_pawn_id.is_none() { first_h_pawn_id = Some(hmp.pawn_id); }
+                    if first_g_pawn_id.is_none() { first_g_pawn_id = Some(gmp.pawn_id); }
+                    h_involved_ids.push_back(hmp.pawn_id);
+                    g_involved_ids.push_back(gmp.pawn_id);
+                } else if hmp.target_pos == gmp.start_pos && gmp.target_pos == hmp.start_pos {
+                    has_swap_collision = true;
+                    if first_h_pawn_id.is_none() { first_h_pawn_id = Some(hmp.pawn_id); }
+                    if first_g_pawn_id.is_none() { first_g_pawn_id = Some(gmp.pawn_id); }
+                    h_involved_ids.push_back(hmp.pawn_id);
+                    g_involved_ids.push_back(gmp.pawn_id);
+                }
+            }
         }
-        else {
-            // Check for collisions with stationary pawns
+        // Check collisions into stationary pawns (alive and not moving this turn) for each side independently.
+        for hm in h_move.move_proofs.iter() {
+            let hmp = hm;
             for (_, (_, x_pawn)) in pawns_map.iter() {
-                if h_move_proof.pawn_id == x_pawn.pawn_id || g_move_proof.pawn_id == x_pawn.pawn_id || !x_pawn.alive {
-                    continue;
-                }
-                // Use target positions from move proofs instead of current pawn positions
-                if h_move_proof.target_pos == x_pawn.pos {
+                if !x_pawn.alive { continue; }
+                let mut is_moving = false;
+                for mid in moving_ids.iter() { if mid == x_pawn.pawn_id { is_moving = true; break; } }
+                if is_moving { continue; }
+                if hmp.target_pos == x_pawn.pos {
                     has_h_collision = true;
-                    h_collision_target = Some(x_pawn.pawn_id);
+                    if h_collision_target.is_none() { h_collision_target = Some(x_pawn.pawn_id); }
+                    if first_h_pawn_id.is_none() { first_h_pawn_id = Some(hmp.pawn_id); }
+                    h_involved_ids.push_back(hmp.pawn_id);
+                    let mut exists_t = false; 
+                    for tid in h_stationary_targets.iter() { if tid == x_pawn.pawn_id { exists_t = true; break; } }
+                    if !exists_t { h_stationary_targets.push_back(x_pawn.pawn_id); }
                 }
-                if g_move_proof.target_pos == x_pawn.pos {
+            }
+        }
+        for gm in g_move.move_proofs.iter() {
+            let gmp = gm;
+            for (_, (_, x_pawn)) in pawns_map.iter() {
+                if !x_pawn.alive { continue; }
+                let mut is_moving = false;
+                for mid in moving_ids.iter() { if mid == x_pawn.pawn_id { is_moving = true; break; } }
+                if is_moving { continue; }
+                if gmp.target_pos == x_pawn.pos {
                     has_g_collision = true;
-                    g_collision_target = Some(x_pawn.pawn_id);
-                }
-                if has_h_collision && has_g_collision {
-                    break;
+                    if g_collision_target.is_none() { g_collision_target = Some(x_pawn.pawn_id); }
+                    if first_g_pawn_id.is_none() { first_g_pawn_id = Some(gmp.pawn_id); }
+                    g_involved_ids.push_back(gmp.pawn_id);
+                    let mut exists_t = false; 
+                    for tid in g_stationary_targets.iter() { if tid == x_pawn.pawn_id { exists_t = true; break; } }
+                    if !exists_t { g_stationary_targets.push_back(x_pawn.pawn_id); }
                 }
             }
         }
         let mut h_needed_rank_proofs: Vec<PawnId> = Vec::new(e);
         let mut g_needed_rank_proofs: Vec<PawnId> = Vec::new(e);
-        let h_pawn_involved = has_double_collision || has_swap_collision || has_h_collision;
-        let g_pawn_involved = has_double_collision || has_swap_collision || has_g_collision;
-        if h_pawn_involved && h_pawn.rank.is_empty() {
-            h_needed_rank_proofs.push_back(h_pawn.pawn_id)
+        // Movers involved in any collision need their ranks if still hidden.
+        for hid in h_involved_ids.iter() {
+            let (_, hpawn) = pawns_map.get_unchecked(hid);
+            if hpawn.rank.is_empty() {
+                h_needed_rank_proofs.push_back(hpawn.pawn_id);
+            }
         }
-        if g_pawn_involved && g_pawn.rank.is_empty() {
-            g_needed_rank_proofs.push_back(g_pawn.pawn_id)
+        for gid in g_involved_ids.iter() {
+            let (_, gpawn) = pawns_map.get_unchecked(gid);
+            if gpawn.rank.is_empty() {
+                g_needed_rank_proofs.push_back(gpawn.pawn_id);
+            }
         }
-        if has_h_collision {
-            let (_, hx_pawn) = pawns_map.get_unchecked(h_collision_target.unwrap());
+        // Stationary pawns that are collided into also need their ranks if hidden (opponent needs them to resolve).
+        for tid in h_stationary_targets.iter() {
+            let (_, hx_pawn) = pawns_map.get_unchecked(tid);
             if hx_pawn.rank.is_empty() {
-                g_needed_rank_proofs.push_back(h_collision_target.unwrap());
+                g_needed_rank_proofs.push_back(tid);
             }
         }
-        if has_g_collision {
-            let (_, gx_pawn) = pawns_map.get_unchecked(g_collision_target.unwrap());
+        for tid in g_stationary_targets.iter() {
+            let (_, gx_pawn) = pawns_map.get_unchecked(tid);
             if gx_pawn.rank.is_empty() {
-                h_needed_rank_proofs.push_back(g_collision_target.unwrap());
+                h_needed_rank_proofs.push_back(tid);
             }
         }
+        // Keep single representative ids in CollisionDetection for compatibility with existing resolution path.
         let collision = CollisionDetection {
             has_double_collision,
             has_g_collision,
             has_swap_collision,
             has_h_collision,
             g_collision_target,
-            g_pawn_id: if g_pawn_involved { Some(g_move_proof.pawn_id) } else { None },
+            g_pawn_id: first_g_pawn_id,
             h_collision_target,
-            h_pawn_id: if h_pawn_involved { Some(h_move_proof.pawn_id) } else { None },
+            h_pawn_id: first_h_pawn_id,
         };
         (collision, h_needed_rank_proofs, g_needed_rank_proofs)
+    }
+    pub(crate) fn compute_collisions(e: &Env, game_state: &GameState, pawns_map: &Map<PawnId, (u32, PawnState)>) -> Vec<Collision> {
+        let mut collisions_list: Vec<Collision> = Vec::new(e);
+        let mut pawn_id_to_move_proof: Map<PawnId, HiddenMove> = Map::new(e);
+        let host_move = game_state.moves.get_unchecked(UserIndex::Host.u32());
+        let guest_move = game_state.moves.get_unchecked(UserIndex::Guest.u32());
+        for proof in host_move.move_proofs.iter() { pawn_id_to_move_proof.set(proof.pawn_id, proof); }
+        for proof in guest_move.move_proofs.iter() { pawn_id_to_move_proof.set(proof.pawn_id, proof); }
+        let mut pos_to_host_ids: Map<Pos, Vec<PawnId>> = Map::new(e);
+        let mut pos_to_guest_ids: Map<Pos, Vec<PawnId>> = Map::new(e);
+        for (_, (_, pawn_state)) in pawns_map.iter() {
+            if !pawn_state.alive { continue; }
+            let intended_pos = match pawn_id_to_move_proof.get(pawn_state.pawn_id) { Some(m) => m.target_pos, None => pawn_state.pos };
+            let owner_index = Self::decode_pawn_id(pawn_state.pawn_id).1;
+            if owner_index == UserIndex::Host {
+                match pos_to_host_ids.get(intended_pos) {
+                    Some(mut ids) => { ids.push_back(pawn_state.pawn_id); pos_to_host_ids.set(intended_pos, ids); }
+                    None => { pos_to_host_ids.set(intended_pos, Vec::from_array(e, [pawn_state.pawn_id])); }
+                }
+            } else {
+                match pos_to_guest_ids.get(intended_pos) {
+                    Some(mut ids) => { ids.push_back(pawn_state.pawn_id); pos_to_guest_ids.set(intended_pos, ids); }
+                    None => { pos_to_guest_ids.set(intended_pos, Vec::from_array(e, [pawn_state.pawn_id])); }
+                }
+            }
+        }
+        // Same-target collisions: exactly one host and one guest intend the same position
+        for (pos, host_ids) in pos_to_host_ids.iter() {
+            if let Some(guest_ids) = pos_to_guest_ids.get(pos) {
+                if host_ids.len() == 1 && guest_ids.len() == 1 {
+                    let h_id = host_ids.get_unchecked(0);
+                    let g_id = guest_ids.get_unchecked(0);
+                    collisions_list.push_back(Collision { h_pawn_id: h_id, g_pawn_id: g_id, target_pos: pos });
+                }
+            }
+        }
+        // Swap collisions: a moving host and a moving guest swap start positions
+        let mut moving_pawn_ids: Vec<PawnId> = Vec::new(e);
+        for (pawn_id, _) in pawn_id_to_move_proof.iter() { moving_pawn_ids.push_back(pawn_id); }
+        let moving_len = moving_pawn_ids.len();
+        for i in 0..moving_len {
+            let pawn_id_a = moving_pawn_ids.get_unchecked(i);
+            let move_a = pawn_id_to_move_proof.get_unchecked(pawn_id_a);
+            let (start_pos_a, owner_a) = { let tuple = pawns_map.get_unchecked(pawn_id_a).1; (tuple.pos, Self::decode_pawn_id(pawn_id_a).1) };
+            for j in (i+1)..moving_len {
+                let pawn_id_b = moving_pawn_ids.get_unchecked(j);
+                let move_b = pawn_id_to_move_proof.get_unchecked(pawn_id_b);
+                let (start_pos_b, owner_b) = { let tuple = pawns_map.get_unchecked(pawn_id_b).1; (tuple.pos, Self::decode_pawn_id(pawn_id_b).1) };
+                if owner_a == owner_b { continue; }
+                if move_a.target_pos == start_pos_b && move_b.target_pos == start_pos_a {
+                    let (h_id, g_id) = if owner_a == UserIndex::Host { (pawn_id_a, pawn_id_b) } else { (pawn_id_b, pawn_id_a) };
+                    collisions_list.push_back(Collision { h_pawn_id: h_id, g_pawn_id: g_id, target_pos: move_a.target_pos });
+                }
+            }
+        }
+        collisions_list
     }
     pub(crate) fn check_game_over(e: &Env, game_state: &GameState, _lobby_parameters: &LobbyParameters) -> Subphase {
         // game over check happens at the end of turn resolution
