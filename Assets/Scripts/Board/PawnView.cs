@@ -169,15 +169,18 @@ public class PawnView : MonoBehaviour
                 case MoveHoverChanged moveHoverChanged:
                     break;
                 case MovePosSelected movePosSelected:
-                    bool shouldBeSelected = movePosSelected.newPos.HasValue && movePosSelected.newPos.Value == posView;
-                    if (shouldBeSelected != animator.GetBool(animatorIsSelected))
-                    {
-                        Debug.Log($"setAnimatorIsSelected {shouldBeSelected}");
-                        setAnimatorIsSelected = shouldBeSelected;
-                    }
+                {
+                    bool isCurrentlySelectedPawn = movePosSelected.newPos.HasValue && movePosSelected.newPos.Value == posView;
+                    setAnimatorIsSelected = isCurrentlySelectedPawn;
                     break;
-                case MoveTargetSelected moveTargetSelected:
+                }
+                case MovePairUpdated movePairUpdated:
+                {
+                    // Keep pawns in selected animation if they are part of movePairs (as a start)
+                    bool isPlannedStart = movePairUpdated.movePairsSnapshot.ContainsKey(pawnId);
+                    setAnimatorIsSelected = isPlannedStart;
                     break;
+                }
             }
         }
         // now do the stuff

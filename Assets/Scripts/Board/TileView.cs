@@ -121,54 +121,98 @@ public class TileView : MonoBehaviour
                     // setTargetEmission = false;
                     break;
                 case MoveCommitPhase moveCommitPhase:
+                {
                     setSetupEmission = false;
                     setSelectOutline = moveCommitPhase.selectedStartPosition.HasValue && posView == moveCommitPhase.selectedStartPosition.Value;
                     setTargetableFill = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.validTargetPositions.Contains(posView);
+                    bool isSelectedStart = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.selectedStartPosition.Value == posView;
+                    bool isPlannedStart = moveCommitPhase.movePairs.Any(kv => kv.Value.Item1 == posView);
+                    bool isPlannedTarget = moveCommitPhase.movePairs.Any(kv => kv.Value.Item2 == posView);
+                    if (isSelectedStart)
                     {
-                        bool isSelectedStart = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.selectedStartPosition.Value == posView;
-                        bool isPlannedStart = moveCommitPhase.movePairs.Any(pair => pair.Item1 == posView);
-                        bool isPlannedTarget = moveCommitPhase.movePairs.Any(pair => pair.Item2 == posView);
-                        if (isSelectedStart)
-                        {
-                            overrideTargetEmissionColor = Color.blue;
-                            setTargetEmission = true;
-                        }
-                        else if (isPlannedStart && isPlannedTarget)
-                        {
-                            // Purple when both a start and a target in planned moves
-                            overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
-                            setTargetEmission = true;
-                        }
-                        else if (isPlannedStart)
-                        {
-                            // Darker blue for planned start positions
-                            overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
-                            setTargetEmission = true;
-                        }
-                        else if (isPlannedTarget)
-                        {
-                            // Darker green for planned targets
-                            overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
-                            setTargetEmission = true;
-                        }
-                        else
-                        {
-                            setTargetEmission = false;
-                        }
+                        overrideTargetEmissionColor = Color.blue;
+                        setTargetEmission = true;
+                    }
+                    else if (isPlannedStart && isPlannedTarget)
+                    {
+                        // Purple when both a start and a target in planned moves
+                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isPlannedStart)
+                    {
+                        // Darker blue for planned start positions
+                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isPlannedTarget)
+                    {
+                        // Darker green for planned targets
+                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else
+                    {
+                        setTargetEmission = false;
                     }
                     break;
+                }
                 case MoveProvePhase moveProvePhase:
+                {
                     setSetupEmission = false;
-                    setSelectOutline = moveProvePhase.selectedPos.HasValue && posView == moveProvePhase.selectedPos.Value;
+                    setSelectOutline = false;
                     setTargetableFill = false;
-                    setTargetEmission = moveProvePhase.targetPos.HasValue && posView == moveProvePhase.targetPos.Value;
+                    bool isStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
+                    bool isTarget = moveProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
+                    if (isStart && isTarget)
+                    {
+                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isStart)
+                    {
+                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isTarget)
+                    {
+                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else
+                    {
+                        setTargetEmission = false;
+                    }
                     break;
+                }
                 case RankProvePhase rankProvePhase:
+                {
                     setSetupEmission = false;
-                    setSelectOutline = rankProvePhase.selectedPos.HasValue && posView == rankProvePhase.selectedPos.Value;
+                    setSelectOutline = false;
                     setTargetableFill = false;
-                    setTargetEmission = rankProvePhase.targetPos.HasValue && posView == rankProvePhase.targetPos.Value;
+                    bool isStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
+                    bool isTarget = rankProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
+                    if (isStart && isTarget)
+                    {
+                        overrideTargetEmissionColor = new Color(0.5f, 0f, 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isStart)
+                    {
+                        overrideTargetEmissionColor = new Color(Color.blue.r * 0.5f, Color.blue.g * 0.5f, Color.blue.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else if (isTarget)
+                    {
+                        overrideTargetEmissionColor = new Color(Color.green.r * 0.5f, Color.green.g * 0.5f, Color.green.b * 0.5f);
+                        setTargetEmission = true;
+                    }
+                    else
+                    {
+                        setTargetEmission = false;
+                    }
                     break;
+                }
                 default:
                     throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
             }

@@ -1931,32 +1931,42 @@ public struct GameNetworkState
         return true;
     }
 
-    public HashSet<Vector2Int> GetValidMoveTargetList(PawnId pawnId)
+    public HashSet<Vector2Int> GetValidMoveTargetList(
+        PawnId pawnId,
+        HashSet<Vector2Int> plannedMovingStartPositions,
+        HashSet<Vector2Int> plannedTargetPositions)
     {
         PawnState pawn = GetPawnFromId(pawnId);
         if (!pawn.alive)
         {
-            Debug.LogError("should not be calling GetValidMoveTargetList on a dead pawn");
-            return new();
+            return new HashSet<Vector2Int>();
+        }
+        // Known rank required to determine movement range/LOS
+        Rank? maybeRank = pawn.GetKnownRank(userTeam);
+        if (maybeRank is not Rank rank)
+        {
+            return new HashSet<Vector2Int>();
+        }
+        // immobile
+        if (rank == Rank.THRONE || rank == Rank.TRAP)
+        {
+            return new HashSet<Vector2Int>();
         }
         bool isHex = lobbyParameters.board.hex;
+        int maxSteps = Rules.GetMovementRange(rank);
+        HashSet<Vector2Int> movablePositions = new HashSet<Vector2Int>();
         Vector2Int[] initialDirections = Shared.GetDirections(pawn.pos, isHex);
-        // if rank is unknown just return empty
-        if (pawn.GetKnownRank(userTeam) is not Rank rank)
-        {
-            Debug.LogError("should not be calling GetValidMoveTargetList on a unknown rank pawn");
-            return new();
-        }
-        HashSet<Vector2Int> movablePositions = new();
         for (int directionIndex = 0; directionIndex < initialDirections.Length; directionIndex++)
         {
             Vector2Int currentPos = pawn.pos;
             int walkedTiles = 0;
-            while (walkedTiles < Rules.GetMovementRange(rank))
+            while (walkedTiles < maxSteps)
             {
                 Vector2Int[] currentDirections = Shared.GetDirections(currentPos, isHex);
-                currentPos += currentDirections[directionIndex];
-                if (GetTileChecked(currentPos) is not TileState tile)
+                Vector2Int nextPos = currentPos + currentDirections[directionIndex];
+                // bounds and passable
+                TileState? tileOpt = GetTileChecked(nextPos);
+                if (tileOpt is not TileState tile)
                 {
                     break;
                 }
@@ -1964,22 +1974,62 @@ public struct GameNetworkState
                 {
                     break;
                 }
-                if (GetAlivePawnFromPosChecked(currentPos) is PawnState pawnOnPos)
+                // allied incoming move to this tile blocks LOS and cannot target
+                if (plannedTargetPositions.Contains(nextPos))
                 {
-                    if (pawnOnPos.GetTeam() == pawn.GetTeam())
-                    {
-                        // cannot move through own pawns
-                        break;
-                    }
-                    // tile is occupied by enemy pawn, stop walking
-                    movablePositions.Add(currentPos);
                     break;
                 }
-                movablePositions.Add(currentPos);
+                // occupancy rules
+                PawnState? occ = GetAlivePawnFromPosChecked(nextPos);
+                if (occ is PawnState occPawn)
+                {
+                    bool occIsAlly = occPawn.GetTeam() == pawn.GetTeam();
+                    if (!occIsAlly)
+                    {
+                        // enemy: can target but cannot pass through
+                        movablePositions.Add(nextPos);
+                        break;
+                    }
+                    else
+                    {
+                        // ally: allowed only if ally is moving away and no ally targets this tile (already checked above)
+                        bool allyIsMovingAway = plannedMovingStartPositions.Contains(nextPos);
+                        if (!allyIsMovingAway)
+                        {
+                            break;
+                        }
+                        // can end on this tile (swap/chain), and can continue scanning
+                        movablePositions.Add(nextPos);
+                    }
+                }
+                else
+                {
+                    movablePositions.Add(nextPos);
+                }
+                currentPos = nextPos;
                 walkedTiles++;
             }
         }
         return movablePositions;
+    }
+
+    public HashSet<Vector2Int> GetValidMoveTargetList(
+        PawnId pawnId,
+        Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairs)
+    {
+        HashSet<Vector2Int> plannedMovingStartPositions = new HashSet<Vector2Int>();
+        HashSet<Vector2Int> plannedTargetPositions = new HashSet<Vector2Int>();
+        foreach (KeyValuePair<PawnId, (Vector2Int, Vector2Int)> kv in movePairs)
+        {
+            plannedMovingStartPositions.Add(kv.Value.Item1);
+            plannedTargetPositions.Add(kv.Value.Item2);
+        }
+        return GetValidMoveTargetList(pawnId, plannedMovingStartPositions, plannedTargetPositions);
+    }
+
+    public HashSet<Vector2Int> GetValidMoveTargetList(PawnId pawnId)
+    {
+        return GetValidMoveTargetList(pawnId, new HashSet<Vector2Int>(), new HashSet<Vector2Int>());
     }
 
     public static bool Compare(GameNetworkState a, GameNetworkState b)

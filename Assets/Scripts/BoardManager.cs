@@ -803,7 +803,6 @@ public class MoveCommitPhase: PhaseBase
 
     MovePairUpdated TargetPosition(Vector2Int? targetPosition)
     {
-        Vector2Int? previousTargetPosition = pendingTargetPosition;
         pendingTargetPosition = targetPosition;
         PawnId? changedPawnId = null;
         if (selectedStartPosition is Vector2Int start && pendingTargetPosition is Vector2Int end)
@@ -834,59 +833,16 @@ public class MoveCommitPhase: PhaseBase
         {
             return computedTargets;
         }
-        // Base legal targets from current state
-        HashSet<Vector2Int> baseLegalTargetPositions = cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id);
-        // Planned moves bookkeeping
-        HashSet<Vector2Int> plannedMovingStartPositions = new HashSet<Vector2Int>();
-        HashSet<Vector2Int> plannedTargetPositions = new HashSet<Vector2Int>();
-        foreach (KeyValuePair<PawnId, (Vector2Int, Vector2Int)> kv in movePairs)
-        {
-            Vector2Int plannedStart = kv.Value.Item1;
-            plannedMovingStartPositions.Add(plannedStart);
-            plannedTargetPositions.Add(kv.Value.Item2);
-        }
-        // Start with base targets
-        foreach (Vector2Int baseTarget in baseLegalTargetPositions)
-        {
-            computedTargets.Add(baseTarget);
-        }
-        // Allow stepping into allied-occupied tiles if that ally is moving away this turn
-        // and no friendly move targets that tile already
-        // (Only applies to immediate neighbor targets; scouts LOS handling is kept server-side)
-        Vector2Int[] neighborDirections = Shared.GetDirections(selectedPosition, cachedNetState.lobbyParameters.board.hex);
-        foreach (Vector2Int direction in neighborDirections)
-        {
-            Vector2Int neighborPosition = selectedPosition + direction;
-            // Skip out-of-board
-            if (cachedNetState.GetTileChecked(neighborPosition) is not Contract.TileState neighborTile || !neighborTile.passable)
-            {
-                continue;
-            }
-            // If an allied pawn occupies neighbor
-            if (cachedNetState.GetAlivePawnFromPosChecked(neighborPosition) is PawnState ally && ally.GetTeam() == cachedNetState.userTeam)
-            {
-                // Include neighbor if ally is moving away and no friendly move is targeting neighbor
-                bool allyIsMovingAway = plannedMovingStartPositions.Contains(neighborPosition);
-                bool someoneTargetsNeighbor = plannedTargetPositions.Contains(neighborPosition);
-                if (allyIsMovingAway && !someoneTargetsNeighbor)
-                {
-                    computedTargets.Add(neighborPosition);
-                }
-            }
-        }
-        // Disallow any tiles that are already targeted by our own planned moves
-        foreach (Vector2Int blockedByPlannedMovePosition in plannedTargetPositions)
-        {
-            computedTargets.Remove(blockedByPlannedMovePosition);
-        }
+        // Incorporate planned moves exactly as server-side logic: LOS blocks on allied targets and allow stepping into allies moving away
+        HashSet<Vector2Int> computed = cachedNetState.GetValidMoveTargetList(selectedPawn.pawn_id, movePairs);
+        foreach (Vector2Int t in computed) { computedTargets.Add(t); }
         return computedTargets;
     }
 }
 
 public class MoveProvePhase: PhaseBase
 {
-    public List<Vector2Int> selectedPos = null;
-    public List<Vector2Int> targetPos = null;
+    public List<HiddenMove> turnHiddenMoves = new List<HiddenMove>();
     
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -896,16 +852,17 @@ public class MoveProvePhase: PhaseBase
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
+        // Build hidden moves for this turn from committed move hashes
+        turnHiddenMoves.Clear();
         byte[][] moveHashes = cachedNetState.GetUserMove().move_hashes;
         foreach (byte[] moveHash in moveHashes)
         {
-            if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+            if (CacheManager.GetHiddenMove(moveHash) is not HiddenMove hiddenMove)
             {
-                selectedPos.Add(hiddenMove.start_pos);
-                targetPos.Add(hiddenMove.target_pos);
+                throw new Exception($"Could not find move with move hash {System.Convert.ToBase64String(moveHash)}");
             }
+            turnHiddenMoves.Add(hiddenMove);
         }
-        
         AutomaticallySendMoveProof();
     }
     
@@ -916,21 +873,10 @@ public class MoveProvePhase: PhaseBase
             return;
         }
         Debug.Log("automatically send move proof");
-        byte[][] moveHashes = cachedNetState.GetUserMove().move_hashes;
-        List<HiddenMove> moveProofs = new List<HiddenMove>();
-        foreach (byte[] moveHash in moveHashes)
-        {
-            if (CacheManager.GetHiddenMove(moveHash) is not HiddenMove hiddenMove)
-            {
-                throw new Exception($"Could not find move with move hash {moveHash}");
-            }
-            moveProofs.Add(hiddenMove);
-        }
-        
         ProveMoveReq proveMoveReq = new()
         {
             lobby_id = cachedNetState.lobbyInfo.index,
-            move_proofs = moveProofs.ToArray(),
+            move_proofs = turnHiddenMoves.ToArray(),
         };
         InvokeOnCallContract(proveMoveReq, null);
     }
@@ -950,8 +896,10 @@ public class MoveProvePhase: PhaseBase
 
 public class RankProvePhase: PhaseBase
 {
-    public List<Vector2Int> selectedPos = new();
-    public List<Vector2Int> targetPos = new();
+    public List<HiddenMove> turnHiddenMoves = new List<HiddenMove>();
+    // Transitional: keep these until UI is updated to read from turnHiddenMoves
+    public List<Vector2Int> selectedPos = new List<Vector2Int>();
+    public List<Vector2Int> targetPos = new List<Vector2Int>();
     
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -961,10 +909,19 @@ public class RankProvePhase: PhaseBase
     public override void UpdateNetworkState(GameNetworkState netState)
     {
         base.UpdateNetworkState(netState);
+        // Build from network state's revealed move proofs for this turn
+        turnHiddenMoves.Clear();
         foreach (HiddenMove hiddenMove in cachedNetState.GetUserMove().move_proofs)
         {
-            selectedPos.Add(hiddenMove.start_pos);
-            targetPos.Add(hiddenMove.target_pos);
+            turnHiddenMoves.Add(hiddenMove);
+        }
+        // Populate transitional lists for existing UI
+        selectedPos.Clear();
+        targetPos.Clear();
+        foreach (HiddenMove hm in turnHiddenMoves)
+        {
+            selectedPos.Add(hm.start_pos);
+            targetPos.Add(hm.target_pos);
         }
         AutomaticallySendRankProof();
     }

@@ -118,23 +118,17 @@ public class GuiMovement : GameElement
         {
             switch (operation)
             {
-                case MovePosSelected(_, var selectedPos, _):
+                case MovePosSelected(_, var selectedPos, _, _):
                     setSubmitButton = false;
                     if (selectedPos.HasValue)
                     {
                         setStatus = "Select a target position";
                     }
                     break;
-                case MoveTargetSelected(_, var newTarget):
-                    if (newTarget.HasValue)
-                    {
-                        setStatus = "Submit move";
-                        setSubmitButton = true;
-                    }
-                    else
-                    {
-                        setSubmitButton = false;
-                    }
+                case MovePairUpdated(var movePairsSnapshot, var changedPawnId, var phaseRef):
+                    // Enable submit if we have at least one planned move
+                    setSubmitButton = movePairsSnapshot.Count > 0;
+                    setStatus = setSubmitButton.Value ? "Submit move" : "Select a pawn";
                     break;
             }
         }

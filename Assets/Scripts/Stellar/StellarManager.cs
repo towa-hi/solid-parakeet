@@ -195,33 +195,33 @@ public static class StellarManager
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"ProveMoveRequest");
         bool sendRankProofToo = false;
-        GameNetworkState gameNetworkState = new GameNetworkState(networkState);
-
-        // NOTE: check simulate collision just to see if we should batch in prove_rank or not
-        TaskInfo reqLobbyInfoTask = SetCurrentTask("Simulate simulate_collisions");
-        (_, SimulateTransactionResult collisionResult) = await stellar.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] {proveMoveReq}, tracker);
-        EndTask(reqLobbyInfoTask);
-        if (collisionResult.Error != null)
-        {
-            throw new Exception($"collisionResult failed for some reason {collisionResult.Error}");
-        }
-        SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
-        UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
-        // when simulate_collisions is called too early, the move.needed_rank_proofs is deliberately empty
-        if (!move.move_hash.Equals(gameNetworkState.GetUserMove().move_hash))
-        {
-            Debug.LogWarning("ProveMoveRequest simulate_collisions returned a dummy object because it was invoked too soon (when subphase is BOTH)");
-        }
-        if (move.needed_rank_proofs.Length > 0)
-        {
-            sendRankProofToo = true;
-        }
+        bool isSecurityMode = networkState.lobbyParameters?.security_mode == true;
         (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
+
+        if (isSecurityMode && networkState.lobbyInfo.HasValue)
+        {
+            LobbyInfo lobby = networkState.lobbyInfo.Value;
+            bool canSimulate = lobby.phase == Phase.MoveProve && lobby.subphase != Subphase.Both;
+            if (canSimulate)
+            {
+                TaskInfo reqLobbyInfoTask = SetCurrentTask("Simulate simulate_collisions");
+                (_, SimulateTransactionResult collisionResult) = await stellar.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
+                EndTask(reqLobbyInfoTask);
+                if (collisionResult.Error != null)
+                {
+                    throw new Exception($"collisionResult failed for some reason {collisionResult.Error}");
+                }
+                SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
+                UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
+                sendRankProofToo = move.needed_rank_proofs != null && move.needed_rank_proofs.Length > 0;
+            }
+        }
+
         if (sendRankProofToo)
         {
-            List<HiddenRank> hiddenRanks = new();
-            List<MerkleProof> merkleProofs = new();
-            foreach (PawnId pawnId in move.needed_rank_proofs)
+            List<HiddenRank> hiddenRanks = new List<HiddenRank>();
+            List<MerkleProof> merkleProofs = new List<MerkleProof>();
+            foreach (PawnId pawnId in networkState.gameState?.moves[networkState.lobbyInfo.Value.IsHost(stellar.userAddress) ? 0 : 1].needed_rank_proofs ?? Array.Empty<PawnId>())
             {
                 if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
                 {
@@ -230,14 +230,14 @@ public static class StellarManager
                 hiddenRanks.Add(cachedRankProof.hidden_rank);
                 merkleProofs.Add(cachedRankProof.merkle_proof);
             }
-            ProveRankReq proveRankReq = new()
+            ProveRankReq proveRankReq = new ProveRankReq
             {
                 hidden_ranks = hiddenRanks.ToArray(),
                 lobby_id = proveMoveReq.lobby_id,
                 merkle_proofs = merkleProofs.ToArray(),
             };
             TaskInfo task = SetCurrentTask("Invoke prove_move_and_prove_rank");
-            results = await stellar.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] {proveMoveReq, proveRankReq}, tracker);
+            results = await stellar.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] { proveMoveReq, proveRankReq }, tracker);
             EndTask(task);
         }
         else
