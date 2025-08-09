@@ -306,6 +306,10 @@ impl Contract {
         persistent.set(&user_key, &user);
         Ok(())
     }
+    pub fn make_lobby_test(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
+        address.require_auth();
+        Ok(())
+    }
     /// Exit current lobby, ending the lobby if a match is in progress.
     /// # Requirements
     /// - User must be in a lobby
