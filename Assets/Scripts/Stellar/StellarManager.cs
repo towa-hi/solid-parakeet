@@ -30,11 +30,17 @@ public static class StellarManager
     public static NetworkState networkState;
 
     static TaskInfo currentTask;
+    // Tracks tasks that were canceled/aborted so EndTask can ignore them safely
+    static HashSet<Guid> canceledTaskIds = new HashSet<Guid>();
+    
+    // True while a Stellar task is in progress
+    public static bool IsBusy => currentTask != null;
     
     
     public static void Initialize()
     {
         currentTask = null;
+        canceledTaskIds.Clear();
         networkState = new NetworkState();
         stellar = new StellarDotnet(testHostSneed, testContract);
     }
@@ -313,16 +319,41 @@ public static class StellarManager
         {
             throw new Exception("Task is null");
         }
+        // If there is no current task, this may have been canceled earlier
         if (currentTask == null)
         {
+            if (canceledTaskIds.Remove(taskInfo.taskId))
+            {
+                // Swallow end for canceled task
+                return;
+            }
             throw new Exception("Task is not set");
         }
+        // If task IDs don't match, check if the ending task was canceled
         if (currentTask.taskId != taskInfo.taskId)
         {
+            if (canceledTaskIds.Remove(taskInfo.taskId))
+            {
+                // Swallow end for canceled task
+                return;
+            }
             throw new Exception("Task is not taskId");
         }
         OnTaskEnded?.Invoke(currentTask);
         currentTask = null;
+    }
+
+    // Allows callers (e.g., when leaving the game view) to drop any in-flight task so
+    // subsequent calls can proceed without "Task is already set" exceptions.
+    public static void AbortCurrentTask()
+    {
+        if (currentTask != null)
+        {
+            canceledTaskIds.Add(currentTask.taskId);
+            // Notify listeners that task ended to clean up UI state
+            OnTaskEnded?.Invoke(currentTask);
+            currentTask = null;
+        }
     }
     
     // NOTE: lobby IDs will be done server side in the future

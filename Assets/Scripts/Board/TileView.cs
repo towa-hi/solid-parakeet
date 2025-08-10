@@ -38,8 +38,6 @@ public class TileView : MonoBehaviour
 
     Color cachedSetupEmissionColor = Color.clear;
     Color cachedTargetEmissionColor = Color.clear;
-    static Vector2Int? latestOverlayStartPos = null;
-    static Vector2Int? latestOverlayTargetPos = null;
     
     public void Initialize(TileState tile, bool hex)
     {
@@ -118,6 +116,11 @@ public class TileView : MonoBehaviour
         // for net changes
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
+            // Clear all visuals on any NetStateUpdated for simplicity
+            tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
+            tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
+            tileModel.renderEffect.SetEffect(EffectType.FILL, false);
+            SetTopEmission(Color.clear);
             switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
@@ -125,40 +128,38 @@ public class TileView : MonoBehaviour
                     setSelectOutline = false;
                     setTargetableFill = false;
                     // setTargetEmission = false;
-                    latestOverlayStartPos = null;
-                    latestOverlayTargetPos = null;
                     break;
                 case MoveCommitPhase moveCommitPhase:
                 {
                     setSetupEmission = false;
-                    setSelectOutline = moveCommitPhase.selectedStartPosition.HasValue && posView == moveCommitPhase.selectedStartPosition.Value;
-                    setTargetableFill = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.validTargetPositions.Contains(posView);
+                    bool isMyTurn = moveCommitPhase.cachedNetState.IsMySubphase();
+                    // When not my subphase, suppress select/fill/hover; only show planned pairs
+                    setSelectOutline = isMyTurn && moveCommitPhase.selectedStartPosition.HasValue && posView == moveCommitPhase.selectedStartPosition.Value;
+                    setTargetableFill = isMyTurn && moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.validTargetPositions.Contains(posView);
                     bool isSelectedStart = moveCommitPhase.selectedStartPosition.HasValue && moveCommitPhase.selectedStartPosition.Value == posView;
-                    bool isPlannedStart = moveCommitPhase.movePairs.Any(kv => kv.Value.Item1 == posView);
-                    bool isPlannedTarget = moveCommitPhase.movePairs.Any(kv => kv.Value.Item2 == posView);
+                    // Use local movePairs if it's our subphase; otherwise use submitted moves
+                    bool useSubmitted = !isMyTurn && moveCommitPhase.turnHiddenMoves.Count > 0;
+                    bool isPlannedStart = (isMyTurn)
+                        ? moveCommitPhase.movePairs.Any(kv => kv.Value.Item1 == posView)
+                        : moveCommitPhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
+                    bool isPlannedTarget = (isMyTurn)
+                        ? moveCommitPhase.movePairs.Any(kv => kv.Value.Item2 == posView)
+                        : moveCommitPhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
                     // base layer flags from planned pairs
                     markBasePlannedStart = isPlannedStart;
                     markBasePlannedTarget = isPlannedTarget;
-                    // overlay flags: most recent pair if present, otherwise selected start
-                    if (latestOverlayStartPos.HasValue || latestOverlayTargetPos.HasValue)
-                    {
-                        markOverlayStart = latestOverlayStartPos.HasValue && posView == latestOverlayStartPos.Value;
-                        markOverlayTarget = latestOverlayTargetPos.HasValue && posView == latestOverlayTargetPos.Value;
-                    }
-                    else
-                    {
-                        markOverlayStart = isSelectedStart;
-                        markOverlayTarget = false;
-                    }
+                    // overlay flags: currently selected start has highest priority in this phase
+                    markOverlayStart = isMyTurn && isSelectedStart;
+                    markOverlayTarget = false;
                     break;
                 }
                 case MoveProvePhase moveProvePhase:
                 {
                     setSetupEmission = false;
+                    // While waiting on opponent, only show planned move pair highlights; no select/hover/fill
                     setSelectOutline = false;
                     setTargetableFill = false;
-                    latestOverlayStartPos = null;
-                    latestOverlayTargetPos = null;
+                    // Display submitted moves for this turn
                     bool isStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
                     bool isTarget = moveProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
                     markBasePlannedStart = isStart;
@@ -170,10 +171,10 @@ public class TileView : MonoBehaviour
                 case RankProvePhase rankProvePhase:
                 {
                     setSetupEmission = false;
+                    // While waiting on opponent, only show planned move pair highlights; no select/hover/fill
                     setSelectOutline = false;
                     setTargetableFill = false;
-                    latestOverlayStartPos = null;
-                    latestOverlayTargetPos = null;
+                    // Display submitted moves for this turn
                     bool isStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
                     bool isTarget = rankProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
                     markBasePlannedStart = isStart;
@@ -212,17 +213,9 @@ public class TileView : MonoBehaviour
                     bool isPlannedTargetMps = movePairsSnapshot.Any(kv => kv.Value.Item2 == posView);
                     markBasePlannedStart = isPlannedStartMps;
                     markBasePlannedTarget = isPlannedTargetMps;
-                    // overlay latest pair if present; otherwise overlay selected start
-                    if (latestOverlayStartPos.HasValue || latestOverlayTargetPos.HasValue)
-                    {
-                        markOverlayStart = latestOverlayStartPos.HasValue && posView == latestOverlayStartPos.Value;
-                        markOverlayTarget = latestOverlayTargetPos.HasValue && posView == latestOverlayTargetPos.Value;
-                    }
-                    else
-                    {
-                        markOverlayStart = isSelectedStartPos;
-                        markOverlayTarget = false;
-                    }
+                    // overlay: only selected start
+                    markOverlayStart = isSelectedStartPos;
+                    markOverlayTarget = false;
                     break;
                 case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
                     // Targetable fill should not be shown for pair updates (only when a start position is selected)
@@ -232,28 +225,10 @@ public class TileView : MonoBehaviour
                     bool isPlannedTarget = movePairsSnapshot2.Any(kv => kv.Value.Item2 == posView);
                     markBasePlannedStart = isPlannedStart;
                     markBasePlannedTarget = isPlannedTarget;
-                    // Overlay the most recently changed move pair, if provided
-                    if (changedPawnId.HasValue && movePairsSnapshot2.TryGetValue(changedPawnId.Value, out var latestPair))
-                    {
-                        latestOverlayStartPos = latestPair.Item1;
-                        latestOverlayTargetPos = latestPair.Item2;
-                        markOverlayStart = latestPair.Item1 == posView;
-                        markOverlayTarget = latestPair.Item2 == posView;
-                    }
-                    else
-                    {
-                        // If change is a removal (changedPawnId is null), retain overlay only if the same pair still exists
-                        if (!(latestOverlayStartPos.HasValue && latestOverlayTargetPos.HasValue &&
-                              movePairsSnapshot2.Any(kv => kv.Value.Item1 == latestOverlayStartPos.Value && kv.Value.Item2 == latestOverlayTargetPos.Value)))
-                        {
-                            latestOverlayStartPos = null;
-                            latestOverlayTargetPos = null;
-                        }
-                        markOverlayStart = false;
-                        markOverlayTarget = false;
-                    }
+                    // No special overlay for latest pair
+                    markOverlayStart = false;
+                    markOverlayTarget = false;
                     break;
-                    
             }
         }
         // now do the stuff

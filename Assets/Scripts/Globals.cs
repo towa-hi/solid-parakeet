@@ -1778,6 +1778,17 @@ public struct GameNetworkState
         RelativeSubphase subphase = GetRelativeSubphase();
         return subphase is RelativeSubphase.MYSELF or RelativeSubphase.BOTH;
     }
+        
+        public bool IsBlitzTurn()
+        {
+            uint interval = lobbyParameters.blitz_interval;
+            return interval > 0 && gameState.turn % interval == 0;
+        }
+        
+        public int GetMaxMovesThisTurn()
+        {
+            return IsBlitzTurn() ? (int)lobbyParameters.blitz_max_simultaneous_moves : 1;
+        }
     
     public UserMove GetUserMove()
     {
@@ -2127,4 +2138,5 @@ public enum MoveInputTool
     SELECT,
     TARGET,
     CLEAR_SELECT,
+    CLEAR_MOVEPAIR,
 }

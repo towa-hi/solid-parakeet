@@ -57,7 +57,9 @@ public class BoardManager : MonoBehaviour
         // Unsubscribe from events
         StellarManager.OnNetworkStateUpdated -= OnNetworkStateUpdated;
         
-        // Cancel any pending tasks by clearing references
+        // Cancel any in-flight Stellar task to avoid Task-is-already-set on menu navigation
+        StellarManager.AbortCurrentTask();
+        // Clear our own task references
         updateNetworkStateTask = null;
         currentContractTask = null;
         
@@ -526,7 +528,7 @@ public class SetupCommitPhase : PhaseBase
         List<GameOperation> operations = new();
         Vector2Int oldHoveredPos = hoveredPos;
         hoveredPos = inHoveredPos;
-        if (clicked)
+        if (clicked && !StellarManager.IsBusy)
         {
             switch (setupInputTool)
             {
@@ -549,6 +551,10 @@ public class SetupCommitPhase : PhaseBase
 
     SetupInputTool GetNextTool()
     {
+        if (StellarManager.IsBusy)
+        {
+            return SetupInputTool.NONE;
+        }
         SetupInputTool tool = SetupInputTool.NONE;
         if (!cachedNetState.IsMySubphase())
         {
@@ -633,21 +639,11 @@ public class MoveCommitPhase: PhaseBase
     Vector2Int? pendingTargetPosition = null;
     public MoveInputTool moveInputTool = MoveInputTool.NONE;
     public HashSet<Vector2Int> validTargetPositions = new();
-
-    bool IsBlitzTurn()
-    {
-        uint interval = cachedNetState.lobbyParameters.blitz_interval;
-        return interval > 0 && cachedNetState.gameState.turn % interval == 0;
-    }
-
-    int GetMaxMovesThisTurn()
-    {
-        return IsBlitzTurn() ? (int)cachedNetState.lobbyParameters.blitz_max_simultaneous_moves : 1;
-    }
+    public List<HiddenMove> turnHiddenMoves = new List<HiddenMove>();
 
     bool IsAtMoveLimit()
     {
-        return movePairs.Count >= GetMaxMovesThisTurn();
+        return movePairs.Count >= cachedNetState.GetMaxMovesThisTurn();
     }
 
     protected override void SetGui(GuiGame guiGame, bool set)
@@ -660,9 +656,22 @@ public class MoveCommitPhase: PhaseBase
     {
         base.UpdateNetworkState(netState);
         // movePairs is a local-only plan for the current submission; do not populate from network
+        // Keep local planned movePairs even when it's not our subphase so we can display them while waiting
+        // If we've already submitted and it's no longer our subphase, populate turnHiddenMoves from cache to persist highlights
         if (!cachedNetState.IsMySubphase())
         {
-            movePairs.Clear();
+            if (turnHiddenMoves.Count == 0)
+            {
+                turnHiddenMoves.Clear();
+                byte[][] moveHashes = cachedNetState.GetUserMove().move_hashes;
+                foreach (byte[] moveHash in moveHashes)
+                {
+                    if (CacheManager.GetHiddenMove(moveHash) is HiddenMove hiddenMove)
+                    {
+                        turnHiddenMoves.Add(hiddenMove);
+                    }
+                }
+            }
         }
     }
 
@@ -674,8 +683,8 @@ public class MoveCommitPhase: PhaseBase
         }
 
         int count = movePairs.Count;
-        int maxAllowed = GetMaxMovesThisTurn();
-        if (IsBlitzTurn())
+        int maxAllowed = cachedNetState.GetMaxMovesThisTurn();
+        if (cachedNetState.IsBlitzTurn())
         {
             if (count == 0 || count > maxAllowed)
             {
@@ -720,6 +729,8 @@ public class MoveCommitPhase: PhaseBase
             hiddenMoves.Add(hiddenMove);
             hiddenMoveHashes.Add(SCUtility.Get16ByteHash(hiddenMove));
         }
+        // Persist submitted moves locally so TileView can continue showing them after submit
+        turnHiddenMoves = new List<HiddenMove>(hiddenMoves);
         
         CommitMoveReq commitMoveReq = new()
         {
@@ -745,33 +756,28 @@ public class MoveCommitPhase: PhaseBase
         List<GameOperation> operations = new List<GameOperation>();
         Vector2Int oldHoveredPos = hoveredPos;
         hoveredPos = inHoveredPos;
-        if (clicked)
+        if (clicked && !StellarManager.IsBusy)
         {
             switch (moveInputTool)
             {
                 case MoveInputTool.NONE:
                     break;
                 case MoveInputTool.SELECT:
-                    {
-                        // Remove any existing staged move whose start position equals the clicked position
-                        List<PawnId> keysToRemove = movePairs.Where(kv => kv.Value.Item1 == hoveredPos).Select(kv => kv.Key).ToList();
-                        if (keysToRemove.Count > 0)
-                        {
-                            foreach (PawnId key in keysToRemove)
-                            {
-                                movePairs.Remove(key);
-                            }
-                            operations.Add(new MovePairUpdated(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), null, this));
-                        }
-                        operations.Add(SelectPosition(hoveredPos));
-                        break;
-                    }
+                    // Remove any existing staged move whose start position equals the clicked position
+                    operations.Add(ClearMovePair(hoveredPos));
+                    operations.Add(SelectPosition(hoveredPos));
+                    break;
                 case MoveInputTool.TARGET:
                     operations.Add(TargetPosition(hoveredPos));
                     break;
                 case MoveInputTool.CLEAR_SELECT:
                     operations.Add(SelectPosition(null));
                     break;
+                case MoveInputTool.CLEAR_MOVEPAIR:
+                {
+                    operations.Add(ClearMovePair(hoveredPos));
+                    break;
+                }
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -783,56 +789,49 @@ public class MoveCommitPhase: PhaseBase
     
     MoveInputTool GetNextTool(Vector2Int hoveredPosition)
     {
+        if (StellarManager.IsBusy)
+        {
+            return MoveInputTool.NONE;
+        }
         if (!cachedNetState.IsMySubphase())
         {
             return MoveInputTool.NONE;
         }
-        if (cachedNetState.GetTileChecked(hoveredPosition) == null)
+        // When a tile is selected: TARGET if hovered is targetable; otherwise CLEAR_SELECT
+        if (selectedStartPosition is Vector2Int)
         {
-            return MoveInputTool.NONE;
+            return validTargetPositions.Contains(hoveredPosition)
+                ? MoveInputTool.TARGET
+                : MoveInputTool.CLEAR_SELECT;
         }
-        // a pawn is already selected and target hasn't been selected yet
-        if (selectedStartPosition is Vector2Int selectedStart && cachedNetState.GetAlivePawnFromPosChecked(selectedStart) is PawnState selectedPawn)
+        // Nothing selected: if hovered over start pos of an existing move pair, allow clearing it
+        if (movePairs.Any(kv => kv.Value.Item1 == hoveredPosition))
         {
-            // check if hovering over another selectable pawn
-            if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn 
-                && cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
-            {
-                return MoveInputTool.SELECT;
-            }
-            // check if hovering over a valid target
-            if (validTargetPositions.Contains(hoveredPosition))
-            {
-                return MoveInputTool.TARGET;
-            }
-            // invalid tile when pawn is selected
-            return MoveInputTool.CLEAR_SELECT;
+            return MoveInputTool.CLEAR_MOVEPAIR;
         }
-        // no pawn is selected
-        else
+        // Nothing selected: SELECT if hovered over a selectable tile; otherwise NONE
+        if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn &&
+            cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
         {
-            // check if hovering over another selectable pawn
-            if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn 
-                && cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
-            {
-                // Enforce move limit: allow selecting only if under limit or editing an existing pair for this start
-                bool isEditingExisting = movePairs.Any(kv => kv.Value.Item1 == hoveredPosition);
-                if (!IsAtMoveLimit() || isEditingExisting)
-                {
-                    return MoveInputTool.SELECT;
-                }
-                return MoveInputTool.NONE;
-            }
-            return MoveInputTool.NONE;
+            return MoveInputTool.SELECT;
         }
+        return MoveInputTool.NONE;
     }
     
+
     MovePosSelected SelectPosition(Vector2Int? startPosition)
     {
         Vector2Int? previousSelectedStartPosition = selectedStartPosition;
         selectedStartPosition = startPosition;
         validTargetPositions = ComputeTargetablePositionsForSelected();
         return new(previousSelectedStartPosition, selectedStartPosition, validTargetPositions, new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs));
+    }
+
+    MovePairUpdated ClearMovePair(Vector2Int startPosition)
+    {
+        PawnId keyToRemove = movePairs.FirstOrDefault(kv => kv.Value.Item1 == startPosition).Key;
+        movePairs.Remove(keyToRemove);
+        return new(new Dictionary<PawnId, (Vector2Int, Vector2Int)>(movePairs), keyToRemove, this);
     }
 
     MovePairUpdated TargetPosition(Vector2Int? targetPosition)

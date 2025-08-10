@@ -182,6 +182,8 @@ public class GuiMenuController: MonoBehaviour
         CloseAllModals();
         if (GameManager.instance.boardManager.initialized)
         {
+            // Ensure any in-flight Stellar task is dropped before leaving the game
+            StellarManager.AbortCurrentTask();
             GameManager.instance.boardManager.CloseBoardManager();
         }
         GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_INNER, false);

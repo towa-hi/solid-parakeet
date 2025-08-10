@@ -16,6 +16,7 @@ public class GuiMovement : GameElement
     public Button badgeButton;
     public TextMeshProUGUI badgeButtonText;
     public Button submitMoveButton;
+    public TextMeshProUGUI submitMoveButtonText;
     public Button graveyardButton;
     public Button refreshButton;
     public Toggle autoSubmitToggle;
@@ -57,6 +58,7 @@ public class GuiMovement : GameElement
         bool? setSubmitButton = null;
         bool? setRefreshButton = null;
         string setStatus = null;
+        string setSubmitMoveLabel = null;
         // figure out what to do based on what happened
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
@@ -69,6 +71,13 @@ public class GuiMovement : GameElement
                     setShowElement = true;
                     setSubmitButton = false;
                     setRefreshButton = true;
+                    // Update submit label with planned/allowed counts
+                    if (netStateUpdated.phase is MoveCommitPhase moveCommitPhase)
+                    {
+                        int planned = cachedNetState.IsMySubphase() ? moveCommitPhase.movePairs.Count : moveCommitPhase.turnHiddenMoves.Count;
+                        int allowed = cachedNetState.GetMaxMovesThisTurn();
+                        setSubmitMoveLabel = $"Commit Move ({planned}/{allowed})";
+                    }
                     if (cachedNetState.IsMySubphase())
                     {
                         setStatus = "Commit your move";
@@ -129,6 +138,9 @@ public class GuiMovement : GameElement
                     // Enable submit if we have at least one planned move
                     setSubmitButton = movePairsSnapshot.Count > 0;
                     setStatus = setSubmitButton.Value ? "Submit move" : "Select a pawn";
+                    // Update submit label with snapshot count
+                    int allowed = phaseRef.cachedNetState.GetMaxMovesThisTurn();
+                    setSubmitMoveLabel = $"Commit Move ({movePairsSnapshot.Count}/{allowed})";
                     break;
             }
         }
@@ -156,6 +168,10 @@ public class GuiMovement : GameElement
         if (setStatus is not null)
         {
             statusText.text = setStatus;
+        }
+        if (setSubmitMoveLabel is not null)
+        {
+            submitMoveButtonText.text = setSubmitMoveLabel;
         }
     }
     

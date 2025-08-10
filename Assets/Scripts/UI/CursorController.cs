@@ -88,6 +88,9 @@ public class CursorController : MonoBehaviour
             case MoveInputTool.CLEAR_SELECT:
                 ChangeCursor(CursorType.MINUS);
                 break;
+            case MoveInputTool.CLEAR_MOVEPAIR:
+                ChangeCursor(CursorType.MINUS);
+                break;
             default:
                 throw new ArgumentOutOfRangeException();
         }

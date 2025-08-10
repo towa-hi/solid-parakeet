@@ -2166,7 +2166,7 @@ GameObject:
   - component: {fileID: 8967973126424402336}
   - component: {fileID: 9135255178448539661}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Submit Move Button Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3314,6 +3314,7 @@ MonoBehaviour:
   badgeButton: {fileID: 8007464213012217437}
   badgeButtonText: {fileID: 6633376482713138442}
   submitMoveButton: {fileID: 8510277225290183455}
+  submitMoveButtonText: {fileID: 9135255178448539661}
   graveyardButton: {fileID: 6553319288134531635}
   refreshButton: {fileID: 8394129175525665688}
   autoSubmitToggle: {fileID: 1412136789164467717}
