@@ -2,17 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 using Contract;
 using JetBrains.Annotations;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.Assertions;
-using UnityEngine.Serialization;
 using Board = Contract.Board;
-using Random = UnityEngine.Random;
 
 public class BoardManager : MonoBehaviour
 {
@@ -32,8 +26,8 @@ public class BoardManager : MonoBehaviour
     // UI stuff generally gets done in the phase
     public GuiGame guiGame;
     // master references to board objects passed to state
-    Dictionary<Vector2Int, TileView> tileViews = new();
-    Dictionary<PawnId, PawnView> pawnViews = new();
+    readonly Dictionary<Vector2Int, TileView> tileViews = new();
+    readonly Dictionary<PawnId, PawnView> pawnViews = new();
     
     Task<bool> updateNetworkStateTask;
     Task<int> currentContractTask;
@@ -280,10 +274,7 @@ public class BoardManager : MonoBehaviour
         if (poll)
         {
             // Start polling if not already running
-            if (pollingCoroutine == null)
-            {
-                pollingCoroutine = CoroutineRunner.instance.StartCoroutine(PollCoroutine());
-            }
+            pollingCoroutine ??= CoroutineRunner.instance.StartCoroutine(PollCoroutine());
         }
         else
         {
@@ -567,11 +558,7 @@ public class SetupCommitPhase : PhaseBase
         }
         else if (selectedRank is Rank rank && cachedNetState.GetTileChecked(hoveredPos) is TileState tile && tile.setup == cachedNetState.userTeam && GetRemainingRank(rank) > 0)
         {
-            if (GetRemainingRank(rank) > 0)
-            {
-                tool = SetupInputTool.ADD;
-            }
-            
+            tool = SetupInputTool.ADD;
         }
         return tool;
     }
@@ -639,7 +626,7 @@ public class MoveCommitPhase: PhaseBase
     Vector2Int? pendingTargetPosition = null;
     public MoveInputTool moveInputTool = MoveInputTool.NONE;
     public HashSet<Vector2Int> validTargetPositions = new();
-    public List<HiddenMove> turnHiddenMoves = new List<HiddenMove>();
+    public List<HiddenMove> turnHiddenMoves = new();
 
     bool IsAtMoveLimit()
     {
@@ -699,8 +686,8 @@ public class MoveCommitPhase: PhaseBase
             }
         }
 
-        List<HiddenMove> hiddenMoves = new List<HiddenMove>();
-        List<byte[]> hiddenMoveHashes = new List<byte[]>();
+        List<HiddenMove> hiddenMoves = new();
+        List<byte[]> hiddenMoveHashes = new();
         foreach (KeyValuePair<PawnId, (Vector2Int, Vector2Int)> entry in movePairs)
         {
             PawnState selectedPawn = cachedNetState.GetPawnFromId(entry.Key);
@@ -718,7 +705,7 @@ public class MoveCommitPhase: PhaseBase
                 throw new InvalidOperationException("targetpos is out of range");
             }
 
-            HiddenMove hiddenMove = new HiddenMove()
+            HiddenMove hiddenMove = new()
             {
                 pawn_id = selectedPawn.pawn_id,
                 salt = Globals.RandomSalt(),
@@ -753,7 +740,7 @@ public class MoveCommitPhase: PhaseBase
     
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
-        List<GameOperation> operations = new List<GameOperation>();
+        List<GameOperation> operations = new();
         Vector2Int oldHoveredPos = hoveredPos;
         hoveredPos = inHoveredPos;
         if (clicked && !StellarManager.IsBusy)
@@ -837,7 +824,6 @@ public class MoveCommitPhase: PhaseBase
     MovePairUpdated TargetPosition(Vector2Int? targetPosition)
     {
         pendingTargetPosition = targetPosition;
-        PawnId? changedPawnId = null;
         if (selectedStartPosition is Vector2Int start && pendingTargetPosition is Vector2Int end)
         {
             // Prevent duplicate pawn moves; replace if start already present
@@ -847,7 +833,7 @@ public class MoveCommitPhase: PhaseBase
                 if (alreadyPlanned || !IsAtMoveLimit())
                 {
                     movePairs[selectedPawn.pawn_id] = (start, end);
-                    changedPawnId = selectedPawn.pawn_id;
+                    PawnId? changedPawnId = selectedPawn.pawn_id;
                     // Clear selection after creating/setting a pair
                     selectedStartPosition = null;
                     pendingTargetPosition = null;
@@ -864,7 +850,7 @@ public class MoveCommitPhase: PhaseBase
 
     HashSet<Vector2Int> ComputeTargetablePositionsForSelected()
     {
-        HashSet<Vector2Int> computedTargets = new HashSet<Vector2Int>();
+        HashSet<Vector2Int> computedTargets = new();
         if (selectedStartPosition is not Vector2Int selectedPosition)
         {
             return computedTargets;
@@ -883,7 +869,7 @@ public class MoveCommitPhase: PhaseBase
 
 public class MoveProvePhase: PhaseBase
 {
-    public List<HiddenMove> turnHiddenMoves = new List<HiddenMove>();
+    public List<HiddenMove> turnHiddenMoves = new();
     
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -937,7 +923,7 @@ public class MoveProvePhase: PhaseBase
 
 public class RankProvePhase: PhaseBase
 {
-    public List<HiddenMove> turnHiddenMoves = new List<HiddenMove>();
+    public List<HiddenMove> turnHiddenMoves = new();
     
     protected override void SetGui(GuiGame guiGame, bool set)
     {
@@ -1002,6 +988,9 @@ namespace System.Runtime.CompilerServices
 
 public abstract record GameOperation;
 
+// Suppress local naming warnings for record positional parameters in this block
+#pragma warning disable IDE1006 // Naming rule violation: These words must begin with upper case characters
+// ReSharper disable InconsistentNaming
 public record SetupHoverChanged(Vector2Int oldHoveredPos, Vector2Int newHoveredPos, SetupCommitPhase phase) : GameOperation;
 
 public record SetupRankCommitted(Dictionary<PawnId, Rank?> oldPendingCommits, SetupCommitPhase phase) : GameOperation;
@@ -1012,6 +1001,8 @@ public record MovePosSelected(Vector2Int? oldPos, Vector2Int? newPos, HashSet<Ve
 public record MovePairUpdated(Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairsSnapshot, PawnId? changedPawnId, MoveCommitPhase phase) : GameOperation;
 
 public record NetStateUpdated(PhaseBase phase) : GameOperation;
+// ReSharper restore InconsistentNaming
+#pragma warning restore IDE1006
 
 
 public class PhaseChangeSet

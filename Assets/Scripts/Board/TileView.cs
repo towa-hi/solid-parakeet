@@ -220,6 +220,8 @@ public class TileView : MonoBehaviour
                 case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
                     // Targetable fill should not be shown for pair updates (only when a start position is selected)
                     setTargetableFill = false;
+                    // Selection was cleared when the pair was finalized; ensure outlines are removed
+                    setSelectOutline = false;
                     // Recompute base planned flags from snapshot
                     bool isPlannedStart = movePairsSnapshot2.Any(kv => kv.Value.Item1 == posView);
                     bool isPlannedTarget = movePairsSnapshot2.Any(kv => kv.Value.Item2 == posView);
