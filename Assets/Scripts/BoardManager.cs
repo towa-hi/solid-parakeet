@@ -85,6 +85,7 @@ public class BoardManager : MonoBehaviour
         
         clickInputManager.SetUpdating(true);
         CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
+        GameLogger.Initialize(netState);
         // set up board and pawns
         Board board = netState.lobbyParameters.board;
         grid.SetBoard(board.hex);
@@ -164,6 +165,7 @@ public class BoardManager : MonoBehaviour
         
         // Always update the network state
         currentPhase.UpdateNetworkState(netState);
+        GameLogger.RecordNetworkState(netState);
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
         
         // Manage polling based on whose turn it is

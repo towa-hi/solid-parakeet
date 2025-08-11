@@ -12,6 +12,7 @@ pub type MerkleHash = BytesN<16>;
 pub type Rank = u32;
 pub type PackedTile = u32;
 pub type PackedPawn = u32;
+pub type PackedMove = u32;
 // endregion
 // region enums & errors
 #[contracterror]
@@ -165,9 +166,30 @@ pub struct LobbyInfo {
 // legacy collision summary removed
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Collision {
-    pub h_pawn_id: PawnId,
     pub g_pawn_id: PawnId,
+    pub h_pawn_id: PawnId,
     pub target_pos: Pos,
+}
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Turn {
+
+    pub guest_move_proofs: Vec<HiddenMove>,
+    pub host_move_proofs: Vec<HiddenMove>,
+}
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct History {
+    pub game_state: GameState,
+    pub lobby_info: LobbyInfo,
+    pub lobby_parameters: LobbyParameters,
+    pub turns: Vec<Turn>,
+}
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PackedTurn {
+    pub moves: Vec<PackedMove>,
+}
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PackedHistory {
+    pub turns: Vec<PackedTurn>,
 }
 // // endregion
 // // region requests
@@ -218,7 +240,7 @@ pub enum DataKey {
     LobbyInfo(LobbyId), // lobby specific data
     LobbyParameters(LobbyId), // immutable lobby data
     GameState(LobbyId), // game state
-    History(LobbyId),
+    PackedHistory(LobbyId),
 }
 // endregion
 // region contract
@@ -450,6 +472,8 @@ impl Contract {
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        // Initialize empty packed history for this lobby
+        temporary.set(&DataKey::PackedHistory(req.lobby_id), &PackedHistory { turns: Vec::new(e) });
         persistent.set(&user_key, &user);
         Ok(())
     }
@@ -542,6 +566,7 @@ impl Contract {
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
+        let mut packed_history: PackedHistory = temporary.get(&DataKey::PackedHistory(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         if !lobby_parameters.security_mode {
             return Err(Error::WrongSecurityMode)
@@ -574,12 +599,14 @@ impl Contract {
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
+        let mut packed_history: PackedHistory = temporary.get(&DataKey::PackedHistory(req.lobby_id)).unwrap_or(PackedHistory { turns: Vec::new(e) });
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
-        Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters, &mut packed_history)?;
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        temporary.set(&DataKey::PackedHistory(req.lobby_id), &packed_history);
         Ok(lobby_info)
     }
     /// Reveal and validate committed moves.
@@ -609,10 +636,12 @@ impl Contract {
         if !lobby_parameters.security_mode {
             return Err(Error::WrongSecurityMode)
         }
-        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        let mut packed_history: PackedHistory = temporary.get(&DataKey::PackedHistory(req.lobby_id)).unwrap();
+        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters, &mut packed_history)?;
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        temporary.set(&DataKey::PackedHistory(req.lobby_id), &packed_history);
         Ok(lobby_info)
     }
     /// Prove moves and any required rank proofs in a single call (security mode only).
@@ -634,14 +663,16 @@ impl Contract {
         if !lobby_parameters.security_mode {
             return Err(Error::WrongSecurityMode)
         }
-        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        let mut packed_history: PackedHistory = temporary.get(&DataKey::PackedHistory(req.lobby_id)).unwrap();
+        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters, &mut packed_history)?;
         // skip if game was aborted due to an illegal move
         if lobby_info.phase != Phase::Aborted {
-            Self::prove_rank_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+            Self::prove_rank_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters, &mut packed_history)?;
         }
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        temporary.set(&DataKey::PackedHistory(req.lobby_id), &packed_history);
         Ok(lobby_info)
     }
     /// Reveal ranks for collision resolution.
@@ -669,10 +700,12 @@ impl Contract {
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
-        Self::prove_rank_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
+        let mut packed_history: PackedHistory = temporary.get(&DataKey::PackedHistory(req.lobby_id)).unwrap();
+        Self::prove_rank_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters, &mut packed_history)?;
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        temporary.set(&DataKey::PackedHistory(req.lobby_id), &packed_history);
         Ok(lobby_info)
     }
     /// Claim victory due to opponent timeout. WIP
@@ -764,7 +797,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         game_state.moves.set(u_index.u32(), u_move);
         Ok(())
     }
-    pub(crate) fn prove_move_internal(e: &Env, address: &Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<(), Error> {
+    pub(crate) fn prove_move_internal(e: &Env, address: &Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters, packed_history: &mut PackedHistory) -> Result<(), Error> {
         if lobby_parameters.security_mode {
             if lobby_info.phase != Phase::MoveProve {
                 return Err(Error::WrongPhase)
@@ -958,6 +991,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                         lobby_info.phase = Phase::MoveCommit;
                         lobby_info.subphase = Subphase::Both;
                         game_state.turn += 1;
+                        // Append packed moves to history for this completed turn
+                        Self::record_packed_moves_for_completed_turn(e, game_state, packed_history);
                     }
                 }
                 (true, false) => {
@@ -978,7 +1013,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         }
         Ok(())
     }
-    pub(crate) fn prove_rank_internal(e: &Env, address: &Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<(), Error> {
+    pub(crate) fn prove_rank_internal(e: &Env, address: &Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters, packed_history: &mut PackedHistory) -> Result<(), Error> {
         let u_index = Self::get_player_index(address, &lobby_info);
         if lobby_info.phase != Phase::RankProve {
             return Err(Error::WrongPhase)
@@ -1038,6 +1073,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 lobby_info.phase = Phase::MoveCommit;
                 lobby_info.subphase = Subphase::Both;
                 game_state.turn += 1;
+                // Append packed moves to history for this completed turn
+                Self::record_packed_moves_for_completed_turn(e, game_state, packed_history);
             }
         } else {
             // Standard case: advance to next player's turn
@@ -1436,7 +1473,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 if host_ids.len() == 1 && guest_ids.len() == 1 {
                     let h_id = host_ids.get_unchecked(0);
                     let g_id = guest_ids.get_unchecked(0);
-                    collisions_list.push_back(Collision { h_pawn_id: h_id, g_pawn_id: g_id, target_pos: pos });
+                    collisions_list.push_back(Collision { g_pawn_id: g_id, h_pawn_id: h_id,  target_pos: pos });
                 }
             }
         }
@@ -1455,7 +1492,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 if owner_a == owner_b { continue; }
                 if move_a.target_pos == start_pos_b && move_b.target_pos == start_pos_a {
                     let (h_id, g_id) = if owner_a == UserIndex::Host { (pawn_id_a, pawn_id_b) } else { (pawn_id_b, pawn_id_a) };
-                    collisions_list.push_back(Collision { h_pawn_id: h_id, g_pawn_id: g_id, target_pos: move_a.target_pos });
+                    collisions_list.push_back(Collision { g_pawn_id: g_id, h_pawn_id: h_id, target_pos: move_a.target_pos });
                 }
             }
         }
@@ -1631,6 +1668,54 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             rank,
             zz_revealed,
         }
+    }
+    pub(crate) fn pack_move(mv: &HiddenMove) -> PackedMove {
+        let mut packed: u32 = 0;
+        // Pack pawn_id (9 bits)
+        let pawn_id_packed = mv.pawn_id & 0x1FF;
+        packed |= pawn_id_packed << 0;
+        // Pack start_pos (x: bits 9-12, y: bits 13-16)
+        packed |= ((mv.start_pos.x as u32) & 0xF) << 9;
+        packed |= ((mv.start_pos.y as u32) & 0xF) << 13;
+        // Pack target_pos (x: bits 17-20, y: bits 21-24)
+        packed |= ((mv.target_pos.x as u32) & 0xF) << 17;
+        packed |= ((mv.target_pos.y as u32) & 0xF) << 21;
+        packed
+    }
+    pub(crate) fn unpack_move(packed: PackedMove) -> HiddenMove {
+        // Extract pawn_id (9 bits)
+        let pawn_id = packed & 0x1FF;
+        // Extract positions
+        let sx = ((packed >> 9) & 0xF) as i32;
+        let sy = ((packed >> 13) & 0xF) as i32;
+        let tx = ((packed >> 17) & 0xF) as i32;
+        let ty = ((packed >> 21) & 0xF) as i32;
+        HiddenMove {
+            pawn_id,
+            salt: 0u64,
+            start_pos: Pos { x: sx, y: sy },
+            target_pos: Pos { x: tx, y: ty },
+        }
+    }
+    pub(crate) fn record_packed_moves_for_completed_turn(e: &Env, game_state: &GameState, packed_history: &mut PackedHistory) {
+        // Completed turn is the one we just incremented to, so use turn-1 as index
+        let turn_index = if game_state.turn > 0 { (game_state.turn - 1) as u32 } else { 0u32 };
+        // Collect both players' proved moves for that turn
+        let host_moves = game_state.moves.get(0).map(|m| m.move_proofs).unwrap_or_else(|| Vec::new(e));
+        let guest_moves = game_state.moves.get(1).map(|m| m.move_proofs).unwrap_or_else(|| Vec::new(e));
+        // Pack them
+        let mut all_packed: Vec<PackedMove> = Vec::new(e);
+        for mv in host_moves.iter() { all_packed.push_back(Self::pack_move(&mv)); }
+        for mv in guest_moves.iter() { all_packed.push_back(Self::pack_move(&mv)); }
+
+        // Ensure capacity up to turn_index
+        let mut turns = packed_history.turns.clone();
+        while (turns.len()) <= turn_index { turns.push_back(PackedTurn { moves: Vec::new(e) }); }
+        // Set the moves for this turn
+        let mut t = turns.get_unchecked(turn_index);
+        t.moves = all_packed;
+        turns.set(turn_index, t);
+        packed_history.turns = turns;
     }
     // endregion
 }

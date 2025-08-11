@@ -76,6 +76,8 @@ namespace Contract
                     return new SCVal.ScvU32() { u32 = new uint32(pawnId.Value) };
                 case LobbyId lobbyId:
                     return new SCVal.ScvU32() { u32 = new uint32(lobbyId.Value) };
+                case PackedMove packedMove:
+                    return new SCVal.ScvU32() { u32 = new uint32(packedMove.Value) };
                 case PawnState pawnState:
                     return new SCVal.ScvU32() { u32 = new uint32(pawnState) };
                 case Array inputArray:
@@ -177,6 +179,12 @@ namespace Contract
                     if (scVal is SCVal.ScvU32 tileU32Val)
                     {
                         return (TileState)tileU32Val.u32.InnerValue;
+                    }
+                    break;
+                case var _ when targetType == typeof(PackedMove):
+                    if (scVal is SCVal.ScvU32 moveU32Val)
+                    {
+                        return new PackedMove(moveU32Val.u32.InnerValue);
                     }
                     break;
                 case var _ when targetType == typeof(PawnState):
@@ -582,6 +590,22 @@ namespace Contract
             };
         }
     }
+
+    [Serializable]
+    public readonly struct PackedMove : IEquatable<PackedMove>
+    {
+        public readonly uint Value;
+
+        public PackedMove(uint value) => Value = value;
+
+        public static implicit operator uint(PackedMove pm) => pm.Value;
+        public static explicit operator PackedMove(uint raw) => new PackedMove(raw);
+
+        public bool Equals(PackedMove other) => Value == other.Value;
+        public override bool Equals(object obj) => obj is PackedMove other && Equals(other);
+        public override int GetHashCode() => Value.GetHashCode();
+        public override string ToString() => Value.ToString();
+    }
     
     [Serializable]
     public struct MerkleProof : IScvMapCompatable
@@ -692,6 +716,91 @@ namespace Contract
                     SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
                     SCUtility.FieldToSCMapEntry("rank", rank),
                     SCUtility.FieldToSCMapEntry("salt", salt),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct Turn : IScvMapCompatable
+    {
+        public HiddenMove[] guest_move_proofs;
+        public HiddenMove[] host_move_proofs;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("guest_move_proofs", guest_move_proofs),
+                    SCUtility.FieldToSCMapEntry("host_move_proofs", host_move_proofs),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct History : IScvMapCompatable
+    {
+        public GameState game_state;
+        public LobbyInfo lobby_info;
+        public LobbyParameters lobby_parameters;
+        public Turn[] turns;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("game_state", game_state),
+                    SCUtility.FieldToSCMapEntry("lobby_info", lobby_info),
+                    SCUtility.FieldToSCMapEntry("lobby_parameters", lobby_parameters),
+                    SCUtility.FieldToSCMapEntry("turns", turns),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct PackedTurn : IScvMapCompatable
+    {
+        public PackedMove[] moves;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("moves", moves),
+                }),
+            };
+        }
+
+        public static implicit operator uint[](PackedTurn turn)
+        {
+            // Allow automatic conversion to vector of u32 for contract calls
+            if (turn.moves == null) return Array.Empty<uint>();
+            uint[] arr = new uint[turn.moves.Length];
+            for (int i = 0; i < turn.moves.Length; i++) arr[i] = turn.moves[i].Value;
+            return arr;
+        }
+    }
+
+    [Serializable]
+    public struct PackedHistory : IScvMapCompatable
+    {
+        public PackedTurn[] turns;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("turns", turns),
                 }),
             };
         }

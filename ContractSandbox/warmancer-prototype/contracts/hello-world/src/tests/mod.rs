@@ -7,3 +7,4 @@ pub mod setup_tests;
 pub mod integration_tests;
 pub mod validation_tests;
 pub mod unit_tests;
+pub mod bot_tests;

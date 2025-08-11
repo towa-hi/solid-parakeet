@@ -13,12 +13,13 @@ fn extend_lobby_ttl(setup: &TestSetup, lobby_id: u32) {
         setup.env.storage().temporary().extend_ttl(&DataKey::LobbyInfo(lobby_id), 100, 17280);
         setup.env.storage().temporary().extend_ttl(&DataKey::GameState(lobby_id), 100, 17280);
         setup.env.storage().temporary().extend_ttl(&DataKey::LobbyParameters(lobby_id), 100, 17280);
+        setup.env.storage().temporary().extend_ttl(&DataKey::PackedHistory(lobby_id), 100, 17280);
     });
 }
 
 // region integration tests
 
-fn execute_commit_and_prove_atomic_pattern(
+pub fn execute_commit_and_prove_atomic_pattern(
     setup: &TestSetup,
     host: &soroban_sdk::Address,
     guest: &soroban_sdk::Address,
@@ -106,7 +107,7 @@ fn execute_commit_and_prove_atomic_pattern(
     );
 }
 
-fn execute_commit_and_prove_batch_pattern(
+pub fn execute_commit_and_prove_batch_pattern(
     setup: &TestSetup,
     first_player: &soroban_sdk::Address,
     second_player: &soroban_sdk::Address,
@@ -204,7 +205,7 @@ fn execute_commit_and_prove_batch_pattern(
         "Method ended in unexpected state: {:?} {:?}", end_snapshot.phase, end_snapshot.subphase
     );
 }
-fn execute_insecure_batch_pattern(
+pub fn execute_insecure_batch_pattern(
     setup: &TestSetup,
     first_player: &Address,
     second_player: &Address,
@@ -223,7 +224,7 @@ fn execute_insecure_batch_pattern(
 
 }
 #[test]
-fn test_insecure_blitz_multi_move_resolution() {
+pub fn test_insecure_blitz_multi_move_resolution() {
     let setup = TestSetup::new();
     let lobby_id = 5001;
     let host = setup.generate_address();
@@ -281,7 +282,7 @@ fn test_insecure_blitz_multi_move_resolution() {
     }
 }
 
-fn generate_valid_blitz_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters, team: &UserIndex, team_ranks: &Vec<HiddenRank>, salt: u64, lobby_id: u32) -> ProveMoveReq {
+pub fn generate_valid_blitz_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnState)>, lobby_parameters: &LobbyParameters, team: &UserIndex, team_ranks: &Vec<HiddenRank>, salt: u64, lobby_id: u32) -> ProveMoveReq {
     let mut chosen: Vec<HiddenMove> = Vec::new(env);
     let mut used_targets: Map<Pos, bool> = Map::new(env);
     let mut rng = salt;
@@ -820,4 +821,5 @@ fn test_action_invalidates_timeout_claim() {
     assert_eq!(final_state.subphase, Subphase::Both);
 }
 
+// endregion
 // endregion
