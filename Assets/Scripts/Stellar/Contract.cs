@@ -103,6 +103,31 @@ namespace Contract
             DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
             switch (targetType)
             {
+                case var _ when targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>):
+                    // General support for Nullable<T> so callers don't have to always wrap in Vec
+                    Type nullableUnderlyingType = Nullable.GetUnderlyingType(targetType);
+                    if (scVal is SCVal.ScvVec nullableVec)
+                    {
+                        SCVal[] items = nullableVec.vec.InnerValue;
+                        if (items.Length == 0)
+                        {
+                            return null;
+                        }
+                        if (items.Length == 1)
+                        {
+                            object innerValue = SCValToNative(items[0], nullableUnderlyingType);
+                            return Activator.CreateInstance(targetType, innerValue);
+                        }
+                        Debug.LogWarning($"SCValToNative: Nullable vector has {items.Length} elements. Using first.");
+                        object firstValue = SCValToNative(items[0], nullableUnderlyingType);
+                        return Activator.CreateInstance(targetType, firstValue);
+                    }
+                    else
+                    {
+                        // Treat non-Vec as a direct underlying value for backwards compatibility
+                        object innerValue = SCValToNative(scVal, nullableUnderlyingType);
+                        return Activator.CreateInstance(targetType, innerValue);
+                    }
                 case var _ when targetType.IsEnum:
                     if (scVal is SCVal.ScvU32 scvU32)
                     {

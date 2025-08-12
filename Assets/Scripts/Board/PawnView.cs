@@ -171,7 +171,7 @@ public class PawnView : MonoBehaviour
                     break;
                 case MovePosSelected movePosSelected:
                 {
-                    bool isCurrentlySelectedPawn = movePosSelected.newPos.HasValue && movePosSelected.newPos.Value == posView;
+                    bool isCurrentlySelectedPawn = movePosSelected.selectedPos.HasValue && movePosSelected.selectedPos.Value == posView;
                     setAnimatorIsSelected = isCurrentlySelectedPawn;
                     break;
                 }

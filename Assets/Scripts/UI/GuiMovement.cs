@@ -127,7 +127,7 @@ public class GuiMovement : GameElement
         {
             switch (operation)
             {
-                case MovePosSelected(_, var selectedPos, _, _):
+                case MovePosSelected(var selectedPos, _, _):
                     setSubmitButton = false;
                     if (selectedPos.HasValue)
                     {
