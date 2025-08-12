@@ -885,7 +885,7 @@ namespace Contract
                     return rankProof.hidden_rank.rank;
                 }
             }
-            else if (zz_revealed && rank is Rank knownRank)
+            else if ((zz_revealed || PlayerPrefs.GetInt(SettingsKey.CHEATMODE.ToString()) == 1) && rank is Rank knownRank)
             {
                 return knownRank;
             }

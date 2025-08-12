@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections;
 using Contract;
 using JetBrains.Annotations;
@@ -24,13 +25,13 @@ public class PawnView : MonoBehaviour
     public Team team;
     
     // cached
-    Rank rankView;
-    bool aliveView;
+    public Rank rankView;
+    public bool aliveView;
     public Vector2Int posView;
-    bool visible;
+    public bool visibleView;
+    public bool isSelected;
+    public bool isMovePairStart;
 
-    // debug
-    [SerializeField] SerializablePawnState debugPawnState;
 
     public void TestSetSprite(Rank testRank, Team testTeam)
     {
@@ -50,23 +51,15 @@ public class PawnView : MonoBehaviour
         startPos = pawnId.Decode().Item1;
         team = pawnId.Decode().Item2;
         gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
-        
         rankView = Rank.UNKNOWN;
+        aliveView = pawn.alive;
         posView = Vector2Int.zero;
-        Debug.Log("PawnView initialize setting constraint to tile");
+        visibleView = false;
+        isSelected = false;
+        isMovePairStart = false;
         SetConstraintToTile(tileView);
+        DisplayRankView(Rank.UNKNOWN);
 
-        debugPawnState = new SerializablePawnState()
-        {
-            alive = pawn.alive,
-            moved = pawn.moved,
-            movedScout = pawn.moved_scout,
-            pawnID = pawn.pawn_id.Value,
-            pos = new SerializablePos { x = pawn.pos.x, y = pawn.pos.y },
-            rank = pawn.rank ?? Rank.UNKNOWN,
-            rankHasValue = pawn.rank.HasValue,
-            zz_revealed = pawn.zz_revealed,
-        };
     }
 
 
@@ -83,68 +76,50 @@ public class PawnView : MonoBehaviour
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
-        bool? setAlive = null; // wether to display the pawn dead or alive 
-        bool? setVisible = null; // wether to show the pawn regardless of aliveness
+        bool? setAliveView = null; // wether to display the pawn dead or alive 
+        bool? setVisibleView = null; // wether to show the pawn regardless of aliveness
         Rank? setRankView = null; // wether to display rank regardless of revealed rank
-        bool? setAnimatorIsSelected = null;
+        bool? setIsSelected = null;
+        bool? setIsMovePairStart = null;
         (Vector2Int, TileView)? setPosView = null;
         // figure out what to do based on what happened
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
+            if (pawn.alive != aliveView)
+            {
+                setAliveView = pawn.alive;
+            }
+            setIsSelected = false;
+            setIsMovePairStart = false;
             setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
-            setAlive = pawn.alive;
-            if (setAlive.Value)
+            setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
+            switch (netStateUpdated.phase)
             {
-                setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
-            }
-            else
-            {
-                setPosView = (Globals.Purgatory, null);
-            }
-            switch (cachedNetState.lobbyInfo.phase)
-            {
-                case Phase.SetupCommit:
+                case SetupCommitPhase setupCommitPhase:
                     if (cachedNetState.IsMySubphase())
                     {
-                        setVisible = false;
-                    }
-                    else
-                    {
-                        // only show your pawns when waiting
-                        setVisible = team == cachedNetState.userTeam;
+                        if (setupCommitPhase.pendingCommits.ContainsKey(pawnId))
+                        {
+                            setVisibleView = true;
+                        }
                     }
                     break;
-                case Phase.MoveCommit:
-                    setVisible = true;
+                case MoveCommitPhase moveCommitPhase:
+                    setVisibleView = true;
+                    setIsSelected = moveCommitPhase.selectedPos.HasValue && moveCommitPhase.selectedPos.Value == posView;
+                    setIsMovePairStart = moveCommitPhase.movePairs.Any(kv => kv.Value.Item1 == posView);
                     break;
-                case Phase.MoveProve:
-                    setVisible = true;
+                case MoveProvePhase moveProvePhase:
+                    setVisibleView = true;
+                    setIsMovePairStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView); 
                     break;
-                case Phase.RankProve:
-                    setVisible = true;
+                case RankProvePhase rankProvePhase:
+                    setVisibleView = true;
+                    setIsMovePairStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView); 
                     break;
-                case Phase.Finished:
-                    break;
-                case Phase.Aborted:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
-            
-            debugPawnState = new SerializablePawnState()
-            {
-                alive = pawn.alive,
-                moved = pawn.moved,
-                movedScout = pawn.moved_scout,
-                pawnID = pawn.pawn_id.Value,
-                pos = new SerializablePos { x = pawn.pos.x, y = pawn.pos.y },
-                rank = pawn.rank ?? Rank.UNKNOWN,
-                rankHasValue = pawn.rank.HasValue,
-                zz_revealed = pawn.zz_revealed,
-            };
-            setAnimatorIsSelected = false;
         }
         // for local changes
         foreach (GameOperation operation in changes.operations)
@@ -154,63 +129,64 @@ public class PawnView : MonoBehaviour
                 case SetupHoverChanged setupHoverChanged:
                     break;
                 case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
-                    if (pawnId.GetTeam() == setupCommitPhase.cachedNetState.userTeam)
-                    {
-                        if (oldPendingCommits[pawnId] != setupCommitPhase.pendingCommits[pawnId])
-                        {
-                            setRankView = setupCommitPhase.pendingCommits[pawnId] ?? Rank.UNKNOWN;
-                            setVisible = setRankView.Value != Rank.UNKNOWN;
-                        }
-                    }
-                    else
-                    {
-                        visible = false;
-                    }
+                    setVisibleView = setupCommitPhase.pendingCommits.ContainsKey(pawnId);
                     break;
-                case MoveHoverChanged moveHoverChanged:
+                case MoveHoverChanged(var moveInputTool, var newHoveredPos, var moveCommitPhase):
                     break;
-                case MovePosSelected movePosSelected:
+                case MovePosSelected(var newPos, var targetablePositions, var movePairsSnapshot):
                 {
-                    bool isCurrentlySelectedPawn = movePosSelected.selectedPos.HasValue && movePosSelected.selectedPos.Value == posView;
-                    setAnimatorIsSelected = isCurrentlySelectedPawn;
+                    setIsSelected = newPos.HasValue && posView == newPos.Value;
+                    setIsMovePairStart = movePairsSnapshot.ContainsKey(pawnId);
                     break;
                 }
-                case MovePairUpdated movePairUpdated:
+                case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
                 {
-                    // Keep pawns in selected animation if they are part of movePairs (as a start)
-                    bool isPlannedStart = movePairUpdated.movePairsSnapshot.ContainsKey(pawnId);
-                    setAnimatorIsSelected = isPlannedStart;
+                    setIsMovePairStart = movePairsSnapshot2.ContainsKey(pawnId);
                     break;
                 }
             }
         }
-        // now do the stuff
-        if (setAlive.HasValue)
+        // set cached vars and do stuff that requires diffs
+        if (setIsSelected is bool inIsSelected)
         {
-            aliveView = setAlive.Value;
-            model.SetActive(aliveView);
+            isSelected = inIsSelected;
         }
-        if (setVisible != null)
+        if (setIsMovePairStart is bool inIsMovePairStart)
         {
-            visible = setVisible.Value;
-            model.SetActive(visible);
+            isMovePairStart = inIsMovePairStart;
         }
-        if (setRankView != null)
+        if (setAliveView is bool inAliveView)
         {
-            rankView = setRankView.Value;
-            DisplayRankView(rankView);
+            model.SetActive(inAliveView);
+            aliveView = inAliveView;
+        }
+        if (setVisibleView is bool inVisibleView)
+        {
+            model.SetActive(inVisibleView);
+            visibleView = inVisibleView;
+        }
+        if (setRankView is Rank inRankView)
+        {
+            if (inRankView != rankView) 
+            {
+                DisplayRankView(inRankView);
+            }
+            rankView = inRankView;
         }
 
-        if (setPosView != null)
+        if (setPosView is (Vector2Int pos, TileView tile))
         {
-            (Vector2Int pos, TileView tile) = setPosView.Value;
+            if (pos != posView)
+            {
+                DisplayPosView(tile);
+            }
             posView = pos;
-            DisplayPosView(tile);
         }
-
-        if (setAnimatorIsSelected != null)
+        bool setAnimatorIsSelected = isSelected || isMovePairStart;
+        if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected) 
         {
-            animator.SetBool(animatorIsSelected, setAnimatorIsSelected.Value);
+            Debug.Log($"animator selected set to {setAnimatorIsSelected}");
+            animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
         }
     }
     
