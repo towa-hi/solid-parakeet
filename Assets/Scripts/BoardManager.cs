@@ -799,8 +799,7 @@ public class MoveCommitPhase: PhaseBase
             return MoveInputTool.CLEAR_MOVEPAIR;
         }
         // Nothing selected: SELECT if hovered over a selectable tile; otherwise NONE
-        if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn &&
-            cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
+        if (!IsAtMoveLimit() && cachedNetState.GetAlivePawnFromPosChecked(hoveredPosition) is PawnState hoveredPawn &&cachedNetState.CanUserMovePawn(hoveredPawn.pawn_id))
         {
             return MoveInputTool.SELECT;
         }

@@ -481,6 +481,32 @@ public class StellarDotnet
         };
     }
 
+    public async Task<PackedHistory?> ReqPackedHistory(uint key, TimingTracker tracker = null)
+    {
+        tracker?.StartOperation($"ReqPackedHistory");
+        string packedHistoryKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey("PackedHistory", key, ContractDataDurability.TEMPORARY));
+        GetLedgerEntriesResult getLedgerEntriesResult = await GetLedgerEntriesAsync(new GetLedgerEntriesParams
+        {
+            Keys = new[]
+            {
+                packedHistoryKey,
+            },
+        }, tracker);
+        if (getLedgerEntriesResult.Entries.Count == 0)
+        {
+            tracker?.EndOperation();
+            return null;
+        }
+        Entries entries = getLedgerEntriesResult.Entries.First();
+        if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
+        {
+            throw new Exception($"ReqPackedHistory on {key} failed because data was not ContractData");
+        }
+        PackedHistory packedHistory = SCUtility.SCValToNative<PackedHistory>(data.contractData.val);
+        tracker?.EndOperation();
+        return packedHistory;
+    }
+
     string EncodeTransaction(Transaction transaction)
     {
         TransactionEnvelope.EnvelopeTypeTx envelope = new()

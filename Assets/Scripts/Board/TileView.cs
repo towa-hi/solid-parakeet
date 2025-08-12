@@ -62,7 +62,7 @@ public class TileView : MonoBehaviour
         setupZoneView = tile.setup_zone;
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
-        
+        Debug.Log("SetTile setting tileModel to " + (hex ? "hex" : "square"));
         tileModel = hex ? hexTileModel : squareTileModel;
         // update view except posView which cant be updated because only boardManager can do that
         tileModel.gameObject.SetActive(passableView);
@@ -112,6 +112,8 @@ public class TileView : MonoBehaviour
         bool? markBasePlannedTarget = null;
         bool? markOverlayStart = null;
         bool? markOverlayTarget = null;
+        Vector3? targetElevatorLocalPos = null; 
+        Transform elevator = tileModel.elevator;
         // figure out what to do based on what happened
         // for net changes
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
@@ -120,6 +122,7 @@ public class TileView : MonoBehaviour
             tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
             tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
             tileModel.renderEffect.SetEffect(EffectType.FILL, false);
+            targetElevatorLocalPos = initialElevatorLocalPos;
             SetTopEmission(Color.clear);
             switch (netStateUpdated.phase)
             {
@@ -196,7 +199,9 @@ public class TileView : MonoBehaviour
             {
                 case SetupHoverChanged(_, var newHoveredPos, var setupCommitPhase):
                 {
-                    setHoverOutline = setupCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
+                    bool isHovered = setupCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
+                    setHoverOutline = isHovered;
+                    //targetElevatorLocalPos = isHovered ? hoveredElevatorLocalPos : initialElevatorLocalPos;
                     break;
                 }
                 case MoveHoverChanged(_, var newHoveredPos, var moveCommitPhase):
@@ -205,17 +210,26 @@ public class TileView : MonoBehaviour
                     break;
                 }
                 case MovePosSelected(_, var newPos, var targetablePositions, var movePairsSnapshot):
+                    bool isSelected = newPos.HasValue && posView == newPos.Value;
                     setSelectOutline = newPos.HasValue && posView == newPos.Value;
                     setTargetableFill = newPos.HasValue && targetablePositions.Contains(posView);
-                    bool isSelectedStartPos = newPos.HasValue && posView == newPos.Value;
                     // base flags from snapshot pairs
                     bool isPlannedStartMps = movePairsSnapshot.Any(kv => kv.Value.Item1 == posView);
                     bool isPlannedTargetMps = movePairsSnapshot.Any(kv => kv.Value.Item2 == posView);
                     markBasePlannedStart = isPlannedStartMps;
                     markBasePlannedTarget = isPlannedTargetMps;
                     // overlay: only selected start
-                    markOverlayStart = isSelectedStartPos;
+                    markOverlayStart = isSelected;
                     markOverlayTarget = false;
+                    // TODO: make this not jank later
+                    bool shouldElevate = isSelected;
+                    if (!shouldElevate) {
+                        // elevate if pos is in movepair
+                        if (movePairsSnapshot.Any(kv => kv.Value.Item1 == posView)) {
+                            shouldElevate = true;
+                        }
+                    }
+                    targetElevatorLocalPos = shouldElevate ? selectedElevatorLocalPos : initialElevatorLocalPos;
                     break;
                 case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
                     // Targetable fill should not be shown for pair updates (only when a start position is selected)
@@ -230,6 +244,7 @@ public class TileView : MonoBehaviour
                     // No special overlay for latest pair
                     markOverlayStart = false;
                     markOverlayTarget = false;
+                    targetElevatorLocalPos = isPlannedStart ? selectedElevatorLocalPos : initialElevatorLocalPos;
                     break;
             }
         }
@@ -295,6 +310,13 @@ public class TileView : MonoBehaviour
                 cachedTargetEmissionColor = setTargetEmission.Value ? Color.green : Color.clear;
                 SetTopEmission(cachedTargetEmissionColor);
             }
+        }
+        if (targetElevatorLocalPos is Vector3 targetElevatorLocalPosVal && elevator.localPosition != targetElevatorLocalPosVal) 
+        {
+            currentTween = Tween.LocalPositionAtSpeed(elevator, targetElevatorLocalPosVal, 0.3f, Ease.OutCubic).OnComplete(() =>
+            {
+                elevator.localPosition = targetElevatorLocalPosVal;
+            });
         }
     }
     public void StartPulse()

@@ -993,6 +993,7 @@ namespace Contract
                 {
                     SCUtility.FieldToSCMapEntry("moves", moves),
                     SCUtility.FieldToSCMapEntry("pawns", pawns),
+                    SCUtility.FieldToSCMapEntry("rank_roots", rank_roots),
                     SCUtility.FieldToSCMapEntry("turn", turn),
                 }),
             };

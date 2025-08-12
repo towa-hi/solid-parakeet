@@ -53,6 +53,7 @@ public class PawnView : MonoBehaviour
         
         rankView = Rank.UNKNOWN;
         posView = Vector2Int.zero;
+        Debug.Log("PawnView initialize setting constraint to tile");
         SetConstraintToTile(tileView);
 
         debugPawnState = new SerializablePawnState()
@@ -215,13 +216,7 @@ public class PawnView : MonoBehaviour
     
     void DisplayPosView(TileView tileView = null)
     {
-        Transform target = tileView ? tileView.origin : GameManager.instance.purgatory;
-        parentConstraint.SetSource(0, new ConstraintSource()
-        {
-            sourceTransform = target,
-            weight = 1,
-        });
-        parentConstraint.constraintActive = true;
+        SetConstraintToTile(tileView);
     }
     
     void DisplayRankView(Rank rank)
