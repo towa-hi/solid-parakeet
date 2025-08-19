@@ -268,7 +268,7 @@ public class GuiMenuController: MonoBehaviour
         currentElement?.EnableInput(false);
         topBar.Show(true);
         string address = StellarManager.GetUserAddress();
-        Color backgroundColor = address == StellarManager.testHost ? Color.red : Color.blue;
+        Color backgroundColor = address == StellarManager.GetHostAddress() ? Color.red : Color.blue;
         topBar.SetView(backgroundColor, task.taskMessage);
         
     }

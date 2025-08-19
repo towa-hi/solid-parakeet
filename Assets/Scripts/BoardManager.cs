@@ -393,10 +393,7 @@ public class SetupCommitPhase : PhaseBase
         pendingCommits = new();
         if (cachedNetState.IsMySubphase())
         {
-            foreach (PawnState pawn in cachedNetState.gameState.pawns.Where(p => p.GetTeam() == cachedNetState.userTeam))
-            {
-                pendingCommits[pawn.pawn_id] = null;
-            }
+            
         }
         else
         {

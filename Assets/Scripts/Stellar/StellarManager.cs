@@ -17,11 +17,11 @@ public static class StellarManager
 {
     public static StellarDotnet stellar;
     
-    public static string testContract = "CA2VLW36NATSPPZHVD5FBZIDECFDHSWFSERNNANECC3NNDYQQA5NOAVQ";
-    public static AccountAddress testHost = "GBAYHJ6GFSXZV5CXQWGNRZ2NU3QR6OBW4RYIHL6EB4IEPYC7JPRVZDR3";
-    public static AccountAddress testGuest = "GAOWUE62RVIIDPDFEF4ZOAHECXVEBJJNR66F6TG7F4PWQATZKRNZC53S";
-    public static string testHostSneed = "SA25YDMQQ5DSGVSJFEEGNJEMRMITRAA6PQUVRRLDRFUN5GMMBPFVLDVM";
-    public static string testGuestSneed = "SD43VTCJENK36DTZD5BJTTHVCWU3ZYYD342S247UE6MK57Y7BABMZVPU";
+    public static string testContract = "CCDRCLUFJW7V5PZB57O6NGPD7XCFMWOB55QFSIZNQ3YQZW34A75J7OCF";
+    // public static AccountAddress testHost = "GCLG5VFHJTLIZDRH575XZ36OSZ2FQKQCAAHMIS3Y5EBDPETOMD2TPI6T";
+    // public static AccountAddress testGuest = "GARMTOT4WI4DWVOT7JALAZ2ZUOBY2GV7L5QDIZYADYG7W2L4CAK52SG6";
+    public static string testHostSneed = "SDZIXICHJQMKQADTZXIFBPYR5PRH5J57F2AIZ4EP3JYDXICTSGF5WIBA";
+    public static string testGuestSneed = "SBRXO3DVIUPR3DSS3L3MOLAFTNVBXA26NXCOVJJP2R2LOJZRG5PRWYE2";
     public static event Action OnNetworkStateUpdated;
     public static event Action<TrustLineEntry> OnAssetsUpdated;
     public static event Action<TaskInfo> OnTaskStarted;
@@ -35,8 +35,13 @@ public static class StellarManager
     
     // True while a Stellar task is in progress
     public static bool IsBusy => currentTask != null;
-    
-    
+
+    public static AccountAddress GetHostAddress()
+    {
+        MuxedAccount.KeyTypeEd25519 account = MuxedAccount.FromSecretSeed(testHostSneed);
+        string publicAddress = StrKey.EncodeStellarAccountId(account.PublicKey);
+        return AccountAddress.Parse(publicAddress);
+    }
     public static void Initialize()
     {
         currentTask = null;
@@ -214,7 +219,7 @@ public static class StellarManager
         bool sendRankProofToo = false;
         bool isSecurityMode = networkState.lobbyParameters?.security_mode == true;
         (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
-
+        UserMove? simulatedMove = null;
         if (isSecurityMode && networkState.lobbyInfo.HasValue)
         {
             LobbyInfo lobby = networkState.lobbyInfo.Value;
@@ -230,22 +235,48 @@ public static class StellarManager
                 }
                 SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
                 UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
+                Debug.Log($"simulated move move needed rank proofs count: {move.needed_rank_proofs.Length} move hashes count: {move.move_hashes.Length} move proofs count: {move.move_proofs.Length}");
                 sendRankProofToo = move.needed_rank_proofs != null && move.needed_rank_proofs.Length > 0;
+                simulatedMove = move;
             }
         }
 
-        if (sendRankProofToo)
+        if (sendRankProofToo && simulatedMove is UserMove simulatedMoveVal)
         {
+            Debug.Log("sendRankProofToo is true");
             List<HiddenRank> hiddenRanks = new List<HiddenRank>();
             List<MerkleProof> merkleProofs = new List<MerkleProof>();
-            foreach (PawnId pawnId in networkState.gameState?.moves[networkState.lobbyInfo.Value.IsHost(stellar.userAddress) ? 0 : 1].needed_rank_proofs ?? Array.Empty<PawnId>())
+            foreach (PawnId pawnId in simulatedMoveVal.needed_rank_proofs ?? Array.Empty<PawnId>())
             {
                 if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
                 {
+                    Debug.LogError($"cachemanager could not find pawn {pawnId}");
                     throw new Exception($"cachemanager could not find pawn {pawnId}");
                 }
+                Debug.Log($"adding hidden rank for {cachedRankProof.hidden_rank.pawn_id}");
                 hiddenRanks.Add(cachedRankProof.hidden_rank);
+                Debug.Log($"Adding merkle proof for {cachedRankProof.hidden_rank.pawn_id}");
                 merkleProofs.Add(cachedRankProof.merkle_proof);
+            }
+
+            if (simulatedMove == null)
+            {
+                Debug.LogError("could not find simulatedMove");
+                throw new Exception("could not find simulatedMove");
+            }
+            if (simulatedMove is UserMove move)
+            {
+                if (hiddenRanks.Count != move.needed_rank_proofs.Length)
+                {
+                    Debug.LogError($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
+                    throw new Exception($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
+                }
+
+                if (merkleProofs.Count != move.needed_rank_proofs.Length)
+                {
+                    Debug.LogError($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
+                    throw new Exception($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
+                }
             }
             ProveRankReq proveRankReq = new ProveRankReq
             {

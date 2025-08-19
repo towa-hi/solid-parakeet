@@ -100,11 +100,22 @@ public class PawnView : MonoBehaviour
                 case SetupCommitPhase setupCommitPhase:
                     if (cachedNetState.IsMySubphase())
                     {
-                        if (setupCommitPhase.pendingCommits.ContainsKey(pawnId))
+                        setVisibleView = setupCommitPhase.pendingCommits.ContainsKey(pawnId);
+                        if (setVisibleView == false)
                         {
-                            setVisibleView = true;
+                            Debug.Log("hiding pawn because not in pending commits");
+                        }
+                        else
+                        {
+                            Debug.Log($"showing pawn because it exists in pending with count {setupCommitPhase.pendingCommits.Keys.Count}");
+                            
                         }
                     }
+                    else
+                    {
+                        setVisibleView = true;
+                    }
+                    // TODO: fix opponents pawns showing up as unknown after submitting
                     break;
                 case MoveCommitPhase moveCommitPhase:
                     setVisibleView = true;
@@ -130,6 +141,10 @@ public class PawnView : MonoBehaviour
                     break;
                 case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
                     setVisibleView = setupCommitPhase.pendingCommits.ContainsKey(pawnId);
+                    if (setupCommitPhase.pendingCommits.TryGetValue(pawnId, out Rank? maybeRank))
+                    {
+                        setRankView = maybeRank ?? Rank.UNKNOWN;
+                    }
                     break;
                 case MoveHoverChanged(var moveInputTool, var newHoveredPos, var moveCommitPhase):
                     break;
@@ -157,14 +172,13 @@ public class PawnView : MonoBehaviour
         }
         if (setAliveView is bool inAliveView)
         {
-            model.SetActive(inAliveView);
             aliveView = inAliveView;
         }
         if (setVisibleView is bool inVisibleView)
         {
-            model.SetActive(inVisibleView);
             visibleView = inVisibleView;
         }
+
         if (setRankView is Rank inRankView)
         {
             if (inRankView != rankView) 
@@ -187,6 +201,14 @@ public class PawnView : MonoBehaviour
         {
             Debug.Log($"animator selected set to {setAnimatorIsSelected}");
             animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
+        }
+        if (visibleView && aliveView)
+        {
+            model.SetActive(true);
+        }
+        else
+        {
+            model.SetActive(false);
         }
     }
     

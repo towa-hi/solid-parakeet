@@ -236,11 +236,20 @@ pub struct SurrenderReq {
 // // region keys
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
+    Admin,
     User(Address),
     LobbyInfo(LobbyId), // lobby specific data
     LobbyParameters(LobbyId), // immutable lobby data
     GameState(LobbyId), // game state
     PackedHistory(LobbyId),
+}
+#[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AnyValue {
+    User(User),
+    LobbyInfo(LobbyInfo),
+    LobbyParameters(LobbyParameters),
+    GameState(GameState),
+    PackedHistory(PackedHistory),
 }
 // endregion
 // region contract
@@ -249,6 +258,46 @@ pub struct Contract;
 
 #[contractimpl]
 impl Contract {
+    /// Initialize admin in instance storage. Can only be called once.
+    pub fn init(e: &Env, admin: Address) -> Result<(), Error> {
+        let instance = e.storage().instance();
+        instance.set(&DataKey::Admin, &admin);
+        Ok(())
+    }
+    /// Admin-only: Create or replace a storage entry for the given key with the provided value.
+    pub fn create_entry(e: &Env, address: Address, key: DataKey, value: AnyValue) -> Result<(), Error> {
+        address.require_auth();
+        let instance = e.storage().instance();
+        let admin: Address = instance.get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        let persistent = e.storage().persistent();
+        let temporary = e.storage().temporary();
+        match (key, value) {
+            (DataKey::User(addr), AnyValue::User(user)) => {
+                persistent.set(&DataKey::User(addr), &user);
+            }
+            (DataKey::LobbyInfo(id), AnyValue::LobbyInfo(v)) => {
+                temporary.set(&DataKey::LobbyInfo(id), &v);
+            }
+            (DataKey::LobbyParameters(id), AnyValue::LobbyParameters(v)) => {
+                temporary.set(&DataKey::LobbyParameters(id), &v);
+            }
+            (DataKey::GameState(id), AnyValue::GameState(v)) => {
+                temporary.set(&DataKey::GameState(id), &v);
+            }
+            (DataKey::PackedHistory(id), AnyValue::PackedHistory(v)) => {
+                temporary.set(&DataKey::PackedHistory(id), &v);
+            }
+            _ => { return Err(Error::InvalidArgs) }
+        }
+        Ok(())
+    }
+    pub fn upgrade(e: &Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        e.deployer().update_current_contract_wasm(new_wasm_hash);
+        Ok(())
+    }
     /// # Parameters
     /// - `address`: Creator's address (becomes host)
     /// - `req.lobby_id`: Unique lobby identifier
