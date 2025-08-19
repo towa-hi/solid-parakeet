@@ -144,7 +144,6 @@ public class BoardManager : MonoBehaviour
         Phase newPhase = netState.lobbyInfo.phase;
         bool phaseChanged = currentPhase == null || 
                           currentPhase.cachedNetState.lobbyInfo.phase != newPhase ||
-                          currentPhase.cachedNetState.lobbyInfo.subphase != netState.lobbyInfo.subphase ||
                           currentPhase.cachedNetState.gameState.turn != netState.gameState.turn;
         if (phaseChanged)
         {

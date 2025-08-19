@@ -20,6 +20,15 @@ public class TileView : MonoBehaviour
     public Team setupView;
     public uint setupZoneView;
     
+    
+    public bool isHovered = false;
+    public bool isSelected = false;
+    public bool isTargetable = false;
+    public bool isMovePairStart = false;
+    public bool isMovePairTarget = false;
+    public bool isSetupTile = false;
+    
+    
     public Color redTeamColor;
     public Color blueTeamColor;
 
@@ -27,7 +36,6 @@ public class TileView : MonoBehaviour
     
     static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
     static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
-    Tween pulseTween;
     public TweenSettings<Vector3> startTweenSettings;
     public Sequence startSequence;
     public Tween currentTween;
@@ -35,17 +43,16 @@ public class TileView : MonoBehaviour
     
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
-    public Vector3[] tileHeights;
+    
+    // Base color pulse config
+    bool pulseBaseColor;
+    [SerializeField] float emissionPulseSpeed = 2f;
+    [SerializeField] float minEmissionAlpha = 0.25f;
+    [SerializeField] float maxEmissionAlpha = 0.5f;
     
     public void Initialize(TileState tile, bool hex)
     {
         // never changes
-        tileHeights = new[]
-        {
-            new Vector3(0, 0),
-            new Vector3(0, Globals.HoveredHeight, 0),
-            new Vector3(0, Globals.SelectedHoveredHeight, 0),
-        };
         posView = tile.pos;
         gameObject.name = $"Tile {posView}";
         
@@ -68,46 +75,12 @@ public class TileView : MonoBehaviour
         squareTileModel.gameObject.SetActive(false);
         Debug.Log("SetTile setting tileModel to " + (hex ? "hex" : "square"));
         tileModel = hex ? hexTileModel : squareTileModel;
-        // update view except posView which cant be updated because only boardManager can do that
         tileModel.gameObject.SetActive(passableView);
     }
     
     void OnDestroy()
     {
-        pulseTween.Stop();
     }
-
-    void DisplaySetupView(bool display)
-    {
-        if (display)
-        {
-            switch (setupView)
-            {
-                case Team.RED:
-                    SetTopEmission(redTeamColor);
-                    break;
-                case Team.BLUE:
-                    SetTopEmission(blueTeamColor);
-                    break;
-                case Team.NONE:
-                    SetTopEmission(Color.clear);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-        else
-        {
-            SetTopEmission(Color.clear);
-        }
-    }
-
-    public bool isHovered = false;
-    public bool isSelected = false;
-    public bool isTargetable = false;
-    public bool isMovePairStart = false;
-    public bool isMovePairTarget = false;
-    public bool isSetupTile = false;
 
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
@@ -119,22 +92,11 @@ public class TileView : MonoBehaviour
         bool? setIsMovePairTarget = null;
         bool? setIsSetupTile = null;
         MoveInputTool? setMoveInputTool = null;
-        // bool? setHoverOutline = null;
-        //bool? setSelectOutline = null;
-        //bool? setTargetableFill = null;
-        //bool? setTargetEmission = null;
-        //Color? overrideTargetEmissionColor = null;
-        //bool? markBasePlannedStart = null;
-        //bool? markBasePlannedTarget = null;
-        //bool? markOverlayStart = null;
-        //bool? markOverlayTarget = null;
         Transform elevator = tileModel.elevator;
         // figure out what to do based on what happened
         // for net changes
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
-            // Clear all visuals on any NetStateUpdated for simplicity
-            SetTopEmission(Color.clear);
             setIsHovered = false;
             setIsSelected = false;
             setIsTargetable = false;
@@ -242,8 +204,8 @@ public class TileView : MonoBehaviour
         tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
         tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, isSelected);
         tileModel.renderEffect.SetEffect(EffectType.FILL, isTargetable);
-
         Color finalColor = Color.clear;
+        bool pulse = false;
         if (isMovePairStart)
         {
             finalColor = Color.green * 0.5f;
@@ -255,6 +217,7 @@ public class TileView : MonoBehaviour
         if (isSelected)
         {
             finalColor = Color.green;
+            pulse = true;
         }
         if (isSetupTile)
         {
@@ -265,7 +228,14 @@ public class TileView : MonoBehaviour
                 _ => finalColor,
             };
         }
-        SetTopEmission(finalColor);
+        SetTopColor(finalColor);
+        pulseBaseColor = pulse;
+        if (!pulseBaseColor)
+        {
+            // Ensure base color matches the static color when not pulsing
+            Material mat = tileModel.flatRenderer.material;
+            mat.SetColor(BaseColorProperty, flatColor);
+        }
         Vector3 finalTargetPos = initialElevatorLocalPos;
         if (isHovered)
         {
@@ -287,49 +257,8 @@ public class TileView : MonoBehaviour
             });
         }
     }
-        
-    public void StartPulse()
-    {
-        // Stop any existing pulse
-        pulseTween.Stop();
-
-        // Get the material
-        Material mat = tileModel.flatRenderer.material;
-        Color color = flatColor;
-
-        // Create a sequence that pulses alpha between 0.5 and 0.25
-        TweenSettings settings = new TweenSettings(
-            duration: 1f,
-            cycles: -1, 
-            cycleMode: CycleMode.Yoyo
-        );
-        
-        pulseTween = Tween.Custom(
-            0.5f,  // Start alpha
-            0.25f, // End alpha
-            onValueChange: alpha => {
-                color.a = alpha;
-                mat.SetColor(BaseColorProperty, color);
-            },
-            settings: settings
-        );
-    }
-
-    public void StopPulse()
-    {
-        pulseTween.Stop();
-        
-        // Reset alpha to default
-        Material mat = tileModel.flatRenderer.material;
-        mat.SetColor(BaseColorProperty, Color.clear);
-    }
-
-    void ShowTile(bool show)
-    {
-        tileModel.gameObject.SetActive(show);
-    }
     
-    void SetTopEmission(Color color)
+    void SetTopColor(Color color)
     {
         Material mat = tileModel.flatRenderer.material;
         if (color != Color.clear)
@@ -342,6 +271,21 @@ public class TileView : MonoBehaviour
             flatColor = color;
         }
         mat.SetColor(BaseColorProperty, flatColor);
+    }
+    
+    void Update()
+    {
+        if (!pulseBaseColor)
+        {
+            return;
+        }
+        // Pulse the alpha of the base color using absolute time
+        float t = (Mathf.Sin(Time.time * emissionPulseSpeed) + 1f) * 0.5f; // 0..1
+        float alpha = Mathf.Lerp(minEmissionAlpha, maxEmissionAlpha, t);
+        Material mat = tileModel.flatRenderer.material;
+        Color c = flatColor;
+        c.a = alpha;
+        mat.SetColor(BaseColorProperty, c);
     }
     
     

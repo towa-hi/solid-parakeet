@@ -257,6 +257,10 @@ public class StellarDotnet
     {
         tracker?.StartOperation($"SimulateContractFunction {functionName}");
         AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
+        if (accountEntry == null)
+        {
+            return (null, null);
+        }
         List<SCVal> argsList = new() { userAddressSCVal };
         foreach (IScvMapCompatable arg in args)
         {
