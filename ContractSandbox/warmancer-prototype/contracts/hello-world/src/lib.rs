@@ -328,10 +328,6 @@ impl Contract {
         persistent.set(&user_key, &user);
         Ok(())
     }
-    pub fn make_lobby_test(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
-        address.require_auth();
-        Ok(())
-    }
     /// Exit current lobby, ending the lobby if a match is in progress.
     /// # Requirements
     /// - User must be in a lobby
@@ -566,7 +562,6 @@ impl Contract {
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
-        let mut packed_history: PackedHistory = temporary.get(&DataKey::PackedHistory(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         if !lobby_parameters.security_mode {
             return Err(Error::WrongSecurityMode)
@@ -840,7 +835,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             for i in 0..req.move_proofs.len() {
                 let move_proof = req.move_proofs.get_unchecked(i);
                 // hash check first
-                let expected_hash_opt = u_move.move_hashes.get(i as u32);
+                let expected_hash_opt = u_move.move_hashes.get(i);
                 if expected_hash_opt.is_none() {
                     are_moves_valid = false;
                     break;
@@ -867,10 +862,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 }
                 seen_ids.push_back(move_proof.pawn_id);
                 moving_ids.push_back(move_proof.pawn_id);
-                let tc = match target_counts.get(move_proof.target_pos) {
-                    Some(c) => c,
-                    None => 0u32,
-                };
+                let tc = target_counts.get(move_proof.target_pos).unwrap_or_else(|| 0u32);
                 if tc > 0 {
                     are_moves_valid = false;
                     break;
@@ -1699,7 +1691,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
     }
     pub(crate) fn record_packed_moves_for_completed_turn(e: &Env, game_state: &GameState, packed_history: &mut PackedHistory) {
         // Completed turn is the one we just incremented to, so use turn-1 as index
-        let turn_index = if game_state.turn > 0 { (game_state.turn - 1) as u32 } else { 0u32 };
+        let turn_index = if game_state.turn > 0 { game_state.turn - 1 } else { 0u32 };
         // Collect both players' proved moves for that turn
         let host_moves = game_state.moves.get(0).map(|m| m.move_proofs).unwrap_or_else(|| Vec::new(e));
         let guest_moves = game_state.moves.get(1).map(|m| m.move_proofs).unwrap_or_else(|| Vec::new(e));
