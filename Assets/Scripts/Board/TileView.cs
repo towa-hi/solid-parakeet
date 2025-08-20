@@ -13,6 +13,8 @@ public class TileView : MonoBehaviour
     public TileModel tileModel;
     public TileModel hexTileModel;
     public TileModel squareTileModel;
+
+    public RenderEffect sphereRenderEffect;
     
     // never changes
     public Vector2Int posView; // this is the key of tileView it must never change
@@ -91,6 +93,7 @@ public class TileView : MonoBehaviour
         bool? setIsMovePairStart = null;
         bool? setIsMovePairTarget = null;
         bool? setIsSetupTile = null;
+        bool? setIsTargetableSphere = null;
         MoveInputTool? setMoveInputTool = null;
         Transform elevator = tileModel.elevator;
         // figure out what to do based on what happened
@@ -103,6 +106,7 @@ public class TileView : MonoBehaviour
             setIsMovePairStart = false;
             setIsMovePairTarget = false;
             setIsSetupTile = false;
+            setIsTargetableSphere = false;
             switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
@@ -159,6 +163,7 @@ public class TileView : MonoBehaviour
                 {
                     setMoveInputTool = moveInputTool;
                     setIsHovered = moveCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
+                    setIsTargetableSphere = moveCommitPhase.selectedPos == null && moveCommitPhase.hoveredValidTargetPositions.Contains(posView);
                     break;
                 }
                 case MovePosSelected(var newPos, var targetablePositions, var movePairsSnapshot):
@@ -200,7 +205,6 @@ public class TileView : MonoBehaviour
         {
             isSetupTile = inIsSetupTile;
         }
-        
         tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
         tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, isSelected);
         tileModel.renderEffect.SetEffect(EffectType.FILL, isTargetable);
@@ -250,11 +254,14 @@ public class TileView : MonoBehaviour
         }
         if (elevator.localPosition != finalTargetPos) 
         {
-            Debug.Log($"moving to pos {finalTargetPos}");
             currentTween = Tween.LocalPositionAtSpeed(elevator, finalTargetPos, 0.3f, Ease.OutCubic).OnComplete(() =>
             {
                 elevator.localPosition = finalTargetPos;
             });
+        }
+        if (setIsTargetableSphere is bool inIsTargetableSphere)
+        {
+            sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, inIsTargetableSphere);
         }
     }
     

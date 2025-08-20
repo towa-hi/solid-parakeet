@@ -624,7 +624,8 @@ public class MoveCommitPhase: PhaseBase
     public MoveInputTool moveInputTool = MoveInputTool.NONE;
     public HashSet<Vector2Int> validTargetPositions = new();
     public List<HiddenMove> turnHiddenMoves = new();
-
+    public HashSet<Vector2Int> hoveredValidTargetPositions = new();
+    
     bool IsAtMoveLimit()
     {
         return movePairs.Count >= cachedNetState.GetMaxMovesThisTurn();
@@ -724,6 +725,8 @@ public class MoveCommitPhase: PhaseBase
         List<GameOperation> operations = new();
         Vector2Int oldHoveredPos = hoveredPos;
         hoveredPos = inHoveredPos;
+        hoveredValidTargetPositions.Clear();
+        
         if (clicked && !StellarManager.IsBusy)
         {
             switch (moveInputTool)
@@ -758,6 +761,25 @@ public class MoveCommitPhase: PhaseBase
             }
         }
         moveInputTool = GetNextTool(hoveredPos);
+        switch (moveInputTool)
+        {
+            case MoveInputTool.NONE:
+                break;
+            case MoveInputTool.SELECT:
+                if (cachedNetState.GetAlivePawnFromPosChecked(hoveredPos) is PawnState hoveredPawn && hoveredPawn.GetTeam() == cachedNetState.userTeam)
+                {
+                    hoveredValidTargetPositions = cachedNetState.GetValidMoveTargetList(hoveredPawn.pawn_id, movePairs);
+                }
+                break;
+            case MoveInputTool.TARGET:
+                break;
+            case MoveInputTool.CLEAR_SELECT:
+                break;
+            case MoveInputTool.CLEAR_MOVEPAIR:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
         operations.Add(new MoveHoverChanged(moveInputTool, hoveredPos, this));
         InvokeOnPhaseStateChanged(new PhaseChangeSet(operations));
     }
