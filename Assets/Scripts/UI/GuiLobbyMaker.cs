@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Contract;
@@ -58,17 +59,9 @@ public class GuiLobbyMaker : MenuElement
     void ResetBoardDropdown()
     {
         boardDropdown.ClearOptions();
-        boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        List<string> options = new List<string>();
-        foreach (BoardDef board in boardDefs)
-        {
-            options.Add(board.name);
-        }
+        boardDefs = ResourceRoot.BoardDefs.ToArray();
+        List<string> options = boardDefs.Select(board => board.name).ToList();
         boardDropdown.AddOptions(options);
-        if (options.Count > 4)
-        {
-            boardDropdown.SetValueWithoutNotify(4);
-        }
         boardDropdown.RefreshShownValue();
     }
 

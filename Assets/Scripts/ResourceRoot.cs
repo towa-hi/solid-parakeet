@@ -40,12 +40,11 @@ public class ResourceRoot : ScriptableObject
         {
             rank = maybeRank.Value;
         }
-        Debug.Log($"is rank null {rank}");
-        Debug.Log($"OrderedPawnDefs length {OrderedPawnDefs.Count}");
         return OrderedPawnDefs.FirstOrDefault(def => def.rank == rank);
     }
     
     public DefaultSettings defaultSettings;
     public List<PawnDef> orderedPawnDefs;
     public List<BoardDef> boardDefs;
+    
 }

@@ -11,7 +11,7 @@ public class AudioManager : MonoBehaviour
     public AudioSource musicSource1;
     public AudioSource musicSource2;
     public AudioSource activeSource;
-    private AudioSource inactiveSource;
+    AudioSource inactiveSource;
     
     public AudioSource effectSource;
     
