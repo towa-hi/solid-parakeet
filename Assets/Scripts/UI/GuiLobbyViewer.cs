@@ -44,6 +44,16 @@ public class GuiLobbyViewer : MenuElement
         });
     }
     
+    public override void ShowElement(bool show)
+    {
+        base.ShowElement(show);
+        StellarManager.SetPolling(show);
+        if (show)
+        {
+            _ = StellarManager.UpdateState();
+        }
+    }
+
     public override void Refresh()
     {
         lobbyView.Refresh(StellarManager.networkState.lobbyInfo);

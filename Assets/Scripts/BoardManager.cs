@@ -29,33 +29,27 @@ public class BoardManager : MonoBehaviour
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     readonly Dictionary<PawnId, PawnView> pawnViews = new();
     
-    Task<bool> updateNetworkStateTask;
-    Task<int> currentContractTask;
+    
     PhaseBase currentPhase;
     
-    bool polling;
-    Coroutine pollingCoroutine;
     
     public void StartBoardManager()
     {
         GameNetworkState netState = new(StellarManager.networkState);
         Initialize(netState);
-        OnNetworkStateUpdated(); //only invoke this directly once on start
+        OnGameStateBeforeApplied(netState, default); // seed once on start
     }
 
     public void CloseBoardManager()
     {
         // Stop polling immediately
-        PollForPhaseChange(false);
+        StellarManager.SetPolling(false);
         
         // Unsubscribe from events
-        StellarManager.OnNetworkStateUpdated -= OnNetworkStateUpdated;
+        StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
         
         // Cancel any in-flight Stellar task to avoid Task-is-already-set on menu navigation
         StellarManager.AbortCurrentTask();
-        // Clear our own task references
-        updateNetworkStateTask = null;
-        currentContractTask = null;
         
         // Clean up current phase
         currentPhase?.ExitState(clickInputManager, guiGame);
@@ -106,12 +100,12 @@ public class BoardManager : MonoBehaviour
         }
         AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
         
-        StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
+        StellarManager.OnGameStateBeforeApplied += OnGameStateBeforeApplied;
         
         initialized = true;
     }
     
-    void OnNetworkStateUpdated()
+    void OnGameStateBeforeApplied(GameNetworkState netState, NetworkDelta delta)
     {
         if (!initialized)
         {
@@ -123,22 +117,9 @@ public class BoardManager : MonoBehaviour
         {
             return;
         }
-        Debug.Log("TestBoardManager::OnNetworkStateUpdated");
-        GameNetworkState netState = new(StellarManager.networkState);
+        Debug.Log("BoardManager::OnGameStateBeforeApplied");
         bool shouldPoll = !netState.IsMySubphase();
-        if (currentPhase != null)
-        {
-            if (GameNetworkState.Compare(netState, currentPhase.cachedNetState))
-            {
-                Debug.Log("OnNetworkStateUpdated skipped this nothingburger");
-                
-                PollForPhaseChange(shouldPoll);
-                return;
-            }
-        }
-        // Reset task references since we got the update
-        updateNetworkStateTask = null;
-        currentContractTask = null;
+        // No local task references to reset; StellarManager governs busy state
 
         // Check if phase actually changed
         Phase newPhase = netState.lobbyInfo.phase;
@@ -168,7 +149,7 @@ public class BoardManager : MonoBehaviour
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
         
         // Manage polling based on whose turn it is
-        PollForPhaseChange(shouldPoll);
+        StellarManager.SetPolling(shouldPoll);
     }
     
     // passed to currentPhase
@@ -210,14 +191,14 @@ public class BoardManager : MonoBehaviour
             return false;
         }
         
-        if (updateNetworkStateTask != null && !updateNetworkStateTask.IsCompleted)
+        if (StellarManager.IsBusy)
         {
             Debug.LogWarning("GetNetworkState already has a task in progress");
             return false;
         }
         // Stop polling while network request is in progress
-        PollForPhaseChange(false);
-        updateNetworkStateTask = StellarManager.UpdateState();
+        StellarManager.SetPolling(false);
+        _ = StellarManager.UpdateState();
         // Don't reset here - let OnNetworkStateUpdated handle cleanup
         return true;
     }
@@ -231,32 +212,31 @@ public class BoardManager : MonoBehaviour
             return false;
         }
         
-        if (currentContractTask != null && !currentContractTask.IsCompleted)
+        if (StellarManager.IsBusy)
         {
             Debug.LogWarning("CallContract already has a task in progress");
             return false;
         }
         // Stop polling while contract call is in progress
-        PollForPhaseChange(false);
+        StellarManager.SetPolling(false);
         
-        Task<int> contractTask = null;
         switch (req)
         {
             case CommitSetupReq commitSetupReq:
-                contractTask = StellarManager.CommitSetupRequest(commitSetupReq);
+                _ = StellarManager.CommitSetupRequest(commitSetupReq);
                 break;
             case CommitMoveReq commitMoveReq:
                 if (req2 is not ProveMoveReq followUpProveMoveReq)
                 {
                     throw new ArgumentNullException();
                 }
-                contractTask = StellarManager.CommitMoveRequest(commitMoveReq, followUpProveMoveReq);
+                _ = StellarManager.CommitMoveRequest(commitMoveReq, followUpProveMoveReq);
                 break;
             case ProveMoveReq proveMoveReq:
-                contractTask = StellarManager.ProveMoveRequest(proveMoveReq);
+                _ = StellarManager.ProveMoveRequest(proveMoveReq);
                 break;
             case ProveRankReq proveRankReq:
-                contractTask = StellarManager.ProveRankRequest(proveRankReq);
+                _ = StellarManager.ProveRankRequest(proveRankReq);
                 break;
             case JoinLobbyReq:
             case MakeLobbyReq:
@@ -264,44 +244,10 @@ public class BoardManager : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException(nameof(req));
         }
-        currentContractTask = contractTask;
         return true;
     }
 
     
-    void PollForPhaseChange(bool poll)
-    {
-        polling = poll;
-        if (poll)
-        {
-            // Start polling if not already running
-            pollingCoroutine ??= CoroutineRunner.instance.StartCoroutine(PollCoroutine());
-        }
-        else
-        {
-            // Stop polling
-            if (pollingCoroutine != null)
-            {
-                CoroutineRunner.instance.StopCoroutine(pollingCoroutine);
-                pollingCoroutine = null;
-            }
-        }
-    }
-    
-    IEnumerator PollCoroutine()
-    {
-        while (polling && initialized)
-        {
-            yield return new WaitForSeconds(0.5f);
-            if (polling && initialized) // Check again in case it was stopped during the wait
-            {
-                GetNetworkState();
-            }
-        }
-        
-        // Clean up coroutine reference when done
-        pollingCoroutine = null;
-    }
 }
 
 public abstract class PhaseBase

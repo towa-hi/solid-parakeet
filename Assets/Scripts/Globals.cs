@@ -2125,6 +2125,15 @@ public struct NetworkState
     }
 }
 
+public struct NetworkDelta
+{
+    public bool InLobbyChanged;
+    public bool LobbyInfoChanged;
+    public bool GameStateChanged;
+    public bool PhaseChanged;
+    public bool TurnChanged;
+}
+
 public enum SetupInputTool
 {
     NONE,

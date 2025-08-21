@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,6 +24,8 @@ public static class StellarManager
     public static string testHostSneed = "SDZIXICHJQMKQADTZXIFBPYR5PRH5J57F2AIZ4EP3JYDXICTSGF5WIBA";
     public static string testGuestSneed = "SBRXO3DVIUPR3DSS3L3MOLAFTNVBXA26NXCOVJJP2R2LOJZRG5PRWYE2";
     public static event Action OnNetworkStateUpdated;
+    public static event Action<GameNetworkState, NetworkDelta> OnGameStateBeforeApplied;
+    public static event Action<GameNetworkState, NetworkDelta> OnGameStateAfterApplied;
     public static event Action<TrustLineEntry> OnAssetsUpdated;
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
@@ -32,6 +35,11 @@ public static class StellarManager
     static TaskInfo currentTask;
     // Tracks tasks that were canceled/aborted so EndTask can ignore them safely
     static HashSet<Guid> canceledTaskIds = new HashSet<Guid>();
+    // Centralized polling state
+    static bool isPolling;
+    static Coroutine pollingCoroutine;
+    static bool desiredPolling;
+    static int pollingHoldCount;
     
     // True while a Stellar task is in progress
     public static bool IsBusy => currentTask != null;
@@ -50,28 +58,52 @@ public static class StellarManager
         stellar = new StellarDotnet(testHostSneed, testContract);
     }
     
-    public static async Task<bool> UpdateState()
+    public static async Task<bool> UpdateState(bool showTask = true)
     {
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation("UpdateState");
-        TaskInfo getNetworkStateTask = SetCurrentTask("ReqNetworkState");
-        networkState = await stellar.ReqNetworkState(tracker);
-        EndTask(getNetworkStateTask);
-        if (networkState.user is User user && user.current_lobby != 0)
+        TaskInfo getNetworkStateTask = null;
+        if (showTask)
         {
-            if (!networkState.lobbyInfo.HasValue || !networkState.lobbyParameters.HasValue)
+            getNetworkStateTask = SetCurrentTask("ReqNetworkState");
+        }
+        NetworkState previousNetworkState = networkState;
+        NetworkState newNetworkState = await stellar.ReqNetworkState(tracker);
+        if (showTask && getNetworkStateTask != null)
+        {
+            EndTask(getNetworkStateTask);
+        }
+        if (newNetworkState.user is User user && user.current_lobby != 0)
+        {
+            if (!newNetworkState.lobbyInfo.HasValue || !newNetworkState.lobbyParameters.HasValue)
             {
-                Debug.LogWarning($"UpdateState(): user.current_lobby is set to {networkState.user?.current_lobby} but lobby data is missing - likely expired");
+                Debug.LogWarning($"UpdateState(): user.current_lobby is set to {newNetworkState.user?.current_lobby} but lobby data is missing - likely expired");
                 User updatedUser = user;
                 updatedUser.current_lobby = new LobbyId(0);
-                networkState.user = updatedUser;
+                newNetworkState.user = updatedUser;
                 Debug.Log("Set current_lobby to null due to expired/missing lobby");
             }
         }
         tracker.EndOperation();
         Debug.Log(tracker.GetReport());
-        OnNetworkStateUpdated?.Invoke();
-        return true;
+        bool stateChanged = HasMeaningfulChange(previousNetworkState, newNetworkState);
+        networkState = newNetworkState;
+        if (stateChanged)
+        {
+            NetworkDelta delta = ComputeDelta(previousNetworkState, newNetworkState);
+            if (HasCompleteGameData(newNetworkState))
+            {
+                GameNetworkState game = new(newNetworkState);
+                OnGameStateBeforeApplied?.Invoke(game, delta);
+                OnNetworkStateUpdated?.Invoke();
+                OnGameStateAfterApplied?.Invoke(game, delta);
+            }
+            else
+            {
+                OnNetworkStateUpdated?.Invoke();
+            }
+        }
+        return stateChanged;
     }
     
     public static async Task<bool> SetContractAddress(string contractId)
@@ -102,6 +134,8 @@ public static class StellarManager
 
     public static async Task<int> MakeLobbyRequest(LobbyParameters parameters)
     {
+        // Pause polling during contract invocation
+        PushPollingHold();
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"MakeLobbyRequest");
         MakeLobbyReq req = new()
@@ -110,31 +144,49 @@ public static class StellarManager
             parameters = parameters,
         };
         TaskInfo task = SetCurrentTask("Invoke make_lobby");
-        (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("make_lobby", req, tracker);
-        EndTask(task);
-        ResultCode code = ProcessTransactionResult(results);
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        await UpdateState();
-        return (int)code;
+        try
+        {
+            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("make_lobby", req, tracker);
+            EndTask(task);
+            ResultCode code = ProcessTransactionResult(results);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return (int)code;
+        }
+        finally
+        {
+            PopPollingHold();
+        }
     }
 
     public static async Task<int> LeaveLobbyRequest()
     {
+        // Pause polling during contract invocation
+        PushPollingHold();
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"LeaveLobbyRequest");
         TaskInfo task = SetCurrentTask("Invoke leave_lobby");
-        (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("leave_lobby", new IScvMapCompatable[] {}, tracker);
-        EndTask(task);
-        ResultCode code = ProcessTransactionResult(results);
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        await UpdateState();
-        return (int)code;
+        try
+        {
+            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("leave_lobby", new IScvMapCompatable[] {}, tracker);
+            EndTask(task);
+            ResultCode code = ProcessTransactionResult(results);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return (int)code;
+        }
+        finally
+        {
+            PopPollingHold();
+        }
     }
     
     public static async Task<int> JoinLobbyRequest(LobbyId lobbyId)
     {
+        // Pause polling during contract invocation
+        PushPollingHold();
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"JoinLobbyRequest");
         JoinLobbyReq req = new()
@@ -142,12 +194,19 @@ public static class StellarManager
             lobby_id = lobbyId,
         };
         TaskInfo task = SetCurrentTask("CallVoidFunction");
-        (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("join_lobby", req, tracker);
-        EndTask(task);
-        ResultCode code = ProcessTransactionResult(results);
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        return (int)code;
+        try
+        {
+            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("join_lobby", req, tracker);
+            EndTask(task);
+            ResultCode code = ProcessTransactionResult(results);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            return (int)code;
+        }
+        finally
+        {
+            PopPollingHold();
+        }
     }
     
     public static async Task<PackedHistory?> GetPackedHistory(uint lobbyId)
@@ -163,156 +222,192 @@ public static class StellarManager
     
     public static async Task<int> CommitSetupRequest(CommitSetupReq req)
     {
+        // Pause polling during contract invocation
+        PushPollingHold();
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"CommitSetupRequest");
         TaskInfo task = SetCurrentTask("Invoke commit_setup");
-        (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results  = await stellar.CallContractFunction("commit_setup", req, tracker);
-        EndTask(task);
-        ResultCode code = ProcessTransactionResult(results);
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        await UpdateState();
-        return (int)code;
+        try
+        {
+            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results  = await stellar.CallContractFunction("commit_setup", req, tracker);
+            EndTask(task);
+            ResultCode code = ProcessTransactionResult(results);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return (int)code;
+        }
+        finally
+        {
+            PopPollingHold();
+        }
     }
 
     public static async Task<int> CommitMoveRequest(CommitMoveReq commitMoveReq, ProveMoveReq proveMoveReq)
     {
+        // Pause polling during contract invocation
+        PushPollingHold();
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation("CommitMoveRequest");
         Debug.Assert(commitMoveReq.lobby_id == proveMoveReq.lobby_id);
         // NOTE: check lobbyInfo just to see if we should batch in prove_move or not
         TaskInfo reqLobbyInfoTask = SetCurrentTask("ReqLobbyInfo");
-        LobbyInfo? preRequestLobbyInfoResult = await stellar.ReqLobbyInfo(commitMoveReq.lobby_id, tracker);
-        EndTask(reqLobbyInfoTask);
-        if (preRequestLobbyInfoResult is not LobbyInfo preRequestLobbyInfo)
+        try
         {
-            return -999;
+            LobbyInfo? preRequestLobbyInfoResult = await stellar.ReqLobbyInfo(commitMoveReq.lobby_id, tracker);
+            EndTask(reqLobbyInfoTask);
+            if (preRequestLobbyInfoResult is not LobbyInfo preRequestLobbyInfo)
+            {
+                return -999;
+            }
+            bool isHost = preRequestLobbyInfo.IsHost(stellar.userAddress);
+            Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
+            // we send prove_move too only if the server is waiting for us or if secure_mode false
+            bool sendProveMoveToo = preRequestLobbyInfo.phase == Phase.MoveCommit && preRequestLobbyInfo.subphase == mySubphase;
+            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
+            if (sendProveMoveToo || networkState.lobbyParameters?.security_mode == false)
+            {
+                TaskInfo task = SetCurrentTask("Invoke commit_move_and_prove_move");
+                results = await stellar.CallContractFunction("commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, tracker);
+                EndTask(task);
+            }
+            else
+            {
+                TaskInfo task = SetCurrentTask("Invoke commit_move");
+                results = await stellar.CallContractFunction("commit_move", commitMoveReq, tracker);
+                EndTask(task);
+            }
+            ResultCode code = ProcessTransactionResult(results);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return (int)code;
         }
-        bool isHost = preRequestLobbyInfo.IsHost(stellar.userAddress);
-        Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
-        // we send prove_move too only if the server is waiting for us or if secure_mode false
-        bool sendProveMoveToo = preRequestLobbyInfo.phase == Phase.MoveCommit && preRequestLobbyInfo.subphase == mySubphase;
-        (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
-        if (sendProveMoveToo || networkState.lobbyParameters?.security_mode == false)
+        finally
         {
-            TaskInfo task = SetCurrentTask("Invoke commit_move_and_prove_move");
-            results = await stellar.CallContractFunction("commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, tracker);
-            EndTask(task);
+            PopPollingHold();
         }
-        else
-        {
-            TaskInfo task = SetCurrentTask("Invoke commit_move");
-            results = await stellar.CallContractFunction("commit_move", commitMoveReq, tracker);
-            EndTask(task);
-        }
-        ResultCode code = ProcessTransactionResult(results);
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        await UpdateState();
-        return (int)code;
     }
 
     public static async Task<int> ProveMoveRequest(ProveMoveReq proveMoveReq)
     {
+        // Pause polling during contract invocation
+        PushPollingHold();
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"ProveMoveRequest");
         bool sendRankProofToo = false;
         bool isSecurityMode = networkState.lobbyParameters?.security_mode == true;
         (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
         UserMove? simulatedMove = null;
-        if (isSecurityMode && networkState.lobbyInfo.HasValue)
+        try
         {
-            LobbyInfo lobby = networkState.lobbyInfo.Value;
-            bool canSimulate = lobby.phase == Phase.MoveProve && lobby.subphase != Subphase.Both;
-            if (canSimulate)
+            if (isSecurityMode && networkState.lobbyInfo.HasValue)
             {
-                TaskInfo reqLobbyInfoTask = SetCurrentTask("Simulate simulate_collisions");
-                (_, SimulateTransactionResult collisionResult) = await stellar.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
-                EndTask(reqLobbyInfoTask);
-                if (collisionResult.Error != null)
+                LobbyInfo lobby = networkState.lobbyInfo.Value;
+                bool canSimulate = lobby.phase == Phase.MoveProve && lobby.subphase != Subphase.Both;
+                if (canSimulate)
                 {
-                    throw new Exception($"collisionResult failed for some reason {collisionResult.Error}");
+                    TaskInfo reqLobbyInfoTask = SetCurrentTask("Simulate simulate_collisions");
+                    (_, SimulateTransactionResult collisionResult) = await stellar.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
+                    EndTask(reqLobbyInfoTask);
+                    if (collisionResult.Error != null)
+                    {
+                        throw new Exception($"collisionResult failed for some reason {collisionResult.Error}");
+                    }
+                    SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
+                    UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
+                    Debug.Log($"simulated move move needed rank proofs count: {move.needed_rank_proofs.Length} move hashes count: {move.move_hashes.Length} move proofs count: {move.move_proofs.Length}");
+                    sendRankProofToo = move.needed_rank_proofs != null && move.needed_rank_proofs.Length > 0;
+                    simulatedMove = move;
                 }
-                SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
-                UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
-                Debug.Log($"simulated move move needed rank proofs count: {move.needed_rank_proofs.Length} move hashes count: {move.move_hashes.Length} move proofs count: {move.move_proofs.Length}");
-                sendRankProofToo = move.needed_rank_proofs != null && move.needed_rank_proofs.Length > 0;
-                simulatedMove = move;
-            }
-        }
-
-        if (sendRankProofToo && simulatedMove is UserMove simulatedMoveVal)
-        {
-            Debug.Log("sendRankProofToo is true");
-            List<HiddenRank> hiddenRanks = new List<HiddenRank>();
-            List<MerkleProof> merkleProofs = new List<MerkleProof>();
-            foreach (PawnId pawnId in simulatedMoveVal.needed_rank_proofs ?? Array.Empty<PawnId>())
-            {
-                if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
-                {
-                    Debug.LogError($"cachemanager could not find pawn {pawnId}");
-                    throw new Exception($"cachemanager could not find pawn {pawnId}");
-                }
-                Debug.Log($"adding hidden rank for {cachedRankProof.hidden_rank.pawn_id}");
-                hiddenRanks.Add(cachedRankProof.hidden_rank);
-                Debug.Log($"Adding merkle proof for {cachedRankProof.hidden_rank.pawn_id}");
-                merkleProofs.Add(cachedRankProof.merkle_proof);
             }
 
-            if (simulatedMove == null)
+            if (sendRankProofToo && simulatedMove is UserMove simulatedMoveVal)
             {
-                Debug.LogError("could not find simulatedMove");
-                throw new Exception("could not find simulatedMove");
-            }
-            if (simulatedMove is UserMove move)
-            {
-                if (hiddenRanks.Count != move.needed_rank_proofs.Length)
+                Debug.Log("sendRankProofToo is true");
+                List<HiddenRank> hiddenRanks = new List<HiddenRank>();
+                List<MerkleProof> merkleProofs = new List<MerkleProof>();
+                foreach (PawnId pawnId in simulatedMoveVal.needed_rank_proofs ?? Array.Empty<PawnId>())
                 {
-                    Debug.LogError($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
-                    throw new Exception($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
+                    if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
+                    {
+                        Debug.LogError($"cachemanager could not find pawn {pawnId}");
+                        throw new Exception($"cachemanager could not find pawn {pawnId}");
+                    }
+                    Debug.Log($"adding hidden rank for {cachedRankProof.hidden_rank.pawn_id}");
+                    hiddenRanks.Add(cachedRankProof.hidden_rank);
+                    Debug.Log($"Adding merkle proof for {cachedRankProof.hidden_rank.pawn_id}");
+                    merkleProofs.Add(cachedRankProof.merkle_proof);
                 }
 
-                if (merkleProofs.Count != move.needed_rank_proofs.Length)
+                if (simulatedMove == null)
                 {
-                    Debug.LogError($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
-                    throw new Exception($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
+                    Debug.LogError("could not find simulatedMove");
+                    throw new Exception("could not find simulatedMove");
                 }
+                if (simulatedMove is UserMove move)
+                {
+                    if (hiddenRanks.Count != move.needed_rank_proofs.Length)
+                    {
+                        Debug.LogError($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
+                        throw new Exception($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
+                    }
+
+                    if (merkleProofs.Count != move.needed_rank_proofs.Length)
+                    {
+                        Debug.LogError($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
+                        throw new Exception($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
+                    }
+                }
+                ProveRankReq proveRankReq = new ProveRankReq
+                {
+                    hidden_ranks = hiddenRanks.ToArray(),
+                    lobby_id = proveMoveReq.lobby_id,
+                    merkle_proofs = merkleProofs.ToArray(),
+                };
+                TaskInfo task = SetCurrentTask("Invoke prove_move_and_prove_rank");
+                results = await stellar.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] { proveMoveReq, proveRankReq }, tracker);
+                EndTask(task);
             }
-            ProveRankReq proveRankReq = new ProveRankReq
+            else
             {
-                hidden_ranks = hiddenRanks.ToArray(),
-                lobby_id = proveMoveReq.lobby_id,
-                merkle_proofs = merkleProofs.ToArray(),
-            };
-            TaskInfo task = SetCurrentTask("Invoke prove_move_and_prove_rank");
-            results = await stellar.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] { proveMoveReq, proveRankReq }, tracker);
-            EndTask(task);
+                TaskInfo task = SetCurrentTask("Invoke prove_move");
+                results = await stellar.CallContractFunction("prove_move", proveMoveReq, tracker);
+                EndTask(task);
+            }
+            ResultCode code = ProcessTransactionResult(results);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return (int)code;
         }
-        else
+        finally
         {
-            TaskInfo task = SetCurrentTask("Invoke prove_move");
-            results = await stellar.CallContractFunction("prove_move", proveMoveReq, tracker);
-            EndTask(task);
+            PopPollingHold();
         }
-        ResultCode code = ProcessTransactionResult(results);
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        await UpdateState();
-        return (int)code;
     }
 
     public static async Task<int> ProveRankRequest(ProveRankReq req)
     {
+        // Pause polling during contract invocation
+        PushPollingHold();
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"ProveRankRequest");
         TaskInfo task = SetCurrentTask("Invoke Prove_rank");
-        (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("prove_rank", req, tracker);
-        EndTask(task);
-        ResultCode code = ProcessTransactionResult(results);
-        tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        await UpdateState();
-        return (int)code;
+        try
+        {
+            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await stellar.CallContractFunction("prove_rank", req, tracker);
+            EndTask(task);
+            ResultCode code = ProcessTransactionResult(results);
+            tracker.EndOperation();
+            Debug.Log(tracker.GetReport());
+            await UpdateState();
+            return (int)code;
+        }
+        finally
+        {
+            PopPollingHold();
+        }
     }
     
     public static async Task<AccountEntry> GetAccount(string key)
@@ -339,6 +434,138 @@ public static class StellarManager
         Debug.Log(tracker.GetReport());
         OnAssetsUpdated?.Invoke(result.trustLine);
         return result.trustLine;
+    }
+
+    // Start/stop centralized polling. Polling will automatically skip while busy
+    public static void SetPolling(bool enable)
+    {
+        desiredPolling = enable;
+        if (enable && pollingHoldCount == 0)
+        {
+            if (pollingCoroutine == null)
+            {
+                isPolling = true;
+                pollingCoroutine = CoroutineRunner.instance.StartCoroutine(PollCoroutine());
+            }
+        }
+        else
+        {
+            isPolling = false;
+            if (pollingCoroutine != null)
+            {
+                CoroutineRunner.instance.StopCoroutine(pollingCoroutine);
+                pollingCoroutine = null;
+            }
+        }
+    }
+
+    static IEnumerator PollCoroutine()
+    {
+        while (isPolling)
+        {
+            // Avoid overlapping with any in-flight task
+            if (!IsBusy)
+            {
+                var task = UpdateState(false);
+                while (!task.IsCompleted)
+                {
+                    yield return null;
+                }
+            }
+            yield return new WaitForSeconds(0.5f);
+        }
+        pollingCoroutine = null;
+    }
+
+    static bool HasCompleteGameData(NetworkState state)
+    {
+        return state.inLobby && state.lobbyInfo.HasValue && state.lobbyParameters.HasValue && state.gameState.HasValue;
+    }
+
+    static NetworkDelta ComputeDelta(NetworkState previous, NetworkState current)
+    {
+        NetworkDelta delta = new NetworkDelta();
+        delta.InLobbyChanged = previous.inLobby != current.inLobby;
+        bool prevComplete = HasCompleteGameData(previous);
+        bool currComplete = HasCompleteGameData(current);
+        if (prevComplete && currComplete)
+        {
+            string prevLobbyInfo = SCValXdr.EncodeToBase64(previous.lobbyInfo!.Value.ToScvMap());
+            string currLobbyInfo = SCValXdr.EncodeToBase64(current.lobbyInfo!.Value.ToScvMap());
+            delta.LobbyInfoChanged = prevLobbyInfo != currLobbyInfo;
+
+            string prevGameState = SCValXdr.EncodeToBase64(previous.gameState!.Value.ToScvMap());
+            string currGameState = SCValXdr.EncodeToBase64(current.gameState!.Value.ToScvMap());
+            delta.GameStateChanged = prevGameState != currGameState;
+
+            delta.PhaseChanged = previous.lobbyInfo!.Value.phase != current.lobbyInfo!.Value.phase;
+            delta.TurnChanged = previous.gameState!.Value.turn != current.gameState!.Value.turn;
+        }
+        else
+        {
+            delta.LobbyInfoChanged = (previous.lobbyInfo.HasValue != current.lobbyInfo.HasValue) || current.inLobby;
+            delta.GameStateChanged = (previous.gameState.HasValue != current.gameState.HasValue) || current.inLobby;
+            delta.PhaseChanged = delta.LobbyInfoChanged || current.inLobby;
+            delta.TurnChanged = delta.GameStateChanged || current.inLobby;
+        }
+        return delta;
+    }
+
+    static void PushPollingHold()
+    {
+        pollingHoldCount++;
+        if (pollingCoroutine != null)
+        {
+            isPolling = false;
+            CoroutineRunner.instance.StopCoroutine(pollingCoroutine);
+            pollingCoroutine = null;
+        }
+    }
+
+    static void PopPollingHold()
+    {
+        pollingHoldCount = Math.Max(0, pollingHoldCount - 1);
+        if (pollingHoldCount == 0 && desiredPolling && pollingCoroutine == null)
+        {
+            isPolling = true;
+            pollingCoroutine = CoroutineRunner.instance.StartCoroutine(PollCoroutine());
+        }
+    }
+
+    static bool HasMeaningfulChange(NetworkState previous, NetworkState current)
+    {
+        // If lobby/game presence changed, it's a change
+        bool prevInLobby = previous.inLobby;
+        bool currInLobby = current.inLobby;
+        if (prevInLobby != currInLobby)
+        {
+            return true;
+        }
+        // When both have complete game data, compare lobbyInfo and gameState by their canonical encodings
+        bool prevComplete = HasCompleteGameData(previous);
+        bool currComplete = HasCompleteGameData(current);
+        if (prevComplete && currComplete)
+        {
+            string prevLobbyInfo = SCValXdr.EncodeToBase64(previous.lobbyInfo!.Value.ToScvMap());
+            string currLobbyInfo = SCValXdr.EncodeToBase64(current.lobbyInfo!.Value.ToScvMap());
+            if (prevLobbyInfo != currLobbyInfo)
+            {
+                return true;
+            }
+            string prevGameState = SCValXdr.EncodeToBase64(previous.gameState!.Value.ToScvMap());
+            string currGameState = SCValXdr.EncodeToBase64(current.gameState!.Value.ToScvMap());
+            if (prevGameState != currGameState)
+            {
+                return true;
+            }
+            return false;
+        }
+        if (prevComplete != currComplete)
+        {
+            return true;
+        }
+        // Fallback: compare simplified string representations
+        return !string.Equals(previous.ToString(), current.ToString(), StringComparison.Ordinal);
     }
 
     static TaskInfo SetCurrentTask(string message)
