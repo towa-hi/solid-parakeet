@@ -37,7 +37,13 @@ public static class StellarManager
     // True while a Stellar task is in progress
     public static bool IsBusy => currentTask != null;
 
-    
+    static void DebugLogPoll(string message)
+    {
+        if (ResourceRoot.DefaultSettings.pollingLogging)
+        {
+            Debug.Log(message);
+        }
+    }
     public static void Initialize()
     {
         DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
@@ -79,7 +85,14 @@ public static class StellarManager
             }
         }
         tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
+        if (!showTask)
+        {
+            DebugLogPoll(tracker.GetReport());
+        }
+        else
+        {
+            Debug.Log(tracker.GetReport());
+        }
         bool stateChanged = HasMeaningfulChange(previousNetworkState, newNetworkState);
         networkState = newNetworkState;
         if (stateChanged)

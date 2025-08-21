@@ -50,7 +50,7 @@ public class GuiLobbyViewer : MenuElement
         StellarManager.SetPolling(show);
         if (show)
         {
-            _ = StellarManager.UpdateState();
+            _ = StellarManager.UpdateState(false);
         }
     }
 

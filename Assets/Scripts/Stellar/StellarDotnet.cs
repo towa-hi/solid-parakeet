@@ -74,6 +74,13 @@ public static class StellarDotnet
 
     static long latestLedger;
     
+    static void DebugLog(string message)
+    {
+        if (ResourceRoot.DefaultSettings.networkLogging)
+        {
+            Debug.Log(message);
+        }
+    }
     // contract address and derived properties
     public static string contractAddress;
     const int maxAttempts = 30;
@@ -118,7 +125,7 @@ public static class StellarDotnet
             string warmupJson = JsonConvert.SerializeObject(dummyRequest, jsonSettings);
             long warmupEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             
-            Debug.Log($"JSON.NET warmup completed in {warmupEnd - warmupStart}ms");
+            DebugLog($"JSON.NET warmup completed in {warmupEnd - warmupStart}ms");
         }
         catch (Exception e)
         {
@@ -163,56 +170,14 @@ public static class StellarDotnet
             foreach (string topic in ev.Topic)
             {
                 SCVal topicSCVal = SCValXdr.DecodeFromBase64(topic);
-                Debug.Log(JsonConvert.SerializeObject(topicSCVal));
+                DebugLog(JsonConvert.SerializeObject(topicSCVal));
             }
             SCVal eventSCVal = SCValXdr.DecodeFromBase64(ev.Value);
-            Debug.Log(JsonConvert.SerializeObject(eventSCVal));
+            DebugLog(JsonConvert.SerializeObject(eventSCVal));
         }
         tracker?.EndOperation();
         return true;
     }
-
-    // public async Task<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> CallVoidFunctionWithTwoParameters(string functionName, IScvMapCompatable request1, IScvMapCompatable request2, TimingTracker tracker = null)
-    // {
-    //     tracker?.StartOperation($"CallVoidFunctionWithTwoParameters {functionName}");
-    //     AccountEntry accountEntry = await ReqAccountEntry(userAccount, tracker);
-    //     List<SCVal> argsList = new()
-    //     {
-    //         userAddressSCVal,
-    //         request1.ToScvMap(),
-    //         request2.ToScvMap(),
-    //     };
-    //     Transaction invokeContractTransaction = BuildInvokeContractTransaction(accountEntry, functionName, argsList.ToArray(), true);
-    //     SimulateTransactionResult simResult = await SimulateTransactionAsync(
-    //         new SimulateTransactionParams()
-    //         {
-    //             Transaction = EncodeTransaction(invokeContractTransaction),
-    //             ResourceConfig = new()
-    //             {
-    //                 
-    //                 InstructionLeeway = 10000000,
-    //             },
-    //         }, tracker);
-    //     if (simResult is not {Error: null})
-    //     {
-    //         tracker?.EndOperation();
-    //         return (simResult, null, null);
-    //     }
-    //     Transaction assembledTransaction = simResult.ApplyTo(invokeContractTransaction);
-    //     string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
-    //     SendTransactionResult sendResult = await SendTransactionAsync(new SendTransactionParams()
-    //     {
-    //         Transaction = encodedSignedTransaction,
-    //     }, tracker);
-    //     if (sendResult.Status == SendTransactionResult_Status.ERROR)
-    //     {
-    //         tracker?.EndOperation();
-    //         return (simResult, sendResult, null);
-    //     }
-    //     GetTransactionResult getResult = await WaitForGetTransactionResult(sendResult.Hash, 1000, tracker);
-    //     tracker?.EndOperation();
-    //     return (simResult, sendResult, getResult);
-    // }
 
     public static async Task<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> CallContractFunction(string functionName, IScvMapCompatable arg, TimingTracker tracker = null)
     {
@@ -560,7 +525,7 @@ public static class StellarDotnet
             switch (completion.Status)
             {
                 case GetTransactionResult_Status.FAILED:
-                    Debug.Log("WaitForTransaction: FAILED");
+                    DebugLog("WaitForTransaction: FAILED");
                     tracker?.EndOperation();
                     return completion;
                 case GetTransactionResult_Status.NOT_FOUND:
@@ -569,12 +534,12 @@ public static class StellarDotnet
                     tracker?.EndOperation();
                     continue;
                 case GetTransactionResult_Status.SUCCESS:
-                    Debug.Log("WaitForTransaction: SUCCESS");
+                    DebugLog("WaitForTransaction: SUCCESS");
                     tracker?.EndOperation();
                     return completion;
             }
         }
-        Debug.Log("WaitForTransaction: timed out");
+        DebugLog("WaitForTransaction: timed out");
         tracker?.EndOperation();
         return null;
         
@@ -696,7 +661,7 @@ public static class StellarDotnet
         request.uploadHandler = new UploadHandlerRaw(bodyRaw);
         request.downloadHandler = new DownloadHandlerBuffer();
         request.SetRequestHeader("Content-Type", "application/json");
-        Debug.Log($"SendJsonRequest: request: {json}");
+        DebugLog($"SendJsonRequest: request: {json}");
         
         tracker?.StartOperation("SendWebRequest");
         await request.SendWebRequest();
@@ -708,7 +673,7 @@ public static class StellarDotnet
         }
         else
         {
-            Debug.Log($"SendJsonRequest: response: {request.downloadHandler.text}");
+            DebugLog($"SendJsonRequest: response: {request.downloadHandler.text}");
         }
         tracker?.EndOperation();
         return request.downloadHandler.text;
