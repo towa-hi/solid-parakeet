@@ -42,53 +42,53 @@ public class GuiMainMenu : MenuElement
         contractField.onValueChanged.AddListener(OnContractFieldChanged);
         setContractButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlayMidButtonClick();
+            AudioManager.PlayMidButtonClick();
             OnSetContract();
         });
         sneedField.onValueChanged.AddListener(OnSneedFieldChanged);
         setSneedButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlayMidButtonClick();
+            AudioManager.PlayMidButtonClick();
             OnSetSneed();
         });
         fillGuestSneedButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnFillGuestSneed();
         });
         fillHostSneedButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnFillHostSneed();
         });
         joinLobbyButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnJoinLobbyButton?.Invoke();
         });
         makeLobbyButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnMakeLobbyButton?.Invoke();
         });
         settingsButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnSettingsButton?.Invoke();
         });
         viewLobbyButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnViewLobbyButton?.Invoke();
         });
         walletButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnWalletButton?.Invoke();
         });
         assetsButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlaySmallButtonClick();
+            AudioManager.PlaySmallButtonClick();
             OnAssetButton?.Invoke();
         });
         StellarManager.OnAssetsUpdated += OnAssetsUpdated;
@@ -115,26 +115,33 @@ public class GuiMainMenu : MenuElement
         base.ShowElement(show);
         if (show)
         {
-            AudioManager.instance.PlayMusic(MusicTrack.MAIN_MENU_MUSIC);
+            AudioManager.PlayMusic(MusicTrack.MAIN_MENU_MUSIC);
         }
     }
     public override void Refresh()
     {
-        Debug.Log("Refresh");
-        setContractButton.interactable = StellarManager.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
-        setSneedButton.interactable = StellarManager.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
-        currentContractText.text = StellarManager.GetContractAddress();
-        currentSneedText.text = StellarManager.stellar.sneed;
-        if (currentSneedText.text == StellarManager.testHostSneed)
-        {
-            currentSneedText.text += " (Host sneed)";
-        }
+        string currentContract = StellarManager.GetContractAddress();
+        string currentSneed = StellarManager.GetCurrentSneed() ?? string.Empty;
+        string currentAddress = StellarManager.GetUserAddress();
 
-        if (currentSneedText.text == StellarManager.testGuestSneed)
+        setContractButton.interactable = StrKey.IsValidContractId(contractField.text) && contractField.text != currentContract;
+        setSneedButton.interactable = StrKey.IsValidEd25519SecretSeed(sneedField.text) && sneedField.text != currentSneed;
+
+        currentContractText.text = currentContract;
+        currentSneedText.text = currentSneed;
+        if (!string.IsNullOrEmpty(currentSneed))
         {
-            currentSneedText.text += " (Guest sneed)";
+            DefaultSettings ds = ResourceRoot.DefaultSettings;
+            if (currentSneed == ds.defaultHostSneed)
+            {
+                currentSneedText.text += " (Host sneed)";
+            }
+            else if (currentSneed == ds.defaultGuestSneed)
+            {
+                currentSneedText.text += " (Guest sneed)";
+            }
         }
-        currentAddressText.text = StellarManager.GetUserAddress();
+        currentAddressText.text = string.IsNullOrEmpty(currentAddress) ? "No address" : currentAddress;
         User? currentUser = StellarManager.networkState.user;
         joinLobbyButton.interactable = true;
         makeLobbyButton.interactable = true;
@@ -170,17 +177,17 @@ public class GuiMainMenu : MenuElement
     
     void OnSneedFieldChanged(string input)
     {
-        setSneedButton.interactable = StellarManager.stellar.sneed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
+        setSneedButton.interactable = StellarManager.GetCurrentSneed() != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
     }
 
     void OnFillGuestSneed()
     {
-        sneedField.text = StellarManager.testGuestSneed;
+        sneedField.text = ResourceRoot.DefaultSettings.defaultGuestSneed;
     }
 
     void OnFillHostSneed()
     {
-        sneedField.text = StellarManager.testHostSneed;
+        sneedField.text = ResourceRoot.DefaultSettings.defaultHostSneed;
     }
     
     void OnSetSneed()

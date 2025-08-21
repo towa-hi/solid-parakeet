@@ -98,7 +98,7 @@ public class BoardManager : MonoBehaviour
             pawnView.Initialize(pawn, tileViews[pawn.pos]);
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
-        AudioManager.instance.PlayMusic(MusicTrack.BATTLE_MUSIC);
+        AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
         
         StellarManager.OnGameStateBeforeApplied += OnGameStateBeforeApplied;
         

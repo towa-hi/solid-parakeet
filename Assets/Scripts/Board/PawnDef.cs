@@ -54,6 +54,6 @@ public struct SPawnDef
     public readonly PawnDef ToUnity()
     {
         int myId = id;
-        return GameManager.instance.orderedPawnDefList.FirstOrDefault(pawnDef => pawnDef.id == myId);
+        return ResourceRoot.OrderedPawnDefs.FirstOrDefault(pawnDef => pawnDef.id == myId);
     }
 }

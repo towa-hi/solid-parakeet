@@ -33,8 +33,6 @@ public class CameraManager : MonoBehaviour
         mainCamera.transform.rotation = outsideAnchor.GetQuaternion();
         mainCamera.fieldOfView = outsideAnchor.fov;
         originalOrientation = mainCamera.transform.rotation;
-        Vector3 euler = originalOrientation.eulerAngles;
-        //SetRotateOnMouse(PlayerPrefs.GetInt("ROTATECAMERA") == 1);
     }
 
     float GetTransitionDuration()

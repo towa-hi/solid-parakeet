@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 024a4ac3732f7a74d82723d7ed83533d, type: 3}
+  m_Name: DefaultSettings
+  m_EditorClassIdentifier: 
+  defaultHostSneed: SDZIXICHJQMKQADTZXIFBPYR5PRH5J57F2AIZ4EP3JYDXICTSGF5WIBA
+  defaultGuestSneed: SBRXO3DVIUPR3DSS3L3MOLAFTNVBXA26NXCOVJJP2R2LOJZRG5PRWYE2
+  defaultContractAddress: CCDRCLUFJW7V5PZB57O6NGPD7XCFMWOB55QFSIZNQ3YQZW34A75J7OCF
+  cheatMode: 0
+  fastMode: 0
+  displayBadges: 0
+  moveCamera: 0
+  masterVolume: 100
+  musicVolume: 100
+  effectsVolume: 100
+  serializationLogging: 1
+  networkLogging: 1
+  pollingLogging: 1

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5eff1c8ed1641c38476a8e6907dca3e, type: 3}
   m_Name: Soft Outline Settings
   m_EditorClassIdentifier: 
-  injectionPoint: 600
+  injectionPoint: 450
   showInSceneView: 1
   outlines:
   - {fileID: 7467506834692079761}
@@ -52,7 +52,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   renderQueue: 2
-  occlusion: 2
+  occlusion: 0
   cullingMode: 0
   closedLoop: 0
   alphaCutout: 0

@@ -12,61 +12,13 @@ public class Badge : MonoBehaviour
 
     public void SetBadge(Team team, Rank? rank)
     {
-        PawnDef def = GameManager.instance.GetPawnDefFromRankTemp(rank);
+        PawnDef def = ResourceRoot.GetPawnDefFromRank(rank);
         symbolRenderer.sprite = def.icon;
-        switch (team)
+        backgroundRenderer.color = team switch
         {
-            case Team.RED:
-                backgroundRenderer.color = redBackgroundColor;
-                break;
-            case Team.BLUE:
-                backgroundRenderer.color = blueBackgroundColor;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
+            Team.RED => redBackgroundColor,
+            Team.BLUE => blueBackgroundColor,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
     }
-    
-    // public void Initialize(Contract.Pawn p, bool active)
-    // {
-    //     //PawnDef def = Globals.FakeHashToPawnDef(p.pawn_def_hash);
-    //     //symbolRenderer.sprite = def.icon;
-    //     switch ((Team)p.team)
-    //     {
-    //         case Team.RED:
-    //             backgroundRenderer.color = redBackgroundColor;
-    //             break;
-    //         case Team.BLUE:
-    //             backgroundRenderer.color = blueBackgroundColor;
-    //             break;
-    //         default:
-    //             throw new ArgumentOutOfRangeException();
-    //     }
-    //
-    //     if (active && !string.IsNullOrEmpty(p.pawn_def_hash))
-    //     {
-    //         PawnDef def = Globals.FakeHashToPawnDef(p.pawn_def_hash);
-    //         symbolRenderer.sprite = def.icon;
-    //     }
-    //     
-    //     gameObject.SetActive(active);
-    // }
-    //
-    // public void Initialize(PawnCommit p, Team team, bool active)
-    // {
-    //     PawnDef def = Globals.FakeHashToPawnDef(p.pawn_def_hash);
-    //     symbolRenderer.sprite = def.icon;
-    //     switch (team)
-    //     {
-    //         case Team.RED:
-    //             backgroundRenderer.color = redBackgroundColor;
-    //             break;
-    //         case Team.BLUE:
-    //             backgroundRenderer.color = blueBackgroundColor;
-    //             break;
-    //         default:
-    //             throw new ArgumentOutOfRangeException();
-    //     }
-    //     gameObject.SetActive(active);
-    // }
 }

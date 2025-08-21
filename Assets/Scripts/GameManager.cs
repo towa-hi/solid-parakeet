@@ -24,56 +24,28 @@ public class GameManager : MonoBehaviour
     public AudioManager audioManager;
     public PoolManager poolManager;
 
-    public List<PawnDef> orderedPawnDefList;
-
     void Awake()
     {
-        Debug.developerConsoleVisible = true;
-        SetDefaultPlayerPrefs();
         if (instance == null)
         {
             instance = this;
         }
         else
         {
-            Debug.LogWarning("MORE THAN ONE SINGLETON");
+            throw new("MORE THAN ONE GAMEMANAGER IN SCENE");
         }
-        orderedPawnDefList = new List<PawnDef>
-        {
-            Resources.Load<PawnDef>("Pawn/00-throne"),
-            Resources.Load<PawnDef>("Pawn/01-assassin"),
-            Resources.Load<PawnDef>("Pawn/02-scout"),
-            Resources.Load<PawnDef>("Pawn/03-seer"),
-            Resources.Load<PawnDef>("Pawn/04-grunt"),
-            Resources.Load<PawnDef>("Pawn/05-knight"),
-            Resources.Load<PawnDef>("Pawn/06-wraith"),
-            Resources.Load<PawnDef>("Pawn/07-reaver"),
-            Resources.Load<PawnDef>("Pawn/08-herald"),
-            Resources.Load<PawnDef>("Pawn/09-champion"),
-            Resources.Load<PawnDef>("Pawn/10-warlord"),
-            Resources.Load<PawnDef>("Pawn/11-trap"),
-            Resources.Load<PawnDef>("Pawn/12-unknown"),
-        };
-    }
-    
-    void Start()
-    {
-        cameraManager?.Initialize();
-        guiMenuController?.Initialize();
-        Debug.Log("Enable input action");
+        Debug.Log("Welcome to warmancer!");
+        Debug.developerConsoleVisible = true;
+        SettingsManager.Initialize();
+        StellarManager.Initialize();
+        cameraManager.Initialize();
+        guiMenuController.Initialize();
+        audioManager.Initialize();
         Globals.InputActions.Game.Enable();
-    }
-
-    public PawnDef GetPawnDefFromRankTemp(Rank? mRank)
-    {
-        Rank rankTemp = Rank.UNKNOWN;
-        if (mRank is Rank rank)
-        {
-            rankTemp = rank;
-        }
-        return orderedPawnDefList.FirstOrDefault(def => def.rank == rankTemp);
+        Debug.Log("InputActions enabled");
     }
     
+    // TODO: move this somewhere else
     Coroutine lightningCoroutine;
     public void Lightning()
     {
@@ -127,21 +99,6 @@ public class GameManager : MonoBehaviour
             colorAdjust.active = false;
             whiteBalance.active = false;
         }
-    }
-    
-    void SetDefaultPlayerPrefs()
-    {
-        Dictionary<SettingsKey, int> defaultSettings = new()
-        {
-            { SettingsKey.CHEATMODE, 0 },
-            { SettingsKey.FASTMODE, 1 },
-            { SettingsKey.DISPLAYBADGES, 1 },
-            { SettingsKey.MOVECAMERA, 1 },
-            { SettingsKey.MASTERVOLUME, 50 },
-            { SettingsKey.MUSICVOLUME, 50 },
-            { SettingsKey.EFFECTSVOLUME, 50 },
-        };
-        SettingsManager.SetPrefs(defaultSettings);
     }
     
     public void QuitGame()

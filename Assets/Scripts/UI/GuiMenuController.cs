@@ -28,7 +28,6 @@ public class GuiMenuController: MonoBehaviour
     void Start()
     {
         modalStack = new();
-        StellarManager.Initialize();
         StellarManager.OnNetworkStateUpdated += OnNetworkStateUpdated;
         StellarManager.OnTaskStarted += ShowTopBar;
         StellarManager.OnTaskEnded += HideTopBar;

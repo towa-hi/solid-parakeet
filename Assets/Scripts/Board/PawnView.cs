@@ -219,18 +219,14 @@ public class PawnView : MonoBehaviour
     
     void DisplayRankView(Rank rank)
     {
-        PawnDef pawnDef = GameManager.instance.GetPawnDefFromRankTemp(rank);
-        switch (team)
+        PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(rank);
+        Debug.Log(pawnDef);
+        animator.runtimeAnimatorController = team switch
         {
-            case Team.RED:
-                animator.runtimeAnimatorController = pawnDef.redAnimatorOverrideController;
-                break;
-            case Team.BLUE:
-                animator.runtimeAnimatorController = pawnDef.blueAnimatorOverrideController;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
+            Team.RED => pawnDef.redAnimatorOverrideController,
+            Team.BLUE => pawnDef.blueAnimatorOverrideController,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
         float randNormTime = Random.Range(0f, 1f);
         animator.Play("Idle", 0, randNormTime);
         animator.Update(0f);

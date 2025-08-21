@@ -158,7 +158,7 @@ public static class Globals
 
     public static PawnDef RankToPawnDef(Rank rank)
     {
-        foreach (PawnDef def in GameManager.instance.orderedPawnDefList.Where(def => def.rank == rank))
+        foreach (PawnDef def in ResourceRoot.OrderedPawnDefs.Where(def => def.rank == rank))
         {
             return def;
         }

@@ -6,6 +6,29 @@ public static class SettingsManager
 {
     public static event Action<SettingsKey, int> OnSettingChanged;
     
+    public static void Initialize()
+    {
+        // check if missing settings
+        bool missingSettings = false;
+        foreach (SettingsKey key in Enum.GetValues(typeof(SettingsKey)))
+        {
+            if (!PlayerPrefs.HasKey(key.ToString()))
+            {
+                missingSettings = true; 
+            }
+        }
+        if (missingSettings)
+        {
+            DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
+            SetPref(SettingsKey.CHEATMODE, defaultSettings.cheatMode ? 1 : 0);
+            SetPref(SettingsKey.FASTMODE, defaultSettings.fastMode ? 1 : 0);
+            SetPref(SettingsKey.DISPLAYBADGES, defaultSettings.displayBadges ? 1 : 0);
+            SetPref(SettingsKey.MOVECAMERA, defaultSettings.moveCamera ? 1 : 0);
+            SetPref(SettingsKey.MASTERVOLUME, defaultSettings.masterVolume);
+            SetPref(SettingsKey.MUSICVOLUME, defaultSettings.musicVolume);
+            SetPref(SettingsKey.EFFECTSVOLUME, defaultSettings.effectsVolume);
+        }
+    }
     static void SetPref(SettingsKey key, int val)
     {
         string stringKey = key.ToString();

@@ -123,28 +123,28 @@ public class ModalSettings : ModalElement
     void OnCheatModeButton()
     {
         newSettings.cheatMode = newSettings.cheatMode == 0 ? 1 : 0;
-        AudioManager.instance.PlaySmallButtonClick();
+        AudioManager.PlaySmallButtonClick();
         Refresh(newSettings);
     }
 
     void OnFastModeButton()
     {
         newSettings.fastMode = newSettings.fastMode == 0 ? 1 : 0;
-        AudioManager.instance.PlaySmallButtonClick();
+        AudioManager.PlaySmallButtonClick();
         Refresh(newSettings);
     }
 
     void OnDisplayBadgesButton()
     {
         newSettings.displayBadges = newSettings.displayBadges == 0 ? 1 : 0;
-        AudioManager.instance.PlaySmallButtonClick();
+        AudioManager.PlaySmallButtonClick();
         Refresh(newSettings);
     }
 
     void OnMoveCameraButton()
     {
         newSettings.moveCamera = newSettings.moveCamera == 0 ? 1 : 0;
-        AudioManager.instance.PlaySmallButtonClick();
+        AudioManager.PlaySmallButtonClick();
         Refresh(newSettings);
     }
     
@@ -168,7 +168,7 @@ public class ModalSettings : ModalElement
 
     void HandleBackButton()
     {
-        AudioManager.instance.PlayMidButtonClick();
+        AudioManager.PlayMidButtonClick();
         OnBackButton?.Invoke();
     }
 
@@ -202,7 +202,7 @@ public class ModalSettings : ModalElement
             SettingsManager.SetPrefs(changedSettings);
             oldSettings = newSettings;
         }
-        AudioManager.instance.PlayMidButtonClick();
+        AudioManager.PlayMidButtonClick();
         OnSubmitButton?.Invoke();
     }
 

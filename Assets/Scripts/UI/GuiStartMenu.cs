@@ -11,7 +11,7 @@ public class GuiStartMenu : MenuElement
     {
         startButton.onClick.AddListener(() =>
         {
-            AudioManager.instance.PlayButtonClick();
+            AudioManager.PlayButtonClick();
             OnStartButton?.Invoke();
         });
     }

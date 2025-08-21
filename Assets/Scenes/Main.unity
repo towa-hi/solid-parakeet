@@ -4840,7 +4840,7 @@ MonoBehaviour:
   cameraManager: {fileID: 1527594348}
   audioManager: {fileID: 1527594349}
   poolManager: {fileID: 1537931235}
-  orderedPawnDefList: []
+  resourceRoot: {fileID: 0}
 --- !u!114 &1527594348
 MonoBehaviour:
   m_ObjectHideFlags: 0

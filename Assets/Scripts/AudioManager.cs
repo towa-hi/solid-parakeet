@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class AudioManager : MonoBehaviour
 {
+    static AudioManager instance;
+    
     public AudioListener listener;
     public AudioClip currentMusicClip;
     public AudioSource musicSource1;
@@ -17,47 +19,38 @@ public class AudioManager : MonoBehaviour
     public AudioClip shatterClip;
     public AudioClip smallButtonClip;
     public AudioClip midButtonClip;
-    public static AudioManager instance;
 
     public AudioClip mainMenuMusicClip;
     public AudioClip startMusicClip;
     public AudioClip battleMusicClip;
     public AudioClip battleMusicClip2;
-    
+    public float masterVolume;
+    public float effectsVolume;
     public float musicVolume;
     
-    void Awake()
+    public void Initialize()
     {
-        instance = this;
         activeSource = musicSource1;
         inactiveSource = musicSource2;
         
+        instance = this;
     }
 
-    public void PlayMusic(MusicTrack trackName)
+    public static void PlayMusic(MusicTrack trackName)
     {
-        StopAllCoroutines();
-        AudioClip clip;
-        switch (trackName)
+        instance.StopAllCoroutines();
+        AudioClip clip = trackName switch
         {
-            case MusicTrack.START_MUSIC:
-                clip = startMusicClip;
-                break;
-            case MusicTrack.MAIN_MENU_MUSIC:
-                clip = mainMenuMusicClip;
-                break;
-            case MusicTrack.BATTLE_MUSIC:
-                clip = battleMusicClip;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(trackName), trackName, null);
-        }
+            MusicTrack.START_MUSIC => instance.startMusicClip,
+            MusicTrack.MAIN_MENU_MUSIC => instance.mainMenuMusicClip,
+            MusicTrack.BATTLE_MUSIC => instance.battleMusicClip,
+            _ => throw new ArgumentOutOfRangeException(nameof(trackName), trackName, null)
+        };
 
-        if (clip != currentMusicClip)
+        if (clip != instance.currentMusicClip)
         {
-            StartCoroutine(FadeToNewTrack(clip, 2f));
+            instance.StartCoroutine(instance.FadeToNewTrack(clip, 2f));
         }
-        clip = currentMusicClip;
     }
 
     IEnumerator FadeToNewTrack(AudioClip newClip, float duration)
@@ -78,23 +71,23 @@ public class AudioManager : MonoBehaviour
         (activeSource, inactiveSource) = (inactiveSource, activeSource);
     }
     
-    public void PlayButtonClick()
+    public static void PlayButtonClick()
     {
-        effectSource.PlayOneShot(buttonClickClip);
+        instance.effectSource.PlayOneShot(instance.buttonClickClip);
     }
 
-    public void PlaySmallButtonClick()
+    public static void PlaySmallButtonClick()
     {
-        effectSource.PlayOneShot(smallButtonClip);
+        instance.effectSource.PlayOneShot(instance.smallButtonClip);
     }
 
-    public void PlayMidButtonClick()
+    public static void PlayMidButtonClick()
     {
-        effectSource.PlayOneShot(midButtonClip);
+        instance.effectSource.PlayOneShot(instance.midButtonClip);
     }
-    public void PlayShatter()
+    public static void PlayShatter()
     {
-        effectSource.PlayOneShot(shatterClip);
+        instance.effectSource.PlayOneShot(instance.shatterClip);
     }
 }
 

@@ -82,39 +82,7 @@ public struct SPawn
         isVisibleToOpponent = false;
     }
 
-    public SPawn(Pawn pawn)
-    {
-        pawnId = pawn.pawnId;
-        def = new SPawnDef(pawn.def);
-        team = (int)pawn.team;
-        pos = pawn.pos;
-        isSetup = pawn.isSetup;
-        isAlive = pawn.isAlive;
-        hasMoved = pawn.hasMoved;
-        isVisibleToOpponent = pawn.isVisibleToOpponent;
-    }
 
-    public readonly SPawn Censor()
-    {
-        SPawn censoredPawn = new()
-        {
-            pawnId = pawnId,
-            def = new SPawnDef()
-            {
-                id = 99,
-                pawnName = "Unknown",
-                power = 0,
-            },
-            team = team,
-            pos = pos,
-            isSetup = isSetup,
-            isAlive = isAlive,
-            hasMoved = hasMoved,
-            isVisibleToOpponent = isVisibleToOpponent,
-        };
-        return censoredPawn;
-    }
-    
     public readonly Pawn ToUnity()
     {
         Pawn pawn = new()
