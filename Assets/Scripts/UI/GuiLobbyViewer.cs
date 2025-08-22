@@ -48,10 +48,6 @@ public class GuiLobbyViewer : MenuElement
     {
         base.ShowElement(show);
         StellarManager.SetPolling(show);
-        if (show)
-        {
-            _ = StellarManager.UpdateState(false);
-        }
     }
 
     public override void Refresh()

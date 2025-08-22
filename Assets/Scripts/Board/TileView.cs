@@ -112,6 +112,9 @@ public class TileView : MonoBehaviour
                 case SetupCommitPhase setupCommitPhase:
                     setIsSetupTile = true;
                     break;
+                case ResolvePhase resolvePhase:
+                    setIsHovered = resolvePhase.hoveredPos == posView;
+                    break;
                 case MoveCommitPhase moveCommitPhase:
                 {
                     setIsHovered = moveCommitPhase.hoveredPos == posView;

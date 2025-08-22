@@ -117,6 +117,9 @@ public class PawnView : MonoBehaviour
                     }
                     // TODO: fix opponents pawns showing up as unknown after submitting
                     break;
+                case ResolvePhase resolvePhase:
+                    setVisibleView = true;
+                    break;
                 case MoveCommitPhase moveCommitPhase:
                     setVisibleView = true;
                     setIsSelected = moveCommitPhase.selectedPos.HasValue && moveCommitPhase.selectedPos.Value == posView;

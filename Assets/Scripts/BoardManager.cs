@@ -123,15 +123,17 @@ public class BoardManager : MonoBehaviour
 
         // Check if phase actually changed
         Phase newPhase = netState.lobbyInfo.phase;
-        bool phaseChanged = currentPhase == null || 
+        bool turnChanged = currentPhase != null && currentPhase.cachedNetState.gameState.turn != netState.gameState.turn;
+        bool phaseUninitialized = currentPhase == null;
+        bool phaseChanged = phaseUninitialized || 
                           currentPhase.cachedNetState.lobbyInfo.phase != newPhase ||
-                          currentPhase.cachedNetState.gameState.turn != netState.gameState.turn;
+                          turnChanged;
         if (phaseChanged)
         {
             PhaseBase nextPhase = newPhase switch
             {
                 Phase.SetupCommit => new SetupCommitPhase(),
-                Phase.MoveCommit => new MoveCommitPhase(),
+                Phase.MoveCommit => turnChanged ? new ResolvePhase() : new MoveCommitPhase(),
                 Phase.MoveProve => new MoveProvePhase(),
                 Phase.RankProve => new RankProvePhase(),
                 Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),
@@ -144,7 +146,7 @@ public class BoardManager : MonoBehaviour
         }
         
         // Always update the network state
-        currentPhase.UpdateNetworkState(netState);
+        currentPhase.UpdateNetworkState(netState, delta);
         GameLogger.RecordNetworkState(netState);
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
         
@@ -253,6 +255,7 @@ public class BoardManager : MonoBehaviour
 public abstract class PhaseBase
 {
     public GameNetworkState cachedNetState;
+    public NetworkDelta lastDelta;
     public Vector2Int hoveredPos;
     
     public Dictionary<Vector2Int, TileView> tileViews;
@@ -290,6 +293,17 @@ public abstract class PhaseBase
     public virtual void UpdateNetworkState(GameNetworkState netState)
     {
         cachedNetState = netState;
+    }
+    
+    public virtual void UpdateNetworkDelta(NetworkDelta delta)
+    {
+        lastDelta = delta;
+    }
+
+    public void UpdateNetworkState(GameNetworkState netState, NetworkDelta delta)
+    {
+        lastDelta = delta;
+        UpdateNetworkState(netState);
     }
     
     public void ExitState(ClickInputManager clickInputManager, GuiGame guiGame)
@@ -563,6 +577,38 @@ public class SetupCommitPhase : PhaseBase
     }
 }
 
+public class ResolvePhase: PhaseBase
+{
+    protected override void SetGui(GuiGame guiGame, bool set) 
+    {
+        Debug.Log("ResolvePhase SetGui");
+        guiGame.resolve.OnPrevButton = set ? OnPrev : null;
+        guiGame.resolve.OnNextButton = set ? OnNext : null;
+        guiGame.resolve.OnSkipButton = set ? OnSkip : null;
+    }
+    protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
+    {
+        Debug.Log("ResolvePhase OnMouseInput");
+    }
+
+    void OnPrev()
+    {
+        // TODO: implement resolve previous step
+        Debug.Log("ResolvePhase OnPrev clicked");
+    }
+
+    void OnNext()
+    {
+        // TODO: implement resolve next step
+        Debug.Log("ResolvePhase OnNext clicked");
+    }
+
+    void OnSkip()
+    {
+        // TODO: implement resolve skip
+        Debug.Log("ResolvePhase OnSkip clicked");
+    }
+}
 public class MoveCommitPhase: PhaseBase
 {
     public Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairs = new();

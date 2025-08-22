@@ -56,6 +56,7 @@ public class GuiMenuController: MonoBehaviour
         walletElement.OnBackButton += GotoMainMenu;
 
         gameElement.movement.OnMenuButton = OpenEscapeModal;
+        gameElement.resolve.OnMenuButton = OpenEscapeModal;
         gameElement.EscapePressed += OpenEscapeModal;
     }
 

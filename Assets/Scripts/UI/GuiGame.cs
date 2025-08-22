@@ -8,6 +8,7 @@ public class GuiGame : MenuElement
 {
     public GuiSetup setup;
     public GuiMovement movement;
+    public GuiResolve resolve;
     
     public CameraAnchor boardAnchor;
     bool isUpdating;
@@ -37,6 +38,7 @@ public class GuiGame : MenuElement
     {
         setup.PhaseStateChanged(changes);
         movement.PhaseStateChanged(changes);
+        resolve.PhaseStateChanged(changes);
     }
 
     public override void ShowElement(bool show)
@@ -49,6 +51,7 @@ public class GuiGame : MenuElement
             GameManager.instance.cameraManager.MoveCameraTo(Area.BOARD, false);
             setup.ShowElement(false);
             movement.ShowElement(false);
+            resolve.ShowElement(false);
         }
     }
 
