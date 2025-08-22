@@ -75,7 +75,6 @@ public class TileView : MonoBehaviour
         setupZoneView = tile.setup_zone;
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
-        Debug.Log("SetTile setting tileModel to " + (hex ? "hex" : "square"));
         tileModel = hex ? hexTileModel : squareTileModel;
         tileModel.gameObject.SetActive(passableView);
     }

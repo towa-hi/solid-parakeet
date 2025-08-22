@@ -16,6 +16,7 @@ MonoBehaviour:
   orderedPawnDefs:
   - {fileID: 11400000, guid: 1e2dbccc815b66b45a5bf739b26fe434, type: 2}
   - {fileID: 11400000, guid: 801cce1b65fa10445a4f826cecce93a2, type: 2}
+  - {fileID: 11400000, guid: 129cba558530092478a63f9931d34b6b, type: 2}
   - {fileID: 11400000, guid: cda8d876a3093b542aa0072da2b77ba8, type: 2}
   - {fileID: 11400000, guid: 3526690f5c8e3ea4a8c8547d7c820873, type: 2}
   - {fileID: 11400000, guid: f364ccff62e19434e819f39227e6056a, type: 2}
@@ -25,7 +26,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: e5e95bc8246402a42b182966c0e5daf8, type: 2}
   - {fileID: 11400000, guid: 3facce40bdfe0754bbf0babad32aae3c, type: 2}
   - {fileID: 11400000, guid: 732afbb7aca54fc4eb96711a8e632686, type: 2}
-  - {fileID: 11400000, guid: 23e9f9126ee879f4681b86baf940d90d, type: 2}
   - {fileID: 11400000, guid: 23e9f9126ee879f4681b86baf940d90d, type: 2}
   boardDefs:
   - {fileID: 11400000, guid: 6780820eece2788468349dd026a53628, type: 2}

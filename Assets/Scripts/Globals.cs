@@ -2149,7 +2149,7 @@ public struct TurnResolveDelta
 
 public struct PositionSnapshot
 {
-    public (PawnId pawn, Vector2Int pos, Team team)[] pawns;
+    public SnapshotPawn[] pawns;
 }
 
 public struct MoveEvent
@@ -2167,6 +2167,18 @@ public struct BattleEvent
     public (PawnId pawn, Team team)[] survivors;
     public (PawnId pawn, Team team)[] dead;
     public (PawnId pawn, Rank rank, bool wasHidden)[] revealedRanks;
+}
+
+public struct SnapshotPawn
+{
+    public PawnId pawn;
+    public Team team;
+    public Vector2Int pos;
+    public bool alive;
+    public bool revealed;
+    public Rank? rank;
+    public bool moved;
+    public bool movedScout;
 }
 
 public enum ResolveCheckpointType

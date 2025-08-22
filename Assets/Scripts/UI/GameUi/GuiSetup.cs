@@ -67,9 +67,9 @@ public class GuiSetup : GameElement
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             setInitialize = cachedNetState;
-            switch (cachedNetState.lobbyInfo.phase)
+            switch (netStateUpdated.phase)
             {
-                case Phase.SetupCommit:
+                case SetupCommitPhase:
                     setShowElement = true;
                     if (cachedNetState.IsMySubphase())
                     {
@@ -86,15 +86,9 @@ public class GuiSetup : GameElement
                         setClearButton = false;
                     }
                     break;
-                case Phase.MoveCommit:
-                case Phase.MoveProve:
-                case Phase.RankProve:
-                case Phase.Finished:
-                case Phase.Aborted:
+                default:
                     setShowElement = false;
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
         }
         // for local changes
@@ -118,10 +112,7 @@ public class GuiSetup : GameElement
         }
         
         // now do the stuff
-        if (setShowElement.HasValue)
-        {
-            ShowElement(setShowElement.Value);
-        }
+        // Visibility is handled centrally by GuiGame. Do not toggle here.
         if (setInitialize.HasValue)
         {
             Initialize(setInitialize.Value);

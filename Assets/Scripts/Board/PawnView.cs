@@ -32,6 +32,8 @@ public class PawnView : MonoBehaviour
     public bool isSelected;
     public bool isMovePairStart;
 
+    public static event Action<PawnId> OnMoveAnimationCompleted;
+
 
     public void TestSetSprite(Rank testRank, Team testTeam)
     {
@@ -140,6 +142,37 @@ public class PawnView : MonoBehaviour
         {
             switch (operation)
             {
+                case ResolveStateShowMoves(var moves, var resolvePhase):
+                {
+                    // Arrows handled elsewhere; no positional change needed here
+                    break;
+                }
+                case ResolveStateApplyMoves(var moves, var resolvePhase):
+                {
+                    var mv = moves.FirstOrDefault(m => m.pawn.Equals(pawnId));
+                    if (!mv.Equals(default(MoveEvent)))
+                    {
+                        if (resolvePhase.tileViews.TryGetValue(mv.target, out TileView targetTile))
+                        {
+                            // Fire-and-forget coroutine, notify when finished
+                            StartCoroutine(AnimateAndNotify(targetTile.transform));
+                        }
+                    }
+                    break;
+                }
+                case ResolveStateBattle(var battle, var resolvePhase):
+                {
+                    if (battle.dead.Any(d => d.pawn.Equals(pawnId)))
+                    {
+                        DisplayPosView(null);
+                    }
+                    break;
+                }
+                case ResolveStateFinal(var resolvePhase):
+                {
+                    // Final snapshot is applied by ResolvePhase; no-op here for now
+                    break;
+                }
                 case SetupHoverChanged setupHoverChanged:
                     break;
                 case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
@@ -223,7 +256,6 @@ public class PawnView : MonoBehaviour
     void DisplayRankView(Rank rank)
     {
         PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(rank);
-        Debug.Log(pawnDef);
         animator.runtimeAnimatorController = team switch
         {
             Team.RED => pawnDef.redAnimatorOverrideController,
@@ -283,5 +315,11 @@ public class PawnView : MonoBehaviour
         // Ensure the final position is set
         isMoving = false;
         parentConstraint.constraintActive = true;
+    }
+
+    IEnumerator AnimateAndNotify(Transform target)
+    {
+        yield return ArcToPosition(target, Globals.PawnMoveDuration, 0.5f);
+        OnMoveAnimationCompleted?.Invoke(pawnId);
     }
 }

@@ -19,9 +19,9 @@ MonoBehaviour:
   fastMode: 0
   displayBadges: 0
   moveCamera: 0
-  masterVolume: 100
+  masterVolume: 50
   musicVolume: 100
   effectsVolume: 100
-  serializationLogging: 1
-  networkLogging: 1
-  pollingLogging: 1
+  serializationLogging: 0
+  networkLogging: 0
+  pollingLogging: 0

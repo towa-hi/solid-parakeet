@@ -533,78 +533,62 @@ public static class StellarManager
         GameState prevGs = previous.gameState;
         GameState currGs = current.gameState;
 
-        // Pre snapshot from previous state's alive pawns
-        PositionSnapshot pre = new PositionSnapshot
+        // Helper to map a GameState to a SnapshotPawn[]
+        SnapshotPawn[] MapSnapshot(GameState gs)
         {
-            pawns = prevGs.pawns
-                .Where(p => p.alive)
-                .Select(p => (p.pawn_id, p.pos, p.GetTeam()))
-                .ToArray()
-        };
+            return gs.pawns
+                .Select(p => new SnapshotPawn
+                {
+                    pawn = p.pawn_id,
+                    team = p.GetTeam(),
+                    pos = p.pos,
+                    alive = p.alive,
+                    revealed = p.zz_revealed,
+                    rank = p.rank,
+                    moved = p.moved,
+                    movedScout = p.moved_scout,
+                })
+                .ToArray();
+        }
 
-        // Try to get moves from previous state's move proofs; fallback to diffs
-        List<MoveEvent> moves = new List<MoveEvent>();
-        try
+        // Pre snapshot from previous state
+        PositionSnapshot pre = new PositionSnapshot { pawns = MapSnapshot(prevGs) };
+
+        // Derive moves from position diffs only (no proofs, no alive checks)
+        List<MoveEvent> moves = new();
+        Dictionary<PawnId, PawnState> prevById = prevGs.pawns.ToDictionary(p => p.pawn_id, p => p);
+        Dictionary<PawnId, PawnState> currById = currGs.pawns.ToDictionary(p => p.pawn_id, p => p);
+        foreach (KeyValuePair<PawnId, PawnState> prevEntry in prevById)
         {
-            HiddenMove[] userProofs = previous.GetUserMove().move_proofs ?? Array.Empty<HiddenMove>();
-            HiddenMove[] oppProofs = (previous.isHost ? previous.gameState.moves?.ElementAtOrDefault(1) : previous.gameState.moves?.ElementAtOrDefault(0))?.move_proofs ?? Array.Empty<HiddenMove>();
-            foreach (HiddenMove hm in userProofs)
+            PawnId pawnId = prevEntry.Key;
+            PawnState prevPawn = prevEntry.Value;
+            if (!currById.TryGetValue(pawnId, out PawnState currPawn)) continue;
+            if (prevPawn.pos != currPawn.pos)
             {
                 moves.Add(new MoveEvent
                 {
-                    pawn = hm.pawn_id,
-                    team = hm.pawn_id.GetTeam(),
-                    from = hm.start_pos,
-                    target = hm.target_pos,
+                    pawn = pawnId,
+                    team = currPawn.GetTeam(),
+                    from = prevPawn.pos,
+                    target = currPawn.pos,
                 });
-            }
-            foreach (HiddenMove hm in oppProofs)
-            {
-                moves.Add(new MoveEvent
-                {
-                    pawn = hm.pawn_id,
-                    team = hm.pawn_id.GetTeam(),
-                    from = hm.start_pos,
-                    target = hm.target_pos,
-                });
-            }
-        }
-        catch
-        {
-            // Ignore and fallback below
-        }
-
-        if (moves.Count == 0)
-        {
-            // Fallback: derive from position diffs (alive -> alive with changed pos)
-            Dictionary<PawnId, PawnState> prevById = prevGs.pawns.ToDictionary(p => p.pawn_id, p => p);
-            foreach (PawnState currPawn in currGs.pawns)
-            {
-                if (!currPawn.alive) continue;
-                if (!prevById.TryGetValue(currPawn.pawn_id, out PawnState prevPawn)) continue;
-                if (!prevPawn.alive) continue;
-                if (prevPawn.pos != currPawn.pos)
-                {
-                    moves.Add(new MoveEvent
-                    {
-                        pawn = currPawn.pawn_id,
-                        team = currPawn.GetTeam(),
-                        from = prevPawn.pos,
-                        target = currPawn.pos,
-                    });
-                }
             }
         }
 
         // Build postMoves snapshot by applying moves onto pre
-        Dictionary<PawnId, (Vector2Int pos, Team team)> postMovesMap = pre.pawns.ToDictionary(t => t.pawn, t => (t.pos, t.team));
+        Dictionary<PawnId, SnapshotPawn> postMovesMap = pre.pawns.ToDictionary(t => t.pawn, t => t);
         foreach (MoveEvent mv in moves)
         {
-            postMovesMap[mv.pawn] = (mv.target, mv.team);
+            if (postMovesMap.TryGetValue(mv.pawn, out SnapshotPawn sp))
+            {
+                sp.pos = mv.target;
+                sp.moved = true;
+                postMovesMap[mv.pawn] = sp;
+            }
         }
         PositionSnapshot postMoves = new PositionSnapshot
         {
-            pawns = postMovesMap.Select(kv => (kv.Key, kv.Value.pos, kv.Value.team)).ToArray()
+            pawns = postMovesMap.Values.ToArray()
         };
 
         // Determine contested tiles and order
@@ -616,7 +600,6 @@ public static class StellarManager
             .ToArray();
 
         // Build battles by comparing postMoves vs current
-        Dictionary<PawnId, PawnState> currAliveById = currGs.pawns.Where(p => p.alive).ToDictionary(p => p.pawn_id, p => p);
         List<BattleEvent> battles = new List<BattleEvent>();
         foreach (Vector2Int pos in contested)
         {
@@ -634,16 +617,10 @@ public static class StellarManager
             });
         }
 
-        // Post battles snapshot is simply current alive board
-        PositionSnapshot postBattles = new PositionSnapshot
-        {
-            pawns = currGs.pawns
-                .Where(p => p.alive)
-                .Select(p => (p.pawn_id, p.pos, p.GetTeam()))
-                .ToArray()
-        };
+        // Post-battles snapshot is the current board
+        PositionSnapshot postBattles = new PositionSnapshot { pawns = MapSnapshot(currGs) };
 
-        uint turnNumber = currGs.turn > 0 ? currGs.turn - 1 : currGs.turn;
+        uint turnNumber = prevGs.turn;
 
         return new TurnResolveDelta
         {

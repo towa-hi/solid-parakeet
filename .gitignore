@@ -98,4 +98,4 @@ test-reports/
 *.test.log
 *.test.output
 test_snapshots/
-TestResults/
+TestResults/.log

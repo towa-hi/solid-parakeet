@@ -65,29 +65,21 @@ public class GuiMovement : GameElement
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             setInitialize = cachedNetState;
             setPhaseInfoDisplay = cachedNetState;
-            switch (cachedNetState.lobbyInfo.phase)
+            // Switch strictly off the active phase object
+            switch (netStateUpdated.phase)
             {
-                case Phase.MoveCommit:
+                case MoveCommitPhase moveCommitPhase:
                     setShowElement = true;
                     setSubmitButton = false;
                     setRefreshButton = true;
                     // Update submit label with planned/allowed counts
-                    if (netStateUpdated.phase is MoveCommitPhase moveCommitPhase)
-                    {
-                        int planned = cachedNetState.IsMySubphase() ? moveCommitPhase.movePairs.Count : moveCommitPhase.turnHiddenMoves.Count;
-                        int allowed = cachedNetState.GetMaxMovesThisTurn();
-                        setSubmitMoveLabel = $"Commit Move ({planned}/{allowed})";
-                    }
-                    if (cachedNetState.IsMySubphase())
-                    {
-                        setStatus = "Commit your move";
-                    }
-                    else
-                    {
-                        setStatus = "Awaiting opponent move";
-                    }
+                    int planned = cachedNetState.IsMySubphase() ? moveCommitPhase.movePairs.Count : moveCommitPhase.turnHiddenMoves.Count;
+                    int allowed = cachedNetState.GetMaxMovesThisTurn();
+                    setSubmitMoveLabel = $"Commit Move ({planned}/{allowed})";
+                    // Update status text
+                    setStatus = cachedNetState.IsMySubphase() ? "Commit your move" : "Awaiting opponent move";
                     break;
-                case Phase.MoveProve:
+                case MoveProvePhase:
                     setShowElement = true;
                     setSubmitButton = false;
                     setRefreshButton = true;
@@ -100,7 +92,7 @@ public class GuiMovement : GameElement
                         setStatus = "Awaiting opponent move proof";
                     }
                     break;
-                case Phase.RankProve:
+                case RankProvePhase:
                     setShowElement = true;
                     setSubmitButton = false;
                     setRefreshButton = true;
@@ -113,13 +105,10 @@ public class GuiMovement : GameElement
                         setStatus = "Awaiting opponent rank proof";
                     }
                     break;
-                case Phase.SetupCommit:
-                case Phase.Finished:
-                case Phase.Aborted:
+                default:
+                    // Any other phase (Setup/Resolve/Finished/etc): hide movement UI
                     setShowElement = false;
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
         }
         // for local changes
@@ -145,10 +134,7 @@ public class GuiMovement : GameElement
             }
         }
         // now do the stuff
-        if (setShowElement is bool showElementVal)
-        {
-            ShowElement(showElementVal);
-        }
+        // Visibility is handled centrally by GuiGame. Do not toggle here.
         if (setInitialize is GameNetworkState initializeVal)
         {
             Initialize(initializeVal);

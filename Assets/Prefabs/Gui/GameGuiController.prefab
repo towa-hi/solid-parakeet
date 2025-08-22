@@ -1418,6 +1418,7 @@ MonoBehaviour:
   canvasGroup: {fileID: 3705650479071755313}
   setup: {fileID: 2357161617163206493}
   movement: {fileID: 7966010754862713443}
+  resolve: {fileID: 6355870113692411673}
   boardAnchor: {fileID: 0}
 --- !u!225 &3705650479071755313
 CanvasGroup:
@@ -1721,6 +1722,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 602624146d8d3fc4aa7a9caaee3f83da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  menuButton: {fileID: 76052825597820385}
+  prevButton: {fileID: 6742425077678015195}
+  nextButton: {fileID: 7696957599025509767}
+  skipButton: {fileID: 3743857316324923610}
 --- !u!1 &8312730095988110630
 GameObject:
   m_ObjectHideFlags: 0

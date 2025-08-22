@@ -128,6 +128,15 @@ public class BoardManager : MonoBehaviour
         bool phaseChanged = phaseUninitialized || 
                           currentPhase.cachedNetState.lobbyInfo.phase != newPhase ||
                           turnChanged;
+        // Hold phase switch while resolving until user allows exit
+        if (currentPhase is ResolvePhase rp && !rp.IsExitAllowed())
+        {
+            if (!phaseUninitialized)
+            {
+                Debug.Log($"BoardManager: Holding phase switch to {newPhase} while in ResolvePhase; awaiting user input");
+                phaseChanged = false;
+            }
+        }
         if (phaseChanged)
         {
             PhaseBase nextPhase = newPhase switch
@@ -142,6 +151,7 @@ public class BoardManager : MonoBehaviour
             // set phase
             currentPhase?.ExitState(clickInputManager, guiGame);
             currentPhase = nextPhase;
+            Debug.Log($"BoardManager: Switched to phase type {currentPhase.GetType().Name} (netPhase={newPhase}, turnChanged={turnChanged})");
             currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
         }
         
@@ -149,6 +159,12 @@ public class BoardManager : MonoBehaviour
         currentPhase.UpdateNetworkState(netState, delta);
         GameLogger.RecordNetworkState(netState);
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
+        // After broadcasting NetStateUpdated, if we're in resolve and have data, show the pre-turn snapshot
+        if (currentPhase is ResolvePhase resolvePhase)
+        {
+            Debug.Log("BoardManager: In ResolvePhase after NetStateUpdated; ensuring pre snapshot is applied");
+            resolvePhase.ShowPreSnapshotIfAvailable();
+        }
         
         // Manage polling based on whose turn it is
         StellarManager.SetPolling(shouldPoll);
@@ -293,11 +309,6 @@ public abstract class PhaseBase
     public virtual void UpdateNetworkState(GameNetworkState netState)
     {
         cachedNetState = netState;
-    }
-    
-    public virtual void UpdateNetworkDelta(NetworkDelta delta)
-    {
-        lastDelta = delta;
     }
 
     public void UpdateNetworkState(GameNetworkState netState, NetworkDelta delta)
@@ -579,34 +590,384 @@ public class SetupCommitPhase : PhaseBase
 
 public class ResolvePhase: PhaseBase
 {
+    // Processed resolve data for stepping through checkpoints
+    TurnResolveDelta? resolveData;
+    List<ResolveCheckpointType> timeline = new();
+    PositionSnapshot[] battleSnapshots = Array.Empty<PositionSnapshot>();
+    int checkpointIndex = 0;
+    // Minimal FSM
+    enum ResolveState { ShowMoves, ApplyMoves, Battle, Final }
+    ResolveState currentState = ResolveState.ShowMoves;
+    int currentBattleIndex = -1;
+    bool allowExit = false;
+    public bool IsExitAllowed() { return allowExit; }
+
+    HashSet<PawnId> pendingMoveAnimPawns = new HashSet<PawnId>();
+
     protected override void SetGui(GuiGame guiGame, bool set) 
     {
-        Debug.Log("ResolvePhase SetGui");
+        Debug.Log($"ResolvePhase.SetGui set={set}");
         guiGame.resolve.OnPrevButton = set ? OnPrev : null;
         guiGame.resolve.OnNextButton = set ? OnNext : null;
         guiGame.resolve.OnSkipButton = set ? OnSkip : null;
+        if (set)
+        {
+            PawnView.OnMoveAnimationCompleted += OnPawnMoveAnimationCompleted;
+        }
+        else
+        {
+            PawnView.OnMoveAnimationCompleted -= OnPawnMoveAnimationCompleted;
+        }
     }
+
+    public override void UpdateNetworkState(GameNetworkState netState)
+    {
+        base.UpdateNetworkState(netState);
+        if (lastDelta.TurnChanged && lastDelta.TurnResolve is TurnResolveDelta tr)
+        {
+            PrepareResolve(tr);
+            // Enter initial state
+            EnterState(ResolveState.ShowMoves);
+        }
+    }
+
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
-        Debug.Log("ResolvePhase OnMouseInput");
+        Debug.Log("ResolvePhase.OnMouseInput");
+    }
+
+    void PrepareResolve(TurnResolveDelta tr)
+    {
+        resolveData = tr;
+        checkpointIndex = 0;
+        currentState = ResolveState.ShowMoves;
+        currentBattleIndex = -1;
+        timeline = new List<ResolveCheckpointType>();
+        timeline.Add(ResolveCheckpointType.ShowMoves);
+        timeline.Add(ResolveCheckpointType.ApplyMoves);
+        for (int i = 0; i < (tr.battles?.Length ?? 0); i++)
+        {
+            timeline.Add(ResolveCheckpointType.BattleResolved);
+        }
+        timeline.Add(ResolveCheckpointType.Final);
+        battleSnapshots = BuildBattleSnapshots(tr);
+        Debug.Log($"ResolvePhase.PrepareResolve: turn={tr.turn} checkpoints={timeline.Count} moves={tr.moves?.Length ?? 0} battles={tr.battles?.Length ?? 0}");
+    }
+
+    PositionSnapshot[] BuildBattleSnapshots(TurnResolveDelta tr)
+    {
+        // Start from postMoves snapshot and apply each battle sequentially
+        Dictionary<PawnId, (Vector2Int pos, Team team)> map = tr.postMoves.pawns.ToDictionary(t => t.pawn, t => (t.pos, t.team));
+        PositionSnapshot[] snapshots = new PositionSnapshot[tr.battles?.Length ?? 0];
+        for (int i = 0; i < snapshots.Length; i++)
+        {
+            BattleEvent battle = tr.battles[i];
+            // Remove dead pawns
+            foreach ((PawnId pawn, Team _) in battle.dead)
+            {
+                map.Remove(pawn);
+            }
+            // Survivors remain at battle.pos (already in map). Ensure they exist.
+            foreach ((PawnId pawn, Team team) in battle.survivors)
+            {
+                map[pawn] = (battle.pos, team);
+            }
+            snapshots[i] = new PositionSnapshot
+            {
+                pawns = map.Select(kv => new SnapshotPawn
+                {
+                    pawn = kv.Key,
+                    team = kv.Value.team,
+                    pos = kv.Value.pos,
+                    alive = true,
+                    revealed = false,
+                    rank = null,
+                    moved = false,
+                    movedScout = false,
+                }).ToArray(),
+            };
+        }
+        return snapshots;
+    }
+
+    // Public accessors for UI/animation systems
+    public ResolveCheckpointType GetCurrentCheckpointType()
+    {
+        if (timeline.Count == 0) return ResolveCheckpointType.Final;
+        return timeline[checkpointIndex];
+    }
+
+    public PositionSnapshot GetCurrentSnapshot()
+    {
+        if (resolveData is not TurnResolveDelta tr)
+        {
+            return new PositionSnapshot { pawns = Array.Empty<SnapshotPawn>() };
+        }
+        // Derive from FSM state
+        switch (currentState)
+        {
+            case ResolveState.ShowMoves:
+                return tr.pre;
+            case ResolveState.ApplyMoves:
+                return tr.postMoves;
+            case ResolveState.Battle:
+                if (currentBattleIndex >= 0 && currentBattleIndex < battleSnapshots.Length)
+                {
+                    return battleSnapshots[currentBattleIndex];
+                }
+                return tr.postMoves;
+            case ResolveState.Final:
+            default:
+                return tr.postBattles;
+        }
+    }
+
+    public MoveEvent[] GetArrows()
+    {
+        return resolveData?.moves ?? Array.Empty<MoveEvent>();
+    }
+
+    public (Vector2Int? pos, BattleEvent? battle) GetCurrentBattle()
+    {
+        if (resolveData is not TurnResolveDelta tr) return (null, null);
+        int battleIdx = checkpointIndex - 2;
+        if (battleIdx >= 0 && tr.battles != null && battleIdx < tr.battles.Length)
+        {
+            return (tr.battles[battleIdx].pos, tr.battles[battleIdx]);
+        }
+        return (null, null);
+    }
+
+    public void ShowPreSnapshotIfAvailable()
+    {
+        if (resolveData is not TurnResolveDelta tr) return;
+        // Force checkpoint to pre and instantly apply board view to match previous turn
+        checkpointIndex = 0;
+        ApplySnapshotInstant(tr.pre);
+    }
+
+    void ApplySnapshotInstant(PositionSnapshot snapshot)
+    {
+        // Update PawnViews to match snapshot instantly (no animation)
+        var byId = snapshot.pawns.ToDictionary(t => t.pawn, t => (t.pos, t.team));
+        foreach (PawnView pawnView in pawnViews.Values)
+        {
+            if (byId.TryGetValue(pawnView.pawnId, out var entry))
+            {
+                if (tileViews.TryGetValue(entry.pos, out TileView tile))
+                {
+                    // Set constraint directly to tile (instant positioning)
+                    pawnView.SendMessage("DisplayPosView", tile);
+                }
+            }
+        }
+        // Highlights/arrows are handled by UI layer later
     }
 
     void OnPrev()
     {
-        // TODO: implement resolve previous step
-        Debug.Log("ResolvePhase OnPrev clicked");
+        if (timeline.Count == 0) { Debug.Log("ResolvePhase.OnPrev: timeline empty"); return; }
+        // FSM prev logic
+        allowExit = false; // navigating back cancels exit intent
+        if (currentState == ResolveState.Final)
+        {
+            if ((resolveData?.battles?.Length ?? 0) > 0)
+            {
+                currentState = ResolveState.Battle;
+                currentBattleIndex = (resolveData!.Value.battles!.Length - 1);
+            }
+            else
+            {
+                currentState = ResolveState.ApplyMoves;
+            }
+        }
+        else if (currentState == ResolveState.Battle)
+        {
+            if (currentBattleIndex > 0)
+            {
+                currentBattleIndex--;
+            }
+            else
+            {
+                currentState = ResolveState.ApplyMoves;
+                currentBattleIndex = -1;
+            }
+        }
+        else if (currentState == ResolveState.ApplyMoves)
+        {
+            // Snap back to pre-move without animations
+            pendingMoveAnimPawns.Clear();
+            currentState = ResolveState.ShowMoves;
+        }
+        // Apply state without animations (snap)
+        EnterState(currentState, false);
     }
 
     void OnNext()
     {
-        // TODO: implement resolve next step
-        Debug.Log("ResolvePhase OnNext clicked");
+        if (timeline.Count == 0) { Debug.Log("ResolvePhase.OnNext: timeline empty"); return; }
+        // FSM next logic
+        int battlesCount = resolveData?.battles?.Length ?? 0;
+        if (currentState == ResolveState.ShowMoves)
+        {
+            currentState = ResolveState.ApplyMoves;
+        }
+        else if (currentState == ResolveState.ApplyMoves)
+        {
+            if (battlesCount > 0)
+            {
+                currentState = ResolveState.Battle;
+                currentBattleIndex = 0;
+            }
+            else
+            {
+                currentState = ResolveState.Final;
+            }
+        }
+        else if (currentState == ResolveState.Battle)
+        {
+            if (currentBattleIndex + 1 < battlesCount)
+            {
+                currentBattleIndex++;
+            }
+            else
+            {
+                currentState = ResolveState.Final;
+                currentBattleIndex = -1;
+            }
+        }
+        else if (currentState == ResolveState.Final)
+        {
+            // User explicitly requests exit from resolve
+            allowExit = true;
+            Debug.Log("ResolvePhase.OnNext: user requested exit from Final state");
+        }
+        // Apply state
+        EnterState(currentState);
     }
 
     void OnSkip()
     {
-        // TODO: implement resolve skip
-        Debug.Log("ResolvePhase OnSkip clicked");
+        if (timeline.Count == 0) { Debug.Log("ResolvePhase.OnSkip: timeline empty"); return; }
+        currentState = ResolveState.Final;
+        currentBattleIndex = -1;
+        EnterState(currentState);
+    }
+
+    void EnterState(ResolveState state, bool animate = true)
+    {
+        // Map FSM state to checkpoint index for legacy helpers
+        if (timeline.Count > 0)
+        {
+            switch (state)
+            {
+                case ResolveState.ShowMoves:
+                    checkpointIndex = 0;
+                    break;
+                case ResolveState.ApplyMoves:
+                    checkpointIndex = Math.Min(1, timeline.Count - 1);
+                    break;
+                case ResolveState.Battle:
+                    checkpointIndex = Math.Clamp(2 + currentBattleIndex, 0, timeline.Count - 1);
+                    break;
+                case ResolveState.Final:
+                    checkpointIndex = timeline.Count - 1;
+                    break;
+            }
+        }
+        // Emit operations and apply visuals for the state
+        if (resolveData is not TurnResolveDelta tr)
+        {
+            Debug.LogWarning("ResolvePhase.EnterState: resolveData not ready");
+            return;
+        }
+        switch (state)
+        {
+            case ResolveState.ShowMoves:
+                // Ensure we ignore any late move completion events
+                pendingMoveAnimPawns.Clear();
+                ApplySnapshotInstant(tr.pre);
+                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateShowMoves(tr.moves, this)));
+                break;
+            case ResolveState.ApplyMoves:
+                if (!animate)
+                {
+                    pendingMoveAnimPawns.Clear();
+                    ApplySnapshotInstant(tr.postMoves);
+                }
+                else
+                {
+                    pendingMoveAnimPawns = new HashSet<PawnId>(tr.moves.Select(m => m.pawn));
+                    if (pendingMoveAnimPawns.Count == 0)
+                    {
+                        AdvanceAfterApplyMoves();
+                    }
+                    else
+                    {
+                        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateApplyMoves(tr.moves, this)));
+                    }
+                }
+                break;
+            case ResolveState.Battle:
+                if (currentBattleIndex >= 0 && tr.battles != null && currentBattleIndex < tr.battles.Length)
+                {
+                    if (!animate)
+                    {
+                        ApplySnapshotInstant(battleSnapshots[currentBattleIndex]);
+                    }
+                    else
+                    {
+                        BattleEvent be = tr.battles[currentBattleIndex];
+                        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateBattle(be, this)));
+                    }
+                }
+                break;
+            case ResolveState.Final:
+                ApplySnapshotInstant(tr.postBattles);
+                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateFinal(this)));
+                if (allowExit)
+                {
+                    // Do nothing more; BoardManager will transition when contract/network state changes.
+                    Debug.Log("ResolvePhase.Final: awaiting user Next to exit; exit flag currently true");
+                }
+                break;
+        }
+        Debug.Log($"ResolvePhase EnterState -> {state} (checkpoint {checkpointIndex})");
+    }
+
+    void OnPawnMoveAnimationCompleted(PawnId pawn)
+    {
+        // Only track completions while in ApplyMoves; ignore late events when user snapped back
+        if (currentState != ResolveState.ApplyMoves)
+        {
+            return;
+        }
+        if (pendingMoveAnimPawns.Remove(pawn))
+        {
+            if (pendingMoveAnimPawns.Count == 0)
+            {
+                AdvanceAfterApplyMoves();
+            }
+        }
+    }
+
+    void AdvanceAfterApplyMoves()
+    {
+        if (resolveData is not TurnResolveDelta tr)
+        {
+            return;
+        }
+        int battlesCount = tr.battles?.Length ?? 0;
+        if (battlesCount > 0)
+        {
+            currentState = ResolveState.Battle;
+            currentBattleIndex = 0;
+        }
+        else
+        {
+            currentState = ResolveState.Final;
+        }
+        EnterState(currentState);
     }
 }
 public class MoveCommitPhase: PhaseBase
@@ -967,6 +1328,11 @@ public record MovePosSelected(Vector2Int? selectedPos, HashSet<Vector2Int> targe
 public record MovePairUpdated(Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairsSnapshot, PawnId? changedPawnId, MoveCommitPhase phase) : GameOperation;
 
 public record NetStateUpdated(PhaseBase phase) : GameOperation;
+public record ApplyMovesRequested(MoveEvent[] moves, ResolvePhase phase) : GameOperation; // TODO: deprecated
+public record ResolveStateShowMoves(MoveEvent[] moves, ResolvePhase phase) : GameOperation;
+public record ResolveStateApplyMoves(MoveEvent[] moves, ResolvePhase phase) : GameOperation;
+public record ResolveStateBattle(BattleEvent battle, ResolvePhase phase) : GameOperation;
+public record ResolveStateFinal(ResolvePhase phase) : GameOperation;
 // ReSharper restore InconsistentNaming
 #pragma warning restore IDE1006
 
