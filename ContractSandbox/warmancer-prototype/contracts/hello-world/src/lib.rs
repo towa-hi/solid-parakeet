@@ -147,11 +147,11 @@ pub struct LobbyParameters {
     pub blitz_interval: u32,
     pub blitz_max_simultaneous_moves: u32,
     pub board: Board,
-    pub board_hash: BoardHash,
+    pub board_hash: BoardHash, //deprecated
     pub dev_mode: bool,
     pub host_team: u32,
     pub max_ranks: Vec<u32>,
-    pub must_fill_all_tiles: bool,
+    pub must_fill_all_tiles: bool, //deprecated
     pub security_mode: bool,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
@@ -260,8 +260,23 @@ pub struct Contract;
 impl Contract {
     /// Initialize admin in instance storage. Can only be called once.
     pub fn init(e: &Env, admin: Address) -> Result<(), Error> {
+        log!(e, "welcome to warmancer");
         let instance = e.storage().instance();
+        if instance.has(&DataKey::Admin) {
+            return Err(Error::Unauthorized)
+        }
         instance.set(&DataKey::Admin, &admin);
+        Ok(())
+    }
+    /// convenience function for extending ttl for a lobby if it exists
+    pub fn extend_lobby_ttl(e: &Env, _address: Address, lobby_id: LobbyId) -> Result<(), Error> {
+        let temporary = e.storage().temporary();
+        const THRESHOLD: u32 = 17280;
+        const EXTEND: u32 = 17280;
+        temporary.extend_ttl(&DataKey::LobbyInfo(lobby_id), THRESHOLD, EXTEND);
+        temporary.extend_ttl(&DataKey::LobbyParameters(lobby_id), THRESHOLD, EXTEND);
+        temporary.extend_ttl(&DataKey::GameState(lobby_id), THRESHOLD, EXTEND);
+        temporary.extend_ttl(&DataKey::PackedHistory(lobby_id), THRESHOLD, EXTEND);
         Ok(())
     }
     /// Admin-only: Create or replace a storage entry for the given key with the provided value.
@@ -328,43 +343,14 @@ impl Contract {
             return Err(Error::AlreadyExists)
         }
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id);
-        // light validation on boards just to make sure they make sense
-        if !Self::validate_board(e, &req.parameters) {
-            return Err(Error::InvalidArgs)
-        }
-        let mut parameters_invalid = false;
-        // parameter validation
-        for (i, max) in req.parameters.max_ranks.iter().enumerate() {
-            let index = i as u32;
-            // no throne
-            if index == 0 {
-                if max == 0 {
-                    parameters_invalid = true;
-                    break;
-                }
-            }
-            // cant submit rank unknown pawns
-            if index == 12 {
-                if max != 0 {
-                    parameters_invalid = true;
-                    break;
-                }
-            }
-        }
-        
-        if req.parameters.blitz_interval > 8 {
-            parameters_invalid = true;
-        }
-        if req.parameters.blitz_max_simultaneous_moves > 6 {
-            parameters_invalid = true;
-        }
-        if parameters_invalid {
+        // validate full lobby parameters and board
+        if !Self::validate_parameters(e, &req.parameters) {
             return Err(Error::InvalidArgs)
         }
         // update
         let lobby_info = LobbyInfo {
             guest_address: Vec::new(e),
-            host_address: Vec::from_array(e, [address.clone()]),
+            host_address: Vec::from_array(e, [address]),
             index: req.lobby_id,
             last_edited_ledger_seq: e.ledger().sequence(),
             phase: Phase::Lobby,
@@ -484,7 +470,7 @@ impl Contract {
         }
         // update
         user.current_lobby = req.lobby_id;
-        lobby_info.guest_address = Vec::from_array(e, [address]);
+        lobby_info.guest_address = Vec::from_array(e, [address.clone()]);
         // start game automatically
         lobby_info.phase = Phase::SetupCommit;
         lobby_info.subphase = Subphase::Both;
@@ -520,6 +506,7 @@ impl Contract {
         // Initialize empty packed history for this lobby
         temporary.set(&DataKey::PackedHistory(req.lobby_id), &PackedHistory { turns: Vec::new(e) });
         persistent.set(&user_key, &user);
+        Self::extend_lobby_ttl(e, address, req.lobby_id)?;
         Ok(())
     }
     /// Submit Merkle root of all owned pawn rank HiddenRanks.
@@ -1272,18 +1259,43 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         revealed_ranks_counts
     }
 
-    pub(crate) fn validate_board(e: &Env, lobby_parameters: &LobbyParameters) -> bool {
+    pub(crate) fn validate_parameters(e: &Env, lobby_parameters: &LobbyParameters) -> bool {
         if lobby_parameters.board.tiles.len() as i32 != lobby_parameters.board.size.x * lobby_parameters.board.size.y {
             log!(e, "validate_board: failed [tiles count must match board size]");
+            return false;
+        }
+        // Board name sanity
+        let name_len = lobby_parameters.board.name.len();
+        if name_len == 0 || name_len > 64 {
+            log!(e, "validate_board: failed [board name length out of bounds]");
+            return false;
+        }
+        // host_team must be 0 or 1
+        if ![0u32, 1u32].contains(&lobby_parameters.host_team) {
+            log!(e, "validate_board: failed [host_team must be 0 or 1]");
+            return false;
+        }
+        let size_x = lobby_parameters.board.size.x;
+        let size_y = lobby_parameters.board.size.y;
+        if size_x <= 0 || size_y <= 0 {
+            log!(e, "validate_board: failed [board dimensions must be positive]");
+            return false;
+        }
+        if size_x > 16 || size_y > 16 {
+            log!(e, "validate_board: failed [board dimensions exceed 16x16 limit]");
             return false;
         }
         let mut tiles_map: Map<Pos, Tile> = Map::new(e);
         let mut total_passable = 0;
         let mut start_pos: Option<Pos> = None;
-        let mut host_setup = 0;
-        let mut guest_setup = 0;
+        let mut red_setup = 0;
+        let mut blue_setup = 0;
         for packed_tile in lobby_parameters.board.tiles.iter() {
             let tile = Self::unpack_tile(packed_tile);
+            if tile.pos.x < 0 || tile.pos.y < 0 || tile.pos.x >= size_x || tile.pos.y >= size_y {
+                log!(e, "validate_board: failed [tile position out of bounds]");
+                return false;
+            }
             if tiles_map.contains_key(tile.pos) {
                 log!(e, "validate_board: failed [pos is unique]");
                 return false;
@@ -1301,10 +1313,10 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 return false;
             }
             if tile.setup == 0 {
-                host_setup += 1;
+                red_setup += 1;
             }
             if tile.setup == 1 {
-                guest_setup += 1;
+                blue_setup += 1;
             }
             if tile.passable {
                 total_passable += 1;
@@ -1318,12 +1330,16 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             log!(e, "validate_board: failed [must have a passable tile]");
             return false;
         }
-        if host_setup == 0 {
-            log!(e, "validate_board: failed [has a host setup tile]");
+        if red_setup == 0 {
+            log!(e, "validate_board: failed [has a red setup tile]");
             return false;
         }
-        if guest_setup == 0 {
-            log!(e, "validate_board: failed [has a guest setup tile]");
+        if blue_setup == 0 {
+            log!(e, "validate_board: failed [has a blue setup tile]");
+            return false;
+        }
+        if red_setup != blue_setup {
+            log!(e, "validate_board: failed [teams do not have same number of setup tiles]");
             return false;
         }
         const MAX_BOARD_SIZE: usize = 256;
@@ -1338,12 +1354,10 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         let mut visited = [false; MAX_BOARD_SIZE];
         let mut current_wave = [Pos { x: -42069, y: -42069 }; MAX_WAVE_SIZE];
         let mut next_wave = [Pos { x: -42069, y: -42069 }; MAX_WAVE_SIZE];
-        let mut current_len = 0usize;
-        let mut next_len = 0usize;
+        let mut current_len = 1usize;
         let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
         visited[(start_pos.y * board_width + start_pos.x) as usize] = true;
         current_wave[0] = start_pos;
-        current_len = 1;
         let mut visited_count = 1u32;
         let neighbor_count: usize = if lobby_parameters.board.hex { 6 } else { 4 };
         let max_iterations = board_size as i32;
@@ -1351,7 +1365,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             if current_len == 0 || visited_count == total_passable {
                 break;
             }
-            next_len = 0;
+            let mut next_len = 0usize;
             for i in 0..current_len {
                 let pos = current_wave[i];
                 Self::get_neighbors(&pos, lobby_parameters.board.hex, &mut neighbors);
@@ -1386,6 +1400,51 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             log!(e, "validate_board: failed [passable tiles must be connected]");
             return false;
         }
+        // Parameter-level validation: max_ranks and blitz
+        if lobby_parameters.max_ranks.len() != 13 {
+            log!(e, "validate_board: failed [max_ranks length must be 13]");
+            return false;
+        }
+        let mut red_setup_tiles = 0u32;
+        let mut blue_setup_tiles = 0u32;
+        for packed_tile in lobby_parameters.board.tiles.iter() {
+            let tile = Self::unpack_tile(packed_tile);
+            if tile.setup == 0 { red_setup_tiles += 1; }
+            if tile.setup == 1 { blue_setup_tiles += 1; }
+        }
+        let mut max_pawns: u32 = 0;
+        for (i, max) in lobby_parameters.max_ranks.iter().enumerate() {
+            let index = i as u32;
+            if index == 0 {
+                if max != 1 {
+                    log!(e, "validate_board: failed [rank 0 (throne) count must be 1]");
+                    return false;
+                }
+            }
+            if index == 12 {
+                if max != 0 {
+                    log!(e, "validate_board: failed [rank 12 (unknown) count must be 0]");
+                    return false;
+                }
+            }
+            max_pawns += max;
+        }
+        if max_pawns != red_setup_tiles || max_pawns != blue_setup_tiles {
+            log!(e, "validate_board: failed [max_ranks sum must equal both teams' setup tiles]");
+            return false;
+        }
+        if lobby_parameters.blitz_interval > 8 {
+            log!(e, "validate_board: failed [blitz_interval exceeds limit]");
+            return false;
+        }
+        if lobby_parameters.blitz_max_simultaneous_moves > 6 {
+            log!(e, "validate_board: failed [blitz_max_simultaneous_moves exceeds limit]");
+            return false;
+        }
+        if lobby_parameters.blitz_interval > 0 && lobby_parameters.blitz_max_simultaneous_moves == 0 {
+            log!(e, "validate_board: failed [blitz_max_simultaneous_moves must be >= 1 when blitz is enabled]");
+            return false;
+            }
         true
     }
     pub(crate) fn is_scout_move(hidden_move: &HiddenMove) -> bool {

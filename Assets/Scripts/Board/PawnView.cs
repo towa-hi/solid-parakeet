@@ -140,8 +140,26 @@ public class PawnView : MonoBehaviour
         // for local changes
         foreach (GameOperation operation in changes.operations)
         {
+            // intention variables for this loop iteration
+            Transform moveAnimTarget = null;
             switch (operation)
             {
+                case ResolveApplySnapshot(var snapshot, var resolvePhase):
+                {
+                    var map = snapshot.pawns.ToDictionary(t => t.pawn, t => t);
+                    if (map.TryGetValue(pawnId, out SnapshotPawn sp))
+                    {
+                        // set alive flag from snapshot
+                        setAliveView = sp.alive;
+                        // set rank if revealed
+                        if (sp.revealed && sp.rank is Rank r)
+                        {
+                            setRankView = r;
+                        }
+                        setPosView = (sp.pos, resolvePhase.tileViews[sp.pos]);
+                    }
+                    break;
+                }
                 case ResolveStateShowMoves(var moves, var resolvePhase):
                 {
                     // Arrows handled elsewhere; no positional change needed here
@@ -154,18 +172,14 @@ public class PawnView : MonoBehaviour
                     {
                         if (resolvePhase.tileViews.TryGetValue(mv.target, out TileView targetTile))
                         {
-                            // Fire-and-forget coroutine, notify when finished
-                            StartCoroutine(AnimateAndNotify(targetTile.transform));
+                            moveAnimTarget = targetTile.transform;
                         }
                     }
                     break;
                 }
                 case ResolveStateBattle(var battle, var resolvePhase):
                 {
-                    if (battle.dead.Any(d => d.pawn.Equals(pawnId)))
-                    {
-                        DisplayPosView(null);
-                    }
+                    // no-op for now; snapshots (ResolveApplySnapshot) will drive state when needed
                     break;
                 }
                 case ResolveStateFinal(var resolvePhase):
@@ -195,6 +209,11 @@ public class PawnView : MonoBehaviour
                     setIsMovePairStart = movePairsSnapshot2.ContainsKey(pawnId);
                     break;
                 }
+            }
+            // execute intentions that require side effects after decision
+            if (moveAnimTarget != null)
+            {
+                StartCoroutine(AnimateAndNotify(moveAnimTarget));
             }
         }
         // set cached vars and do stuff that requires diffs

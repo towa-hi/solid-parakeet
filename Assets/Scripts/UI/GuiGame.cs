@@ -18,7 +18,11 @@ public class GuiGame : MenuElement
     void Start()
     {
         Debug.Log("GuiGame.Start()");
-        isUpdating = false;
+    }
+
+    void OnEnable()
+    {
+        isUpdating = gameObject.activeInHierarchy;
     }
 
     void Update()

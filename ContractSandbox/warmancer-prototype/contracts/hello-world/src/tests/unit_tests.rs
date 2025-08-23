@@ -92,7 +92,7 @@ mod unit_tests {
             board_hash: BytesN::from_array(env, &[1u8; 16]),
             dev_mode: true,
             host_team: 0,
-            max_ranks: Vec::from_array(env, [1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 1u32, 0u32]),
+            max_ranks: Vec::from_array(env, [1u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32]),
             must_fill_all_tiles: false,
             security_mode: true,
         }
@@ -101,21 +101,21 @@ mod unit_tests {
     fn test_validate_board_all_conditions() {
         let env = Env::default();
         let baseline = create_baseline_valid_params(&env);
-        assert!(Contract::validate_board(&env, &baseline));
+        assert!(Contract::validate_parameters(&env, &baseline));
         let square_board = crate::test_utils::create_test_lobby_parameters(&env);
-        assert!(Contract::validate_board(&env, &square_board));
+        assert!(Contract::validate_parameters(&env, &square_board));
         let hex_board = crate::test_utils::create_user_board_parameters(&env);
-        assert!(Contract::validate_board(&env, &hex_board));
+        assert!(Contract::validate_parameters(&env, &hex_board));
         let mut params = create_baseline_valid_params(&env);
         params.board.size = Pos { x: 2, y: 2 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 1, setup_zone: 1 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 1, y: 2 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -123,7 +123,7 @@ mod unit_tests {
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 2, y: 0 }, passable: true, setup: 3, setup_zone: 1 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 3, y: 1 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -131,7 +131,7 @@ mod unit_tests {
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 2, y: 0 }, passable: true, setup: 2, setup_zone: 5 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 3, y: 1 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: false, setup: 0, setup_zone: 1 }));
@@ -139,28 +139,28 @@ mod unit_tests {
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 2, y: 0 }, passable: true, setup: 2, setup_zone: 1 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 3, y: 1 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: false, setup: 2, setup_zone: 1 }));
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 1, y: 0 }, passable: false, setup: 2, setup_zone: 1 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 2, y: 1 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 1, setup_zone: 1 }));
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 1, y: 0 }, passable: true, setup: 2, setup_zone: 1 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 2, y: 1 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 1, y: 0 }, passable: true, setup: 2, setup_zone: 1 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 2, y: 1 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let board_size = 17;
         let mut tiles = Vec::new(&env);
@@ -172,7 +172,7 @@ mod unit_tests {
         }
         params.board.tiles = tiles;
         params.board.size = Pos { x: board_size, y: board_size };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
         let mut params = create_baseline_valid_params(&env);
         let mut tiles = Vec::new(&env);
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 0, y: 0 }, passable: true, setup: 0, setup_zone: 1 }));
@@ -181,7 +181,7 @@ mod unit_tests {
         tiles.push_back(crate::test_utils::pack_tile(&Tile { pos: Pos { x: 3, y: 0 }, passable: true, setup: 2, setup_zone: 1 }));
         params.board.tiles = tiles;
         params.board.size = Pos { x: 4, y: 1 };
-        assert!(!Contract::validate_board(&env, &params));
+        assert!(!Contract::validate_parameters(&env, &params));
     }
     // endregion
     // region verify_merkle_proof tests

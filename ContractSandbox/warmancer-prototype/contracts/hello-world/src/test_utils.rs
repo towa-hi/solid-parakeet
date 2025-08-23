@@ -474,7 +474,7 @@ pub fn generate_valid_move_req(env: &Env, pawns_map: &Map<PawnId, (u32, PawnStat
 
 // region board and lobby creation
 
-const DEFAULT_MAX_RANKS: [u32; 12] = [
+const DEFAULT_MAX_RANKS: [u32; 13] = [
     1,  // Flag (rank 0)
     1,  // Assassin/Spy (rank 1)
     8,  // Scout (rank 2)
@@ -487,6 +487,7 @@ const DEFAULT_MAX_RANKS: [u32; 12] = [
     1,  // General (rank 9)
     1,  // Marshal (rank 10)
     6,  // Bomb (rank 11)
+    0,  // Unknown (rank 12)
 ];
 
 pub fn create_default_board(env: &Env) -> Board {
@@ -596,7 +597,7 @@ pub fn create_invalid_board_parameters(env: &Env) -> LobbyParameters {
         board,
         dev_mode: true,
         host_team: 0,
-        max_ranks: Vec::from_array(env, [1u32]),
+        max_ranks: Vec::from_array(env, [1u32, 0,0,0,0,0,0,0,0,0,0,0]),
         must_fill_all_tiles: false,
         security_mode: true,
     }
