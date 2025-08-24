@@ -142,7 +142,7 @@ public class BoardManager : MonoBehaviour
             PhaseBase nextPhase = newPhase switch
             {
                 Phase.SetupCommit => new SetupCommitPhase(),
-                Phase.MoveCommit => turnChanged ? new ResolvePhase() : new MoveCommitPhase(),
+                Phase.MoveCommit => (turnChanged && !(currentPhase is ResolvePhase rp2 && rp2.IsExitAllowed())) ? new ResolvePhase() : new MoveCommitPhase(),
                 Phase.MoveProve => new MoveProvePhase(),
                 Phase.RankProve => new RankProvePhase(),
                 Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),
@@ -184,6 +184,20 @@ public class BoardManager : MonoBehaviour
                     break;
                 case MoveHoverChanged moveHoverChanged:
                     CursorController.UpdateCursor(moveHoverChanged.phase.moveInputTool);
+                    break;
+                case ResolveDone resolveDone:
+                    // Switch immediately to MoveCommitPhase locally without network refresh
+                    PhaseBase oldPhase = currentPhase;
+                    currentPhase?.ExitState(clickInputManager, guiGame);
+                    currentPhase = new MoveCommitPhase();
+                    currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
+                    // Carry forward cached net state so the new phase has context
+                    if (resolveDone.phase?.cachedNetState != null)
+                    {
+                        currentPhase.UpdateNetworkState(resolveDone.phase.cachedNetState, resolveDone.phase.lastDelta);
+                    }
+                    // Notify GUI and views of phase change
+                    PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
                     break;
             }
         }
@@ -813,8 +827,8 @@ public class ResolvePhase: PhaseBase
                 break;
             case Checkpoint.Final:
                 allowExit = true;
-                Debug.Log("ResolvePhase.OnNext: user requested exit from Final state; refreshing net state to advance phase");
-                InvokeOnGetNetworkState();
+                Debug.Log("ResolvePhase.OnNext: user requested exit from Final state; emitting ResolveDone");
+                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveDone(this)));
                 break;
         }
     }
@@ -825,8 +839,8 @@ public class ResolvePhase: PhaseBase
         // User wants to skip remaining resolution and advance
         allowExit = true;
         EnterCheckpoint(Checkpoint.Final);
-        Debug.Log("ResolvePhase.OnSkip: exit requested; refreshing net state to advance phase");
-        InvokeOnGetNetworkState();
+        Debug.Log("ResolvePhase.OnSkip: exit requested; emitting ResolveDone");
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveDone(this)));
     }
 
     void EnterCheckpoint(Checkpoint checkpoint)
@@ -1251,6 +1265,7 @@ public record ResolveStateApplyMoves(MoveEvent[] moves, ResolvePhase phase) : Ga
 public record ResolveStateBattle(BattleEvent battle, ResolvePhase phase) : GameOperation;
 public record ResolveStateFinal(ResolvePhase phase) : GameOperation;
 public record ResolveApplySnapshot(PositionSnapshot snapshot, ResolvePhase phase) : GameOperation;
+public record ResolveDone(ResolvePhase phase) : GameOperation;
 // ReSharper restore InconsistentNaming
 #pragma warning restore IDE1006
 
