@@ -1207,24 +1207,25 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         let collisions = collisions_opt.unwrap_or_else(|| {
             Self::compute_collisions(e, game_state, pawns_map)
         });
-        for collision in collisions.iter() {
-            let (h_index, mut h_pawn) = pawns_map.get_unchecked(collision.h_pawn_id);
-            let (g_index, mut g_pawn) = pawns_map.get_unchecked(collision.g_pawn_id);
-            Self::resolve_collision(&mut h_pawn, &mut g_pawn);
-            game_state.pawns.set(h_index, Self::pack_pawn(h_pawn));
-            game_state.pawns.set(g_index, Self::pack_pawn(g_pawn));
-        }
+        // apply moves first
         let mut pawn_id_to_move_proof: Map<PawnId, HiddenMove> = Map::new(e);
         for proof in h_move.move_proofs.iter() { pawn_id_to_move_proof.set(proof.pawn_id, proof); }
         for proof in g_move.move_proofs.iter() { pawn_id_to_move_proof.set(proof.pawn_id, proof); }
         for (pawn_id, move_proof) in pawn_id_to_move_proof.iter() {
             let (pawn_index, _) = pawns_map.get_unchecked(pawn_id);
-            let packed = game_state.pawns.get_unchecked(pawn_index);
-            let mut pawn = Self::unpack_pawn(e, packed);
-            if pawn.alive {
-                Self::apply_move_to_pawn(&move_proof, &mut pawn);
-                game_state.pawns.set(pawn_index, Self::pack_pawn(pawn));
-            }
+            let mut pawn = Self::unpack_pawn(e, game_state.pawns.get_unchecked(pawn_index));
+            Self::apply_move_to_pawn(&move_proof, &mut pawn);
+            game_state.pawns.set(pawn_index, Self::pack_pawn(pawn));
+        }
+        // now apply collisions
+        for collision in collisions.iter() {
+            let (h_index, _) = pawns_map.get_unchecked(collision.h_pawn_id);
+            let (g_index, _) = pawns_map.get_unchecked(collision.g_pawn_id);
+            let mut h_pawn = Self::unpack_pawn(e, game_state.pawns.get_unchecked(h_index));
+            let mut g_pawn = Self::unpack_pawn(e, game_state.pawns.get_unchecked(g_index));
+            Self::resolve_collision(&mut h_pawn, &mut g_pawn);
+            game_state.pawns.set(h_index, Self::pack_pawn(h_pawn));
+            game_state.pawns.set(g_index, Self::pack_pawn(g_pawn));
         }
         game_state.moves = Self::create_empty_moves(e);
     }
