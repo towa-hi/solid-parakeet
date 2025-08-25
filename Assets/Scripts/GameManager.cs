@@ -38,9 +38,9 @@ public class GameManager : MonoBehaviour
         Debug.developerConsoleVisible = true;
         SettingsManager.Initialize();
         StellarManager.Initialize();
-        cameraManager.Initialize();
-        guiMenuController.Initialize();
-        audioManager.Initialize();
+        cameraManager?.Initialize();
+        guiMenuController?.Initialize();
+        audioManager?.Initialize();
         Globals.InputActions.Game.Enable();
         Debug.Log("InputActions enabled");
     }

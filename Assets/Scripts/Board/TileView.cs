@@ -78,6 +78,19 @@ public class TileView : MonoBehaviour
         tileModel = hex ? hexTileModel : squareTileModel;
         tileModel.gameObject.SetActive(passableView);
     }
+
+
+    public void SetTileDebug()
+    {
+        Color finalColor = setupView switch
+        {
+            Team.RED => redTeamColor,
+            Team.BLUE => blueTeamColor,
+            _ => Color.clear,
+        };
+        SetTopColor(finalColor);
+        sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
+    }
     
     void OnDestroy()
     {
