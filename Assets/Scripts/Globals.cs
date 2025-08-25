@@ -2136,50 +2136,17 @@ public struct NetworkDelta
     public TurnResolveDelta? TurnResolve;
 }
 
-public struct TurnResolveDelta
-{
-    public uint turn;
-    public PositionSnapshot pre;
-    public MoveEvent[] moves;
-    public Vector2Int[] battleOrder;
-    public PositionSnapshot postMoves;
-    public BattleEvent[] battles;
-    public PositionSnapshot postBattles;
-}
+// public struct TurnResolveDelta
+// {
+//     public uint turn;
+//     public PositionSnapshot pre;
+//     public MoveEvent[] moves;
+//     public Vector2Int[] battleOrder;
+//     public PositionSnapshot postMoves;
+//     public BattleEvent[] battles;
+//     public PositionSnapshot postBattles;
+// }
 
-public struct PositionSnapshot
-{
-    public SnapshotPawn[] pawns;
-}
-
-public struct MoveEvent
-{
-    public PawnId pawn;
-    public Team team;
-    public Vector2Int from;
-    public Vector2Int target;
-}
-
-public struct BattleEvent
-{
-    public Vector2Int pos;
-    public (PawnId pawn, Team team)[] pawns;
-    public (PawnId pawn, Team team)[] survivors;
-    public (PawnId pawn, Team team)[] dead;
-    public (PawnId pawn, Rank rank, bool wasHidden)[] revealedRanks;
-}
-
-public struct SnapshotPawn
-{
-    public PawnId pawn;
-    public Team team;
-    public Vector2Int pos;
-    public bool alive;
-    public bool revealed;
-    public Rank? rank;
-    public bool moved;
-    public bool movedScout;
-}
 
 public enum ResolveCheckpointType
 {

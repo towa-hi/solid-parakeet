@@ -146,7 +146,7 @@ public class PawnView : MonoBehaviour
             {
                 case ResolveApplySnapshot(var snapshot, var resolvePhase):
                 {
-                    var map = snapshot.pawns.ToDictionary(t => t.pawn, t => t);
+                    var map = snapshot.pawns.ToDictionary(t => t.pawnId, t => t);
                     if (map.TryGetValue(pawnId, out SnapshotPawn sp))
                     {
                         // set alive flag from snapshot
@@ -167,10 +167,10 @@ public class PawnView : MonoBehaviour
                 }
                 case ResolveStateApplyMoves(var moves, var resolvePhase):
                 {
-                    var mv = moves.FirstOrDefault(m => m.pawn.Equals(pawnId));
-                    if (!mv.Equals(default(MoveEvent)))
+                    var mv = moves.FirstOrDefault(m => m.pawnId.Equals(pawnId));
+                    if (!mv.Equals(default(SnapshotPawnDelta)))
                     {
-                        if (resolvePhase.tileViews.TryGetValue(mv.target, out TileView targetTile))
+                        if (resolvePhase.tileViews.TryGetValue(mv.postPos, out TileView targetTile))
                         {
                             moveAnimTarget = targetTile.transform;
                         }

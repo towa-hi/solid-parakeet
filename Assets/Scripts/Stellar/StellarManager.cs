@@ -514,7 +514,7 @@ public static class StellarManager
             {
                 GameNetworkState prevGns = new GameNetworkState(previous);
                 GameNetworkState currGns = new GameNetworkState(current);
-                delta.TurnResolve = BuildTurnResolveDelta(prevGns, currGns);
+                delta.TurnResolve = BuildTurnResolveDeltaSimple(prevGns, currGns);
             }
         }
         else
@@ -527,113 +527,139 @@ public static class StellarManager
         return delta;
     }
 
-    static TurnResolveDelta BuildTurnResolveDelta(GameNetworkState previous, GameNetworkState current)
+    static Dictionary<Vector2Int, (SnapshotPawnDelta, SnapshotPawnDelta)> ComputeCollisions(Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas)
     {
-        // Assumes both have complete data
-        GameState prevGs = previous.gameState;
-        GameState currGs = current.gameState;
-
-        // Helper to map a GameState to a SnapshotPawn[]
-        SnapshotPawn[] MapSnapshot(GameState gs)
+        Dictionary<Vector2Int, (SnapshotPawnDelta, SnapshotPawnDelta)> collisions = new();
+        // Map intended positions to team deltas
+        Dictionary<Vector2Int, List<SnapshotPawnDelta>> posToRed = new();
+        Dictionary<Vector2Int, List<SnapshotPawnDelta>> posToBlue = new();
+        
+        // Build intention maps (consider pawns that were alive at turn start)
+        foreach (var kvp in pawnDeltas)
         {
-            return gs.pawns
-                .Select(p => new SnapshotPawn
-                {
-                    pawn = p.pawn_id,
-                    team = p.GetTeam(),
-                    pos = p.pos,
-                    alive = p.alive,
-                    revealed = p.zz_revealed,
-                    rank = p.rank,
-                    moved = p.moved,
-                    movedScout = p.moved_scout,
-                })
-                .ToArray();
-        }
-
-        // Pre snapshot from previous state
-        PositionSnapshot pre = new PositionSnapshot { pawns = MapSnapshot(prevGs) };
-
-        // Derive moves from position diffs only (no proofs, no alive checks)
-        List<MoveEvent> moves = new();
-        Dictionary<PawnId, PawnState> prevById = prevGs.pawns.ToDictionary(p => p.pawn_id, p => p);
-        Dictionary<PawnId, PawnState> currById = currGs.pawns.ToDictionary(p => p.pawn_id, p => p);
-        foreach (KeyValuePair<PawnId, PawnState> prevEntry in prevById)
-        {
-            PawnId pawnId = prevEntry.Key;
-            PawnState prevPawn = prevEntry.Value;
-            if (!currById.TryGetValue(pawnId, out PawnState currPawn)) continue;
-            if (prevPawn.pos != currPawn.pos)
+            SnapshotPawnDelta d = kvp.Value;
+            if (!d.preAlive) continue;
+            Vector2Int intended = d.postPos; // post is the target; if no move, equals pre
+            Team team = d.pawnId.GetTeam();
+            if (team == Team.RED)
             {
-                moves.Add(new MoveEvent
+                if (!posToRed.TryGetValue(intended, out var list))
                 {
-                    pawn = pawnId,
-                    team = currPawn.GetTeam(),
-                    from = prevPawn.pos,
-                    target = currPawn.pos,
-                });
+                    list = new List<SnapshotPawnDelta>();
+                    posToRed[intended] = list;
+                }
+                list.Add(d);
+            }
+            else
+            {
+                if (!posToBlue.TryGetValue(intended, out var list))
+                {
+                    list = new List<SnapshotPawnDelta>();
+                    posToBlue[intended] = list;
+                }
+                list.Add(d);
             }
         }
-
-        // Build postMoves snapshot by applying moves onto pre
-        Dictionary<PawnId, SnapshotPawn> postMovesMap = pre.pawns.ToDictionary(t => t.pawn, t => t);
-        foreach (MoveEvent mv in moves)
+        
+        // Same-target collisions: exactly one RED and one BLUE intend the same tile
+        foreach (var kv in posToRed)
         {
-            if (postMovesMap.TryGetValue(mv.pawn, out SnapshotPawn sp))
+            Vector2Int pos = kv.Key;
+            List<SnapshotPawnDelta> redList = kv.Value;
+            if (redList.Count != 1) continue;
+            if (!posToBlue.TryGetValue(pos, out var blueList)) continue;
+            if (blueList.Count != 1) continue;
+            SnapshotPawnDelta red = redList[0];
+            SnapshotPawnDelta blue = blueList[0];
+            if (!collisions.ContainsKey(pos))
             {
-                sp.pos = mv.target;
-                sp.moved = true;
-                postMovesMap[mv.pawn] = sp;
+                // Order as (RED, BLUE)
+                var pair = red.pawnId.GetTeam() == Team.RED ? (red, blue) : (blue, red);
+                collisions[pos] = pair;
             }
         }
-        PositionSnapshot postMoves = new PositionSnapshot
+        
+        // Swap collisions: a moving RED and a moving BLUE swap start positions
+        List<SnapshotPawnDelta> moving = new List<SnapshotPawnDelta>();
+        foreach (var kvp in pawnDeltas)
         {
-            pawns = postMovesMap.Values.ToArray()
-        };
-
-        // Determine contested tiles and order
-        var contested = postMoves.pawns
-            .GroupBy(t => t.pos)
-            .Where(g => g.Select(x => x.team).Distinct().Count() > 1)
-            .Select(g => g.Key)
-            .OrderBy(v => v.x).ThenBy(v => v.y)
-            .ToArray();
-
-        // Build battles by comparing postMoves vs current
-        List<BattleEvent> battles = new List<BattleEvent>();
-        foreach (Vector2Int pos in contested)
+            SnapshotPawnDelta d = kvp.Value;
+            if (!d.preAlive) continue;
+            if (d.prePos != d.postPos) moving.Add(d);
+        }
+        int n = moving.Count;
+        for (int i = 0; i < n; i++)
         {
-            var participants = postMoves.pawns.Where(t => t.pos == pos).Select(t => (t.pawn, t.team)).ToArray();
-            var survivors = currGs.pawns.Where(p => p.alive && p.pos == pos).Select(p => (p.pawn_id, p.GetTeam())).ToArray();
-            HashSet<PawnId> survivorIds = survivors.Select(s => s.pawn_id).ToHashSet();
-            var dead = participants.Where(t => !survivorIds.Contains(t.pawn)).ToArray();
+            var a = moving[i];
+            Team aTeam = a.pawnId.GetTeam();
+            for (int j = i + 1; j < n; j++)
+            {
+                var b = moving[j];
+                Team bTeam = b.pawnId.GetTeam();
+                if (aTeam == bTeam) continue;
+                if (a.postPos == b.prePos && b.postPos == a.prePos)
+                {
+                    Vector2Int pos = a.postPos; // target position of one side
+                    SnapshotPawnDelta red = aTeam == Team.RED ? a : b;
+                    SnapshotPawnDelta blue = aTeam == Team.RED ? b : a;
+                    if (!collisions.ContainsKey(pos))
+                    {
+                        collisions[pos] = (red, blue);
+                    }
+                }
+            }
+        }
+        
+        return collisions;
+    }
+    static TurnResolveDelta BuildTurnResolveDeltaSimple(GameNetworkState previous, GameNetworkState current)
+    {
+        // pre is the state before moves or changes have been applied
+        TurnSnapshot preSnapshot = new(previous.gameState);
+        // post is the state after moves and changes have been applied
+        TurnSnapshot postSnapshot = new(current.gameState);
+        Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas = new();
+        List<BattleEvent> battles = new();
+        // determine moved pawns
+        for (int i = 0; i < preSnapshot.pawns.Length; i++)
+        {
+            SnapshotPawn prePawn = preSnapshot.pawns[i];
+            SnapshotPawn postPawn = postSnapshot.pawns[i];
+            SnapshotPawnDelta pawnDelta = new(prePawn, postPawn);
+            pawnDeltas[pawnDelta.pawnId] = pawnDelta;
+        }
+        Dictionary<Vector2Int, (SnapshotPawnDelta, SnapshotPawnDelta)> collisionPairs = ComputeCollisions(pawnDeltas);
+        
+        // Build battles from collision pairs
+        foreach (var kv in collisionPairs)
+        {
+            Vector2Int pos = kv.Key;
+            var (a, b) = kv.Value; // a is RED, b is BLUE by construction
+            List<PawnId> participantsList = new List<PawnId> { a.pawnId, b.pawnId };
+            List<PawnId> revealedList = new List<PawnId>();
+            List<PawnId> deadList = new List<PawnId>();
+            if (a.postRevealed && !a.preRevealed) revealedList.Add(a.pawnId);
+            if (b.postRevealed && !b.preRevealed) revealedList.Add(b.pawnId);
+            if (!a.postAlive && a.preAlive) deadList.Add(a.pawnId);
+            if (!b.postAlive && b.preAlive) deadList.Add(b.pawnId);
             battles.Add(new BattleEvent
             {
-                pos = pos,
-                pawns = participants,
-                survivors = survivors,
-                dead = dead,
+                participants = participantsList.ToArray(),
+                revealed = revealedList.ToArray(),
+                dead = deadList.ToArray(),
+                winner_pos = pos,
                 revealedRanks = Array.Empty<(PawnId pawn, Rank rank, bool wasHidden)>(),
             });
         }
-
-        // Post-battles snapshot is the current board
-        PositionSnapshot postBattles = new PositionSnapshot { pawns = MapSnapshot(currGs) };
-
-        uint turnNumber = prevGs.turn;
-
-        return new TurnResolveDelta
-        {
-            turn = turnNumber,
-            pre = pre,
-            moves = moves.ToArray(),
-            battleOrder = contested,
-            postMoves = postMoves,
+        
+        return new TurnResolveDelta {
+            pre = preSnapshot,
+            post = postSnapshot,
+            pawnDeltas = pawnDeltas.Values.ToArray(),
             battles = battles.ToArray(),
-            postBattles = postBattles,
         };
     }
-
+    
     static void PushPollingHold()
     {
         pollingHoldCount++;
@@ -854,4 +880,97 @@ public enum ResultCode
     TRANSACTION_NOT_FOUND,
     TRANSACTION_SIM_REJECTED_BY_CONTRACT,
     TRANSACTION_FAILED_MISC,
+}
+
+public struct TurnResolveDelta
+{
+    public TurnSnapshot pre;
+    public TurnSnapshot post;
+    public SnapshotPawnDelta[] pawnDeltas;
+    public BattleEvent[] battles;
+}
+
+public struct TurnSnapshot
+{
+    public uint turn;
+    public SnapshotPawn[] pawns;
+
+    public TurnSnapshot(GameState gs)
+    {
+        turn = gs.turn;
+        pawns = gs.pawns
+            .Select(p => new SnapshotPawn
+            {
+                pawnId = p.pawn_id,
+                team = p.GetTeam(),
+                pos = p.pos,
+                alive = p.alive,
+                revealed = p.zz_revealed,
+                rank = p.rank,
+                moved = p.moved,
+                movedScout = p.moved_scout,
+            })
+            .ToArray();
+    }
+
+    public SnapshotPawn GetPawn(PawnId pawnId) 
+    {
+        return pawns.FirstOrDefault(p => p.pawnId == pawnId);
+    }
+    public SnapshotPawn? GetPawnAtPos(Vector2Int pos)
+    {
+        return pawns.FirstOrDefault(p => p.pos == pos);
+    }
+}
+
+public struct SnapshotPawn
+{
+    public PawnId pawnId;
+    public Team team;
+    public Vector2Int pos;
+    public bool alive;
+    public bool revealed;
+    public Rank? rank;
+    public bool moved;
+    public bool movedScout;
+}
+
+public struct SnapshotPawnDelta
+{
+    public PawnId pawnId;
+    public Vector2Int prePos;
+    public Vector2Int postPos;
+    public bool preAlive;
+    public bool postAlive;
+    public bool preRevealed;
+    public bool postRevealed;
+
+    public SnapshotPawnDelta(SnapshotPawn pre, SnapshotPawn post)
+    {
+        pawnId = pre.pawnId;
+        prePos = pre.pos;
+        postPos = post.pos;
+        preAlive = pre.alive;
+        postAlive = post.alive;
+        preRevealed = pre.revealed;
+        postRevealed = post.revealed;
+    }
+    
+    public bool PosChanged => prePos == postPos;
+    public bool AliveChanged => preAlive == postAlive;
+    public bool RevealedChanged => preRevealed == postRevealed;
+}
+public struct MoveEvent
+{
+    public PawnId pawn;
+    public Vector2Int from;
+    public Vector2Int target;
+}
+public struct BattleEvent
+{
+    public PawnId[] participants;
+    public PawnId[] revealed;
+    public PawnId[] dead;
+    public Vector2Int winner_pos;
+    public (PawnId pawn, Rank rank, bool wasHidden)[] revealedRanks;
 }

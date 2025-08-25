@@ -607,7 +607,7 @@ public class ResolvePhase: PhaseBase
     // Processed resolve data for stepping through checkpoints
     TurnResolveDelta? resolveData;
     List<ResolveCheckpointType> timeline = new();
-    PositionSnapshot[] battleSnapshots = Array.Empty<PositionSnapshot>();
+    TurnSnapshot[] battleSnapshots = Array.Empty<TurnSnapshot>();
     int checkpointIndex = 0;
     // Minimal FSM
     enum ResolveState { ShowMoves, ApplyMoves, Battle, Final }
@@ -651,7 +651,7 @@ public class ResolvePhase: PhaseBase
 
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
-        Debug.Log("ResolvePhase.OnMouseInput");
+        //Debug.Log("ResolvePhase.OnMouseInput");
     }
 
     void PrepareResolve(TurnResolveDelta tr)
@@ -670,40 +670,46 @@ public class ResolvePhase: PhaseBase
         }
         timeline.Add(ResolveCheckpointType.Final);
         battleSnapshots = BuildBattleSnapshots(tr);
-        Debug.Log($"ResolvePhase.PrepareResolve: turn={tr.turn} checkpoints={timeline.Count} moves={tr.moves?.Length ?? 0} battles={tr.battles?.Length ?? 0}");
+        Debug.Log($"ResolvePhase.PrepareResolve: turn={tr.pre.turn} checkpoints={timeline.Count} moves={tr.pawnDeltas?.Length ?? 0} battles={tr.battles?.Length ?? 0}");
     }
 
-    PositionSnapshot[] BuildBattleSnapshots(TurnResolveDelta tr)
+    TurnSnapshot[] BuildBattleSnapshots(TurnResolveDelta tr)
     {
-        // Start from postMoves snapshot and apply each battle sequentially
-        Dictionary<PawnId, (Vector2Int pos, Team team)> map = tr.postMoves.pawns.ToDictionary(t => t.pawn, t => (t.pos, t.team));
-        PositionSnapshot[] snapshots = new PositionSnapshot[tr.battles?.Length ?? 0];
+        // Build postMoves from pre + pawnDeltas (apply positions, keep alive state; deaths apply during battles)
+        Dictionary<PawnId, SnapshotPawn> postMovesMap = tr.pre.pawns.ToDictionary(p => p.pawnId, p => p);
+        foreach (var d in tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>())
+        {
+            if (!postMovesMap.TryGetValue(d.pawnId, out var sp)) continue;
+            sp.pos = d.postPos;
+            postMovesMap[d.pawnId] = sp;
+        }
+        Dictionary<PawnId, SnapshotPawn> map = new Dictionary<PawnId, SnapshotPawn>(postMovesMap);
+        TurnSnapshot[] snapshots = new TurnSnapshot[tr.battles?.Length ?? 0];
         for (int i = 0; i < snapshots.Length; i++)
         {
             BattleEvent battle = tr.battles[i];
-            // Remove dead pawns
-            foreach ((PawnId pawn, Team _) in battle.dead)
+            // Apply deaths
+            foreach (var deadPawn in battle.dead ?? Array.Empty<PawnId>())
             {
-                map.Remove(pawn);
-            }
-            // Survivors remain at battle.pos (already in map). Ensure they exist.
-            foreach ((PawnId pawn, Team team) in battle.survivors)
-            {
-                map[pawn] = (battle.pos, team);
-            }
-            snapshots[i] = new PositionSnapshot
-            {
-                pawns = map.Select(kv => new SnapshotPawn
+                if (map.TryGetValue(deadPawn, out var sp))
                 {
-                    pawn = kv.Key,
-                    team = kv.Value.team,
-                    pos = kv.Value.pos,
-                    alive = true,
-                    revealed = false,
-                    rank = null,
-                    moved = false,
-                    movedScout = false,
-                }).ToArray(),
+                    sp.alive = false;
+                    map[deadPawn] = sp;
+                }
+            }
+            // Apply revelations
+            foreach (var revPawn in battle.revealed ?? Array.Empty<PawnId>())
+            {
+                if (map.TryGetValue(revPawn, out var sp))
+                {
+                    sp.revealed = true;
+                    map[revPawn] = sp;
+                }
+            }
+            snapshots[i] = new TurnSnapshot
+            {
+                turn = tr.pre.turn,
+                pawns = map.Values.ToArray(),
             };
         }
         return snapshots;
@@ -716,26 +722,41 @@ public class ResolvePhase: PhaseBase
         return timeline[checkpointIndex];
     }
 
-    public PositionSnapshot GetCurrentSnapshot()
+    public TurnSnapshot GetCurrentSnapshot()
     {
         if (resolveData is not TurnResolveDelta tr)
         {
-            return new PositionSnapshot { pawns = Array.Empty<SnapshotPawn>() };
+            return new TurnSnapshot { turn = 0, pawns = Array.Empty<SnapshotPawn>() };
         }
         // Snapshot for current checkpoint
         return currentCheckpoint switch
         {
             Checkpoint.Pre => tr.pre,
-            Checkpoint.PostMoves => tr.postMoves,
-            Checkpoint.Battle => (currentBattleIndex >= 0 && currentBattleIndex < battleSnapshots.Length) ? battleSnapshots[currentBattleIndex] : tr.postMoves,
-            Checkpoint.Final => tr.postBattles,
-            _ => tr.postBattles,
+            Checkpoint.PostMoves => new TurnSnapshot { turn = tr.pre.turn, pawns = ApplyPostMoves(tr) },
+            Checkpoint.Battle => (currentBattleIndex >= 0 && currentBattleIndex < battleSnapshots.Length) ? battleSnapshots[currentBattleIndex] : new TurnSnapshot { turn = tr.pre.turn, pawns = ApplyPostMoves(tr) },
+            Checkpoint.Final => tr.post,
+            _ => tr.post,
         };
     }
 
-    public MoveEvent[] GetArrows()
+    SnapshotPawn[] ApplyPostMoves(TurnResolveDelta tr)
     {
-        return resolveData?.moves ?? Array.Empty<MoveEvent>();
+        Dictionary<PawnId, SnapshotPawn> map = tr.pre.pawns.ToDictionary(p => p.pawnId, p => p);
+        foreach (var d in tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>())
+        {
+            if (!map.TryGetValue(d.pawnId, out var sp)) continue;
+            sp.pos = d.postPos;
+            map[d.pawnId] = sp;
+        }
+        return map.Values.ToArray();
+    }
+
+    public SnapshotPawnDelta[] GetArrows()
+    {
+        if (resolveData is not TurnResolveDelta tr) return Array.Empty<SnapshotPawnDelta>();
+        return (tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>())
+            .Where(d => d.prePos != d.postPos)
+            .ToArray();
     }
 
     public (Vector2Int? pos, BattleEvent? battle) GetCurrentBattle()
@@ -744,7 +765,7 @@ public class ResolvePhase: PhaseBase
         int battleIdx = checkpointIndex - 2;
         if (battleIdx >= 0 && tr.battles != null && battleIdx < tr.battles.Length)
         {
-            return (tr.battles[battleIdx].pos, tr.battles[battleIdx]);
+            return (tr.battles[battleIdx].winner_pos, tr.battles[battleIdx]);
         }
         return (null, null);
     }
@@ -857,12 +878,12 @@ public class ResolvePhase: PhaseBase
             _ => checkpointIndex,
         };
         // Always snap to the checkpoint snapshot first
-        PositionSnapshot snap = GetCurrentSnapshot();
+        TurnSnapshot snap = GetCurrentSnapshot();
         InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveApplySnapshot(snap, this)));
         // Then emit any overlay op for that checkpoint
         if (checkpoint == Checkpoint.Pre)
         {
-            InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateShowMoves(tr.moves, this)));
+            InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateShowMoves(tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>(), this)));
         }
         Debug.Log($"ResolvePhase.EnterCheckpoint -> {checkpoint} (battleIndex={currentBattleIndex})");
     }
@@ -870,13 +891,13 @@ public class ResolvePhase: PhaseBase
     void StartTransitionApplyMoves(TurnResolveDelta tr)
     {
         // Start animations; advance to PostMoves when all complete
-        pendingMoveAnimPawns = new HashSet<PawnId>(tr.moves.Select(m => m.pawn));
+        pendingMoveAnimPawns = new HashSet<PawnId>((tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>()).Where(d => d.prePos != d.postPos).Select(d => d.pawnId));
         if (pendingMoveAnimPawns.Count == 0)
         {
             EnterCheckpoint(Checkpoint.PostMoves);
             return;
         }
-        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateApplyMoves(tr.moves, this)));
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateApplyMoves(tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>(), this)));
     }
 
     void StartTransitionBattle(int battleIndex)
@@ -1260,11 +1281,11 @@ public record MovePairUpdated(Dictionary<PawnId, (Vector2Int, Vector2Int)> moveP
 
 public record NetStateUpdated(PhaseBase phase) : GameOperation;
 public record ApplyMovesRequested(MoveEvent[] moves, ResolvePhase phase) : GameOperation; // TODO: deprecated
-public record ResolveStateShowMoves(MoveEvent[] moves, ResolvePhase phase) : GameOperation;
-public record ResolveStateApplyMoves(MoveEvent[] moves, ResolvePhase phase) : GameOperation;
+public record ResolveStateShowMoves(SnapshotPawnDelta[] moves, ResolvePhase phase) : GameOperation;
+public record ResolveStateApplyMoves(SnapshotPawnDelta[] moves, ResolvePhase phase) : GameOperation;
 public record ResolveStateBattle(BattleEvent battle, ResolvePhase phase) : GameOperation;
 public record ResolveStateFinal(ResolvePhase phase) : GameOperation;
-public record ResolveApplySnapshot(PositionSnapshot snapshot, ResolvePhase phase) : GameOperation;
+public record ResolveApplySnapshot(TurnSnapshot snapshot, ResolvePhase phase) : GameOperation;
 public record ResolveDone(ResolvePhase phase) : GameOperation;
 // ReSharper restore InconsistentNaming
 #pragma warning restore IDE1006
