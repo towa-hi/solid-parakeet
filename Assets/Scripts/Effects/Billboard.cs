@@ -2,22 +2,20 @@ using UnityEngine;
 
 public class Billboard : MonoBehaviour
 {
+    public Camera camera;
     Vector3 cameraDir;
 
+    void Start()
+    {
+        if (!camera)
+        {
+            camera = GameManager.instance.cameraManager.mainCamera;
+        }
+    }
     void Update()
     {
         if (!Application.isPlaying) return;
-        if (GameManager.instance)
-        {
-            if (GameManager.instance.cameraManager.isActiveAndEnabled)
-            {
-                if (GameManager.instance.cameraManager.mainCamera)
-                {
-                    cameraDir = GameManager.instance.cameraManager.mainCamera.transform.forward;
-                    transform.rotation = Quaternion.LookRotation(cameraDir);
-                }
-            }
-        }
-        
+        cameraDir = camera.transform.forward;
+        transform.rotation = Quaternion.LookRotation(cameraDir);
     }
 }

@@ -28,7 +28,8 @@ public class BoardManager : MonoBehaviour
     // master references to board objects passed to state
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     readonly Dictionary<PawnId, PawnView> pawnViews = new();
-    
+
+    public ArenaController arenaController;
     
     PhaseBase currentPhase;
     
@@ -76,7 +77,7 @@ public class BoardManager : MonoBehaviour
     void Initialize(GameNetworkState netState)
     {
         CloseBoardManager();
-        
+        arenaController.Initialize(netState.lobbyParameters.board.hex);
         clickInputManager.SetUpdating(true);
         CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         GameLogger.Initialize(netState);
@@ -185,7 +186,20 @@ public class BoardManager : MonoBehaviour
                 case MoveHoverChanged moveHoverChanged:
                     CursorController.UpdateCursor(moveHoverChanged.phase.moveInputTool);
                     break;
+                case ResolveStateShowMoves resolveStateShowMoves:
+                    arenaController.Close();
+                    break;
+                case ResolveStateApplyMoves resolveStateApplyMoves:
+                    arenaController.Close();
+                    break;
+                case ResolveStateBattle resolveStateBattle:
+                    arenaController.StartBattle(resolveStateBattle.battle, resolveStateBattle.tr);
+                    break;
+                case ResolveStateFinal resolveStateFinal:
+                    arenaController.Close();
+                    break;
                 case ResolveDone resolveDone:
+                    arenaController.Close();
                     // Switch immediately to MoveCommitPhase locally without network refresh
                     PhaseBase oldPhase = currentPhase;
                     currentPhase?.ExitState(clickInputManager, guiGame);
@@ -829,7 +843,7 @@ public class ResolvePhase: PhaseBase
             case Checkpoint.PostMoves:
                 if ((tr.battles?.Length ?? 0) > 0)
                 {
-                    StartTransitionBattle(0);
+                    StartTransitionBattle(0, tr);
                 }
                 else
                 {
@@ -839,7 +853,7 @@ public class ResolvePhase: PhaseBase
             case Checkpoint.Battle:
                 if (currentBattleIndex + 1 < (tr.battles?.Length ?? 0))
                 {
-                    StartTransitionBattle(currentBattleIndex + 1);
+                    StartTransitionBattle(currentBattleIndex + 1, tr);
                 }
                 else
                 {
@@ -880,11 +894,25 @@ public class ResolvePhase: PhaseBase
         // Always snap to the checkpoint snapshot first
         TurnSnapshot snap = GetCurrentSnapshot();
         InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveApplySnapshot(snap, this)));
-        // Then emit any overlay op for that checkpoint
-        if (checkpoint == Checkpoint.Pre)
+        switch (checkpoint)
         {
-            InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateShowMoves(tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>(), this)));
+            // Then emit any overlay op for that checkpoint
+            case Checkpoint.Pre:
+                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateShowMoves(tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>(), this)));
+                break;
+            case Checkpoint.Final:
+                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateFinal(this)));
+                break;
+            case Checkpoint.PostMoves:
+                
+                break;
+            case Checkpoint.Battle:
+                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateBattle(tr.battles[currentBattleIndex], tr, this)));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(checkpoint), checkpoint, null);
         }
+
         Debug.Log($"ResolvePhase.EnterCheckpoint -> {checkpoint} (battleIndex={currentBattleIndex})");
     }
 
@@ -900,7 +928,7 @@ public class ResolvePhase: PhaseBase
         InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateApplyMoves(tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>(), this)));
     }
 
-    void StartTransitionBattle(int battleIndex)
+    void StartTransitionBattle(int battleIndex, TurnResolveDelta tr)
     {
         // For now, no animations; directly enter the battle checkpoint
         currentBattleIndex = battleIndex;
@@ -1283,7 +1311,7 @@ public record NetStateUpdated(PhaseBase phase) : GameOperation;
 public record ApplyMovesRequested(MoveEvent[] moves, ResolvePhase phase) : GameOperation; // TODO: deprecated
 public record ResolveStateShowMoves(SnapshotPawnDelta[] moves, ResolvePhase phase) : GameOperation;
 public record ResolveStateApplyMoves(SnapshotPawnDelta[] moves, ResolvePhase phase) : GameOperation;
-public record ResolveStateBattle(BattleEvent battle, ResolvePhase phase) : GameOperation;
+public record ResolveStateBattle(BattleEvent battle, TurnResolveDelta tr, ResolvePhase phase) : GameOperation;
 public record ResolveStateFinal(ResolvePhase phase) : GameOperation;
 public record ResolveApplySnapshot(TurnSnapshot snapshot, ResolvePhase phase) : GameOperation;
 public record ResolveDone(ResolvePhase phase) : GameOperation;

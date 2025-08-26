@@ -177,7 +177,7 @@ public class PawnView : MonoBehaviour
                     }
                     break;
                 }
-                case ResolveStateBattle(var battle, var resolvePhase):
+                case ResolveStateBattle(var battle, var tr, var resolvePhase):
                 {
                     // no-op for now; snapshots (ResolveApplySnapshot) will drive state when needed
                     break;

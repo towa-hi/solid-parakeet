@@ -125,6 +125,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff063b7074047aa46999fb4e3f06eb9b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  camera: {fileID: 0}
 --- !u!82 &232740322193100552
 AudioSource:
   m_ObjectHideFlags: 0
@@ -267,6 +268,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff063b7074047aa46999fb4e3f06eb9b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  camera: {fileID: 0}
 --- !u!212 &2945611564002638640
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -588,7 +590,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &6135095970186166130
 Transform:
   m_ObjectHideFlags: 0
@@ -619,6 +621,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff063b7074047aa46999fb4e3f06eb9b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  camera: {fileID: 0}
 --- !u!114 &6941801488250841614
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -653,7 +656,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4142395959266885855
 Transform:
   m_ObjectHideFlags: 0
@@ -798,18 +801,12 @@ MonoBehaviour:
   renderEffect: {fileID: 5543228733878367094}
   startPos: {x: 0, y: 0}
   team: 0
+  rankView: 0
+  aliveView: 0
   posView: {x: 0, y: 0}
-  debugPawnState:
-    alive: 0
-    moved: 0
-    movedScout: 0
-    pawnID: 0
-    pos:
-      x: 0
-      y: 0
-    rankHasValue: 0
-    rank: 12
-    zz_revealed: 0
+  visibleView: 0
+  isSelected: 0
+  isMovePairStart: 0
 --- !u!1773428102 &6554624529676426233
 ParentConstraint:
   m_ObjectHideFlags: 0
@@ -918,6 +915,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff063b7074047aa46999fb4e3f06eb9b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  camera: {fileID: 0}
 --- !u!212 &9218319145746987186
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -1018,6 +1016,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff063b7074047aa46999fb4e3f06eb9b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  camera: {fileID: 0}
 --- !u!212 &1898814163622710261
 SpriteRenderer:
   m_ObjectHideFlags: 0
