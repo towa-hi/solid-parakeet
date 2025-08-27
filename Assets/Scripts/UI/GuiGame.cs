@@ -9,6 +9,7 @@ public class GuiGame : MenuElement
     public GuiSetup setup;
     public GuiMovement movement;
     public GuiResolve resolve;
+    public ArenaController arenaController; // injected from BoardManager or scene
     
     public CameraAnchor boardAnchor;
     bool isUpdating;
@@ -43,6 +44,9 @@ public class GuiGame : MenuElement
         // Centralize which Game GUI panel is visible based on the active phase type
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
+            // Initialize UI subsystems that depend on board parameters (e.g., arena)
+            resolve.arenaController = ArenaController.instance;
+            resolve.Initialize(netStateUpdated.phase.cachedNetState);
             PhaseBase phase = netStateUpdated.phase;
             bool showSetup = phase is SetupCommitPhase;
             bool showMovement = phase is MoveCommitPhase || phase is MoveProvePhase || phase is RankProvePhase;

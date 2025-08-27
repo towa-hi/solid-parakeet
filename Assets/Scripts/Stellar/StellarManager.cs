@@ -620,6 +620,7 @@ public static class StellarManager
         TurnSnapshot postSnapshot = new(current.gameState);
         Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas = new();
         List<BattleEvent> battles = new();
+        List<MoveEvent> moves = new();
         // determine moved pawns
         for (int i = 0; i < preSnapshot.pawns.Length; i++)
         {
@@ -627,6 +628,15 @@ public static class StellarManager
             SnapshotPawn postPawn = postSnapshot.pawns[i];
             SnapshotPawnDelta pawnDelta = new(prePawn, postPawn);
             pawnDeltas[pawnDelta.pawnId] = pawnDelta;
+            if (prePawn.alive && prePawn.pos != postPawn.pos)
+            {
+                moves.Add(new MoveEvent
+                {
+                    pawn = prePawn.pawnId,
+                    from = prePawn.pos,
+                    target = postPawn.pos,
+                });
+            }
         }
         Dictionary<Vector2Int, (SnapshotPawnDelta, SnapshotPawnDelta)> collisionPairs = ComputeCollisions(pawnDeltas);
         
@@ -656,6 +666,7 @@ public static class StellarManager
             pre = preSnapshot,
             post = postSnapshot,
             pawnDeltas = pawnDeltas.Values.ToArray(),
+            moves = moves.ToArray(),
             battles = battles.ToArray(),
         };
     }
@@ -887,6 +898,7 @@ public struct TurnResolveDelta
     public TurnSnapshot pre;
     public TurnSnapshot post;
     public SnapshotPawnDelta[] pawnDeltas;
+    public MoveEvent[] moves;
     public BattleEvent[] battles;
 }
 

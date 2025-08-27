@@ -33,6 +33,13 @@ public class PawnView : MonoBehaviour
     public bool isMovePairStart;
 
     public static event Action<PawnId> OnMoveAnimationCompleted;
+    // Resolve caches
+    static TurnSnapshot cachedResolveSnapshot;
+    static System.Collections.Generic.Dictionary<PawnId, SnapshotPawn> cachedResolveSnapshotMap;
+    static SnapshotPawnDelta[] cachedMovesArray;
+    static System.Collections.Generic.Dictionary<PawnId, SnapshotPawnDelta> cachedMovesMap;
+
+    // Cache for snapshot lookups across all PawnView instances during resolve (legacy fields consolidated above)
 
 
     public void TestSetSprite(Rank testRank, Team testTeam)
@@ -63,6 +70,11 @@ public class PawnView : MonoBehaviour
         DisplayRankView(Rank.UNKNOWN);
 
     }
+    void OnDisable()
+    {
+        // Cancel any ongoing animations to avoid lingering effects across phases/scenes
+        StopAllCoroutines();
+    }
 
 
     void OnSetupPhase()
@@ -84,22 +96,26 @@ public class PawnView : MonoBehaviour
         bool? setIsSelected = null;
         bool? setIsMovePairStart = null;
         (Vector2Int, TileView)? setPosView = null;
+        // intent for animated move (arc)
+        TileView arcFromTile = null;
+        TileView arcToTile = null;
         // figure out what to do based on what happened
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
-            if (pawn.alive != aliveView)
-            {
-                setAliveView = pawn.alive;
-            }
             setIsSelected = false;
             setIsMovePairStart = false;
-            setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
-            setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
             switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
+                    // General non-resolve updates
+                    if (pawn.alive != aliveView)
+                    {
+                        setAliveView = pawn.alive;
+                    }
+                    setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
+                    setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     if (cachedNetState.IsMySubphase())
                     {
                         setVisibleView = setupCommitPhase.pendingCommits.ContainsKey(pawnId);
@@ -115,23 +131,46 @@ public class PawnView : MonoBehaviour
                     }
                     else
                     {
-                        setVisibleView = true;
+                        // In setup phase, hide unknown/opponent pawns entirely when it's not our subphase
+                        setVisibleView = false;
                     }
                     // TODO: fix opponents pawns showing up as unknown after submitting
                     break;
                 case ResolvePhase resolvePhase:
+                    // During resolve, snapshots drive all state; only ensure visibility
                     setVisibleView = true;
                     break;
                 case MoveCommitPhase moveCommitPhase:
+                    // General non-resolve updates
+                    if (pawn.alive != aliveView)
+                    {
+                        setAliveView = pawn.alive;
+                    }
+                    setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
+                    setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     setVisibleView = true;
                     setIsSelected = moveCommitPhase.selectedPos.HasValue && moveCommitPhase.selectedPos.Value == posView;
                     setIsMovePairStart = moveCommitPhase.movePairs.Any(kv => kv.Value.Item1 == posView);
                     break;
                 case MoveProvePhase moveProvePhase:
+                    // General non-resolve updates
+                    if (pawn.alive != aliveView)
+                    {
+                        setAliveView = pawn.alive;
+                    }
+                    setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
+                    setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     setVisibleView = true;
                     setIsMovePairStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView); 
                     break;
                 case RankProvePhase rankProvePhase:
+                    // General non-resolve updates
+                    if (pawn.alive != aliveView)
+                    {
+                        setAliveView = pawn.alive;
+                    }
+                    setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
+                    setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     setVisibleView = true;
                     setIsMovePairStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView); 
                     break;
@@ -141,13 +180,18 @@ public class PawnView : MonoBehaviour
         foreach (GameOperation operation in changes.operations)
         {
             // intention variables for this loop iteration
-            Transform moveAnimTarget = null;
             switch (operation)
             {
                 case ResolveApplySnapshot(var snapshot, var resolvePhase):
                 {
-                    var map = snapshot.pawns.ToDictionary(t => t.pawnId, t => t);
-                    if (map.TryGetValue(pawnId, out SnapshotPawn sp))
+                    // Build/reuse shared cache for this snapshot to avoid per-pawn allocations
+                    if (!object.ReferenceEquals(cachedResolveSnapshot, snapshot) || cachedResolveSnapshotMap == null)
+                    {
+                        cachedResolveSnapshot = snapshot;
+                        cachedResolveSnapshotMap = new System.Collections.Generic.Dictionary<PawnId, SnapshotPawn>(snapshot.pawns.Length);
+                        foreach (var s in snapshot.pawns) cachedResolveSnapshotMap[s.pawnId] = s;
+                    }
+                    if (cachedResolveSnapshotMap.TryGetValue(pawnId, out SnapshotPawn sp))
                     {
                         // set alive flag from snapshot
                         setAliveView = sp.alive;
@@ -156,38 +200,55 @@ public class PawnView : MonoBehaviour
                         {
                             setRankView = r;
                         }
-                        setPosView = (sp.pos, resolvePhase.tileViews[sp.pos]);
-                    }
-                    break;
-                }
-                case ResolveStateShowMoves(var moves, var resolvePhase):
-                {
-                    // Arrows handled elsewhere; no positional change needed here
-                    break;
-                }
-                case ResolveStateApplyMoves(var moves, var resolvePhase):
-                {
-                    var mv = moves.FirstOrDefault(m => m.pawnId.Equals(pawnId));
-                    if (!mv.Equals(default(SnapshotPawnDelta)))
-                    {
-                        if (resolvePhase.tileViews.TryGetValue(mv.postPos, out TileView targetTile))
+                        if (resolvePhase.tileViews.TryGetValue(sp.pos, out TileView targetTile))
                         {
-                            moveAnimTarget = targetTile.transform;
+                            setPosView = (sp.pos, targetTile);
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"PawnView[{pawnId}].ResolveApplySnapshot: tile not found for pos {sp.pos}");
                         }
                     }
                     break;
                 }
-                case ResolveStateBattle(var battle, var tr, var resolvePhase):
+                case ResolveStartApplyMoves(var preSnapshot, var moves, var resolvePhase):
                 {
-                    // no-op for now; snapshots (ResolveApplySnapshot) will drive state when needed
+                    // Ensure cachedResolveSnapshotMap matches preSnapshot and use it
+                    if (!object.ReferenceEquals(cachedResolveSnapshot, preSnapshot) || cachedResolveSnapshotMap == null)
+                    {
+                        cachedResolveSnapshot = preSnapshot;
+                        cachedResolveSnapshotMap = new System.Collections.Generic.Dictionary<PawnId, SnapshotPawn>(preSnapshot.pawns.Length);
+                        foreach (var s in preSnapshot.pawns) cachedResolveSnapshotMap[s.pawnId] = s;
+                    }
+                    var preSp = cachedResolveSnapshotMap[pawnId];
+                    // Refresh alive and revealed rank from the snapshot
+                    if (preSp.alive != aliveView) { setAliveView = preSp.alive; }
+                    if (preSp.revealed && preSp.rank is Rank preRank) { setRankView = preRank; }
+                    if (resolvePhase.tileViews.TryGetValue(preSp.pos, out TileView preTile))
+                    {
+                        setPosView = (preSp.pos, preTile);
+                    }
+                    // Cache moves map
+                    if (!object.ReferenceEquals(cachedMovesArray, moves) || cachedMovesMap == null)
+                    {
+                        cachedMovesArray = moves;
+                        cachedMovesMap = new System.Collections.Generic.Dictionary<PawnId, SnapshotPawnDelta>(moves.Length);
+                        foreach (var m in moves) cachedMovesMap[m.pawnId] = m;
+                    }
+                    if (!cachedMovesMap.TryGetValue(pawnId, out var mv)) break;
+                    if (mv.postPos == posView) break;
+                    if (resolvePhase.tileViews.TryGetValue(mv.postPos, out TileView targetTile))
+                    {
+                        Debug.Log($"PawnView[{pawnId}].ResolveStartApplyMoves: intent arc {posView} -> {mv.postPos}");
+                        arcFromTile = preTile;
+                        arcToTile = targetTile;
+                    }
                     break;
                 }
-                case ResolveStateFinal(var resolvePhase):
-                {
-                    // Final snapshot is applied by ResolvePhase; no-op here for now
-                    break;
-                }
-                case SetupHoverChanged setupHoverChanged:
+                case ResolveStateShowMoves:
+                case ResolveStateBattle:
+                case ResolveStateFinal:
+                case SetupHoverChanged:
                     break;
                 case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
                     setVisibleView = setupCommitPhase.pendingCommits.ContainsKey(pawnId);
@@ -211,10 +272,10 @@ public class PawnView : MonoBehaviour
                 }
             }
             // execute intentions that require side effects after decision
-            if (moveAnimTarget != null)
-            {
-                StartCoroutine(AnimateAndNotify(moveAnimTarget));
-            }
+        }
+        if (arcToTile)
+        {
+            SetArcToTile(arcFromTile, arcToTile);
         }
         // set cached vars and do stuff that requires diffs
         if (setIsSelected is bool inIsSelected)
@@ -269,7 +330,15 @@ public class PawnView : MonoBehaviour
     
     void DisplayPosView(TileView tileView = null)
     {
+        StopAllCoroutines();
         SetConstraintToTile(tileView);
+        if (tileView)
+        {
+            Transform target = tileView.origin;
+            transform.position = target.position;
+            transform.rotation = target.rotation;
+        }
+        parentConstraint.constraintActive = true;
     }
     
     void DisplayRankView(Rank rank)
@@ -292,23 +361,34 @@ public class PawnView : MonoBehaviour
         Transform source = GameManager.instance.purgatory;
         if (tileView)
         {
-            source = tileView.tileModel.tileOrigin.transform;
+            source = tileView.origin;
         }
-        parentConstraint.SetSource(0, new()
+        parentConstraint.constraintActive = false;
+        for (int i = parentConstraint.sourceCount - 1; i >= 0; i--)
+        {
+            parentConstraint.RemoveSource(i);
+        }
+        ConstraintSource cs = new ConstraintSource
         {
             sourceTransform = source,
-            weight = 1,
-        });
+            weight = 1f,
+        };
+        parentConstraint.AddSource(cs);
+        parentConstraint.SetTranslationOffset(0, Vector3.zero);
+        parentConstraint.SetRotationOffset(0, Vector3.zero);
+        parentConstraint.weight = 1f;
         parentConstraint.constraintActive = true;
     }
     
 
-    bool isMoving = false;
+    // Deprecated: use StopAllCoroutines() to restart animations atomically
+    // Kept for potential future diagnostics
+    // bool isMoving = false;
     
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
     {
+        Debug.Log($"PawnView[{pawnId}].ArcToPosition: begin duration={duration} arcHeight={arcHeight}");
         parentConstraint.constraintActive = false;
-        isMoving = true;
         Vector3 startPosition = transform.position;
         float elapsedTime = 0f;
 
@@ -331,14 +411,30 @@ public class PawnView : MonoBehaviour
             elapsedTime += Time.deltaTime;
             yield return null;
         }
-        // Ensure the final position is set
-        isMoving = false;
-        parentConstraint.constraintActive = true;
+        // Leave the constraint disabled here; caller will rebind to the destination tile
     }
 
-    IEnumerator AnimateAndNotify(Transform target)
+    void SetArcToTile([CanBeNull] TileView initialTile, TileView targetTile)
     {
-        yield return ArcToPosition(target, Globals.PawnMoveDuration, 0.5f);
+        StopAllCoroutines();
+        // Ensure we start from the initial tile anchor
+        if (initialTile)
+        {
+            parentConstraint.constraintActive = false;
+            transform.position = initialTile.origin.position;
+            transform.rotation = initialTile.origin.rotation;
+        }
+        StartCoroutine(AnimateAndNotify(targetTile));
+    }
+
+    IEnumerator AnimateAndNotify(TileView targetTile)
+    {
+        Debug.Log($"PawnView[{pawnId}].AnimateAndNotify: begin targetTile={targetTile.name}");
+        // Animate toward the tile origin so re-binding won't cause a pop
+        yield return ArcToPosition(targetTile.origin, Globals.PawnMoveDuration, 0.5f);
+        // Rebind the constraint to the target tile and re-enable it so the pawn stays put
+        SetConstraintToTile(targetTile);
+        Debug.Log($"PawnView[{pawnId}].AnimateAndNotify: completed -> OnMoveAnimationCompleted");
         OnMoveAnimationCompleted?.Invoke(pawnId);
     }
 }

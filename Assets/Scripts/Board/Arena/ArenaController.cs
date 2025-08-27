@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class ArenaController : MonoBehaviour
 {
+    public static ArenaController instance;
     public ArenaTiles squareTiles;
 
     public ArenaTiles hexTiles;
@@ -15,6 +16,11 @@ public class ArenaController : MonoBehaviour
     bool isHex;
     ArenaTiles tiles;
 
+
+    void Awake()
+    {
+        instance = this;
+    }
 
     public void Initialize(bool inIsHex)
     {

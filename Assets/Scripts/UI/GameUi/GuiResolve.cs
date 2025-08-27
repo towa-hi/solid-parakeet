@@ -1,14 +1,19 @@
 using System;
 using Contract;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class GuiResolve : GameElement
 {
+    public ArenaController arenaController;
     public Button menuButton;
     public Button prevButton;
+    public TextMeshProUGUI prevButtonLabel;
     public Button nextButton;
+    public TextMeshProUGUI nextButtonLabel;
     public Button skipButton;
+    public TextMeshProUGUI statusText;
 
     public Action OnMenuButton;
     public Action OnPrevButton;
@@ -24,9 +29,10 @@ public class GuiResolve : GameElement
         skipButton.onClick.AddListener(HandleSkipButton);
     }
 
-    void Initialize()
+    public void Initialize(GameNetworkState gameNetworkState)
     {
-        
+        arenaController.Initialize(gameNetworkState.lobbyParameters.board.hex);
+
     }
     
     // no phasestatechanged listen here
@@ -34,13 +40,70 @@ public class GuiResolve : GameElement
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
         bool? setShowElement = null;
+        string prevLabel = null;
+        string nextLabel = null;
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             // Switch based on the active PhaseBase instance, not the contract phase enum
             bool show = netStateUpdated.phase is ResolvePhase;
             setShowElement = show;
             Debug.Log($"GuiResolve.PhaseStateChanged: phase={netStateUpdated.phase.GetType().Name} -> ShowElement({show})");
+            if (show && statusText != null)
+            {
+                statusText.text = "Resolve: Preparing";
+            }
         }
+        // Reflect resolve sub-state in status text based on operations
+        foreach (GameOperation op in changes.operations)
+        {
+            switch (op)
+            {
+                case ResolveStateShowMoves(var moves, var phase):
+                    (arenaController ?? ArenaController.instance)?.Close();
+                    if (statusText != null) { statusText.text = "Resolve: Show Moves"; }
+                    prevLabel = "<- [pre]";
+                    nextLabel = "[apply moves] ->";
+                    break;
+                case ResolveStartApplyMoves(var pre, var moves2, var phase2):
+                    (arenaController ?? ArenaController.instance)?.Close();
+                    if (statusText != null) { statusText.text = "Resolve: Applying Moves"; }
+                    prevLabel = "<- [show moves]";
+                    nextLabel = "[battle] ->";
+                    break;
+                case ResolveStateBattle(var battle, var tr, var phase3):
+                {
+                    (arenaController ?? ArenaController.instance)?.StartBattle(battle, tr);
+                    if (statusText != null)
+                    {
+                        int idx = 0;
+                        int total = tr.battles?.Length ?? 0;
+                        if (tr.battles != null)
+                        {
+                            for (int i = 0; i < tr.battles.Length; i++)
+                            {
+                                if (tr.battles[i].Equals(battle)) { idx = i; break; }
+                            }
+                        }
+                        string p0 = battle.participants != null && battle.participants.Length > 0 ? battle.participants[0].ToString() : "?";
+                        string p1 = battle.participants != null && battle.participants.Length > 1 ? battle.participants[1].ToString() : "?";
+                        statusText.text = $"Resolve: Battle {idx + 1}/{Mathf.Max(1, total)} ({p0} vs {p1})";
+                        prevLabel = idx > 0 ? $"<- battle {idx}/{Mathf.Max(1, total)}" : "<- [post moves]";
+                        nextLabel = (idx + 1 < total) ? $"battle {idx + 2}/{Mathf.Max(1, total)} ->" : "[final] ->";
+                    }
+                    break;
+                }
+                // PostMoves is represented by ApplyMoves in the unified flow
+                case ResolveStateFinal(var phase5):
+                    (arenaController ?? ArenaController.instance)?.Close();
+                    if (statusText != null) { statusText.text = "Resolve: Final"; }
+                    prevLabel = "<- [post moves]";
+                    nextLabel = null;
+                    break;
+            }
+        }
+        // Apply labels to UI
+        prevButtonLabel.text = prevLabel;
+        nextButtonLabel.text = nextLabel;
         // Visibility is handled centrally by GuiGame. Do not toggle here.
     }
 
