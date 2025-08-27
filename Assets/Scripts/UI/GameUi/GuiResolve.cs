@@ -32,81 +32,66 @@ public class GuiResolve : GameElement
     public void Initialize(GameNetworkState gameNetworkState)
     {
         arenaController.Initialize(gameNetworkState.lobbyParameters.board.hex);
-
+        statusText.text = "Resolve: start";
+        prevButtonLabel.text = "<- [none]";
+        nextButtonLabel.text = "[apply moves] ->";
     }
     
     // no phasestatechanged listen here
 
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
-        bool? setShowElement = null;
-        string prevLabel = null;
-        string nextLabel = null;
-        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
-        {
-            // Switch based on the active PhaseBase instance, not the contract phase enum
-            bool show = netStateUpdated.phase is ResolvePhase;
-            Debug.Log($"GuiResolve.PhaseStateChanged: phase={netStateUpdated.phase.GetType().Name} -> ShowElement({show})");
-            if (show && statusText != null)
-            {
-                statusText.text = "Resolve: Preparing";
-            }
-            
-        }
         // Reflect resolve sub-state in status text based on operations
         foreach (GameOperation op in changes.operations)
         {
             switch (op)
             {
                 case ResolveCheckpointEntered(var checkpoint, var tr, var battleIndex, var phase):
-                    switch (checkpoint)
-                    {
-                        case ResolvePhase.Checkpoint.Pre:
-                            (arenaController ?? ArenaController.instance)?.Close();
-                            if (statusText != null) { statusText.text = "Resolve: start"; }
-                            prevLabel = "<- [none]";
-                            nextLabel = "[apply moves] ->";
-                            break;
-                        case ResolvePhase.Checkpoint.PostMoves:
-                            (arenaController ?? ArenaController.instance)?.Close();
-                            if (statusText != null) { statusText.text = "Resolve: Applying Moves"; }
-                            prevLabel = "<- [start]";
-                            nextLabel = (tr.battles?.Length ?? 0) > 0 ? "[battle] ->" : "[final] ->";
-                            break;
-                        case ResolvePhase.Checkpoint.Battle:
-                        {
-                            if (tr.battles != null && battleIndex >= 0 && battleIndex < tr.battles.Length)
-                            {
-                                var battle = tr.battles[battleIndex];
-                                (arenaController ?? ArenaController.instance)?.StartBattle(battle, tr);
-                                if (statusText != null)
-                                {
-                                    int total = tr.battles?.Length ?? 0;
-                                    string p0 = battle.participants != null && battle.participants.Length > 0 ? battle.participants[0].ToString() : "?";
-                                    string p1 = battle.participants != null && battle.participants.Length > 1 ? battle.participants[1].ToString() : "?";
-                                    statusText.text = $"Resolve: Battle {battleIndex + 1}/{Mathf.Max(1, total)} ({p0} vs {p1})";
-                                    prevLabel = battleIndex > 0 ? $"<- battle {battleIndex}/{Mathf.Max(1, total)}" : "<- [start]";
-                                    nextLabel = (battleIndex + 1 < total) ? $"battle {battleIndex + 2}/{Mathf.Max(1, total)} ->" : "[final] ->";
-                                }
-                            }
-                            break;
-                        }
-                        case ResolvePhase.Checkpoint.Final:
-                            (arenaController ?? ArenaController.instance)?.Close();
-                            if (statusText != null) { statusText.text = "Resolve: Final"; }
-                            prevLabel = "<- [post moves]";
-                            nextLabel = "[continue] ->";
-                            break;
-                    }
+                    ResolveCheckpointEntered(checkpoint, tr, battleIndex);
                     break;
             }
         }
-        // Apply labels to UI
-        prevButtonLabel.text = prevLabel;
-        nextButtonLabel.text = nextLabel;
         // Visibility is handled centrally by GuiGame. Do not toggle here.
     }
-
+ void ResolveCheckpointEntered(ResolvePhase.Checkpoint checkpoint, TurnResolveDelta tr, int battleIndex) {    
+        string prevLabel = null;
+        string nextLabel = null;
+        string status = null;
+        switch (checkpoint)
+        {
+            case ResolvePhase.Checkpoint.Pre:
+                ArenaController.instance.Close();
+                status = "Resolve: start";
+                prevLabel = "<- [none]";
+                nextLabel = "[apply moves] ->";
+                break;
+            case ResolvePhase.Checkpoint.PostMoves:
+                ArenaController.instance.Close();
+                status = "Resolve: Applying Moves";
+                prevLabel = "<- [start]";
+                nextLabel = (tr.battles?.Length ?? 0) > 0 ? "[battle] ->" : "[final] ->";
+                break;
+            case ResolvePhase.Checkpoint.Battle:
+                var battle = tr.battles[battleIndex];
+                ArenaController.instance.StartBattle(battle, tr);
+                int total = tr.battles?.Length ?? 0;
+                string p0 = battle.participants != null && battle.participants.Length > 0 ? battle.participants[0].ToString() : "?";
+                string p1 = battle.participants != null && battle.participants.Length > 1 ? battle.participants[1].ToString() : "?";
+                status = $"Resolve: Battle {battleIndex + 1}/{Mathf.Max(1, total)} ({p0} vs {p1})";
+                prevLabel = battleIndex > 0 ? $"<- battle {battleIndex}/{Mathf.Max(1, total)}" : "<- [start]";
+                nextLabel = (battleIndex + 1 < total) ? $"battle {battleIndex + 2}/{Mathf.Max(1, total)} ->" : "[final] ->";
+                break;
+            case ResolvePhase.Checkpoint.Final:
+                ArenaController.instance.Close();
+                status = "Resolve: Final";
+                prevLabel = "<- [post moves]";
+                nextLabel = "[continue] ->";
+                break;
+        }
+        statusText.text = status;
+        prevButtonLabel.text = prevLabel;
+        nextButtonLabel.text = nextLabel;
+    }
     void HandleMenuButton()
     {
         //just play a mid button click and invoke the event in these functions

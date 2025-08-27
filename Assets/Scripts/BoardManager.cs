@@ -173,18 +173,17 @@ public class BoardManager : MonoBehaviour
                 case MoveHoverChanged moveHoverChanged:
                     CursorController.UpdateCursor(moveHoverChanged.phase.moveInputTool);
                     break;
-                // No separate PostMoves op anymore; ApplyMoves covers it
                 case ResolveDone resolveDone:
-                    // Switch immediately to MoveCommitPhase locally without network refresh
-                    PhaseBase oldPhase = currentPhase;
-                    currentPhase?.ExitState(clickInputManager, guiGame);
+                    // special case for resolvedone to get into movecommit phase without a network update
+                    GameNetworkState cachedNetworkState = currentPhase.cachedNetState;
+                    NetworkDelta delta = currentPhase.lastDelta;
+                    currentPhase.ExitState(clickInputManager, guiGame);
                     currentPhase = new MoveCommitPhase();
                     currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
-                    // Carry forward cached net state so the new phase has context
-                    currentPhase.UpdateNetworkState(currentPhase.cachedNetState);
-                    // Notify GUI and views of phase change
+                    currentPhase.UpdateNetworkState(cachedNetworkState, delta);
                     PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
-                    break;
+                    //early return
+                    return;
             }
         }
         // update tiles and pawns
@@ -198,7 +197,6 @@ public class BoardManager : MonoBehaviour
         }
         // update gui
         guiGame.PhaseStateChanged(changes);
-        currentPhase.AfterPhaseStateChanged(changes);
     }
     
     // passed to currentPhase
@@ -342,7 +340,7 @@ public abstract class PhaseBase
         OnPhaseStateChanged.Invoke(changes);
     }
     
-    public virtual void AfterPhaseStateChanged(PhaseChangeSet changes) 
+    public virtual void AfterOnGameStateBeforeApplied()
     {
 
     }
@@ -596,19 +594,16 @@ public class SetupCommitPhase : PhaseBase
 public class ResolvePhase: PhaseBase
 {
     // Processed resolve data for stepping through checkpoints
-    TurnResolveDelta tr;
-    int currentBattleIndex = -1;
+    public TurnResolveDelta tr;
+    public int currentBattleIndex = -1;
 
-    // Explicit checkpoints (stable states) 
     public enum Checkpoint { Pre, PostMoves, Battle, Final }
-    Checkpoint currentCheckpoint = Checkpoint.Pre;
+    public Checkpoint currentCheckpoint = Checkpoint.Pre;
 
     HashSet<PawnId> pendingMoveAnimPawns = new();
 
     public ResolvePhase(TurnResolveDelta inTr)
     {
-        currentCheckpoint = Checkpoint.Pre;
-        currentBattleIndex = -1;
         tr = inTr;
     }
 
@@ -643,9 +638,9 @@ public class ResolvePhase: PhaseBase
         //Debug.Log("ResolvePhase.OnMouseInput");
     }
 
-    public override void AfterPhaseStateChanged(PhaseChangeSet changes)
+    public override void AfterOnGameStateBeforeApplied()
     {
-        base.AfterPhaseStateChanged(changes);
+        base.AfterOnGameStateBeforeApplied();
         EnterCheckpoint(currentCheckpoint);
     }
 

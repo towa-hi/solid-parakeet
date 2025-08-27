@@ -131,15 +131,24 @@ public class PawnView : MonoBehaviour
                     // TODO: fix opponents pawns showing up as unknown after submitting
                     break;
                 case ResolvePhase resolvePhase:
-                    // During resolve, snapshots drive all state; only ensure visibility
+                    // should only be called once
                     setVisibleView = true;
+                    SnapshotPawnDelta pawnDelta = resolvePhase.tr.pawnDeltas[pawnId];
+                    setPosView = (pawnDelta.prePos, resolvePhase.tileViews[pawnDelta.prePos]);
+                    setAliveView = pawnDelta.preAlive;
+                    if (!isMyTeam)
+                    {
+                        setRankView = pawnDelta.preRevealed ? pawnDelta.preRank : Rank.UNKNOWN;
+                    }
+                    else
+                    {
+                        setRankView = pawnDelta.postRank;
+                    }
+                    setIsMovePairStart = resolvePhase.tr.moves.ContainsKey(pawnId);
                     break;
                 case MoveCommitPhase moveCommitPhase:
                     // General non-resolve updates
-                    if (pawn.alive != aliveView)
-                    {
-                        setAliveView = pawn.alive;
-                    }
+                    setAliveView = pawn.alive;
                     setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
                     setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     setVisibleView = true;
@@ -368,10 +377,9 @@ public class PawnView : MonoBehaviour
     // Deprecated: use StopAllCoroutines() to restart animations atomically
     // Kept for potential future diagnostics
     // bool isMoving = false;
-    
-    public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
+
+    IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
     {
-        Debug.Log($"PawnView[{pawnId}].ArcToPosition: begin duration={duration} arcHeight={arcHeight}");
         parentConstraint.constraintActive = false;
         Vector3 startPosition = transform.position;
         float elapsedTime = 0f;
@@ -413,12 +421,10 @@ public class PawnView : MonoBehaviour
 
     IEnumerator AnimateAndNotify(TileView targetTile)
     {
-        Debug.Log($"PawnView[{pawnId}].AnimateAndNotify: begin targetTile={targetTile.name}");
         // Animate toward the tile origin so re-binding won't cause a pop
         yield return ArcToPosition(targetTile.origin, Globals.PawnMoveDuration, 0.5f);
         // Rebind the constraint to the target tile and re-enable it so the pawn stays put
         SetConstraintToTile(targetTile);
-        Debug.Log($"PawnView[{pawnId}].AnimateAndNotify: completed -> OnMoveAnimationCompleted");
         OnMoveAnimationCompleted?.Invoke(pawnId);
     }
 }

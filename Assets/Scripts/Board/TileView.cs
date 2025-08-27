@@ -125,7 +125,19 @@ public class TileView : MonoBehaviour
                     setIsSetupTile = true;
                     break;
                 case ResolvePhase resolvePhase:
-                    setIsHovered = resolvePhase.hoveredPos == posView;
+                    setIsHovered = resolvePhase.hoveredPos == posView; // is this needed?
+                    foreach (var move in resolvePhase.tr.moves.Values)
+                    {
+                        if (move.from == posView)
+                        {
+                            setIsMovePairStart = true;
+                        }
+                        // TODO: make a new color instead of overriding and add arrow
+                        if (move.target == posView)
+                        {
+                            setIsMovePairTarget = true;
+                        }
+                    }
                     break;
                 case MoveCommitPhase moveCommitPhase:
                 {

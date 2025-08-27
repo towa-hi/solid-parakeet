@@ -2171,3 +2171,57 @@ public enum MoveInputTool
     CLEAR_SELECT,
     CLEAR_MOVEPAIR,
 }
+
+
+public struct TurnResolveDelta
+{
+    public Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas;
+    public Dictionary<PawnId, MoveEvent> moves;
+    public BattleEvent[] battles;
+}
+
+public struct SnapshotPawnDelta
+{
+    public PawnId pawnId;
+    public Vector2Int prePos;
+    public Vector2Int postPos;
+    public bool preAlive;
+    public bool postAlive;
+    public bool preRevealed;
+    public bool postRevealed;
+    public Rank preRank;
+    public Rank postRank;
+
+    public SnapshotPawnDelta(PawnState pre, PawnState post)
+    {
+        pawnId = pre.pawn_id;
+        prePos = pre.pos;
+        postPos = post.pos;
+        preAlive = pre.alive;
+        postAlive = post.alive;
+        preRevealed = pre.zz_revealed;
+        postRevealed = post.zz_revealed;
+        preRank = pre.rank ?? Rank.UNKNOWN;
+        postRank = post.rank ?? Rank.UNKNOWN;
+        Debug.Log($"SnapshotPawnDelta: {pawnId} prePos={prePos} postPos={postPos} preAlive={preAlive} postAlive={postAlive} preRevealed={preRevealed} postRevealed={postRevealed} preRank={preRank} postRank={postRank}");
+    }
+    
+    public bool PosChanged => prePos == postPos;
+    public bool AliveChanged => preAlive == postAlive;
+    public bool RevealedChanged => preRevealed == postRevealed;
+    public bool RankChanged => preRank != postRank;
+}
+public struct MoveEvent
+{
+    public PawnId pawn;
+    public Vector2Int from;
+    public Vector2Int target;
+}
+public struct BattleEvent
+{
+    public PawnId[] participants;
+    public PawnId[] revealed;
+    public PawnId[] dead;
+    public Vector2Int winnerPos;
+    public (PawnId pawn, Rank rank, bool wasHidden)[] revealedRanks;
+}
