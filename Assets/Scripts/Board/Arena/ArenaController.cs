@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using UnityEngine;
+using Contract;
 
 public class ArenaController : MonoBehaviour
 {
@@ -42,39 +43,36 @@ public class ArenaController : MonoBehaviour
     {
         // tile A is left, tile B is right
         // for now, red is always left and blue is always right
-        SnapshotPawn? redPawn = null;
-        SnapshotPawn? bluePawn = null;
+        SnapshotPawnDelta? mRedDelta = null;
+        SnapshotPawnDelta? mBlueDelta = null;
         if (battle.participants.Length is <= 0 or > 2)
         {
             throw new Exception("battle is malformed");
         }
-        foreach (SnapshotPawn thing in delta.post.pawns)
+        // Derive team and rank from pawn deltas
+        foreach (PawnId pawnId in battle.participants)
         {
-            if (battle.participants.Contains(thing.pawnId))
+            SnapshotPawnDelta pawnDelta = delta.pawnDeltas[pawnId];
+            Team team = pawnId.GetTeam();
+            if (team == Team.RED)
             {
-                if (thing.pawnId.GetTeam() == Team.RED)
-                {
-                    redPawn = thing;
-                }
-                else if (thing.pawnId.GetTeam() == Team.BLUE)
-                {
-                    bluePawn = thing;
-                }
+                mRedDelta = pawnDelta;
+            }
+            else if (team == Team.BLUE)
+            {
+                mBlueDelta = pawnDelta;
             }
         }
-
-        if (redPawn == null)
+        if (mRedDelta is not SnapshotPawnDelta redDelta)
         {
             throw new Exception("battle lacks red pawn");
         }
-
-        if (bluePawn == null)
+        if (mBlueDelta is not SnapshotPawnDelta blueDelta)
         {
             throw new Exception("battle lacks blue pawn");
         }
-        
-        pawnL.Initialize(redPawn.Value);
-        pawnR.Initialize(bluePawn.Value);
+        pawnL.Initialize(redDelta);
+        pawnR.Initialize(blueDelta);
         arenaCamera.enabled = true;
     }
 }

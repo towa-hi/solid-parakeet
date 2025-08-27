@@ -28,19 +28,12 @@ public class PawnView : MonoBehaviour
     public Rank rankView;
     public bool aliveView;
     public Vector2Int posView;
+    public bool isMyTeam;
     public bool visibleView;
     public bool isSelected;
     public bool isMovePairStart;
 
     public static event Action<PawnId> OnMoveAnimationCompleted;
-    // Resolve caches
-    static TurnSnapshot cachedResolveSnapshot;
-    static System.Collections.Generic.Dictionary<PawnId, SnapshotPawn> cachedResolveSnapshotMap;
-    static SnapshotPawnDelta[] cachedMovesArray;
-    static System.Collections.Generic.Dictionary<PawnId, SnapshotPawnDelta> cachedMovesMap;
-
-    // Cache for snapshot lookups across all PawnView instances during resolve (legacy fields consolidated above)
-
 
     public void TestSetSprite(Rank testRank, Team testTeam)
     {
@@ -102,6 +95,7 @@ public class PawnView : MonoBehaviour
         // figure out what to do based on what happened
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
+            isMyTeam = netStateUpdated.phase.cachedNetState.userTeam == team;
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
             setIsSelected = false;
@@ -182,72 +176,6 @@ public class PawnView : MonoBehaviour
             // intention variables for this loop iteration
             switch (operation)
             {
-                case ResolveApplySnapshot(var snapshot, var resolvePhase):
-                {
-                    // Build/reuse shared cache for this snapshot to avoid per-pawn allocations
-                    if (!object.ReferenceEquals(cachedResolveSnapshot, snapshot) || cachedResolveSnapshotMap == null)
-                    {
-                        cachedResolveSnapshot = snapshot;
-                        cachedResolveSnapshotMap = new System.Collections.Generic.Dictionary<PawnId, SnapshotPawn>(snapshot.pawns.Length);
-                        foreach (var s in snapshot.pawns) cachedResolveSnapshotMap[s.pawnId] = s;
-                    }
-                    if (cachedResolveSnapshotMap.TryGetValue(pawnId, out SnapshotPawn sp))
-                    {
-                        // set alive flag from snapshot
-                        setAliveView = sp.alive;
-                        // set rank if revealed
-                        if (sp.revealed && sp.rank is Rank r)
-                        {
-                            setRankView = r;
-                        }
-                        if (resolvePhase.tileViews.TryGetValue(sp.pos, out TileView targetTile))
-                        {
-                            setPosView = (sp.pos, targetTile);
-                        }
-                        else
-                        {
-                            Debug.LogWarning($"PawnView[{pawnId}].ResolveApplySnapshot: tile not found for pos {sp.pos}");
-                        }
-                    }
-                    break;
-                }
-                case ResolveStartApplyMoves(var preSnapshot, var moves, var resolvePhase):
-                {
-                    // Ensure cachedResolveSnapshotMap matches preSnapshot and use it
-                    if (!object.ReferenceEquals(cachedResolveSnapshot, preSnapshot) || cachedResolveSnapshotMap == null)
-                    {
-                        cachedResolveSnapshot = preSnapshot;
-                        cachedResolveSnapshotMap = new System.Collections.Generic.Dictionary<PawnId, SnapshotPawn>(preSnapshot.pawns.Length);
-                        foreach (var s in preSnapshot.pawns) cachedResolveSnapshotMap[s.pawnId] = s;
-                    }
-                    var preSp = cachedResolveSnapshotMap[pawnId];
-                    // Refresh alive and revealed rank from the snapshot
-                    if (preSp.alive != aliveView) { setAliveView = preSp.alive; }
-                    if (preSp.revealed && preSp.rank is Rank preRank) { setRankView = preRank; }
-                    if (resolvePhase.tileViews.TryGetValue(preSp.pos, out TileView preTile))
-                    {
-                        setPosView = (preSp.pos, preTile);
-                    }
-                    // Cache moves map
-                    if (!object.ReferenceEquals(cachedMovesArray, moves) || cachedMovesMap == null)
-                    {
-                        cachedMovesArray = moves;
-                        cachedMovesMap = new System.Collections.Generic.Dictionary<PawnId, SnapshotPawnDelta>(moves.Length);
-                        foreach (var m in moves) cachedMovesMap[m.pawnId] = m;
-                    }
-                    if (!cachedMovesMap.TryGetValue(pawnId, out var mv)) break;
-                    if (mv.postPos == posView) break;
-                    if (resolvePhase.tileViews.TryGetValue(mv.postPos, out TileView targetTile))
-                    {
-                        Debug.Log($"PawnView[{pawnId}].ResolveStartApplyMoves: intent arc {posView} -> {mv.postPos}");
-                        arcFromTile = preTile;
-                        arcToTile = targetTile;
-                    }
-                    break;
-                }
-                case ResolveStateShowMoves:
-                case ResolveStateBattle:
-                case ResolveStateFinal:
                 case SetupHoverChanged:
                     break;
                 case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
@@ -257,6 +185,64 @@ public class PawnView : MonoBehaviour
                         setRankView = maybeRank ?? Rank.UNKNOWN;
                     }
                     break;
+                case ResolveCheckpointEntered(var checkpoint, var tr, var resolveBattleIndex, var resolvePhase):
+                {
+                    var pawnDelta = tr.pawnDeltas[pawnId];
+                    Rank preRank = pawnDelta.preRank;
+                    Rank postRank = pawnDelta.postRank;
+                    setIsMovePairStart = tr.moves.ContainsKey(pawnId);
+                    if (!isMyTeam)
+                    {
+                        preRank = pawnDelta.preRevealed ? pawnDelta.preRank : Rank.UNKNOWN;
+                        postRank = pawnDelta.postRevealed ? pawnDelta.postRank : Rank.UNKNOWN;
+                    }
+                    switch (checkpoint)
+                    {
+                        case ResolvePhase.Checkpoint.Pre:
+                        {
+                            setAliveView = pawnDelta.preAlive;
+                            setRankView = preRank;
+                            setPosView = (pawnDelta.prePos, resolvePhase.tileViews[pawnDelta.prePos]);
+                            break;
+                        }
+                        case ResolvePhase.Checkpoint.PostMoves:
+                        {
+                            setAliveView = pawnDelta.preAlive;
+                            setRankView = preRank;
+                            setPosView = (pawnDelta.prePos, resolvePhase.tileViews[pawnDelta.prePos]);
+                            if (tr.moves.TryGetValue(pawnId, out MoveEvent move))
+                            {
+                                arcFromTile = resolvePhase.tileViews[move.from];
+                                arcToTile = resolvePhase.tileViews[move.target];
+                            }
+                            break;
+                        }
+                        case ResolvePhase.Checkpoint.Battle:
+                        {
+                            setAliveView = pawnDelta.preAlive;
+                            setRankView = preRank;
+                            setPosView = (pawnDelta.postPos, resolvePhase.tileViews[pawnDelta.postPos]);
+                            for (int i = 0; i < tr.battles.Length; i++)
+                            {
+                                if (i < resolveBattleIndex)
+                                {
+                                    setAliveView = pawnDelta.postAlive;
+                                    setRankView = postRank;
+                                }
+                            }
+                            break;
+                        }
+                        case ResolvePhase.Checkpoint.Final:
+                        {
+                            setAliveView = pawnDelta.postAlive;
+                            setRankView = postRank;
+                            setPosView = (pawnDelta.postPos, resolvePhase.tileViews[pawnDelta.postPos]);
+                            
+                            break;
+                        }
+                    }
+                    break;
+                }
                 case MoveHoverChanged(var moveInputTool, var newHoveredPos, var moveCommitPhase):
                     break;
                 case MovePosSelected(var newPos, var targetablePositions, var movePairsSnapshot):
@@ -272,10 +258,6 @@ public class PawnView : MonoBehaviour
                 }
             }
             // execute intentions that require side effects after decision
-        }
-        if (arcToTile)
-        {
-            SetArcToTile(arcFromTile, arcToTile);
         }
         // set cached vars and do stuff that requires diffs
         if (setIsSelected is bool inIsSelected)
@@ -306,11 +288,13 @@ public class PawnView : MonoBehaviour
 
         if (setPosView is (Vector2Int pos, TileView tile))
         {
-            if (pos != posView)
-            {
-                DisplayPosView(tile);
-            }
+            DisplayPosView(tile);
             posView = pos;
+        }
+        
+        if (arcToTile)
+        {
+            SetArcToTile(arcFromTile, arcToTile);
         }
         bool setAnimatorIsSelected = isSelected || isMovePairStart;
         if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected) 
@@ -368,7 +352,7 @@ public class PawnView : MonoBehaviour
         {
             parentConstraint.RemoveSource(i);
         }
-        ConstraintSource cs = new ConstraintSource
+        ConstraintSource cs = new ()
         {
             sourceTransform = source,
             weight = 1f,

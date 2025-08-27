@@ -4,22 +4,24 @@ using UnityEngine;
 public class ArenaPawn : MonoBehaviour
 {
     public Badge badge;
-    public SnapshotPawn pawn;
+    public SnapshotPawnDelta pawnDelta;
     public Animator animator;
     public PawnView pawnView;
-    
-    public void Initialize(SnapshotPawn inPawn)
+    public Team team;
+    public void Initialize(SnapshotPawnDelta inPawnDelta)
     {
-        pawn = inPawn;
-        PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(pawn.rank);
-        animator.runtimeAnimatorController = pawn.team switch
+        pawnDelta = inPawnDelta;
+        team = pawnDelta.pawnId.GetTeam();
+        PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(pawnDelta.postRank);
+        animator.runtimeAnimatorController = team switch
         {
             Team.RED => pawnDef.redAnimatorOverrideController,
             Team.BLUE => pawnDef.blueAnimatorOverrideController,
             _ => throw new ArgumentOutOfRangeException(),
         };
-        badge.SetBadge(pawn.team, pawn.rank);
-        if (pawn.rank != null) pawnView.TestSetSprite(pawn.rank.Value, pawn.team);
+        badge.SetBadge(team, pawnDelta.postRank);
+        pawnView.TestSetSprite(pawnDelta.postRank, team);
     }
+    
     
 }

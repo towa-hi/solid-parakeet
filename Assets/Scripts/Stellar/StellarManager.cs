@@ -614,28 +614,26 @@ public static class StellarManager
     }
     static TurnResolveDelta BuildTurnResolveDeltaSimple(GameNetworkState previous, GameNetworkState current)
     {
-        // pre is the state before moves or changes have been applied
-        TurnSnapshot preSnapshot = new(previous.gameState);
-        // post is the state after moves and changes have been applied
-        TurnSnapshot postSnapshot = new(current.gameState);
+        // Compare raw GameState pawn arrays directly; they are index-aligned and consistent across states
+        PawnState[] pre = previous.gameState.pawns;
+        PawnState[] post = current.gameState.pawns;
         Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas = new();
         List<BattleEvent> battles = new();
-        List<MoveEvent> moves = new();
-        // determine moved pawns
-        for (int i = 0; i < preSnapshot.pawns.Length; i++)
+        Dictionary<PawnId, MoveEvent> moves = new();
+        for (int i = 0; i < pre.Length; i++)
         {
-            SnapshotPawn prePawn = preSnapshot.pawns[i];
-            SnapshotPawn postPawn = postSnapshot.pawns[i];
+            PawnState prePawn = pre[i];
+            PawnState postPawn = post[i];
             SnapshotPawnDelta pawnDelta = new(prePawn, postPawn);
             pawnDeltas[pawnDelta.pawnId] = pawnDelta;
             if (prePawn.alive && prePawn.pos != postPawn.pos)
             {
-                moves.Add(new MoveEvent
+                moves[prePawn.pawn_id] = new MoveEvent
                 {
-                    pawn = prePawn.pawnId,
+                    pawn = prePawn.pawn_id,
                     from = prePawn.pos,
                     target = postPawn.pos,
-                });
+                };
             }
         }
         Dictionary<Vector2Int, (SnapshotPawnDelta, SnapshotPawnDelta)> collisionPairs = ComputeCollisions(pawnDeltas);
@@ -663,10 +661,8 @@ public static class StellarManager
         }
         
         return new TurnResolveDelta {
-            pre = preSnapshot,
-            post = postSnapshot,
-            pawnDeltas = pawnDeltas.Values.ToArray(),
-            moves = moves.ToArray(),
+            pawnDeltas = pawnDeltas,
+            moves = moves,
             battles = battles.ToArray(),
         };
     }
@@ -895,56 +891,9 @@ public enum ResultCode
 
 public struct TurnResolveDelta
 {
-    public TurnSnapshot pre;
-    public TurnSnapshot post;
-    public SnapshotPawnDelta[] pawnDeltas;
-    public MoveEvent[] moves;
+    public Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas;
+    public Dictionary<PawnId, MoveEvent> moves;
     public BattleEvent[] battles;
-}
-
-public struct TurnSnapshot
-{
-    public uint turn;
-    public SnapshotPawn[] pawns;
-
-    public TurnSnapshot(GameState gs)
-    {
-        turn = gs.turn;
-        pawns = gs.pawns
-            .Select(p => new SnapshotPawn
-            {
-                pawnId = p.pawn_id,
-                team = p.GetTeam(),
-                pos = p.pos,
-                alive = p.alive,
-                revealed = p.zz_revealed,
-                rank = p.rank,
-                moved = p.moved,
-                movedScout = p.moved_scout,
-            })
-            .ToArray();
-    }
-
-    public SnapshotPawn GetPawn(PawnId pawnId) 
-    {
-        return pawns.FirstOrDefault(p => p.pawnId == pawnId);
-    }
-    public SnapshotPawn? GetPawnAtPos(Vector2Int pos)
-    {
-        return pawns.FirstOrDefault(p => p.pos == pos);
-    }
-}
-
-public struct SnapshotPawn
-{
-    public PawnId pawnId;
-    public Team team;
-    public Vector2Int pos;
-    public bool alive;
-    public bool revealed;
-    public Rank? rank;
-    public bool moved;
-    public bool movedScout;
 }
 
 public struct SnapshotPawnDelta
@@ -956,21 +905,27 @@ public struct SnapshotPawnDelta
     public bool postAlive;
     public bool preRevealed;
     public bool postRevealed;
+    public Rank preRank;
+    public Rank postRank;
 
-    public SnapshotPawnDelta(SnapshotPawn pre, SnapshotPawn post)
+    public SnapshotPawnDelta(PawnState pre, PawnState post)
     {
-        pawnId = pre.pawnId;
+        pawnId = pre.pawn_id;
         prePos = pre.pos;
         postPos = post.pos;
         preAlive = pre.alive;
         postAlive = post.alive;
-        preRevealed = pre.revealed;
-        postRevealed = post.revealed;
+        preRevealed = pre.zz_revealed;
+        postRevealed = post.zz_revealed;
+        preRank = pre.rank ?? Rank.UNKNOWN;
+        postRank = post.rank ?? Rank.UNKNOWN;
+        Debug.Log($"SnapshotPawnDelta: {pawnId} prePos={prePos} postPos={postPos} preAlive={preAlive} postAlive={postAlive} preRevealed={preRevealed} postRevealed={postRevealed} preRank={preRank} postRank={postRank}");
     }
     
     public bool PosChanged => prePos == postPos;
     public bool AliveChanged => preAlive == postAlive;
     public bool RevealedChanged => preRevealed == postRevealed;
+    public bool RankChanged => preRank != postRank;
 }
 public struct MoveEvent
 {

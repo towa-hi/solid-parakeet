@@ -55,7 +55,6 @@ public class GuiSetup : GameElement
     {
 
         // what to do
-        bool? setShowElement = null;
         GameNetworkState? setInitialize = null;
         ((Rank, int, int)[], Rank?)? setRefreshEntries = null;
         string setStatus = "";
@@ -70,7 +69,6 @@ public class GuiSetup : GameElement
             switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase:
-                    setShowElement = true;
                     if (cachedNetState.IsMySubphase())
                     {
                         setStatus = "Commit your pawn setup";
@@ -87,7 +85,6 @@ public class GuiSetup : GameElement
                     }
                     break;
                 default:
-                    setShowElement = false;
                     break;
             }
         }

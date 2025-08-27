@@ -46,58 +46,58 @@ public class GuiResolve : GameElement
         {
             // Switch based on the active PhaseBase instance, not the contract phase enum
             bool show = netStateUpdated.phase is ResolvePhase;
-            setShowElement = show;
             Debug.Log($"GuiResolve.PhaseStateChanged: phase={netStateUpdated.phase.GetType().Name} -> ShowElement({show})");
             if (show && statusText != null)
             {
                 statusText.text = "Resolve: Preparing";
             }
+            
         }
         // Reflect resolve sub-state in status text based on operations
         foreach (GameOperation op in changes.operations)
         {
             switch (op)
             {
-                case ResolveStateShowMoves(var moves, var phase):
-                    (arenaController ?? ArenaController.instance)?.Close();
-                    if (statusText != null) { statusText.text = "Resolve: Show Moves"; }
-                    prevLabel = "<- [pre]";
-                    nextLabel = "[apply moves] ->";
-                    break;
-                case ResolveStartApplyMoves(var pre, var moves2, var phase2):
-                    (arenaController ?? ArenaController.instance)?.Close();
-                    if (statusText != null) { statusText.text = "Resolve: Applying Moves"; }
-                    prevLabel = "<- [show moves]";
-                    nextLabel = "[battle] ->";
-                    break;
-                case ResolveStateBattle(var battle, var tr, var phase3):
-                {
-                    (arenaController ?? ArenaController.instance)?.StartBattle(battle, tr);
-                    if (statusText != null)
+                case ResolveCheckpointEntered(var checkpoint, var tr, var battleIndex, var phase):
+                    switch (checkpoint)
                     {
-                        int idx = 0;
-                        int total = tr.battles?.Length ?? 0;
-                        if (tr.battles != null)
+                        case ResolvePhase.Checkpoint.Pre:
+                            (arenaController ?? ArenaController.instance)?.Close();
+                            if (statusText != null) { statusText.text = "Resolve: start"; }
+                            prevLabel = "<- [none]";
+                            nextLabel = "[apply moves] ->";
+                            break;
+                        case ResolvePhase.Checkpoint.PostMoves:
+                            (arenaController ?? ArenaController.instance)?.Close();
+                            if (statusText != null) { statusText.text = "Resolve: Applying Moves"; }
+                            prevLabel = "<- [start]";
+                            nextLabel = (tr.battles?.Length ?? 0) > 0 ? "[battle] ->" : "[final] ->";
+                            break;
+                        case ResolvePhase.Checkpoint.Battle:
                         {
-                            for (int i = 0; i < tr.battles.Length; i++)
+                            if (tr.battles != null && battleIndex >= 0 && battleIndex < tr.battles.Length)
                             {
-                                if (tr.battles[i].Equals(battle)) { idx = i; break; }
+                                var battle = tr.battles[battleIndex];
+                                (arenaController ?? ArenaController.instance)?.StartBattle(battle, tr);
+                                if (statusText != null)
+                                {
+                                    int total = tr.battles?.Length ?? 0;
+                                    string p0 = battle.participants != null && battle.participants.Length > 0 ? battle.participants[0].ToString() : "?";
+                                    string p1 = battle.participants != null && battle.participants.Length > 1 ? battle.participants[1].ToString() : "?";
+                                    statusText.text = $"Resolve: Battle {battleIndex + 1}/{Mathf.Max(1, total)} ({p0} vs {p1})";
+                                    prevLabel = battleIndex > 0 ? $"<- battle {battleIndex}/{Mathf.Max(1, total)}" : "<- [start]";
+                                    nextLabel = (battleIndex + 1 < total) ? $"battle {battleIndex + 2}/{Mathf.Max(1, total)} ->" : "[final] ->";
+                                }
                             }
+                            break;
                         }
-                        string p0 = battle.participants != null && battle.participants.Length > 0 ? battle.participants[0].ToString() : "?";
-                        string p1 = battle.participants != null && battle.participants.Length > 1 ? battle.participants[1].ToString() : "?";
-                        statusText.text = $"Resolve: Battle {idx + 1}/{Mathf.Max(1, total)} ({p0} vs {p1})";
-                        prevLabel = idx > 0 ? $"<- battle {idx}/{Mathf.Max(1, total)}" : "<- [post moves]";
-                        nextLabel = (idx + 1 < total) ? $"battle {idx + 2}/{Mathf.Max(1, total)} ->" : "[final] ->";
+                        case ResolvePhase.Checkpoint.Final:
+                            (arenaController ?? ArenaController.instance)?.Close();
+                            if (statusText != null) { statusText.text = "Resolve: Final"; }
+                            prevLabel = "<- [post moves]";
+                            nextLabel = "[continue] ->";
+                            break;
                     }
-                    break;
-                }
-                // PostMoves is represented by ApplyMoves in the unified flow
-                case ResolveStateFinal(var phase5):
-                    (arenaController ?? ArenaController.instance)?.Close();
-                    if (statusText != null) { statusText.text = "Resolve: Final"; }
-                    prevLabel = "<- [post moves]";
-                    nextLabel = null;
                     break;
             }
         }

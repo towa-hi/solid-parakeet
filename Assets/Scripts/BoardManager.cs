@@ -133,7 +133,7 @@ public class BoardManager : MonoBehaviour
             {
                 Phase.SetupCommit => new SetupCommitPhase(),
                 // Enter ResolvePhase only when TurnResolve is present in this delta
-                Phase.MoveCommit => (delta.TurnResolve.HasValue) ? new ResolvePhase() : new MoveCommitPhase(),
+                Phase.MoveCommit => (delta.TurnResolve.HasValue) ? new ResolvePhase(delta.TurnResolve.Value) : new MoveCommitPhase(),
                 Phase.MoveProve => new MoveProvePhase(),
                 Phase.RankProve => new RankProvePhase(),
                 Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),
@@ -150,13 +150,6 @@ public class BoardManager : MonoBehaviour
         currentPhase.UpdateNetworkState(netState, delta);
         GameLogger.RecordNetworkState(netState);
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
-        // After broadcasting NetStateUpdated, if we're in resolve and have data, show the pre-turn snapshot
-        if (currentPhase is ResolvePhase resolvePhase)
-        {
-            Debug.Log("BoardManager: In ResolvePhase after NetStateUpdated; ensuring pre snapshot is applied");
-            resolvePhase.ShowPreSnapshotIfAvailable();
-        }
-        
         // Manage polling: suspend while in ResolvePhase
         if (currentPhase is ResolvePhase)
         {
@@ -188,10 +181,7 @@ public class BoardManager : MonoBehaviour
                     currentPhase = new MoveCommitPhase();
                     currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
                     // Carry forward cached net state so the new phase has context
-                    if (resolveDone.phase?.cachedNetState != null)
-                    {
-                        currentPhase.UpdateNetworkState(resolveDone.phase.cachedNetState, resolveDone.phase.lastDelta);
-                    }
+                    currentPhase.UpdateNetworkState(currentPhase.cachedNetState);
                     // Notify GUI and views of phase change
                     PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
                     break;
@@ -208,6 +198,7 @@ public class BoardManager : MonoBehaviour
         }
         // update gui
         guiGame.PhaseStateChanged(changes);
+        currentPhase.AfterPhaseStateChanged(changes);
     }
     
     // passed to currentPhase
@@ -351,6 +342,10 @@ public abstract class PhaseBase
         OnPhaseStateChanged.Invoke(changes);
     }
     
+    public virtual void AfterPhaseStateChanged(PhaseChangeSet changes) 
+    {
+
+    }
     protected abstract void OnMouseInput(Vector2Int hoveredPos, bool clicked);
 }
 public class SetupCommitPhase : PhaseBase
@@ -601,17 +596,21 @@ public class SetupCommitPhase : PhaseBase
 public class ResolvePhase: PhaseBase
 {
     // Processed resolve data for stepping through checkpoints
-    TurnResolveDelta? resolveData;
-    TurnSnapshot[] battleSnapshots = Array.Empty<TurnSnapshot>();
+    TurnResolveDelta tr;
     int currentBattleIndex = -1;
-    bool allowExit = false;
-    public bool IsExitAllowed() { return allowExit; }
 
-    // Explicit checkpoints (stable states)
-    enum Checkpoint { Pre, PostMoves, Battle, Final }
+    // Explicit checkpoints (stable states) 
+    public enum Checkpoint { Pre, PostMoves, Battle, Final }
     Checkpoint currentCheckpoint = Checkpoint.Pre;
 
     HashSet<PawnId> pendingMoveAnimPawns = new();
+
+    public ResolvePhase(TurnResolveDelta inTr)
+    {
+        currentCheckpoint = Checkpoint.Pre;
+        currentBattleIndex = -1;
+        tr = inTr;
+    }
 
     protected override void SetGui(GuiGame guiGame, bool set) 
     {
@@ -636,13 +635,7 @@ public class ResolvePhase: PhaseBase
 
     public override void UpdateNetworkState(GameNetworkState netState)
     {
-        Debug.Log("ResolvePhase.UpdateNetworkState: begin");
         base.UpdateNetworkState(netState);
-        if (lastDelta.TurnChanged && lastDelta.TurnResolve is TurnResolveDelta tr)
-        {
-            Debug.Log("ResolvePhase.UpdateNetworkState: TurnChanged with TurnResolve present -> PrepareResolve");
-            PrepareResolve(tr);
-        }
     }
 
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
@@ -650,128 +643,18 @@ public class ResolvePhase: PhaseBase
         //Debug.Log("ResolvePhase.OnMouseInput");
     }
 
-    void PrepareResolve(TurnResolveDelta tr)
+    public override void AfterPhaseStateChanged(PhaseChangeSet changes)
     {
-        Debug.Log("ResolvePhase.PrepareResolve: begin");
-        resolveData = tr;
-        currentCheckpoint = Checkpoint.Pre;
-        currentBattleIndex = -1;
-        battleSnapshots = BuildBattleSnapshots(tr);
-        Debug.Log($"ResolvePhase.PrepareResolve: turn={tr.pre.turn} moves={tr.pawnDeltas?.Length ?? 0} battles={tr.battles?.Length ?? 0}");
-    }
-
-    TurnSnapshot[] BuildBattleSnapshots(TurnResolveDelta tr)
-    {
-        Debug.Log("ResolvePhase.BuildBattleSnapshots: begin");
-        // Build postMoves from pre + pawnDeltas (apply positions, keep alive state; deaths apply during battles)
-        Dictionary<PawnId, SnapshotPawn> postMovesMap = tr.pre.pawns.ToDictionary(p => p.pawnId, p => p);
-        foreach (var d in tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>())
-        {
-            if (!postMovesMap.TryGetValue(d.pawnId, out var sp)) continue;
-            sp.pos = d.postPos;
-            postMovesMap[d.pawnId] = sp;
-        }
-        Dictionary<PawnId, SnapshotPawn> map = new Dictionary<PawnId, SnapshotPawn>(postMovesMap);
-        TurnSnapshot[] snapshots = new TurnSnapshot[tr.battles?.Length ?? 0];
-        for (int i = 0; i < snapshots.Length; i++)
-        {
-            BattleEvent battle = tr.battles[i];
-            // Apply deaths
-            foreach (var deadPawn in battle.dead ?? Array.Empty<PawnId>())
-            {
-                if (map.TryGetValue(deadPawn, out var sp))
-                {
-                    sp.alive = false;
-                    map[deadPawn] = sp;
-                }
-            }
-            // Apply revelations
-            foreach (var revPawn in battle.revealed ?? Array.Empty<PawnId>())
-            {
-                if (map.TryGetValue(revPawn, out var sp))
-                {
-                    sp.revealed = true;
-                    map[revPawn] = sp;
-                }
-            }
-            snapshots[i] = new TurnSnapshot
-            {
-                turn = tr.pre.turn,
-                pawns = map.Values.ToArray(),
-            };
-        }
-        Debug.Log($"ResolvePhase.BuildBattleSnapshots: built {snapshots.Length} snapshots");
-        return snapshots;
-    }
-
-    public TurnSnapshot GetCurrentSnapshot()
-    {
-        Debug.Log($"ResolvePhase.GetCurrentSnapshot: begin checkpoint={currentCheckpoint} battleIndex={currentBattleIndex}");
-        if (resolveData is not TurnResolveDelta tr)
-        {
-            return new TurnSnapshot { turn = 0, pawns = Array.Empty<SnapshotPawn>() };
-        }
-        // Snapshot for current checkpoint
-        return currentCheckpoint switch
-        {
-            Checkpoint.Pre => tr.pre,
-            Checkpoint.PostMoves => new TurnSnapshot { turn = tr.pre.turn, pawns = ApplyPostMoves(tr) },
-            Checkpoint.Battle => (currentBattleIndex >= 0 && currentBattleIndex < battleSnapshots.Length) ? battleSnapshots[currentBattleIndex] : new TurnSnapshot { turn = tr.pre.turn, pawns = ApplyPostMoves(tr) },
-            Checkpoint.Final => tr.post,
-            _ => tr.post,
-        };
-    }
-
-    SnapshotPawn[] ApplyPostMoves(TurnResolveDelta tr)
-    {
-        Debug.Log("ResolvePhase.ApplyPostMoves: begin");
-        Dictionary<PawnId, SnapshotPawn> map = tr.pre.pawns.ToDictionary(p => p.pawnId, p => p);
-        foreach (var d in tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>())
-        {
-            if (!map.TryGetValue(d.pawnId, out var sp)) continue;
-            sp.pos = d.postPos;
-            map[d.pawnId] = sp;
-        }
-        return map.Values.ToArray();
-    }
-
-    public SnapshotPawnDelta[] GetArrows()
-    {
-        Debug.Log("ResolvePhase.GetArrows: begin");
-        if (resolveData is not TurnResolveDelta tr) return Array.Empty<SnapshotPawnDelta>();
-        return (tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>())
-            .Where(d => d.prePos != d.postPos)
-            .ToArray();
-    }
-
-    public (Vector2Int? pos, BattleEvent? battle) GetCurrentBattle()
-    {
-        Debug.Log($"ResolvePhase.GetCurrentBattle: begin checkpoint={currentCheckpoint} battleIndex={currentBattleIndex}");
-        if (resolveData is not TurnResolveDelta tr) return (null, null);
-        if (currentCheckpoint == Checkpoint.Battle && currentBattleIndex >= 0 && tr.battles != null && currentBattleIndex < tr.battles.Length)
-        {
-            return (tr.battles[currentBattleIndex].winner_pos, tr.battles[currentBattleIndex]);
-        }
-        return (null, null);
-    }
-
-    public void ShowPreSnapshotIfAvailable()
-    {
-        Debug.Log("ResolvePhase.ShowPreSnapshotIfAvailable: begin");
-        if (resolveData is not TurnResolveDelta) return;
-        EnterCheckpoint(Checkpoint.Pre);
+        base.AfterPhaseStateChanged(changes);
+        EnterCheckpoint(currentCheckpoint);
     }
 
     void OnPrev()
     {
-        Debug.Log($"ResolvePhase.OnPrev: begin checkpoint={currentCheckpoint} battleIndex={currentBattleIndex}");
-        if (resolveData is not TurnResolveDelta trCheck) { Debug.Log("ResolvePhase.OnPrev: no resolve data"); return; }
-        allowExit = false;
-        TurnResolveDelta tr = trCheck;
         switch (currentCheckpoint)
         {
             case Checkpoint.Final:
-                if ((tr.battles?.Length ?? 0) > 0)
+                if (tr.battles.Length > 0)
                 {
                     currentCheckpoint = Checkpoint.Battle;
                     currentBattleIndex = tr.battles.Length - 1;
@@ -788,7 +671,8 @@ public class ResolvePhase: PhaseBase
                 }
                 else
                 {
-                    currentCheckpoint = Checkpoint.PostMoves;
+                    currentCheckpoint = Checkpoint.Pre;
+                    currentBattleIndex = -1;
                 }
                 break;
             case Checkpoint.PostMoves:
@@ -804,17 +688,15 @@ public class ResolvePhase: PhaseBase
 
     void OnNext()
     {
-        Debug.Log($"ResolvePhase.OnNext: begin checkpoint={currentCheckpoint} battleIndex={currentBattleIndex}");
-        if (resolveData is not TurnResolveDelta tr) { Debug.Log("ResolvePhase.OnNext: no resolve data"); return; }
         switch (currentCheckpoint)
         {
             case Checkpoint.Pre:
                 EnterCheckpoint(Checkpoint.PostMoves);
                 break;
             case Checkpoint.PostMoves:
-                if ((tr.battles?.Length ?? 0) > 0)
+                if (tr.battles.Length > 0)
                 {
-                    StartTransitionBattle(0, tr);
+                    StartTransitionBattle(0);
                 }
                 else
                 {
@@ -822,9 +704,9 @@ public class ResolvePhase: PhaseBase
                 }
                 break;
             case Checkpoint.Battle:
-                if (currentBattleIndex + 1 < (tr.battles?.Length ?? 0))
+                if (currentBattleIndex + 1 < tr.battles.Length)
                 {
-                    StartTransitionBattle(currentBattleIndex + 1, tr);
+                    StartTransitionBattle(currentBattleIndex + 1);
                 }
                 else
                 {
@@ -832,70 +714,42 @@ public class ResolvePhase: PhaseBase
                 }
                 break;
             case Checkpoint.Final:
-                allowExit = true;
-                Debug.Log("ResolvePhase.OnNext: user requested exit from Final state; emitting ResolveDone");
-                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveDone(this)));
+                ExitResolve();
                 break;
         }
     }
 
     void OnSkip()
     {
-        Debug.Log($"ResolvePhase.OnSkip: begin checkpoint={currentCheckpoint} battleIndex={currentBattleIndex}");
-        if (resolveData is not TurnResolveDelta) { Debug.Log("ResolvePhase.OnSkip: no resolve data"); return; }
-        // User wants to skip remaining resolution and advance
-        allowExit = true;
-        EnterCheckpoint(Checkpoint.Final);
-        Debug.Log("ResolvePhase.OnSkip: exit requested; emitting ResolveDone");
-        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveDone(this)));
+        ExitResolve();
+    }
+
+    void ExitResolve()
+    {
+        Debug.Log("ResolvePhase.ExitResolve: begin");
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveDone()));
     }
 
     void EnterCheckpoint(Checkpoint checkpoint)
     {
         Debug.Log($"ResolvePhase.EnterCheckpoint: begin -> {checkpoint} (current battleIndex={currentBattleIndex})");
-        if (resolveData is not TurnResolveDelta tr) return;
         currentCheckpoint = checkpoint;
-        // For most checkpoints, snap to the checkpoint snapshot first.
-        // For PostMoves, we'll emit a combined event with the Pre snapshot instead.
-        if (checkpoint != Checkpoint.PostMoves)
+        // Initialize animation tracking for PostMoves
+        if (checkpoint == Checkpoint.PostMoves)
         {
-            TurnSnapshot snap = GetCurrentSnapshot();
-            Debug.Log("ResolvePhase.EnterCheckpoint: emitting ResolveApplySnapshot");
-            InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveApplySnapshot(snap, this)));
+            pendingMoveAnimPawns = new HashSet<PawnId>(
+                (tr.pawnDeltas ?? new Dictionary<PawnId, SnapshotPawnDelta>())
+                .Values
+                .Where(d => d.prePos != d.postPos)
+                .Select(d => d.pawnId));
         }
-        switch (checkpoint)
-        {
-            // Then emit any overlay op for that checkpoint
-            case Checkpoint.Pre:
-                Debug.Log("ResolvePhase.EnterCheckpoint: emitting ResolveStateShowMoves");
-                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateShowMoves(tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>(), this)));
-                break;
-            case Checkpoint.Final:
-                Debug.Log("ResolvePhase.EnterCheckpoint: emitting ResolveStateFinal");
-                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateFinal(this)));
-                break;
-            case Checkpoint.PostMoves:
-                Debug.Log("ResolvePhase.EnterCheckpoint: emitting ResolveStartApplyMoves with Pre snapshot");
-                // Initialize animation tracking then emit combined event
-                pendingMoveAnimPawns = new HashSet<PawnId>((tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>())
-                    .Where(d => d.prePos != d.postPos)
-                    .Select(d => d.pawnId));
-                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStartApplyMoves(tr.pre, tr.pawnDeltas ?? Array.Empty<SnapshotPawnDelta>(), this)));
-                break;
-            case Checkpoint.Battle:
-                Debug.Log($"ResolvePhase.EnterCheckpoint: emitting ResolveStateBattle index={currentBattleIndex}");
-                InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveStateBattle(tr.battles[currentBattleIndex], tr, this)));
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(checkpoint), checkpoint, null);
-        }
-
-        Debug.Log($"ResolvePhase.EnterCheckpoint -> {checkpoint} (battleIndex={currentBattleIndex})");
+        InvokeOnPhaseStateChanged(new PhaseChangeSet(new ResolveCheckpointEntered(checkpoint, tr, currentBattleIndex, this)));
     }
+
 
     // Removed separate ApplyMoves transition; animations now start on entering PostMoves
 
-    void StartTransitionBattle(int battleIndex, TurnResolveDelta tr)
+    void StartTransitionBattle(int battleIndex)
     {
         Debug.Log($"ResolvePhase.StartTransitionBattle: begin -> index={battleIndex}");
         // For now, no animations; directly enter the battle checkpoint
@@ -1265,18 +1119,14 @@ public record SetupHoverChanged(Vector2Int oldHoveredPos, Vector2Int newHoveredP
 public record SetupRankCommitted(Dictionary<PawnId, Rank?> oldPendingCommits, SetupCommitPhase phase) : GameOperation;
 public record SetupRankSelected(Rank? oldSelectedRank, SetupCommitPhase phase) : GameOperation;
 
+public record ResolveCheckpointEntered(ResolvePhase.Checkpoint checkpoint, TurnResolveDelta tr, int currentBattleIndex, ResolvePhase phase) : GameOperation;
+public record ResolveDone() : GameOperation;
+
 public record MoveHoverChanged(MoveInputTool tool, Vector2Int newPos, MoveCommitPhase phase) : GameOperation;
 public record MovePosSelected(Vector2Int? selectedPos, HashSet<Vector2Int> targetablePositions, Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairsSnapshot) : GameOperation;
 public record MovePairUpdated(Dictionary<PawnId, (Vector2Int, Vector2Int)> movePairsSnapshot, PawnId? changedPawnId, MoveCommitPhase phase) : GameOperation;
 
 public record NetStateUpdated(PhaseBase phase) : GameOperation;
-public record ResolveStateShowMoves(SnapshotPawnDelta[] moves, ResolvePhase phase) : GameOperation;
-public record ResolveStartApplyMoves(TurnSnapshot preSnapshot, SnapshotPawnDelta[] moves, ResolvePhase phase) : GameOperation;
-public record ResolveStateBattle(BattleEvent battle, TurnResolveDelta tr, ResolvePhase phase) : GameOperation;
-public record ResolveStateFinal(ResolvePhase phase) : GameOperation;
-public record ResolveStatePostMoves(TurnResolveDelta tr, ResolvePhase phase) : GameOperation;
-public record ResolveApplySnapshot(TurnSnapshot snapshot, ResolvePhase phase) : GameOperation;
-public record ResolveDone(ResolvePhase phase) : GameOperation;
 // ReSharper restore InconsistentNaming
 #pragma warning restore IDE1006
 
