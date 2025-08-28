@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Contract;
 using UnityEngine;
 
@@ -14,277 +16,96 @@ public static class AiPlayer
         public Rank rank;
 
         public Vector2Int pos;
-        public bool hasMoved;
-        public bool isRevealed;
-        public double throneProbability;
+        public bool has_moved;
+        public bool is_revealed;
+        public double throne_probability;
     }
 
     // Describes a pawn moving from one tile to another.
     public struct SimMove
     {
-        public Vector2Int lastPos;
-        public Vector2Int nextPos;
+        public Vector2Int last_pos;
+        public Vector2Int next_pos;
     };
 
     // Describes the pawns and their positions before any moves are made.
-    public struct SimGameState
+    public class SimGameState
     {
         public uint turn;
         public ImmutableDictionary<Vector2Int, SimPawn> pawns;
         public ImmutableList<SimPawn> dead_pawns;
+        // TODO look into separate values for each team.
+        // See paper: Monte Carlo Tree Search in Simultaneous Move Games with Applications to Goofspiel
+        public float value;
+        public uint visits;
+        public Dictionary<SimMoveSet, SimGameState> substates = new();
+        public Queue<SimMoveSet> unexplored_moves;
+        public SimGameState parent;
+        public bool terminal;
+        // The move that produced this state.
+        public SimMoveSet move;
     }
 
     // Describes the extents and shape of the board, and blitz rules.
-    public struct SimGameBoard
+    public class SimGameBoard
     {
-        public uint blitzInterval;
-        public uint blitzMaxMoves;
-        public uint[] maxRanks;
-        public bool isHex;
+        public uint blitz_interval;
+        public uint blitz_max_moves;
+        public uint[] max_ranks;
+        public bool is_hex;
         public Vector2Int size;
         public ImmutableDictionary<Vector2Int, TileState> tiles;
-    }
-
-    // Wrap elements in singleton sets.
-    // (A B C) -> ((A) (B) (C))
-    public static ImmutableHashSet<ImmutableHashSet<T>> MakeSingletonElements<T>(ImmutableHashSet<T> set)
-    {
-        var superset = ImmutableHashSet.CreateBuilder<ImmutableHashSet<T>>();
-        foreach (var item in set)
-        {
-            superset.Add(ImmutableHashSet<T>.Empty.Add(item));
-        }
-        return superset.ToImmutable();
-    }
-
-    // Makes the product union of two sets of sets. Sort of like the cartesian product of sets.
-    // setA = ((A) (B) (C))
-    // setB = ((D) (E) (F))
-    // result =
-    //  ((A D) (A E) (A F)
-    //   (B D) (B E) (B F)
-    //   (C D) (C E) (C F))
-    public static ImmutableHashSet<ImmutableHashSet<T>> MakeProductUnion<T>(
-        ImmutableHashSet<ImmutableHashSet<T>> setA,
-        ImmutableHashSet<ImmutableHashSet<T>> setB)
-    {
-        var superset = ImmutableHashSet.CreateBuilder<ImmutableHashSet<T>>();
-        foreach (var subsetA in setA)
-        {
-            foreach (var subsetB in setB)
-            {
-                superset.Add(subsetA.Union(subsetB));
-            }
-        }
-        return superset.ToImmutable();
-    }
-
-    // Get a score of a board's power balance, if it's in favor of one team or the other.
-    // Can be something like the sum of all of this team alive ranks minus that of the other team's.
-    // Can also factor in the distance between opposing pieces to favor aggression or defense.
-    // Infinity can represent a win/lose situation.
-    public static double EvaluateBoard()
-    {
-        return 0.0;
-    }
-
-    // Get all moves for a single pawn in isolation.
-    // Assumes the rank is known.
-    public static SimMoveSet GetAllMovesForPawn(
-        SimGameBoard board,
-        SimGameState state,
-        Vector2Int pawnPos)
-    {
-        SimPawn pawn = state.pawns[pawnPos];
-        if (pawn.rank == Rank.THRONE || pawn.rank == Rank.TRAP)
-        {
-            return SimMoveSet.Empty;
-        }
-        var outputMoves = SimMoveSet.Empty.ToBuilder();
-        int maxSteps = Rules.GetMovementRange(pawn.rank);
-        Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, board.isHex);
-        for (int directionIndex = 0; directionIndex < initialDirections.Length; directionIndex++)
-        {
-            Vector2Int currentPos = pawnPos;
-            int walkedTiles = 0;
-            while (walkedTiles < maxSteps)
-            {
-                walkedTiles++;
-                currentPos = currentPos + Shared.GetDirections(currentPos, board.isHex)[directionIndex];
-                if (board.tiles.TryGetValue(currentPos, out TileState tile))
-                {
-                    if (!tile.passable)
-                    {
-                        break;
-                    }
-                    if (state.pawns.TryGetValue(currentPos, out SimPawn otherPawn))
-                    {
-                        // Enemy team occupied, else ally team occupied.
-                        if (pawn.team != otherPawn.team)
-                        {
-                            outputMoves.Add(new SimMove()
-                            {
-                                lastPos = pawnPos,
-                                nextPos = currentPos,
-                            });
-                        }
-                        break;
-                    }
-                    // Unoccupied.
-                    else
-                    {
-                        outputMoves.Add(new SimMove()
-                        {
-                            lastPos = pawnPos,
-                            nextPos = currentPos,
-                        });
-                    }
-                }
-            }
-        }
-        return outputMoves.ToImmutable();
-    }
-
-    public static bool IsBlitzTurn(SimGameBoard board, SimGameState state)
-    {
-        if (board.blitzInterval == 0)
-        {
-            return false;
-        }
-        return state.turn % board.blitzInterval == 0;
-    }
-
-    public static uint MaxMovesThisTurn(SimGameBoard board, SimGameState state)
-    {
-        return IsBlitzTurn(board, state) ? board.blitzMaxMoves : 1;
-    }
-
-    // Check if adding a move to a move set is legal:
-    // - Two pawns cannot target the same tile in a turn.
-    // - A pawn cannot make more than one move in a turn.
-    // Assumes the move sets are already filtered for ally chain movement.
-    public static bool IsMoveAdditionLegal(
-        SimMoveSet moveset,
-        SimMove incoming)
-    {
-        foreach (var move in moveset)
-        {
-            if (move.nextPos == incoming.nextPos || move.lastPos == incoming.lastPos)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Combines two move sets together to make a product.
-    // Example:
-    // extendedMoves = ((D E) (F G))
-    // baseMoves = (A B C)
-    // output = ((D E A) (D E B) (D E C) (F G A) (F G B) (F G C))
-    // Checks for illegal move combinations, assuming all moves are from the same team.
-    public static ImmutableHashSet<SimMoveSet> CombinationMoves(
-        ImmutableHashSet<SimMoveSet> extendedMoves,
-        SimMoveSet baseMoves)
-    {
-        var newSet = ImmutableHashSet.CreateBuilder<SimMoveSet>();
-        foreach (var baseMove in baseMoves)
-        {
-            foreach (var moveset in extendedMoves)
-            {
-                if (IsMoveAdditionLegal(moveset, baseMove))
-                {
-                    newSet.Add(moveset.Add(baseMove));
-                }
-            }
-        }
-        return newSet.ToImmutable();
-    }
-
-    // Every possible singular move that each pawn can make on this team.
-    // If pawn 1 can make moves (A B C)
-    // and pawn 2 can make moves (D E F)
-    // then the result is the union (A B C D E F).
-    public static SimMoveSet GetAllMovesForTeam(
-        SimGameBoard board,
-        SimGameState state,
-        Team team)
-    {
-        var moves = SimMoveSet.Empty.ToBuilder();
-        foreach (var (pos, pawn) in state.pawns)
-        {
-            if (pawn.team == team)
-            {
-                moves.UnionWith(GetAllMovesForPawn(board, state, pos));
-            }
-        }
-        return moves.ToImmutable();
-    }
-
-    // All combinations of all moves for a single team.
-    public static ImmutableHashSet<SimMoveSet> GetAllCombinationMovesForTeam(
-        SimGameBoard board,
-        SimGameState state,
-        Team team)
-    {
-        var baseMoves = GetAllMovesForTeam(board, state, team);
-        var lastSet = MakeSingletonElements(baseMoves);
-        var superset = ImmutableHashSet.CreateBuilder<SimMoveSet>();
-        superset.UnionWith(lastSet);
-        // Repeatedly combine the base moves with each successive level to build up blitz combos.
-        for (uint i = 1; i < MaxMovesThisTurn(board, state); i++)
-        {
-            lastSet = CombinationMoves(lastSet, baseMoves);
-            superset.UnionWith(lastSet);
-        }
-        return superset.ToImmutable();
-    }
-
-    // All combinations of all moves for all teams.
-    public static ImmutableHashSet<SimMoveSet> GetAllMoves(
-        SimGameBoard board,
-        SimGameState state)
-    {
-        var redTeam = GetAllCombinationMovesForTeam(board, state, Team.RED);
-        var blueTeam = GetAllCombinationMovesForTeam(board, state, Team.BLUE);
-        return MakeProductUnion(redTeam, blueTeam);
+        // Adjust to control exploitation vs exploration.
+        public float ubc_constant = 1.4f;
+        // How many sim iterations to go before giving up finding a terminal state and returning
+        // an evaluation heuristic.
+        public uint max_sim_depth;
+        // Amount of substates to expand (because it can get out of control fast).
+        public uint max_moves_per_state;
+        // Amount of time to search for before stopping.
+        public double timeout;
+        public Team ally_team;
     }
 
     // Create an initial simulation game state from the original game state.
-    public static SimGameState MakeSimGameState(GameNetworkState gameNetworkState)
+    public static SimGameState MakeSimGameState(
+        SimGameBoard board,
+        GameNetworkState game_network_state)
     {
         var pawns = ImmutableDictionary.CreateBuilder<Vector2Int, SimPawn>();
         var dead_pawns = ImmutableList.CreateBuilder<SimPawn>();
-        foreach (var pawn in gameNetworkState.gameState.pawns)
+        foreach (var pawn in game_network_state.gameState.pawns)
         {
-            SimPawn simPawn = new()
+            var sim_pawn = new SimPawn()
             {
                 team = pawn.GetTeam(),
-                rank = pawn.rank.HasValue ? pawn.rank.Value : Rank.UNKNOWN,
+                rank = pawn.rank.HasValue ? pawn.rank.Value : Rank.UNKNOWN, // Cheating!
                 pos = pawn.pos,
-                hasMoved = pawn.moved,
-                isRevealed = pawn.zz_revealed,
-                throneProbability = 0.0,
+                has_moved = pawn.moved,
+                is_revealed = pawn.zz_revealed,
+                throne_probability = 0.0,
             };
             if (pawn.alive)
             {
-                pawns[pawn.pos] = simPawn;
+                pawns[pawn.pos] = sim_pawn;
             }
             else
             {
-                dead_pawns.Add(simPawn);
+                dead_pawns.Add(sim_pawn);
             }
         }
-        return new SimGameState()
+        var state = new SimGameState()
         {
-            turn = gameNetworkState.gameState.turn,
+            turn = game_network_state.gameState.turn,
             pawns = pawns.ToImmutable(),
             dead_pawns = dead_pawns.ToImmutable(),
         };
+        state.terminal = IsTerminal(board, state.pawns, state.dead_pawns);
+        return state;
     }
 
     // Create a minimal representation of the board needed from the original board parameters.
-    public static SimGameBoard MakeSimeGameBoard(LobbyParameters lobbyParameters)
+    public static SimGameBoard MakeSimGameBoard(LobbyParameters lobbyParameters)
     {
         var tiles = ImmutableDictionary.CreateBuilder<Vector2Int, TileState>();
         foreach (var tile in lobbyParameters.board.tiles)
@@ -293,12 +114,361 @@ public static class AiPlayer
         }
         return new SimGameBoard()
         {
-            blitzInterval = lobbyParameters.blitz_interval,
-            blitzMaxMoves = lobbyParameters.blitz_max_simultaneous_moves,
-            maxRanks = (uint[])lobbyParameters.max_ranks.Clone(),
-            isHex = lobbyParameters.board.hex,
+            blitz_interval = lobbyParameters.blitz_interval,
+            blitz_max_moves = lobbyParameters.blitz_max_simultaneous_moves,
+            max_ranks = (uint[])lobbyParameters.max_ranks.Clone(),
+            is_hex = lobbyParameters.board.hex,
             size = lobbyParameters.board.size,
             tiles = tiles.ToImmutable(),
         };
+    }
+
+    // Run MCTS and return the most promising move set.
+    public static SimMoveSet MutMCTS(
+        SimGameBoard board,
+        SimGameState root_state)
+    {
+        if (root_state.terminal)
+        {
+            return SimMoveSet.Empty;
+        }
+        var end_time = Time.realtimeSinceStartupAsDouble + board.timeout;
+        while (Time.realtimeSinceStartupAsDouble < end_time)
+        {
+            var state = MutSelectPromisingState(board, root_state);
+            state = MutExpandStateChildren(board, state);
+            var result = RolloutState(board, state);
+            MutBackPropagateState(state, result);
+        }
+        return SelectPromisingChild(root_state, 0f).move;
+    }
+
+    // Find a promising leaf state to explore or expand.
+    public static SimGameState MutSelectPromisingState(
+        SimGameBoard board,
+        SimGameState state)
+    {
+        var current = state;
+        while (!current.terminal && state.unexplored_moves != null)
+        {
+            if (state.unexplored_moves.Count > 0)
+            {
+                return MutGetNextUnexploredState(board, state);
+            }
+            else
+            {
+                current = SelectPromisingChild(state, board.ubc_constant);
+            }
+        }
+        return current;
+    }
+
+    // Argmax of the UBC1 function over all instantiated child states.
+    public static SimGameState SelectPromisingChild(
+        SimGameState state,
+        float ucbConstant)
+    {
+        SimGameState found = null;
+        float best = Mathf.NegativeInfinity;
+        foreach (var (move, child) in state.substates)
+        {
+            var value = UCB1(child, ucbConstant);
+            if (value > best)
+            {
+                best = value;
+                found = child;
+            }
+        }
+        return found;
+    }
+
+    // Expand child states and return a random one, or self if terminal.
+    public static SimGameState MutExpandStateChildren(
+        SimGameBoard board,
+        SimGameState state)
+    {
+        if (!state.terminal && state.unexplored_moves == null)
+        {
+            state.unexplored_moves = CreateRandomMoveQueue(board, state);
+            return MutGetNextUnexploredState(board, state);
+        }
+        else
+        {
+            return state;
+        }
+    }
+
+    // Simulate a game from this state and produce a value representing the final evaluation.
+    public static float RolloutState(
+        SimGameBoard board,
+        SimGameState state)
+    {
+        // TODO
+        return 0;
+    }
+
+    // Updates this state and all parent states to the root with the given value.
+    public static void MutBackPropagateState(
+        SimGameState state,
+        float result)
+    {
+        var current = state;
+        while (state != null)
+        {
+            state.value += result;
+            current = state.parent;
+        }
+    }
+
+    // Create a queue of random moves with no more than the max moves per state allowed.
+    public static Queue<SimMoveSet> CreateRandomMoveQueue(
+        SimGameBoard board,
+        SimGameState state)
+    {
+        var max_moves = MaxMovesThisTurn(board, state.turn);
+        var red_moves = GetAllSingleMovesForTeam(board, state.pawns, Team.RED).ToArray();
+        var blue_moves = GetAllSingleMovesForTeam(board, state.pawns, Team.BLUE).ToArray();
+        var result = new HashSet<SimMoveSet>();
+        for (int i = 0; i < board.max_moves_per_state; i++)
+        {
+            var red_move = MutCreateRandomMove(red_moves, max_moves);
+            var blue_move = MutCreateRandomMove(blue_moves, max_moves);
+            result.Add(red_move.Union(blue_move));
+        }
+        var array_result = result.ToArray();
+        MutShuffle(array_result);
+        return new Queue<SimMoveSet>(array_result);
+    }
+
+    // Updates the given state to create a new child state, and returns it.
+    // Converts the next unexplored move into an actual state.
+    public static SimGameState MutGetNextUnexploredState(
+        SimGameBoard board,
+        SimGameState state)
+    {
+        var move = state.unexplored_moves.Dequeue();
+        var derived_state = GetDerivedStateFromMove(board, state, move);
+        state.substates.Add(move, derived_state);
+        return derived_state;
+    }
+
+    // Create a new derived state from the given state and move.
+    public static SimGameState GetDerivedStateFromMove(
+        SimGameBoard board,
+        SimGameState state,
+        SimMoveSet move)
+    {
+        var next_pawns = state.pawns.ToBuilder();
+        var next_dead_pawns = state.dead_pawns.ToBuilder();
+        MutApplyMove(next_pawns, next_dead_pawns, move);
+        var new_state = new SimGameState
+        {
+            turn = state.turn + 1,
+            pawns = next_pawns.ToImmutable(),
+            dead_pawns = next_dead_pawns.ToImmutable(),
+            parent = state,
+            move = move,
+        };
+        new_state.terminal = IsTerminal(board, state.pawns, state.dead_pawns);
+        return new_state;
+    }
+
+    // Modify the pawns and dead pawns with the given move.
+    // Implements all of the collision rules.
+    public static void MutApplyMove(
+        IDictionary<Vector2Int, SimPawn> pawns,
+        IList<SimPawn> dead_pawns,
+        SimMoveSet move)
+    {
+        // TODO
+    }
+
+    // Check if a state is terminal.
+    public static bool IsTerminal(
+        SimGameBoard board,
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        IReadOnlyList<SimPawn> dead_pawns)
+    {
+        var red_moves = GetAllSingleMovesForTeam(board, pawns, Team.RED);
+        var blue_moves = GetAllSingleMovesForTeam(board, pawns, Team.BLUE);
+        if (red_moves.IsEmpty || blue_moves.IsEmpty)
+        {
+            return true;
+        }
+        foreach (var pawn in dead_pawns)
+        {
+            if (pawn.rank == Rank.THRONE)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Upper Confidence Bound formula for selecting state to expand or traverse.
+    public static float UCB1(SimGameState state, float ubc_constant)
+    {
+        return state.visits == 0 ?
+            Mathf.Infinity :
+            (state.value / state.visits) + ubc_constant * Mathf.Sqrt(Mathf.Log(state.parent.visits) / state.visits);
+    }
+
+    // Get a score of a state's power balance, if it's in favor of one team or the other.
+    // Can be something like the sum of all of this team alive ranks minus that of the other team's.
+    // Can also factor in the distance between opposing pieces to favor aggression or defense.
+    // Infinity can represent a win/lose situation.
+    public static double EvaluateState(
+        SimGameBoard board,
+        SimGameState state)
+    {
+        // TODO
+        return 0.0;
+    }
+
+    // Get random move set up to the max size from the given available moves.
+    // Mutates moves by shuffling it.
+    public static SimMoveSet MutCreateRandomMove(
+        SimMove[] moves,
+        uint max_size)
+    {
+        if (max_size == 1)
+        {
+            return SimMoveSet.Empty.Add(moves[(int)Random.Range(0, moves.Length - 1)]);
+        }
+        MutShuffle(moves);
+        var result = SimMoveSet.Empty.ToBuilder();
+        foreach (var move in moves)
+        {
+            if (result.Count == max_size)
+            {
+                break;
+            }
+            if (IsMoveAdditionLegal(result, move))
+            {
+                result.Add(move);
+            }
+        }
+        return result.ToImmutable();
+    }
+
+    // Shuffle in-place.
+    public static void MutShuffle<T>(T[] data)
+    {
+        for (int i = 0; i < data.Length; i++)
+        {
+            int j = Random.Range(0, i + 1);
+            var temp = data[i];
+            data[i] = data[j];
+            data[j] = temp;
+        }
+    }
+
+    // Every possible singular move that each pawn can make on this team.
+    // If pawn 1 can make moves (A B C)
+    // and pawn 2 can make moves (D E F)
+    // then the result is the union (A B C D E F).
+    public static SimMoveSet GetAllSingleMovesForTeam(
+        SimGameBoard board,
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        Team team)
+    {
+        var moves = SimMoveSet.Empty.ToBuilder();
+        foreach (var (pos, pawn) in pawns)
+        {
+            if (pawn.team == team)
+            {
+                moves.UnionWith(GetAllMovesForPawn(board, pawns, pos));
+            }
+        }
+        return moves.ToImmutable();
+    }
+
+    // Get all moves for a single pawn in isolation.
+    // Assumes the rank is known.
+    public static SimMoveSet GetAllMovesForPawn(
+        SimGameBoard board,
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        Vector2Int pawn_pos)
+    {
+        SimPawn pawn = pawns[pawn_pos];
+        if (pawn.rank == Rank.THRONE || pawn.rank == Rank.TRAP)
+        {
+            return SimMoveSet.Empty;
+        }
+        var output_moves = SimMoveSet.Empty.ToBuilder();
+        int max_steps = Rules.GetMovementRange(pawn.rank);
+        Vector2Int[] initial_directions = Shared.GetDirections(pawn_pos, board.is_hex);
+        for (int direction_index = 0; direction_index < initial_directions.Length; direction_index++)
+        {
+            Vector2Int current_pos = pawn_pos;
+            int walked_tiles = 0;
+            while (walked_tiles < max_steps)
+            {
+                walked_tiles++;
+                current_pos = current_pos + Shared.GetDirections(current_pos, board.is_hex)[direction_index];
+                if (board.tiles.TryGetValue(current_pos, out TileState tile))
+                {
+                    if (!tile.passable)
+                    {
+                        break;
+                    }
+                    if (pawns.TryGetValue(current_pos, out SimPawn other_pawn))
+                    {
+                        // Enemy team occupied, else ally team occupied.
+                        if (pawn.team != other_pawn.team)
+                        {
+                            output_moves.Add(new SimMove()
+                            {
+                                last_pos = pawn_pos,
+                                next_pos = current_pos,
+                            });
+                        }
+                        break;
+                    }
+                    // Unoccupied.
+                    else
+                    {
+                        output_moves.Add(new SimMove()
+                        {
+                            last_pos = pawn_pos,
+                            next_pos = current_pos,
+                        });
+                    }
+                }
+            }
+        }
+        return output_moves.ToImmutable();
+    }
+
+    public static bool IsBlitzTurn(SimGameBoard board, uint turn)
+    {
+        if (board.blitz_interval == 0)
+        {
+            return false;
+        }
+        return turn % board.blitz_interval == 0;
+    }
+
+    public static uint MaxMovesThisTurn(SimGameBoard board, uint turn)
+    {
+        return IsBlitzTurn(board, turn) ? board.blitz_max_moves : 1;
+    }
+
+    // Check if adding a move to a move set is legal:
+    // - Two pawns cannot target the same tile in a turn.
+    // - A pawn cannot make more than one move in a turn.
+    // Assumes the move sets are already filtered for ally chain movement.
+    public static bool IsMoveAdditionLegal(
+        IReadOnlyCollection<SimMove> moveset,
+        SimMove incoming)
+    {
+        foreach (var move in moveset)
+        {
+            if (move.next_pos == incoming.next_pos || move.last_pos == incoming.last_pos)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 }

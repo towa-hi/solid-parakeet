@@ -191,21 +191,26 @@ public class BoardTester : MonoBehaviour
     void RunNextTurn()
     {
         // Run AI operation to get moves (for all players for now).
-        var tstart = Time.realtimeSinceStartup;
-        var board = AiPlayer.MakeSimeGameBoard(gameNetworkState.lobbyParameters);
-        var state = AiPlayer.MakeSimGameState(gameNetworkState);
-        var moves = AiPlayer.GetAllMoves(board, state);
-        var randomIndex = (int)(Random.value * moves.Count);
-        var moveSet = moves.ElementAt(randomIndex);
-        Debug.Log($"AI compute time {Time.realtimeSinceStartup - tstart}");
-        Debug.Log($"Move sets found {moves.Count}");
-        Debug.Log($"Random move set index {randomIndex}");
-        Debug.Log($"Move set size {moveSet.Count}");
-        foreach (var move in moveSet)
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters);
+        var state = AiPlayer.MakeSimGameState(board, gameNetworkState);
+        // var moves = AiPlayer.GetAllMoves(board, state);
+        // var randomIndex = (int)(Random.value * moves.Count);
+        // var moveSet = moves.ElementAt(randomIndex);
+        // Debug.Log($"Move sets found {moves.Count}");
+        // Debug.Log($"Random move set index {randomIndex}");
+        // Debug.Log($"Move set size {moveSet.Count}");
+        // foreach (var move in moveSet)
+        // {
+        //     Debug.Log($"Move from {move.lastPos} to {move.nextPos}");
+        // }
+        // Add battle check in AI.
+        // Do MTCS strategy.
+
+        // After doing battle update pawns.
+        foreach (var pawn in gameNetworkState.gameState.pawns)
         {
-            Debug.Log($"Move from {move.lastPos} to {move.nextPos}");
+            // ...
         }
-        // TODO Apply move to game state.
         // TODO Update game view.
     }
 
