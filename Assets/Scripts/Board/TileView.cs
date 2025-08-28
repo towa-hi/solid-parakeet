@@ -279,18 +279,9 @@ public class TileView : MonoBehaviour
             finalColor = Color.green * 0.5f;
             if (movePairTargetTile && movePairTargetTile != pointedTile) 
             {
-                Debug.Log("firing arc from tiles");
-                Debug.Log(movePairTargetTile);
-                Debug.Log(pointedTile);
                 arrow.gameObject.SetActive(true);
                 arrow.ArcFromTiles(this, movePairTargetTile);
                 pointedTile = movePairTargetTile;
-            }
-            else
-            {
-                Debug.Log("Failed to fire arc from tiles");
-                Debug.Log(movePairTargetTile);
-                Debug.Log(pointedTile);
             }
         }
         else
