@@ -240,32 +240,39 @@ public class BoardTester : MonoBehaviour
         {
             pawns_by_id[pawn.id] = pawn;
         }
+        foreach (var pawn in new_state.dead_pawns)
+        {
+            pawns_by_id[pawn.id] = pawn;
+        }
         gameNetworkState.gameState.turn += 1;
         var game_pawns = gameNetworkState.gameState.pawns;
         for (int i = 0; i < game_pawns.Length; i++)
         {
             var pawn = game_pawns[i];
             var pawn_view = pawnViews[pawn.pawn_id];
-            if (pawns_by_id.TryGetValue(pawn.pawn_id, out var sim_pawn))
+            var sim_pawn = pawns_by_id[pawn.pawn_id];
+            if (pawn.pos != sim_pawn.pos)
             {
-                if (pawn.pos != sim_pawn.pos)
-                {
-                    var init_tile = tileViews[pawn.pos];
-                    var dest_tile = tileViews[sim_pawn.pos];
-                    pawn.pos = sim_pawn.pos;
-                    pawn_view.SetArcToTile(init_tile, dest_tile);
-                }
+                var init_tile = tileViews[pawn.pos];
+                var dest_tile = tileViews[sim_pawn.pos];
+                pawn.pos = sim_pawn.pos;
+                pawn_view.SetArcToTile(init_tile, dest_tile);
             }
-            else
+            if (!sim_pawn.alive)
             {
                 pawn.alive = false;
-                // IDK which one makes the pawn disappear when dead.
-                pawn_view.model.SetActive(false);
+                StartCoroutine(KillPawnHack(pawn_view));
             }
             game_pawns[i] = pawn;
         }
 
         aiWorker = null;
+    }
+
+    IEnumerator KillPawnHack(PawnView pawn_view)
+    {
+        yield return new WaitForSeconds(1);
+        pawn_view.model.SetActive(false);
     }
 
     void AutoSetupAndStartGame()

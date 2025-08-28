@@ -20,6 +20,7 @@ public static class AiPlayer
         public bool has_moved;
         public bool is_revealed;
         public double throne_probability;
+        public bool alive;
     }
 
     // Describes a pawn moving from one tile to another.
@@ -65,7 +66,7 @@ public static class AiPlayer
         // Amount of substates to expand (because it can get out of control fast).
         public uint max_moves_per_state = 100;
         // Amount of time to search for before stopping.
-        public double timeout = 5.0;
+        public double timeout = 1.0;
         public Team ally_team;
         public SimGameState root_state;
     }
@@ -88,6 +89,7 @@ public static class AiPlayer
                 has_moved = pawn.moved,
                 is_revealed = pawn.zz_revealed,
                 throne_probability = 0.0,
+                alive = pawn.alive,
             };
             if (pawn.alive)
             {
@@ -234,10 +236,11 @@ public static class AiPlayer
                 break;
             }
             var max_moves = MaxMovesThisTurn(board, depth + state.turn);
-            var red_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.RED);
-            var blue_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.BLUE);
-            var moves = red_base_moves.Union(blue_base_moves).ToArray();
-            var move = MutCreateRandomMove(moves, max_moves);
+            var red_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.RED).ToArray();
+            var red_move = MutCreateRandomMoveForTeam(red_base_moves, max_moves);
+            var blue_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.BLUE).ToArray();
+            var blue_move = MutCreateRandomMoveForTeam(blue_base_moves, max_moves);
+            var move = red_move.Union(blue_move);
             MutApplyMove(pawns, dead_pawns, move);
         }
         return EvaluateState(board, pawns, dead_pawns);
@@ -267,8 +270,8 @@ public static class AiPlayer
         var result = new HashSet<SimMoveSet>();
         for (int i = 0; i < board.max_moves_per_state; i++)
         {
-            var red_move = MutCreateRandomMove(red_moves, max_moves);
-            var blue_move = MutCreateRandomMove(blue_moves, max_moves);
+            var red_move = MutCreateRandomMoveForTeam(red_moves, max_moves);
+            var blue_move = MutCreateRandomMoveForTeam(blue_moves, max_moves);
             result.Add(red_move.Union(blue_move));
         }
         var array_result = result.ToArray();
@@ -356,13 +359,15 @@ public static class AiPlayer
                 {
                     pawns[target] = winner.Value;
                 }
-                if (loser_a.HasValue)
+                foreach (var pawn in new[] { loser_a, loser_b })
                 {
-                    died.Add(loser_a.Value);
-                }
-                if (loser_b.HasValue)
-                {
-                    died.Add(loser_b.Value);
+                    if (pawn.HasValue)
+                    {
+                        var p = pawn.Value;
+                        p.pos = target;
+                        p.alive = false;
+                        died.Add(p);
+                    }
                 }
             }
         }
@@ -507,8 +512,9 @@ public static class AiPlayer
     }
 
     // Get random move set up to the max size from the given available moves.
+    // This is only for a single team.
     // Mutates moves by shuffling it.
-    public static SimMoveSet MutCreateRandomMove(
+    public static SimMoveSet MutCreateRandomMoveForTeam(
         SimMove[] moves,
         uint max_size)
     {
