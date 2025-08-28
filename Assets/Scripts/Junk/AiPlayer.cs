@@ -60,12 +60,13 @@ public static class AiPlayer
         public float ubc_constant = 1.4f;
         // How many sim iterations to go before giving up finding a terminal state and returning
         // an evaluation heuristic.
-        public uint max_sim_depth = 400;
+        public uint max_sim_depth = 100;
         // Amount of substates to expand (because it can get out of control fast).
         public uint max_moves_per_state = 100;
         // Amount of time to search for before stopping.
         public double timeout = 5.0;
         public Team ally_team;
+        public SimGameState root_state;
     }
 
     // Create an initial simulation game state from the original game state.
@@ -106,54 +107,36 @@ public static class AiPlayer
     }
 
     // Create a minimal representation of the board needed from the original board parameters.
-    public static SimGameBoard MakeSimGameBoard(LobbyParameters lobbyParameters)
+    public static SimGameBoard MakeSimGameBoard(GameNetworkState game_network_state)
     {
+        var lobby_parameters = game_network_state.lobbyParameters;
         var tiles = ImmutableDictionary.CreateBuilder<Vector2Int, TileState>();
-        foreach (var tile in lobbyParameters.board.tiles)
+        foreach (var tile in lobby_parameters.board.tiles)
         {
             tiles[tile.pos] = tile;
         }
         var board = new SimGameBoard()
         {
-            blitz_interval = lobbyParameters.blitz_interval,
-            blitz_max_moves = lobbyParameters.blitz_max_simultaneous_moves,
-            max_ranks = (uint[])lobbyParameters.max_ranks.Clone(),
-            is_hex = lobbyParameters.board.hex,
-            size = lobbyParameters.board.size,
+            blitz_interval = lobby_parameters.blitz_interval,
+            blitz_max_moves = lobby_parameters.blitz_max_simultaneous_moves,
+            max_ranks = (uint[])lobby_parameters.max_ranks.Clone(),
+            is_hex = lobby_parameters.board.hex,
+            size = lobby_parameters.board.size,
             tiles = tiles.ToImmutable(),
         };
         for (Rank i = 0; i < Rank.UNKNOWN; i++)
         {
             board.total_material += (uint)(board.max_ranks[(int)i] * (int)i);
         }
+        board.root_state = MakeSimGameState(board, game_network_state);
         return board;
-    }
-
-    // Run MCTS and return the most promising move set.
-    public static SimMoveSet MutMCTS(
-        SimGameBoard board,
-        SimGameState root_state)
-    {
-        if (root_state.terminal)
-        {
-            return SimMoveSet.Empty;
-        }
-        var end_time = Time.realtimeSinceStartupAsDouble + board.timeout;
-        while (Time.realtimeSinceStartupAsDouble < end_time)
-        {
-            var state = MutSelectPromisingState(board, root_state);
-            state = MutExpandStateChildren(board, state);
-            var result = RolloutState(board, state);
-            MutBackPropagateState(state, result);
-        }
-        return SelectPromisingChild(root_state, 0f).move;
     }
 
     public static void MutMCTSRunForTime(
         SimGameBoard board,
-        SimGameState root_state,
         float seconds)
     {
+        var root_state = board.root_state;
         var end_time = Time.realtimeSinceStartupAsDouble + seconds;
         while (Time.realtimeSinceStartupAsDouble < end_time)
         {
@@ -165,10 +148,19 @@ public static class AiPlayer
     }
 
     public static SimMoveSet MCTSGetResult(
-        SimGameState root_state)
+        SimGameBoard board)
     {
-        var substate = SelectPromisingChild(root_state, 0f);
-        return substate == null ? SimMoveSet.Empty : substate.move;
+        var substate = SelectPromisingChild(board.root_state, 0f);
+        var move_set = substate == null ? SimMoveSet.Empty : substate.move;
+        var filtered_set = SimMoveSet.Empty.ToBuilder();
+        foreach (var move in move_set)
+        {
+            if (board.root_state.pawns[move.last_pos].team == board.ally_team)
+            {
+                filtered_set.Add(move);
+            }
+        }
+        return filtered_set.ToImmutable();
     }
 
     // Find a promising leaf state to explore or expand.
@@ -254,11 +246,11 @@ public static class AiPlayer
         SimGameState state,
         float result)
     {
-        var current = state;
         while (state != null)
         {
             state.value += result;
-            current = state.parent;
+            state.visits += 1;
+            state = state.parent;
         }
     }
 
@@ -448,15 +440,15 @@ public static class AiPlayer
     }
 
     // Get a score of a state's power balance, if it's in favor of one team or the other.
+    // Simple strategy:
+    // Win: 1
+    // Lose/Draw: 0
+    // Else: Normalized material strength difference of players.
     public static float EvaluateState(
         SimGameBoard board,
         IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
         IReadOnlyList<SimPawn> dead_pawns)
     {
-        // Simple strategy:
-        // Win: 1
-        // Lose/Draw: 0
-        // Else: Normalized material strength difference of players.
         var (terminal, winner) = WhoWins(dead_pawns);
         if (terminal)
         {

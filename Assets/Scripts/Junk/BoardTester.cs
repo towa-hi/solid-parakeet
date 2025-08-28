@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Contract;
@@ -190,28 +191,27 @@ public class BoardTester : MonoBehaviour
 
     void RunNextTurn()
     {
-        // Run AI operation to get moves (for all players for now).
-        var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters);
-        var state = AiPlayer.MakeSimGameState(board, gameNetworkState);
-        // var moves = AiPlayer.GetAllMoves(board, state);
-        // var randomIndex = (int)(Random.value * moves.Count);
-        // var moveSet = moves.ElementAt(randomIndex);
-        // Debug.Log($"Move sets found {moves.Count}");
-        // Debug.Log($"Random move set index {randomIndex}");
-        // Debug.Log($"Move set size {moveSet.Count}");
-        // foreach (var move in moveSet)
-        // {
-        //     Debug.Log($"Move from {move.lastPos} to {move.nextPos}");
-        // }
-        // Add battle check in AI.
-        // Do MTCS strategy.
+        StartCoroutine(AiRunnerCoroutine());
+    }
 
-        // After doing battle update pawns.
-        foreach (var pawn in gameNetworkState.gameState.pawns)
+    IEnumerator AiRunnerCoroutine()
+    {
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        board.ally_team = Team.RED;
+        double accumulated_time = 0;
+        while (accumulated_time < board.timeout)
         {
-            // ...
+            var start = Time.realtimeSinceStartupAsDouble;
+            AiPlayer.MutMCTSRunForTime(board, 1f / 60f);
+            accumulated_time += Time.realtimeSinceStartupAsDouble - start;
+            yield return null;
         }
-        // TODO Update game view.
+        var move_set = AiPlayer.MCTSGetResult(board);
+        // Debug move
+        foreach (var move in move_set)
+        {
+            Debug.Log($"move {move.last_pos} {move.next_pos}");
+        }
     }
 
     void AutoSetupAndStartGame()
