@@ -301,6 +301,7 @@ public class BoardTester : MonoBehaviour
             {
                 pawnView.TestSetSprite(rank, pawnState.GetTeam());
                 pawnView.model.SetActive(true);
+                pawnView.badge.gameObject.SetActive(true);
             }
         }
     }

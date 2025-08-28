@@ -62,11 +62,11 @@ public static class AiPlayer
         public float ubc_constant = 1.4f;
         // How many sim iterations to go before giving up finding a terminal state and returning
         // an evaluation heuristic.
-        public uint max_sim_depth = 100;
+        public uint max_sim_depth = 5;
         // Amount of substates to expand (because it can get out of control fast).
-        public uint max_moves_per_state = 100;
+        public uint max_moves_per_state = 400;
         // Amount of time to search for before stopping.
-        public double timeout = 1.0;
+        public double timeout = 5.0;
         public Team ally_team;
         public SimGameState root_state;
     }
@@ -172,8 +172,7 @@ public static class AiPlayer
         SimGameBoard board,
         SimGameState state)
     {
-        var current = state;
-        while (!current.terminal && state.unexplored_moves != null)
+        while (!state.terminal && state.unexplored_moves != null)
         {
             if (state.unexplored_moves.Count > 0)
             {
@@ -181,10 +180,10 @@ public static class AiPlayer
             }
             else
             {
-                current = SelectPromisingChild(state, board.ubc_constant);
+                state = SelectPromisingChild(state, board.ubc_constant);
             }
         }
-        return current;
+        return state;
     }
 
     // Argmax of the UBC1 function over all instantiated child states.
