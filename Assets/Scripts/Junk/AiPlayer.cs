@@ -52,6 +52,7 @@ public static class AiPlayer
         public uint blitz_interval;
         public uint blitz_max_moves;
         public uint[] max_ranks;
+        public uint total_material;
         public bool is_hex;
         public Vector2Int size;
         public ImmutableDictionary<Vector2Int, TileState> tiles;
@@ -59,11 +60,11 @@ public static class AiPlayer
         public float ubc_constant = 1.4f;
         // How many sim iterations to go before giving up finding a terminal state and returning
         // an evaluation heuristic.
-        public uint max_sim_depth;
+        public uint max_sim_depth = 400;
         // Amount of substates to expand (because it can get out of control fast).
-        public uint max_moves_per_state;
+        public uint max_moves_per_state = 100;
         // Amount of time to search for before stopping.
-        public double timeout;
+        public double timeout = 5.0;
         public Team ally_team;
     }
 
@@ -112,7 +113,7 @@ public static class AiPlayer
         {
             tiles[tile.pos] = tile;
         }
-        return new SimGameBoard()
+        var board = new SimGameBoard()
         {
             blitz_interval = lobbyParameters.blitz_interval,
             blitz_max_moves = lobbyParameters.blitz_max_simultaneous_moves,
@@ -121,6 +122,11 @@ public static class AiPlayer
             size = lobbyParameters.board.size,
             tiles = tiles.ToImmutable(),
         };
+        for (Rank i = 0; i < Rank.UNKNOWN; i++)
+        {
+            board.total_material += (uint)(board.max_ranks[(int)i] * (int)i);
+        }
+        return board;
     }
 
     // Run MCTS and return the most promising move set.
@@ -141,6 +147,28 @@ public static class AiPlayer
             MutBackPropagateState(state, result);
         }
         return SelectPromisingChild(root_state, 0f).move;
+    }
+
+    public static void MutMCTSRunForTime(
+        SimGameBoard board,
+        SimGameState root_state,
+        float seconds)
+    {
+        var end_time = Time.realtimeSinceStartupAsDouble + seconds;
+        while (Time.realtimeSinceStartupAsDouble < end_time)
+        {
+            var state = MutSelectPromisingState(board, root_state);
+            state = MutExpandStateChildren(board, state);
+            var result = RolloutState(board, state);
+            MutBackPropagateState(state, result);
+        }
+    }
+
+    public static SimMoveSet MCTSGetResult(
+        SimGameState root_state)
+    {
+        var substate = SelectPromisingChild(root_state, 0f);
+        return substate == null ? SimMoveSet.Empty : substate.move;
     }
 
     // Find a promising leaf state to explore or expand.
@@ -203,8 +231,22 @@ public static class AiPlayer
         SimGameBoard board,
         SimGameState state)
     {
-        // TODO
-        return 0;
+        var pawns = state.pawns.ToBuilder();
+        var dead_pawns = state.dead_pawns.ToBuilder();
+        for (uint depth = 0; depth < board.max_sim_depth; depth++)
+        {
+            if (IsTerminal(board, pawns, dead_pawns))
+            {
+                break;
+            }
+            var max_moves = MaxMovesThisTurn(board, depth + state.turn);
+            var red_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.RED);
+            var blue_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.BLUE);
+            var moves = red_base_moves.Union(blue_base_moves).ToArray();
+            var move = MutCreateRandomMove(moves, max_moves);
+            MutApplyMove(pawns, dead_pawns, move);
+        }
+        return EvaluateState(board, pawns, dead_pawns);
     }
 
     // Updates this state and all parent states to the root with the given value.
@@ -273,14 +315,106 @@ public static class AiPlayer
         return new_state;
     }
 
-    // Modify the pawns and dead pawns with the given move.
-    // Implements all of the collision rules.
+    // Modify the pawns and dead pawns with the given move in place.
+    // Optimized for this MCTS implementation.
     public static void MutApplyMove(
         IDictionary<Vector2Int, SimPawn> pawns,
         IList<SimPawn> dead_pawns,
-        SimMoveSet move)
+        SimMoveSet moveset)
     {
-        // TODO
+        // Strategy: Apply moves, then apply collisions.
+        var target_locations = new Dictionary<Vector2Int, List<SimPawn>>();
+        // Send a pawn to a target location, and also record the target if there is one.
+        // A attacks B and B attacks A will end up in both locations and implicitly resolve later.
+        foreach (var move in moveset)
+        {
+            if (!target_locations.TryGetValue(move.next_pos, out var list))
+            {
+                list = new();
+                target_locations[move.next_pos] = list;
+            }
+            list.Add(pawns[move.last_pos]);
+            if (pawns.TryGetValue(move.next_pos, out var other_pawn))
+            {
+                list.Add(other_pawn);
+            }
+        }
+        // Remove attacking and target pawns.
+        foreach (var move in moveset)
+        {
+            pawns.Remove(move.last_pos);
+            pawns.Remove(move.next_pos);
+        }
+        var died = new HashSet<SimPawn>();
+        // Battle or occupy each new position.
+        foreach (var (target, pawn_list) in target_locations)
+        {
+            if (pawn_list.Count == 1)
+            {
+                pawns[target] = pawn_list[0];
+            }
+            else
+            {
+                var pawn_a = pawn_list[0];
+                var pawn_b = pawn_list[1];
+                var (winner, loser_a, loser_b) = BattlePawns(pawn_a, pawn_b);
+                if (winner.HasValue)
+                {
+                    pawns[target] = winner.Value;
+                }
+                if (loser_a.HasValue)
+                {
+                    died.Add(loser_a.Value);
+                }
+                if (loser_b.HasValue)
+                {
+                    died.Add(loser_b.Value);
+                }
+            }
+        }
+        foreach (var pawn in died)
+        {
+            dead_pawns.Add(pawn);
+        }
+        // Update pawn data like position.
+        foreach (var move in moveset)
+        {
+            if (pawns.TryGetValue(move.next_pos, out var pawn))
+            {
+                pawn.pos = move.next_pos;
+                pawns[move.next_pos] = pawn;
+            }
+        }
+    }
+
+    // Return (winner, loser A, loser B)
+    public static (SimPawn?, SimPawn?, SimPawn?) BattlePawns(SimPawn a, SimPawn b)
+    {
+        if (a.rank == Rank.TRAP && b.rank == Rank.SEER)
+        {
+            return (b, a, null);
+        }
+        if (a.rank == Rank.SEER && b.rank == Rank.TRAP)
+        {
+            return (a, b, null);
+        }
+        if (a.rank == Rank.WARLORD && b.rank == Rank.ASSASSIN)
+        {
+            return (b, a, null);
+        }
+        if (a.rank == Rank.ASSASSIN && b.rank == Rank.WARLORD)
+        {
+            return (a, b, null);
+        }
+        if (a.rank < b.rank)
+        {
+            return (b, a, null);
+        }
+        if (a.rank > b.rank)
+        {
+            return (a, b, null);
+        }
+        return (null, a, b);
     }
 
     // Check if a state is terminal.
@@ -314,15 +448,68 @@ public static class AiPlayer
     }
 
     // Get a score of a state's power balance, if it's in favor of one team or the other.
-    // Can be something like the sum of all of this team alive ranks minus that of the other team's.
-    // Can also factor in the distance between opposing pieces to favor aggression or defense.
-    // Infinity can represent a win/lose situation.
-    public static double EvaluateState(
+    public static float EvaluateState(
         SimGameBoard board,
-        SimGameState state)
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        IReadOnlyList<SimPawn> dead_pawns)
     {
-        // TODO
-        return 0.0;
+        // Simple strategy:
+        // Win: 1
+        // Lose/Draw: 0
+        // Else: Normalized material strength difference of players.
+        var (terminal, winner) = WhoWins(dead_pawns);
+        if (terminal)
+        {
+            return winner == board.ally_team ? 1 : 0;
+        }
+        var (red, blue) = CountMaterial(pawns);
+        float score = (((red - blue) / board.total_material) + 1) / 2;
+        if (board.ally_team == Team.BLUE)
+        {
+            score = 1 - score;
+        }
+        return score;
+    }
+
+    // Returns (terminal, winning team)
+    public static (bool, Team) WhoWins(IReadOnlyList<SimPawn> dead_pawns)
+    {
+        var thrones = new List<Team>();
+        foreach (var pawn in dead_pawns)
+        {
+            if (pawn.rank == Rank.THRONE)
+            {
+                thrones.Add(pawn.team);
+            }
+        }
+        if (thrones.Count == 2)
+        {
+            return (true, Team.NONE);
+        }
+        else if (thrones.Count == 1)
+        {
+            return (true, thrones[0]);
+        }
+        return (false, Team.NONE);
+    }
+
+    // Material of (red, blue)
+    public static (uint, uint) CountMaterial(IReadOnlyDictionary<Vector2Int, SimPawn> pawns)
+    {
+        uint red = 0;
+        uint blue = 0;
+        foreach (var pawn in pawns.Values)
+        {
+            if (pawn.team == Team.RED)
+            {
+                red += (uint)pawn.rank;
+            }
+            else
+            {
+                blue += (uint)pawn.rank;
+            }
+        }
+        return (red, blue);
     }
 
     // Get random move set up to the max size from the given available moves.
