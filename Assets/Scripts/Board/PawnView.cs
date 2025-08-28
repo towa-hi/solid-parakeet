@@ -245,16 +245,16 @@ public class PawnView : MonoBehaviour
                 case MoveHoverChanged(var moveInputTool, var newHoveredPos, var moveCommitPhase):
                     break;
                 case MovePosSelected(var newPos, var targetablePositions, var movePairsSnapshot):
-                {
-                    setIsSelected = newPos.HasValue && posView == newPos.Value;
-                    setIsMovePairStart = movePairsSnapshot.ContainsKey(pawnId);
-                    break;
-                }
+                    {
+                        setIsSelected = newPos.HasValue && posView == newPos.Value;
+                        setIsMovePairStart = movePairsSnapshot.ContainsKey(pawnId);
+                        break;
+                    }
                 case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
-                {
-                    setIsMovePairStart = movePairsSnapshot2.ContainsKey(pawnId);
-                    break;
-                }
+                    {
+                        setIsMovePairStart = movePairsSnapshot2.ContainsKey(pawnId);
+                        break;
+                    }
             }
             // execute intentions that require side effects after decision
         }
@@ -395,7 +395,7 @@ public class PawnView : MonoBehaviour
         // Leave the constraint disabled here; caller will rebind to the destination tile
     }
 
-    public void SetArcToTile([CanBeNull] TileView initialTile, TileView targetTile)
+    void SetArcToTile([CanBeNull] TileView initialTile, TileView targetTile)
     {
         StopAllCoroutines();
         // Ensure we start from the initial tile anchor
@@ -415,5 +415,10 @@ public class PawnView : MonoBehaviour
         // Rebind the constraint to the target tile and re-enable it so the pawn stays put
         SetConstraintToTile(targetTile);
         OnMoveAnimationCompleted?.Invoke(pawnId);
+    }
+
+    public void PublicSetArcToTile([CanBeNull] TileView initialTile, TileView targetTile)
+    {
+        SetArcToTile(initialTile, targetTile);
     }
 }
