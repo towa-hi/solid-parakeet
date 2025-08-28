@@ -373,7 +373,7 @@ public class TileView : MonoBehaviour
     public void OverrideArrow(Transform target)
     {
         arrow.Clear();
-        if (!target)
+        if (target)
         {
             arrow.PointToTarget(origin, target);
         }
