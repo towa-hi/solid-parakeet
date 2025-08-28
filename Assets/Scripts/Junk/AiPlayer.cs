@@ -12,6 +12,7 @@ public static class AiPlayer
     // Minimal information about a pawn.
     public struct SimPawn
     {
+        public PawnId id;
         public Team team;
         public Rank rank;
 
@@ -80,6 +81,7 @@ public static class AiPlayer
         {
             var sim_pawn = new SimPawn()
             {
+                id = pawn.pawn_id,
                 team = pawn.GetTeam(),
                 rank = pawn.rank.HasValue ? pawn.rank.Value : Rank.UNKNOWN, // Cheating!
                 pos = pawn.pos,

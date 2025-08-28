@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Contract;
 using Stellar;
@@ -22,6 +23,8 @@ public class BoardTester : MonoBehaviour
     readonly Dictionary<PawnId, PawnView> pawnViews = new();
 
     public GameNetworkState gameNetworkState;
+
+    public Coroutine aiWorker;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -191,13 +194,16 @@ public class BoardTester : MonoBehaviour
 
     void RunNextTurn()
     {
-        StartCoroutine(AiRunnerCoroutine());
+        if (aiWorker == null)
+        {
+            aiWorker = StartCoroutine(AiRunnerCoroutine());
+        }
     }
 
-    IEnumerator AiRunnerCoroutine()
+    IEnumerable<ImmutableHashSet<AiPlayer.SimMove>> RunAiForTeam(Team team)
     {
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
-        board.ally_team = Team.RED;
+        board.ally_team = team;
         double accumulated_time = 0;
         while (accumulated_time < board.timeout)
         {
@@ -206,12 +212,60 @@ public class BoardTester : MonoBehaviour
             accumulated_time += Time.realtimeSinceStartupAsDouble - start;
             yield return null;
         }
-        var move_set = AiPlayer.MCTSGetResult(board);
-        // Debug move
-        foreach (var move in move_set)
+        yield return AiPlayer.MCTSGetResult(board);
+    }
+
+    IEnumerator AiRunnerCoroutine()
+    {
+        // Run AI for each team.
+        ImmutableHashSet<AiPlayer.SimMove> red_move = null;
+        foreach (var move in RunAiForTeam(Team.RED))
         {
-            Debug.Log($"move {move.last_pos} {move.next_pos}");
+            red_move = move;
+            yield return null;
         }
+        ImmutableHashSet<AiPlayer.SimMove> blue_move = null;
+        foreach (var move in RunAiForTeam(Team.BLUE))
+        {
+            blue_move = move;
+            yield return null;
+        }
+
+        // Hacky thing to update the current game board.
+        var moves = red_move.Union(blue_move);
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        var new_state = AiPlayer.GetDerivedStateFromMove(board, board.root_state, moves);
+        var pawns_by_id = new Dictionary<PawnId, AiPlayer.SimPawn>();
+        foreach (var pawn in new_state.pawns.Values)
+        {
+            pawns_by_id[pawn.id] = pawn;
+        }
+        gameNetworkState.gameState.turn += 1;
+        var game_pawns = gameNetworkState.gameState.pawns;
+        for (int i = 0; i < game_pawns.Length; i++)
+        {
+            var pawn = game_pawns[i];
+            var pawn_view = pawnViews[pawn.pawn_id];
+            if (pawns_by_id.TryGetValue(pawn.pawn_id, out var sim_pawn))
+            {
+                if (pawn.pos != sim_pawn.pos)
+                {
+                    var init_tile = tileViews[pawn.pos];
+                    var dest_tile = tileViews[sim_pawn.pos];
+                    pawn.pos = sim_pawn.pos;
+                    pawn_view.SetArcToTile(init_tile, dest_tile);
+                }
+            }
+            else
+            {
+                pawn.alive = false;
+                // IDK which one makes the pawn disappear when dead.
+                pawn_view.model.SetActive(false);
+            }
+            game_pawns[i] = pawn;
+        }
+
+        aiWorker = null;
     }
 
     void AutoSetupAndStartGame()
@@ -239,6 +293,7 @@ public class BoardTester : MonoBehaviour
             if (pawnState.rank is Rank rank)
             {
                 pawnView.TestSetSprite(rank, pawnState.GetTeam());
+                pawnView.model.SetActive(true);
             }
         }
     }
