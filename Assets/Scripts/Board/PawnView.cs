@@ -59,7 +59,7 @@ public class PawnView : MonoBehaviour
         visibleView = false;
         isSelected = false;
         isMovePairStart = false;
-        SetConstraintToTile(tileView);
+        DisplayPosView(tileView);
         DisplayRankView(Rank.UNKNOWN);
 
     }
@@ -108,27 +108,20 @@ public class PawnView : MonoBehaviour
                     {
                         setAliveView = pawn.alive;
                     }
-                    setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
                     setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     if (cachedNetState.IsMySubphase())
                     {
-                        setVisibleView = setupCommitPhase.pendingCommits.ContainsKey(pawnId);
-                        if (setVisibleView == false)
-                        {
-                            Debug.Log("hiding pawn because not in pending commits");
-                        }
-                        else
-                        {
-                            Debug.Log($"showing pawn because it exists in pending with count {setupCommitPhase.pendingCommits.Keys.Count}");
-                            
-                        }
+                        // if have not submitted yet, set rank to whatever it is in pendingcommits or unknown
+                        setupCommitPhase.pendingCommits.TryGetValue(pawnId, out Rank? maybeRank);
+                        setRankView = maybeRank ?? Rank.UNKNOWN;
                     }
                     else
                     {
-                        // In setup phase, hide unknown/opponent pawns entirely when it's not our subphase
-                        setVisibleView = false;
+                        // since we committed, get it from cache or unknown if its not in cache because its an opponents pawn
+                        setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
                     }
-                    // TODO: fix opponents pawns showing up as unknown after submitting
+                    // hide unknowns
+                    setVisibleView = setRankView != Rank.UNKNOWN;
                     break;
                 case ResolvePhase resolvePhase:
                     // should only be called once
@@ -188,15 +181,13 @@ public class PawnView : MonoBehaviour
                 case SetupHoverChanged:
                     break;
                 case SetupRankCommitted(var oldPendingCommits, var setupCommitPhase):
-                    setVisibleView = setupCommitPhase.pendingCommits.ContainsKey(pawnId);
-                    if (setupCommitPhase.pendingCommits.TryGetValue(pawnId, out Rank? maybeRank))
-                    {
-                        setRankView = maybeRank ?? Rank.UNKNOWN;
-                    }
+                    setupCommitPhase.pendingCommits.TryGetValue(pawnId, out Rank? maybeRank);
+                    setRankView = maybeRank ?? Rank.UNKNOWN;
+                    setVisibleView = setRankView != Rank.UNKNOWN;
                     break;
                 case ResolveCheckpointEntered(var checkpoint, var tr, var resolveBattleIndex, var resolvePhase):
                 {
-                    var pawnDelta = tr.pawnDeltas[pawnId];
+                    SnapshotPawnDelta pawnDelta = tr.pawnDeltas[pawnId];
                     Rank preRank = pawnDelta.preRank;
                     Rank postRank = pawnDelta.postRank;
                     setIsMovePairStart = tr.moves.ContainsKey(pawnId);
@@ -246,7 +237,6 @@ public class PawnView : MonoBehaviour
                             setAliveView = pawnDelta.postAlive;
                             setRankView = postRank;
                             setPosView = (pawnDelta.postPos, resolvePhase.tileViews[pawnDelta.postPos]);
-                            
                             break;
                         }
                     }
@@ -327,11 +317,10 @@ public class PawnView : MonoBehaviour
         SetConstraintToTile(tileView);
         if (tileView)
         {
-            Transform target = tileView.origin;
+            Transform target = tileView.tileModel.tileOrigin;
             transform.position = target.position;
             transform.rotation = target.rotation;
         }
-        parentConstraint.constraintActive = true;
     }
     
     void DisplayRankView(Rank rank)
@@ -354,7 +343,7 @@ public class PawnView : MonoBehaviour
         Transform source = GameManager.instance.purgatory;
         if (tileView)
         {
-            source = tileView.origin;
+            source = tileView.tileModel.tileOrigin;
         }
         parentConstraint.constraintActive = false;
         for (int i = parentConstraint.sourceCount - 1; i >= 0; i--)

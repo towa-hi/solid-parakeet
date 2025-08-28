@@ -974,6 +974,7 @@ public class MoveCommitPhase: PhaseBase
     {
         PawnId keyToRemove = movePairs.FirstOrDefault(kv => kv.Value.Item1 == startPos).Key;
         movePairs.Remove(keyToRemove);
+        Debug.Log("clear movepair");
         return new(movePairs, keyToRemove, this);
     }
 

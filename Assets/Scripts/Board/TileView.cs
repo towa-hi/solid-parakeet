@@ -13,7 +13,7 @@ public class TileView : MonoBehaviour
     public TileModel tileModel;
     public TileModel hexTileModel;
     public TileModel squareTileModel;
-
+    public ProceduralArrow arrow;
     public RenderEffect sphereRenderEffect;
     
     // never changes
@@ -30,11 +30,13 @@ public class TileView : MonoBehaviour
     public bool isMovePairTarget = false;
     public bool isSetupTile = false;
     
-    
     public Color redTeamColor;
     public Color blueTeamColor;
 
     public Color flatColor;
+
+    public TileView pointedTile;
+    
     
     static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
     static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
@@ -104,6 +106,7 @@ public class TileView : MonoBehaviour
         bool? setIsTargetable = null;
         bool? setIsMovePairStart = null;
         bool? setIsMovePairTarget = null;
+        TileView movePairTargetTile = null;
         bool? setIsSetupTile = null;
         bool? setIsTargetableSphere = null;
         MoveInputTool? setMoveInputTool = null;
@@ -119,21 +122,22 @@ public class TileView : MonoBehaviour
             setIsMovePairTarget = false;
             setIsSetupTile = false;
             setIsTargetableSphere = false;
+            movePairTargetTile = null;
             switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase setupCommitPhase:
                     setIsSetupTile = true;
                     break;
                 case ResolvePhase resolvePhase:
-                    setIsHovered = resolvePhase.hoveredPos == posView; // is this needed?
-                    foreach (var move in resolvePhase.tr.moves.Values)
+                    foreach (MoveEvent moveEvent in resolvePhase.tr.moves.Values)
                     {
-                        if (move.from == posView)
+                        if (moveEvent.from == posView)
                         {
+                            Debug.Log($"set setIsMovePairStart to true because found {posView} in tr.moves");
                             setIsMovePairStart = true;
+                            movePairTargetTile = resolvePhase.tileViews[moveEvent.target];
                         }
-                        // TODO: make a new color instead of overriding and add arrow
-                        if (move.target == posView)
+                        if (moveEvent.target == posView)
                         {
                             setIsMovePairTarget = true;
                         }
@@ -147,13 +151,33 @@ public class TileView : MonoBehaviour
                     setIsTargetable = moveCommitPhase.validTargetPositions.Contains(posView);
                     if (moveCommitPhase.cachedNetState.IsMySubphase())
                     {
-                        setIsMovePairStart = moveCommitPhase.movePairs.Any(kv => kv.Value.Item1 == posView);
-                        setIsMovePairTarget = moveCommitPhase.movePairs.Any(kv => kv.Value.Item2 == posView);
+                        foreach ((Vector2Int start, Vector2Int target) in moveCommitPhase.movePairs.Values)
+                        {
+                            if (start == posView)
+                            {
+                                setIsMovePairStart = true;
+                                movePairTargetTile = moveCommitPhase.tileViews[target];
+                            }
+                            if (target == posView)
+                            {
+                                setIsMovePairTarget = true;
+                            }
+                        }
                     }
                     else
                     {
-                        setIsMovePairStart = moveCommitPhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
-                        setIsMovePairTarget = moveCommitPhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
+                        foreach (HiddenMove move in moveCommitPhase.turnHiddenMoves)
+                        {
+                            if (move.start_pos == posView)
+                            {
+                                setIsMovePairStart = true;
+                                movePairTargetTile = moveCommitPhase.tileViews[move.target_pos];
+                            }
+                            if (move.target_pos == posView)
+                            {
+                                setIsMovePairTarget = true;
+                            }
+                        }
                     }
                     break;
                 }
@@ -197,11 +221,24 @@ public class TileView : MonoBehaviour
                     setIsSelected = newPos.HasValue && posView == newPos.Value;
                     setIsTargetable = targetablePositions.Contains(posView);
                     break;
-                case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
+                case MovePairUpdated(var movePairs, var changedPawnId, var moveCommitPhase):
                     setIsSelected = false;
                     setIsTargetable = false;
-                    setIsMovePairStart = movePairsSnapshot2.Any(kv => kv.Value.Item1 == posView);
-                    setIsMovePairTarget = movePairsSnapshot2.Any(kv => kv.Value.Item2 == posView);
+                    setIsMovePairStart = false;
+                    setIsMovePairTarget = false;
+                    movePairTargetTile = null;
+                    foreach ((Vector2Int start, Vector2Int target) in movePairs.Values)
+                    {
+                        if (start == posView)
+                        {
+                            setIsMovePairStart = true;
+                            movePairTargetTile = moveCommitPhase.tileViews[target];
+                        }
+                        if (target == posView)
+                        {
+                            setIsMovePairTarget = true;
+                        }
+                    }
                     break;
             }
         }
@@ -240,6 +277,26 @@ public class TileView : MonoBehaviour
         if (isMovePairStart)
         {
             finalColor = Color.green * 0.5f;
+            if (movePairTargetTile && movePairTargetTile != pointedTile) 
+            {
+                Debug.Log("firing arc from tiles");
+                Debug.Log(movePairTargetTile);
+                Debug.Log(pointedTile);
+                arrow.gameObject.SetActive(true);
+                arrow.ArcFromTiles(this, movePairTargetTile);
+                pointedTile = movePairTargetTile;
+            }
+            else
+            {
+                Debug.Log("Failed to fire arc from tiles");
+                Debug.Log(movePairTargetTile);
+                Debug.Log(pointedTile);
+            }
+        }
+        else
+        {
+            arrow.gameObject.SetActive(false);
+            pointedTile = null;
         }
         if (isMovePairTarget)
         {
