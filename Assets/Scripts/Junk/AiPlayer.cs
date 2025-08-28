@@ -1,12 +1,14 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using Contract;
 using UnityEngine;
 
+// A single set of pawn moves that represents one instance of one turn of play.
+using SimMoveSet = System.Collections.Immutable.ImmutableHashSet<AiPlayer.SimMove>;
+
 public static class AiPlayer
 {
     // Minimal information about a pawn.
-    struct SimPawn
+    public struct SimPawn
     {
         public Team team;
         public Rank rank;
@@ -18,14 +20,14 @@ public static class AiPlayer
     }
 
     // Describes a pawn moving from one tile to another.
-    struct SimMove
+    public struct SimMove
     {
         public Vector2Int lastPos;
         public Vector2Int nextPos;
     };
 
     // Describes the pawns and their positions before any moves are made.
-    struct SimGameState
+    public struct SimGameState
     {
         public uint turn;
         public ImmutableDictionary<Vector2Int, SimPawn> pawns;
@@ -33,7 +35,7 @@ public static class AiPlayer
     }
 
     // Describes the extents and shape of the board, and blitz rules.
-    struct SimGameBoard
+    public struct SimGameBoard
     {
         public uint blitzInterval;
         public uint blitzMaxMoves;
@@ -43,18 +45,52 @@ public static class AiPlayer
         public ImmutableDictionary<Vector2Int, TileState> tiles;
     }
 
+    // Wrap elements in singleton sets.
+    // (A B C) -> ((A) (B) (C))
+    public static ImmutableHashSet<ImmutableHashSet<T>> MakeSingletonElements<T>(ImmutableHashSet<T> set)
+    {
+        var superset = ImmutableHashSet.CreateBuilder<ImmutableHashSet<T>>();
+        foreach (var item in set)
+        {
+            superset.Add(ImmutableHashSet<T>.Empty.Add(item));
+        }
+        return superset.ToImmutable();
+    }
+
+    // Makes the product union of two sets of sets. Sort of like the cartesian product of sets.
+    // setA = ((A) (B) (C))
+    // setB = ((D) (E) (F))
+    // result =
+    //  ((A D) (A E) (A F)
+    //   (B D) (B E) (B F)
+    //   (C D) (C E) (C F))
+    public static ImmutableHashSet<ImmutableHashSet<T>> MakeProductUnion<T>(
+        ImmutableHashSet<ImmutableHashSet<T>> setA,
+        ImmutableHashSet<ImmutableHashSet<T>> setB)
+    {
+        var superset = ImmutableHashSet.CreateBuilder<ImmutableHashSet<T>>();
+        foreach (var subsetA in setA)
+        {
+            foreach (var subsetB in setB)
+            {
+                superset.Add(subsetA.Union(subsetB));
+            }
+        }
+        return superset.ToImmutable();
+    }
+
     // Get a score of a board's power balance, if it's in favor of one team or the other.
     // Can be something like the sum of all of this team alive ranks minus that of the other team's.
     // Can also factor in the distance between opposing pieces to favor aggression or defense.
     // Infinity can represent a win/lose situation.
-    static double EvaluateBoard()
+    public static double EvaluateBoard()
     {
         return 0.0;
     }
 
     // Get all moves for a single pawn in isolation.
     // Assumes the rank is known.
-    static ImmutableHashSet<SimMove> GetAllMovesForPawn(
+    public static SimMoveSet GetAllMovesForPawn(
         SimGameBoard board,
         SimGameState state,
         Vector2Int pawnPos)
@@ -62,9 +98,9 @@ public static class AiPlayer
         SimPawn pawn = state.pawns[pawnPos];
         if (pawn.rank == Rank.THRONE || pawn.rank == Rank.TRAP)
         {
-            return ImmutableHashSet<SimMove>.Empty;
+            return SimMoveSet.Empty;
         }
-        var outputMoves = ImmutableHashSet<SimMove>.Empty.ToBuilder();
+        var outputMoves = SimMoveSet.Empty.ToBuilder();
         int maxSteps = Rules.GetMovementRange(pawn.rank);
         Vector2Int[] initialDirections = Shared.GetDirections(pawnPos, board.isHex);
         for (int directionIndex = 0; directionIndex < initialDirections.Length; directionIndex++)
@@ -109,7 +145,7 @@ public static class AiPlayer
         return outputMoves.ToImmutable();
     }
 
-    static bool IsBlitzTurn(SimGameBoard board, SimGameState state)
+    public static bool IsBlitzTurn(SimGameBoard board, SimGameState state)
     {
         if (board.blitzInterval == 0)
         {
@@ -118,7 +154,7 @@ public static class AiPlayer
         return state.turn % board.blitzInterval == 0;
     }
 
-    static uint MaxMovesThisTurn(SimGameBoard board, SimGameState state)
+    public static uint MaxMovesThisTurn(SimGameBoard board, SimGameState state)
     {
         return IsBlitzTurn(board, state) ? board.blitzMaxMoves : 1;
     }
@@ -127,8 +163,8 @@ public static class AiPlayer
     // - Two pawns cannot target the same tile in a turn.
     // - A pawn cannot make more than one move in a turn.
     // Assumes the move sets are already filtered for ally chain movement.
-    static bool IsMoveAdditionLegal(
-        ImmutableHashSet<SimMove> moveset,
+    public static bool IsMoveAdditionLegal(
+        SimMoveSet moveset,
         SimMove incoming)
     {
         foreach (var move in moveset)
@@ -143,15 +179,15 @@ public static class AiPlayer
 
     // Combines two move sets together to make a product.
     // Example:
-    // baseMoves = (A B C)
     // extendedMoves = ((D E) (F G))
+    // baseMoves = (A B C)
     // output = ((D E A) (D E B) (D E C) (F G A) (F G B) (F G C))
     // Checks for illegal move combinations, assuming all moves are from the same team.
-    static ImmutableHashSet<ImmutableHashSet<SimMove>> CombinationMoves(
-        ImmutableHashSet<SimMove> baseMoves,
-        ImmutableHashSet<ImmutableHashSet<SimMove>> extendedMoves)
+    public static ImmutableHashSet<SimMoveSet> CombinationMoves(
+        ImmutableHashSet<SimMoveSet> extendedMoves,
+        SimMoveSet baseMoves)
     {
-        var newSet = ImmutableHashSet.CreateBuilder<ImmutableHashSet<SimMove>>();
+        var newSet = ImmutableHashSet.CreateBuilder<SimMoveSet>();
         foreach (var baseMove in baseMoves)
         {
             foreach (var moveset in extendedMoves)
@@ -165,13 +201,16 @@ public static class AiPlayer
         return newSet.ToImmutable();
     }
 
-    // All combinations of all moves for a single team.
-    static ImmutableHashSet<ImmutableHashSet<SimMove>> GetAllMovesForTeam(
+    // Every possible singular move that each pawn can make on this team.
+    // If pawn 1 can make moves (A B C)
+    // and pawn 2 can make moves (D E F)
+    // then the result is the union (A B C D E F).
+    public static SimMoveSet GetAllMovesForTeam(
         SimGameBoard board,
         SimGameState state,
         Team team)
     {
-        var moves = ImmutableHashSet.CreateBuilder<SimMove>();
+        var moves = SimMoveSet.Empty.ToBuilder();
         foreach (var (pos, pawn) in state.pawns)
         {
             if (pawn.team == team)
@@ -179,39 +218,40 @@ public static class AiPlayer
                 moves.UnionWith(GetAllMovesForPawn(board, state, pos));
             }
         }
-        var baseMoves = moves.ToImmutable();
-        var lastSet = ImmutableHashSet<ImmutableHashSet<SimMove>>.Empty.Add(baseMoves);
-        var superset = ImmutableHashSet.CreateBuilder<ImmutableHashSet<SimMove>>();
+        return moves.ToImmutable();
+    }
+
+    // All combinations of all moves for a single team.
+    public static ImmutableHashSet<SimMoveSet> GetAllCombinationMovesForTeam(
+        SimGameBoard board,
+        SimGameState state,
+        Team team)
+    {
+        var baseMoves = GetAllMovesForTeam(board, state, team);
+        var lastSet = MakeSingletonElements(baseMoves);
+        var superset = ImmutableHashSet.CreateBuilder<SimMoveSet>();
         superset.UnionWith(lastSet);
         // Repeatedly combine the base moves with each successive level to build up blitz combos.
         for (uint i = 1; i < MaxMovesThisTurn(board, state); i++)
         {
-            lastSet = CombinationMoves(baseMoves, lastSet);
+            lastSet = CombinationMoves(lastSet, baseMoves);
             superset.UnionWith(lastSet);
         }
         return superset.ToImmutable();
     }
 
     // All combinations of all moves for all teams.
-    static ImmutableHashSet<ImmutableHashSet<SimMove>> GetAllMoves(
+    public static ImmutableHashSet<SimMoveSet> GetAllMoves(
         SimGameBoard board,
         SimGameState state)
     {
-        var redTeam = GetAllMovesForTeam(board, state, Team.RED);
-        var blueTeam = GetAllMovesForTeam(board, state, Team.BLUE);
-        var superset = ImmutableHashSet.CreateBuilder<ImmutableHashSet<SimMove>>();
-        foreach (var redSet in redTeam)
-        {
-            foreach (var blueSet in blueTeam)
-            {
-                superset.Add(redSet.Union(blueSet));
-            }
-        }
-        return superset.ToImmutable();
+        var redTeam = GetAllCombinationMovesForTeam(board, state, Team.RED);
+        var blueTeam = GetAllCombinationMovesForTeam(board, state, Team.BLUE);
+        return MakeProductUnion(redTeam, blueTeam);
     }
 
     // Create an initial simulation game state from the original game state.
-    static SimGameState MakeSimGameState(GameNetworkState gameNetworkState)
+    public static SimGameState MakeSimGameState(GameNetworkState gameNetworkState)
     {
         var pawns = ImmutableDictionary.CreateBuilder<Vector2Int, SimPawn>();
         var dead_pawns = ImmutableList.CreateBuilder<SimPawn>();
@@ -240,11 +280,11 @@ public static class AiPlayer
             turn = gameNetworkState.gameState.turn,
             pawns = pawns.ToImmutable(),
             dead_pawns = dead_pawns.ToImmutable(),
-        }; ;
+        };
     }
 
     // Create a minimal representation of the board needed from the original board parameters.
-    static SimGameBoard MakeSimeGameBoard(LobbyParameters lobbyParameters)
+    public static SimGameBoard MakeSimeGameBoard(LobbyParameters lobbyParameters)
     {
         var tiles = ImmutableDictionary.CreateBuilder<Vector2Int, TileState>();
         foreach (var tile in lobbyParameters.board.tiles)
