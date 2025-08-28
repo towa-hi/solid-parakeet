@@ -1,9 +1,9 @@
 using System.Collections.Generic;
+using System.Linq;
 using Contract;
 using Stellar;
 using Stellar.Utilities;
 using UnityEngine;
-
 public class BoardTester : MonoBehaviour
 {
     public BoardTesterGui gui;
@@ -11,26 +11,24 @@ public class BoardTester : MonoBehaviour
     public uint defaultBlitzInterval;
     public uint defaultBlitzMaxSimultaneousMoves;
     public GameObject tilePrefab;
-    
+
     public GameObject pawnPrefab;
 
     public BoardGrid grid;
 
-    
+
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     readonly Dictionary<PawnId, PawnView> pawnViews = new();
 
     public GameNetworkState gameNetworkState;
-    
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         // hook up gui
         gui.OnButton1 += AutoSetupAndStartGame;
-        
-        
-        
-        
+        gui.OnButton2 += RunNextTurn;
+
         string boardName = defaultBoardDef.boardName;
         uint[] maxRanks = new uint[13]; // Array size for all possible ranks (0-12)
         foreach (SMaxPawnsPerRank maxPawn in defaultBoardDef.maxPawns)
@@ -66,7 +64,7 @@ public class BoardTester : MonoBehaviour
             blitz_interval = defaultBlitzInterval,
             blitz_max_simultaneous_moves = defaultBlitzMaxSimultaneousMoves,
             board = board,
-            board_hash =hash,
+            board_hash = hash,
             dev_mode = true,
             host_team = Team.RED,
             max_ranks = maxRanks,
@@ -74,7 +72,7 @@ public class BoardTester : MonoBehaviour
             security_mode = false,
             liveUntilLedgerSeq = 0,
         };
-        
+
         DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
         MuxedAccount.KeyTypeEd25519 guestAccount = MuxedAccount.FromSecretSeed(defaultSettings.defaultGuestSneed);
         string guestPublicAddress = StrKey.EncodeStellarAccountId(guestAccount.PublicKey);
@@ -162,7 +160,7 @@ public class BoardTester : MonoBehaviour
             gameState = gameState,
         };
         gameNetworkState = new GameNetworkState(fakeNetworkState);
-        
+
         // draw the board
         grid.SetBoard(board.hex);
         foreach (TileState tile in gameNetworkState.lobbyParameters.board.tiles)
@@ -187,46 +185,56 @@ public class BoardTester : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+
     }
 
-    void ButtonExampleFunction()
+    void RunNextTurn()
     {
-        Debug.Log("wewlad");
+        // Run AI operation to get moves (for all players for now).
+        var tstart = Time.realtimeSinceStartup;
+        var board = AiPlayer.MakeSimeGameBoard(gameNetworkState.lobbyParameters);
+        var state = AiPlayer.MakeSimGameState(gameNetworkState);
+        var moves = AiPlayer.GetAllMoves(board, state);
+        var randomIndex = (int)(Random.value * moves.Count);
+        var moveSet = moves.ElementAt(randomIndex);
+        Debug.Log($"AI compute time {Time.realtimeSinceStartup - tstart}");
+        Debug.Log($"Move sets found {moves.Count}");
+        Debug.Log($"Random move set index {randomIndex}");
+        Debug.Log($"Move set size {moveSet.Count}");
+        foreach (var move in moveSet)
+        {
+            Debug.Log($"Move from {move.lastPos} to {move.nextPos}");
+        }
+        // TODO Apply move to game state.
+        // TODO Update game view.
     }
 
     void AutoSetupAndStartGame()
     {
         Dictionary<PawnId, (int, PawnState)> pawnsMap = CreatePawnsMap(gameNetworkState.gameState.pawns);
         Dictionary<Vector2Int, Rank> autoSetupRed = gameNetworkState.AutoSetup(Team.RED);
-        foreach ((Vector2Int pos, Rank rank) in autoSetupRed)
-        {
-            PawnId pawnId = gameNetworkState.GetAlivePawnFromPosUnchecked(pos).pawn_id;
-            (int index, PawnState pawn) = pawnsMap[pawnId];
-            pawn.rank = rank;
-            gameNetworkState.gameState.pawns[index] = pawn;
-        }
         Dictionary<Vector2Int, Rank> autoSetupBlue = gameNetworkState.AutoSetup(Team.BLUE);
-        foreach ((Vector2Int pos, Rank rank) in autoSetupBlue)
+        foreach (var autoSetup in new[] { autoSetupRed, autoSetupBlue })
         {
-            PawnId pawnId = gameNetworkState.GetAlivePawnFromPosUnchecked(pos).pawn_id;
-            (int index, PawnState pawn) = pawnsMap[pawnId];
-            pawn.rank = rank;
-            gameNetworkState.gameState.pawns[index] = pawn;
+            foreach ((Vector2Int pos, Rank rank) in autoSetup)
+            {
+                PawnId pawnId = gameNetworkState.GetAlivePawnFromPosUnchecked(pos).pawn_id;
+                (int index, PawnState pawn) = pawnsMap[pawnId];
+                pawn.rank = rank;
+                gameNetworkState.gameState.pawns[index] = pawn;
+            }
         }
         gameNetworkState.lobbyInfo.phase = Phase.MoveCommit;
         gameNetworkState.gameState.turn = 1;
         gameNetworkState.lobbyInfo.subphase = Subphase.Both;
-        
+
         foreach (PawnView pawnView in pawnViews.Values)
         {
-            Debug.Log(pawnView.pawnId);
             PawnState pawnState = gameNetworkState.GetPawnFromId(pawnView.pawnId);
             if (pawnState.rank is Rank rank)
             {
                 pawnView.TestSetSprite(rank, pawnState.GetTeam());
             }
-            
         }
     }
 
