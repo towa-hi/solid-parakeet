@@ -136,7 +136,7 @@ public class BoardManager : MonoBehaviour
                 Phase.MoveCommit => (delta.TurnResolve.HasValue) ? new ResolvePhase(delta.TurnResolve.Value) : new MoveCommitPhase(),
                 Phase.MoveProve => new MoveProvePhase(),
                 Phase.RankProve => new RankProvePhase(),
-                Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),
+                Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),// TODO finished phase
                 _ => throw new ArgumentOutOfRangeException(),
             };
             // set phase

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine;
@@ -52,11 +53,11 @@ public class ProceduralArrow : MonoBehaviour
         }
     }
 
-    public void PointFromTiles(TileView fromTile, TileView toTile)
+    public void PointToTarget(Transform start, Transform target)
     {
-        if (fromTile == null || toTile == null || fromTile.origin == null || toTile.origin == null)
+        if (!start || !target)
         {
-            return;
+            throw new ArgumentNullException();
         }
         // Unanimated arc (straight path with zero arc height), reuse curved mesh builder
         Clear();
@@ -66,8 +67,8 @@ public class ProceduralArrow : MonoBehaviour
             mesh.MarkDynamic();
             meshFilter.mesh = mesh;
         }
-        Vector3 startWorld = fromTile.origin.position;
-        Vector3 endWorld = toTile.origin.position;
+        Vector3 startWorld = start.position;
+        Vector3 endWorld = target.position;
         float baseY = startWorld.y;
         BuildCurvedArrowMesh(startWorld, endWorld, 1f, 0f, baseY);
     }
@@ -169,7 +170,7 @@ public class ProceduralArrow : MonoBehaviour
             else if (i == centersList.Count - 1) tangent = (centersList[i] - centersList[i - 1]).normalized;
             else tangent = (centersList[i + 1] - centersList[i - 1]).normalized;
 
-            Vector3 right = Vector3.Cross(Vector3.up, tangent).normalized;
+            Vector3 right = Vector3.Cross(tangent, Vector3.up).normalized;
             if (right.sqrMagnitude < 1e-6f)
             {
                 right = Vector3.right; // fallback

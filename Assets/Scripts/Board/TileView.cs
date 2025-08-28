@@ -369,6 +369,13 @@ public class TileView : MonoBehaviour
         c.a = alpha;
         mat.SetColor(BaseColorProperty, c);
     }
-    
-    
+
+    public void OverrideArrow(Transform target)
+    {
+        arrow.Clear();
+        if (!target)
+        {
+            arrow.PointToTarget(origin, target);
+        }
+    }
 }

@@ -74,6 +74,37 @@ public class GuiLobbyViewer : MenuElement
                 statusText.text = "this client does not have the required cached data to play this lobby";
                 lobbyStartable = false;
             }
+            if (lobbyInfo.phase == Phase.Aborted)
+            {
+                string winner = lobbyInfo.subphase switch
+                {
+                    Subphase.Guest when lobbyParameters.host_team == Team.RED => "guest (blue)",
+                    Subphase.Guest => "guest (red)",
+                    Subphase.Host when lobbyParameters.host_team == Team.RED => "host (red)",
+                    Subphase.Host => "host (blue)",
+                    Subphase.None => "tie",
+                    _ => "inconclusive",
+                };
+                problems.Add($"lobby is aborted. winner : {winner}");
+                lobbyStartable = false;
+            }
+
+            if (lobbyInfo.phase == Phase.Finished)
+            {
+
+                string winner = lobbyInfo.subphase switch
+                {
+                    Subphase.Guest when lobbyParameters.host_team == Team.RED => "guest (blue)",
+                    Subphase.Guest => "guest (red)",
+                    Subphase.Host when lobbyParameters.host_team == Team.RED => "host (red)",
+                    Subphase.Host => "host (blue)",
+                    Subphase.None => "tie",
+                    _ => "inconclusive",
+                };
+
+                problems.Add($"lobby has ended. winner: {winner}");
+                lobbyStartable = false;
+            }
         }
         else
         {

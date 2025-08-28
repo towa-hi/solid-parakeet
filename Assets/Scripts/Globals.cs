@@ -2018,6 +2018,11 @@ public struct GameNetworkState
                 walkedTiles++;
             }
         }
+        // for scout moves in particular we remove any movablePositions where an allied pawn will move to prevent overlap
+        foreach (Vector2Int plannedTargetPos in plannedTargetPositions)
+        {
+            movablePositions.Remove(plannedTargetPos);
+        }
         return movablePositions;
     }
 

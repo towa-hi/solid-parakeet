@@ -54,10 +54,10 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
-  m_RenderingLayerMask: 1
+  m_RenderingLayerMask: 257
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: b1a9476c7cd37264dad879d2428a207d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -308,6 +308,7 @@ MonoBehaviour:
   redTeamColor: {r: 1, g: 0, b: 0, a: 1}
   blueTeamColor: {r: 0.013096625, g: 0, b: 0.5566038, a: 1}
   flatColor: {r: 0, g: 0, b: 0, a: 0}
+  pointedTile: {fileID: 0}
   startTweenSettings:
     startFromCurrent: 0
     startValue: {x: 0, y: -4, z: 0}
