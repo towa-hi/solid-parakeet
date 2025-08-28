@@ -256,7 +256,7 @@ public class BoardTester : MonoBehaviour
                 var init_tile = tileViews[pawn.pos];
                 var dest_tile = tileViews[sim_pawn.pos];
                 pawn.pos = sim_pawn.pos;
-                pawn_view.SetArcToTile(init_tile, dest_tile);
+                pawn_view.PublicSetArcToTile(init_tile, dest_tile);
             }
             if (!sim_pawn.alive)
             {
