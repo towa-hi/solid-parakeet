@@ -3,6 +3,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using Contract;
 using UnityEngine;
+using UnityEngine.Assertions;
+
 
 // A single set of pawn moves that represents one instance of one turn of play.
 using SimMoveSet = System.Collections.Immutable.ImmutableHashSet<AiPlayer.SimMove>;
@@ -307,6 +309,7 @@ public static class AiPlayer
             parent = state,
             move = move,
         };
+        new_state.value = EvaluateState(board, state.pawns, state.dead_pawns);
         new_state.terminal = IsTerminal(board, state.pawns, state.dead_pawns);
         return new_state;
     }
@@ -318,45 +321,73 @@ public static class AiPlayer
         IList<SimPawn> dead_pawns,
         SimMoveSet moveset)
     {
-        // Strategy: Apply moves, then apply collisions.
-        var target_locations = new Dictionary<Vector2Int, List<SimPawn>>();
-        // Send a pawn to a target location, and also record the target if there is one.
-        // A attacks B and B attacks A will end up in both locations and implicitly resolve later.
+        // Collect all pawns moving now.
+        var moving_pawns = new Dictionary<Vector2Int, SimPawn>();
         foreach (var move in moveset)
         {
-            if (!target_locations.TryGetValue(move.next_pos, out var list))
-            {
-                list = new();
-                target_locations[move.next_pos] = list;
-            }
-            list.Add(pawns[move.last_pos]);
-            if (pawns.TryGetValue(move.next_pos, out var other_pawn))
-            {
-                list.Add(other_pawn);
-            }
+            moving_pawns[move.last_pos] = pawns[move.last_pos];
         }
-        // Remove attacking and target pawns.
+        // Collect pawns into target location sets.
+        var target_locations = new Dictionary<Vector2Int, HashSet<SimPawn>>();
+        foreach (var move in moveset)
+        {
+            if (!target_locations.TryGetValue(move.next_pos, out var set))
+            {
+                set = new();
+                target_locations[move.next_pos] = set;
+            }
+            set.Add(pawns[move.last_pos]);
+        }
+        // Remove moving pawns from board.
         foreach (var move in moveset)
         {
             pawns.Remove(move.last_pos);
+        }
+        // Put unmoving pawns (defenders) in the target location set.
+        foreach (var move in moveset)
+        {
+            if (pawns.TryGetValue(move.next_pos, out var pawn))
+            {
+                target_locations[move.next_pos].Add(pawn);
+            }
+        }
+        // Remove unmoving targets from the board.
+        foreach (var move in moveset)
+        {
             pawns.Remove(move.next_pos);
         }
-        var died = new HashSet<SimPawn>();
-        // Battle or occupy each new position.
-        foreach (var (target, pawn_list) in target_locations)
+        // Put moving pawns at a target location that constitutes a swap.
+        foreach (var move in moveset)
         {
-            if (pawn_list.Count == 1)
+            foreach (var othermove in moveset)
             {
-                pawns[target] = pawn_list[0];
+                if (move.last_pos == othermove.next_pos && move.next_pos == othermove.last_pos)
+                {
+                    target_locations[move.last_pos].Add(moving_pawns[move.last_pos]);
+                }
             }
-            else
+        }
+        var died = new Dictionary<PawnId, SimPawn>();
+        // Battle or occupy each new position.
+        foreach (var (target, pawn_set) in target_locations)
+        {
+            var pawn_list = pawn_set.ToArray();
+            if (pawn_list.Length == 1)
+            {
+                var p = pawn_list[0];
+                p.pos = target;
+                pawns[target] = p;
+            }
+            else if (pawn_list.Length == 2)
             {
                 var pawn_a = pawn_list[0];
                 var pawn_b = pawn_list[1];
                 var (winner, loser_a, loser_b) = BattlePawns(pawn_a, pawn_b);
                 if (winner.HasValue)
                 {
-                    pawns[target] = winner.Value;
+                    var p = winner.Value;
+                    p.pos = target;
+                    pawns[target] = p;
                 }
                 foreach (var pawn in new[] { loser_a, loser_b })
                 {
@@ -365,23 +396,27 @@ public static class AiPlayer
                         var p = pawn.Value;
                         p.pos = target;
                         p.alive = false;
-                        died.Add(p);
+                        died[p.id] = p;
                     }
                 }
             }
+            else
+            {
+                Debug.LogWarning($"list {pawn_list.Length}");
+                foreach (var pawn in pawn_list)
+                {
+                    Debug.LogWarning($"pawn {pawn.pos}");
+                }
+                foreach (var move in moveset)
+                {
+                    Debug.LogWarning($"move {move.last_pos} {move.next_pos}");
+                }
+                Assert.IsFalse(true, "Expected size 1 or 2 list.");
+            }
         }
-        foreach (var pawn in died)
+        foreach (var pawn in died.Values)
         {
             dead_pawns.Add(pawn);
-        }
-        // Update pawn data like position.
-        foreach (var move in moveset)
-        {
-            if (pawns.TryGetValue(move.next_pos, out var pawn))
-            {
-                pawn.pos = move.next_pos;
-                pawns[move.next_pos] = pawn;
-            }
         }
     }
 
