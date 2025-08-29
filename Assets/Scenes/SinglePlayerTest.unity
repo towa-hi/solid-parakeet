@@ -2829,7 +2829,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gui: {fileID: 323465879}
   defaultBoardDef: {fileID: 11400000, guid: 6780820eece2788468349dd026a53628, type: 2}
-  defaultBlitzInterval: 0
+  defaultBlitzInterval: 3
   defaultBlitzMaxSimultaneousMoves: 3
   tilePrefab: {fileID: 8479329327937393150, guid: 78d00e7c8d847a14fbec45dab43e1bde, type: 3}
   pawnPrefab: {fileID: 6569549633362740824, guid: 601190ac36873374f89fa423ef86fe51, type: 3}

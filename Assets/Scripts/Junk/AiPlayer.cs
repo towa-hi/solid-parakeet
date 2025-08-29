@@ -178,6 +178,38 @@ public static class AiPlayer
         return arr_scores;
     }
 
+    // Greedy join moves together
+    public static List<SimMoveSet> CombineMoves(
+        KeyValuePair<SimMoveSet, float>[] moves,
+        uint max_submoves,
+        uint max_moves)
+    {
+        var combined = new List<SimMoveSet>();
+        var current_subset = SimMoveSet.Empty;
+        foreach (var move_a in moves)
+        {
+            current_subset = current_subset.Add(move_a.Key.First());
+            foreach (var move_b in moves)
+            {
+                var move = move_b.Key.First();
+                if (IsMoveAdditionLegal(current_subset, move))
+                {
+                    current_subset = current_subset.Add(move);
+                }
+                if (current_subset.Count == max_submoves)
+                {
+                    combined.Add(current_subset);
+                    if (combined.Count == max_moves)
+                    {
+                        return combined;
+                    }
+                    current_subset = SimMoveSet.Empty;
+                }
+            }
+        }
+        return combined;
+    }
+
     public static Vector2Int GetThronePos(
         IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
         Team team)

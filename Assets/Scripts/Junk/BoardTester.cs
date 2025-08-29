@@ -215,6 +215,23 @@ public class BoardTester : MonoBehaviour
         yield return AiPlayer.MCTSGetResult(board);
     }
 
+    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
+    {
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        board.ally_team = team;
+        var red_moves = AiPlayer.NodeScoreStrategy(board, board.root_state, 1);
+        var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
+        if (max_moves == 1)
+        {
+            return red_moves[(int)Random.Range(0, Mathf.Min(red_moves.Length, lesser_move_threshold))].Key;
+        }
+        else
+        {
+            var combined = AiPlayer.CombineMoves(red_moves, max_moves, lesser_move_threshold);
+            return combined[(int)Random.Range(0, Mathf.Min(combined.Count, lesser_move_threshold))];
+        }
+    }
+
     IEnumerator AiRunnerCoroutine()
     {
         yield return null;
@@ -238,17 +255,13 @@ public class BoardTester : MonoBehaviour
         //     yield return null;
         // }
 
-        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
-        board.ally_team = Team.RED;
-        var red_move = AiPlayer.NodeScoreStrategy(board, board.root_state, 1)[0].Key;
-
-        board = AiPlayer.MakeSimGameBoard(gameNetworkState);
-        board.ally_team = Team.BLUE;
-        var blue_move = AiPlayer.NodeScoreStrategy(board, board.root_state, 1)[0].Key;
+        uint lesser_move_threshold = 5;
+        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold);
+        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold);
 
         // Hacky thing to update the current game board.
         var moves = red_move.Union(blue_move);
-        //var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
         var new_state = AiPlayer.GetDerivedStateFromMove(board, board.root_state, moves);
         var pawns_by_id = new Dictionary<PawnId, AiPlayer.SimPawn>();
         foreach (var pawn in new_state.pawns.Values)
