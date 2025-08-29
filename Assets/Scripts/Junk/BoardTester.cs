@@ -217,23 +217,38 @@ public class BoardTester : MonoBehaviour
 
     IEnumerator AiRunnerCoroutine()
     {
+        yield return null;
+
+        // Clear arrows.
+        foreach (var tile_view in tileViews.Values)
+        {
+            tile_view.OverrideArrow(null);
+        }
         // Run AI for each team.
-        ImmutableHashSet<AiPlayer.SimMove> red_move = null;
-        foreach (var move in RunAiForTeam(Team.RED))
-        {
-            red_move = move;
-            yield return null;
-        }
-        ImmutableHashSet<AiPlayer.SimMove> blue_move = null;
-        foreach (var move in RunAiForTeam(Team.BLUE))
-        {
-            blue_move = move;
-            yield return null;
-        }
+        // ImmutableHashSet<AiPlayer.SimMove> red_move = null;
+        // foreach (var move in RunAiForTeam(Team.RED))
+        // {
+        //     red_move = move;
+        //     yield return null;
+        // }
+        // ImmutableHashSet<AiPlayer.SimMove> blue_move = null;
+        // foreach (var move in RunAiForTeam(Team.BLUE))
+        // {
+        //     blue_move = move;
+        //     yield return null;
+        // }
+
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        board.ally_team = Team.RED;
+        var red_move = AiPlayer.NodeScoreStrategy(board, board.root_state, 1)[0].Key;
+
+        board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        board.ally_team = Team.BLUE;
+        var blue_move = AiPlayer.NodeScoreStrategy(board, board.root_state, 1)[0].Key;
 
         // Hacky thing to update the current game board.
         var moves = red_move.Union(blue_move);
-        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        //var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
         var new_state = AiPlayer.GetDerivedStateFromMove(board, board.root_state, moves);
         var pawns_by_id = new Dictionary<PawnId, AiPlayer.SimPawn>();
         foreach (var pawn in new_state.pawns.Values)
@@ -257,6 +272,7 @@ public class BoardTester : MonoBehaviour
                 var dest_tile = tileViews[sim_pawn.pos];
                 pawn.pos = sim_pawn.pos;
                 pawn_view.PublicSetArcToTile(init_tile, dest_tile);
+                init_tile.OverrideArrow(dest_tile.origin);
             }
             if (!sim_pawn.alive)
             {
