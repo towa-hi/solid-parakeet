@@ -70,7 +70,7 @@ public class ProceduralArrow : MonoBehaviour
         Vector3 startWorld = start.position;
         Vector3 endWorld = target.position;
         float baseY = startWorld.y;
-        BuildCurvedArrowMesh(startWorld, endWorld, 1f, 0f, baseY);
+        BuildCurvedArrowMesh(startWorld, endWorld, 1f, 0.15f, baseY);
     }
 
     public void ArcFromTiles(TileView fromTile, TileView toTile)
