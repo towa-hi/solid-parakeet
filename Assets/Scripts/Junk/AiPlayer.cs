@@ -493,13 +493,15 @@ public static class AiPlayer
         var (terminal, winner) = WhoWins(dead_pawns);
         if (terminal)
         {
-            return winner == board.ally_team ? 1 : 0;
+            return winner == board.ally_team ? board.total_material : -board.total_material;
         }
         var (red, blue) = CountMaterial(pawns);
-        float score = (((red - blue) / board.total_material) + 1) / 2;
+        var redf = (float)red;
+        var bluef = (float)blue;
+        var score = redf - bluef;
         if (board.ally_team == Team.BLUE)
         {
-            score = 1 - score;
+            score *= -1;
         }
         return score;
     }
@@ -521,7 +523,7 @@ public static class AiPlayer
         }
         else if (thrones.Count == 1)
         {
-            return (true, thrones[0]);
+            return (true, thrones[0] == Team.RED ? Team.BLUE : Team.RED);
         }
         return (false, Team.NONE);
     }
