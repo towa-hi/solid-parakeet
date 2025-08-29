@@ -42,8 +42,8 @@ public static class AiPlayer
         // See paper: Monte Carlo Tree Search in Simultaneous Move Games with Applications to Goofspiel
         public float value;
         public uint visits;
-        public Dictionary<SimMoveSet, SimGameState> substates = new();
-        public Queue<SimMoveSet> unexplored_moves;
+        public List<SimGameState> substates = new();
+        public Queue<SimGameState> unexplored_states;
         public SimGameState parent;
         public bool terminal;
         // The move that produced this state.
@@ -156,7 +156,22 @@ public static class AiPlayer
     public static SimMoveSet MCTSGetResult(
         SimGameBoard board)
     {
-        var substate = SelectPromisingChild(board.root_state, 0f);
+        //var substate = SelectPromisingChild(board.root_state, 0f);
+        // TEST
+        var all_substates = board.root_state.substates.ToList();
+        all_substates.AddRange(board.root_state.unexplored_states);
+        var top = all_substates.OrderBy(x => x.value).Reverse().Take(5).ToArray();
+        var substate = top[0];
+        Debug.Log($"TOP MOVES {board.ally_team}");
+        foreach (var s in top)
+        {
+            Debug.Log($"STATE --- val {s.value} vis {s.visits}");
+            foreach (var move in s.move)
+            {
+                Debug.Log($"  move {move.last_pos} {move.next_pos}");
+            }
+        }
+
         var move_set = substate == null ? SimMoveSet.Empty : substate.move;
         var filtered_set = SimMoveSet.Empty.ToBuilder();
         foreach (var move in move_set)
@@ -174,11 +189,11 @@ public static class AiPlayer
         SimGameBoard board,
         SimGameState state)
     {
-        while (!state.terminal && state.unexplored_moves != null)
+        while (!state.terminal && state.unexplored_states != null)
         {
-            if (state.unexplored_moves.Count > 0)
+            if (state.unexplored_states.Count > 0)
             {
-                return MutGetNextUnexploredState(board, state);
+                return MutGetNextUnexploredState(state);
             }
             else
             {
@@ -195,13 +210,13 @@ public static class AiPlayer
     {
         SimGameState found = null;
         float best = Mathf.NegativeInfinity;
-        foreach (var (move, child) in state.substates)
+        foreach (var substate in state.substates)
         {
-            var value = UCB1(child, ucbConstant);
+            var value = UCB1(substate, ucbConstant);
             if (value > best)
             {
                 best = value;
-                found = child;
+                found = substate;
             }
         }
         return found;
@@ -212,10 +227,16 @@ public static class AiPlayer
         SimGameBoard board,
         SimGameState state)
     {
-        if (!state.terminal && state.unexplored_moves == null)
+        if (!state.terminal && state.unexplored_states == null)
         {
-            state.unexplored_moves = CreateRandomMoveQueue(board, state);
-            return MutGetNextUnexploredState(board, state);
+            state.unexplored_states = new();
+            foreach (var move in CreateRandomMoveQueue(board, state))
+            {
+                var substate = GetDerivedStateFromMove(board, state, move);
+                MutBackPropagateState(substate, substate.value);
+                state.unexplored_states.Enqueue(substate);
+            }
+            return MutGetNextUnexploredState(state);
         }
         else
         {
@@ -297,12 +318,10 @@ public static class AiPlayer
     // Updates the given state to create a new child state, and returns it.
     // Converts the next unexplored move into an actual state.
     public static SimGameState MutGetNextUnexploredState(
-        SimGameBoard board,
         SimGameState state)
     {
-        var move = state.unexplored_moves.Dequeue();
-        var derived_state = GetDerivedStateFromMove(board, state, move);
-        state.substates.Add(move, derived_state);
+        var derived_state = state.unexplored_states.Dequeue();
+        state.substates.Add(derived_state);
         return derived_state;
     }
 
