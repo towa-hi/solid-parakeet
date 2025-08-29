@@ -261,6 +261,7 @@ public static class AiPlayer
     }
 
     // Create a queue of random moves with no more than the max moves per state allowed.
+    // For 1 move turns, just generate all moves unconditionally.
     public static Queue<SimMoveSet> CreateRandomMoveQueue(
         SimGameBoard board,
         SimGameState state)
@@ -269,11 +270,24 @@ public static class AiPlayer
         var red_moves = GetAllSingleMovesForTeam(board, state.pawns, Team.RED).ToArray();
         var blue_moves = GetAllSingleMovesForTeam(board, state.pawns, Team.BLUE).ToArray();
         var result = new HashSet<SimMoveSet>();
+        if (max_moves == 1)
+        {
+            foreach (var red in red_moves)
+            {
+                foreach (var blue in blue_moves)
+                {
+                    result.Add(SimMoveSet.Empty.Add(red).Add(blue));
+                }
+            }
+        }
+        else
+        {
         for (int i = 0; i < board.max_moves_per_state; i++)
         {
             var red_move = MutCreateRandomMoveForTeam(red_moves, max_moves);
             var blue_move = MutCreateRandomMoveForTeam(blue_moves, max_moves);
             result.Add(red_move.Union(blue_move));
+            }
         }
         var array_result = result.ToArray();
         MutShuffle(array_result);
