@@ -347,7 +347,7 @@ public static class StellarManager
         if (!GameManager.instance.IsOnline())
         {
             Debug.Log("CommitMoveRequest fake guest move");
-            List<HiddenMove> fakeGuestMoveProofs = new();
+            List<HiddenMove> fakeGuestMoveProofs = FakeServer.TempFakeHiddenMoves(Team.BLUE);
             List<byte[]> fakeGuestMoveHashes = new();
             foreach (HiddenMove move in fakeGuestMoveProofs)
             {
