@@ -16,14 +16,14 @@ public class PawnView : MonoBehaviour
     public GameObject model;
     public ParentConstraint parentConstraint;
     ConstraintSource parentSource;
-    
+
     public Animator animator;
     public RenderEffect renderEffect;
     // immutable
     public PawnId pawnId;
     public Vector2Int startPos;
     public Team team;
-    
+
     // cached
     public Rank rankView;
     public bool aliveView;
@@ -45,7 +45,7 @@ public class PawnView : MonoBehaviour
     {
         animator.SetBool(animatorIsSelected, newAnimationState);
     }
-    
+
     public void Initialize(PawnState pawn, TileView tileView)
     {
         // never changes
@@ -72,18 +72,18 @@ public class PawnView : MonoBehaviour
 
     void OnSetupPhase()
     {
-        
+
     }
 
     void OnMovePhase()
     {
-        
+
     }
-    
+
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
-        bool? setAliveView = null; // wether to display the pawn dead or alive 
+        bool? setAliveView = null; // wether to display the pawn dead or alive
         bool? setVisibleView = null; // wether to show the pawn regardless of aliveness
         Rank? setRankView = null; // wether to display rank regardless of revealed rank
         bool? setIsSelected = null;
@@ -157,7 +157,7 @@ public class PawnView : MonoBehaviour
                     setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
                     setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     setVisibleView = true;
-                    setIsMovePairStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView); 
+                    setIsMovePairStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
                     break;
                 case RankProvePhase rankProvePhase:
                     // General non-resolve updates
@@ -168,7 +168,7 @@ public class PawnView : MonoBehaviour
                     setRankView = pawn.GetKnownRank(cachedNetState.userTeam) ?? Rank.UNKNOWN;
                     setPosView = (pawn.pos, netStateUpdated.phase.tileViews[pawn.pos]);
                     setVisibleView = true;
-                    setIsMovePairStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView); 
+                    setIsMovePairStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
                     break;
             }
         }
@@ -245,16 +245,16 @@ public class PawnView : MonoBehaviour
                 case MoveHoverChanged(var moveInputTool, var newHoveredPos, var moveCommitPhase):
                     break;
                 case MovePosSelected(var newPos, var targetablePositions, var movePairsSnapshot):
-                {
-                    setIsSelected = newPos.HasValue && posView == newPos.Value;
-                    setIsMovePairStart = movePairsSnapshot.ContainsKey(pawnId);
-                    break;
-                }
+                    {
+                        setIsSelected = newPos.HasValue && posView == newPos.Value;
+                        setIsMovePairStart = movePairsSnapshot.ContainsKey(pawnId);
+                        break;
+                    }
                 case MovePairUpdated(var movePairsSnapshot2, var changedPawnId, var phaseRef):
-                {
-                    setIsMovePairStart = movePairsSnapshot2.ContainsKey(pawnId);
-                    break;
-                }
+                    {
+                        setIsMovePairStart = movePairsSnapshot2.ContainsKey(pawnId);
+                        break;
+                    }
             }
             // execute intentions that require side effects after decision
         }
@@ -278,7 +278,7 @@ public class PawnView : MonoBehaviour
 
         if (setRankView is Rank inRankView)
         {
-            if (inRankView != rankView) 
+            if (inRankView != rankView)
             {
                 DisplayRankView(inRankView);
             }
@@ -290,13 +290,13 @@ public class PawnView : MonoBehaviour
             DisplayPosView(tile);
             posView = pos;
         }
-        
+
         if (arcToTile)
         {
             SetArcToTile(arcFromTile, arcToTile);
         }
         bool setAnimatorIsSelected = isSelected || isMovePairStart;
-        if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected) 
+        if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
         {
             Debug.Log($"animator selected set to {setAnimatorIsSelected}");
             animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
@@ -310,7 +310,7 @@ public class PawnView : MonoBehaviour
             model.SetActive(false);
         }
     }
-    
+
     void DisplayPosView(TileView tileView = null)
     {
         StopAllCoroutines();
@@ -322,7 +322,7 @@ public class PawnView : MonoBehaviour
             transform.rotation = target.rotation;
         }
     }
-    
+
     void DisplayRankView(Rank rank)
     {
         PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(rank);
@@ -337,7 +337,7 @@ public class PawnView : MonoBehaviour
         animator.Update(0f);
         badge.SetBadge(team, rank);
     }
-    
+
     void SetConstraintToTile([CanBeNull] TileView tileView)
     {
         Transform source = GameManager.instance.purgatory;
@@ -361,13 +361,13 @@ public class PawnView : MonoBehaviour
         parentConstraint.weight = 1f;
         parentConstraint.constraintActive = true;
     }
-    
+
 
     // Deprecated: use StopAllCoroutines() to restart animations atomically
     // Kept for potential future diagnostics
     // bool isMoving = false;
 
-    IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
+    public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
     {
         parentConstraint.constraintActive = false;
         Vector3 startPosition = transform.position;
@@ -378,7 +378,7 @@ public class PawnView : MonoBehaviour
             // Calculate the normalized time (0 to 1)
             float t = elapsedTime / duration;
             t = Shared.EaseOutQuad(t);
-            
+
             // Interpolate position horizontally
             Vector3 horizontalPosition = Vector3.Lerp(startPosition, target.position, t);
 
@@ -415,5 +415,10 @@ public class PawnView : MonoBehaviour
         // Rebind the constraint to the target tile and re-enable it so the pawn stays put
         SetConstraintToTile(targetTile);
         OnMoveAnimationCompleted?.Invoke(pawnId);
+    }
+
+    public void PublicSetArcToTile([CanBeNull] TileView initialTile, TileView targetTile)
+    {
+        SetArcToTile(initialTile, targetTile);
     }
 }

@@ -1,9 +1,11 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using Contract;
 using Stellar;
 using Stellar.Utilities;
 using UnityEngine;
-
 public class BoardTester : MonoBehaviour
 {
     public BoardTesterGui gui;
@@ -11,26 +13,26 @@ public class BoardTester : MonoBehaviour
     public uint defaultBlitzInterval;
     public uint defaultBlitzMaxSimultaneousMoves;
     public GameObject tilePrefab;
-    
+
     public GameObject pawnPrefab;
 
     public BoardGrid grid;
 
-    
+
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     readonly Dictionary<PawnId, PawnView> pawnViews = new();
 
     public GameNetworkState gameNetworkState;
-    
+
+    public Coroutine aiWorker;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         // hook up gui
         gui.OnButton1 += AutoSetupAndStartGame;
-        
-        
-        
-        
+        gui.OnButton2 += RunNextTurn;
+
         string boardName = defaultBoardDef.boardName;
         uint[] maxRanks = new uint[13]; // Array size for all possible ranks (0-12)
         foreach (SMaxPawnsPerRank maxPawn in defaultBoardDef.maxPawns)
@@ -66,7 +68,7 @@ public class BoardTester : MonoBehaviour
             blitz_interval = defaultBlitzInterval,
             blitz_max_simultaneous_moves = defaultBlitzMaxSimultaneousMoves,
             board = board,
-            board_hash =hash,
+            board_hash = hash,
             dev_mode = true,
             host_team = Team.RED,
             max_ranks = maxRanks,
@@ -74,7 +76,7 @@ public class BoardTester : MonoBehaviour
             security_mode = false,
             liveUntilLedgerSeq = 0,
         };
-        
+
         DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
         MuxedAccount.KeyTypeEd25519 guestAccount = MuxedAccount.FromSecretSeed(defaultSettings.defaultGuestSneed);
         string guestPublicAddress = StrKey.EncodeStellarAccountId(guestAccount.PublicKey);
@@ -162,7 +164,7 @@ public class BoardTester : MonoBehaviour
             gameState = gameState,
         };
         gameNetworkState = new GameNetworkState(fakeNetworkState);
-        
+
         // draw the board
         grid.SetBoard(board.hex);
         foreach (TileState tile in gameNetworkState.lobbyParameters.board.tiles)
@@ -187,46 +189,149 @@ public class BoardTester : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+
     }
 
-    void ButtonExampleFunction()
+    void RunNextTurn()
     {
-        Debug.Log("wewlad");
+        if (aiWorker == null)
+        {
+            aiWorker = StartCoroutine(AiRunnerCoroutine());
+        }
+    }
+
+    IEnumerable<ImmutableHashSet<AiPlayer.SimMove>> RunAiForTeam(Team team)
+    {
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        board.ally_team = team;
+        double accumulated_time = 0;
+        while (accumulated_time < board.timeout)
+        {
+            var start = Time.realtimeSinceStartupAsDouble;
+            AiPlayer.MutMCTSRunForTime(board, 1f / 60f);
+            accumulated_time += Time.realtimeSinceStartupAsDouble - start;
+            yield return null;
+        }
+        yield return AiPlayer.MCTSGetResult(board);
+    }
+
+    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
+    {
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        board.ally_team = team;
+        var red_moves = AiPlayer.NodeScoreStrategy(board, board.root_state, 1);
+        var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
+        if (max_moves == 1)
+        {
+            return red_moves[(int)Random.Range(0, Mathf.Min(red_moves.Length, lesser_move_threshold))].Key;
+        }
+        else
+        {
+            var combined = AiPlayer.CombineMoves(red_moves, max_moves, lesser_move_threshold);
+            return combined[(int)Random.Range(0, Mathf.Min(combined.Count, lesser_move_threshold))];
+        }
+    }
+
+    IEnumerator AiRunnerCoroutine()
+    {
+        yield return null;
+
+        // Clear arrows.
+        foreach (var tile_view in tileViews.Values)
+        {
+            tile_view.OverrideArrow(null);
+        }
+        // Run AI for each team.
+        // ImmutableHashSet<AiPlayer.SimMove> red_move = null;
+        // foreach (var move in RunAiForTeam(Team.RED))
+        // {
+        //     red_move = move;
+        //     yield return null;
+        // }
+        // ImmutableHashSet<AiPlayer.SimMove> blue_move = null;
+        // foreach (var move in RunAiForTeam(Team.BLUE))
+        // {
+        //     blue_move = move;
+        //     yield return null;
+        // }
+
+        uint lesser_move_threshold = 5;
+        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold);
+        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold);
+
+        // Hacky thing to update the current game board.
+        var moves = red_move.Union(blue_move);
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        var new_state = AiPlayer.GetDerivedStateFromMove(board, board.root_state, moves);
+        var pawns_by_id = new Dictionary<PawnId, AiPlayer.SimPawn>();
+        foreach (var pawn in new_state.pawns.Values)
+        {
+            pawns_by_id[pawn.id] = pawn;
+        }
+        foreach (var pawn in new_state.dead_pawns)
+        {
+            pawns_by_id[pawn.id] = pawn;
+        }
+        gameNetworkState.gameState.turn += 1;
+        var game_pawns = gameNetworkState.gameState.pawns;
+        for (int i = 0; i < game_pawns.Length; i++)
+        {
+            var pawn = game_pawns[i];
+            var pawn_view = pawnViews[pawn.pawn_id];
+            var sim_pawn = pawns_by_id[pawn.pawn_id];
+            if (pawn.pos != sim_pawn.pos)
+            {
+                var init_tile = tileViews[pawn.pos];
+                var dest_tile = tileViews[sim_pawn.pos];
+                pawn.pos = sim_pawn.pos;
+                pawn_view.PublicSetArcToTile(init_tile, dest_tile);
+                init_tile.OverrideArrow(dest_tile.origin);
+            }
+            if (!sim_pawn.alive)
+            {
+                pawn.alive = false;
+                StartCoroutine(KillPawnHack(pawn_view));
+            }
+            game_pawns[i] = pawn;
+        }
+
+        aiWorker = null;
+    }
+
+    IEnumerator KillPawnHack(PawnView pawn_view)
+    {
+        yield return new WaitForSeconds(1);
+        pawn_view.model.SetActive(false);
     }
 
     void AutoSetupAndStartGame()
     {
         Dictionary<PawnId, (int, PawnState)> pawnsMap = CreatePawnsMap(gameNetworkState.gameState.pawns);
         Dictionary<Vector2Int, Rank> autoSetupRed = gameNetworkState.AutoSetup(Team.RED);
-        foreach ((Vector2Int pos, Rank rank) in autoSetupRed)
-        {
-            PawnId pawnId = gameNetworkState.GetAlivePawnFromPosUnchecked(pos).pawn_id;
-            (int index, PawnState pawn) = pawnsMap[pawnId];
-            pawn.rank = rank;
-            gameNetworkState.gameState.pawns[index] = pawn;
-        }
         Dictionary<Vector2Int, Rank> autoSetupBlue = gameNetworkState.AutoSetup(Team.BLUE);
-        foreach ((Vector2Int pos, Rank rank) in autoSetupBlue)
+        foreach (var autoSetup in new[] { autoSetupRed, autoSetupBlue })
         {
-            PawnId pawnId = gameNetworkState.GetAlivePawnFromPosUnchecked(pos).pawn_id;
-            (int index, PawnState pawn) = pawnsMap[pawnId];
-            pawn.rank = rank;
-            gameNetworkState.gameState.pawns[index] = pawn;
+            foreach ((Vector2Int pos, Rank rank) in autoSetup)
+            {
+                PawnId pawnId = gameNetworkState.GetAlivePawnFromPosUnchecked(pos).pawn_id;
+                (int index, PawnState pawn) = pawnsMap[pawnId];
+                pawn.rank = rank;
+                gameNetworkState.gameState.pawns[index] = pawn;
+            }
         }
         gameNetworkState.lobbyInfo.phase = Phase.MoveCommit;
         gameNetworkState.gameState.turn = 1;
         gameNetworkState.lobbyInfo.subphase = Subphase.Both;
-        
+
         foreach (PawnView pawnView in pawnViews.Values)
         {
-            Debug.Log(pawnView.pawnId);
             PawnState pawnState = gameNetworkState.GetPawnFromId(pawnView.pawnId);
             if (pawnState.rank is Rank rank)
             {
                 pawnView.TestSetSprite(rank, pawnState.GetTeam());
+                pawnView.model.SetActive(true);
+                pawnView.badge.gameObject.SetActive(true);
             }
-            
         }
     }
 
