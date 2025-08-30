@@ -13,7 +13,7 @@ public class BoardMakerManager : MonoBehaviour
     public BoardDef loadThisBoard;
     
     public BoardMakerTool currentTool;
-    //public TestClickInputManager clickInputManager;
+    public ClickInputManager clickInputManager;
     public BoardGrid grid;
     public BoardDef currentlyLoadedBoardDef;
     public GuiBoardMaker gui;
@@ -29,7 +29,8 @@ public class BoardMakerManager : MonoBehaviour
         currentTool = BoardMakerTool.NONE;
         tiles = new List<BoardMakerTile>();
         Globals.InputActions.Game.Enable();
-        //clickInputManager.OnClick += OnClick;
+        clickInputManager.OnMouseInput += OnMouseInput;
+        clickInputManager.SetUpdating(true);
     }
 
     void SetCounter()
@@ -57,38 +58,41 @@ public class BoardMakerManager : MonoBehaviour
         counter.text = message;
     }
     
-    void OnClick(Vector2 mousePos, Vector2Int pos)
+    void OnMouseInput(Vector2Int pos, bool clicked)
     {
         if (!currentlyLoadedBoardDef)
         {
             return;
         }
 
-        if (pos != Globals.Purgatory)
+        if (clicked)
         {
-            BoardMakerTile tile = GetTile(pos);
-            switch (currentTool)
+            if (pos != Globals.Purgatory)
             {
-                case BoardMakerTool.NONE:
-                    break;
-                case BoardMakerTool.PASSABLE:
-                    tile.SetIsPassable(!tile.isPassable);
-                    break;
-                case BoardMakerTool.REDTEAM:
-                    tile.SetSetupTeam(tile.setupTeam == Team.RED ? Team.NONE : Team.RED);
-                    break;
-                case BoardMakerTool.BLUETEAM:
-                    tile.SetSetupTeam(tile.setupTeam == Team.BLUE ? Team.NONE : Team.BLUE);
-                    break;
-                case BoardMakerTool.SETUPZONE:
-                    tile.SetSetupZone(currentSetupZone);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                BoardMakerTile tile = GetTile(pos);
+                switch (currentTool)
+                {
+                    case BoardMakerTool.NONE:
+                        break;
+                    case BoardMakerTool.PASSABLE:
+                        tile.SetIsPassable(!tile.isPassable);
+                        break;
+                    case BoardMakerTool.REDTEAM:
+                        tile.SetSetupTeam(tile.setupTeam == Team.RED ? Team.NONE : Team.RED);
+                        break;
+                    case BoardMakerTool.BLUETEAM:
+                        tile.SetSetupTeam(tile.setupTeam == Team.BLUE ? Team.NONE : Team.BLUE);
+                        break;
+                    case BoardMakerTool.SETUPZONE:
+                        tile.SetSetupZone(currentSetupZone);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+                SetCounter();
             }
-            SetCounter();
         }
-        Debug.Log(pos);
+        
     }
 
     public void SaveBoardButton()
@@ -147,41 +151,38 @@ public class BoardMakerManager : MonoBehaviour
     public void LoadBoard(BoardDef board)
     {
 #if UNITY_EDITOR
-        // for (int i = 0; i < tiles.Count; i++)
-        // {
-        //     Destroy(tiles[i].gameObject);
-        // }
-        // tiles = new List<BoardMakerTile>();
-        // currentlyLoadedBoardDef = board;
-        // SBoardDef serializedBoardDef = new SBoardDef(currentlyLoadedBoardDef);
-        // grid.SetBoard(serializedBoardDef);
-        // if (!currentlyLoadedBoardDef)
-        // {
-        //     Debug.LogError("LoadBoard could not load board");
-        //     return;
-        // }
-        // grid.SetBoard(new SBoardDef(currentlyLoadedBoardDef));
-        // for (int y = 0; y < maxBoardSize.y; y++)
-        // {
-        //     for (int x = 0; x < maxBoardSize.x; x++)
-        //     {
-        //         Vector2Int currentPos = new Vector2Int(x, y);
-        //         Vector3 worldPosition = grid.CellToWorld(currentPos);
-        //         GameObject tileObject = Instantiate(boardMakerTilePrefab, worldPosition, Quaternion.identity, boardObject.transform);
-        //         BoardMakerTile boardMakerTile = tileObject.GetComponent<BoardMakerTile>();
-        //         boardMakerTile.Initialize(currentPos, currentlyLoadedBoardDef.isHex);
-        //         tiles.Add(boardMakerTile);
-        //     }
-        //     
-        // }
-        // foreach (Tile tile in currentlyLoadedBoardDef.tiles)
-        // {
-        //     BoardMakerTile boardMakerTile = GetTile(tile.pos);
-        //     if (boardMakerTile)
-        //     {
-        //         boardMakerTile.LoadState(tile);
-        //     }
-        // }
+        for (int i = 0; i < tiles.Count; i++)
+        {
+            Destroy(tiles[i].gameObject);
+        }
+        tiles = new List<BoardMakerTile>();
+        currentlyLoadedBoardDef = board;
+        if (!currentlyLoadedBoardDef)
+        {
+            Debug.LogError("LoadBoard could not load board");
+            return;
+        }
+        grid.SetBoard(board.isHex);
+        for (int y = 0; y < maxBoardSize.y; y++)
+        {
+            for (int x = 0; x < maxBoardSize.x; x++)
+            {
+                Vector2Int currentPos = new Vector2Int(x, y);
+                Vector3 worldPosition = grid.CellToWorld(currentPos);
+                GameObject tileObject = Instantiate(boardMakerTilePrefab, worldPosition, Quaternion.identity, boardObject.transform);
+                BoardMakerTile boardMakerTile = tileObject.GetComponent<BoardMakerTile>();
+                boardMakerTile.Initialize(currentPos, currentlyLoadedBoardDef.isHex);
+                tiles.Add(boardMakerTile);
+            }
+        }
+        foreach (Tile tile in currentlyLoadedBoardDef.tiles)
+        {
+            BoardMakerTile boardMakerTile = GetTile(tile.pos);
+            if (boardMakerTile)
+            {
+                boardMakerTile.LoadState(tile);
+            }
+        }
         SetCounter();
 #endif
     }

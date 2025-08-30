@@ -769,7 +769,8 @@ impl Contract {
             Phase::RankProve => 40,
         };
         let u_index = Self::get_player_index(&address, &lobby_info);
-        if lobby_info.subphase != Self::opponent_subphase_from_player_index(u_index) {
+        let o_index = Self::opponent_subphase_from_player_index(u_index);
+        if lobby_info.subphase != o_index {
             return Err(Error::WrongSubphase)
         }
         // check if called too early
@@ -1014,6 +1015,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                     if winner != Subphase::Both {
                         lobby_info.phase = Phase::Finished;
                         lobby_info.subphase = winner;
+                        game_state.turn += 1;
                     }
                     else {
                         lobby_info.phase = Phase::MoveCommit;
@@ -1096,6 +1098,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             if winner != Subphase::Both {
                 lobby_info.phase = Phase::Finished;
                 lobby_info.subphase = winner;
+                game_state.turn += 1;
             }
             else {
                 lobby_info.phase = Phase::MoveCommit;

@@ -126,17 +126,19 @@ public class BoardManager : MonoBehaviour
         // Check if phase actually changed
         Phase newPhase = netState.lobbyInfo.phase;
         bool isInitialPhase = currentPhase == null; // intent: no phase has been set yet
-        bool shouldSwitchPhase = isInitialPhase || delta.PhaseChanged || delta.TurnResolve.HasValue; // intent: we need to change local phase now
+        bool shouldSwitchPhase = isInitialPhase || delta.TurnChanged || delta.TurnResolve.HasValue; // intent: we need to change local phase now
+        bool shouldSwitchToResolvePhase = delta is { TurnChanged: true, TurnResolve: not null };
         if (shouldSwitchPhase)
         {
             PhaseBase nextPhase = newPhase switch
             {
                 Phase.SetupCommit => new SetupCommitPhase(),
                 // Enter ResolvePhase only when TurnResolve is present in this delta
-                Phase.MoveCommit => (delta.TurnResolve.HasValue) ? new ResolvePhase(delta.TurnResolve.Value) : new MoveCommitPhase(),
+                Phase.MoveCommit => shouldSwitchToResolvePhase ? new ResolvePhase(delta.TurnResolve.Value) : new MoveCommitPhase(),
                 Phase.MoveProve => new MoveProvePhase(),
                 Phase.RankProve => new RankProvePhase(),
-                Phase.Finished or Phase.Aborted or Phase.Lobby => throw new NotImplementedException(),// TODO finished phase
+                Phase.Finished or Phase.Aborted => shouldSwitchToResolvePhase ? new ResolvePhase(delta.TurnResolve.Value) : new FinishedPhase(),
+                Phase.Lobby => throw new NotImplementedException(),
                 _ => throw new ArgumentOutOfRangeException(),
             };
             // set phase
@@ -178,7 +180,12 @@ public class BoardManager : MonoBehaviour
                     GameNetworkState cachedNetworkState = currentPhase.cachedNetState;
                     NetworkDelta delta = currentPhase.lastDelta;
                     currentPhase.ExitState(clickInputManager, guiGame);
-                    currentPhase = new MoveCommitPhase();
+                    currentPhase = cachedNetworkState.lobbyInfo.phase switch
+                    {
+                        Phase.Aborted or Phase.Finished => new FinishedPhase(),
+                        Phase.MoveCommit => new MoveCommitPhase(),
+                        _ => throw new ArgumentOutOfRangeException(),
+                    };
                     currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
                     currentPhase.UpdateNetworkState(cachedNetworkState, delta);
                     PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
@@ -1099,6 +1106,19 @@ public class RankProvePhase: PhaseBase
     }
 }
 
+public class FinishedPhase : PhaseBase
+{
+
+    protected override void SetGui(GuiGame guiGame, bool set)
+    {
+        
+    }
+
+    protected override void OnMouseInput(Vector2Int hoveredPos, bool clicked)
+    {
+        
+    }
+}
 
 namespace System.Runtime.CompilerServices
 {

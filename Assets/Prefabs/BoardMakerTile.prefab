@@ -138,11 +138,11 @@ MonoBehaviour:
   squareTile: {fileID: 5739318882471615815}
   squareTileRenderer: {fileID: 2934894991281654609}
   hexTile: {fileID: 8623800938259665381}
-  hexTileRenderer: {fileID: 2801194033663059232}
+  hexTileRenderer: {fileID: 0}
   symbolRenderer: {fileID: 2780195916417525697}
   isPassable: 0
-  setupPlayer: 0
-  setupZone: 0
+  setupTeam: 0
+  autoSetupZone: 0
   zone0: {fileID: 21300000, guid: 88e1bba784a227147807df332456e312, type: 3}
   zone1: {fileID: 21300000, guid: 6de315cf46f204e49b7c5b6e3ed1e7e7, type: 3}
   zone2: {fileID: 21300000, guid: a7924e986583f3f48b2297f0a4f417f6, type: 3}
@@ -199,6 +199,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3556535542875551822, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
+      propertyPath: m_Layer
+      value: 9
+      objectReference: {fileID: 0}
     - target: {fileID: 4166921062069795660, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
       propertyPath: m_Name
       value: HexTile
@@ -216,11 +220,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
---- !u!23 &2801194033663059232 stripped
-MeshRenderer:
-  m_CorrespondingSourceObject: {fileID: 7539538981961633673, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
-  m_PrefabInstance: {fileID: 5655964658254129833}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &5054726302161738844 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 602351131653977845, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
@@ -282,6 +281,10 @@ PrefabInstance:
     - target: {fileID: 1357657632524133384, guid: d61a7f7a14b8e1842989112d937f42c6, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8174528698623601442, guid: d61a7f7a14b8e1842989112d937f42c6, type: 3}
+      propertyPath: m_Layer
+      value: 9
       objectReference: {fileID: 0}
     - target: {fileID: 8388385129931645331, guid: d61a7f7a14b8e1842989112d937f42c6, type: 3}
       propertyPath: m_Layer

@@ -129,13 +129,13 @@ public class PawnView : MonoBehaviour
                     SnapshotPawnDelta pawnDelta = resolvePhase.tr.pawnDeltas[pawnId];
                     setPosView = (pawnDelta.prePos, resolvePhase.tileViews[pawnDelta.prePos]);
                     setAliveView = pawnDelta.preAlive;
-                    if (!isMyTeam)
+                    if (isMyTeam)
                     {
-                        setRankView = pawnDelta.preRevealed ? pawnDelta.preRank : Rank.UNKNOWN;
+                        setRankView = pawn.GetKnownRank(resolvePhase.cachedNetState.userTeam) ?? Rank.UNKNOWN;
                     }
                     else
                     {
-                        setRankView = pawnDelta.postRank;
+                        setRankView = pawnDelta.preRevealed ? pawnDelta.preRank : Rank.UNKNOWN;
                     }
                     setIsMovePairStart = resolvePhase.tr.moves.ContainsKey(pawnId);
                     break;
@@ -187,11 +187,17 @@ public class PawnView : MonoBehaviour
                     break;
                 case ResolveCheckpointEntered(var checkpoint, var tr, var resolveBattleIndex, var resolvePhase):
                 {
-                    SnapshotPawnDelta pawnDelta = tr.pawnDeltas[pawnId];
-                    Rank preRank = pawnDelta.preRank;
-                    Rank postRank = pawnDelta.postRank;
                     setIsMovePairStart = tr.moves.ContainsKey(pawnId);
-                    if (!isMyTeam)
+                    SnapshotPawnDelta pawnDelta = tr.pawnDeltas[pawnId];
+                    Rank preRank;
+                    Rank postRank;
+                    PawnState pawn = resolvePhase.cachedNetState.GetPawnFromId(pawnId);
+                    if (isMyTeam)
+                    {
+                        preRank = pawn.GetKnownRank(resolvePhase.cachedNetState.userTeam) ?? Rank.UNKNOWN;
+                        postRank = preRank;
+                    }
+                    else
                     {
                         preRank = pawnDelta.preRevealed ? pawnDelta.preRank : Rank.UNKNOWN;
                         postRank = pawnDelta.postRevealed ? pawnDelta.postRank : Rank.UNKNOWN;

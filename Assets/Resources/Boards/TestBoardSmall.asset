@@ -1,0 +1,424 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e10cd5b24cda104a99432c82ca653c7, type: 3}
+  m_Name: TestBoardSmall
+  m_EditorClassIdentifier: 
+  boardName: TestBoardSmall
+  boardSize: {x: 10, y: 10}
+  tiles:
+  - pos: {x: 0, y: 0}
+    isPassable: 1
+    setupTeam: 0
+    autoSetupZone: 3
+  - pos: {x: 1, y: 0}
+    isPassable: 1
+    setupTeam: 0
+    autoSetupZone: 1
+  - pos: {x: 2, y: 0}
+    isPassable: 1
+    setupTeam: 1
+    autoSetupZone: 1
+  - pos: {x: 3, y: 0}
+    isPassable: 1
+    setupTeam: 1
+    autoSetupZone: 3
+  - pos: {x: 4, y: 0}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 0}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 0}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 0}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 0}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 0}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 1}
+    isPassable: 1
+    setupTeam: 0
+    autoSetupZone: 2
+  - pos: {x: 1, y: 1}
+    isPassable: 1
+    setupTeam: 0
+    autoSetupZone: 1
+  - pos: {x: 2, y: 1}
+    isPassable: 1
+    setupTeam: 1
+    autoSetupZone: 1
+  - pos: {x: 3, y: 1}
+    isPassable: 1
+    setupTeam: 1
+    autoSetupZone: 2
+  - pos: {x: 4, y: 1}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 1}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 1}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 1}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 1}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 1}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 2}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 3}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 4}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 5}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 6}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 7}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 8}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 0, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 1, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 2, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 3, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 4, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 5, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 6, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 7, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 8, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  - pos: {x: 9, y: 9}
+    isPassable: 0
+    setupTeam: 2
+    autoSetupZone: 0
+  isHex: 0
+  maxPawns:
+  - rank: 0
+    max: 1
+  - rank: 10
+    max: 1
+  center: {x: 0, y: 0, z: 0}

@@ -322,17 +322,17 @@ MonoBehaviour:
   m_GameObject: {fileID: 13871830}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c38643e8da373c34186b8d73aced3542, type: 3}
+  m_Script: {fileID: 11500000, guid: f7d34edf6c898c541952ff389bfc3b7c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  hoveredPosition: {x: -666, y: -666}
+  hoveredPosition: {x: 0, y: 0}
   screenPointerPosition: {x: 0, y: 0}
   hoveredObject: {fileID: 0}
   isOverUI: 0
   hoveredPawnView: {fileID: 0}
   hoveredTileView: {fileID: 0}
   hoveredBoardMakerTile: {fileID: 0}
-  isUpdating: 1
+  isUpdating: 0
   resultsCount: 0
 --- !u!1 &26911928
 GameObject:
@@ -3406,13 +3406,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   showGizmos: 1
   showLabels: 1
-  boardDef:
-    boardName: 
-    boardSize: {x: 0, y: 0}
-    tiles: []
-    isHex: 0
   cellSize: 1
   markerPos: {x: 0, y: 0}
+  isHex: 0
   HEX_INNER_RADIUS_MULTIPLIER: 0.8660254
   offset: {x: 0, y: 0, z: 0}
   fontSize: 11
