@@ -84,17 +84,29 @@ public class GameManager : MonoBehaviour
         onlineMode = OnlineMode.Online;
         PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
         Debug.Log($"Switched to {onlineMode} mode");
-        bool result = await StellarManager.UpdateState();
+        StatusCode code = await StellarManager.UpdateState();
+        if (code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT)
+        {
+            Debug.LogWarning("Network unavailable; switching to Offline mode.");
+            await SwitchToOfflineInternal();
+            return false;
+        }
         return true;
     }
 
     public async void OfflineMode()
     {
+        await SwitchToOfflineInternal();
+
+    }
+    async Task SwitchToOfflineInternal()
+    {
+        // Abort any in-flight network task to prevent stuck UI states
+        StellarManager.AbortCurrentTask();
         onlineMode = OnlineMode.Offline;
         PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
         await StellarManager.UpdateState();
         Debug.Log($"Switched to {onlineMode} mode");
-
     }
     // TODO: move this somewhere else
     Coroutine lightningCoroutine;

@@ -23,6 +23,7 @@ public class GuiMenuController: MonoBehaviour
 	public GameObject modalEscapePrefab;
 	public GameObject modalSettingsPrefab;
     public GameObject modalConnectPrefab;
+	public GameObject modalErrorPrefab;
 	// state
 	public MenuElement currentElement;
 	public Stack<ModalElement> modalStack;
@@ -94,7 +95,14 @@ public class GuiMenuController: MonoBehaviour
 	async void GotoLobbyMaker()
 	{
 		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
-		await StellarManager.UpdateState();
+		StatusCode code = await StellarManager.UpdateState();
+		if (code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT)
+		{
+			GameManager.instance.OfflineMode();
+			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+			GotoStartMenu();
+			return;
+		}
 		ShowMenuElement(lobbyMakerElement);
 	}
 
@@ -187,6 +195,9 @@ public class GuiMenuController: MonoBehaviour
 				modalConnect.OnCloseButton = set ? CloseModal : null;
 				modalConnect.OnConnectButton = set ? OnConnectButton : null;
 				break;
+			case ModalError modalError:
+				modalError.OnCloseButton = set ? CloseModal : null;
+				break;
 			default:
 				throw new ArgumentOutOfRangeException(nameof(modal));
 
@@ -195,7 +206,12 @@ public class GuiMenuController: MonoBehaviour
 
     async void OnConnectButton(ModalConnectData data)
     {
-        await GameManager.instance.ConnectToNetwork(data);
+        bool success = await GameManager.instance.ConnectToNetwork(data);
+        if (!success)
+        {
+            OpenErrorModal("Connection Failed", "Could not connect to network. Please try again.");
+            return;
+        }
         GotoMainMenu();
     }
 
@@ -219,7 +235,14 @@ public class GuiMenuController: MonoBehaviour
 
 	async void GotoJoinLobby()
 	{
-		await StellarManager.UpdateState();
+		StatusCode code = await StellarManager.UpdateState();
+		if (code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT)
+		{
+			GameManager.instance.OfflineMode();
+			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+			GotoStartMenu();
+			return;
+		}
 		ShowMenuElement(lobbyJoinerElement);
 	}
 
@@ -237,7 +260,14 @@ public class GuiMenuController: MonoBehaviour
 	async void ViewLobby()
 	{
 		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
-		await StellarManager.UpdateState();
+		StatusCode code = await StellarManager.UpdateState();
+		if (code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT)
+		{
+			GameManager.instance.OfflineMode();
+			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+			GotoStartMenu();
+			return;
+		}
 		ShowMenuElement(lobbyViewerElement);
 	}
 
@@ -249,11 +279,22 @@ public class GuiMenuController: MonoBehaviour
 		{
 			ShowMenuElement(lobbyViewerElement);
 		}
+		else
+		{
+			OpenErrorModal("Join Lobby Failed", FormatStatusMessage(resultCode));
+		}
 	}
 
 	async void OnStartGame()
 	{
-		await StellarManager.UpdateState();
+		StatusCode code = await StellarManager.UpdateState();
+		if (code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT)
+		{
+			GameManager.instance.OfflineMode();
+			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+			GotoStartMenu();
+			return;
+		}
 		if (StellarManager.networkState.inLobby)
 		{
 			ShowMenuElement(gameElement);
@@ -268,13 +309,27 @@ public class GuiMenuController: MonoBehaviour
 		{
 			ShowMenuElement(lobbyViewerElement);
 		}
+		else
+		{
+			OpenErrorModal("Create Lobby Failed", FormatStatusMessage(resultCode));
+		}
 	}
 
 	
-	void StartSingleplayer(LobbyParameters parameters)
+	async void StartSingleplayer(LobbyParameters parameters)
 	{
-		// FakeServer.ins.SetFakeParameters(parameters);
-		// ShowMenuElement(gameElement, false);
+		// Switch to offline mode
+		GameManager.instance.OfflineMode();
+		// Create local lobby (offline branch handles host make + guest join)
+		await StellarManager.MakeLobbyRequest(parameters);
+		// Refresh local network state
+		await StellarManager.UpdateState();
+		// Enter game
+		if (StellarManager.networkState.inLobby)
+		{
+			ShowMenuElement(gameElement);
+			GameManager.instance.boardManager.StartBoardManager();
+		}
 	}
 	async void DeleteLobby()
 	{
@@ -283,13 +338,57 @@ public class GuiMenuController: MonoBehaviour
 		{
 			ShowMenuElement(mainMenuElement);
 		}
+		else
+		{
+			OpenErrorModal("Leave Lobby Failed", FormatStatusMessage(resultCode));
+		}
 	}
 	
 	async void RefreshNetworkState()
 	{
 		currentElement?.EnableInput(false);
-		await StellarManager.UpdateState();
+		StatusCode code = await StellarManager.UpdateState();
+		if (code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT)
+		{
+			GameManager.instance.OfflineMode();
+			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+			GotoStartMenu();
+			return;
+		}
 		currentElement?.Refresh();
+	}
+
+	void OpenErrorModal(string title, string message)
+	{
+		OpenModal(modalErrorPrefab);
+		if (modalStack.TryPeek(out ModalElement top))
+		{
+			if (top is ModalError modalError)
+			{
+				modalError.SetContent(title, message);
+			}
+		}
+	}
+
+	string FormatStatusMessage(StatusCode code)
+	{
+		switch (code)
+		{
+			case StatusCode.CONTRACT_ERROR: return "Contract error occurred.";
+			case StatusCode.NETWORK_ERROR: return "Network error occurred.";
+			case StatusCode.RPC_ERROR: return "RPC error occurred.";
+			case StatusCode.TIMEOUT: return "The request timed out.";
+			case StatusCode.OTHER_ERROR: return "An unexpected error occurred.";
+			case StatusCode.SERIALIZATION_ERROR: return "Serialization error occurred.";
+			case StatusCode.DESERIALIZATION_ERROR: return "Deserialization error occurred.";
+			case StatusCode.TRANSACTION_FAILED: return "Transaction failed.";
+			case StatusCode.TRANSACTION_NOT_FOUND: return "Transaction not found.";
+			case StatusCode.TRANSACTION_TIMEOUT: return "Transaction timed out.";
+			case StatusCode.ENTRY_NOT_FOUND: return "Required entry not found.";
+			case StatusCode.SIMULATION_FAILED: return "Simulation failed.";
+			case StatusCode.TRANSACTION_SEND_FAILED: return "Failed to send transaction.";
+			default: return "Operation failed.";
+		}
 	}
 
 	void ShowTopBar(TaskInfo task)

@@ -100,7 +100,7 @@ public static class StellarManager
         EndTask(task);
         return result.Code;
     }
-    public static async Task<bool> UpdateState(bool showTask = true)
+    public static async Task<StatusCode> UpdateState(bool showTask = true)
     {
         if (!GameManager.instance.IsOnline())
         {
@@ -127,7 +127,7 @@ public static class StellarManager
                     OnNetworkStateUpdated?.Invoke();
                 }
             }
-            return fakeStateChanged;
+            return StatusCode.SUCCESS;
         }
         TaskInfo getNetworkStateTask = showTask ? SetCurrentTask("ReqNetworkState") : null;
         TimingTracker tracker = new();
@@ -139,7 +139,12 @@ public static class StellarManager
             Debug.LogError($"UpdateState() ReqNetworkState failed with error {newNetworkStateResult.Code} {newNetworkStateResult.Message}");
             tracker.EndOperation();
             DebugLogStellarManager(tracker.GetReport());
-            return false;
+            if (showTask)
+            {
+                // Treat this as an abort so any follow-up EndTask is safely ignored
+                AbortCurrentTask();
+            }
+            return newNetworkStateResult.Code;
         }
         NetworkState newNetworkState = newNetworkStateResult.Value;
         // adjust state if user lobby expired
@@ -175,7 +180,7 @@ public static class StellarManager
         {
             EndTask(getNetworkStateTask);
         }
-        return stateChanged;
+        return StatusCode.SUCCESS;
     }
     
     public static async Task<bool> SetContractAddress(string contractId)

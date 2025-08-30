@@ -155,7 +155,6 @@ public static class FakeServer
         {
             lobbyInfo.phase = Phase.MoveCommit;
             lobbyInfo.subphase = Subphase.Both;
-            gameState.turn += 1;
             Debug.Log("Fake CommitSetup transitioned to movecommit");
         }
         else 
