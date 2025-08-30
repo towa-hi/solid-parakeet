@@ -36,6 +36,11 @@ public class ModalConnect : ModalElement
         DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
         contractField.text = defaultSettings.defaultContractAddress;
         sneedField.text = defaultSettings.defaultHostSneed;
+        bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
+        if (!isWebGL)
+        {
+            isWallet = false;
+        }
         Refresh();
     }
 
@@ -99,11 +104,22 @@ public class ModalConnect : ModalElement
 
     void Refresh()
     {
+        // check if in editor or webgl build
+        bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
         testnetButton.interactable = !isTestnet;
         mainnetButton.interactable = isTestnet;
-        walletButton.interactable = !isWallet;
-        keyButton.interactable = isWallet;
-        keyPanel.SetActive(!isWallet);
+        if (!isWebGL)
+        {
+            walletButton.interactable = false;
+            keyButton.interactable = false;
+            keyPanel.SetActive(true);
+        }
+        else
+        {
+            walletButton.interactable = !isWallet;
+            keyButton.interactable = isWallet;
+            keyPanel.SetActive(!isWallet);
+        }
         bool isSneedValid = false;
         if (keyPanel.activeSelf)
         {

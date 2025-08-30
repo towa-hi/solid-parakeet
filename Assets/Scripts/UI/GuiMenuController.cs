@@ -192,10 +192,9 @@ public class GuiMenuController: MonoBehaviour
 		}
 	}
 
-    void OnConnectButton(ModalConnectData data)
+    async void OnConnectButton(ModalConnectData data)
     {
-        StellarManager.SetSneed(data.sneed);
-        StellarManager.SetContractAddress(data.contract);
+        await GameManager.instance.ConnectToNetwork(data);
         GotoMainMenu();
     }
 

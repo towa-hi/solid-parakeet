@@ -74,7 +74,11 @@ public class GameManager : MonoBehaviour
     {
         if (data.isWallet)
         {
-            await WalletManager.ConnectWallet();
+            var(success, address, networkDetails) = await WalletManager.ConnectWallet();
+            if (!success)
+            {
+                return false;
+            }
         }
         StellarManager.Initialize(data);
         onlineMode = OnlineMode.Online;
