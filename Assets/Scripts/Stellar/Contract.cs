@@ -465,7 +465,15 @@ namespace Contract
         public readonly uint Value;
         
         public PawnId(uint value) => Value = value;
-
+        
+        public PawnId(Vector2Int pos, Team team) 
+        {
+            uint id = 0;
+            id |= (uint)team & 1;
+            id |= ((uint)pos.x & 0xF) << 1;
+            id |= ((uint)pos.y & 0xF) << 5;
+            Value = id;
+        }
         public (Vector2Int, Team) Decode()
         {
             // Must match Rust encoding: bit 0=team, bits 1-4=x, bits 5-8=y

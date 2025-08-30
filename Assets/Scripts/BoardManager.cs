@@ -473,7 +473,11 @@ public class SetupCommitPhase : PhaseBase
             MerkleProof merkleProof = tree.GenerateProof((uint)i);
             ranksAndProofs.Add(new() {hidden_rank = hiddenRank, merkle_proof = merkleProof});
         }
-        CacheManager.StoreHiddenRanksAndProofs(ranksAndProofs, cachedNetState.address, cachedNetState.lobbyInfo.index);
+
+        if (cachedNetState.lobbyParameters.security_mode)
+        {
+            CacheManager.StoreHiddenRanksAndProofs(ranksAndProofs, cachedNetState.address, cachedNetState.lobbyInfo.index);
+        }
         
         CommitSetupReq req = new()
         {

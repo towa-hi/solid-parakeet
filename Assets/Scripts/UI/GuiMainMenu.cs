@@ -144,13 +144,13 @@ public class GuiMainMenu : MenuElement
         currentAddressText.text = string.IsNullOrEmpty(currentAddress) ? "No address" : currentAddress;
 
         // Offline gating
-        bool isOnline = GameManager.instance != null && GameManager.instance.IsOnline();
+        bool isOnline = GameManager.instance.IsOnline();
         if (!isOnline)
         {
             currentLobbyText.text = "Offline";
             joinLobbyButton.interactable = false;
-            makeLobbyButton.interactable = false;
-            viewLobbyButton.interactable = false;
+            makeLobbyButton.interactable = true;
+            viewLobbyButton.interactable = FakeServer.fakeLobbyInfo.HasValue;
             walletButton.interactable = false;
             assetsButton.interactable = false;
             return;

@@ -4,10 +4,362 @@ using System.Linq;
 using Contract;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using Stellar;
 
-public class FakeServer : MonoBehaviour
+public static class FakeServer
 {
-    
+    public static bool fakeIsOnline = false;
+    public static LobbyParameters? fakeParameters = null;
+    public static LobbyInfo? fakeLobbyInfo = null;
+    public static GameState? fakeGameState = null;
+    public static AccountAddress fakeHostAddress;
+    public static AccountAddress fakeGuestAddress;
+    public static User fakeHost;
+    public static User fakeGuest;
+    public static LobbyId fakeLobbyId = new LobbyId(42069);
+
+    public static GameNetworkState GetFakeState()
+    {
+        Debug.Log("GetFakeState");
+        Debug.Assert(fakeIsOnline);
+        Debug.Assert(fakeParameters.HasValue);
+        Debug.Assert(fakeLobbyInfo.HasValue);
+        Debug.Assert(fakeGameState.HasValue);
+        var gameNetworkState = new GameNetworkState(GetFakeNetworkState());
+        gameNetworkState.lobbyInfo = fakeLobbyInfo.Value;
+        gameNetworkState.lobbyParameters = fakeParameters.Value;
+        gameNetworkState.gameState = fakeGameState.Value;
+        return gameNetworkState;
+    }
+    public static NetworkState GetFakeNetworkState()
+    {
+        Debug.Log("GetFakeNetworkState");
+        var networkState = new NetworkState(fakeHostAddress, false);
+        networkState.user = fakeHost;
+        networkState.lobbyInfo = fakeLobbyInfo;
+        networkState.lobbyParameters = fakeParameters;
+        networkState.gameState = fakeGameState;
+        return networkState;
+    }
+    public static void MakeLobbyAsHost(LobbyParameters parameters)
+    {
+        Debug.Log("MakeLobbyAsHost");
+        string hostSneed =ResourceRoot.DefaultSettings.defaultHostSneed;
+        string guestSneed =ResourceRoot.DefaultSettings.defaultGuestSneed;
+        fakeHostAddress = MuxedAccount.FromSecretSeed(hostSneed).AccountId;
+        fakeGuestAddress = MuxedAccount.FromSecretSeed(guestSneed).AccountId;
+        parameters.security_mode = false;
+        Debug.Assert(parameters.security_mode == false);
+        Debug.Assert(parameters.host_team == Team.RED);
+        fakeIsOnline = true;
+        fakeHost = new User {
+            current_lobby = fakeLobbyId,
+            games_completed = 0,
+        };
+        fakeParameters = parameters;
+        fakeLobbyInfo = new LobbyInfo
+        {
+            guest_address = null,
+            host_address = fakeHostAddress,
+            index = fakeLobbyId,
+        };
+    }
+    public static void JoinLobbyAsGuest(LobbyId lobbyId)
+    {
+        Debug.Log("JoinLobbyAsGuest");
+        Debug.Assert(fakeIsOnline);
+        fakeGuest = new User {
+            current_lobby = fakeLobbyId,
+            games_completed = 0,
+        };
+        LobbyInfo lobbyInfo = fakeLobbyInfo.Value;
+        LobbyParameters parameters = fakeParameters.Value;
+
+        Debug.Assert(lobbyInfo.phase == Phase.Lobby);
+
+        lobbyInfo.guest_address = fakeGuestAddress;
+        List<PawnState> pawns = new List<PawnState>();
+        foreach (TileState tile in parameters.board.tiles)
+        {
+            if (tile.setup == Team.BLUE)
+            {
+                pawns.Add(new PawnState { 
+                    alive = true, 
+                    moved = false, 
+                    moved_scout = false, 
+                    pawn_id = new PawnId(tile.pos, Team.BLUE), 
+                    pos = tile.pos, 
+                    rank = null, 
+                    zz_revealed = false });
+            }
+            if (tile.setup == Team.RED)
+            {
+                pawns.Add(new PawnState { 
+                    alive = true, 
+                    moved = false, 
+                    moved_scout = false, 
+                    pawn_id = new PawnId(tile.pos, Team.RED), 
+                    pos = tile.pos, 
+                    rank = null, 
+                    zz_revealed = false });
+            }
+        }
+        GameState gameState = new GameState {
+            moves = new UserMove[] { 
+                new UserMove {
+                    move_hashes = new byte[][] { },
+                    move_proofs = new HiddenMove[] { },
+                    needed_rank_proofs = new PawnId[] { },
+                },
+                new UserMove {
+                    move_hashes = new byte[][] { },
+                    move_proofs = new HiddenMove[] { },
+                    needed_rank_proofs = new PawnId[] { },
+                },
+            },
+            pawns = pawns.ToArray(),
+            rank_roots = new byte[][] { },// not used in fake server
+            turn = 0,
+            liveUntilLedgerSeq = 0,
+        };
+        lobbyInfo.phase = Phase.SetupCommit;
+        lobbyInfo.subphase = Subphase.Both;
+        lobbyInfo.last_edited_ledger_seq = 0;
+        fakeGameState = gameState;
+        fakeLobbyInfo = lobbyInfo;
+    }
+
+    public static void CommitSetup(CommitSetupReq req, bool isHost)
+    {
+        Debug.Log("Fake CommitSetup");
+        Debug.Assert(fakeIsOnline);
+        int userIndex = isHost ? 0 : 1;
+        LobbyInfo lobbyInfo = fakeLobbyInfo.Value;
+        LobbyParameters parameters = fakeParameters.Value;
+        GameState gameState = fakeGameState.Value;
+
+        Debug.Assert(lobbyInfo.phase == Phase.SetupCommit);
+        Dictionary<PawnId, Rank> hiddenRanks = new Dictionary<PawnId, Rank>();
+        foreach (HiddenRank hiddenRank in req.zz_hidden_ranks)
+        {
+            hiddenRanks[hiddenRank.pawn_id] = hiddenRank.rank;
+        }
+        for (int i = 0; i < gameState.pawns.Length; i++)
+        {
+            PawnState pawn = gameState.pawns[i];
+            pawn.rank = hiddenRanks.GetValueOrDefault(pawn.pawn_id);
+            gameState.pawns[i] = pawn;
+        }
+        Subphase nextSubphase = NextSubphase(lobbyInfo.subphase, isHost);
+        if (nextSubphase == Subphase.None)
+        {
+            lobbyInfo.phase = Phase.MoveCommit;
+            lobbyInfo.subphase = Subphase.Both;
+            gameState.turn += 1;
+            Debug.Log("Fake CommitSetup transitioned to movecommit");
+        }
+        else 
+        {
+            lobbyInfo.subphase = nextSubphase;
+        }
+        fakeLobbyInfo = lobbyInfo;
+        fakeGameState = gameState;
+    }
+
+    public static void CommitMoveAndProveMove(CommitMoveReq commitMoveReq, ProveMoveReq proveMoveReq, bool isHost)
+    {
+        Debug.Log("CommitMoveAndProveMove");
+        Debug.Assert(fakeIsOnline);
+        int userIndex = isHost ? 0 : 1;
+        Debug.Assert(commitMoveReq.lobby_id == proveMoveReq.lobby_id);
+        Debug.Assert(commitMoveReq.move_hashes.Length == proveMoveReq.move_proofs.Length);
+        LobbyInfo lobbyInfo = fakeLobbyInfo.Value;
+        LobbyParameters parameters = fakeParameters.Value;
+        GameState gameState = fakeGameState.Value;
+        
+        Debug.Assert(lobbyInfo.IsMySubphase(isHost ? fakeHostAddress : fakeGuestAddress));
+        Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
+        
+        gameState.moves[userIndex].move_hashes = commitMoveReq.move_hashes;
+        gameState.moves[userIndex].move_proofs = proveMoveReq.move_proofs;
+
+        Subphase nextSubphase = NextSubphase(lobbyInfo.subphase, isHost);
+        if (nextSubphase == Subphase.None)
+        {
+            Dictionary<Vector2Int, PawnState> pawns = new();
+            foreach (PawnState pawn in gameState.pawns)
+            {
+                pawns[pawn.pos] = pawn;
+            }
+            HashSet<HiddenMove> moveset = new();
+            foreach (HiddenMove moveProof in gameState.moves[0].move_proofs)
+            {
+                moveset.Add(moveProof);
+            }
+            foreach (HiddenMove moveProof in gameState.moves[1].move_proofs)
+            {
+                moveset.Add(moveProof);
+            }
+            // Collect all pawns moving now.
+            var moving_pawns = new Dictionary<Vector2Int, PawnState>();
+            foreach (var move in moveset)
+            {
+                moving_pawns[move.target_pos] = gameState.pawns[move.pawn_id];
+            }
+            // Collect pawns into target location sets.
+            var target_locations = new Dictionary<Vector2Int, HashSet<PawnState>>();
+            foreach (var move in moveset) 
+            {
+                if (!target_locations.TryGetValue(move.target_pos, out var set))
+                {
+                    set = new();
+                    target_locations[move.target_pos] = set;
+                }
+                set.Add(pawns[move.target_pos]);
+            }
+            // Remove moving pawns from board.
+            foreach (var move in moveset)
+            {
+                pawns.Remove(move.target_pos);
+            }
+            // Put unmoving pawns (defenders) in the target location set.
+            foreach (var move in moveset)
+            {
+                if (pawns.TryGetValue(move.target_pos, out var pawn))
+                {
+                    target_locations[move.target_pos].Add(pawn);
+                }
+            }
+            // Remove unmoving targets from the board.
+            foreach (var move in moveset)
+            {
+                pawns.Remove(move.target_pos);
+            }
+            // Put moving pawns at a target location that constitutes a swap.
+            foreach (var move in moveset)
+            {
+                foreach (var othermove in moveset)
+                {
+                    if (move.start_pos == othermove.target_pos && move.target_pos == othermove.start_pos)
+                    {
+                        target_locations[move.start_pos].Add(moving_pawns[move.start_pos]);
+                    }
+                }
+            }
+            var died = new Dictionary<PawnId, PawnState>();
+            // Battle or occupy each new position.
+            foreach (var (target, pawn_set) in target_locations)
+            {
+                var pawn_list = pawn_set.ToArray();
+                if (pawn_list.Length == 1)
+                {
+                    var p = pawn_list[0];
+                    p.pos = target;
+                    pawns[target] = p;
+                }
+                else if (pawn_list.Length == 2)
+                {
+                    var pawn_a = pawn_list[0];
+                    var pawn_b = pawn_list[1];
+                    var (winner, loser_a, loser_b) = BattlePawns(pawn_a, pawn_b);
+                    if (winner.HasValue)
+                    {
+                        var p = winner.Value;
+                        p.pos = target;
+                        pawns[target] = p;
+                    }
+                    foreach (var pawn in new[] { loser_a, loser_b })
+                    {
+                        if (pawn.HasValue)
+                        {
+                            var p = pawn.Value;
+                            p.pos = target;
+                            p.alive = false;
+                            died[p.pawn_id] = p;
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"list {pawn_list.Length}");
+                    foreach (var pawn in pawn_list)
+                    {
+                        Debug.LogWarning($"pawn {pawn.pos}");
+                    }
+                    foreach (var move in moveset)
+                    {
+                        Debug.LogWarning($"move {move.start_pos} {move.target_pos}");
+                    }
+                }
+            }
+            gameState.pawns = pawns.Values.ToArray();
+            
+            lobbyInfo.phase = Phase.MoveCommit;
+            lobbyInfo.subphase = Subphase.Both;
+            gameState.turn++;
+            // save changes
+            fakeGameState = gameState;
+            fakeLobbyInfo = lobbyInfo;
+            return;
+        }
+        else
+        {
+            lobbyInfo.subphase = nextSubphase;
+        }
+
+
+    }
+    static Subphase NextSubphase(Subphase subphase, bool isHost)
+    {
+        return subphase switch
+        {
+            Subphase.Host => isHost ? Subphase.None : Subphase.Guest,
+            Subphase.Guest => isHost ? Subphase.Host : Subphase.None,
+            Subphase.Both => isHost? Subphase.Guest : Subphase.Host,
+            Subphase.None => throw new Exception("Invalid subphase"),
+        };
+    }
+
+    static (PawnState?, PawnState?, PawnState?) BattlePawns(PawnState a, PawnState b)
+    {
+        if (a.rank == Rank.TRAP && b.rank == Rank.SEER)
+        {
+            return (b, a, null);
+        }
+        if (a.rank == Rank.SEER && b.rank == Rank.TRAP)
+        {
+            return (a, b, null);
+        }
+        if (a.rank == Rank.WARLORD && b.rank == Rank.ASSASSIN)
+        {
+            return (b, a, null);
+        }
+        if (a.rank == Rank.ASSASSIN && b.rank == Rank.WARLORD)
+        {
+            return (a, b, null);
+        }
+        if (a.rank < b.rank)
+        {
+            return (b, a, null);
+        }
+        if (a.rank > b.rank)
+        {
+            return (a, b, null);
+        }
+        return (null, a, b);
+    }
+
+    public static List<HiddenMove> TempFakeHiddenMoves(Team team)
+    {
+        Debug.Assert(fakeIsOnline);
+        List<HiddenMove> moves = new();
+        GameState gameState = fakeGameState.Value;
+
+        // heres the move picker logic
+        return moves;
+    }
+
+        
     // public Contract.LobbyParameters fakeParameters;
     // public Contract.Lobby fakeLobby;
     // public Contract.User fakeHost;
@@ -32,13 +384,6 @@ public class FakeServer : MonoBehaviour
     //     };
     // }
 
-    public void SetFakeParameters(Contract.LobbyParameters parameters)
-    {
-        // fakeParameters = parameters;
-        // BoardDef[] boardDefs = Resources.LoadAll<BoardDef>("Boards");
-        // boardDef = boardDefs.FirstOrDefault(def => def.name == fakeParameters.board_def_name);
-    }
-    
     //
     // public void StartFakeLobby()
     // {

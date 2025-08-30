@@ -107,7 +107,8 @@ public class GuiMenuController: MonoBehaviour
 
 	async void OnStartOfflineButton()
 	{
-        Debug.Log("wew");
+        GameManager.instance.OfflineMode();
+        GotoMainMenu();
         Debug.Log("OnStartOfflineButton done");
 	}
 

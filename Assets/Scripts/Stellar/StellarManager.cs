@@ -102,6 +102,33 @@ public static class StellarManager
     }
     public static async Task<bool> UpdateState(bool showTask = true)
     {
+        if (!GameManager.instance.IsOnline())
+        {
+            NetworkState previousFakeNetworkState = networkState;
+            NetworkState newFakeNetworkState = FakeServer.GetFakeNetworkState();
+            networkState = FakeServer.GetFakeNetworkState();
+            bool fakeStateChanged = HasMeaningfulChange(previousFakeNetworkState, newFakeNetworkState);
+            networkState = newFakeNetworkState;
+            Debug.Log("update state fake");
+            if (fakeStateChanged)
+            {
+                NetworkDelta delta = ComputeDelta(previousFakeNetworkState, newFakeNetworkState);
+                if (HasCompleteGameData(newFakeNetworkState))
+                {
+                    Debug.Log("firing events");
+                    GameNetworkState game = new(newFakeNetworkState);
+                    OnGameStateBeforeApplied?.Invoke(game, delta);
+                    OnNetworkStateUpdated?.Invoke();
+                    OnGameStateAfterApplied?.Invoke(game, delta);
+                }
+                else
+                {
+                    Debug.Log("firing just onnetworkstateupdated");
+                    OnNetworkStateUpdated?.Invoke();
+                }
+            }
+            return fakeStateChanged;
+        }
         TaskInfo getNetworkStateTask = showTask ? SetCurrentTask("ReqNetworkState") : null;
         TimingTracker tracker = new();
         tracker.StartOperation("UpdateState");
@@ -181,6 +208,12 @@ public static class StellarManager
 
     public static async Task<StatusCode> MakeLobbyRequest(LobbyParameters parameters)
     {
+        if (!GameManager.instance.IsOnline())
+        {
+            FakeServer.MakeLobbyAsHost(parameters);
+            FakeServer.JoinLobbyAsGuest(FakeServer.fakeLobbyId);
+            return StatusCode.SUCCESS;
+        }
         // Pause polling during contract invocation
         TimingTracker tracker = new();
         tracker.StartOperation($"MakeLobbyRequest");
@@ -221,6 +254,11 @@ public static class StellarManager
     
     public static async Task<StatusCode> JoinLobbyRequest(LobbyId lobbyId)
     {
+        if (!GameManager.instance.IsOnline())
+        {
+            FakeServer.JoinLobbyAsGuest(lobbyId);
+            return StatusCode.SUCCESS;
+        }
         TaskInfo task = SetCurrentTask("JoinLobbyRequest");
         TimingTracker tracker = new();
         tracker.StartOperation($"JoinLobbyRequest");
@@ -256,6 +294,35 @@ public static class StellarManager
     
     public static async Task<StatusCode> CommitSetupRequest(CommitSetupReq req)
     {
+        if (!GameManager.instance.IsOnline())
+        {
+            Debug.Log("CommitSetupRequest fake");
+            // pretend the guest went first
+            var guestSetup = FakeServer.GetFakeState().AutoSetup(Team.BLUE);
+            List<HiddenRank> guestHiddenRanks = new();
+            foreach ((Vector2Int pos, Rank rank) in guestSetup)
+            {
+                HiddenRank hiddenRank = new()
+                {
+                    pawn_id = new PawnId(pos, Team.BLUE),
+                    rank = rank,
+                    salt = Globals.RandomSalt(),
+                };
+                guestHiddenRanks.Add(hiddenRank);
+            }
+            CommitSetupReq fakeGuestReq = new()
+            {
+                lobby_id = req.lobby_id,
+                rank_commitment_root = req.rank_commitment_root,
+                zz_hidden_ranks = guestHiddenRanks.ToArray(),
+            };
+            FakeServer.CommitSetup(fakeGuestReq, false);
+            Debug.Log("CommitSetupRequest fake guest done");
+            // now host goes
+            FakeServer.CommitSetup(req, true);
+            Debug.Log("CommitSetupRequest fake host done");
+            return StatusCode.SUCCESS;
+        }
         TaskInfo task = SetCurrentTask("CommitSetupRequest");
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"CommitSetupRequest");
@@ -277,6 +344,31 @@ public static class StellarManager
         Debug.Assert(lobbyInfo.IsMySubphase(userAddress));
         Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
 
+        if (!GameManager.instance.IsOnline())
+        {
+            Debug.Log("CommitMoveRequest fake guest move");
+            List<HiddenMove> fakeGuestMoveProofs = new();
+            List<byte[]> fakeGuestMoveHashes = new();
+            foreach (HiddenMove move in fakeGuestMoveProofs)
+            {
+                fakeGuestMoveHashes.Add(SCUtility.Get16ByteHash(move));
+            }
+            CommitMoveReq fakeGuestCommitMoveReq = new()
+            {
+                lobby_id = commitMoveReq.lobby_id,
+                move_hashes = fakeGuestMoveHashes.ToArray(),
+            };
+            ProveMoveReq fakeHostProveMoveReq = new()
+            {
+                lobby_id = commitMoveReq.lobby_id,
+                move_proofs = fakeGuestMoveProofs.ToArray(),
+            };
+            FakeServer.CommitMoveAndProveMove(commitMoveReq, proveMoveReq, false);
+            Debug.Log("CommitMoveRequest fake host move");
+            FakeServer.CommitMoveAndProveMove(commitMoveReq, proveMoveReq, true);
+            Debug.Log("CommitMoveRequest fake done");
+            return StatusCode.SUCCESS;
+        }
         TaskInfo task = SetCurrentTask("CommitMoveRequest");
         TimingTracker tracker = new();
         tracker.StartOperation("CommitMoveRequest");
@@ -667,6 +759,10 @@ public static class StellarManager
         // If lobby/game presence changed, it's a change
         bool prevInLobby = previous.inLobby;
         bool currInLobby = current.inLobby;
+        if (previous.online != current.online)
+        {
+            return true;
+        }
         if (prevInLobby != currInLobby)
         {
             return true;

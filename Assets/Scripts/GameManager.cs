@@ -87,6 +87,15 @@ public class GameManager : MonoBehaviour
         bool result = await StellarManager.UpdateState();
         return true;
     }
+
+    public async void OfflineMode()
+    {
+        onlineMode = OnlineMode.Offline;
+        PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
+        await StellarManager.UpdateState();
+        Debug.Log($"Switched to {onlineMode} mode");
+
+    }
     // TODO: move this somewhere else
     Coroutine lightningCoroutine;
     public void Lightning()
