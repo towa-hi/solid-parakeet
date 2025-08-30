@@ -16,4 +16,5 @@ public class DefaultSettings : ScriptableObject
     public bool serializationLogging;
     public bool networkLogging;
     public bool pollingLogging;
+    public bool stellarManagerLogging;
 }

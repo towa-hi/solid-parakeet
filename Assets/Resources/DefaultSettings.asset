@@ -25,3 +25,4 @@ MonoBehaviour:
   serializationLogging: 0
   networkLogging: 0
   pollingLogging: 0
+  stellarManagerLogging: 1

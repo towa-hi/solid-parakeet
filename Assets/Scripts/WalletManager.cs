@@ -46,7 +46,7 @@ public class WalletManager : MonoBehaviour
         #endif
     }
 
-    public static async Task<bool> ConnectWallet()
+    public static async Task<(bool success, string address, NetworkDetails networkDetails)> ConnectWallet()
     {
         bool walletExists = await CheckWallet();
         address = null;
@@ -54,19 +54,19 @@ public class WalletManager : MonoBehaviour
         if (!walletExists)
         {
             Debug.LogWarning("Wallet could not be found");
-            return false;
+            return (false, null, null);
         }
         address = await GetAddress();
         if (string.IsNullOrEmpty(address))
         {
             Debug.LogWarning("Address not found");
-            return false;
+            return (false, null, null);
         }
         string networkDetailsJson = await GetNetworkDetails();
         if (string.IsNullOrEmpty(networkDetailsJson))
         {
             Debug.LogWarning("Network details not found");
-            return false;
+            return (false, null, null);
         }
         try
         {
@@ -75,23 +75,23 @@ public class WalletManager : MonoBehaviour
             if (!string.IsNullOrEmpty(errorObj?.error))
             {
                 Debug.LogError($"Network details error: {errorObj.error}");
-                return false;
+                return (false, null, null);
             }
             // If no error, parse as network details
             NetworkDetails networkDetailsObj = JsonConvert.DeserializeObject<NetworkDetails>(networkDetailsJson, jsonSettings);
             if (networkDetailsObj == null)
             {
                 Debug.LogError("Invalid network details format");
-                return false;
+                return (false, null, null);
             }
             Debug.Log($"Connected to network: {networkDetailsObj.network}");
             networkDetails = networkDetailsObj;
-            return true;
+            return (true, address, networkDetailsObj);
         }
         catch (JsonException ex)
         {
             Debug.LogError($"Failed to parse network details: {ex.Message}");
-            return false;
+            return (false, null, null);
         }
     }
     

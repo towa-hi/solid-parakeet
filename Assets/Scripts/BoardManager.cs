@@ -228,7 +228,7 @@ public class BoardManager : MonoBehaviour
     }
     
     // passed to currentPhase
-    bool CallContract(IReq req, [CanBeNull] IReq req2 = null)
+    async Task<bool> CallContract(IReq req, [CanBeNull] IReq req2 = null)
     {
         // Don't start new tasks if we're not initialized
         if (!initialized)
@@ -243,24 +243,29 @@ public class BoardManager : MonoBehaviour
         }
         // Stop polling while contract call is in progress
         StellarManager.SetPolling(false);
-        
+        // just for now
+        GameNetworkState gnsFromStellarManager = new(StellarManager.networkState);
+        LobbyInfo lobbyInfo = gnsFromStellarManager.lobbyInfo;
+        LobbyParameters lobbyParameters = gnsFromStellarManager.lobbyParameters;
+        AccountAddress userAddress = gnsFromStellarManager.address;
+
         switch (req)
         {
             case CommitSetupReq commitSetupReq:
-                _ = StellarManager.CommitSetupRequest(commitSetupReq);
+                await StellarManager.CommitSetupRequest(commitSetupReq);
                 break;
             case CommitMoveReq commitMoveReq:
                 if (req2 is not ProveMoveReq followUpProveMoveReq)
                 {
                     throw new ArgumentNullException();
                 }
-                _ = StellarManager.CommitMoveRequest(commitMoveReq, followUpProveMoveReq);
+                await StellarManager.CommitMoveRequest(commitMoveReq, followUpProveMoveReq, userAddress, lobbyInfo, lobbyParameters);
                 break;
             case ProveMoveReq proveMoveReq:
-                _ = StellarManager.ProveMoveRequest(proveMoveReq);
+                await StellarManager.ProveMoveRequest(proveMoveReq, userAddress, lobbyInfo, lobbyParameters);
                 break;
             case ProveRankReq proveRankReq:
-                _ = StellarManager.ProveRankRequest(proveRankReq);
+                await StellarManager.ProveRankRequest(proveRankReq);
                 break;
             case JoinLobbyReq:
             case MakeLobbyReq:
@@ -268,6 +273,7 @@ public class BoardManager : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException(nameof(req));
         }
+        await StellarManager.UpdateState();
         return true;
     }
 
@@ -284,7 +290,7 @@ public abstract class PhaseBase
     public Dictionary<PawnId, PawnView> pawnViews;
     
     Action<PhaseChangeSet> OnPhaseStateChanged;
-    Func<IReq, IReq, bool> OnCallContract;
+    Func<IReq, IReq, Task<bool>> OnCallContract;
     Func<bool> OnGetNetworkState;
     
     protected PhaseBase()
@@ -294,7 +300,7 @@ public abstract class PhaseBase
     
     public void EnterState(
         Action<PhaseChangeSet> inOnPhaseStateChanged, 
-        Func<IReq, IReq, bool> inOnCallContract, 
+        Func<IReq, IReq, Task<bool>> inOnCallContract, 
         Func<bool> inOnGetNetworkState, 
         ClickInputManager clickInputManager, 
         Dictionary<Vector2Int, TileView> bmTileViews, 
@@ -337,9 +343,9 @@ public abstract class PhaseBase
         return OnGetNetworkState.Invoke();
     }
 
-    protected bool InvokeOnCallContract(IReq req1, IReq req2 = null)
+    protected async Task<bool> InvokeOnCallContract(IReq req1, IReq req2 = null)
     {
-        return OnCallContract.Invoke(req1, req2);
+        return await OnCallContract.Invoke(req1, req2);
     }
 
     protected void InvokeOnPhaseStateChanged(PhaseChangeSet changes)

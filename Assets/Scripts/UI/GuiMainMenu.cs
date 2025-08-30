@@ -142,6 +142,20 @@ public class GuiMainMenu : MenuElement
             }
         }
         currentAddressText.text = string.IsNullOrEmpty(currentAddress) ? "No address" : currentAddress;
+
+        // Offline gating
+        bool isOnline = GameManager.instance != null && GameManager.instance.IsOnline();
+        if (!isOnline)
+        {
+            currentLobbyText.text = "Offline";
+            joinLobbyButton.interactable = false;
+            makeLobbyButton.interactable = false;
+            viewLobbyButton.interactable = false;
+            walletButton.interactable = false;
+            assetsButton.interactable = false;
+            return;
+        }
+
         User? currentUser = StellarManager.networkState.user;
         joinLobbyButton.interactable = true;
         makeLobbyButton.interactable = true;
@@ -169,7 +183,7 @@ public class GuiMainMenu : MenuElement
             viewLobbyButton.interactable = false;
         }
     }
-
+    
     void OnContractFieldChanged(string input)
     {
         setContractButton.interactable = StellarManager.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);

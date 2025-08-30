@@ -1763,32 +1763,24 @@ public struct GameNetworkState
     
     public RelativeSubphase GetRelativeSubphase()
     {
-        return lobbyInfo.subphase switch
-        {
-            Subphase.Host => isHost ? RelativeSubphase.MYSELF : RelativeSubphase.OPPONENT,
-            Subphase.Guest => isHost ? RelativeSubphase.OPPONENT : RelativeSubphase.MYSELF,
-            Subphase.Both => RelativeSubphase.BOTH,
-            Subphase.None => RelativeSubphase.NONE,
-            _ => throw new ArgumentOutOfRangeException()
-        };
+        return lobbyInfo.GetRelativeSubphase(address);
     }
 
     public bool IsMySubphase()
     {
-        RelativeSubphase subphase = GetRelativeSubphase();
-        return subphase is RelativeSubphase.MYSELF or RelativeSubphase.BOTH;
+        return lobbyInfo.IsMySubphase(address);
     }
         
-        public bool IsBlitzTurn()
-        {
-            uint interval = lobbyParameters.blitz_interval;
-            return interval > 0 && gameState.turn % interval == 0;
-        }
-        
-        public int GetMaxMovesThisTurn()
-        {
-            return IsBlitzTurn() ? (int)lobbyParameters.blitz_max_simultaneous_moves : 1;
-        }
+    public bool IsBlitzTurn()
+    {
+        uint interval = lobbyParameters.blitz_interval;
+        return interval > 0 && gameState.turn % interval == 0;
+    }
+    
+    public int GetMaxMovesThisTurn()
+    {
+        return IsBlitzTurn() ? (int)lobbyParameters.blitz_max_simultaneous_moves : 1;
+    }
     
     public UserMove GetUserMove()
     {
@@ -2065,6 +2057,7 @@ public struct GameNetworkState
 
 public struct NetworkState
 {
+    public bool online;
     public AccountAddress address;
     public User? user;
     public LobbyInfo? lobbyInfo;
@@ -2073,8 +2066,9 @@ public struct NetworkState
     
     public bool inLobby => lobbyInfo != null && lobbyParameters != null;
 
-    public NetworkState(AccountAddress inAddress)
+    public NetworkState(AccountAddress inAddress, bool inOnline)
     {
+        online = inOnline;
         address = inAddress;
         user = null;
         lobbyInfo = null;

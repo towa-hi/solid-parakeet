@@ -22,7 +22,7 @@ public static class StellarManager
     public static event Action<TrustLineEntry> OnAssetsUpdated;
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
-    
+    public static bool isWallet;
     public static NetworkState networkState;
 
     static TaskInfo currentTask;
@@ -44,13 +44,27 @@ public static class StellarManager
             Debug.Log(message);
         }
     }
-    public static void Initialize()
+    static void DebugLogStellarManager(string message)
+    {
+        if (ResourceRoot.DefaultSettings.stellarManagerLogging)
+        {
+            Debug.Log(message);
+        }
+    }
+    public static void Initialize(ModalConnectData data)
     {
         DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
         currentTask = null;
         canceledTaskIds.Clear();
-        StellarDotnet.Initialize(defaultSettings.defaultHostSneed, defaultSettings.defaultContractAddress);
+        if (data.isWallet)
+        {
+            data.isWallet = true;
+            Debug.Log("Using fake sneed for now because wallet mode");
+            data.sneed = defaultSettings.defaultHostSneed;
+        }
+        StellarDotnet.Initialize(data.isTestnet, data.sneed, data.contract);
     }
+
     public static AccountAddress GetHostAddress()
     {
         MuxedAccount.KeyTypeEd25519 account = MuxedAccount.FromSecretSeed(StellarDotnet.sneed);
@@ -58,40 +72,58 @@ public static class StellarManager
         return AccountAddress.Parse(publicAddress);
     }
     
-    public static async Task<bool> UpdateState(bool showTask = true)
+
+    public static async Task<StatusCode> Connect()
     {
-        TimingTracker tracker = new TimingTracker();
-        tracker.StartOperation("UpdateState");
-        TaskInfo getNetworkStateTask = null;
-        if (showTask)
+        TaskInfo task = SetCurrentTask("Connect");
+        TimingTracker tracker = new();
+        tracker.StartOperation("Connect");
+        var publicAddress = MuxedAccount.FromSecretSeed(StellarDotnet.sneed);
+        // check to make sure address exists on network
+        var result = await StellarDotnet.ReqAccountEntry(publicAddress);
+        if (result.IsError)
         {
-            getNetworkStateTask = SetCurrentTask("ReqNetworkState");
+            Debug.LogError($"Connect() ReqAccountEntry failed with error {result.Code} {result.Message}");
+            tracker.EndOperation();
+            DebugLogStellarManager(tracker.GetReport());
+            EndTask(task);
+            return result.Code;
         }
-        NetworkState previousNetworkState = networkState;
-        NetworkState newNetworkState = await StellarDotnet.ReqNetworkState(tracker);
-        if (showTask && getNetworkStateTask != null)
+        // check to make sure contract exists on network
+        var userResult = await StellarDotnet.ReqUser(publicAddress.AccountId, tracker);
+        if (userResult.IsError)
         {
-            EndTask(getNetworkStateTask);
-        }
-        if (newNetworkState.user is User user && user.current_lobby != 0)
-        {
-            if (!newNetworkState.lobbyInfo.HasValue || !newNetworkState.lobbyParameters.HasValue)
-            {
-                Debug.LogWarning($"UpdateState(): user.current_lobby is set to {newNetworkState.user?.current_lobby} but lobby data is missing - likely expired");
-                User updatedUser = user;
-                updatedUser.current_lobby = new LobbyId(0);
-                newNetworkState.user = updatedUser;
-                Debug.Log("Set current_lobby to null due to expired/missing lobby");
-            }
+            Debug.LogError($"Connect() ReqUser failed with error {userResult.Code} {userResult.Message}");
         }
         tracker.EndOperation();
-        if (!showTask)
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
+    }
+    public static async Task<bool> UpdateState(bool showTask = true)
+    {
+        TaskInfo getNetworkStateTask = showTask ? SetCurrentTask("ReqNetworkState") : null;
+        TimingTracker tracker = new();
+        tracker.StartOperation("UpdateState");
+        NetworkState previousNetworkState = networkState;
+        var newNetworkStateResult = await StellarDotnet.ReqNetworkState(tracker);
+        if (newNetworkStateResult.IsError)
         {
-            DebugLogPoll(tracker.GetReport());
+            Debug.LogError($"UpdateState() ReqNetworkState failed with error {newNetworkStateResult.Code} {newNetworkStateResult.Message}");
+            tracker.EndOperation();
+            DebugLogStellarManager(tracker.GetReport());
+            return false;
         }
-        else
+        NetworkState newNetworkState = newNetworkStateResult.Value;
+        // adjust state if user lobby expired
+        if (newNetworkState.user is User user && user.current_lobby != 0)
         {
-            Debug.Log(tracker.GetReport());
+            Debug.LogWarning($"UpdateState(): user.current_lobby is was {newNetworkState.user?.current_lobby} but lobby data is missing - likely expired. Resetting");
+            user.current_lobby = new LobbyId(0);
+            newNetworkState.user = user;
+            Debug.Assert(newNetworkState.lobbyInfo.HasValue == false);
+            Debug.Assert(newNetworkState.lobbyParameters.HasValue == false);
+            Debug.Assert(newNetworkState.gameState.HasValue == false);
         }
         bool stateChanged = HasMeaningfulChange(previousNetworkState, newNetworkState);
         networkState = newNetworkState;
@@ -110,6 +142,12 @@ public static class StellarManager
                 OnNetworkStateUpdated?.Invoke();
             }
         }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        if (showTask)
+        {
+            EndTask(getNetworkStateTask);
+        }
         return stateChanged;
     }
     
@@ -123,7 +161,6 @@ public static class StellarManager
     public static async Task<bool> SetSneed(string accountSneed)
     {
         StellarDotnet.SetSneed(accountSneed);
-        await UpdateState();
         return true;
     }
 
@@ -142,308 +179,245 @@ public static class StellarManager
         return StellarDotnet.sneed;
     }
 
-    public static async Task<int> MakeLobbyRequest(LobbyParameters parameters)
+    public static async Task<StatusCode> MakeLobbyRequest(LobbyParameters parameters)
     {
         // Pause polling during contract invocation
-        PushPollingHold();
-        TimingTracker tracker = new TimingTracker();
+        TimingTracker tracker = new();
         tracker.StartOperation($"MakeLobbyRequest");
-        MakeLobbyReq req = new()
+        TaskInfo task = SetCurrentTask("MakeLobbyRequest");
+        var result = await StellarDotnet.CallContractFunction("make_lobby", new MakeLobbyReq()
         {
             lobby_id = GenerateLobbyId(),
             parameters = parameters,
-        };
-        TaskInfo task = SetCurrentTask("Invoke make_lobby");
-        try
+        }, tracker);
+        if (result.IsError)
         {
-            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await StellarDotnet.CallContractFunction("make_lobby", req, tracker);
-            EndTask(task);
-            ResultCode code = ProcessTransactionResult(results);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return (int)code;
+            Debug.LogError($"MakeLobbyRequest() failed with error {result.Code} {result.Message}");
         }
-        finally
-        {
-            PopPollingHold();
-        }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
     }
 
-    public static async Task<int> LeaveLobbyRequest()
+    public static async Task<StatusCode> LeaveLobbyRequest()
     {
-        // Pause polling during contract invocation
-        PushPollingHold();
-        TimingTracker tracker = new TimingTracker();
+        TimingTracker tracker = new();
         tracker.StartOperation($"LeaveLobbyRequest");
-        TaskInfo task = SetCurrentTask("Invoke leave_lobby");
-        try
+        TaskInfo task = SetCurrentTask("LeaveLobbyRequest");
+        var result = await StellarDotnet.CallContractFunction("leave_lobby", new IScvMapCompatable[] 
         {
-            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await StellarDotnet.CallContractFunction("leave_lobby", new IScvMapCompatable[] {}, tracker);
-            EndTask(task);
-            ResultCode code = ProcessTransactionResult(results);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return (int)code;
-        }
-        finally
+            // intentionally empty
+        }, tracker);
+        if (result.IsError)
         {
-            PopPollingHold();
+            Debug.LogError($"LeaveLobbyRequest() failed with error {result.Code} {result.Message}");
         }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
     }
     
-    public static async Task<int> JoinLobbyRequest(LobbyId lobbyId)
+    public static async Task<StatusCode> JoinLobbyRequest(LobbyId lobbyId)
     {
-        // Pause polling during contract invocation
-        PushPollingHold();
-        TimingTracker tracker = new TimingTracker();
+        TaskInfo task = SetCurrentTask("JoinLobbyRequest");
+        TimingTracker tracker = new();
         tracker.StartOperation($"JoinLobbyRequest");
-        JoinLobbyReq req = new()
+        var result = await StellarDotnet.CallContractFunction("join_lobby", new JoinLobbyReq()
         {
             lobby_id = lobbyId,
-        };
-        TaskInfo task = SetCurrentTask("CallVoidFunction");
-        try
+        }, tracker);
+        if (result.IsError)
         {
-            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await StellarDotnet.CallContractFunction("join_lobby", req, tracker);
-            EndTask(task);
-            ResultCode code = ProcessTransactionResult(results);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            return (int)code;
+            Debug.LogError($"JoinLobbyRequest() failed with error {result.Code} {result.Message}");
         }
-        finally
-        {
-            PopPollingHold();
-        }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
     }
     
     public static async Task<PackedHistory?> GetPackedHistory(uint lobbyId)
     {
-        TimingTracker tracker = new TimingTracker();
+        TaskInfo task = SetCurrentTask("GetPackedHistory");
+        TimingTracker tracker = new();
         tracker.StartOperation("GetPackedHistory");
-        TaskInfo task = SetCurrentTask("ReqPackedHistory");
-        PackedHistory? history = await StellarDotnet.ReqPackedHistory(lobbyId, tracker);
-        EndTask(task);
+        var result = await StellarDotnet.ReqPackedHistory(lobbyId, tracker);
+        if (result.IsError)
+        {
+            Debug.LogError($"GetPackedHistory() failed with error {result.Code} {result.Message}");
+        }
         tracker.EndOperation();
-        return history;
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.IsError ? null : result.Value;
     }
     
-    public static async Task<int> CommitSetupRequest(CommitSetupReq req)
+    public static async Task<StatusCode> CommitSetupRequest(CommitSetupReq req)
     {
-        // Pause polling during contract invocation
-        PushPollingHold();
+        TaskInfo task = SetCurrentTask("CommitSetupRequest");
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"CommitSetupRequest");
-        TaskInfo task = SetCurrentTask("Invoke commit_setup");
-        try
+        var result = await StellarDotnet.CallContractFunction("commit_setup", req, tracker);
+        if (result.IsError)
         {
-            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results  = await StellarDotnet.CallContractFunction("commit_setup", req, tracker);
-            EndTask(task);
-            ResultCode code = ProcessTransactionResult(results);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return (int)code;
+            Debug.LogError($"CommitSetupRequest() failed with error {result.Code} {result.Message}");
         }
-        finally
-        {
-            PopPollingHold();
-        }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
     }
 
-    public static async Task<int> CommitMoveRequest(CommitMoveReq commitMoveReq, ProveMoveReq proveMoveReq)
+    public static async Task<StatusCode> CommitMoveRequest(CommitMoveReq commitMoveReq, ProveMoveReq proveMoveReq, AccountAddress userAddress, LobbyInfo lobbyInfo, LobbyParameters lobbyParameters)
     {
-        // Pause polling during contract invocation
-        PushPollingHold();
-        TimingTracker tracker = new TimingTracker();
-        tracker.StartOperation("CommitMoveRequest");
         Debug.Assert(commitMoveReq.lobby_id == proveMoveReq.lobby_id);
-        // NOTE: check lobbyInfo just to see if we should batch in prove_move or not
-        TaskInfo reqLobbyInfoTask = SetCurrentTask("ReqLobbyInfo");
-        try
-        {
-            LobbyInfo? preRequestLobbyInfoResult = await StellarDotnet.ReqLobbyInfo(commitMoveReq.lobby_id, tracker);
-            EndTask(reqLobbyInfoTask);
-            if (preRequestLobbyInfoResult is not LobbyInfo preRequestLobbyInfo)
-            {
-                return -999;
-            }
-            bool isHost = preRequestLobbyInfo.IsHost(StellarDotnet.userAddress);
-            Subphase mySubphase = isHost ? Subphase.Host : Subphase.Guest;
-            // we send prove_move too only if the server is waiting for us or if secure_mode false
-            bool sendProveMoveToo = preRequestLobbyInfo.phase == Phase.MoveCommit && preRequestLobbyInfo.subphase == mySubphase;
-            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
-            if (sendProveMoveToo || networkState.lobbyParameters?.security_mode == false)
-            {
-                TaskInfo task = SetCurrentTask("Invoke commit_move_and_prove_move");
-                results = await StellarDotnet.CallContractFunction("commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, tracker);
-                EndTask(task);
-            }
-            else
-            {
-                TaskInfo task = SetCurrentTask("Invoke commit_move");
-                results = await StellarDotnet.CallContractFunction("commit_move", commitMoveReq, tracker);
-                EndTask(task);
-            }
-            ResultCode code = ProcessTransactionResult(results);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return (int)code;
+        Debug.Assert(commitMoveReq.move_hashes.Length == proveMoveReq.move_proofs.Length);
+        Debug.Assert(lobbyInfo.IsMySubphase(userAddress));
+        Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
+
+        TaskInfo task = SetCurrentTask("CommitMoveRequest");
+        TimingTracker tracker = new();
+        tracker.StartOperation("CommitMoveRequest");
+        // If opponent has already made a moveCommit, we can safely batch
+        // If security mode is disabled, we can always batch
+        bool canBatchProveMove = lobbyInfo.subphase != Subphase.Both || !lobbyParameters.security_mode;
+        Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> result;
+        if (canBatchProveMove) {
+            result = await StellarDotnet.CallContractFunction("commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, tracker);
+        } else {
+            result = await StellarDotnet.CallContractFunction("commit_move", commitMoveReq, tracker);
         }
-        finally
-        {
-            PopPollingHold();
+        if (result.IsError) {
+            Debug.LogError($"CommitMoveRequest() failed with error {result.Code} {result.Message}");
         }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
     }
 
-    public static async Task<int> ProveMoveRequest(ProveMoveReq proveMoveReq)
+    public static async Task<StatusCode> ProveMoveRequest(ProveMoveReq proveMoveReq, AccountAddress userAddress, LobbyInfo lobbyInfo, LobbyParameters lobbyParameters)
     {
-        // Pause polling during contract invocation
-        PushPollingHold();
-        TimingTracker tracker = new TimingTracker();
+        Debug.Assert(lobbyInfo.phase == Phase.MoveProve);
+        Debug.Assert(lobbyParameters.security_mode);
+        Debug.Assert(lobbyInfo.IsMySubphase(userAddress));
+
+        TaskInfo task = SetCurrentTask("ProveMoveRequest");
+        TimingTracker tracker = new();
         tracker.StartOperation($"ProveMoveRequest");
-        bool sendRankProofToo = false;
-        bool isSecurityMode = networkState.lobbyParameters?.security_mode == true;
-        (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results;
-        UserMove? simulatedMove = null;
-        try
+        bool canSimulate = lobbyInfo.phase == Phase.MoveProve && lobbyInfo.subphase != Subphase.Both;
+        PawnId[] neededRankProofs = Array.Empty<PawnId>();
+        if (canSimulate)
         {
-            if (isSecurityMode && networkState.lobbyInfo.HasValue)
+            var simResult = await StellarDotnet.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
+            if (simResult.IsError)
             {
-                LobbyInfo lobby = networkState.lobbyInfo.Value;
-                bool canSimulate = lobby.phase == Phase.MoveProve && lobby.subphase != Subphase.Both;
-                if (canSimulate)
-                {
-                    TaskInfo reqLobbyInfoTask = SetCurrentTask("Simulate simulate_collisions");
-                    (_, SimulateTransactionResult collisionResult) = await StellarDotnet.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
-                    EndTask(reqLobbyInfoTask);
-                    if (collisionResult.Error != null)
-                    {
-                        throw new Exception($"collisionResult failed for some reason {collisionResult.Error}");
-                    }
-                    SCVal scVal = collisionResult.Results.FirstOrDefault()!.Result;
-                    UserMove move = SCUtility.SCValToNative<UserMove>(scVal);
-                    Debug.Log($"simulated move move needed rank proofs count: {move.needed_rank_proofs.Length} move hashes count: {move.move_hashes.Length} move proofs count: {move.move_proofs.Length}");
-                    sendRankProofToo = move.needed_rank_proofs != null && move.needed_rank_proofs.Length > 0;
-                    simulatedMove = move;
-                }
-            }
-
-            if (sendRankProofToo && simulatedMove is UserMove simulatedMoveVal)
-            {
-                Debug.Log("sendRankProofToo is true");
-                List<HiddenRank> hiddenRanks = new List<HiddenRank>();
-                List<MerkleProof> merkleProofs = new List<MerkleProof>();
-                foreach (PawnId pawnId in simulatedMoveVal.needed_rank_proofs ?? Array.Empty<PawnId>())
-                {
-                    if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
-                    {
-                        Debug.LogError($"cachemanager could not find pawn {pawnId}");
-                        throw new Exception($"cachemanager could not find pawn {pawnId}");
-                    }
-                    Debug.Log($"adding hidden rank for {cachedRankProof.hidden_rank.pawn_id}");
-                    hiddenRanks.Add(cachedRankProof.hidden_rank);
-                    Debug.Log($"Adding merkle proof for {cachedRankProof.hidden_rank.pawn_id}");
-                    merkleProofs.Add(cachedRankProof.merkle_proof);
-                }
-
-                if (simulatedMove == null)
-                {
-                    Debug.LogError("could not find simulatedMove");
-                    throw new Exception("could not find simulatedMove");
-                }
-                if (simulatedMove is UserMove move)
-                {
-                    if (hiddenRanks.Count != move.needed_rank_proofs.Length)
-                    {
-                        Debug.LogError($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
-                        throw new Exception($"hiddenRanks count {hiddenRanks.Count} expected {move.needed_rank_proofs.Length}");
-                    }
-
-                    if (merkleProofs.Count != move.needed_rank_proofs.Length)
-                    {
-                        Debug.LogError($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
-                        throw new Exception($"merkleProofs count {merkleProofs.Count} expected {move.needed_rank_proofs.Length}");
-                    }
-                }
-                ProveRankReq proveRankReq = new ProveRankReq
-                {
-                    hidden_ranks = hiddenRanks.ToArray(),
-                    lobby_id = proveMoveReq.lobby_id,
-                    merkle_proofs = merkleProofs.ToArray(),
-                };
-                TaskInfo task = SetCurrentTask("Invoke prove_move_and_prove_rank");
-                results = await StellarDotnet.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] { proveMoveReq, proveRankReq }, tracker);
+                Debug.LogError($"ProveMoveRequest() failed with error {simResult.Code} {simResult.Message}");
+                tracker.EndOperation();
+                DebugLogStellarManager(tracker.GetReport());
                 EndTask(task);
+                return simResult.Code;
             }
-            else
+            var (_, simulateTransactionResult) = simResult.Value;
+            if (simulateTransactionResult.Error != null)
             {
-                TaskInfo task = SetCurrentTask("Invoke prove_move");
-                results = await StellarDotnet.CallContractFunction("prove_move", proveMoveReq, tracker);
+                Debug.LogError($"ProveMoveRequest() simulate_collisions failed with error {simResult.Code} {simResult.Message}");
+                tracker.EndOperation();
+                DebugLogStellarManager(tracker.GetReport());
                 EndTask(task);
+                return StatusCode.SIMULATION_FAILED;
             }
-            ResultCode code = ProcessTransactionResult(results);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return (int)code;
+            SCVal scVal = simulateTransactionResult.Results.FirstOrDefault()!.Result;
+            UserMove simulatedMove = SCUtility.SCValToNative<UserMove>(scVal);
+            neededRankProofs = simulatedMove.needed_rank_proofs;
         }
-        finally
+        Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> result;
+        if (neededRankProofs.Length > 0)
         {
-            PopPollingHold();
+            // construct a proveRankReq
+            List<HiddenRank> hiddenRanks = new();
+            List<MerkleProof> merkleProofs = new();
+            foreach (PawnId pawnId in neededRankProofs)
+            {
+                if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cachedRankProof)
+                {
+                    throw new Exception($"cachemanager could not find pawn {pawnId}");
+                }
+                hiddenRanks.Add(cachedRankProof.hidden_rank);
+                merkleProofs.Add(cachedRankProof.merkle_proof);
+            }
+            ProveRankReq proveRankReq = new()
+            {
+                hidden_ranks = hiddenRanks.ToArray(),
+                lobby_id = proveMoveReq.lobby_id,
+                merkle_proofs = merkleProofs.ToArray(),
+            };
+            result = await StellarDotnet.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] { proveMoveReq, proveRankReq }, tracker);
         }
+        else
+        {
+            result = await StellarDotnet.CallContractFunction("prove_move", proveMoveReq, tracker);
+        }
+        if (result.IsError)
+        {
+            Debug.LogError($"ProveMoveRequest() failed with error {result.Code} {result.Message}");
+        }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
     }
 
-    public static async Task<int> ProveRankRequest(ProveRankReq req)
+    public static async Task<StatusCode> ProveRankRequest(ProveRankReq req)
     {
-        // Pause polling during contract invocation
-        PushPollingHold();
-        TimingTracker tracker = new TimingTracker();
-        tracker.StartOperation($"ProveRankRequest");
         TaskInfo task = SetCurrentTask("Invoke Prove_rank");
-        try
+        TimingTracker tracker = new();
+        tracker.StartOperation($"ProveRankRequest");
+        var result = await StellarDotnet.CallContractFunction("prove_rank", req, tracker);
+        if (result.IsError)
         {
-            (SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results = await StellarDotnet.CallContractFunction("prove_rank", req, tracker);
-            EndTask(task);
-            ResultCode code = ProcessTransactionResult(results);
-            tracker.EndOperation();
-            Debug.Log(tracker.GetReport());
-            await UpdateState();
-            return (int)code;
+            Debug.LogError($"ProveRankRequest() failed with error {result.Code} {result.Message}");
         }
-        finally
-        {
-            PopPollingHold();
-        }
+        tracker.EndOperation();
+        DebugLogStellarManager(tracker.GetReport());
+        EndTask(task);
+        return result.Code;
     }
     
-    public static async Task<AccountEntry> GetAccount(string key)
+    public static async Task<Result<AccountEntry>> GetAccount(string key)
     {
-        TimingTracker tracker = new TimingTracker();
+        TimingTracker tracker = new();
         tracker.StartOperation($"GetAccount");
         TaskInfo task = SetCurrentTask("ReqAccountEntry");
-        AccountEntry result = await StellarDotnet.ReqAccountEntry(MuxedAccount.FromAccountId(key));
+        var result = await StellarDotnet.ReqAccountEntry(MuxedAccount.FromAccountId(key));
+        if (result.IsError)
+        {
+            Debug.LogError($"GetAccount() failed with error {result.Code} {result.Message}");
+        }
         EndTask(task);
         tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
+        DebugLogStellarManager(tracker.GetReport());
         return result;
     }
 
-    public static async Task<TrustLineEntry> GetAssets(string userId)
+    public static async Task<Result<TrustLineEntry>> GetAssets(string userId)
     {
-        TimingTracker tracker = new TimingTracker();
-        tracker.StartOperation($"GetAssets");
-        MuxedAccount.KeyTypeEd25519 userAccount = MuxedAccount.FromAccountId(userId);
         TaskInfo task = SetCurrentTask("ReqAccountEntry");
-        LedgerEntry.dataUnion.Trustline result = await StellarDotnet.GetAssets(userAccount, tracker);
+        TimingTracker tracker = new();
+        tracker.StartOperation($"GetAssets");
+        var userAccount = MuxedAccount.FromAccountId(userId);
+        var result = await StellarDotnet.GetAssets(userAccount, tracker);
+        if (result.IsError)
+        {
+            Debug.LogError($"GetAssets() failed with error {result.Code} {result.Message}");
+        }
+        TrustLineEntry trustLineEntry = result.Value.trustLine;
         EndTask(task);
         tracker.EndOperation();
-        Debug.Log(tracker.GetReport());
-        OnAssetsUpdated?.Invoke(result.trustLine);
-        return result.trustLine;
+        DebugLogStellarManager(tracker.GetReport());
+        return Result<TrustLineEntry>.Ok(trustLineEntry);
     }
 
     // Start/stop centralized polling. Polling will automatically skip while busy
@@ -494,7 +468,7 @@ public static class StellarManager
 
     static NetworkDelta ComputeDelta(NetworkState previous, NetworkState current)
     {
-        NetworkDelta delta = new NetworkDelta();
+        NetworkDelta delta = new();
         delta.InLobbyChanged = previous.inLobby != current.inLobby;
         bool prevComplete = HasCompleteGameData(previous);
         bool currComplete = HasCompleteGameData(current);
@@ -734,6 +708,7 @@ public static class StellarManager
         taskInfo.taskId = Guid.NewGuid();
         taskInfo.taskMessage = message;
         currentTask = taskInfo;
+        PushPollingHold();
         OnTaskStarted?.Invoke(taskInfo);
         return taskInfo;
     }
@@ -764,6 +739,7 @@ public static class StellarManager
             }
             throw new Exception("Task is not taskId");
         }
+        PopPollingHold();
         OnTaskEnded?.Invoke(currentTask);
         currentTask = null;
     }

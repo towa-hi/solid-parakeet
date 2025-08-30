@@ -1,0 +1,146 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using System;
+using Stellar.Utilities;
+
+public class ModalConnect : ModalElement
+{
+    public TMP_InputField contractField;
+    public TMP_InputField sneedField;
+    public Button testnetButton;
+    public Button mainnetButton;
+    public Button walletButton;
+    public Button keyButton;
+    public GameObject keyPanel;
+
+    public Button closeButton;
+    public Button connectButton;
+
+    public Action OnCloseButton;
+    public Action<ModalConnectData> OnConnectButton;
+
+    bool isTestnet = true;
+    bool isWallet = true;
+
+    void Start()
+    {
+        contractField.onValueChanged.AddListener(HandleContractFieldChanged);
+        sneedField.onValueChanged.AddListener(HandleSneedFieldChanged);
+        closeButton.onClick.AddListener(HandleCloseButton);
+        connectButton.onClick.AddListener(HandleConnectButton);
+        testnetButton.onClick.AddListener(HandleTestnetButton);
+        mainnetButton.onClick.AddListener(HandleMainnetButton);
+        walletButton.onClick.AddListener(HandleWalletButton);
+        keyButton.onClick.AddListener(HandleKeyButton);
+        DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
+        contractField.text = defaultSettings.defaultContractAddress;
+        sneedField.text = defaultSettings.defaultHostSneed;
+        Refresh();
+    }
+
+    public override void OnFocus(bool focused)
+    {
+        canvasGroup.interactable = focused;
+    }
+
+    void HandleContractFieldChanged(string input)
+    {
+        Refresh();
+    }
+
+    void HandleSneedFieldChanged(string input)
+    {
+        Refresh();
+    }
+
+    void HandleCloseButton()
+    {
+        AudioManager.PlaySmallButtonClick();
+        OnCloseButton?.Invoke();
+    }
+
+    void HandleConnectButton()
+    {
+        AudioManager.PlaySmallButtonClick();
+        string contract = contractField.text;
+        string sneed = sneedField.text;
+
+        OnConnectButton?.Invoke(new ModalConnectData { isTestnet = isTestnet, contract = contract, sneed = sneed, isWallet = isWallet });
+    }
+
+    void HandleTestnetButton()
+    {
+        AudioManager.PlaySmallButtonClick();
+        isTestnet = true;
+        Refresh();
+    }
+
+    void HandleMainnetButton()
+    {
+        AudioManager.PlaySmallButtonClick();
+        isTestnet = false;
+        Refresh();
+    }
+    
+    void HandleWalletButton()
+    {
+        AudioManager.PlaySmallButtonClick();
+        isWallet = true;
+        Refresh();
+    }
+
+    void HandleKeyButton()
+    {
+        AudioManager.PlaySmallButtonClick();
+        isWallet = false;
+        Refresh();
+    }
+
+    void Refresh()
+    {
+        testnetButton.interactable = !isTestnet;
+        mainnetButton.interactable = isTestnet;
+        walletButton.interactable = !isWallet;
+        keyButton.interactable = isWallet;
+        keyPanel.SetActive(!isWallet);
+        bool isSneedValid = false;
+        if (keyPanel.activeSelf)
+        {
+            isSneedValid = StrKey.IsValidEd25519SecretSeed(sneedField.text);
+            if (isSneedValid)
+            {
+                sneedField.GetComponent<Image>().color = Color.white;
+            }
+            else
+            {
+                sneedField.GetComponent<Image>().color = Color.red;
+            }
+        }
+        bool isContractValid = StrKey.IsValidContractId(contractField.text);
+        if (isContractValid)
+        {
+            contractField.GetComponent<Image>().color = Color.white;
+        }
+        else
+        {
+            contractField.GetComponent<Image>().color = Color.red;
+        }
+        if (isSneedValid || isWallet && isContractValid)
+        {
+            connectButton.interactable = true;
+        }
+        else
+        {
+            connectButton.interactable = false;
+        }
+    }
+}
+
+public struct ModalConnectData
+{
+    public bool isTestnet;
+    public string contract;
+    public string sneed;
+    public bool isWallet;
+}

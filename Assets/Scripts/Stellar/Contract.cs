@@ -1106,6 +1106,29 @@ namespace Contract
             }
             else throw new ArgumentOutOfRangeException(nameof(address));
         }
+
+        public RelativeSubphase GetRelativeSubphase(AccountAddress address)
+        {
+            bool isHost = IsHost(address);
+            switch (subphase)
+            {
+                case Subphase.Host:
+                    return isHost ? RelativeSubphase.MYSELF : RelativeSubphase.OPPONENT;
+                case Subphase.Guest:
+                    return isHost ? RelativeSubphase.OPPONENT : RelativeSubphase.MYSELF;
+                case Subphase.Both:
+                    return RelativeSubphase.BOTH;
+                case Subphase.None:
+                    return RelativeSubphase.NONE;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(subphase));
+            }
+        }
+
+        public bool IsMySubphase(AccountAddress address)
+        {
+            return GetRelativeSubphase(address) is RelativeSubphase.MYSELF or RelativeSubphase.BOTH;
+        }
     }
 
     [Serializable]

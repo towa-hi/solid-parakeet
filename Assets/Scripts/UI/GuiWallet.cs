@@ -79,10 +79,18 @@ public class GuiWallet : MenuElement
     
     async void HandleOnConnectWalletButton()
     {
-        bool success = await WalletManager.ConnectWallet();
+        (bool success, string address, NetworkDetails networkDetails) = await WalletManager.ConnectWallet();
         if (success)
         {
-            accountEntry = await StellarManager.GetAccount(WalletManager.address);
+            var result = await StellarManager.GetAccount(WalletManager.address);
+            if (result.IsOk)
+            {
+                accountEntry = result.Value;
+            }
+            else
+            {
+                accountEntry = null;
+            }
             if (accountEntry != null)
             {
                 await StellarManager.GetAssets(WalletManager.address);
@@ -93,10 +101,18 @@ public class GuiWallet : MenuElement
 
     async void HandleRefreshButton()
     {
-        bool success = await WalletManager.ConnectWallet();
+        (bool success, string address, NetworkDetails networkDetails) = await WalletManager.ConnectWallet();
         if (success)
         {
-            accountEntry = await StellarManager.GetAccount(WalletManager.address);
+            var result = await StellarManager.GetAccount(WalletManager.address);
+            if (result.IsOk)
+            {
+                accountEntry = result.Value;
+            }
+            else
+            {
+                accountEntry = null;
+            }
             _ = await StellarManager.GetAssets(WalletManager.address);
         }
         else

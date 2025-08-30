@@ -10,6 +10,12 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Serialization;
 
+public enum OnlineMode
+{
+    Online = 0,
+    Offline = 1,
+}
+
 public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
@@ -24,6 +30,11 @@ public class GameManager : MonoBehaviour
     public AudioManager audioManager;
     public PoolManager poolManager;
 
+    // Online/Offline mode state
+    public OnlineMode onlineMode = OnlineMode.Online;
+    const string OnlineModePrefKey = "OnlineMode";
+
+
     void Awake()
     {
         if (instance == null)
@@ -37,7 +48,15 @@ public class GameManager : MonoBehaviour
         Debug.Log("Welcome to warmancer!");
         Debug.developerConsoleVisible = true;
         SettingsManager.Initialize();
-        StellarManager.Initialize();
+        // Initialize mode from PlayerPrefs before subsystems read it
+        if (PlayerPrefs.HasKey(OnlineModePrefKey))
+        {
+            onlineMode = (OnlineMode)PlayerPrefs.GetInt(OnlineModePrefKey);
+        }
+        else
+        {
+            PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
+        }
         cameraManager?.Initialize();
         guiMenuController?.Initialize();
         audioManager?.Initialize();
@@ -45,6 +64,25 @@ public class GameManager : MonoBehaviour
         Debug.Log("InputActions enabled");
     }
     
+    
+    public bool IsOnline()
+    {
+        return onlineMode == OnlineMode.Online;
+    }
+
+    public async Task<bool> ConnectToNetwork(ModalConnectData data)
+    {
+        if (data.isWallet)
+        {
+            await WalletManager.ConnectWallet();
+        }
+        StellarManager.Initialize(data);
+        onlineMode = OnlineMode.Online;
+        PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
+        Debug.Log($"Switched to {onlineMode} mode");
+        bool result = await StellarManager.UpdateState();
+        return true;
+    }
     // TODO: move this somewhere else
     Coroutine lightningCoroutine;
     public void Lightning()
