@@ -5,6 +5,7 @@ using Contract;
 using UnityEngine;
 using Random = UnityEngine.Random;
 using Stellar;
+using System.Collections.Immutable;
 
 public static class FakeServer
 {
@@ -350,14 +351,40 @@ public static class FakeServer
 
     public static List<HiddenMove> TempFakeHiddenMoves(Team team)
     {
+        uint lesser_move_threshold = 3; // Increase to make have it randomly make worse moves.
         Debug.Assert(fakeIsOnline);
-        List<HiddenMove> moves = new();
+        LobbyParameters parameters = fakeParameters.Value;
         GameState gameState = fakeGameState.Value;
-
-        // heres the move picker logic
-        return moves;
+        var board = AiPlayer.MakeSimGameBoard(parameters, gameState);
+        board.ally_team = team;
+        AiPlayer.MutGuessOpponentRanks(board, board.root_state);
+        foreach (var pawn in board.root_state.pawns.Values)
+        {
+            Debug.Log($"{pawn.team} {pawn.rank} {pawn.pos}");
+        }
+        var top_moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
+        Debug.Log($"top_moves {top_moves.Count}");
+        var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
+        ImmutableHashSet<AiPlayer.SimMove> moves = null;
+        // Pick random top move and also assemble blitz move if needed.
+        if (max_moves > 1)
+        {
+            top_moves = AiPlayer.CombineMoves(top_moves, max_moves, lesser_move_threshold);
+        }
+        moves = top_moves[(int)Random.Range(0, Mathf.Min(top_moves.Count - 1, lesser_move_threshold))];
+        // Convert to HiddenMoves.
+        List<HiddenMove> result_moves = new();
+        foreach (var move in moves)
+        {
+            result_moves.Add(new HiddenMove()
+            {
+                pawn_id = board.root_state.pawns[move.last_pos].id,
+                start_pos = move.last_pos,
+                target_pos = move.next_pos,
+            });
     }
-
+        return result_moves;
+    }
         
     // public Contract.LobbyParameters fakeParameters;
     // public Contract.Lobby fakeLobby;
