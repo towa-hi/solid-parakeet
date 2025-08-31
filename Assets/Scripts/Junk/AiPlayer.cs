@@ -241,18 +241,19 @@ public static class AiPlayer
                         MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, SimMoveSet.Empty.Add(ally_move_2));
                         var move_value_2 = EvaluateState(board, state.pawns, state.dead_pawns);
                         MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_2);
-                        if (move_value_2 >= move_value)
+                        if (move_value_2 < move_value)
                         {
-                            float move_score_total_2 = 0;
-                            foreach (var oppn_move_2 in oppn_moves_2)
-                            {
-                                MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, SimMoveSet.Empty.Add(ally_move_2).Add(oppn_move_2));
-                                move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
-                                MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_3);
-                            }
-                            final_scores_2.Add(SimMoveSet.Empty.Add(ally_move_2), move_score_total_2 / oppn_moves_2.Count);
-                            second_turn_evals++;
+                            continue;
                         }
+                        float move_score_total_2 = 0;
+                        foreach (var oppn_move_2 in oppn_moves_2)
+                        {
+                            MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, SimMoveSet.Empty.Add(ally_move_2).Add(oppn_move_2));
+                            move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
+                            MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_3);
+                        }
+                        final_scores_2.Add(SimMoveSet.Empty.Add(ally_move_2), move_score_total_2 / oppn_moves_2.Count);
+                        second_turn_evals++;
                     }
                     move_score_total += final_scores_2.Values.Average();
                     first_turn_evals++;
@@ -394,6 +395,10 @@ public static class AiPlayer
         changed_pawns.Clear();
         foreach (var move in moveset)
         {
+            if (!pawns.ContainsKey(move.last_pos))
+            {
+                Debug.Log("wewlad");
+            }
             var pawn = pawns[move.last_pos];
             changed_pawns[pawn.id] = pawn;
             if (pawns.TryGetValue(move.next_pos, out var next_pawn))
