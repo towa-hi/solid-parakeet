@@ -23,6 +23,6 @@ MonoBehaviour:
   musicVolume: 100
   effectsVolume: 100
   serializationLogging: 0
-  networkLogging: 0
+  networkLogging: 1
   pollingLogging: 0
   stellarManagerLogging: 1

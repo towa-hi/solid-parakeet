@@ -173,7 +173,8 @@ public static class StellarDotnet
         if (sim is not {Error: null})
         {
             tracker?.EndOperation();
-            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.SIMULATION_FAILED, (sim, null, null),$"CallContractFunction {functionName} failed because the simulation result was not successful");
+            StatusCode code = HasContractError(sim) ? StatusCode.CONTRACT_ERROR : StatusCode.SIMULATION_FAILED;
+            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(code, (sim, null, null),$"CallContractFunction {functionName} failed because the simulation result was not successful");
         }
         Transaction assembledTransaction = sim.ApplyTo(transaction);
         // double all fees just to make sure the transaction actually goes through
@@ -247,7 +248,8 @@ public static class StellarDotnet
         if (simulateTransactionResult.Error != null)
         {
             tracker?.EndOperation();
-            return Result<(Transaction, SimulateTransactionResult)>.Err(StatusCode.SIMULATION_FAILED, (invokeContractTransaction, simulateTransactionResult), $"SimulateContractFunction {functionName} failed because the simulation result was not successful");
+            StatusCode code = HasContractError(simulateTransactionResult) ? StatusCode.CONTRACT_ERROR : StatusCode.SIMULATION_FAILED;
+            return Result<(Transaction, SimulateTransactionResult)>.Err(code, (invokeContractTransaction, simulateTransactionResult), $"SimulateContractFunction {functionName} failed because the simulation result was not successful");
         }
         tracker?.EndOperation();
         return Result<(Transaction, SimulateTransactionResult)>.Ok((invokeContractTransaction, simulateTransactionResult));
@@ -732,6 +734,25 @@ public static class StellarDotnet
         }
         tracker?.EndOperation();
         return Result<T>.Ok(result);
+    }
+
+    static bool HasContractError(SimulateTransactionResult simulate)
+    {
+        if (simulate == null || simulate.DiagnosticEvents == null) return false;
+        foreach (var diag in simulate.DiagnosticEvents.Where(d => !d.inSuccessfulContractCall))
+        {
+            if (diag._event?.body is ContractEvent.bodyUnion.case_0 body)
+            {
+                foreach (SCVal topic in body.v0.topics)
+                {
+                    if (topic is SCVal.ScvError { error: SCError.SceContract })
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
     
     static LedgerKey MakeLedgerKey(string sym, object key, ContractDataDurability durability)

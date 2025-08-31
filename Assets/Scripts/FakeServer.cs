@@ -147,8 +147,11 @@ public static class FakeServer
         for (int i = 0; i < gameState.pawns.Length; i++)
         {
             PawnState pawn = gameState.pawns[i];
-            pawn.rank = hiddenRanks.GetValueOrDefault(pawn.pawn_id);
-            gameState.pawns[i] = pawn;
+            if (hiddenRanks.TryGetValue(pawn.pawn_id, out Rank providedRank))
+            {
+                pawn.rank = providedRank;
+                gameState.pawns[i] = pawn;
+            }
         }
         Subphase nextSubphase = NextSubphase(lobbyInfo.subphase, isHost);
         if (nextSubphase == Subphase.None)
@@ -358,7 +361,7 @@ public static class FakeServer
         return moves;
     }
 
-        
+
     // public Contract.LobbyParameters fakeParameters;
     // public Contract.Lobby fakeLobby;
     // public Contract.User fakeHost;

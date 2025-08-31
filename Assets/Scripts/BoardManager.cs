@@ -126,7 +126,7 @@ public class BoardManager : MonoBehaviour
         // Check if phase actually changed
         Phase newPhase = netState.lobbyInfo.phase;
         bool isInitialPhase = currentPhase == null; // intent: no phase has been set yet
-        bool shouldSwitchPhase = isInitialPhase || delta.TurnChanged || delta.TurnResolve.HasValue; // intent: we need to change local phase now
+        bool shouldSwitchPhase = isInitialPhase || delta.TurnChanged || delta.TurnResolve.HasValue || delta.LobbyInfoChanged; // intent: we need to change local phase now
         bool shouldSwitchToResolvePhase = delta is { TurnChanged: true, TurnResolve: not null };
         if (shouldSwitchPhase)
         {
@@ -273,7 +273,14 @@ public class BoardManager : MonoBehaviour
             default:
                 throw new ArgumentOutOfRangeException(nameof(req));
         }
-        await StellarManager.UpdateState();
+        StatusCode code = await StellarManager.UpdateState();
+        if (code != StatusCode.SUCCESS)
+        {
+            GameManager.instance.OfflineMode();
+            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+            GameManager.instance.guiMenuController.GotoStartMenu();
+            return false;
+        }
         return true;
     }
 
