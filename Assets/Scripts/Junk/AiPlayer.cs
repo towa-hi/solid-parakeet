@@ -36,8 +36,8 @@ public static class AiPlayer
     public class SimGameState
     {
         public uint turn;
-        public ImmutableDictionary<Vector2Int, SimPawn> pawns;
-        public ImmutableList<SimPawn> dead_pawns;
+        public Dictionary<Vector2Int, SimPawn> pawns;
+        public Dictionary<PawnId, SimPawn> dead_pawns;
         // TODO look into separate values for each team.
         // See paper: Monte Carlo Tree Search in Simultaneous Move Games with Applications to Goofspiel
         public float value;
@@ -86,8 +86,8 @@ public static class AiPlayer
         SimGameBoard board,
         GameState game_state)
     {
-        var pawns = ImmutableDictionary.CreateBuilder<Vector2Int, SimPawn>();
-        var dead_pawns = ImmutableList.CreateBuilder<SimPawn>();
+        var pawns = new Dictionary<Vector2Int, SimPawn>();
+        var dead_pawns = new Dictionary<PawnId, SimPawn>();
         foreach (var pawn in game_state.pawns)
         {
             var sim_pawn = new SimPawn()
@@ -107,14 +107,14 @@ public static class AiPlayer
             }
             else
             {
-                dead_pawns.Add(sim_pawn);
+                dead_pawns[sim_pawn.id] = sim_pawn;
             }
         }
         var state = new SimGameState()
         {
             turn = game_state.turn,
-            pawns = pawns.ToImmutable(),
-            dead_pawns = dead_pawns.ToImmutable(),
+            pawns = pawns,
+            dead_pawns = dead_pawns,
         };
         state.terminal = IsTerminal(board, state.pawns, state.dead_pawns);
         return state;
@@ -126,7 +126,7 @@ public static class AiPlayer
     {
         var available_ranks = (uint[])board.max_ranks.Clone();
         var oppn_team = board.ally_team == Team.RED ? Team.BLUE : Team.RED;
-        foreach (var pawn in state.dead_pawns)
+        foreach (var pawn in state.dead_pawns.Values)
         {
             if (pawn.team == oppn_team)
             {
@@ -152,18 +152,16 @@ public static class AiPlayer
         var arr_ranks = ranks.ToArray();
         MutShuffle(arr_ranks);
         int ix = 0;
-        var updated_pawns = state.pawns.ToBuilder();
-        foreach (var index in state.pawns.Keys)
+        foreach (var index in state.pawns.Keys.ToList())
         {
-            var pawn = updated_pawns[index];
+            var pawn = state.pawns[index];
             if (pawn.team == oppn_team && !pawn.is_revealed)
             {
                 pawn.rank = arr_ranks[ix];
-                updated_pawns[index] = pawn;
+                state.pawns[index] = pawn;
                 ix++;
             }
         }
-        state.pawns = updated_pawns.ToImmutable();
     }
 
     // Create a minimal representation of the board needed from the original board parameters.
@@ -207,59 +205,61 @@ public static class AiPlayer
         var final_scores = new Dictionary<SimMoveSet, float>();
         var ally_moves = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
         var oppn_moves = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
-        var oppn_throne = GetThronePos(state.pawns, oppn_team);
-        var oppn_dead_pawns = state.dead_pawns.Select(x => x.team == oppn_team).Count();
         int first_turn_evals = 0;
         int first_turn_all_possibilities = 0;
         int second_turn_evals = 0;
         int second_turn_all_possibilities = 0;
+        var changed_pawns = new Dictionary<PawnId, SimPawn>();
+        var changed_pawns_2 = new Dictionary<PawnId, SimPawn>();
+        var changed_pawns_3 = new Dictionary<PawnId, SimPawn>();
+        var final_scores_2 = new Dictionary<SimMoveSet, float>();
 
         // 2 ply search for simultaenous moves
         foreach (var ally_move in ally_moves)
         {
             float move_score_total = 0;
-            // var ally_move_only_substate = GetDerivedStateFromMove(board, state, SimMoveSet.Empty.Add(ally_move));
-            // if (ally_move_only_substate.value < state.value)
-            // {
-            //     continue;
-            // }
             foreach (var oppn_move in oppn_moves)
             {
                 var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
-                var substate = GetDerivedStateFromMove(board, state, move_union); // this is a complete state of a possible next turn
+                MutApplyMove(state.pawns, state.dead_pawns, changed_pawns, move_union);
+                var move_value = EvaluateState(board, state.pawns, state.dead_pawns);
                 first_turn_all_possibilities++;
                 // check if terminal
-                if (substate.terminal)
+                if (IsTerminal(board, state.pawns, state.dead_pawns))
                 {
-                    move_score_total += substate.value;
-                    continue;
+                    move_score_total += move_value;
                 }
-                var final_scores_2 = new Dictionary<SimMoveSet, float>();
-                //move_score_total += substate.value;
-                var ally_moves_2 = GetAllSingleMovesForTeam(board, substate.pawns, ally_team);
-                var oppn_moves_2 = GetAllSingleMovesForTeam(board, substate.pawns, oppn_team);
-                foreach (var ally_move_2 in ally_moves_2)
+                else
                 {
-                    second_turn_all_possibilities++;
-                    var ally_move_only_substate_2 = GetDerivedStateFromMove(board, substate, SimMoveSet.Empty.Add(ally_move_2));
-                    if (ally_move_only_substate_2.value < substate.value)
+                    final_scores_2.Clear();
+                    //move_score_total += substate.value;
+                    var ally_moves_2 = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
+                    var oppn_moves_2 = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
+                    foreach (var ally_move_2 in ally_moves_2)
                     {
-                        continue;
+                        second_turn_all_possibilities++;
+                        MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, SimMoveSet.Empty.Add(ally_move_2));
+                        var move_value_2 = EvaluateState(board, state.pawns, state.dead_pawns);
+                        MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_2);
+                        if (move_value_2 < move_value)
+                        {
+                            continue;
+                        }
+                        float move_score_total_2 = 0;
+                        foreach (var oppn_move_2 in oppn_moves_2)
+                        {
+                            MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, SimMoveSet.Empty.Add(ally_move_2).Add(oppn_move_2));
+                            move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
+                            MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_3);
+                        }
+                        final_scores_2.Add(SimMoveSet.Empty.Add(ally_move_2), move_score_total_2 / oppn_moves_2.Count);
+                        second_turn_evals++;
                     }
-                    float move_score_total_2 = 0;
-                    foreach (var oppn_move_2 in oppn_moves_2)
-                    {
-                        var substate_2 = GetDerivedStateFromMove(board, substate, SimMoveSet.Empty.Add(ally_move_2).Add(oppn_move_2));
-                        move_score_total_2 += substate_2.value;
-
-                    }
-                    final_scores_2.Add(SimMoveSet.Empty.Add(ally_move_2), move_score_total_2 / oppn_moves_2.Count);
-                    second_turn_evals++;
+                    move_score_total += final_scores_2.Values.Average();
+                    first_turn_evals++;
                 }
-                move_score_total += final_scores_2.Values.Average();
-                first_turn_evals++;
+                MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns);
             }
-
             final_scores.Add(SimMoveSet.Empty.Add(ally_move), move_score_total / oppn_moves.Count);
         }
 
@@ -268,100 +268,6 @@ public static class AiPlayer
         var _nss_elapsed = Time.realtimeSinceStartupAsDouble - _nss_start_time;
         Debug.Log($"NodeScoreStrategy elapsed: {_nss_elapsed:F4}s, First turn evals: {first_turn_all_possibilities}/{first_turn_evals}, Second turn evals: {second_turn_all_possibilities}/{second_turn_evals}");
         return arr_scores.Select(x => x.Key).ToList();
-    }
-
-    // Recursion with pruning attempt.
-
-    public static List<SimGameState> NodeScoreEvalSubstate(
-        SimGameBoard board,
-        SimGameState state,
-        int depth)
-    {
-        var ally_team = board.ally_team;
-        var oppn_team = ally_team == Team.RED ? Team.BLUE : Team.RED;
-        var ally_scores = new Dictionary<SimMove, SimAverage>();
-        var oppn_scores = new Dictionary<SimMove, SimAverage>();
-        var ally_moves = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
-        var oppn_moves = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
-        var ally_throne = GetThronePos(state.pawns, ally_team);
-        var oppn_throne = GetThronePos(state.pawns, oppn_team);
-        // Collect all utility scores for each move of each team.
-        foreach (var ally_move in ally_moves)
-        {
-            var ally_throne_nudge = DirTo(ally_move, oppn_throne);
-            var ally_avg = ally_scores.GetValueOrDefault(ally_move);
-            ally_avg.sum = 0;
-            foreach (var oppn_move in oppn_moves)
-            {
-                var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
-                var substate = GetDerivedStateFromMove(board, state, move_union);
-                var oppn_avg = oppn_scores.GetValueOrDefault(oppn_move);
-                ally_avg.sum += substate.value + ally_throne_nudge;
-                ally_avg.count += 1;
-                oppn_avg.sum += (-substate.value) + DirTo(oppn_move, ally_throne);
-                oppn_avg.count += 1;
-                oppn_scores[oppn_move] = oppn_avg;
-            }
-            ally_scores[ally_move] = ally_avg;
-        }
-        var top_ally_scores = new List<(SimMove, float)>();
-        var top_oppn_scores = new List<(SimMove, float)>();
-        // Average the found scores.
-        foreach (var (scores, top_scores) in new[] { (ally_scores, top_ally_scores), (oppn_scores, top_oppn_scores) })
-        {
-            foreach (var (move, avg) in scores)
-            {
-                top_scores.Add((move, avg.sum / avg.count));
-            }
-            top_scores.Sort((x, y) => y.Item2.CompareTo(x.Item2));
-        }
-        // Recurse into each top substate, which we think are most likely to occur.
-        // Try to get the true utility of each successive substate.
-        // Not really sure what is good here, or how to make it more like minimax.
-        var top_n_ally = top_ally_scores.Take(board.max_top_moves).ToArray();
-        var top_n_oppn = top_oppn_scores.Take(board.max_top_moves).ToArray();
-        var substates = new List<SimGameState>();
-        foreach (var (ally_move, ally_score) in top_n_ally)
-        {
-            foreach (var (oppn_move, oppn_score) in top_n_oppn)
-            {
-                var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
-                var substate = GetDerivedStateFromMove(board, state, move_union);
-                substate.ally_single_move = ally_move;
-                if (depth == 0 || substate.terminal)
-                {
-                    //substate.value = ally_score;
-                    substate.value = ally_score + oppn_score;
-                }
-                else
-                {
-                    var next_substates = NodeScoreEvalSubstate(board, substate, depth - 1);
-                    if (next_substates.Count > 0)
-                    {
-                        substate.value += next_substates[0].value;
-                    }
-                }
-                substates.Add(substate);
-            }
-        }
-        substates.Sort((x, y) => y.value.CompareTo(x.value));
-        return substates;
-    }
-
-    public static List<SimMoveSet> NodeScoreStrategy2(
-        SimGameBoard board,
-        SimGameState state,
-        int depth)
-    {
-        var move = SimMoveSet.Empty.Add(NodeScoreEvalSubstate(board, state, depth)[0].ally_single_move);
-        return new List<SimMoveSet>() { move };
-        // var substates = NodeScoreEvalSubstate(board, state, depth);
-        // var ally_moves = new HashSet<SimMoveSet>();
-        // foreach (var substate in substates)
-        // {
-        //     ally_moves.Add(SimMoveSet.Empty.Add(substate.ally_single_move));
-        // }
-        // return ally_moves.ToList();
     }
 
     // Greedy join moves together
@@ -434,207 +340,20 @@ public static class AiPlayer
         return Vector2Int.zero;
     }
 
-    public static void MutMCTSRunForTime(
-        SimGameBoard board,
-        float seconds)
-    {
-        var root_state = board.root_state;
-        var end_time = Time.realtimeSinceStartupAsDouble + seconds;
-        while (Time.realtimeSinceStartupAsDouble < end_time)
-        {
-            var state = MutSelectPromisingState(board, root_state);
-            state = MutExpandStateChildren(board, state);
-            var result = RolloutState(board, state);
-            MutBackPropagateState(state, result);
-        }
-    }
-
-    public static SimMoveSet MCTSGetResult(
-        SimGameBoard board)
-    {
-        //var substate = SelectPromisingChild(board.root_state, 0f);
-        // TEST
-        var all_substates = board.root_state.substates.ToList();
-        all_substates.AddRange(board.root_state.unexplored_states);
-        var top = all_substates.OrderBy(x => x.value).Reverse().Take(5).ToArray();
-        var substate = top[0];
-        Debug.Log($"TOP MOVES {board.ally_team}");
-        foreach (var s in top)
-        {
-            Debug.Log($"STATE --- val {s.value} vis {s.visits}");
-            foreach (var move in s.move)
-            {
-                Debug.Log($"  move {move.last_pos} {move.next_pos}");
-            }
-        }
-
-        var move_set = substate == null ? SimMoveSet.Empty : substate.move;
-        var filtered_set = SimMoveSet.Empty.ToBuilder();
-        foreach (var move in move_set)
-        {
-            if (board.root_state.pawns[move.last_pos].team == board.ally_team)
-            {
-                filtered_set.Add(move);
-            }
-        }
-        return filtered_set.ToImmutable();
-    }
-
-    // Find a promising leaf state to explore or expand.
-    public static SimGameState MutSelectPromisingState(
-        SimGameBoard board,
-        SimGameState state)
-    {
-        while (!state.terminal && state.unexplored_states != null)
-        {
-            if (state.unexplored_states.Count > 0)
-            {
-                return MutGetNextUnexploredState(state);
-            }
-            else
-            {
-                state = SelectPromisingChild(state, board.ubc_constant);
-            }
-        }
-        return state;
-    }
-
-    // Argmax of the UBC1 function over all instantiated child states.
-    public static SimGameState SelectPromisingChild(
-        SimGameState state,
-        float ucbConstant)
-    {
-        SimGameState found = null;
-        float best = Mathf.NegativeInfinity;
-        foreach (var substate in state.substates)
-        {
-            var value = UCB1(substate, ucbConstant);
-            if (value > best)
-            {
-                best = value;
-                found = substate;
-            }
-        }
-        return found;
-    }
-
-    // Expand child states and return a random one, or self if terminal.
-    public static SimGameState MutExpandStateChildren(
-        SimGameBoard board,
-        SimGameState state)
-    {
-        if (!state.terminal && state.unexplored_states == null)
-        {
-            state.unexplored_states = new();
-            foreach (var move in CreateRandomMoveQueue(board, state))
-            {
-                var substate = GetDerivedStateFromMove(board, state, move);
-                MutBackPropagateState(substate, substate.value);
-                state.unexplored_states.Enqueue(substate);
-            }
-            return MutGetNextUnexploredState(state);
-        }
-        else
-        {
-            return state;
-        }
-    }
-
-    // Simulate a game from this state and produce a value representing the final evaluation.
-    public static float RolloutState(
-        SimGameBoard board,
-        SimGameState state)
-    {
-        var pawns = state.pawns.ToBuilder();
-        var dead_pawns = state.dead_pawns.ToBuilder();
-        for (uint depth = 0; depth < board.max_sim_depth; depth++)
-        {
-            if (IsTerminal(board, pawns, dead_pawns))
-            {
-                break;
-            }
-            var max_moves = MaxMovesThisTurn(board, depth + state.turn);
-            var red_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.RED).ToArray();
-            var red_move = MutCreateRandomMoveForTeam(red_base_moves, max_moves);
-            var blue_base_moves = GetAllSingleMovesForTeam(board, pawns, Team.BLUE).ToArray();
-            var blue_move = MutCreateRandomMoveForTeam(blue_base_moves, max_moves);
-            var move = red_move.Union(blue_move);
-            MutApplyMove(pawns, dead_pawns, move);
-        }
-        return EvaluateState(board, pawns, dead_pawns);
-    }
-
-    // Updates this state and all parent states to the root with the given value.
-    public static void MutBackPropagateState(
-        SimGameState state,
-        float result)
-    {
-        while (state != null)
-        {
-            state.value += result;
-            state.visits += 1;
-            state = state.parent;
-        }
-    }
-
-    // Create a queue of random moves with no more than the max moves per state allowed.
-    // For 1 move turns, just generate all moves unconditionally.
-    public static Queue<SimMoveSet> CreateRandomMoveQueue(
-        SimGameBoard board,
-        SimGameState state)
-    {
-        var max_moves = MaxMovesThisTurn(board, state.turn);
-        var red_moves = GetAllSingleMovesForTeam(board, state.pawns, Team.RED).ToArray();
-        var blue_moves = GetAllSingleMovesForTeam(board, state.pawns, Team.BLUE).ToArray();
-        var result = new HashSet<SimMoveSet>();
-        if (max_moves == 1)
-        {
-            foreach (var red in red_moves)
-            {
-                foreach (var blue in blue_moves)
-                {
-                    result.Add(SimMoveSet.Empty.Add(red).Add(blue));
-                }
-            }
-        }
-        else
-        {
-            for (int i = 0; i < board.max_moves_per_state; i++)
-            {
-                var red_move = MutCreateRandomMoveForTeam(red_moves, max_moves);
-                var blue_move = MutCreateRandomMoveForTeam(blue_moves, max_moves);
-                result.Add(red_move.Union(blue_move));
-            }
-        }
-        var array_result = result.ToArray();
-        MutShuffle(array_result);
-        return new Queue<SimMoveSet>(array_result);
-    }
-
-    // Updates the given state to create a new child state, and returns it.
-    // Converts the next unexplored move into an actual state.
-    public static SimGameState MutGetNextUnexploredState(
-        SimGameState state)
-    {
-        var derived_state = state.unexplored_states.Dequeue();
-        state.substates.Add(derived_state);
-        return derived_state;
-    }
-
     // Create a new derived state from the given state and move.
     public static SimGameState GetDerivedStateFromMove(
         SimGameBoard board,
         SimGameState state,
         SimMoveSet move)
     {
-        var next_pawns = state.pawns.ToBuilder();
-        var next_dead_pawns = state.dead_pawns.ToBuilder();
-        MutApplyMove(next_pawns, next_dead_pawns, move);
+        var next_pawns = new Dictionary<Vector2Int, SimPawn>(state.pawns);
+        var next_dead_pawns = new Dictionary<PawnId, SimPawn>(state.dead_pawns);
+        MutApplyMove(next_pawns, next_dead_pawns, new Dictionary<PawnId, SimPawn>(), move);
         var new_state = new SimGameState
         {
             turn = state.turn + 1,
-            pawns = next_pawns.ToImmutable(),
-            dead_pawns = next_dead_pawns.ToImmutable(),
+            pawns = next_pawns,
+            dead_pawns = next_dead_pawns,
             parent = state,
             move = move,
         };
@@ -643,27 +362,65 @@ public static class AiPlayer
         return new_state;
     }
 
+    public static void MutUndoApplyMove(
+        IDictionary<Vector2Int, SimPawn> pawns,
+        IDictionary<PawnId, SimPawn> dead_pawns,
+        IDictionary<PawnId, SimPawn> changed_pawns)
+    {
+        foreach (var pawn in pawns.Values.ToList())
+        {
+            if (changed_pawns.ContainsKey(pawn.id))
+            {
+                pawns.Remove(pawn.pos);
+            }
+        }
+        foreach (var (id, pawn) in changed_pawns)
+        {
+            dead_pawns.Remove(id);
+            pawns[pawn.pos] = pawn;
+        }
+    }
+
+    private static Dictionary<Vector2Int, SimPawn> mut_moving_pawns = new();
+    private static Dictionary<Vector2Int, HashSet<SimPawn>> mut_target_locations = new();
+
     // Modify the pawns and dead pawns with the given move in place.
     // Optimized for this MCTS implementation.
     public static void MutApplyMove(
         IDictionary<Vector2Int, SimPawn> pawns,
-        IList<SimPawn> dead_pawns,
+        IDictionary<PawnId, SimPawn> dead_pawns,
+        IDictionary<PawnId, SimPawn> changed_pawns,
         SimMoveSet moveset)
     {
-        // Collect all pawns moving now.
-        var moving_pawns = new Dictionary<Vector2Int, SimPawn>();
+        changed_pawns.Clear();
         foreach (var move in moveset)
         {
-            moving_pawns[move.last_pos] = pawns[move.last_pos];
+            if (!pawns.ContainsKey(move.last_pos))
+            {
+                Debug.Log("wewlad");
+            }
+            var pawn = pawns[move.last_pos];
+            changed_pawns[pawn.id] = pawn;
+            if (pawns.TryGetValue(move.next_pos, out var next_pawn))
+            {
+                changed_pawns[next_pawn.id] = next_pawn;
+            }
+        }
+        // Collect all pawns moving now.
+        mut_moving_pawns.Clear();
+        foreach (var move in moveset)
+        {
+            var pawn = pawns[move.last_pos];
+            mut_moving_pawns[move.last_pos] = pawn;
         }
         // Collect pawns into target location sets.
-        var target_locations = new Dictionary<Vector2Int, HashSet<SimPawn>>();
+        mut_target_locations.Clear();
         foreach (var move in moveset)
         {
-            if (!target_locations.TryGetValue(move.next_pos, out var set))
+            if (!mut_target_locations.TryGetValue(move.next_pos, out var set))
             {
                 set = new();
-                target_locations[move.next_pos] = set;
+                mut_target_locations[move.next_pos] = set;
             }
             set.Add(pawns[move.last_pos]);
         }
@@ -677,7 +434,7 @@ public static class AiPlayer
         {
             if (pawns.TryGetValue(move.next_pos, out var pawn))
             {
-                target_locations[move.next_pos].Add(pawn);
+                mut_target_locations[move.next_pos].Add(pawn);
             }
         }
         // Remove unmoving targets from the board.
@@ -692,13 +449,12 @@ public static class AiPlayer
             {
                 if (move.last_pos == othermove.next_pos && move.next_pos == othermove.last_pos)
                 {
-                    target_locations[move.last_pos].Add(moving_pawns[move.last_pos]);
+                    mut_target_locations[move.last_pos].Add(mut_moving_pawns[move.last_pos]);
                 }
             }
         }
-        var died = new Dictionary<PawnId, SimPawn>();
         // Battle or occupy each new position.
-        foreach (var (target, pawn_set) in target_locations)
+        foreach (var (target, pawn_set) in mut_target_locations)
         {
             var pawn_list = pawn_set.ToArray();
             if (pawn_list.Length == 1)
@@ -730,7 +486,7 @@ public static class AiPlayer
                         p.pos = target;
                         p.alive = false;
                         p.is_revealed = true;
-                        died[p.id] = p;
+                        dead_pawns[p.id] = p;
                     }
                 }
             }
@@ -747,10 +503,6 @@ public static class AiPlayer
                 }
                 Assert.IsFalse(true, "Expected size 1 or 2 list.");
             }
-        }
-        foreach (var pawn in died.Values)
-        {
-            dead_pawns.Add(pawn);
         }
     }
 
@@ -788,7 +540,7 @@ public static class AiPlayer
     public static bool IsTerminal(
         SimGameBoard board,
         IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
-        IReadOnlyList<SimPawn> dead_pawns)
+        IReadOnlyDictionary<PawnId, SimPawn> dead_pawns)
     {
         var red_moves = GetAllSingleMovesForTeam(board, pawns, Team.RED);
         var blue_moves = GetAllSingleMovesForTeam(board, pawns, Team.BLUE);
@@ -796,7 +548,7 @@ public static class AiPlayer
         {
             return true;
         }
-        foreach (var pawn in dead_pawns)
+        foreach (var pawn in dead_pawns.Values)
         {
             if (pawn.rank == Rank.THRONE)
             {
@@ -804,14 +556,6 @@ public static class AiPlayer
             }
         }
         return false;
-    }
-
-    // Upper Confidence Bound formula for selecting state to expand or traverse.
-    public static float UCB1(SimGameState state, float ubc_constant)
-    {
-        return state.visits == 0 ?
-            Mathf.Infinity :
-            (state.value / state.visits) + ubc_constant * Mathf.Sqrt(Mathf.Log(state.parent.visits) / state.visits);
     }
 
     // Get a score of a state's power balance, if it's in favor of one team or the other.
@@ -822,7 +566,7 @@ public static class AiPlayer
     public static float EvaluateState(
         SimGameBoard board,
         IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
-        IReadOnlyList<SimPawn> dead_pawns)
+        IReadOnlyDictionary<PawnId, SimPawn> dead_pawns)
     {
         var (terminal, winner) = WhoWins(dead_pawns);
         if (terminal)
@@ -841,10 +585,10 @@ public static class AiPlayer
     }
 
     // Returns (terminal, winning team)
-    public static (bool, Team) WhoWins(IReadOnlyList<SimPawn> dead_pawns)
+    public static (bool, Team) WhoWins(IReadOnlyDictionary<PawnId, SimPawn> dead_pawns)
     {
         var thrones = new List<Team>();
-        foreach (var pawn in dead_pawns)
+        foreach (var pawn in dead_pawns.Values)
         {
             if (pawn.rank == Rank.THRONE)
             {
@@ -879,33 +623,6 @@ public static class AiPlayer
             }
         }
         return (red, blue);
-    }
-
-    // Get random move set up to the max size from the given available moves.
-    // This is only for a single team.
-    // Mutates moves by shuffling it.
-    public static SimMoveSet MutCreateRandomMoveForTeam(
-        SimMove[] moves,
-        uint max_size)
-    {
-        if (max_size == 1)
-        {
-            return SimMoveSet.Empty.Add(moves[(int)Random.Range(0, moves.Length - 1)]);
-        }
-        MutShuffle(moves);
-        var result = SimMoveSet.Empty.ToBuilder();
-        foreach (var move in moves)
-        {
-            if (result.Count == max_size)
-            {
-                break;
-            }
-            if (IsMoveAdditionLegal(result, move))
-            {
-                result.Add(move);
-            }
-        }
-        return result.ToImmutable();
     }
 
     // Shuffle in-place.
