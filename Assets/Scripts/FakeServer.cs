@@ -19,6 +19,19 @@ public static class FakeServer
     public static User fakeGuest;
     public static LobbyId fakeLobbyId = new LobbyId(42069);
 
+    public static void Reset()
+    {
+        Debug.Log("FakeServer.Reset");
+        fakeIsOnline = false;
+        fakeParameters = null;
+        fakeLobbyInfo = null;
+        fakeGameState = null;
+        fakeHost = default;
+        fakeGuest = default;
+        fakeHostAddress = default;
+        fakeGuestAddress = default;
+    }
+
     public static GameNetworkState GetFakeState()
     {
         Debug.Log("GetFakeState");

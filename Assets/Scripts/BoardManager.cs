@@ -126,7 +126,7 @@ public class BoardManager : MonoBehaviour
         // Check if phase actually changed
         Phase newPhase = netState.lobbyInfo.phase;
         bool isInitialPhase = currentPhase == null; // intent: no phase has been set yet
-        bool shouldSwitchPhase = isInitialPhase || delta.TurnChanged || delta.TurnResolve.HasValue || delta.LobbyInfoChanged; // intent: we need to change local phase now
+        bool shouldSwitchPhase = isInitialPhase || (delta.TurnChanged && delta.TurnResolve.HasValue) || delta.PhaseChanged; // intent: we need to change local phase now
         bool shouldSwitchToResolvePhase = delta is { TurnChanged: true, TurnResolve: not null };
         if (shouldSwitchPhase)
         {
