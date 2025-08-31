@@ -119,7 +119,7 @@ public class BoardManager : MonoBehaviour
         {
             return;
         }
-        Debug.Log("BoardManager::OnGameStateBeforeApplied");
+        Debug.Log($"BoardManager::OnGameStateBeforeApplied turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
         bool shouldPoll = !netState.IsMySubphase();
         // No local task references to reset; StellarManager governs busy state
 

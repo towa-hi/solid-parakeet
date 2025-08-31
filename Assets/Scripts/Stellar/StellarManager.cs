@@ -109,10 +109,11 @@ public static class StellarManager
             networkState = FakeServer.GetFakeNetworkState();
             bool fakeStateChanged = HasMeaningfulChange(previousFakeNetworkState, newFakeNetworkState);
             networkState = newFakeNetworkState;
-            Debug.Log("update state fake");
+            Debug.Log($"update state fake: changed={fakeStateChanged} prevPhase={(previousFakeNetworkState.lobbyInfo.HasValue ? previousFakeNetworkState.lobbyInfo.Value.phase.ToString() : "-")} prevSub={(previousFakeNetworkState.lobbyInfo.HasValue ? previousFakeNetworkState.lobbyInfo.Value.subphase.ToString() : "-")} prevTurn={(previousFakeNetworkState.gameState.HasValue ? previousFakeNetworkState.gameState.Value.turn.ToString() : "-")} -> currPhase={(newFakeNetworkState.lobbyInfo.HasValue ? newFakeNetworkState.lobbyInfo.Value.phase.ToString() : "-")} currSub={(newFakeNetworkState.lobbyInfo.HasValue ? newFakeNetworkState.lobbyInfo.Value.subphase.ToString() : "-")} currTurn={(newFakeNetworkState.gameState.HasValue ? newFakeNetworkState.gameState.Value.turn.ToString() : "-")}");
             if (fakeStateChanged)
             {
                 NetworkDelta delta = ComputeDelta(previousFakeNetworkState, newFakeNetworkState);
+                Debug.Log($"delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
                 if (HasCompleteGameData(newFakeNetworkState))
                 {
                     Debug.Log("firing events");

@@ -195,123 +195,149 @@ public static class FakeServer
 
         Debug.Assert(lobbyInfo.IsMySubphase(isHost ? fakeHostAddress : fakeGuestAddress));
         Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
+        Debug.Log($"[FakeServer] Pre-commit: turn={gameState.turn} phase={lobbyInfo.phase} subphase={lobbyInfo.subphase} isHost={isHost} userIndex={userIndex}");
 
         gameState.moves[userIndex].move_hashes = commitMoveReq.move_hashes;
         gameState.moves[userIndex].move_proofs = proveMoveReq.move_proofs;
+        Debug.Log($"[FakeServer] Applied moves: userIndex={userIndex} hashes={commitMoveReq.move_hashes.Length} proofs={proveMoveReq.move_proofs.Length}");
 
         Subphase nextSubphase = NextSubphase(lobbyInfo.subphase, isHost);
+        Debug.Log($"[FakeServer] NextSubphase={nextSubphase}");
         if (nextSubphase == Subphase.None)
         {
-            Dictionary<Vector2Int, PawnState> pawns = new();
-            foreach (PawnState pawn in gameState.pawns)
+            try
             {
-                pawns[pawn.pos] = pawn;
-            }
-            HashSet<HiddenMove> moveset = new();
-            foreach (HiddenMove moveProof in gameState.moves[0].move_proofs)
-            {
-                moveset.Add(moveProof);
-            }
-            foreach (HiddenMove moveProof in gameState.moves[1].move_proofs)
-            {
-                moveset.Add(moveProof);
-            }
-            // Collect all pawns moving now.
-            var moving_pawns = new Dictionary<Vector2Int, PawnState>();
-            foreach (var move in moveset)
-            {
-                moving_pawns[move.target_pos] = gameState.pawns[move.pawn_id];
-            }
-            // Collect pawns into target location sets.
-            var target_locations = new Dictionary<Vector2Int, HashSet<PawnState>>();
-            foreach (var move in moveset)
-            {
-                if (!target_locations.TryGetValue(move.target_pos, out var set))
+                Dictionary<Vector2Int, PawnState> pawns = new();
+                foreach (PawnState pawn in gameState.pawns)
                 {
-                    set = new();
-                    target_locations[move.target_pos] = set;
+                    pawns[pawn.pos] = pawn;
                 }
-                set.Add(pawns[move.target_pos]);
-            }
-            // Remove moving pawns from board.
-            foreach (var move in moveset)
-            {
-                pawns.Remove(move.target_pos);
-            }
-            // Put unmoving pawns (defenders) in the target location set.
-            foreach (var move in moveset)
-            {
-                if (pawns.TryGetValue(move.target_pos, out var pawn))
+                // Build lookup by pawn id to avoid array index assumptions
+                Dictionary<PawnId, PawnState> idToPawn = new();
+                foreach (PawnState pawn in gameState.pawns)
                 {
-                    target_locations[move.target_pos].Add(pawn);
+                    idToPawn[pawn.pawn_id] = pawn;
                 }
-            }
-            // Remove unmoving targets from the board.
-            foreach (var move in moveset)
-            {
-                pawns.Remove(move.target_pos);
-            }
-            // Put moving pawns at a target location that constitutes a swap.
-            foreach (var move in moveset)
-            {
-                foreach (var othermove in moveset)
+                // Preserve original index order to keep arrays index-aligned across updates
+                PawnId[] originalOrder = gameState.pawns.Select(p => p.pawn_id).ToArray();
+                HashSet<HiddenMove> moveset = new();
+                foreach (HiddenMove moveProof in gameState.moves[0].move_proofs)
                 {
-                    if (move.start_pos == othermove.target_pos && move.target_pos == othermove.start_pos)
+                    moveset.Add(moveProof);
+                }
+                foreach (HiddenMove moveProof in gameState.moves[1].move_proofs)
+                {
+                    moveset.Add(moveProof);
+                }
+                // Collect all moving pawns keyed by their start positions
+                var moving_pawns = new Dictionary<Vector2Int, PawnState>();
+                foreach (var move in moveset)
+                {
+                    moving_pawns[move.start_pos] = idToPawn[move.pawn_id];
+                }
+                // Collect pawns into target location sets and add movers
+                var target_locations = new Dictionary<Vector2Int, HashSet<PawnState>>();
+                foreach (var move in moveset)
+                {
+                    if (!target_locations.TryGetValue(move.target_pos, out var set))
                     {
-                        target_locations[move.start_pos].Add(moving_pawns[move.start_pos]);
+                        set = new();
+                        target_locations[move.target_pos] = set;
+                    }
+                    // Add the moving pawn to its intended target
+                    set.Add(moving_pawns[move.start_pos]);
+                }
+                // Remove moving pawns from their original positions
+                foreach (var move in moveset)
+                {
+                    pawns.Remove(move.start_pos);
+                }
+                // Put unmoving pawns (defenders) in the target location set.
+                foreach (var move in moveset)
+                {
+                    if (pawns.TryGetValue(move.target_pos, out var pawn))
+                    {
+                        target_locations[move.target_pos].Add(pawn);
                     }
                 }
-            }
-            var died = new Dictionary<PawnId, PawnState>();
-            // Battle or occupy each new position.
-            foreach (var (target, pawn_set) in target_locations)
-            {
-                var pawn_list = pawn_set.ToArray();
-                if (pawn_list.Length == 1)
+                // Put moving pawns at a target location that constitutes a swap.
+                foreach (var move in moveset)
                 {
-                    var p = pawn_list[0];
-                    p.pos = target;
-                    pawns[target] = p;
-                }
-                else if (pawn_list.Length == 2)
-                {
-                    var pawn_a = pawn_list[0];
-                    var pawn_b = pawn_list[1];
-                    var (winner, loser_a, loser_b) = BattlePawns(pawn_a, pawn_b);
-                    if (winner.HasValue)
+                    foreach (var othermove in moveset)
                     {
-                        var p = winner.Value;
-                        p.pos = target;
-                        pawns[target] = p;
-                    }
-                    foreach (var pawn in new[] { loser_a, loser_b })
-                    {
-                        if (pawn.HasValue)
+                        if (move.start_pos == othermove.target_pos && move.target_pos == othermove.start_pos)
                         {
-                            var p = pawn.Value;
-                            p.pos = target;
-                            p.alive = false;
-                            died[p.pawn_id] = p;
+                            target_locations[move.start_pos].Add(moving_pawns[move.start_pos]);
                         }
                     }
                 }
-                else
+                var died = new Dictionary<PawnId, PawnState>();
+                // Battle or occupy each new position.
+                foreach (var (target, pawn_set) in target_locations)
                 {
-                    Debug.LogWarning($"list {pawn_list.Length}");
-                    foreach (var pawn in pawn_list)
+                    var pawn_list = pawn_set.ToArray();
+                    if (pawn_list.Length == 1)
                     {
-                        Debug.LogWarning($"pawn {pawn.pos}");
+                        var p = pawn_list[0];
+                        p.pos = target;
+                        pawns[target] = p;
+                        idToPawn[p.pawn_id] = p;
                     }
-                    foreach (var move in moveset)
+                    else if (pawn_list.Length == 2)
                     {
-                        Debug.LogWarning($"move {move.start_pos} {move.target_pos}");
+                        var pawn_a = pawn_list[0];
+                        var pawn_b = pawn_list[1];
+                        var (winner, loser_a, loser_b) = BattlePawns(pawn_a, pawn_b);
+                        if (winner.HasValue)
+                        {
+                            var p = winner.Value;
+                            p.pos = target;
+                            pawns[target] = p;
+                            idToPawn[p.pawn_id] = p;
+                        }
+                        foreach (var pawn in new[] { loser_a, loser_b })
+                        {
+                            if (pawn.HasValue)
+                            {
+                                var p = pawn.Value;
+                                p.pos = target;
+                                p.alive = false;
+                                died[p.pawn_id] = p;
+                                idToPawn[p.pawn_id] = p;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"list {pawn_list.Length}");
+                        foreach (var pawn in pawn_list)
+                        {
+                            Debug.LogWarning($"pawn {pawn.pos}");
+                        }
+                        foreach (var move in moveset)
+                        {
+                            Debug.LogWarning($"move {move.start_pos} {move.target_pos}");
+                        }
                     }
                 }
+                // Rebuild array using original order to maintain index alignment
+                PawnState[] rebuilt = new PawnState[originalOrder.Length];
+                for (int i = 0; i < originalOrder.Length; i++)
+                {
+                    PawnId id = originalOrder[i];
+                    rebuilt[i] = idToPawn[id];
+                }
+                gameState.pawns = rebuilt;
             }
-            gameState.pawns = pawns.Values.ToArray();
+            catch (Exception ex)
+            {
+                Debug.LogError($"[FakeServer] Resolve exception: {ex}");
+                throw;
+            }
 
             lobbyInfo.phase = Phase.MoveCommit;
             lobbyInfo.subphase = Subphase.Both;
+            Debug.Log($"[FakeServer] Resolve complete: advancing turn {gameState.turn} -> {gameState.turn + 1}; pawns {gameState.pawns.Length}");
             gameState.turn++;
             // save changes
             fakeGameState = gameState;
@@ -320,10 +346,13 @@ public static class FakeServer
         }
         else
         {
+            // Persist intermediate subphase and any move changes before returning
             lobbyInfo.subphase = nextSubphase;
+            Debug.Log($"[FakeServer] Persist intermediate: subphase={lobbyInfo.subphase} turn={gameState.turn}");
+            fakeGameState = gameState;
+            fakeLobbyInfo = lobbyInfo;
+            return;
         }
-
-
     }
     static Subphase NextSubphase(Subphase subphase, bool isHost)
     {
