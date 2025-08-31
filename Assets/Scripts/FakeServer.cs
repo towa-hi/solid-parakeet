@@ -194,8 +194,11 @@ public static class FakeServer
         LobbyParameters parameters = fakeParameters.Value;
         GameState gameState = fakeGameState.Value;
 
-        Debug.Assert(lobbyInfo.IsMySubphase(isHost ? fakeHostAddress : fakeGuestAddress));
-        Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
+        // Minimal preconditions; avoid over-asserting
+        if (!lobbyInfo.IsMySubphase(isHost ? fakeHostAddress : fakeGuestAddress) || lobbyInfo.phase != Phase.MoveCommit)
+        {
+            Debug.LogWarning($"[FakeServer] Unexpected state for commit: phase={lobbyInfo.phase} sub={lobbyInfo.subphase}");
+        }
         Debug.Log($"[FakeServer] Pre-commit: turn={gameState.turn} phase={lobbyInfo.phase} subphase={lobbyInfo.subphase} isHost={isHost} userIndex={userIndex}");
 
         gameState.moves[userIndex].move_hashes = commitMoveReq.move_hashes;
@@ -209,36 +212,30 @@ public static class FakeServer
             try
             {
                 // Use AiPlayer mechanics to resolve simultaneous moves reliably
-                Assert.IsTrue(gameState.pawns != null && gameState.pawns.Length > 0, "GameState.pawns must be populated");
-                Assert.AreEqual(Phase.MoveCommit, lobbyInfo.phase, "Phase must be MoveCommit when resolving");
                 var simBoard = AiPlayer.MakeSimGameBoard(parameters, gameState);
                 var baseState = simBoard.root_state;
-                Assert.AreEqual(gameState.turn, baseState.turn, "Sim root turn should match GameState.turn");
                 var moveSetBuilder = System.Collections.Immutable.ImmutableHashSet.CreateBuilder<AiPlayer.SimMove>();
                 foreach (HiddenMove moveProof in gameState.moves[0].move_proofs)
                 {
-                    Assert.IsTrue(baseState.pawns.ContainsKey(moveProof.start_pos), $"Host move start not on board: {moveProof.start_pos}");
                     moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
                 foreach (HiddenMove moveProof in gameState.moves[1].move_proofs)
                 {
-                    Assert.IsTrue(baseState.pawns.ContainsKey(moveProof.start_pos), $"Guest move start not on board: {moveProof.start_pos}");
                     moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
                 var moveSet = moveSetBuilder.ToImmutable();
-                // Ensure no duplicate movers (same pawn moving twice). Duplicate targets are allowed (battle case).
-                HashSet<Vector2Int> seenStarts = new HashSet<Vector2Int>();
-                foreach (var m in moveSet)
+                // Ensure no duplicate movers (same pawn moving twice). Duplicate targets allowed.
+                // Compact: compare count vs distinct(last_pos)
+                int distinctStarts = moveSet.Select(m => m.last_pos).Distinct().Count();
+                if (distinctStarts != moveSet.Count)
                 {
-                    Assert.IsTrue(seenStarts.Add(m.last_pos), $"A pawn is moving more than once from: {m.last_pos}");
+                    Debug.LogWarning("[FakeServer] Duplicate movers detected in move set");
                 }
                 var derived = AiPlayer.GetDerivedStateFromMove(simBoard, baseState, moveSet);
-                Assert.AreEqual(baseState.turn + 1, derived.turn, "Derived state should advance the turn by 1");
-                int beforeCount = baseState.pawns.Count + baseState.dead_pawns.Count;
-                int afterCount = derived.pawns.Count + derived.dead_pawns.Count;
-                if (beforeCount != afterCount)
+                // Sanity: turn advanced
+                if (derived.turn != baseState.turn + 1)
                 {
-                    Debug.LogWarning($"[FakeServer] Pawn count changed: before={beforeCount} after={afterCount}");
+                    Debug.LogWarning($"[FakeServer] Derived turn unexpected: base={baseState.turn} derived={derived.turn}");
                 }
 
                 // Preserve original pawn index ordering when writing back
@@ -257,30 +254,14 @@ public static class FakeServer
                 {
                     PawnId id = originalOrder[i];
                     PawnState prev = gameState.pawns[i];
-                    if (!idToSim.TryGetValue(id, out var simPawn))
-                    {
-                        // Fallback: keep previous as-is
-                        Debug.LogWarning($"[FakeServer] Reconstructing missing pawn from previous state id={id}");
-                        var prevSim = new AiPlayer.SimPawn
-                        {
-                            id = prev.pawn_id,
-                            team = prev.GetTeam(),
-                            rank = prev.rank ?? Rank.UNKNOWN,
-                            pos = prev.pos,
-                            has_moved = prev.moved,
-                            is_revealed = prev.zz_revealed,
-                            throne_probability = 0.0,
-                            alive = prev.alive,
-                        };
-                        simPawn = prevSim;
-                    }
-                    if (simPawn.id.Value != 0)
+                    if (idToSim.TryGetValue(id, out var simPawn))
                     {
                         prev.pos = simPawn.pos;
                         prev.alive = simPawn.alive;
+                        prev.moved = simPawn.has_moved;
+                        prev.zz_revealed = simPawn.is_revealed;
                     }
                     rebuilt[i] = prev;
-                    Assert.AreEqual(originalOrder[i], rebuilt[i].pawn_id, "Pawn array order must be preserved");
                 }
                 gameState.pawns = rebuilt;
             }

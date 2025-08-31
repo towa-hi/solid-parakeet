@@ -668,6 +668,7 @@ public static class AiPlayer
             {
                 var p = pawn_list[0];
                 p.pos = target;
+                p.has_moved = true;
                 pawns[target] = p;
             }
             else if (pawn_list.Length == 2)
@@ -678,6 +679,8 @@ public static class AiPlayer
                 if (winner.HasValue)
                 {
                     var p = winner.Value;
+                    if (p.pos != target) { p.has_moved = true; }
+                    p.is_revealed = true;
                     p.pos = target;
                     pawns[target] = p;
                 }
@@ -686,8 +689,10 @@ public static class AiPlayer
                     if (pawn.HasValue)
                     {
                         var p = pawn.Value;
+                        if (p.pos != target) { p.has_moved = true; }
                         p.pos = target;
                         p.alive = false;
+                        p.is_revealed = true;
                         died[p.id] = p;
                     }
                 }
