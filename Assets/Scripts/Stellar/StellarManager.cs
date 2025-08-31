@@ -33,7 +33,7 @@ public static class StellarManager
     static Coroutine pollingCoroutine;
     static bool desiredPolling;
     static int pollingHoldCount;
-    
+
     // True while a Stellar task is in progress
     public static bool IsBusy => currentTask != null;
 
@@ -71,7 +71,7 @@ public static class StellarManager
         string publicAddress = StrKey.EncodeStellarAccountId(account.PublicKey);
         return AccountAddress.Parse(publicAddress);
     }
-    
+
 
     public static async Task<StatusCode> Connect()
     {
@@ -182,7 +182,7 @@ public static class StellarManager
         }
         return StatusCode.SUCCESS;
     }
-    
+
     public static async Task<bool> SetContractAddress(string contractId)
     {
         StellarDotnet.SetContractId(contractId);
@@ -249,7 +249,7 @@ public static class StellarManager
         TimingTracker tracker = new();
         tracker.StartOperation($"LeaveLobbyRequest");
         TaskInfo task = SetCurrentTask("LeaveLobbyRequest");
-        var result = await StellarDotnet.CallContractFunction("leave_lobby", new IScvMapCompatable[] 
+        var result = await StellarDotnet.CallContractFunction("leave_lobby", new IScvMapCompatable[]
         {
             // intentionally empty
         }, tracker);
@@ -262,7 +262,7 @@ public static class StellarManager
         EndTask(task);
         return result.Code;
     }
-    
+
     public static async Task<StatusCode> JoinLobbyRequest(LobbyId lobbyId)
     {
         if (!GameManager.instance.IsOnline())
@@ -286,7 +286,7 @@ public static class StellarManager
         EndTask(task);
         return result.Code;
     }
-    
+
     public static async Task<PackedHistory?> GetPackedHistory(uint lobbyId)
     {
         TaskInfo task = SetCurrentTask("GetPackedHistory");
@@ -302,7 +302,7 @@ public static class StellarManager
         EndTask(task);
         return result.IsError ? null : result.Value;
     }
-    
+
     public static async Task<StatusCode> CommitSetupRequest(CommitSetupReq req)
     {
         if (!GameManager.instance.IsOnline())
@@ -369,12 +369,12 @@ public static class StellarManager
                 lobby_id = commitMoveReq.lobby_id,
                 move_hashes = fakeGuestMoveHashes.ToArray(),
             };
-            ProveMoveReq fakeHostProveMoveReq = new()
+            ProveMoveReq fakeGuestProveMoveReq = new()
             {
                 lobby_id = commitMoveReq.lobby_id,
                 move_proofs = fakeGuestMoveProofs.ToArray(),
             };
-            FakeServer.CommitMoveAndProveMove(commitMoveReq, proveMoveReq, false);
+            FakeServer.CommitMoveAndProveMove(fakeGuestCommitMoveReq, fakeGuestProveMoveReq, false);
             Debug.Log("CommitMoveRequest fake host move");
             FakeServer.CommitMoveAndProveMove(commitMoveReq, proveMoveReq, true);
             Debug.Log("CommitMoveRequest fake done");
@@ -488,7 +488,7 @@ public static class StellarManager
         EndTask(task);
         return result.Code;
     }
-    
+
     public static async Task<Result<AccountEntry>> GetAccount(string key)
     {
         TimingTracker tracker = new();
@@ -610,7 +610,7 @@ public static class StellarManager
         // Map intended positions to team deltas
         Dictionary<Vector2Int, List<SnapshotPawnDelta>> posToRed = new();
         Dictionary<Vector2Int, List<SnapshotPawnDelta>> posToBlue = new();
-        
+
         // Build intention maps (consider pawns that were alive at turn start)
         foreach (var kvp in pawnDeltas)
         {
@@ -637,7 +637,7 @@ public static class StellarManager
                 list.Add(d);
             }
         }
-        
+
         // Same-target collisions: exactly one RED and one BLUE intend the same tile
         foreach (var kv in posToRed)
         {
@@ -655,7 +655,7 @@ public static class StellarManager
                 collisions[pos] = pair;
             }
         }
-        
+
         // Swap collisions: a moving RED and a moving BLUE swap start positions
         List<SnapshotPawnDelta> moving = new List<SnapshotPawnDelta>();
         foreach (var kvp in pawnDeltas)
@@ -686,7 +686,7 @@ public static class StellarManager
                 }
             }
         }
-        
+
         return collisions;
     }
     static TurnResolveDelta BuildTurnResolveDeltaSimple(GameNetworkState previous, GameNetworkState current)
@@ -714,7 +714,7 @@ public static class StellarManager
             }
         }
         Dictionary<Vector2Int, (SnapshotPawnDelta, SnapshotPawnDelta)> collisionPairs = ComputeCollisions(pawnDeltas);
-        
+
         // Build battles from collision pairs
         foreach (var kv in collisionPairs)
         {
@@ -736,14 +736,14 @@ public static class StellarManager
                 revealedRanks = Array.Empty<(PawnId pawn, Rank rank, bool wasHidden)>(),
             });
         }
-        
+
         return new TurnResolveDelta {
             pawnDeltas = pawnDeltas,
             moves = moves,
             battles = battles.ToArray(),
         };
     }
-    
+
     static void PushPollingHold()
     {
         pollingHoldCount++;
@@ -863,7 +863,7 @@ public static class StellarManager
             currentTask = null;
         }
     }
-    
+
     // NOTE: lobby IDs will be done server side in the future
     static LobbyId GenerateLobbyId()
     {
@@ -966,7 +966,7 @@ public enum ResultCode
     GET_NOT_FOUND,
     GET_FAILED_OR_TIMED_OUT,
     GET_INSUFFICIENT_REFUNDABLE_FEE,
-    
+
     TRANSACTION_NOT_FOUND,
     TRANSACTION_SIM_REJECTED_BY_CONTRACT,
     TRANSACTION_FAILED_MISC,

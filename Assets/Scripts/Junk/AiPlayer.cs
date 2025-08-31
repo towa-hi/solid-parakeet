@@ -48,6 +48,7 @@ public static class AiPlayer
         public bool terminal;
         // The move that produced this state.
         public SimMoveSet move;
+        public SimMove ally_single_move;
     }
 
     // Describes the extents and shape of the board, and blitz rules.
@@ -64,23 +65,30 @@ public static class AiPlayer
         public float ubc_constant = 1.4f;
         // How many sim iterations to go before giving up finding a terminal state and returning
         // an evaluation heuristic.
-        public uint max_sim_depth = 5;
+        public uint max_sim_depth = 20;
         // Amount of substates to expand (because it can get out of control fast).
         public uint max_moves_per_state = 400;
         // Amount of time to search for before stopping.
-        public double timeout = 5.0;
+        public double timeout = 10.0;
+        public int max_top_moves = 3;
         public Team ally_team;
         public SimGameState root_state;
+    }
+
+    public struct SimAverage
+    {
+        public float sum;
+        public float count;
     }
 
     // Create an initial simulation game state from the original game state.
     public static SimGameState MakeSimGameState(
         SimGameBoard board,
-        GameNetworkState game_network_state)
+        GameState game_state)
     {
         var pawns = ImmutableDictionary.CreateBuilder<Vector2Int, SimPawn>();
         var dead_pawns = ImmutableList.CreateBuilder<SimPawn>();
-        foreach (var pawn in game_network_state.gameState.pawns)
+        foreach (var pawn in game_state.pawns)
         {
             var sim_pawn = new SimPawn()
             {
@@ -104,7 +112,7 @@ public static class AiPlayer
         }
         var state = new SimGameState()
         {
-            turn = game_network_state.gameState.turn,
+            turn = game_state.turn,
             pawns = pawns.ToImmutable(),
             dead_pawns = dead_pawns.ToImmutable(),
         };
@@ -112,10 +120,57 @@ public static class AiPlayer
         return state;
     }
 
-    // Create a minimal representation of the board needed from the original board parameters.
-    public static SimGameBoard MakeSimGameBoard(GameNetworkState game_network_state)
+    public static void MutGuessOpponentRanks(
+        SimGameBoard board,
+        SimGameState state)
     {
-        var lobby_parameters = game_network_state.lobbyParameters;
+        var available_ranks = (uint[])board.max_ranks.Clone();
+        var oppn_team = board.ally_team == Team.RED ? Team.BLUE : Team.RED;
+        foreach (var pawn in state.dead_pawns)
+        {
+            if (pawn.team == oppn_team)
+            {
+                available_ranks[(uint)pawn.rank]--;
+            }
+        }
+        foreach (var pawn in state.pawns.Values)
+        {
+            if (pawn.team == oppn_team && pawn.is_revealed)
+            {
+                available_ranks[(uint)pawn.rank]--;
+            }
+        }
+        List<Rank> ranks = new();
+        for (int i = 0; i < (int)Rank.UNKNOWN; i++)
+        {
+            var count = available_ranks[i];
+            for (int j = 0; j < count; j++)
+            {
+                ranks.Add((Rank)i);
+            }
+        }
+        var arr_ranks = ranks.ToArray();
+        MutShuffle(arr_ranks);
+        int ix = 0;
+        var updated_pawns = state.pawns.ToBuilder();
+        foreach (var index in state.pawns.Keys)
+        {
+            var pawn = updated_pawns[index];
+            if (pawn.team == oppn_team && !pawn.is_revealed)
+            {
+                pawn.rank = arr_ranks[ix];
+                updated_pawns[index] = pawn;
+                ix++;
+            }
+        }
+        state.pawns = updated_pawns.ToImmutable();
+    }
+
+    // Create a minimal representation of the board needed from the original board parameters.
+    public static SimGameBoard MakeSimGameBoard(
+        LobbyParameters lobby_parameters,
+        GameState game_state)
+    {
         var tiles = ImmutableDictionary.CreateBuilder<Vector2Int, TileState>();
         foreach (var tile in lobby_parameters.board.tiles)
         {
@@ -134,80 +189,198 @@ public static class AiPlayer
         {
             board.total_material += (uint)(board.max_ranks[(int)i] * (int)i);
         }
-        board.root_state = MakeSimGameState(board, game_network_state);
+        board.root_state = MakeSimGameState(board, game_state);
         return board;
     }
 
-    // Recursive search without pruning.
     // Scores the utility of each ally move against the average outcome of each
     // opponent's possible simultaneous moves. Reduces the utility of probabilistically bad moves
     // like a pawn suiciding on another.
     // Also nudges the pawns toward the enemy throne (which can also just make it b-line the throne, for now).
-    public static KeyValuePair<SimMoveSet, float>[] NodeScoreStrategy(
+    public static List<SimMoveSet> NodeScoreStrategy(
         SimGameBoard board,
-        SimGameState state,
-        int depth)
+        SimGameState state)
     {
-        if (depth == 0)
-        {
-            return new[] { new KeyValuePair<SimMoveSet, float>(SimMoveSet.Empty, EvaluateState(board, state.pawns, state.dead_pawns)) };
-        }
         var ally_team = board.ally_team;
         var oppn_team = ally_team == Team.RED ? Team.BLUE : Team.RED;
         var final_scores = new Dictionary<SimMoveSet, float>();
         var ally_moves = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
         var oppn_moves = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
         var oppn_throne = GetThronePos(state.pawns, oppn_team);
+        var oppn_dead_pawns = state.dead_pawns.Select(x => x.team == oppn_team).Count();
         foreach (var ally_move in ally_moves)
         {
-            var move_throne_nudge = Distance(ally_move.last_pos, oppn_throne) - Distance(ally_move.next_pos, oppn_throne);
-            var move_scores = new List<float>();
+            // Noodles too much, afraid of advancing.
+            //var move_throne_nudge = DirTo(ally_move, oppn_throne);
+            // Aggressive, suicidal.
+            //var move_throne_nudge = DeltaDist(ally_move, oppn_throne);
+            // Just right?
+            var move_throne_nudge = (DirTo(ally_move, oppn_throne) + DeltaDist(ally_move, oppn_throne)) / 2;
+            float move_score_total = 0;
             foreach (var oppn_move in oppn_moves)
             {
                 var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
                 var substate = GetDerivedStateFromMove(board, state, move_union);
-                var (_, outcome) = NodeScoreStrategy(board, substate, depth - 1)[0];
-                outcome += move_throne_nudge;
-                move_scores.Add(outcome);
+                var new_oppn_dead = substate.dead_pawns.Select(x => x.team == oppn_team).Count();
+                // Killer move?
+                var kill_bonus = new_oppn_dead > oppn_dead_pawns ? 5 : 0;
+                move_score_total += substate.value + move_throne_nudge + kill_bonus;
             }
-            float combined_score = move_scores.Average();
-            final_scores.Add(SimMoveSet.Empty.Add(ally_move), combined_score);
+            final_scores.Add(SimMoveSet.Empty.Add(ally_move), move_score_total / oppn_moves.Count);
         }
         var arr_scores = final_scores.ToArray();
         System.Array.Sort(arr_scores, (x, y) => y.Value.CompareTo(x.Value));
-        return arr_scores;
+        return arr_scores.Select(x => x.Key).ToList();
+    }
+
+    // Recursion with pruning attempt.
+
+    public static List<SimGameState> NodeScoreEvalSubstate(
+        SimGameBoard board,
+        SimGameState state,
+        int depth)
+    {
+        var ally_team = board.ally_team;
+        var oppn_team = ally_team == Team.RED ? Team.BLUE : Team.RED;
+        var ally_scores = new Dictionary<SimMove, SimAverage>();
+        var oppn_scores = new Dictionary<SimMove, SimAverage>();
+        var ally_moves = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
+        var oppn_moves = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
+        var ally_throne = GetThronePos(state.pawns, ally_team);
+        var oppn_throne = GetThronePos(state.pawns, oppn_team);
+        // Collect all utility scores for each move of each team.
+        foreach (var ally_move in ally_moves)
+        {
+            var ally_throne_nudge = DirTo(ally_move, oppn_throne);
+            var ally_avg = ally_scores.GetValueOrDefault(ally_move);
+            ally_avg.sum = 0;
+            foreach (var oppn_move in oppn_moves)
+            {
+                var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
+                var substate = GetDerivedStateFromMove(board, state, move_union);
+                var oppn_avg = oppn_scores.GetValueOrDefault(oppn_move);
+                ally_avg.sum += substate.value + ally_throne_nudge;
+                ally_avg.count += 1;
+                oppn_avg.sum += (-substate.value) + DirTo(oppn_move, ally_throne);
+                oppn_avg.count += 1;
+                oppn_scores[oppn_move] = oppn_avg;
+            }
+            ally_scores[ally_move] = ally_avg;
+        }
+        var top_ally_scores = new List<(SimMove, float)>();
+        var top_oppn_scores = new List<(SimMove, float)>();
+        // Average the found scores.
+        foreach (var (scores, top_scores) in new[] { (ally_scores, top_ally_scores), (oppn_scores, top_oppn_scores) })
+        {
+            foreach (var (move, avg) in scores)
+            {
+                top_scores.Add((move, avg.sum / avg.count));
+            }
+            top_scores.Sort((x, y) => y.Item2.CompareTo(x.Item2));
+        }
+        // Recurse into each top substate, which we think are most likely to occur.
+        // Try to get the true utility of each successive substate.
+        // Not really sure what is good here, or how to make it more like minimax.
+        var top_n_ally = top_ally_scores.Take(board.max_top_moves).ToArray();
+        var top_n_oppn = top_oppn_scores.Take(board.max_top_moves).ToArray();
+        var substates = new List<SimGameState>();
+        foreach (var (ally_move, ally_score) in top_n_ally)
+        {
+            foreach (var (oppn_move, oppn_score) in top_n_oppn)
+            {
+                var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
+                var substate = GetDerivedStateFromMove(board, state, move_union);
+                substate.ally_single_move = ally_move;
+                if (depth == 0 || substate.terminal)
+                {
+                    //substate.value = ally_score;
+                    substate.value = ally_score + oppn_score;
+                }
+                else
+                {
+                    var next_substates = NodeScoreEvalSubstate(board, substate, depth - 1);
+                    if (next_substates.Count > 0)
+                    {
+                        substate.value += next_substates[0].value;
+                    }
+                }
+                substates.Add(substate);
+            }
+        }
+        substates.Sort((x, y) => y.value.CompareTo(x.value));
+        return substates;
+    }
+
+    public static List<SimMoveSet> NodeScoreStrategy2(
+        SimGameBoard board,
+        SimGameState state,
+        int depth)
+    {
+        var move = SimMoveSet.Empty.Add(NodeScoreEvalSubstate(board, state, depth)[0].ally_single_move);
+        return new List<SimMoveSet>() { move };
+        // var substates = NodeScoreEvalSubstate(board, state, depth);
+        // var ally_moves = new HashSet<SimMoveSet>();
+        // foreach (var substate in substates)
+        // {
+        //     ally_moves.Add(SimMoveSet.Empty.Add(substate.ally_single_move));
+        // }
+        // return ally_moves.ToList();
     }
 
     // Greedy join moves together
     public static List<SimMoveSet> CombineMoves(
-        KeyValuePair<SimMoveSet, float>[] moves,
+        IReadOnlyCollection<SimMoveSet> moves,
         uint max_submoves,
         uint max_moves)
     {
-        var combined = new List<SimMoveSet>();
-        var current_subset = SimMoveSet.Empty;
-        foreach (var move_a in moves)
+        var combined = new HashSet<SimMoveSet>();
+        var current_subset = SimMoveSet.Empty.ToBuilder();
+        for (uint i = 0; i < max_submoves; i++)
         {
-            current_subset = current_subset.Add(move_a.Key.First());
-            foreach (var move_b in moves)
+            foreach (var move in moves)
             {
-                var move = move_b.Key.First();
-                if (IsMoveAdditionLegal(current_subset, move))
+                if (IsMoveAdditionLegal(current_subset, move.First()))
                 {
-                    current_subset = current_subset.Add(move);
+                    current_subset.Add(move.First());
                 }
                 if (current_subset.Count == max_submoves)
                 {
-                    combined.Add(current_subset);
+                    combined.Add(current_subset.ToImmutable());
                     if (combined.Count == max_moves)
                     {
-                        return combined;
+                        return combined.ToList();
                     }
-                    current_subset = SimMoveSet.Empty;
+                    current_subset = SimMoveSet.Empty.ToBuilder();
                 }
             }
         }
-        return combined;
+        if (combined.Count == 0)
+        {
+            combined.Add(current_subset.ToImmutable());
+        }
+        return combined.ToList();
+    }
+
+    public static Vector2 V2(Vector2Int a)
+    {
+        return new Vector2(a.x, a.y);
+    }
+
+    public static float DirTo(SimMove move, Vector2Int pos)
+    {
+        var a = V2(pos - move.last_pos).normalized;
+        var b = V2(pos - move.next_pos).normalized;
+        return Vector2.Dot(a, b);
+    }
+
+    public static float DeltaDist(SimMove move, Vector2Int target)
+    {
+        return Distance(move.last_pos, target) - Distance(move.next_pos, target);
+    }
+
+    public static float Distance(Vector2Int a, Vector2Int b)
+    {
+        return (a - b).magnitude;
     }
 
     public static Vector2Int GetThronePos(
@@ -222,14 +395,6 @@ public static class AiPlayer
             }
         }
         return Vector2Int.zero;
-    }
-
-    public static float Distance(Vector2Int a, Vector2Int b)
-    {
-        return (a - b).magnitude;
-        // naive manhattan
-        // var c = a - b;
-        // return c.x + c.y;
     }
 
     public static void MutMCTSRunForTime(

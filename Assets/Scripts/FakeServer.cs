@@ -5,6 +5,7 @@ using Contract;
 using UnityEngine;
 using Random = UnityEngine.Random;
 using Stellar;
+using System.Collections.Immutable;
 
 public static class FakeServer
 {
@@ -96,29 +97,29 @@ public static class FakeServer
         {
             if (tile.setup == Team.BLUE)
             {
-                pawns.Add(new PawnState { 
-                    alive = true, 
-                    moved = false, 
-                    moved_scout = false, 
-                    pawn_id = new PawnId(tile.pos, Team.BLUE), 
-                    pos = tile.pos, 
-                    rank = null, 
+                pawns.Add(new PawnState {
+                    alive = true,
+                    moved = false,
+                    moved_scout = false,
+                    pawn_id = new PawnId(tile.pos, Team.BLUE),
+                    pos = tile.pos,
+                    rank = null,
                     zz_revealed = false });
             }
             if (tile.setup == Team.RED)
             {
-                pawns.Add(new PawnState { 
-                    alive = true, 
-                    moved = false, 
-                    moved_scout = false, 
-                    pawn_id = new PawnId(tile.pos, Team.RED), 
-                    pos = tile.pos, 
-                    rank = null, 
+                pawns.Add(new PawnState {
+                    alive = true,
+                    moved = false,
+                    moved_scout = false,
+                    pawn_id = new PawnId(tile.pos, Team.RED),
+                    pos = tile.pos,
+                    rank = null,
                     zz_revealed = false });
             }
         }
         GameState gameState = new GameState {
-            moves = new UserMove[] { 
+            moves = new UserMove[] {
                 new UserMove {
                     move_hashes = new byte[][] { },
                     move_proofs = new HiddenMove[] { },
@@ -173,7 +174,7 @@ public static class FakeServer
             lobbyInfo.subphase = Subphase.Both;
             Debug.Log("Fake CommitSetup transitioned to movecommit");
         }
-        else 
+        else
         {
             lobbyInfo.subphase = nextSubphase;
         }
@@ -191,10 +192,10 @@ public static class FakeServer
         LobbyInfo lobbyInfo = fakeLobbyInfo.Value;
         LobbyParameters parameters = fakeParameters.Value;
         GameState gameState = fakeGameState.Value;
-        
+
         Debug.Assert(lobbyInfo.IsMySubphase(isHost ? fakeHostAddress : fakeGuestAddress));
         Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
-        
+
         gameState.moves[userIndex].move_hashes = commitMoveReq.move_hashes;
         gameState.moves[userIndex].move_proofs = proveMoveReq.move_proofs;
 
@@ -223,7 +224,7 @@ public static class FakeServer
             }
             // Collect pawns into target location sets.
             var target_locations = new Dictionary<Vector2Int, HashSet<PawnState>>();
-            foreach (var move in moveset) 
+            foreach (var move in moveset)
             {
                 if (!target_locations.TryGetValue(move.target_pos, out var set))
                 {
@@ -308,7 +309,7 @@ public static class FakeServer
                 }
             }
             gameState.pawns = pawns.Values.ToArray();
-            
+
             lobbyInfo.phase = Phase.MoveCommit;
             lobbyInfo.subphase = Subphase.Both;
             gameState.turn++;
@@ -366,12 +367,35 @@ public static class FakeServer
 
     public static List<HiddenMove> TempFakeHiddenMoves(Team team)
     {
+        uint lesser_move_threshold = 3; // Increase to make have it randomly make worse moves.
         Debug.Assert(fakeIsOnline);
-        List<HiddenMove> moves = new();
+        LobbyParameters parameters = fakeParameters.Value;
         GameState gameState = fakeGameState.Value;
-
-        // heres the move picker logic
-        return moves;
+        var board = AiPlayer.MakeSimGameBoard(parameters, gameState);
+        board.ally_team = team;
+        AiPlayer.MutGuessOpponentRanks(board, board.root_state);
+        var top_moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
+        Debug.Log($"top_moves {top_moves.Count}");
+        var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
+        ImmutableHashSet<AiPlayer.SimMove> moves = null;
+        // Pick random top move and also assemble blitz move if needed.
+        if (max_moves > 1)
+        {
+            top_moves = AiPlayer.CombineMoves(top_moves, max_moves, lesser_move_threshold);
+        }
+        moves = top_moves[(int)Random.Range(0, Mathf.Min(top_moves.Count - 1, lesser_move_threshold))];
+        // Convert to HiddenMoves.
+        List<HiddenMove> result_moves = new();
+        foreach (var move in moves)
+        {
+            result_moves.Add(new HiddenMove()
+            {
+                pawn_id = board.root_state.pawns[move.last_pos].id,
+                start_pos = move.last_pos,
+                target_pos = move.next_pos,
+            });
+        }
+        return result_moves;
     }
 
 
@@ -499,7 +523,7 @@ public static class FakeServer
     // //         PawnCommitment commitment = kvp.Value;
     // //         setupCommitments[i] = commitment;
     // //     }
-    // //     
+    // //
     // //     // Create the host's setup commit request
     // //     SetupCommitReq hostReq = new()
     // //     {
