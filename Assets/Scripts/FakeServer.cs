@@ -389,6 +389,7 @@ public static class FakeServer
         return result_moves;
     }
 
+
     // public Contract.LobbyParameters fakeParameters;
     // public Contract.Lobby fakeLobby;
     // public Contract.User fakeHost;

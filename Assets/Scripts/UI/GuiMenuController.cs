@@ -215,7 +215,7 @@ public class GuiMenuController: MonoBehaviour
         GotoMainMenu();
     }
 
-	void GotoStartMenu()
+	public void GotoStartMenu()
 	{
 		ShowMenuElement(startMenuElement);
 	}
@@ -358,7 +358,7 @@ public class GuiMenuController: MonoBehaviour
 		currentElement?.Refresh();
 	}
 
-	void OpenErrorModal(string title, string message)
+	public void OpenErrorModal(string title, string message)
 	{
 		OpenModal(modalErrorPrefab);
 		if (modalStack.TryPeek(out ModalElement top))
