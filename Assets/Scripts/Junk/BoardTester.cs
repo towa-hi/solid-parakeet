@@ -219,7 +219,7 @@ public class BoardTester : MonoBehaviour
     {
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         board.ally_team = team;
-        AiPlayer.MutGuessOpponentRanks(board, board.root_state);
+        //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
         List<ImmutableHashSet<AiPlayer.SimMove>> moves = null;
         var starttime = Time.realtimeSinceStartupAsDouble;
         if (strategy == 1)
@@ -273,7 +273,7 @@ public class BoardTester : MonoBehaviour
         //     yield return null;
         // }
 
-        uint lesser_move_threshold = 5;
+        uint lesser_move_threshold = 1;
         var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold, 1);
         var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold, 1);
 
