@@ -601,8 +601,8 @@ public static class AiPlayer
             parent = state,
             move = move,
         };
-        new_state.value = EvaluateState(board, state.pawns, state.dead_pawns);
-        new_state.terminal = IsTerminal(board, state.pawns, state.dead_pawns);
+        new_state.value = EvaluateState(board, new_state.pawns, new_state.dead_pawns);
+        new_state.terminal = IsTerminal(board, new_state.pawns, new_state.dead_pawns);
         return new_state;
     }
 
