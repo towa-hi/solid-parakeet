@@ -237,7 +237,17 @@ public class BoardTester : MonoBehaviour
         {
             moves = AiPlayer.CombineMoves(moves, max_moves, lesser_move_threshold);
         }
-        return moves[(int)Random.Range(0, Mathf.Min(moves.Count - 1, lesser_move_threshold))];
+        var result = moves[(int)Random.Range(0, Mathf.Min(moves.Count, lesser_move_threshold))];
+        foreach (var move in result)
+        {
+            var ally = board.root_state.pawns[move.last_pos];
+            Debug.Log($"{team} {ally.rank} {(int)ally.rank} {move.last_pos} {move.next_pos}");
+            if (board.root_state.pawns.TryGetValue(move.next_pos, out var oppn))
+            {
+                Debug.Log($"   Tries attack {oppn.team} {oppn.rank} {(int)oppn.rank} {move.next_pos}");
+            }
+        }
+        return result;
     }
 
     IEnumerator AiRunnerCoroutine()
