@@ -84,29 +84,29 @@ public static class FakeServer
         {
             if (tile.setup == Team.BLUE)
             {
-                pawns.Add(new PawnState { 
-                    alive = true, 
-                    moved = false, 
-                    moved_scout = false, 
-                    pawn_id = new PawnId(tile.pos, Team.BLUE), 
-                    pos = tile.pos, 
-                    rank = null, 
+                pawns.Add(new PawnState {
+                    alive = true,
+                    moved = false,
+                    moved_scout = false,
+                    pawn_id = new PawnId(tile.pos, Team.BLUE),
+                    pos = tile.pos,
+                    rank = null,
                     zz_revealed = false });
             }
             if (tile.setup == Team.RED)
             {
-                pawns.Add(new PawnState { 
-                    alive = true, 
-                    moved = false, 
-                    moved_scout = false, 
-                    pawn_id = new PawnId(tile.pos, Team.RED), 
-                    pos = tile.pos, 
-                    rank = null, 
+                pawns.Add(new PawnState {
+                    alive = true,
+                    moved = false,
+                    moved_scout = false,
+                    pawn_id = new PawnId(tile.pos, Team.RED),
+                    pos = tile.pos,
+                    rank = null,
                     zz_revealed = false });
             }
         }
         GameState gameState = new GameState {
-            moves = new UserMove[] { 
+            moves = new UserMove[] {
                 new UserMove {
                     move_hashes = new byte[][] { },
                     move_proofs = new HiddenMove[] { },
@@ -148,8 +148,11 @@ public static class FakeServer
         for (int i = 0; i < gameState.pawns.Length; i++)
         {
             PawnState pawn = gameState.pawns[i];
-            pawn.rank = hiddenRanks.GetValueOrDefault(pawn.pawn_id);
-            gameState.pawns[i] = pawn;
+            if (hiddenRanks.TryGetValue(pawn.pawn_id, out Rank providedRank))
+            {
+                pawn.rank = providedRank;
+                gameState.pawns[i] = pawn;
+            }
         }
         Subphase nextSubphase = NextSubphase(lobbyInfo.subphase, isHost);
         if (nextSubphase == Subphase.None)
@@ -158,7 +161,7 @@ public static class FakeServer
             lobbyInfo.subphase = Subphase.Both;
             Debug.Log("Fake CommitSetup transitioned to movecommit");
         }
-        else 
+        else
         {
             lobbyInfo.subphase = nextSubphase;
         }
@@ -176,10 +179,10 @@ public static class FakeServer
         LobbyInfo lobbyInfo = fakeLobbyInfo.Value;
         LobbyParameters parameters = fakeParameters.Value;
         GameState gameState = fakeGameState.Value;
-        
+
         Debug.Assert(lobbyInfo.IsMySubphase(isHost ? fakeHostAddress : fakeGuestAddress));
         Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
-        
+
         gameState.moves[userIndex].move_hashes = commitMoveReq.move_hashes;
         gameState.moves[userIndex].move_proofs = proveMoveReq.move_proofs;
 
@@ -208,7 +211,7 @@ public static class FakeServer
             }
             // Collect pawns into target location sets.
             var target_locations = new Dictionary<Vector2Int, HashSet<PawnState>>();
-            foreach (var move in moveset) 
+            foreach (var move in moveset)
             {
                 if (!target_locations.TryGetValue(move.target_pos, out var set))
                 {
@@ -293,7 +296,7 @@ public static class FakeServer
                 }
             }
             gameState.pawns = pawns.Values.ToArray();
-            
+
             lobbyInfo.phase = Phase.MoveCommit;
             lobbyInfo.subphase = Subphase.Both;
             gameState.turn++;
@@ -382,10 +385,10 @@ public static class FakeServer
                 start_pos = move.last_pos,
                 target_pos = move.next_pos,
             });
-    }
+        }
         return result_moves;
     }
-        
+
     // public Contract.LobbyParameters fakeParameters;
     // public Contract.Lobby fakeLobby;
     // public Contract.User fakeHost;
@@ -510,7 +513,7 @@ public static class FakeServer
     // //         PawnCommitment commitment = kvp.Value;
     // //         setupCommitments[i] = commitment;
     // //     }
-    // //     
+    // //
     // //     // Create the host's setup commit request
     // //     SetupCommitReq hostReq = new()
     // //     {
