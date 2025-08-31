@@ -6,6 +6,7 @@ using UnityEngine;
 using Random = UnityEngine.Random;
 using Stellar;
 using System.Collections.Immutable;
+using UnityEngine.Assertions;
 
 public static class FakeServer
 {
@@ -207,125 +208,62 @@ public static class FakeServer
         {
             try
             {
-                Dictionary<Vector2Int, PawnState> pawns = new();
-                foreach (PawnState pawn in gameState.pawns)
-                {
-                    pawns[pawn.pos] = pawn;
-                }
-                // Build lookup by pawn id to avoid array index assumptions
-                Dictionary<PawnId, PawnState> idToPawn = new();
-                foreach (PawnState pawn in gameState.pawns)
-                {
-                    idToPawn[pawn.pawn_id] = pawn;
-                }
-                // Preserve original index order to keep arrays index-aligned across updates
-                PawnId[] originalOrder = gameState.pawns.Select(p => p.pawn_id).ToArray();
-                HashSet<HiddenMove> moveset = new();
+                // Use AiPlayer mechanics to resolve simultaneous moves reliably
+                Assert.IsTrue(gameState.pawns != null && gameState.pawns.Length > 0, "GameState.pawns must be populated");
+                Assert.AreEqual(Phase.MoveCommit, lobbyInfo.phase, "Phase must be MoveCommit when resolving");
+                var simBoard = AiPlayer.MakeSimGameBoard(parameters, gameState);
+                var baseState = simBoard.root_state;
+                Assert.AreEqual(gameState.turn, baseState.turn, "Sim root turn should match GameState.turn");
+                var moveSetBuilder = System.Collections.Immutable.ImmutableHashSet.CreateBuilder<AiPlayer.SimMove>();
                 foreach (HiddenMove moveProof in gameState.moves[0].move_proofs)
                 {
-                    moveset.Add(moveProof);
+                    Assert.IsTrue(baseState.pawns.ContainsKey(moveProof.start_pos), $"Host move start not on board: {moveProof.start_pos}");
+                    moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
                 foreach (HiddenMove moveProof in gameState.moves[1].move_proofs)
                 {
-                    moveset.Add(moveProof);
+                    Assert.IsTrue(baseState.pawns.ContainsKey(moveProof.start_pos), $"Guest move start not on board: {moveProof.start_pos}");
+                    moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
-                // Collect all moving pawns keyed by their start positions
-                var moving_pawns = new Dictionary<Vector2Int, PawnState>();
-                foreach (var move in moveset)
+                var moveSet = moveSetBuilder.ToImmutable();
+                // Ensure no double targets and no duplicate movers
+                HashSet<Vector2Int> seenTargets = new HashSet<Vector2Int>();
+                HashSet<Vector2Int> seenStarts = new HashSet<Vector2Int>();
+                foreach (var m in moveSet)
                 {
-                    moving_pawns[move.start_pos] = idToPawn[move.pawn_id];
+                    Assert.IsTrue(seenTargets.Add(m.next_pos), $"Two moves target the same tile: {m.next_pos}");
+                    Assert.IsTrue(seenStarts.Add(m.last_pos), $"A pawn is moving more than once from: {m.last_pos}");
                 }
-                // Collect pawns into target location sets and add movers
-                var target_locations = new Dictionary<Vector2Int, HashSet<PawnState>>();
-                foreach (var move in moveset)
+                var derived = AiPlayer.GetDerivedStateFromMove(simBoard, baseState, moveSet);
+                Assert.AreEqual(baseState.turn + 1, derived.turn, "Derived state should advance the turn by 1");
+                int beforeCount = baseState.pawns.Count + baseState.dead_pawns.Count;
+                int afterCount = derived.pawns.Count + derived.dead_pawns.Count;
+                Assert.AreEqual(beforeCount, afterCount, "Pawn count (alive+dead) should be conserved");
+
+                // Preserve original pawn index ordering when writing back
+                PawnId[] originalOrder = gameState.pawns.Select(p => p.pawn_id).ToArray();
+                Dictionary<PawnId, AiPlayer.SimPawn> idToSim = new Dictionary<PawnId, AiPlayer.SimPawn>();
+                foreach (var kv in derived.pawns)
                 {
-                    if (!target_locations.TryGetValue(move.target_pos, out var set))
-                    {
-                        set = new();
-                        target_locations[move.target_pos] = set;
-                    }
-                    // Add the moving pawn to its intended target
-                    set.Add(moving_pawns[move.start_pos]);
+                    idToSim[kv.Value.id] = kv.Value;
                 }
-                // Remove moving pawns from their original positions
-                foreach (var move in moveset)
+                foreach (var dp in derived.dead_pawns)
                 {
-                    pawns.Remove(move.start_pos);
+                    idToSim[dp.id] = dp;
                 }
-                // Put unmoving pawns (defenders) in the target location set.
-                foreach (var move in moveset)
-                {
-                    if (pawns.TryGetValue(move.target_pos, out var pawn))
-                    {
-                        target_locations[move.target_pos].Add(pawn);
-                    }
-                }
-                // Put moving pawns at a target location that constitutes a swap.
-                foreach (var move in moveset)
-                {
-                    foreach (var othermove in moveset)
-                    {
-                        if (move.start_pos == othermove.target_pos && move.target_pos == othermove.start_pos)
-                        {
-                            target_locations[move.start_pos].Add(moving_pawns[move.start_pos]);
-                        }
-                    }
-                }
-                var died = new Dictionary<PawnId, PawnState>();
-                // Battle or occupy each new position.
-                foreach (var (target, pawn_set) in target_locations)
-                {
-                    var pawn_list = pawn_set.ToArray();
-                    if (pawn_list.Length == 1)
-                    {
-                        var p = pawn_list[0];
-                        p.pos = target;
-                        pawns[target] = p;
-                        idToPawn[p.pawn_id] = p;
-                    }
-                    else if (pawn_list.Length == 2)
-                    {
-                        var pawn_a = pawn_list[0];
-                        var pawn_b = pawn_list[1];
-                        var (winner, loser_a, loser_b) = BattlePawns(pawn_a, pawn_b);
-                        if (winner.HasValue)
-                        {
-                            var p = winner.Value;
-                            p.pos = target;
-                            pawns[target] = p;
-                            idToPawn[p.pawn_id] = p;
-                        }
-                        foreach (var pawn in new[] { loser_a, loser_b })
-                        {
-                            if (pawn.HasValue)
-                            {
-                                var p = pawn.Value;
-                                p.pos = target;
-                                p.alive = false;
-                                died[p.pawn_id] = p;
-                                idToPawn[p.pawn_id] = p;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"list {pawn_list.Length}");
-                        foreach (var pawn in pawn_list)
-                        {
-                            Debug.LogWarning($"pawn {pawn.pos}");
-                        }
-                        foreach (var move in moveset)
-                        {
-                            Debug.LogWarning($"move {move.start_pos} {move.target_pos}");
-                        }
-                    }
-                }
-                // Rebuild array using original order to maintain index alignment
                 PawnState[] rebuilt = new PawnState[originalOrder.Length];
                 for (int i = 0; i < originalOrder.Length; i++)
                 {
                     PawnId id = originalOrder[i];
-                    rebuilt[i] = idToPawn[id];
+                    PawnState prev = gameState.pawns[i];
+                    Assert.IsTrue(idToSim.ContainsKey(id), $"Missing pawn in derived state for id {id}");
+                    if (idToSim.TryGetValue(id, out var simPawn))
+                    {
+                        prev.pos = simPawn.pos;
+                        prev.alive = simPawn.alive;
+                    }
+                    rebuilt[i] = prev;
+                    Assert.AreEqual(originalOrder[i], rebuilt[i].pawn_id, "Pawn array order must be preserved");
                 }
                 gameState.pawns = rebuilt;
             }
