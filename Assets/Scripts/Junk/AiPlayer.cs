@@ -203,25 +203,70 @@ public static class AiPlayer
     {
         var ally_team = board.ally_team;
         var oppn_team = ally_team == Team.RED ? Team.BLUE : Team.RED;
+        var _nss_start_time = Time.realtimeSinceStartupAsDouble;
         var final_scores = new Dictionary<SimMoveSet, float>();
         var ally_moves = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
         var oppn_moves = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
         var oppn_throne = GetThronePos(state.pawns, oppn_team);
         var oppn_dead_pawns = state.dead_pawns.Select(x => x.team == oppn_team).Count();
+        int first_turn_evals = 0;
+        int first_turn_all_possibilities = 0;
+        int second_turn_evals = 0;
+        int second_turn_all_possibilities = 0;
+
+        // 2 ply search for simultaenous moves
         foreach (var ally_move in ally_moves)
         {
             float move_score_total = 0;
+            // var ally_move_only_substate = GetDerivedStateFromMove(board, state, SimMoveSet.Empty.Add(ally_move));
+            // if (ally_move_only_substate.value < state.value)
+            // {
+            //     continue;
+            // }
             foreach (var oppn_move in oppn_moves)
             {
                 var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
-                var substate = GetDerivedStateFromMove(board, state, move_union);
-                var new_oppn_dead = substate.dead_pawns.Select(x => x.team == oppn_team).Count();
-                move_score_total += substate.value;
+                var substate = GetDerivedStateFromMove(board, state, move_union); // this is a complete state of a possible next turn
+                first_turn_all_possibilities++;
+                // check if terminal
+                if (substate.terminal)
+                {
+                    move_score_total += substate.value;
+                    continue;
+                }
+                var final_scores_2 = new Dictionary<SimMoveSet, float>();
+                //move_score_total += substate.value;
+                var ally_moves_2 = GetAllSingleMovesForTeam(board, substate.pawns, ally_team);
+                var oppn_moves_2 = GetAllSingleMovesForTeam(board, substate.pawns, oppn_team);
+                foreach (var ally_move_2 in ally_moves_2)
+                {
+                    second_turn_all_possibilities++;
+                    var ally_move_only_substate_2 = GetDerivedStateFromMove(board, substate, SimMoveSet.Empty.Add(ally_move_2));
+                    if (ally_move_only_substate_2.value < substate.value)
+                    {
+                        continue;
+                    }
+                    float move_score_total_2 = 0;
+                    foreach (var oppn_move_2 in oppn_moves_2)
+                    {
+                        var substate_2 = GetDerivedStateFromMove(board, substate, SimMoveSet.Empty.Add(ally_move_2).Add(oppn_move_2));
+                        move_score_total_2 += substate_2.value;
+
+                    }
+                    final_scores_2.Add(SimMoveSet.Empty.Add(ally_move_2), move_score_total_2 / oppn_moves_2.Count);
+                    second_turn_evals++;
+                }
+                move_score_total += final_scores_2.Values.Average();
+                first_turn_evals++;
             }
+
             final_scores.Add(SimMoveSet.Empty.Add(ally_move), move_score_total / oppn_moves.Count);
         }
+
         var arr_scores = final_scores.ToArray();
         System.Array.Sort(arr_scores, (x, y) => y.Value.CompareTo(x.Value));
+        var _nss_elapsed = Time.realtimeSinceStartupAsDouble - _nss_start_time;
+        Debug.Log($"NodeScoreStrategy elapsed: {_nss_elapsed:F4}s, First turn evals: {first_turn_all_possibilities}/{first_turn_evals}, Second turn evals: {second_turn_all_possibilities}/{second_turn_evals}");
         return arr_scores.Select(x => x.Key).ToList();
     }
 
