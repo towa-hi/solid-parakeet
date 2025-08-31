@@ -338,7 +338,7 @@ public static class FakeServer
         GameState gameState = fakeGameState.Value;
         var board = AiPlayer.MakeSimGameBoard(parameters, gameState);
         board.ally_team = team;
-        AiPlayer.MutGuessOpponentRanks(board, board.root_state);
+        //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
         var top_moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
         Debug.Log($"top_moves {top_moves.Count}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
