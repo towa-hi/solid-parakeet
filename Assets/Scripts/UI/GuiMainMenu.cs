@@ -151,6 +151,11 @@ public class GuiMainMenu : MenuElement
             joinLobbyButton.interactable = false;
             makeLobbyButton.interactable = true;
             viewLobbyButton.interactable = FakeServer.fakeLobbyInfo.HasValue;
+            var viewText = viewLobbyButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (viewText != null)
+            {
+                viewText.text = FakeServer.fakeLobbyInfo.HasValue ? "Re-enter Game" : "View Lobby";
+            }
             walletButton.interactable = false;
             assetsButton.interactable = false;
             return;
@@ -160,6 +165,11 @@ public class GuiMainMenu : MenuElement
         joinLobbyButton.interactable = true;
         makeLobbyButton.interactable = true;
         viewLobbyButton.interactable = false;
+        var onlineViewText = viewLobbyButton.GetComponentInChildren<TextMeshProUGUI>();
+        if (onlineViewText != null)
+        {
+            onlineViewText.text = "View Lobby";
+        }
         if (currentUser.HasValue)
         {
             User user = currentUser.Value;

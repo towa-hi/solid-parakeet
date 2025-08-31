@@ -49,7 +49,9 @@ public class GuiLobbyMaker : MenuElement
     {
         ResetBoardDropdown();
         hostAddressField.text = StellarManager.GetUserAddress();
-        statusText.text = "Making a new lobby";
+        bool isOnline = GameManager.instance.IsOnline();
+        makeLobbyButton.interactable = isOnline;
+        statusText.text = isOnline ? "Making a new lobby" : "Offline Mode: Multiplayer disabled";
         securityModeToggle.SetIsOnWithoutNotify(true);
         mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(true);
         // disabled for now

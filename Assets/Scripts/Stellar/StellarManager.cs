@@ -240,6 +240,12 @@ public static class StellarManager
 
     public static async Task<StatusCode> LeaveLobbyRequest()
     {
+        if (!GameManager.instance.IsOnline())
+        {
+            FakeServer.Reset();
+            await UpdateState();
+            return StatusCode.SUCCESS;
+        }
         TimingTracker tracker = new();
         tracker.StartOperation($"LeaveLobbyRequest");
         TaskInfo task = SetCurrentTask("LeaveLobbyRequest");

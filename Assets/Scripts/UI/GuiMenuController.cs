@@ -268,6 +268,13 @@ public class GuiMenuController: MonoBehaviour
 			GotoStartMenu();
 			return;
 		}
+		// In offline mode, go straight back into the game if a local lobby exists
+		if (!GameManager.instance.IsOnline() && StellarManager.networkState.inLobby)
+		{
+			ShowMenuElement(gameElement);
+			GameManager.instance.boardManager.StartBoardManager();
+			return;
+		}
 		ShowMenuElement(lobbyViewerElement);
 	}
 
