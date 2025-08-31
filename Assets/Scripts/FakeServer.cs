@@ -242,14 +242,10 @@ public static class FakeServer
 
                 // Preserve original pawn index ordering when writing back
                 PawnId[] originalOrder = gameState.pawns.Select(p => p.pawn_id).ToArray();
-                Dictionary<PawnId, AiPlayer.SimPawn> idToSim = new Dictionary<PawnId, AiPlayer.SimPawn>();
+                Dictionary<PawnId, AiPlayer.SimPawn> idToSim = new Dictionary<PawnId, AiPlayer.SimPawn>(derived.dead_pawns);
                 foreach (var kv in derived.pawns)
                 {
                     idToSim[kv.Value.id] = kv.Value;
-                }
-                foreach (var dp in derived.dead_pawns)
-                {
-                    idToSim[dp.id] = dp;
                 }
                 PawnState[] rebuilt = new PawnState[originalOrder.Length];
                 for (int i = 0; i < originalOrder.Length; i++)

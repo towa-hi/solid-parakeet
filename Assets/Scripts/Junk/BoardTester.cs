@@ -200,37 +200,13 @@ public class BoardTester : MonoBehaviour
         }
     }
 
-    IEnumerable<ImmutableHashSet<AiPlayer.SimMove>> RunAiForTeam(Team team)
-    {
-        var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
-        board.ally_team = team;
-        double accumulated_time = 0;
-        while (accumulated_time < board.timeout)
-        {
-            var start = Time.realtimeSinceStartupAsDouble;
-            AiPlayer.MutMCTSRunForTime(board, 1f / 60f);
-            accumulated_time += Time.realtimeSinceStartupAsDouble - start;
-            yield return null;
-        }
-        yield return AiPlayer.MCTSGetResult(board);
-    }
-
-    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold, int strategy)
+    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
     {
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         board.ally_team = team;
         //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
-        List<ImmutableHashSet<AiPlayer.SimMove>> moves = null;
         var starttime = Time.realtimeSinceStartupAsDouble;
-        if (strategy == 1)
-            moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
-        else if (strategy == 2)
-            moves = AiPlayer.NodeScoreStrategy2(board, board.root_state, 1);
-        else if (strategy == 3)
-        {
-            AiPlayer.MutMCTSRunForTime(board, (float)board.timeout);
-            return AiPlayer.MCTSGetResult(board);
-        }
+        var moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
         Debug.Log($"AI {team} time {Time.realtimeSinceStartupAsDouble - starttime}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
         if (max_moves > 1)
@@ -259,23 +235,10 @@ public class BoardTester : MonoBehaviour
         {
             tile_view.OverrideArrow(null);
         }
-        // Run AI for each team.
-        // ImmutableHashSet<AiPlayer.SimMove> red_move = null;
-        // foreach (var move in RunAiForTeam(Team.RED))
-        // {
-        //     red_move = move;
-        //     yield return null;
-        // }
-        // ImmutableHashSet<AiPlayer.SimMove> blue_move = null;
-        // foreach (var move in RunAiForTeam(Team.BLUE))
-        // {
-        //     blue_move = move;
-        //     yield return null;
-        // }
 
         uint lesser_move_threshold = 1;
-        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold, 1);
-        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold, 1);
+        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold);
+        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold);
 
         // Hacky thing to update the current game board.
         var moves = red_move.Union(blue_move);
@@ -286,7 +249,7 @@ public class BoardTester : MonoBehaviour
         {
             pawns_by_id[pawn.id] = pawn;
         }
-        foreach (var pawn in new_state.dead_pawns)
+        foreach (var pawn in new_state.dead_pawns.Values)
         {
             pawns_by_id[pawn.id] = pawn;
         }
