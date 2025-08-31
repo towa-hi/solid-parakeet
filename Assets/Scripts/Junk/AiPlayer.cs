@@ -210,19 +210,13 @@ public static class AiPlayer
         var oppn_dead_pawns = state.dead_pawns.Select(x => x.team == oppn_team).Count();
         foreach (var ally_move in ally_moves)
         {
-            // Noodles too much, afraid of advancing.
-            var move_throne_nudge = DirTo(ally_move, oppn_throne);
-            // Aggressive, suicidal.
-            //var move_throne_nudge = DeltaDist(ally_move, oppn_throne);
-            // Just right?
-            //var move_throne_nudge = (DirTo(ally_move, oppn_throne) + DeltaDist(ally_move, oppn_throne)) / 2;
             float move_score_total = 0;
             foreach (var oppn_move in oppn_moves)
             {
                 var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
                 var substate = GetDerivedStateFromMove(board, state, move_union);
                 var new_oppn_dead = substate.dead_pawns.Select(x => x.team == oppn_team).Count();
-                move_score_total += substate.value + move_throne_nudge;
+                move_score_total += substate.value;
             }
             final_scores.Add(SimMoveSet.Empty.Add(ally_move), move_score_total / oppn_moves.Count);
         }

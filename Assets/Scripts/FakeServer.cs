@@ -152,7 +152,9 @@ public static class FakeServer
         LobbyInfo lobbyInfo = fakeLobbyInfo.Value;
         LobbyParameters parameters = fakeParameters.Value;
         GameState gameState = fakeGameState.Value;
-
+        parameters.blitz_interval = 0;
+        parameters.blitz_max_simultaneous_moves = 1;
+        fakeParameters = parameters;
         Debug.Assert(lobbyInfo.phase == Phase.SetupCommit);
         Dictionary<PawnId, Rank> hiddenRanks = new Dictionary<PawnId, Rank>();
         foreach (HiddenRank hiddenRank in req.zz_hidden_ranks)
@@ -332,7 +334,7 @@ public static class FakeServer
 
     public static List<HiddenMove> TempFakeHiddenMoves(Team team)
     {
-        uint lesser_move_threshold = 3; // Increase to make have it randomly make worse moves.
+        uint lesser_move_threshold = 0; // Increase to make have it randomly make worse moves.
         Debug.Assert(fakeIsOnline);
         LobbyParameters parameters = fakeParameters.Value;
         GameState gameState = fakeGameState.Value;

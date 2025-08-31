@@ -33,6 +33,7 @@ public class PawnView : MonoBehaviour
     public bool isSelected;
     public bool isMovePairStart;
 
+    public bool cheatMode;
     public static event Action<PawnId> OnMoveAnimationCompleted;
 
     public void TestSetSprite(Rank testRank, Team testTeam)
@@ -92,12 +93,14 @@ public class PawnView : MonoBehaviour
         // intent for animated move (arc)
         TileView arcFromTile = null;
         TileView arcToTile = null;
+        Rank? actualRank = null;
         // figure out what to do based on what happened
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             isMyTeam = netStateUpdated.phase.cachedNetState.userTeam == team;
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
             PawnState pawn = cachedNetState.GetPawnFromId(pawnId);
+            actualRank = pawn.rank ?? Rank.UNKNOWN;
             setIsSelected = false;
             setIsMovePairStart = false;
             switch (netStateUpdated.phase)
@@ -192,6 +195,7 @@ public class PawnView : MonoBehaviour
                     Rank preRank;
                     Rank postRank;
                     PawnState pawn = resolvePhase.cachedNetState.GetPawnFromId(pawnId);
+                    actualRank = pawn.rank ?? Rank.UNKNOWN;
                     if (isMyTeam)
                     {
                         preRank = pawn.GetKnownRank(resolvePhase.cachedNetState.userTeam) ?? Rank.UNKNOWN;
@@ -315,6 +319,11 @@ public class PawnView : MonoBehaviour
         {
             model.SetActive(false);
         }
+
+        if (cheatMode && actualRank is Rank actualRankVal)
+        {
+            badge.SetBadge(team, actualRankVal);
+        }
     }
 
     void DisplayPosView(TileView tileView = null)
@@ -341,6 +350,8 @@ public class PawnView : MonoBehaviour
         float randNormTime = Random.Range(0f, 1f);
         animator.Play("Idle", 0, randNormTime);
         animator.Update(0f);
+        
+        Debug.Log($"{gameObject.name} rank badge set to {rank}");
         badge.SetBadge(team, rank);
     }
 

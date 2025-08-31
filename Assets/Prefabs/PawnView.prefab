@@ -590,7 +590,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &6135095970186166130
 Transform:
   m_ObjectHideFlags: 0
@@ -804,9 +804,11 @@ MonoBehaviour:
   rankView: 0
   aliveView: 0
   posView: {x: 0, y: 0}
+  isMyTeam: 0
   visibleView: 0
   isSelected: 0
   isMovePairStart: 0
+  cheatMode: 1
 --- !u!1773428102 &6554624529676426233
 ParentConstraint:
   m_ObjectHideFlags: 0
