@@ -202,7 +202,7 @@ public class BoardTester : MonoBehaviour
 
     IEnumerable<ImmutableHashSet<AiPlayer.SimMove>> RunAiForTeam(Team team)
     {
-        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         board.ally_team = team;
         double accumulated_time = 0;
         while (accumulated_time < board.timeout)
@@ -215,21 +215,29 @@ public class BoardTester : MonoBehaviour
         yield return AiPlayer.MCTSGetResult(board);
     }
 
-    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
+    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold, int strategy)
     {
-        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         board.ally_team = team;
-        var red_moves = AiPlayer.NodeScoreStrategy(board, board.root_state, 1);
+        AiPlayer.MutGuessOpponentRanks(board, board.root_state);
+        List<ImmutableHashSet<AiPlayer.SimMove>> moves = null;
+        var starttime = Time.realtimeSinceStartupAsDouble;
+        if (strategy == 1)
+            moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
+        else if (strategy == 2)
+            moves = AiPlayer.NodeScoreStrategy2(board, board.root_state, 1);
+        else if (strategy == 3)
+        {
+            AiPlayer.MutMCTSRunForTime(board, (float)board.timeout);
+            return AiPlayer.MCTSGetResult(board);
+        }
+        Debug.Log($"AI {team} time {Time.realtimeSinceStartupAsDouble - starttime}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
-        if (max_moves == 1)
+        if (max_moves > 1)
         {
-            return red_moves[(int)Random.Range(0, Mathf.Min(red_moves.Length, lesser_move_threshold))].Key;
+            moves = AiPlayer.CombineMoves(moves, max_moves, lesser_move_threshold);
         }
-        else
-        {
-            var combined = AiPlayer.CombineMoves(red_moves, max_moves, lesser_move_threshold);
-            return combined[(int)Random.Range(0, Mathf.Min(combined.Count, lesser_move_threshold))];
-        }
+        return moves[(int)Random.Range(0, Mathf.Min(moves.Count - 1, lesser_move_threshold))];
     }
 
     IEnumerator AiRunnerCoroutine()
@@ -256,12 +264,12 @@ public class BoardTester : MonoBehaviour
         // }
 
         uint lesser_move_threshold = 5;
-        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold);
-        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold);
+        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold, 1);
+        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold, 1);
 
         // Hacky thing to update the current game board.
         var moves = red_move.Union(blue_move);
-        var board = AiPlayer.MakeSimGameBoard(gameNetworkState);
+        var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         var new_state = AiPlayer.GetDerivedStateFromMove(board, board.root_state, moves);
         var pawns_by_id = new Dictionary<PawnId, AiPlayer.SimPawn>();
         foreach (var pawn in new_state.pawns.Values)
