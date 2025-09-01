@@ -200,18 +200,13 @@ public class BoardTester : MonoBehaviour
         }
     }
 
-    public IEnumerable<ImmutableHashSet<AiPlayer.SimMove>> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
+    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
     {
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         board.ally_team = team;
         //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
         var starttime = Time.realtimeSinceStartupAsDouble;
-        List<ImmutableHashSet<AiPlayer.SimMove>> moves = null;
-        foreach (var _move in AiPlayer.NodeScoreStrategy(board, board.root_state))
-        {
-            moves = _move;
-            yield return null;
-        }
+        var moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
         Debug.Log($"AI {team} time {Time.realtimeSinceStartupAsDouble - starttime}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
         if (max_moves > 1)
@@ -228,7 +223,7 @@ public class BoardTester : MonoBehaviour
                 Debug.Log($"   Tries attack {oppn.team} {oppn.rank} {(int)oppn.rank} {move.next_pos}");
             }
         }
-        yield return result;
+        return result;
     }
 
     IEnumerator AiRunnerCoroutine()
@@ -242,21 +237,11 @@ public class BoardTester : MonoBehaviour
         }
 
         uint lesser_move_threshold = 1;
-        ImmutableHashSet<AiPlayer.SimMove> red_move = null;
-        foreach (var _red_move in RunNodeSearchForTeam(Team.RED, lesser_move_threshold))
-        {
-            red_move = _red_move;
-            yield return null;
-        }
-        ImmutableHashSet<AiPlayer.SimMove> blue_move = null;
-        foreach (var _blue_move in RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold))
-        {
-            blue_move = _blue_move;
-            yield return null;
-        }
+        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold);
+        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold);
 
         // Hacky thing to update the current game board.
-            var moves = red_move.Union(blue_move);
+        var moves = red_move.Union(blue_move);
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         var new_state = AiPlayer.GetDerivedStateFromMove(board, board.root_state, moves);
         var pawns_by_id = new Dictionary<PawnId, AiPlayer.SimPawn>();

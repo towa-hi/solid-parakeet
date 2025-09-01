@@ -195,7 +195,7 @@ public static class AiPlayer
     // opponent's possible simultaneous moves. Reduces the utility of probabilistically bad moves
     // like a pawn suiciding on another.
     // Also nudges the pawns toward the enemy throne (which can also just make it b-line the throne, for now).
-    public static IEnumerable<List<SimMoveSet>> NodeScoreStrategy(
+    public static List<SimMoveSet> NodeScoreStrategy(
         SimGameBoard board,
         SimGameState state)
     {
@@ -220,7 +220,6 @@ public static class AiPlayer
             float move_score_total = 0;
             foreach (var oppn_move in oppn_moves)
             {
-                yield return null;
                 var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
                 MutApplyMove(state.pawns, state.dead_pawns, changed_pawns, move_union);
                 var move_value = EvaluateState(board, state.pawns, state.dead_pawns);
@@ -268,7 +267,7 @@ public static class AiPlayer
         System.Array.Sort(arr_scores, (x, y) => y.Value.CompareTo(x.Value));
         var _nss_elapsed = Time.realtimeSinceStartupAsDouble - _nss_start_time;
         Debug.Log($"NodeScoreStrategy elapsed: {_nss_elapsed:F4}s, First turn evals: {first_turn_all_possibilities}/{first_turn_evals}, Second turn evals: {second_turn_all_possibilities}/{second_turn_evals}");
-        yield return arr_scores.Select(x => x.Key).ToList();
+        return arr_scores.Select(x => x.Key).ToList();
     }
 
     // Greedy join moves together
