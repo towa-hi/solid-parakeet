@@ -4,6 +4,34 @@ using UnityEngine;
 
 public static class Shared
 {
+    // Precomputed direction arrays to avoid per-call allocations.
+    // Square grid: up, right, down, left
+    private static readonly Vector2Int[] DIRS_SQUARE = new Vector2Int[]
+    {
+        Vector2Int.up,
+        Vector2Int.right,
+        Vector2Int.down,
+        Vector2Int.left,
+    };
+    // Hex grid: odd/even column variants (pointy-top, matching existing logic)
+    private static readonly Vector2Int[] DIRS_HEX_ODD = new Vector2Int[]
+    {
+        new Vector2Int(0, 1),   // top
+        new Vector2Int(-1, 0),  // top right
+        new Vector2Int(-1, -1), // bot right
+        new Vector2Int(0, -1),  // bot
+        new Vector2Int(1, -1),  // bot left
+        new Vector2Int(1, 0),   // top left
+    };
+    private static readonly Vector2Int[] DIRS_HEX_EVEN = new Vector2Int[]
+    {
+        new Vector2Int(0, 1),   // top
+        new Vector2Int(-1, 1),  // top right
+        new Vector2Int(-1, 0),  // bot right (was -0)
+        new Vector2Int(0, -1),  // bot
+        new Vector2Int(1, 0),   // bot left
+        new Vector2Int(1, 1),   // top left
+    };
     public static bool IsNicknameValid(string nickname)
     {
         // Check length constraints
@@ -48,39 +76,12 @@ public static class Shared
     {
         if (isHex)
         {
-            Vector2Int[] neighbors = new Vector2Int[6];
-            bool oddCol = pos.x % 2 == 1; // Adjust for origin offset
-            
-            if (oddCol)
-            {
-                neighbors[0] = new (0, 1);  // top
-                neighbors[1] = new (-1, 0);  // top right
-                neighbors[2] = new (-1, -1);  // bot right
-                neighbors[3] = new (0, -1); // bot
-                neighbors[4] = new (1, -1); // bot left
-                neighbors[5] = new (1, 0);  // top left
-            }
-            else
-            {
-                neighbors[0] = new (0, 1);  // top
-                neighbors[1] = new (-1, 1);  // top right
-                neighbors[2] = new (-1, -0); // bot right
-                neighbors[3] = new (0, -1); // bot
-                neighbors[4] = new (1, 0);// bot left
-                neighbors[5] = new (1, 1); // top left
-            }
-            
-            return neighbors;
+            bool oddCol = (pos.x & 1) == 1; // Adjust for origin offset
+            return oddCol ? DIRS_HEX_ODD : DIRS_HEX_EVEN;
         }
         else
         {
-            return new[]
-            {
-                Vector2Int.up,
-                Vector2Int.right,
-                Vector2Int.down,
-                Vector2Int.left,
-            };
+            return DIRS_SQUARE;
         }
     }
     
