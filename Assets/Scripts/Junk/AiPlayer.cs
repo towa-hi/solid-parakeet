@@ -381,6 +381,7 @@ public static class AiPlayer
         }
     }
 
+    private static HashSet<(SimPawn, SimPawn)> mut_swaps = new();
     private static Dictionary<Vector2Int, SimPawn> mut_moving_pawns = new();
     private static Dictionary<Vector2Int, HashSet<SimPawn>> mut_target_locations = new();
 
@@ -405,6 +406,32 @@ public static class AiPlayer
             {
                 changed_pawns[next_pawn.id] = next_pawn;
             }
+        }
+        // Collect swaps.
+        mut_swaps.Clear();
+        var temp_moveset = moveset;
+        foreach (var move_a in moveset)
+        {
+            foreach (var move_b in moveset)
+            {
+                if (move_a.last_pos == move_b.next_pos && move_a.next_pos == move_b.last_pos)
+                {
+                    var pawn_a = pawns[move_a.last_pos];
+                    var pawn_b = pawns[move_a.next_pos];
+                    if (pawn_a.id < pawn_b.id)
+                        mut_swaps.Add((pawn_a, pawn_b));
+                    else
+                        mut_swaps.Add((pawn_b, pawn_a));
+                    temp_moveset = moveset.Remove(move_a).Remove(move_b);
+                }
+            }
+        }
+        moveset = temp_moveset;
+        // Remove the swappy boys.
+        foreach (var (swap_a, swap_b) in mut_swaps)
+        {
+            pawns.Remove(swap_a.pos);
+            pawns.Remove(swap_b.pos);
         }
         // Collect all pawns moving now.
         mut_moving_pawns.Clear();
@@ -454,6 +481,34 @@ public static class AiPlayer
             }
         }
         // Battle or occupy each new position.
+        foreach (var (pawn_a, pawn_b) in mut_swaps)
+        {
+            var pawn_aa = pawn_a;
+            var pawn_bb = pawn_b;
+            var temp = pawn_aa.pos;
+            pawn_aa.pos = pawn_bb.pos;
+            pawn_bb.pos = temp;
+
+            var (winner, loser_a, loser_b) = BattlePawns(pawn_a, pawn_b);
+            if (winner.HasValue)
+            {
+                var p = winner.Value;
+                p.has_moved = true;
+                p.is_revealed = true;
+                pawns[p.pos] = p;
+            }
+            foreach (var pawn in new[] { loser_a, loser_b })
+            {
+                if (pawn.HasValue)
+                {
+                    var p = pawn.Value;
+                    p.has_moved = true;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+            }
+        }
         foreach (var (target, pawn_set) in mut_target_locations)
         {
             var pawn_list = pawn_set.ToArray();
