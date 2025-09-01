@@ -360,7 +360,6 @@ public static class StellarManager
         {
             Debug.Log("CommitMoveRequest fake guest move");
             List<HiddenMove> fakeGuestMoveProofs = FakeServer.TempFakeHiddenMoves(Team.BLUE);
-            await Task.Yield();
             List<byte[]> fakeGuestMoveHashes = new();
             foreach (HiddenMove move in fakeGuestMoveProofs)
             {
