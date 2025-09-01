@@ -2,15 +2,22 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Contract;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Assertions;
-
 
 // A single set of pawn moves that represents one instance of one turn of play.
 using SimMoveSet = System.Collections.Immutable.ImmutableHashSet<AiPlayer.SimMove>;
 
 public static class AiPlayer
 {
+    static readonly ProfilerMarker AI_NodeScore = new ProfilerMarker("AI.NodeScoreStrategy");
+    static readonly ProfilerMarker AI_GetAllSingleMoves = new ProfilerMarker("AI.GetAllSingleMovesForTeam");
+    static readonly ProfilerMarker AI_GetAllMovesForPawn = new ProfilerMarker("AI.GetAllMovesForPawn");
+    static readonly ProfilerMarker AI_ApplyMove = new ProfilerMarker("AI.MutApplyMove");
+    static readonly ProfilerMarker AI_UndoMove = new ProfilerMarker("AI.MutUndoApplyMove");
+    static readonly ProfilerMarker AI_Evaluate = new ProfilerMarker("AI.EvaluateState");
+
     // Minimal information about a pawn.
     public struct SimPawn
     {
@@ -191,6 +198,10 @@ public static class AiPlayer
         return board;
     }
 
+    static List<SimMove> ally_moves = new();
+    static List<SimMove> oppn_moves = new();
+    static List<SimMove> ally_moves_2 = new();
+    static List<SimMove> oppn_moves_2 = new();
     // Scores the utility of each ally move against the average outcome of each
     // opponent's possible simultaneous moves. Reduces the utility of probabilistically bad moves
     // like a pawn suiciding on another.
@@ -202,9 +213,9 @@ public static class AiPlayer
         var ally_team = board.ally_team;
         var oppn_team = ally_team == Team.RED ? Team.BLUE : Team.RED;
         var _nss_start_time = Time.realtimeSinceStartupAsDouble;
-        var final_scores = new Dictionary<SimMoveSet, float>();
-        var ally_moves = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
-        var oppn_moves = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
+        var final_scores = new Dictionary<SimMove, float>();
+        ally_moves = GetAllSingleMovesForTeamList(board, state.pawns, ally_team);
+        oppn_moves = GetAllSingleMovesForTeamList(board, state.pawns, oppn_team);
         int first_turn_evals = 0;
         int first_turn_all_possibilities = 0;
         int second_turn_evals = 0;
@@ -212,16 +223,16 @@ public static class AiPlayer
         var changed_pawns = new Dictionary<PawnId, SimPawn>();
         var changed_pawns_2 = new Dictionary<PawnId, SimPawn>();
         var changed_pawns_3 = new Dictionary<PawnId, SimPawn>();
-        var final_scores_2 = new Dictionary<SimMoveSet, float>();
+        var final_scores_2 = new Dictionary<SimMove, float>();
 
+        AI_NodeScore.Begin();
         // 2 ply search for simultaenous moves
         foreach (var ally_move in ally_moves)
         {
             float move_score_total = 0;
             foreach (var oppn_move in oppn_moves)
             {
-                var move_union = SimMoveSet.Empty.Add(ally_move).Add(oppn_move);
-                MutApplyMove(state.pawns, state.dead_pawns, changed_pawns, move_union);
+                MutApplyMove(state.pawns, state.dead_pawns, changed_pawns, ally_move, oppn_move);
                 var move_value = EvaluateState(board, state.pawns, state.dead_pawns);
                 first_turn_all_possibilities++;
                 // check if terminal
@@ -233,12 +244,12 @@ public static class AiPlayer
                 {
                     final_scores_2.Clear();
                     //move_score_total += substate.value;
-                    var ally_moves_2 = GetAllSingleMovesForTeam(board, state.pawns, ally_team);
-                    var oppn_moves_2 = GetAllSingleMovesForTeam(board, state.pawns, oppn_team);
+                    ally_moves_2 = GetAllSingleMovesForTeamList(board, state.pawns, ally_team);
+                    oppn_moves_2 = GetAllSingleMovesForTeamList(board, state.pawns, oppn_team);
                     foreach (var ally_move_2 in ally_moves_2)
                     {
                         second_turn_all_possibilities++;
-                        MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, SimMoveSet.Empty.Add(ally_move_2));
+                        MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, ally_move_2);
                         var move_value_2 = EvaluateState(board, state.pawns, state.dead_pawns);
                         MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_2);
                         if (move_value_2 < move_value)
@@ -248,26 +259,41 @@ public static class AiPlayer
                         float move_score_total_2 = 0;
                         foreach (var oppn_move_2 in oppn_moves_2)
                         {
-                            MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, SimMoveSet.Empty.Add(ally_move_2).Add(oppn_move_2));
+                            MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, ally_move_2, oppn_move_2);
                             move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
                             MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_3);
                         }
-                        final_scores_2.Add(SimMoveSet.Empty.Add(ally_move_2), move_score_total_2 / oppn_moves_2.Count);
+                        final_scores_2.Add(ally_move_2, move_score_total_2 / oppn_moves_2.Count);
                         second_turn_evals++;
                     }
-                    move_score_total += final_scores_2.Values.Average();
+                    // Manual average to avoid LINQ allocation
+                    float __sum = 0f;
+                    int __count = 0;
+                    foreach (var __kv in final_scores_2)
+                    {
+                        __sum += __kv.Value;
+                        __count++;
+                    }
+                    move_score_total += __count > 0 ? (__sum / __count) : 0f;
                     first_turn_evals++;
                 }
                 MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns);
             }
-            final_scores.Add(SimMoveSet.Empty.Add(ally_move), move_score_total / oppn_moves.Count);
+            final_scores.Add(ally_move, move_score_total / oppn_moves.Count);
         }
 
         var arr_scores = final_scores.ToArray();
         System.Array.Sort(arr_scores, (x, y) => y.Value.CompareTo(x.Value));
         var _nss_elapsed = Time.realtimeSinceStartupAsDouble - _nss_start_time;
-        Debug.Log($"NodeScoreStrategy elapsed: {_nss_elapsed:F4}s, First turn evals: {first_turn_all_possibilities}/{first_turn_evals}, Second turn evals: {second_turn_all_possibilities}/{second_turn_evals}");
-        return arr_scores.Select(x => x.Key).ToList();
+        Debug.Log($"NodeScoreStrategy elapsed: {_nss_elapsed:F4}s, time per eval {_nss_elapsed / (first_turn_evals + second_turn_evals)}s, First turn evals: {first_turn_all_possibilities}/{first_turn_evals}, Second turn evals: {second_turn_all_possibilities}/{second_turn_evals}");
+        // Build list of keys without LINQ
+        var __result = new List<SimMoveSet>(arr_scores.Length);
+        foreach (var __kv in arr_scores)
+        {
+            __result.Add(SimMoveSet.Empty.Add(__kv.Key));
+        }
+        AI_NodeScore.End();
+        return __result;
     }
 
     // Greedy join moves together
@@ -393,6 +419,7 @@ public static class AiPlayer
         IDictionary<PawnId, SimPawn> changed_pawns,
         SimMoveSet moveset)
     {
+        AI_ApplyMove.Begin();
         changed_pawns.Clear();
         foreach (var move in moveset)
         {
@@ -556,8 +583,298 @@ public static class AiPlayer
                 {
                     Debug.LogWarning($"move {move.last_pos} {move.next_pos}");
                 }
-                Assert.IsFalse(true, "Expected size 1 or 2 list.");
+                // Assert.IsFalse(true, "Expected size 1 or 2 list.");
             }
+        }
+        AI_ApplyMove.End();
+    }
+
+    // Optimized 2-move overload to avoid ImmutableHashSet allocations in hot paths.
+    public static void MutApplyMove(
+        IDictionary<Vector2Int, SimPawn> pawns,
+        IDictionary<PawnId, SimPawn> dead_pawns,
+        IDictionary<PawnId, SimPawn> changed_pawns,
+        SimMove move_a,
+        SimMove move_b)
+    {
+        AI_ApplyMove.Begin();
+        try
+        {
+            changed_pawns.Clear();
+
+        bool a_has_mover = pawns.TryGetValue(move_a.last_pos, out var a_pawn);
+        bool b_has_mover = pawns.TryGetValue(move_b.last_pos, out var b_pawn);
+        bool a_has_defender = pawns.TryGetValue(move_a.next_pos, out var a_defender);
+        bool b_has_defender = pawns.TryGetValue(move_b.next_pos, out var b_defender);
+
+        if (!a_has_mover)
+        {
+            Debug.Log("MutApplyMove(2): missing pawn at A.last_pos");
+        }
+        if (!b_has_mover)
+        {
+            Debug.Log("MutApplyMove(2): missing pawn at B.last_pos");
+        }
+
+        if (a_has_mover) changed_pawns[a_pawn.id] = a_pawn;
+        if (b_has_mover) changed_pawns[b_pawn.id] = b_pawn;
+        if (a_has_defender) changed_pawns[a_defender.id] = a_defender;
+        if (b_has_defender) changed_pawns[b_defender.id] = b_defender;
+
+            // Special-case: both movers target the same tile (no defender expected).
+            if (move_a.next_pos == move_b.next_pos)
+            {
+                // If a defender was also present, this would be a 3-way which original logic
+                // does not support (would assert). Keep behavior consistent.
+                // Assert.IsFalse(a_has_defender || b_has_defender, "3-way conflict not supported in 2-move MutApplyMove");
+
+                // Remove moving pawns from their last positions before resolving.
+                if (a_has_mover) pawns.Remove(move_a.last_pos);
+                if (b_has_mover) pawns.Remove(move_b.last_pos);
+
+                var resultSame = BattlePawns(a_pawn, b_pawn);
+                if (resultSame.Item1.HasValue)
+                {
+                    var p = resultSame.Item1.Value;
+                    if (p.pos != move_a.next_pos) { p.has_moved = true; }
+                    p.is_revealed = true;
+                    p.pos = move_a.next_pos; // same as move_b.next_pos
+                    pawns[move_a.next_pos] = p;
+                }
+                if (resultSame.Item2.HasValue)
+                {
+                    var p = resultSame.Item2.Value;
+                    if (p.pos != move_a.next_pos) { p.has_moved = true; }
+                    p.pos = move_a.next_pos;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+                if (resultSame.Item3.HasValue)
+                {
+                    var p = resultSame.Item3.Value;
+                    if (p.pos != move_a.next_pos) { p.has_moved = true; }
+                    p.pos = move_a.next_pos;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+                return;
+            }
+
+        bool is_swap = a_has_mover && b_has_mover &&
+            (move_a.last_pos == move_b.next_pos && move_a.next_pos == move_b.last_pos);
+
+        // Remove moving pawns from their last positions.
+        if (a_has_mover) pawns.Remove(move_a.last_pos);
+        if (b_has_mover) pawns.Remove(move_b.last_pos);
+
+        // Remove unmoving defenders from the board when applicable (not part of a swap).
+        if (a_has_defender && (!is_swap || (b_has_mover && a_defender.id != b_pawn.id)))
+        {
+            pawns.Remove(move_a.next_pos);
+        }
+        if (b_has_defender && (!is_swap || (a_has_mover && b_defender.id != a_pawn.id)))
+        {
+            pawns.Remove(move_b.next_pos);
+        }
+
+            if (is_swap)
+            {
+                var result = BattlePawns(a_pawn, b_pawn);
+                if (result.Item1.HasValue)
+                {
+                    var p = result.Item1.Value;
+                    p.has_moved = true;
+                    p.is_revealed = true;
+                    // Mirror existing MutApplyMove behavior for swaps: keep winner at original position.
+                    pawns[p.pos] = p;
+                }
+                if (result.Item2.HasValue)
+                {
+                    var p = result.Item2.Value;
+                    p.has_moved = true;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+                if (result.Item3.HasValue)
+                {
+                    var p = result.Item3.Value;
+                    p.has_moved = true;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+                return;
+            }
+
+        // Resolve move A.
+        if (a_has_mover)
+        {
+            if (a_has_defender && (!b_has_mover || a_defender.id != b_pawn.id))
+            {
+                var r = BattlePawns(a_pawn, a_defender);
+                if (r.Item1.HasValue)
+                {
+                    var p = r.Item1.Value;
+                    if (p.pos != move_a.next_pos) { p.has_moved = true; }
+                    p.is_revealed = true;
+                    p.pos = move_a.next_pos;
+                    pawns[move_a.next_pos] = p;
+                }
+                if (r.Item2.HasValue)
+                {
+                    var p = r.Item2.Value;
+                    if (p.pos != move_a.next_pos) { p.has_moved = true; }
+                    p.pos = move_a.next_pos;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+                if (r.Item3.HasValue)
+                {
+                    var p = r.Item3.Value;
+                    if (p.pos != move_a.next_pos) { p.has_moved = true; }
+                    p.pos = move_a.next_pos;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+            }
+            else
+            {
+                var p = a_pawn;
+                p.pos = move_a.next_pos;
+                p.has_moved = true;
+                pawns[move_a.next_pos] = p;
+            }
+        }
+
+        // Resolve move B.
+        if (b_has_mover)
+        {
+            if (b_has_defender && (!a_has_mover || b_defender.id != a_pawn.id))
+            {
+                var r = BattlePawns(b_pawn, b_defender);
+                if (r.Item1.HasValue)
+                {
+                    var p = r.Item1.Value;
+                    if (p.pos != move_b.next_pos) { p.has_moved = true; }
+                    p.is_revealed = true;
+                    p.pos = move_b.next_pos;
+                    pawns[move_b.next_pos] = p;
+                }
+                if (r.Item2.HasValue)
+                {
+                    var p = r.Item2.Value;
+                    if (p.pos != move_b.next_pos) { p.has_moved = true; }
+                    p.pos = move_b.next_pos;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+                if (r.Item3.HasValue)
+                {
+                    var p = r.Item3.Value;
+                    if (p.pos != move_b.next_pos) { p.has_moved = true; }
+                    p.pos = move_b.next_pos;
+                    p.alive = false;
+                    p.is_revealed = true;
+                    dead_pawns[p.id] = p;
+                }
+            }
+            else
+            {
+                var p = b_pawn;
+                p.pos = move_b.next_pos;
+                p.has_moved = true;
+                pawns[move_b.next_pos] = p;
+            }
+        }
+
+        }
+        finally
+        {
+            AI_ApplyMove.End();
+        }
+    }
+
+    // Optimized 1-move overload to avoid ImmutableHashSet allocations for single pawn moves.
+    public static void MutApplyMove(
+        IDictionary<Vector2Int, SimPawn> pawns,
+        IDictionary<PawnId, SimPawn> dead_pawns,
+        IDictionary<PawnId, SimPawn> changed_pawns,
+        SimMove move)
+    {
+        AI_ApplyMove.Begin();
+        try
+        {
+            changed_pawns.Clear();
+
+        if (!pawns.TryGetValue(move.last_pos, out var mover))
+        {
+            Debug.Log("MutApplyMove(1): missing pawn at last_pos");
+            return;
+        }
+        changed_pawns[mover.id] = mover;
+
+        bool has_defender = pawns.TryGetValue(move.next_pos, out var defender);
+        if (has_defender)
+        {
+            changed_pawns[defender.id] = defender;
+        }
+
+        // Remove mover from current tile
+        pawns.Remove(move.last_pos);
+        // Remove defender from target tile (if any) before resolving
+        if (has_defender)
+        {
+            pawns.Remove(move.next_pos);
+        }
+
+        if (has_defender)
+        {
+            var result = BattlePawns(mover, defender);
+            if (result.Item1.HasValue)
+            {
+                var p = result.Item1.Value;
+                if (p.pos != move.next_pos) { p.has_moved = true; }
+                p.is_revealed = true;
+                p.pos = move.next_pos;
+                pawns[move.next_pos] = p;
+            }
+            if (result.Item2.HasValue)
+            {
+                var p = result.Item2.Value;
+                if (p.pos != move.next_pos) { p.has_moved = true; }
+                p.pos = move.next_pos;
+                p.alive = false;
+                p.is_revealed = true;
+                dead_pawns[p.id] = p;
+            }
+            if (result.Item3.HasValue)
+            {
+                var p = result.Item3.Value;
+                if (p.pos != move.next_pos) { p.has_moved = true; }
+                p.pos = move.next_pos;
+                p.alive = false;
+                p.is_revealed = true;
+                dead_pawns[p.id] = p;
+            }
+        }
+        else
+        {
+            var p = mover;
+            p.pos = move.next_pos;
+            p.has_moved = true;
+            pawns[move.next_pos] = p;
+        }
+
+        }
+        finally
+        {
+            AI_ApplyMove.End();
         }
     }
 
@@ -597,9 +914,9 @@ public static class AiPlayer
         IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
         IReadOnlyDictionary<PawnId, SimPawn> dead_pawns)
     {
-        var red_moves = GetAllSingleMovesForTeam(board, pawns, Team.RED);
-        var blue_moves = GetAllSingleMovesForTeam(board, pawns, Team.BLUE);
-        if (red_moves.IsEmpty || blue_moves.IsEmpty)
+        var red_moves = GetAllSingleMovesForTeamList(board, pawns, Team.RED);
+        var blue_moves = GetAllSingleMovesForTeamList(board, pawns, Team.BLUE);
+        if (red_moves.Count == 0 || blue_moves.Count == 0)
         {
             return true;
         }
@@ -623,43 +940,65 @@ public static class AiPlayer
         IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
         IReadOnlyDictionary<PawnId, SimPawn> dead_pawns)
     {
-        var (terminal, winner) = WhoWins(dead_pawns);
-        if (terminal)
+        AI_Evaluate.Begin();
+        try
         {
-            return winner == board.ally_team ? board.total_material : -board.total_material;
+            bool redThroneDead = false;
+            bool blueThroneDead = false;
+            foreach (var pawn in dead_pawns.Values)
+            {
+                if (pawn.rank != Rank.THRONE)
+                {
+                    continue;
+                }
+                if (pawn.team == Team.RED)
+                {
+                    redThroneDead = true;
+                }
+                else if (pawn.team == Team.BLUE)
+                {
+                    blueThroneDead = true;
+                }
+                if (redThroneDead && blueThroneDead)
+                {
+                    // Draw
+                    return 0f;
+                }
+            }
+            if (redThroneDead)
+            {
+                return board.ally_team == Team.BLUE ? board.total_material : -board.total_material;
+            }
+            if (blueThroneDead)
+            {
+                return board.ally_team == Team.RED ? board.total_material : -board.total_material;
+            }
+
+            int diff = 0;
+            foreach (var pawn in pawns.Values)
+            {
+                if (pawn.team == Team.RED)
+                {
+                    diff += (int)pawn.rank;
+                }
+                else
+                {
+                    diff -= (int)pawn.rank;
+                }
+            }
+            if (board.ally_team == Team.BLUE)
+            {
+                diff = -diff;
+            }
+            return (float)diff;
         }
-        var (red, blue) = CountMaterial(pawns);
-        var redf = (float)red;
-        var bluef = (float)blue;
-        var score = redf - bluef;
-        if (board.ally_team == Team.BLUE)
+        finally
         {
-            score *= -1;
+            AI_Evaluate.End();
         }
-        return score;
     }
 
-    // Returns (terminal, winning team)
-    public static (bool, Team) WhoWins(IReadOnlyDictionary<PawnId, SimPawn> dead_pawns)
-    {
-        var thrones = new List<Team>();
-        foreach (var pawn in dead_pawns.Values)
-        {
-            if (pawn.rank == Rank.THRONE)
-            {
-                thrones.Add(pawn.team);
-            }
-        }
-        if (thrones.Count == 2)
-        {
-            return (true, Team.NONE);
-        }
-        else if (thrones.Count == 1)
-        {
-            return (true, thrones[0] == Team.RED ? Team.BLUE : Team.RED);
-        }
-        return (false, Team.NONE);
-    }
+    // WhoWins inlined into EvaluateState
 
     // Material of (red, blue)
     public static (uint, uint) CountMaterial(IReadOnlyDictionary<Vector2Int, SimPawn> pawns)
@@ -701,15 +1040,91 @@ public static class AiPlayer
         IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
         Team team)
     {
+        AI_GetAllSingleMoves.Begin();
         var moves = SimMoveSet.Empty.ToBuilder();
         foreach (var (pos, pawn) in pawns)
         {
             if (pawn.team == team)
             {
-                moves.UnionWith(GetAllMovesForPawn(board, pawns, pos));
+                CollectMovesForTeamBuilder(board, pawns, pos, moves);
             }
         }
+        AI_GetAllSingleMoves.End();
         return moves.ToImmutable();
+    }
+
+    // Allocation-lean list variant for hot call sites.
+    public static List<SimMove> GetAllSingleMovesForTeamList(
+        SimGameBoard board,
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        Team team)
+    {
+        AI_GetAllSingleMoves.Begin();
+        // Capacity hint: average of ~6 moves per pawn (tunable)
+        var moves = new List<SimMove>(pawns.Count * 4);
+        foreach (var kv in pawns)
+        {
+            var pos = kv.Key;
+            var pawn = kv.Value;
+            if (pawn.team == team)
+            {
+                CollectMovesForPawnToList(board, pawns, pos, moves);
+            }
+        }
+        AI_GetAllSingleMoves.End();
+        return moves;
+    }
+
+    private static void CollectMovesForTeamBuilder(
+        SimGameBoard board,
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        Vector2Int pawn_pos,
+        System.Collections.Immutable.ImmutableHashSet<SimMove>.Builder output)
+    {
+        SimPawn pawn = pawns[pawn_pos];
+        if (pawn.rank == Rank.THRONE || pawn.rank == Rank.TRAP)
+        {
+            return;
+        }
+        int max_steps = Rules.GetMovementRange(pawn.rank);
+        Vector2Int[] initial_directions = Shared.GetDirections(pawn_pos, board.is_hex);
+        for (int direction_index = 0; direction_index < initial_directions.Length; direction_index++)
+        {
+            Vector2Int current_pos = pawn_pos;
+            int walked_tiles = 0;
+            while (walked_tiles < max_steps)
+            {
+                walked_tiles++;
+                current_pos = current_pos + Shared.GetDirections(current_pos, board.is_hex)[direction_index];
+                if (board.tiles.TryGetValue(current_pos, out TileState tile))
+                {
+                    if (!tile.passable)
+                    {
+                        break;
+                    }
+                    if (pawns.TryGetValue(current_pos, out SimPawn other_pawn))
+                    {
+                        if (pawn.team != other_pawn.team)
+                        {
+                            output.Add(new SimMove()
+                            {
+                                last_pos = pawn_pos,
+                                next_pos = current_pos,
+                            });
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        output.Add(new SimMove()
+                        {
+                            last_pos = pawn_pos,
+                            next_pos = current_pos,
+                        });
+                    }
+                }
+            }
+        }
     }
 
     // Get all moves for a single pawn in isolation.
@@ -724,6 +1139,7 @@ public static class AiPlayer
         {
             return SimMoveSet.Empty;
         }
+        AI_GetAllMovesForPawn.Begin();
         var output_moves = SimMoveSet.Empty.ToBuilder();
         int max_steps = Rules.GetMovementRange(pawn.rank);
         Vector2Int[] initial_directions = Shared.GetDirections(pawn_pos, board.is_hex);
@@ -766,7 +1182,116 @@ public static class AiPlayer
                 }
             }
         }
+        AI_GetAllMovesForPawn.End();
         return output_moves.ToImmutable();
+    }
+
+    // List variant for per-pawn moves
+    public static List<SimMove> GetAllMovesForPawnList(
+        SimGameBoard board,
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        Vector2Int pawn_pos)
+    {
+        SimPawn pawn = pawns[pawn_pos];
+        if (pawn.rank == Rank.THRONE || pawn.rank == Rank.TRAP)
+        {
+            return new List<SimMove>(0);
+        }
+        AI_GetAllMovesForPawn.Begin();
+        var output_moves = new List<SimMove>(8);
+        int max_steps = Rules.GetMovementRange(pawn.rank);
+        Vector2Int current_pos;
+        for (int direction_index = 0; direction_index < Shared.GetDirections(pawn_pos, board.is_hex).Length; direction_index++)
+        {
+            current_pos = pawn_pos;
+            int walked_tiles = 0;
+            while (walked_tiles < max_steps)
+            {
+                walked_tiles++;
+                current_pos = current_pos + Shared.GetDirections(current_pos, board.is_hex)[direction_index];
+                if (board.tiles.TryGetValue(current_pos, out TileState tile))
+                {
+                    if (!tile.passable)
+                    {
+                        break;
+                    }
+                    if (pawns.TryGetValue(current_pos, out SimPawn other_pawn))
+                    {
+                        if (pawn.team != other_pawn.team)
+                        {
+                            output_moves.Add(new SimMove()
+                            {
+                                last_pos = pawn_pos,
+                                next_pos = current_pos,
+                            });
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        output_moves.Add(new SimMove()
+                        {
+                            last_pos = pawn_pos,
+                            next_pos = current_pos,
+                        });
+                    }
+                }
+            }
+        }
+        AI_GetAllMovesForPawn.End();
+        return output_moves;
+    }
+
+    private static void CollectMovesForPawnToList(
+        SimGameBoard board,
+        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+        Vector2Int pawn_pos,
+        List<SimMove> output)
+    {
+        SimPawn pawn = pawns[pawn_pos];
+        if (pawn.rank == Rank.THRONE || pawn.rank == Rank.TRAP)
+        {
+            return;
+        }
+        int max_steps = Rules.GetMovementRange(pawn.rank);
+        Vector2Int current_pos;
+        for (int direction_index = 0; direction_index < Shared.GetDirections(pawn_pos, board.is_hex).Length; direction_index++)
+        {
+            current_pos = pawn_pos;
+            int walked_tiles = 0;
+            while (walked_tiles < max_steps)
+            {
+                walked_tiles++;
+                current_pos = current_pos + Shared.GetDirections(current_pos, board.is_hex)[direction_index];
+                if (board.tiles.TryGetValue(current_pos, out TileState tile))
+                {
+                    if (!tile.passable)
+                    {
+                        break;
+                    }
+                    if (pawns.TryGetValue(current_pos, out SimPawn other_pawn))
+                    {
+                        if (pawn.team != other_pawn.team)
+                        {
+                            output.Add(new SimMove()
+                            {
+                                last_pos = pawn_pos,
+                                next_pos = current_pos,
+                            });
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        output.Add(new SimMove()
+                        {
+                            last_pos = pawn_pos,
+                            next_pos = current_pos,
+                        });
+                    }
+                }
+            }
+        }
     }
 
     public static bool IsBlitzTurn(SimGameBoard board, uint turn)

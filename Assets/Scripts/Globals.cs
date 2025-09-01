@@ -2202,7 +2202,7 @@ public struct SnapshotPawnDelta
         postRevealed = post.zz_revealed;
         preRank = pre.rank ?? Rank.UNKNOWN;
         postRank = post.rank ?? Rank.UNKNOWN;
-        Debug.Log($"SnapshotPawnDelta: {pawnId} prePos={prePos} postPos={postPos} preAlive={preAlive} postAlive={postAlive} preRevealed={preRevealed} postRevealed={postRevealed} preRank={preRank} postRank={postRank}");
+        //Debug.Log($"SnapshotPawnDelta: {pawnId} prePos={prePos} postPos={postPos} preAlive={preAlive} postAlive={postAlive} preRevealed={preRevealed} postRevealed={postRevealed} preRank={preRank} postRank={postRank}");
     }
     
     public bool PosChanged => prePos == postPos;

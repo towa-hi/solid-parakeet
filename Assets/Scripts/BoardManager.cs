@@ -248,30 +248,38 @@ public class BoardManager : MonoBehaviour
         LobbyInfo lobbyInfo = gnsFromStellarManager.lobbyInfo;
         LobbyParameters lobbyParameters = gnsFromStellarManager.lobbyParameters;
         AccountAddress userAddress = gnsFromStellarManager.address;
-
+        StatusCode operationResult = StatusCode.SUCCESS;
         switch (req)
         {
             case CommitSetupReq commitSetupReq:
-                await StellarManager.CommitSetupRequest(commitSetupReq);
+                operationResult = await StellarManager.CommitSetupRequest(commitSetupReq);
                 break;
             case CommitMoveReq commitMoveReq:
                 if (req2 is not ProveMoveReq followUpProveMoveReq)
                 {
                     throw new ArgumentNullException();
                 }
-                await StellarManager.CommitMoveRequest(commitMoveReq, followUpProveMoveReq, userAddress, lobbyInfo, lobbyParameters);
+                operationResult = await StellarManager.CommitMoveRequest(commitMoveReq, followUpProveMoveReq, userAddress, lobbyInfo, lobbyParameters);
                 break;
             case ProveMoveReq proveMoveReq:
-                await StellarManager.ProveMoveRequest(proveMoveReq, userAddress, lobbyInfo, lobbyParameters);
+                operationResult=  await StellarManager.ProveMoveRequest(proveMoveReq, userAddress, lobbyInfo, lobbyParameters);
                 break;
             case ProveRankReq proveRankReq:
-                await StellarManager.ProveRankRequest(proveRankReq);
+                operationResult = await StellarManager.ProveRankRequest(proveRankReq);
                 break;
             case JoinLobbyReq:
             case MakeLobbyReq:
                 throw new NotImplementedException();
             default:
                 throw new ArgumentOutOfRangeException(nameof(req));
+        }
+
+        if (operationResult != StatusCode.SUCCESS)
+        {
+            GameManager.instance.OfflineMode();
+            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+            GameManager.instance.guiMenuController.GotoStartMenu();
+            return false;
         }
         StatusCode code = await StellarManager.UpdateState();
         if (code != StatusCode.SUCCESS)
