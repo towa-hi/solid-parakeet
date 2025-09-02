@@ -1337,68 +1337,122 @@ public static class AiPlayer
         }
         return false;
     }
-
+    const float material_weight = 0.5f;
+    const float revealed_weight = 0.1f;
     // Get a score of a state's power balance, if it's in favor of one team or the other.
     // Simple strategy:
     // Win: 1
-    // Lose/Draw: 0
-    // Else: Normalized material strength difference of players.
+    // Loss: -1
+    // Draw: 0
+    // Else: Normalized material difference from ally perspective: (ally - oppn) / (ally + oppn).
     public static float EvaluateState(
         SimGameBoard board,
-        IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
-        IReadOnlyDictionary<PawnId, SimPawn> dead_pawns)
+        Dictionary<Vector2Int, SimPawn> pawns,
+        Dictionary<PawnId, SimPawn> dead_pawns)
     {
         AI_Evaluate.Begin();
         try
         {
             bool redThroneDead = false;
             bool blueThroneDead = false;
-            foreach (var pawn in dead_pawns.Values)
+            if (dead_pawns is Dictionary<PawnId, SimPawn> __deadDict)
             {
-                if (pawn.rank != Rank.THRONE)
+                var __valEnum = __deadDict.Values.GetEnumerator();
+                while (__valEnum.MoveNext())
                 {
-                    continue;
-                }
-                if (pawn.team == Team.RED)
-                {
-                    redThroneDead = true;
-                }
-                else if (pawn.team == Team.BLUE)
-                {
-                    blueThroneDead = true;
-                }
-                if (redThroneDead && blueThroneDead)
-                {
-                    // Draw
-                    return 0f;
+                    var pawn = __valEnum.Current;
+                    if (pawn.rank != Rank.THRONE)
+                    {
+                        continue;
+                    }
+                    if (pawn.team == Team.RED)
+                    {
+                        redThroneDead = true;
+                    }
+                    else if (pawn.team == Team.BLUE)
+                    {
+                        blueThroneDead = true;
+                    }
+                    if (redThroneDead && blueThroneDead)
+                    {
+                        // Draw
+                        return 0f;
+                    }
                 }
             }
             if (redThroneDead)
             {
-                return board.ally_team == Team.BLUE ? board.total_material : -board.total_material;
+                return board.ally_team == Team.BLUE ? 1f : -1f;
             }
             if (blueThroneDead)
             {
-                return board.ally_team == Team.RED ? board.total_material : -board.total_material;
+                return board.ally_team == Team.RED ? 1f : -1f;
             }
 
-            int diff = 0;
-            foreach (var pawn in pawns.Values)
+            float red_base = 0f;
+            float blue_base = 0f;
+            int red_scouts = 0;
+            int blue_scouts = 0;
+            int red_seers = 0;
+            int blue_seers = 0;
+
+            int red_revealed = 0;
+            int blue_revealed = 0;
+            int red_count = 0;
+            int blue_count = 0;
+
+            if (pawns is Dictionary<Vector2Int, SimPawn> __pawnsDict)
             {
-                if (pawn.team == Team.RED)
+                var __valEnum = __pawnsDict.Values.GetEnumerator();
+                while (__valEnum.MoveNext())
                 {
-                    diff += (int)pawn.rank;
-                }
-                else
-                {
-                    diff -= (int)pawn.rank;
+                    var pawn = __valEnum.Current;
+                    if (pawn.team == Team.RED)
+                    {
+                        red_base += (int)pawn.rank;
+                        if (pawn.rank == Rank.SCOUT) { red_scouts++; }
+                        else if (pawn.rank == Rank.SEER) { red_seers++; }
+                        red_count++;
+                        if (pawn.is_revealed)
+                        {
+                            red_revealed++;
+                        }
+                    }
+                    else
+                    {
+                        blue_base += (int)pawn.rank;
+                        if (pawn.rank == Rank.SCOUT) { blue_scouts++; }
+                        else if (pawn.rank == Rank.SEER) { blue_seers++; }
+                        blue_count++;
+                        if (pawn.is_revealed)
+                        {
+                            blue_revealed++;
+                        }
+                    }
                 }
             }
-            if (board.ally_team == Team.BLUE)
+            float red_one_scout_alive_bonus = red_scouts > 0 ? 4f : 0f;
+            float red_one_seer_alive_bonus = red_seers > 0 ? 4f : 0f;
+            float blue_one_scout_alive_bonus = blue_scouts > 0 ? 4f : 0f;
+            float blue_one_seer_alive_bonus = blue_seers > 0 ? 4f : 0f;
+            float red = red_base + red_one_scout_alive_bonus + red_one_seer_alive_bonus;
+            float blue = blue_base + blue_one_scout_alive_bonus + blue_one_seer_alive_bonus;
+            float ally = board.ally_team == Team.RED ? red : blue;
+            float oppn = board.ally_team == Team.RED ? blue : red;
+            float denom = ally + oppn;
+            if (denom <= 0f)
             {
-                diff = -diff;
+                return 0f;
             }
-            return (float)diff;
+            float final_score = 0f;
+            float material_score = (ally - oppn) / denom;
+            material_score *= material_weight;
+            final_score += material_score;
+            int oppn_revealed = board.ally_team == Team.RED ? blue_revealed : red_revealed;
+            int oppn_total = board.ally_team == Team.RED ? blue_count : red_count;
+            float revealed_score = oppn_total > 0 ? (float)oppn_revealed / oppn_total : 0f;
+            final_score += revealed_score * revealed_weight;
+            return final_score;
         }
         finally
         {
