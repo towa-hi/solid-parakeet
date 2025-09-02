@@ -6,6 +6,8 @@ using Contract;
 using Stellar;
 using Stellar.Utilities;
 using UnityEngine;
+using System.Threading.Tasks;
+
 public class BoardTester : MonoBehaviour
 {
     public BoardTesterGui gui;
@@ -17,7 +19,7 @@ public class BoardTester : MonoBehaviour
     public GameObject pawnPrefab;
 
     public BoardGrid grid;
-
+    public CanvasGroup canvasGroup;
 
     readonly Dictionary<Vector2Int, TileView> tileViews = new();
     readonly Dictionary<PawnId, PawnView> pawnViews = new();
@@ -200,20 +202,31 @@ public class BoardTester : MonoBehaviour
         }
     }
 
-    public ImmutableHashSet<AiPlayer.SimMove> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
+    public async Task<ImmutableHashSet<AiPlayer.SimMove>> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
     {
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         board.ally_team = team;
         //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
         var starttime = Time.realtimeSinceStartupAsDouble;
-        var moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
+        var moves = await AiPlayer.NodeScoreStrategy(board, board.root_state);
         Debug.Log($"AI {team} time {Time.realtimeSinceStartupAsDouble - starttime}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
         if (max_moves > 1)
         {
             moves = AiPlayer.CombineMoves(moves, max_moves, lesser_move_threshold);
         }
-        var result = moves[(int)Random.Range(0, Mathf.Min(moves.Count, lesser_move_threshold))];
+        if (moves.Count == 0)
+        {
+            Debug.LogWarning($"AI {team}: no legal moves; returning empty set");
+            return ImmutableHashSet<AiPlayer.SimMove>.Empty;
+        }
+        int upper = Mathf.Min(moves.Count, (int)lesser_move_threshold);
+        if (upper <= 0)
+        {
+            upper = moves.Count;
+        }
+        int choice = UnityEngine.Random.Range(0, upper);
+        var result = moves[choice];
         foreach (var move in result)
         {
             var ally = board.root_state.pawns[move.last_pos];
@@ -235,13 +248,25 @@ public class BoardTester : MonoBehaviour
         {
             tile_view.OverrideArrow(null);
         }
-
+        canvasGroup.interactable = false;
         uint lesser_move_threshold = 1;
-        var red_move = RunNodeSearchForTeam(Team.RED, lesser_move_threshold);
-        var blue_move = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold);
+        var red_move_task = RunNodeSearchForTeam(Team.RED, lesser_move_threshold);
+        while(!red_move_task.IsCompleted)
+        {
+            yield return null;
+        }
+        var red_move = red_move_task.Result;
+
+        var blue_move_task = RunNodeSearchForTeam(Team.BLUE, lesser_move_threshold);
+        while(!blue_move_task.IsCompleted)
+        {
+            yield return null;
+        }
+        canvasGroup.interactable = true;
+        var blue_move = blue_move_task.Result;
 
         // Hacky thing to update the current game board.
-        var moves = red_move.Union(blue_move);
+        var moves = red_move.Union(blue_move).ToImmutableHashSet();
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         var new_state = AiPlayer.GetDerivedStateFromMove(board, board.root_state, moves);
         var pawns_by_id = new Dictionary<PawnId, AiPlayer.SimPawn>();

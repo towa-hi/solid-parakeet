@@ -403,9 +403,12 @@ public class GuiMenuController: MonoBehaviour
 		currentElement?.EnableInput(false);
 		topBar.Show(true);
 		string address = StellarManager.GetUserAddress();
-		Color backgroundColor = address == StellarManager.GetHostAddress() ? Color.red : Color.blue;
+		Color backgroundColor = Color.gray;
+		if (address != null)
+		{
+			backgroundColor = address == StellarManager.GetHostAddress() ? Color.red : Color.blue;
+		}
 		topBar.SetView(backgroundColor, task.taskMessage);
-		
 	}
 	
 	void HideTopBar(TaskInfo task)
@@ -418,9 +421,19 @@ public class GuiMenuController: MonoBehaviour
 	
 }
 
+// Ensure a CanvasGroup exists on all menu elements for consistent input control
+[RequireComponent(typeof(CanvasGroup))]
 public abstract class MenuElement: MonoBehaviour
 {
 	public CanvasGroup canvasGroup;
+
+	protected virtual void Awake()
+	{
+		if (canvasGroup == null)
+		{
+			canvasGroup = GetComponent<CanvasGroup>();
+		}
+	}
 	
 	public virtual void ShowElement(bool show)
 	{

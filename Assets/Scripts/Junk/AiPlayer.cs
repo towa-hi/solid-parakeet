@@ -6,6 +6,7 @@ using Contract;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Assertions;
+using System.Threading.Tasks;
 
 // A single set of pawn moves that represents one instance of one turn of play.
 using SimMoveSet = System.Collections.Immutable.ImmutableHashSet<AiPlayer.SimMove>;
@@ -115,6 +116,20 @@ public static class AiPlayer
         public int max_top_moves = 3;
         public Team ally_team;
         public SimGameState root_state;
+        // AI time-slice configuration
+        // If true, compute time budget from frame headroom to avoid FPS drops.
+        public bool ai_auto_budget = true;
+        // If auto is false, use this fraction of target frame time per slice.
+        public float ai_budget_fraction = 0.3f;
+        // Clamp budget in milliseconds to avoid extremes.
+        public float ai_min_budget_ms = 1f;
+        public float ai_max_budget_ms = 6f;
+        // Auto mode: fraction of computed headroom we allow AI to use.
+        public float ai_headroom_fraction = 0.9f;
+        // Auto mode: extra safety margin in milliseconds kept free each frame.
+        public float ai_safety_margin_ms = 0.1f;
+        // Minimum acceptable framerate for budgeting (frames may stretch up to this).
+        public int ai_minimum_fps = 30;
     }
 
     public struct SimAverage
@@ -393,13 +408,14 @@ public static class AiPlayer
     // opponent's possible simultaneous moves. Reduces the utility of probabilistically bad moves
     // like a pawn suiciding on another.
     // Also nudges the pawns toward the enemy throne (which can also just make it b-line the throne, for now).
-    public static List<SimMoveSet> NodeScoreStrategy(
+    public static async Task<List<SimMoveSet>> NodeScoreStrategy(
         SimGameBoard board,
         SimGameState state)
     {
         var ally_team = board.ally_team;
         var oppn_team = ally_team == Team.RED ? Team.BLUE : Team.RED;
         var _nss_start_time = Time.realtimeSinceStartupAsDouble;
+        // estimate ranks get applied here
         node_scores.Clear();
         ally_moves.Clear();
         GetAllSingleMovesForTeamList(board, state.pawns, ally_team, ally_moves);
@@ -423,9 +439,54 @@ public static class AiPlayer
         SimPawn ally_pawn = default;
         SimPawn oppn_pawn = default;
         AI_NodeScore.Begin();
+        // Budgeted yield based on frame time to keep the main thread smooth.
+        double __lastYieldTime = Time.realtimeSinceStartupAsDouble;
+        async Task __MaybeYield()
+        {
+            // Determine target frame time and available headroom.
+            double targetFrameTime = (Application.targetFrameRate > 0) ? (1.0 / Application.targetFrameRate) : (1.0 / 60.0);
+            // Respect minimum acceptable FPS by letting frames stretch up to this duration.
+            if (board.ai_minimum_fps > 0)
+            {
+                double minAcceptableFrameTime = 1.0 / Mathf.Max(1, board.ai_minimum_fps);
+                if (targetFrameTime < minAcceptableFrameTime)
+                {
+                    targetFrameTime = minAcceptableFrameTime;
+                }
+            }
+            double observedFrameTime = Time.deltaTime > 0f ? (double)Time.deltaTime : targetFrameTime;
+
+            float minBudget = Mathf.Max(0f, board.ai_min_budget_ms) / 1000f;
+            float maxBudget = Mathf.Max(minBudget, board.ai_max_budget_ms) / 1000f;
+
+            float budgetSeconds;
+            if (board.ai_auto_budget)
+            {
+                // Headroom is the time left to reach target; if we're over, headroom is near zero.
+                double headroom = Mathf.Max(0f, (float)(targetFrameTime - observedFrameTime));
+                float safety = Mathf.Max(0f, board.ai_safety_margin_ms) / 1000f;
+                float usable = Mathf.Max(0f, (float)headroom - safety);
+                budgetSeconds = Mathf.Clamp(usable * Mathf.Clamp01(board.ai_headroom_fraction), minBudget, maxBudget);
+            }
+            else
+            {
+                // Use fixed fraction of target frame time.
+                float frac = Mathf.Clamp01(board.ai_budget_fraction);
+                budgetSeconds = Mathf.Clamp((float)(targetFrameTime * frac), minBudget, maxBudget);
+            }
+
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (now - __lastYieldTime >= budgetSeconds)
+            {
+                __lastYieldTime = now;
+                await Task.Yield();
+                __lastYieldTime = Time.realtimeSinceStartupAsDouble;
+            }
+        }
         // 2 ply search for simultaenous moves
         foreach (var ally_move in ally_moves)
         {
+            await __MaybeYield();
             float move_score_total = 0;
             bool is_scout = state.pawns[ally_move.last_pos].rank == Rank.SCOUT;
             // check if this branch is worth evaluating at all
@@ -454,6 +515,7 @@ public static class AiPlayer
             }
             foreach (var oppn_move in oppn_moves)
             {
+                await __MaybeYield();
                 // check to see if opponents response is intentionally suiciding without allocating
                 if (state.pawns.ContainsKey(oppn_move.next_pos))
                 {
@@ -481,6 +543,7 @@ public static class AiPlayer
                 }
                 else
                 {
+                    //await Task.Yield();
                     second_ply_sum = 0f;
                     second_ply_count = 0;
                     //move_score_total += substate.value;
@@ -491,6 +554,7 @@ public static class AiPlayer
                     int ally_moves_2_skipped = 0;
                     foreach (var ally_move_2 in ally_moves_2)
                     {
+                        await __MaybeYield();
                         second_turn_all_possibilities++;
                         if (state.pawns.ContainsKey(ally_move_2.next_pos))
                         {
@@ -527,6 +591,7 @@ public static class AiPlayer
                         int oppn_moves_2_skipped = 0;
                         foreach (var oppn_move_2 in oppn_moves_2)
                         {
+                            await __MaybeYield();
                             if (state.pawns.ContainsKey(oppn_move_2.next_pos))
                             {
                                 oppn_pawn = state.pawns[oppn_move_2.last_pos];

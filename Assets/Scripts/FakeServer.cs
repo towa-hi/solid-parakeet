@@ -7,6 +7,7 @@ using Random = UnityEngine.Random;
 using Stellar;
 using System.Collections.Immutable;
 using UnityEngine.Assertions;
+using System.Threading.Tasks;
 
 public static class FakeServer
 {
@@ -328,7 +329,7 @@ public static class FakeServer
         return (null, a, b);
     }
 
-    public static List<HiddenMove> TempFakeHiddenMoves(Team team)
+    public static async Task<List<HiddenMove>> TempFakeHiddenMoves(Team team)
     {
         uint lesser_move_threshold = 0; // Increase to make have it randomly make worse moves.
         Debug.Assert(fakeIsOnline);
@@ -337,7 +338,7 @@ public static class FakeServer
         var board = AiPlayer.MakeSimGameBoard(parameters, gameState);
         board.ally_team = team;
         //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
-        var top_moves = AiPlayer.NodeScoreStrategy(board, board.root_state);
+        var top_moves = await AiPlayer.NodeScoreStrategy(board, board.root_state);
         Debug.Log($"top_moves {top_moves.Count}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
         ImmutableHashSet<AiPlayer.SimMove> moves = null;

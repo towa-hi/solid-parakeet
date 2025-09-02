@@ -848,6 +848,7 @@ MonoBehaviour:
   cameraManager: {fileID: 1445259584}
   audioManager: {fileID: 0}
   poolManager: {fileID: 0}
+  onlineMode: 0
 --- !u!4 &306396745
 Transform:
   m_ObjectHideFlags: 0
@@ -876,6 +877,7 @@ GameObject:
   - component: {fileID: 323465876}
   - component: {fileID: 323465875}
   - component: {fileID: 323465879}
+  - component: {fileID: 323465880}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -986,6 +988,18 @@ MonoBehaviour:
   button6: {fileID: 836414864}
   button7: {fileID: 304503040}
   button8: {fileID: 744435278}
+--- !u!225 &323465880
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 323465874}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &390629864
 GameObject:
   m_ObjectHideFlags: 0
@@ -2834,6 +2848,7 @@ MonoBehaviour:
   tilePrefab: {fileID: 8479329327937393150, guid: 78d00e7c8d847a14fbec45dab43e1bde, type: 3}
   pawnPrefab: {fileID: 6569549633362740824, guid: 601190ac36873374f89fa423ef86fe51, type: 3}
   grid: {fileID: 1445259583}
+  canvasGroup: {fileID: 323465880}
 --- !u!114 &1445259583
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1137,6 +1137,19 @@ namespace Contract
         {
             return GetRelativeSubphase(address) is RelativeSubphase.MYSELF or RelativeSubphase.BOTH;
         }
+
+        public Team GetMyTeam(AccountAddress address, Team hostTeam)
+        {
+            if (address == host_address)
+            {
+                return hostTeam;
+            }
+            else if (address == guest_address)
+            {
+                return hostTeam == Team.RED ? Team.BLUE : Team.RED;
+            }
+            else throw new ArgumentOutOfRangeException(nameof(address));
+        }
     }
 
     [Serializable]

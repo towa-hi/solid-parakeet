@@ -13,6 +13,7 @@ public class GuiGame : MenuElement
     
     public CameraAnchor boardAnchor;
     bool isUpdating;
+    int busyCount;
 
     public event Action EscapePressed;
     
@@ -24,6 +25,22 @@ public class GuiGame : MenuElement
     void OnEnable()
     {
         isUpdating = gameObject.activeInHierarchy;
+        // StellarManager.OnTaskStarted += HandleTaskStarted;
+        // StellarManager.OnTaskEnded += HandleTaskEnded;
+        // Reflect current busy state if we were enabled mid-task
+        if (StellarManager.IsBusy)
+        {
+            busyCount = 1;
+            ApplyBusy(true);
+        }
+    }
+
+    void OnDisable()
+    {
+        // StellarManager.OnTaskStarted -= HandleTaskStarted;
+        // StellarManager.OnTaskEnded -= HandleTaskEnded;
+        busyCount = 0;
+        ApplyBusy(false);
     }
 
     void Update()
@@ -79,5 +96,29 @@ public class GuiGame : MenuElement
     public override void Refresh()
     {
         
+    }
+
+    void HandleTaskStarted(TaskInfo _)
+    {
+        busyCount++;
+        ApplyBusy(true);
+    }
+
+    void HandleTaskEnded(TaskInfo _)
+    {
+        busyCount = Math.Max(0, busyCount - 1);
+        if (busyCount == 0)
+        {
+            ApplyBusy(false);
+        }
+    }
+
+    void ApplyBusy(bool isBusy)
+    {
+        Debug.Log($"applybusy {isBusy}");
+        if (canvasGroup == null) return;
+        canvasGroup.interactable = !isBusy;
+        // Keep blocking raycasts so clicks don't pass through to world while UI is disabled
+        canvasGroup.blocksRaycasts = true;
     }
 }

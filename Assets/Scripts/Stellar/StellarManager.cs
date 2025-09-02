@@ -358,8 +358,15 @@ public static class StellarManager
 
         if (!GameManager.instance.IsOnline())
         {
+
             Debug.Log("CommitMoveRequest fake guest move");
-            List<HiddenMove> fakeGuestMoveProofs = FakeServer.TempFakeHiddenMoves(Team.BLUE);
+            Team myTeam = lobbyInfo.GetMyTeam(userAddress, lobbyParameters.host_team);
+            Team otherTeam = myTeam == Team.RED ? Team.BLUE : Team.RED;
+            TaskInfo taskOffline = SetCurrentTask("CommitMoveRequest (offline)");
+            Debug.Log("task started");
+            List<HiddenMove> fakeGuestMoveProofs = await FakeServer.TempFakeHiddenMoves(otherTeam);
+            Debug.Log("ending task");
+            EndTask(taskOffline);
             List<byte[]> fakeGuestMoveHashes = new();
             foreach (HiddenMove move in fakeGuestMoveProofs)
             {
