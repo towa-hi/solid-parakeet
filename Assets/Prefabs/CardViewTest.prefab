@@ -268,6 +268,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1916672378442562689}
   - component: {fileID: 8854245162554851990}
+  - component: {fileID: 5763473739941180475}
   - component: {fileID: 3350707126563902457}
   m_Layer: 0
   m_Name: CardViewTest
@@ -304,6 +305,21 @@ SortingGroup:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_SortAtRoot: 0
+--- !u!114 &5763473739941180475
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2204512129105024212}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d1efff0c039b864bafb8119b8859b00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sorting: {fileID: 3350707126563902457}
+  pivot: {fileID: 3459161810144882915}
+  rotation: {fileID: 6676232012487079349}
 --- !u!114 &3350707126563902457
 MonoBehaviour:
   m_ObjectHideFlags: 0

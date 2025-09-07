@@ -146,7 +146,6 @@ public class CardHand : MonoBehaviour
 		Card card = cardObject.GetComponent<Card>();
 		slot.card = card;
 		cards.Add(card);
-		card.Initialize(0);
 		UpdateSlotsAlongRect();
 		return card;
 	}

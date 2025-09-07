@@ -17,6 +17,7 @@ public class GuiMenuController: MonoBehaviour
 	public GuiLobbyViewer lobbyViewerElement;
 	public GuiLobbyJoiner lobbyJoinerElement;
 	public GuiWallet walletElement;
+	public GuiGallery galleryElement;
 	public GuiGame gameElement;
 	public TopBar topBar;
 	public GameObject modalLayer;
@@ -41,7 +42,8 @@ public class GuiMenuController: MonoBehaviour
 		mainMenuElement.OnMakeLobbyButton += GotoLobbyMaker;
 		mainMenuElement.OnSettingsButton += OpenSettingsModal;
 		mainMenuElement.OnViewLobbyButton += ViewLobby;
-		mainMenuElement.OnWalletButton += GotoWallet;
+		//mainMenuElement.OnWalletButton += GotoWallet;
+		mainMenuElement.OnWalletButton += GotoGallery;
 		mainMenuElement.OnAssetButton += CheckAssets;
 		
 		lobbyMakerElement.OnBackButton += GotoMainMenu;
@@ -78,6 +80,7 @@ public class GuiMenuController: MonoBehaviour
 		lobbyViewerElement.ShowElement(false);
 		gameElement.ShowElement(false);
 		walletElement.ShowElement(false);
+		galleryElement.ShowElement(false);
 		GotoStartMenu();
 	}
 	
@@ -252,6 +255,12 @@ public class GuiMenuController: MonoBehaviour
 		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
 	}
 
+	void GotoGallery()
+	{
+		ShowMenuElement(galleryElement);
+		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
+
+	}
 	void CheckAssets()
 	{
 		_ = StellarManager.GetAssets(StellarManager.GetUserAddress());
