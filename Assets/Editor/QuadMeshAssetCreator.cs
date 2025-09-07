@@ -15,6 +15,12 @@ public static class QuadMeshAssetCreator
 		CreateQuadAsset(1f, 1.7f, false);
 	}
 
+	[MenuItem("Assets/Create/Mesh/Quad 1.3x1.7 (XZ)")]
+	public static void CreateBackQuad()
+	{
+		CreateQuadAsset(1.3f, 1.7f, true);
+	}
+
 	private static void CreateQuadAsset(float width, float height, bool onXYPlane)
 	{
 		var mesh = CreateQuadMesh(width, height, onXYPlane);

@@ -93,38 +93,35 @@ public class CardSorting : MonoBehaviour
 
 	void ApplyStencilRefToAllLayers()
 	{
-		var block = new MaterialPropertyBlock();
-
 		// Ensure window mask gets the same stencil ref
 		if (window != null)
 		{
-			ApplyToRenderersInObject(window, block, stencilRef);
+			ApplyToRenderersInObject(window, stencilRef);
 		}
 
 		// If explicit layers list is empty, default to children of this GameObject
 		if (layers == null || layers.Count == 0)
 		{
-			ApplyToRenderersInObject(gameObject, block, stencilRef);
+			ApplyToRenderersInObject(gameObject, stencilRef);
 			return;
 		}
 
 		foreach (var go in layers)
 		{
 			if (go == null) continue;
-			ApplyToRenderersInObject(go, block, stencilRef);
+			ApplyToRenderersInObject(go, stencilRef);
 		}
 	}
 
-	static void ApplyToRenderersInObject(GameObject root, MaterialPropertyBlock block, int stencilValue)
+	static void ApplyToRenderersInObject(GameObject root, int stencilValue)
 	{
 		var renderers = root.GetComponentsInChildren<Renderer>(true);
 		for (int i = 0; i < renderers.Length; i++)
 		{
 			var r = renderers[i];
 			if (r == null) continue;
-			r.GetPropertyBlock(block);
-			block.SetFloat("_StencilRef", stencilValue);
-			r.SetPropertyBlock(block);
+			var m = r.material; // ensure unique material per renderer
+			m.SetFloat("_StencilRef", stencilValue);
 		}
 	}
 
