@@ -14,8 +14,10 @@ Shader "Cards/FrameMaskURP"
 			Tags { "LightMode"="Universal2D" }
 			Blend SrcAlpha OneMinusSrcAlpha
 			Cull Off
-			ZWrite Off
+			ColorMask 0
+			ZWrite On
 			ZTest LEqual
+			Offset 2, 2
 			Stencil { Ref [_StencilRef] Comp Always Pass Replace Fail Keep ZFail Keep }
 
 			HLSLPROGRAM
@@ -54,8 +56,10 @@ Shader "Cards/FrameMaskURP"
 			Tags { "LightMode"="UniversalForward" }
 			Blend SrcAlpha OneMinusSrcAlpha
 			Cull Off
-			ZWrite Off
+			ColorMask 0
+			ZWrite On
 			ZTest LEqual
+			Offset 2, 2
 			Stencil { Ref [_StencilRef] Comp Always Pass Replace Fail Keep ZFail Keep }
 
 			HLSLPROGRAM

@@ -160,6 +160,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3444048280303886053}
+  - component: {fileID: 4133070190126087411}
   m_Layer: 0
   m_Name: BaseCard
   m_TagString: Untagged
@@ -185,6 +186,19 @@ Transform:
   - {fileID: 7861977777332356312}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4133070190126087411
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5839652769733413976}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d1efff0c039b864bafb8119b8859b00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sorting: {fileID: 6820674764595354503}
 --- !u!1 &7510833773616640355
 GameObject:
   m_ObjectHideFlags: 0
@@ -302,26 +316,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 5870831560010400856}
     m_Modifications:
-    - target: {fileID: 848420176538539571, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0.04
-      objectReference: {fileID: 0}
-    - target: {fileID: 1659470364142487057, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_CastShadows
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1706329527224733442, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_CastShadows
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1821993054024158395, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1916672378442562689, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1.7000003
-      objectReference: {fileID: 0}
     - target: {fileID: 1916672378442562689, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -366,39 +360,26 @@ PrefabInstance:
       propertyPath: m_Name
       value: CardViewTest
       objectReference: {fileID: 0}
-    - target: {fileID: 3887677038805677089, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_CastShadows
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4430832666384271431, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_CastShadows
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6676232012487079349, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6859557076557010457, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_CastShadows
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8094189806854066138, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_CastShadows
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8466435718351589098, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -0.008
-      objectReference: {fileID: 0}
-    - target: {fileID: 8466435718351589098, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0.06
+    - target: {fileID: 3350707126563902457, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
+      propertyPath: stencilRef
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
+--- !u!114 &6820674764595354503 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3350707126563902457, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
+  m_PrefabInstance: {fileID: 8081707260907833470}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8718d6c08f16e3d4caac3bbf479c7e1b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &7691759696285562111 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1916672378442562689, guid: 426b716095e3da442bc343a664cb9b12, type: 3}

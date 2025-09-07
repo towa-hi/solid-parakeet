@@ -2,8 +2,10 @@ using UnityEngine;
 
 public class Card : MonoBehaviour
 {
-    public void UpdateIndex(int index)
+    public CardSorting sorting;
+
+    public void Initialize(int index)
     {
-        
+        sorting.AssignUniqueStencilRef();
     }
 }

@@ -521,7 +521,7 @@ MonoBehaviour:
   hoveredCard: {fileID: 0}
   cardSlotPrefab: {fileID: 1385538291214798700, guid: 9cf0f5a3cb2bb594c930badd0477f3cc, type: 3}
   cardPrefab: {fileID: 5839652769733413976, guid: 6ee4f1e47ffa57f48944656fb8b12f8b, type: 3}
-  cardsToSpawn: 1
+  cardsToSpawn: 7
   slots: []
   cards: []
   isCrossing: 0
