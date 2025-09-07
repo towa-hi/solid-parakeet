@@ -50,8 +50,20 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2204512129105024212, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
       propertyPath: m_Name
-      value: CardViewTest
+      value: 03a Card
       objectReference: {fileID: 0}
+    - target: {fileID: 3887677038805677089, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ae183c9e85ed6f044809d2b10ddeee4e, type: 2}
+    - target: {fileID: 4430832666384271431, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 0b023b59f72249f4d8e92829e9d910d4, type: 2}
+    - target: {fileID: 6859557076557010457, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: d6c3337ff41f48b448199f21590b6db1, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

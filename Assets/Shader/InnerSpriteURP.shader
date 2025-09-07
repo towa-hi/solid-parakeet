@@ -9,7 +9,7 @@ Shader "Cards/InnerSpriteURP"
 	}
 	SubShader
 	{
-		Tags { "Queue"="Transparent" "RenderType"="Transparent" "RenderPipeline"="UniversalRenderPipeline" "IgnoreProjector"="True" "CanUseSpriteAtlas"="True" }
+		Tags { "Queue"="Transparent" "RenderType"="Transparent" "RenderPipeline"="UniversalPipeline" "IgnoreProjector"="True" "CanUseSpriteAtlas"="True" }
 
 		Pass
 		{

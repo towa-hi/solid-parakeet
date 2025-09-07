@@ -29,7 +29,7 @@ public class GuiGallery : MenuElement
 
     void OnNextButton()
     {
-        if (index < cardPrefabs.Count)
+        if (index < cardPrefabs.Count - 1)
         {
             var oldPivot = currentCard.pivot.rotation;
             Destroy(currentCard.gameObject);
@@ -43,7 +43,7 @@ public class GuiGallery : MenuElement
 
     void OnPrevButton()
     {
-        if (index >= 0)
+        if (index > 0)
         {
             var oldPivot = currentCard.pivot.rotation;
             Destroy(currentCard.gameObject);

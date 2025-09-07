@@ -6,7 +6,7 @@ Shader "Cards/FrameMaskURP"
 	}
 	SubShader
 	{
-		Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "RenderPipeline"="UniversalRenderPipeline" "IgnoreProjector"="True" "CanUseSpriteAtlas"="True" }
+		Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "RenderPipeline"="UniversalPipeline" "IgnoreProjector"="True" "CanUseSpriteAtlas"="True" }
 
 		Pass
 		{

@@ -8,18 +8,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 605215594975602842, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_Mesh
-      value: 
-      objectReference: {fileID: 4300000, guid: 4e92b6f719fda2e43b27f7ba92e894cc, type: 2}
-    - target: {fileID: 848420176538539571, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 848420176538539571, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 1916672378442562689, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -80,10 +68,6 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 0fd9686d614bf9741bf96dbd697b2f12, type: 2}
-    - target: {fileID: 5369302715461377199, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_Mesh
-      value: 
-      objectReference: {fileID: 4300000, guid: 4e92b6f719fda2e43b27f7ba92e894cc, type: 2}
     - target: {fileID: 6859557076557010457, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -91,18 +75,6 @@ PrefabInstance:
     - target: {fileID: 7238640646985180290, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
       propertyPath: m_Name
       value: Layer 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8466435718351589098, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8466435718351589098, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8466435718351589098, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
