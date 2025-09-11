@@ -1,0 +1,68 @@
+flowchart TD
+	%% [] means menu. () means modal. ([]) means branching function
+	
+    SM["StartMenu2"]
+    SM -- "'Connect to Network' btn" --> NM
+    SM -- "'Offline' btn" --> MM
+
+    NM["NetworkMenu2"]
+    ConnectFailModal("ConnectFailModal")
+    FConnectToNetwork([fn ConnectToNetwork])
+    FConnectToNetwork -."success" .-> MM
+    FConnectToNetwork -."failure" .-> ConnectFailModal --"'Close' btn" --> NM
+    NM --"'Connect' btn"--> FConnectToNetwork
+    NM --"'Offline' btn"--> MM
+
+    MM["MainMenu2"]
+    MM --"'Create a Lobby' btn"--> LCM
+    MM --"'View Lobby' btn"--> LVM
+    MM --"'Settings' btn"--> STM
+    MM --"'Network' btn" --> NM
+    MM -- "'Gallery' btn" --> GM
+    %% disabled in offline mode
+    MM --"'Join Lobby' btn"--> LJM
+
+
+    LCM["LobbyCreateMenu2"]
+    CreateLobbyFailModal("CreateLobbyFailModal")
+    FCreateLobby(["fn CreateLobby"])
+    FCreateLobby -."success".->LVM
+    FCreateLobby -."failure".->CreateLobbyFailModal--"'Close' btn"-->LCM
+    LCM --"'Create Lobby' btn"--> FCreateLobby
+    LCM --"'Back' btn"--> MM
+
+    LVM["LobbyViewMenu2"]
+    LVM --"'Enter Game' btn"--> Game
+    LVM --"'Back' btn" --> MM
+    %% 'Refresh' btn
+
+    LJM("LobbyJoinMenu2")
+    JoinLobbyFailModal("JoinLobbyFailModal")
+    FJoinGame("fn JoinGame")
+    FJoinGame -."success".-> LVM
+    FJoinGame -."failure".-> JoinLobbyFailModal --"'Close' btn"--> LJM
+    LJM --"'Join Game' btn"--> FJoinGame 
+    LJM --"'Back' btn" --> MM
+    %% 'Refresh' btn
+
+    STM["SettingsMenu2"]
+    STM --"'Back' btn" --> MM
+    %% 'Save Changes' btn
+
+    GM["GalleryMenu2"]
+    GM --"'Back' btn"--> MM
+
+    Game("Game")
+
+
+
+
+
+
+
+
+
+
+
+
+
