@@ -214,6 +214,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1353504008}
+  - {fileID: 346096647}
   - {fileID: 2387958193983423608}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1889,6 +1890,41 @@ Camera:
   m_CorrespondingSourceObject: {fileID: 6079578763302057744, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
   m_PrefabInstance: {fileID: 4517064006677752985}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &346096646
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 346096647}
+  m_Layer: 5
+  m_Name: ModalRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &346096647
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 346096646}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 15766421}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &352785280
 GameObject:
   m_ObjectHideFlags: 0
@@ -5871,7 +5907,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   menuRoot: {fileID: 1353504008}
-  modalRoot: {fileID: 1925629841}
+  modalRoot: {fileID: 346096647}
   startMenuPrefab: {fileID: 7543282012848855657, guid: 8b3497113e5fbea45848e81ad0dcbed7, type: 3}
   networkMenuPrefab: {fileID: 8518383150978846579, guid: 1cfc15bf0692e8c40bbd98ef5c9ea403, type: 3}
   mainMenuPrefab: {fileID: 7614829028113605517, guid: d5fa6ce94b0b0b74c84717e946e53791, type: 3}
@@ -5881,6 +5917,7 @@ MonoBehaviour:
   lobbyViewMenuPrefab: {fileID: 8774939307885435109, guid: f8cbb3aaaad7ebc45a4f56c8958f8ed5, type: 3}
   lobbyJoinMenuPrefab: {fileID: 4660771563768313222, guid: 48390b0516305404bb474598a6b57850, type: 3}
   gameMenuPrefab: {fileID: 6736337799551001049, guid: e9d2ba2965cac7742a136ee46c46bae0, type: 3}
+  messageModalPrefab: {fileID: 6530101385940041249, guid: 7b97e457388f71c4db07b4cf3b3fc5a6, type: 3}
   currentMenu: {fileID: 0}
 --- !u!1 &1386370453
 GameObject:

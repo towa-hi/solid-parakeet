@@ -33,6 +33,13 @@ public abstract class MenuBase : MonoBehaviour
 
     public abstract void Refresh();
 
+    public void SetInteractable(bool interactable)
+    {
+        if (canvasGroup == null) return;
+        canvasGroup.interactable = interactable;
+        canvasGroup.blocksRaycasts = interactable;
+    }
+
     public void Close()
     {
         if (_isClosing) return;

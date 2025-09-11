@@ -11,8 +11,10 @@ public class MessageModal : ModalBase
     
     void Start()
     {
+        Debug.Log("started");
         closeButton.onClick.AddListener(() =>
         {
+            Debug.Log("MessageModal: close button clicked");
             AudioManager.PlaySmallButtonClick();
             OnCloseButton();
         });
@@ -20,11 +22,22 @@ public class MessageModal : ModalBase
     
     public void Initialize(string messageText, Action inOnCloseButton)
     {
+        if (message)
+        {
+            message.text = messageText;
+        }
         OnCloseButton = inOnCloseButton;
+        PrepareAwaitable();
     }
 
     public override void OnFocus(bool focused)
     {
         canvasGroup.interactable = focused;
+        canvasGroup.blocksRaycasts = focused;
+        // Ensure the modal captures input when focused
+        if (focused)
+        {
+            transform.SetAsLastSibling();
+        }
     }
 }
