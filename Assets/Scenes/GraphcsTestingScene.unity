@@ -2557,7 +2557,7 @@ MonoBehaviour:
   cameraManager: {fileID: 1303670497}
   audioManager: {fileID: 0}
   poolManager: {fileID: 0}
-  orderedPawnDefList: []
+  onlineMode: 0
 --- !u!4 &1303670496
 Transform:
   m_ObjectHideFlags: 0

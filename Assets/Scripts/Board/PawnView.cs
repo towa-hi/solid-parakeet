@@ -10,6 +10,7 @@ using Random = UnityEngine.Random;
 public class PawnView : MonoBehaviour
 {
     static readonly int animatorIsSelected = Animator.StringToHash("IsSelected");
+    static readonly int Hurt = Animator.StringToHash("Hurt");
     Billboard billboard;
 
     public Badge badge;
@@ -47,6 +48,11 @@ public class PawnView : MonoBehaviour
         animator.SetBool(animatorIsSelected, newAnimationState);
     }
 
+    public void HurtAnimation()
+    {
+        animator.SetTrigger(Hurt);
+    }
+    
     public void Initialize(PawnState pawn, TileView tileView)
     {
         // never changes

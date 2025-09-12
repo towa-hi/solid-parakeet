@@ -283,6 +283,7 @@ MonoBehaviour:
   pawnL: {fileID: 4517399811363301355}
   pawnR: {fileID: 7343026920598932467}
   arenaCamera: {fileID: 6079578763302057744}
+  animator: {fileID: 0}
 --- !u!95 &8443240997203862066
 Animator:
   serializedVersion: 7
@@ -562,6 +563,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 8564955284350181653}
     m_Modifications:
+    - target: {fileID: 639346535601303648, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1575369774843635459, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
       propertyPath: camera
       value: 
@@ -609,6 +614,14 @@ PrefabInstance:
     - target: {fileID: 5207097518104192249, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
       propertyPath: m_Name
       value: Pawn R
+      objectReference: {fileID: 0}
+    - target: {fileID: 6515980258592831962, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7412118440535296069, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -931,6 +944,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 8564955284350181653}
     m_Modifications:
+    - target: {fileID: 639346535601303648, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1575369774843635459, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
       propertyPath: camera
       value: 
@@ -978,6 +995,14 @@ PrefabInstance:
     - target: {fileID: 5207097518104192249, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
       propertyPath: m_Name
       value: Pawn L
+      objectReference: {fileID: 0}
+    - target: {fileID: 6515980258592831962, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7412118440535296069, guid: 2644f0eea4ad6a4428c2a88ec65c24e7, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

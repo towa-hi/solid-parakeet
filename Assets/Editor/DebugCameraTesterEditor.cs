@@ -20,5 +20,10 @@ public class DebugCameraTesterEditor : Editor
             debugCameraTester.testPawnIsSelected = !debugCameraTester.testPawnIsSelected;
             debugCameraTester.SendMessage("UpdateTestPawnAnimationState");
         }
+
+        if (GUILayout.Button("set Hurt"))
+        {
+            debugCameraTester.SendMessage("UpdateTestPawnAnimationStateHurt");
+        }
     }
 }

@@ -22,3 +22,5 @@ MonoBehaviour:
   blueSprite: {fileID: 21300000, guid: 8ef6ec8a98c17ee4489d8b25ea9780bd, type: 3}
   redAnimatorOverrideController: {fileID: 22100000, guid: e7d6f22541f005144bfeae9c030b3efa, type: 2}
   blueAnimatorOverrideController: {fileID: 22100000, guid: f9766258f76c68a4a8f6a19f0f7fe8b4, type: 2}
+  redAttackOverrideController: {fileID: 22100000, guid: be5f628b3fc262a479e143b4a182dac7, type: 2}
+  blueAttackOverrideController: {fileID: 22100000, guid: 22d1c996ea7369645841d3eb737eb24d, type: 2}

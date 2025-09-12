@@ -54,4 +54,9 @@ public class DebugCameraTester : MonoBehaviour
     {
         testPawnView.TestSpriteSelectTransition(testPawnIsSelected);
     }
+
+    void UpdateTestPawnAnimationStateHurt()
+    {
+        testPawnView.HurtAnimation();
+    }
 }
