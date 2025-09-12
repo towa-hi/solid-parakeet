@@ -22,6 +22,8 @@ public class PawnDef : ScriptableObject
 
     public AnimatorOverrideController redAnimatorOverrideController;
     public AnimatorOverrideController blueAnimatorOverrideController;
+    public AnimationClip redAttackClip;
+    public AnimationClip blueAttackClip;
     // sounds
     
     public Rank GetRank()

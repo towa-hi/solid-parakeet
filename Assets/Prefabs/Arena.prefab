@@ -237,6 +237,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8564955284350181653}
   - component: {fileID: 2966429184841500503}
+  - component: {fileID: 8443240997203862066}
   m_Layer: 0
   m_Name: Arena
   m_TagString: Untagged
@@ -282,6 +283,28 @@ MonoBehaviour:
   pawnL: {fileID: 4517399811363301355}
   pawnR: {fileID: 7343026920598932467}
   arenaCamera: {fileID: 6079578763302057744}
+--- !u!95 &8443240997203862066
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2379605064078415853}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 7f77e9d89a4517948a078c38ab0303ab, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &5938515528828657304
 GameObject:
   m_ObjectHideFlags: 0
