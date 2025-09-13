@@ -399,6 +399,7 @@ public static class AiPlayer
         
         return final_estimates;
     }
+    static bool __boring_move_pruning = true;
     static List<SimMove> ally_moves = new();
     static List<SimMove> oppn_moves = new();
     static List<SimMove> ally_moves_2 = new();
@@ -571,10 +572,24 @@ public static class AiPlayer
                                 continue;
                             }
                         }
-                        else
+                        else if (__boring_move_pruning)
                         {
-                            // paths_pruned_ally_boring_2++;
-                            // continue;
+                            // if adjacent tiles do not contain opponent pawns, then it is a boring move
+                            foreach (var dir in Shared.GetDirections(ally_move_2.next_pos, board.is_hex))
+                            {
+                                if (state.pawns.TryGetValue(ally_move_2.next_pos + dir, out var other_pawn))
+                                {
+                                    if (other_pawn.team != ally_pawn.team)
+                                    {
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    paths_pruned_ally_boring_2++;
+                                    continue;
+                                }
+                            }
                         }
                         // Baseline after applying only ally_move_2 (used if all opp replies are skipped)
                         float move_value_2;
@@ -607,10 +622,23 @@ public static class AiPlayer
                                     continue;
                                 }
                             }
-                            else
+                            else if (__boring_move_pruning)
                             {
-                                // paths_pruned_oppn_boring_2++;
-                                // continue;
+                                foreach (var dir in Shared.GetDirections(oppn_move_2.next_pos, board.is_hex))
+                                {
+                                    if (state.pawns.TryGetValue(oppn_move_2.next_pos + dir, out var other_pawn))
+                                    {
+                                        if (other_pawn.team != oppn_pawn.team)
+                                        {
+                                            break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        paths_pruned_oppn_boring_2++;
+                                        continue;
+                                    }
+                                }
                             }
                             MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, ally_move_2, oppn_move_2);
                             move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
