@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/Test.unity
     guid: 89dc054316749cc4abadbd8b21de003b
+  - enabled: 0
+    path: Assets/Plugins/AllIn13DShader/Demo/Demo3DShader.unity
+    guid: b3681a68a4acfa24dbf0c66aa1ec54e7
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
