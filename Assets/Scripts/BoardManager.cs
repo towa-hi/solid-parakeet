@@ -500,7 +500,7 @@ public class SetupCommitPhase : PhaseBase
             rank_commitment_root = root,
             zz_hidden_ranks = cachedNetState.lobbyParameters.security_mode ? new HiddenRank[]{} : hiddenRanks.ToArray(),
         };
-        InvokeOnCallContract(req, null);
+        _ = InvokeOnCallContract(req, null);
     }
 
     void OnEntryClicked(Rank clickedRank)
@@ -887,7 +887,7 @@ public class MoveCommitPhase: PhaseBase
             lobby_id = cachedNetState.lobbyInfo.index,
             move_proofs = hiddenMoves.ToArray(),
         };
-        InvokeOnCallContract(commitMoveReq, proveMoveReq);
+        _ = InvokeOnCallContract(commitMoveReq, proveMoveReq);
     }
 
     void OnRefresh()
@@ -1056,7 +1056,7 @@ public class MoveProvePhase: PhaseBase
             lobby_id = cachedNetState.lobbyInfo.index,
             move_proofs = turnHiddenMoves.ToArray(),
         };
-        InvokeOnCallContract(proveMoveReq, null);
+        _ = InvokeOnCallContract(proveMoveReq, null);
     }
     
     void OnRefresh()
@@ -1117,7 +1117,7 @@ public class RankProvePhase: PhaseBase
             lobby_id = cachedNetState.lobbyInfo.index,
             merkle_proofs = merkleProofs.ToArray(),
         };
-        InvokeOnCallContract(proveRankReq, null);
+        _ = InvokeOnCallContract(proveRankReq, null);
     }
     
     void OnRefresh()

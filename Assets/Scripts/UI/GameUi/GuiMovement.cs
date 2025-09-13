@@ -52,7 +52,6 @@ public class GuiMovement : GameElement
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
-        bool? setShowElement = null;
         GameNetworkState? setInitialize = null;
         GameNetworkState? setPhaseInfoDisplay = null;
         bool? setSubmitButton = null;
@@ -69,7 +68,6 @@ public class GuiMovement : GameElement
             switch (netStateUpdated.phase)
             {
                 case MoveCommitPhase moveCommitPhase:
-                    setShowElement = true;
                     setSubmitButton = false;
                     setRefreshButton = true;
                     // Update submit label with planned/allowed counts
@@ -80,7 +78,6 @@ public class GuiMovement : GameElement
                     setStatus = cachedNetState.IsMySubphase() ? "Commit your move" : "Awaiting opponent move";
                     break;
                 case MoveProvePhase:
-                    setShowElement = true;
                     setSubmitButton = false;
                     setRefreshButton = true;
                     if (cachedNetState.IsMySubphase())
@@ -93,7 +90,6 @@ public class GuiMovement : GameElement
                     }
                     break;
                 case RankProvePhase:
-                    setShowElement = true;
                     setSubmitButton = false;
                     setRefreshButton = true;
                     if (cachedNetState.IsMySubphase())
@@ -106,8 +102,6 @@ public class GuiMovement : GameElement
                     }
                     break;
                 default:
-                    // Any other phase (Setup/Resolve/Finished/etc): hide movement UI
-                    setShowElement = false;
                     break;
             }
         }

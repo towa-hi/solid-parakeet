@@ -1,7 +1,7 @@
 using System;
 using Contract;
 using UnityEngine;
-
+#pragma warning disable
 [ExecuteAlways]
 public class BoardGrid : MonoBehaviour
 {
@@ -207,3 +207,4 @@ public class BoardGrid : MonoBehaviour
         }
     }
 }
+#pragma warning restore

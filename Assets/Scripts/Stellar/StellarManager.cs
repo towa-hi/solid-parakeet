@@ -185,14 +185,13 @@ public static class StellarManager
         return StatusCode.SUCCESS;
     }
 
-    public static async Task<bool> SetContractAddress(string contractId)
+    public static bool SetContractAddress(string contractId)
     {
         StellarDotnet.SetContractId(contractId);
-        await UpdateState();
         return true;
     }
 
-    public static async Task<bool> SetSneed(string accountSneed)
+    public static bool SetSneed(string accountSneed)
     {
         StellarDotnet.SetSneed(accountSneed);
         return true;

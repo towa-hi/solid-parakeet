@@ -11,8 +11,8 @@ public class Chatbox : MonoBehaviour
     public List<GuiMailEntry> entries;
     public TMP_InputField inputField;
     public Button sendButton;
-    bool collapsed = false;
-    bool updating = false;
+    //bool collapsed = false;
+    //bool updating = false;
     // void Start()
     // {
     //     hideButton.onClick.AddListener(OnHideButton);

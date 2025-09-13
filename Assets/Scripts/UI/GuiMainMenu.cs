@@ -218,13 +218,13 @@ public class GuiMainMenu : MenuElement
     {
         string input = sneedField.text;
         sneedField.text = string.Empty;
-        _ = StellarManager.SetSneed(input);
+        StellarManager.SetSneed(input);
     }
     
     void OnSetContract()
     {
         string input = contractField.text;
         contractField.text = string.Empty;
-        _ = StellarManager.SetContractAddress(input);
+        StellarManager.SetContractAddress(input);
     }
 }

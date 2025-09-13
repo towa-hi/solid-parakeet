@@ -1,24 +1,22 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Contract;
-using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using Stellar;
+using System.Reflection;
 using Stellar.RPC;
 using Stellar.Utilities;
 using UnityEngine;
 using UnityEngine.Networking;
-using UnityEngine.Rendering;
 
 // ReSharper disable ArrangeObjectCreationWhenTypeNotEvident
 
@@ -89,119 +87,18 @@ public static class StellarDotnet
     // ReSharper disable once InconsistentNaming
     static readonly JsonSerializerSettings jsonSettings = new()
     {
-        ContractResolver =  new CamelCasePropertyNamesContractResolver(),
+        ContractResolver =  new DefaultContractResolver
+        {
+            NamingStrategy = new CamelCaseNamingStrategy
+            {
+                ProcessDictionaryKeys = true,
+                OverrideSpecifiedNames = false,
+            }
+        },
         NullValueHandling = NullValueHandling.Ignore,
     };
 
-    static string NormalizeSorobanTxDataBase64IfNeeded(string base64)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(base64)) return base64;
-            byte[] data = Convert.FromBase64String(base64);
-            if (data.Length < 8) return base64;
-            int discr = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
-            if (discr != 1) return base64;
-            int vecLen = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
-            int skip = 8 + vecLen * 4;
-            if (skip > data.Length) return base64;
-            int newLen = data.Length - (skip - 4);
-            byte[] outBytes = new byte[newLen];
-            outBytes[0] = 0; outBytes[1] = 0; outBytes[2] = 0; outBytes[3] = 0;
-            Buffer.BlockCopy(data, skip, outBytes, 4, data.Length - skip);
-            return Convert.ToBase64String(outBytes);
-        }
-        catch
-        {
-            return base64;
-        }
-    }
-
-    static string NormalizeSorobanTxDataBase64IfNeededUsingXdr(string base64)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(base64)) return base64;
-            byte[] bytes = Convert.FromBase64String(base64);
-            DebugLog($"XDR normalize: incoming base64 length={bytes.Length}");
-            using (var ms = new MemoryStream(bytes))
-            {
-                var reader = new XdrReader(ms);
-                int extDiscriminator = reader.ReadInt();
-                DebugLog($"XDR normalize: ext discriminator={extDiscriminator}");
-                if (extDiscriminator == 1)
-                {
-                    int count = reader.ReadInt();
-                    DebugLog($"XDR normalize: skipping v1 archived entries count={count}");
-                    for (int i = 0; i < count; i++)
-                    {
-                        reader.ReadInt();
-                    }
-                }
-                else if (extDiscriminator != 0)
-                {
-                    DebugLog("XDR normalize: unknown ext discriminant, leaving unmodified");
-                    return base64;
-                }
-                SorobanResources resources = SorobanResourcesXdr.Decode(reader);
-                int64 resourceFee = int64Xdr.Decode(reader);
-                SorobanTransactionData fixedData = new SorobanTransactionData
-                {
-                    ext = new SorobanTransactionData.extUnion.case_1(),
-                    resources = resources,
-                    resourceFee = resourceFee,
-                };
-                using (var outMs = new MemoryStream())
-                {
-                    var writer = new XdrWriter(outMs);
-                    SorobanTransactionDataXdr.Encode(writer, fixedData);
-                    string outB64 = Convert.ToBase64String(outMs.ToArray());
-                    DebugLog("XDR normalize: produced ext v0 SorobanTransactionData");
-                    return outB64;
-                }
-            }
-        }
-        catch
-        {
-            return base64;
-        }
-    }
-    
-    static bool NormalizeXdrStringsInToken(JToken token)
-    {
-        bool modified = false;
-        if (token is JValue { Type: JTokenType.String } jv)
-        {
-            string s = (string)jv.Value;
-            string normalized = NormalizeSorobanTxDataBase64IfNeededUsingXdr(s);
-            if (!string.Equals(s, normalized, StringComparison.Ordinal))
-            {
-                jv.Value = normalized;
-                modified = true;
-            }
-        }
-        else if (token is JObject obj)
-        {
-            foreach (JProperty prop in obj.Properties().ToList())
-            {
-                if (NormalizeXdrStringsInToken(prop.Value))
-                {
-                    modified = true;
-                }
-            }
-        }
-        else if (token is JArray arr)
-        {
-            foreach (JToken child in arr.ToList())
-            {
-                if (NormalizeXdrStringsInToken(child))
-                {
-                    modified = true;
-                }
-            }
-        }
-        return modified;
-    }
+    // Removed Soroban XDR normalization helpers (obsolete)
     
     public static void Initialize(bool isTestnet, string inSecretSneed, string inContractId)
     {
@@ -809,10 +706,6 @@ public static class StellarDotnet
     {
         tracker?.StartOperation("SendJsonRequest");
         string json = JsonConvert.SerializeObject(request, jsonSettings);
-        if (json == null)
-        {
-            return Result<T>.Err(StatusCode.SERIALIZATION_ERROR, "SendJsonRequest: error: JSON serialization failed");
-        }
         UnityWebRequest unityWebRequest = new(networkUri, "POST") {
             uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json)),
             downloadHandler = new DownloadHandlerBuffer(),
@@ -922,6 +815,9 @@ public static class StellarDotnet
         });
     }
 }
+
+// Note: We rely on OverrideSpecifiedNames=false so any Newtonsoft [JsonProperty("...")] attributes
+// from SDK types are honored, avoiding accidental casing changes like jsonrpc -> jsonRpc.
 
 public static class AsyncDelay
 {
