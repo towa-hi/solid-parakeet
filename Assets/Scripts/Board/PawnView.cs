@@ -357,7 +357,7 @@ public class PawnView : MonoBehaviour
         animator.Play("Idle", 0, randNormTime);
         animator.Update(0f);
         
-        Debug.Log($"{gameObject.name} rank badge set to {rank}");
+        //Debug.Log($"{gameObject.name} rank badge set to {rank}");
         badge.SetBadge(team, rank);
     }
 

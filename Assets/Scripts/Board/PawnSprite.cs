@@ -5,7 +5,7 @@ using System.Collections.Generic;
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class PawnSprite : MonoBehaviour
 {
-    static readonly int BaseTexture = Shader.PropertyToID("_BaseMap");
+    static readonly int BaseTexture = Shader.PropertyToID("_MainTex");
     static readonly Dictionary<Sprite, Mesh> MeshCache = new ();
     public Sprite currentSprite;
     public MeshFilter mf;

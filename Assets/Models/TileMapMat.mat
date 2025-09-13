@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-934493638320922199
+--- !u!114 &-5191974792749219537
 MonoBehaviour:
   m_ObjectHideFlags: 11
   m_CorrespondingSourceObject: {fileID: 0}
@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: TileTop
+  m_Name: TileMapMat
   m_Shader: {fileID: 4800000, guid: 0dde7f0097aeb2541aea684ca0ad0e3c, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -41,12 +41,9 @@ Material:
   - _USE_WIND_VERTICAL_MASK
   m_InvalidKeywords:
   - _ALBEDOVERTEXCOLORMODE_REPLACE
-  - _ENVIRONMENTREFLECTIONS_OFF
   - _GLITCHWORLDSPACE_ON
   - _HEIGHTGRADIENTPOSITIONSPACE_LOCAL
   - _RECEIVEDSHADOWSTYPE_CLASSIC
-  - _SPECULARHIGHLIGHTS_OFF
-  - _SPECULAR_SETUP
   - _TEXTUREBLENDINGSOURCE_VERTEXCOLOR
   - _TRIPLANARNORMALSPACE_WORLD
   m_LightmapFlags: 4
@@ -65,7 +62,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: b6e0a298dd80af84882e31580389a189, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BlendingNormalMapB:
@@ -125,7 +122,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: b6e0a298dd80af84882e31580389a189, type: 3}
+        m_Texture: {fileID: 2800000, guid: 02477f77a7c1caf4faba913d510cf4a2, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MatcapTex:
@@ -207,7 +204,7 @@ Material:
     - _AlbedoVertexColorMode: 1
     - _AlbedoVertexColorOn: 0
     - _AlphaClip: 0
-    - _AlphaCutoffOn: 1
+    - _AlphaCutoffOn: 0
     - _AlphaCutoffValue: 0.25
     - _AlphaRoundOn: 0
     - _AlphaToMask: 0
@@ -226,7 +223,7 @@ Material:
     - _Brightness: 0
     - _BrightnessLM: 0
     - _BumpScale: 1
-    - _CastShadowsOn: 1
+    - _CastShadowsOn: 0
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _ColorMask: 15
@@ -260,7 +257,7 @@ Material:
     - _DstBlendAlpha: 0
     - _EmissionEnabled: 0
     - _EmissionSelfGlow: 1
-    - _EnvironmentReflections: 0
+    - _EnvironmentReflections: 1
     - _FaceDownCutoff: 0.25
     - _FadeAmount: 0
     - _FadeBurnOn: 0
@@ -319,7 +316,7 @@ Material:
     - _IntersectionFadeFactor: 1
     - _IntersectionFadeOn: 0
     - _IntersectionGlowOn: 0
-    - _LightModel: 1
+    - _LightModel: 0
     - _LightmapColorCorrection: 0
     - _Matcap: 0
     - _MatcapBlend: 1
@@ -349,7 +346,7 @@ Material:
     - _PosterizeNumColors: 8
     - _QueueOffset: 0
     - _RecalculateNormals: 0
-    - _ReceiveShadows: 1
+    - _ReceiveShadows: 0
     - _ReceivedShadowsType: 0
     - _Reflections: 0
     - _ReflectionsAtten: 0.5
@@ -374,7 +371,7 @@ Material:
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularAtten: 0.5
-    - _SpecularHighlights: 0
+    - _SpecularHighlights: 1
     - _SpecularModel: 0
     - _SpecularToonCutoff: 0.35
     - _SpecularToonSmoothness: 0
@@ -418,13 +415,13 @@ Material:
     - _WindOn: 0
     - _WindVerticalMaskMaxY: 1
     - _WindVerticalMaskMinY: -1
-    - _WorkflowMode: 0
+    - _WorkflowMode: 1
     - _ZTestMode: 4
     - _ZWrite: 1
     m_Colors:
     - _AOColor: {r: 0, g: 0, b: 0, a: 0}
-    - _BaseColor: {r: 0, g: 0.6745098, b: 0.7254902, a: 1}
-    - _Color: {r: 0, g: 0.6745098, b: 0.7254902, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _CustomAmbientColor: {r: 0.65, g: 0.65, b: 0.65, a: 1}
     - _DepthGlowColor: {r: 1, g: 0.9869999, b: 0.6, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
