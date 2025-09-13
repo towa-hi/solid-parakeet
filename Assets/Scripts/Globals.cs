@@ -106,7 +106,7 @@ public static class Globals
             case StrKey.VersionByte.SIGNED_PAYLOAD:
                 throw new NotImplementedException();
             case StrKey.VersionByte.CONTRACT:
-                var cAddress = new SCAddress.ScAddressTypeContract() { contractId = bytes };
+                var cAddress = new SCAddress.ScAddressTypeContract() { contractId = new ContractID(new Hash(bytes)) };
                 return new SCVal.ScvAddress() { address = cAddress };
             default:
                 throw new ArgumentOutOfRangeException(nameof(version), version, null);

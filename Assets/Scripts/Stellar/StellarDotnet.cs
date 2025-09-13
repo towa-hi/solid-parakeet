@@ -92,6 +92,116 @@ public static class StellarDotnet
         ContractResolver =  new CamelCasePropertyNamesContractResolver(),
         NullValueHandling = NullValueHandling.Ignore,
     };
+
+    static string NormalizeSorobanTxDataBase64IfNeeded(string base64)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(base64)) return base64;
+            byte[] data = Convert.FromBase64String(base64);
+            if (data.Length < 8) return base64;
+            int discr = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+            if (discr != 1) return base64;
+            int vecLen = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+            int skip = 8 + vecLen * 4;
+            if (skip > data.Length) return base64;
+            int newLen = data.Length - (skip - 4);
+            byte[] outBytes = new byte[newLen];
+            outBytes[0] = 0; outBytes[1] = 0; outBytes[2] = 0; outBytes[3] = 0;
+            Buffer.BlockCopy(data, skip, outBytes, 4, data.Length - skip);
+            return Convert.ToBase64String(outBytes);
+        }
+        catch
+        {
+            return base64;
+        }
+    }
+
+    static string NormalizeSorobanTxDataBase64IfNeededUsingXdr(string base64)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(base64)) return base64;
+            byte[] bytes = Convert.FromBase64String(base64);
+            DebugLog($"XDR normalize: incoming base64 length={bytes.Length}");
+            using (var ms = new MemoryStream(bytes))
+            {
+                var reader = new XdrReader(ms);
+                int extDiscriminator = reader.ReadInt();
+                DebugLog($"XDR normalize: ext discriminator={extDiscriminator}");
+                if (extDiscriminator == 1)
+                {
+                    int count = reader.ReadInt();
+                    DebugLog($"XDR normalize: skipping v1 archived entries count={count}");
+                    for (int i = 0; i < count; i++)
+                    {
+                        reader.ReadInt();
+                    }
+                }
+                else if (extDiscriminator != 0)
+                {
+                    DebugLog("XDR normalize: unknown ext discriminant, leaving unmodified");
+                    return base64;
+                }
+                SorobanResources resources = SorobanResourcesXdr.Decode(reader);
+                int64 resourceFee = int64Xdr.Decode(reader);
+                SorobanTransactionData fixedData = new SorobanTransactionData
+                {
+                    ext = new SorobanTransactionData.extUnion.case_1(),
+                    resources = resources,
+                    resourceFee = resourceFee,
+                };
+                using (var outMs = new MemoryStream())
+                {
+                    var writer = new XdrWriter(outMs);
+                    SorobanTransactionDataXdr.Encode(writer, fixedData);
+                    string outB64 = Convert.ToBase64String(outMs.ToArray());
+                    DebugLog("XDR normalize: produced ext v0 SorobanTransactionData");
+                    return outB64;
+                }
+            }
+        }
+        catch
+        {
+            return base64;
+        }
+    }
+    
+    static bool NormalizeXdrStringsInToken(JToken token)
+    {
+        bool modified = false;
+        if (token is JValue { Type: JTokenType.String } jv)
+        {
+            string s = (string)jv.Value;
+            string normalized = NormalizeSorobanTxDataBase64IfNeededUsingXdr(s);
+            if (!string.Equals(s, normalized, StringComparison.Ordinal))
+            {
+                jv.Value = normalized;
+                modified = true;
+            }
+        }
+        else if (token is JObject obj)
+        {
+            foreach (JProperty prop in obj.Properties().ToList())
+            {
+                if (NormalizeXdrStringsInToken(prop.Value))
+                {
+                    modified = true;
+                }
+            }
+        }
+        else if (token is JArray arr)
+        {
+            foreach (JToken child in arr.ToList())
+            {
+                if (NormalizeXdrStringsInToken(child))
+                {
+                    modified = true;
+                }
+            }
+        }
+        return modified;
+    }
     
     public static void Initialize(bool isTestnet, string inSecretSneed, string inContractId)
     {
@@ -177,15 +287,6 @@ public static class StellarDotnet
             return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(code, (sim, null, null),$"CallContractFunction {functionName} failed because the simulation result was not successful");
         }
         Transaction assembledTransaction = sim.ApplyTo(transaction);
-        // double all fees just to make sure the transaction actually goes through
-        uint fee = assembledTransaction.fee.InnerValue;
-        assembledTransaction.fee = fee * 2;
-        if (assembledTransaction.ext is Transaction.extUnion.case_1 v1)
-        {
-            v1.sorobanData.resources.readBytes *= 2;
-            v1.sorobanData.resources.writeBytes *= 2;
-            v1.sorobanData.resourceFee *= 2;
-        }
         string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
         var sendResult = await SendTransactionAsync(new SendTransactionParams()
         {
@@ -233,10 +334,7 @@ public static class StellarDotnet
             new SimulateTransactionParams()
             {
                 Transaction = EncodeTransaction(invokeContractTransaction),
-                ResourceConfig = new()
-                {
-                    InstructionLeeway = 10000000,
-                },
+                ResourceConfig = new(),
             },
             tracker);
         if (result.IsError)
@@ -433,12 +531,14 @@ public static class StellarDotnet
                 LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
                 lobbyInfo.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
                 tuple.Item1 = lobbyInfo;
+                Debug.Log("wrote lobbyinfo");
             }
             else if (entry.Key == lobbyParametersKey)
             {
                 LobbyParameters lobbyParameters = SCUtility.SCValToNative<LobbyParameters>(data.contractData.val);
                 lobbyParameters.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
                 tuple.Item2 = lobbyParameters;
+                Debug.Log("wrote lobbyparameters");
             }
             else if (entry.Key == gameStateKey)
             {
@@ -576,16 +676,16 @@ public static class StellarDotnet
             GetTransactionResult completion = result.Value;
             switch (completion.Status)
             {
-                case GetTransactionResult_Status.FAILED:
+                case GetTransactionResultStatus.FAILED:
                     DebugLog("WaitForTransaction: FAILED");
                     tracker?.EndOperation();
                     return Result<GetTransactionResult>.Err(StatusCode.TRANSACTION_FAILED, completion.ResultMetaXdr);
-                case GetTransactionResult_Status.NOT_FOUND:
+                case GetTransactionResultStatus.NOT_FOUND:
                     tracker?.StartOperation($"Retry delay ({delayMS}ms)");
                     await AsyncDelay.Delay(delayMS);
                     tracker?.EndOperation();
                     continue;
-                case GetTransactionResult_Status.SUCCESS:
+                case GetTransactionResultStatus.SUCCESS:
                     DebugLog("WaitForTransaction: SUCCESS");
                     tracker?.EndOperation();
                     return Result<GetTransactionResult>.Ok(completion);
@@ -727,7 +827,9 @@ public static class StellarDotnet
             return Result<T>.Err(StatusCode.NETWORK_ERROR, $"SendJsonRequest: error: {unityWebRequest.error}");
         }
         DebugLog($"SendJsonRequest: response: {unityWebRequest.downloadHandler.text}");
-        T result = JsonConvert.DeserializeObject<JsonRpcResponse<T>>(unityWebRequest.downloadHandler.text, jsonSettings).Result;
+        string responseText = unityWebRequest.downloadHandler.text;
+        
+        T result = JsonConvert.DeserializeObject<JsonRpcResponse<T>>(responseText, jsonSettings).Result;
         if (result == null)
         {
             return Result<T>.Err(StatusCode.DESERIALIZATION_ERROR, "SendJsonRequest: error: JSON deserialization failed");

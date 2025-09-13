@@ -148,9 +148,10 @@ public static class StellarManager
             return newNetworkStateResult.Code;
         }
         NetworkState newNetworkState = newNetworkStateResult.Value;
-        // adjust state if user lobby expired
-        if (newNetworkState.user is User user && user.current_lobby != 0)
+        // if we got a user with an assigned current_lobby but we couldnt get a lobbyInfo 
+        if (newNetworkState.user is User user && user.current_lobby != 0 && newNetworkState.lobbyInfo.HasValue == false)
         {
+            // patch users current_lobby to 0 if lobby data is mising
             Debug.LogWarning($"UpdateState(): user.current_lobby is was {newNetworkState.user?.current_lobby} but lobby data is missing - likely expired. Resetting");
             user.current_lobby = new LobbyId(0);
             newNetworkState.user = user;
@@ -938,11 +939,11 @@ public static class StellarManager
         }
         switch (getResult.Status)
         {
-            case GetTransactionResult_Status.SUCCESS:
+            case GetTransactionResultStatus.SUCCESS:
                 return ResultCode.SUCCESS;
-            case GetTransactionResult_Status.NOT_FOUND:
+            case GetTransactionResultStatus.NOT_FOUND:
                 return ResultCode.GET_NOT_FOUND;
-            case GetTransactionResult_Status.FAILED:
+            case GetTransactionResultStatus.FAILED:
                 Debug.LogError(getResult.ResultXdr);
                 if (getResult.TransactionResult.result is TransactionResult.resultUnion.TxFAILED txFailed)
                 {
