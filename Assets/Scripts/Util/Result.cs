@@ -34,7 +34,16 @@ public readonly struct Result<T>
         {
             throw new ArgumentException("Err cannot be created with SUCCESS code");
         }
-        LogError(code, message);
+
+        if (code == StatusCode.ENTRY_NOT_FOUND)
+        {
+            string safeMessage = string.IsNullOrEmpty(message) ? "No details provided." : message;
+            Debug.LogWarning($"{code} {safeMessage}");
+        }
+        else
+        {
+            LogError(code, message);
+        }
         return new Result<T>(code, default, message);
     }
 

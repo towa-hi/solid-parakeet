@@ -111,6 +111,32 @@ mergeInto(LibraryManager.library, {
         const resultString = JSON.stringify(result);
         Module.SendUnityMessage(1, resultString);
     },
+    
+    JSSignTransaction: async function(unsignedTransactionEnvelope, passphrase)
+    {
+        try {
+            const FreighterApi = window.freighterApi;
+            const unsignedTransactionXdr = UTF8ToString(unsignedTransactionEnvelope);
+            const networkPassphrase = UTF8ToString(passphrase);
+            console.log(`JSSignTransaction: `, unsignedTransactionXdr);
+            const signTransactionRes = await FreighterApi.signTransaction(unsignedTransactionXdr, {networkPassphrase: networkPassphrase});
+            console.log(`JSSignTransaction completed: `, signTransactionRes);
+            if (signTransactionRes.error)
+            {
+                console.error("JSSignTransaction() failed to sign error: ", signTransactionRes.error);
+                Module.SendUnityMessage(-1, signTransactionRes.error);
+                return;
+            }
+            Module.SendUnityMessage(1, signTransactionRes.signedTxXdr);
+            return;
+        }
+        catch (e)
+        {
+            console.error("JSSignTransaction() unspecified error: ", e);
+            Module.SendUnityMessage(-666, e);
+            return;
+        }
+    },
 
     JSInvokeContractFunction: async function(addressPtr, contractAddressPtr, contractFunctionPtr, dataPtr)
     {

@@ -202,10 +202,14 @@ public static class StellarDotnet
             return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(code, (sim, null, null),$"CallContractFunction {functionName} failed because the simulation result was not successful");
         }
         Transaction assembledTransaction = sim.ApplyTo(transaction);
-        string encodedSignedTransaction = SignAndEncodeTransaction(assembledTransaction);
+        Result<string> signResult = await SignAndEncodeTransaction(assembledTransaction);
+        if (signResult.IsError)
+        {
+            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.WALLET_ERROR, (sim, null, null),$"CallContractFunction {functionName} failed because failed to sign");
+        }
         var sendResult = await SendTransactionAsync(new SendTransactionParams()
         {
-            Transaction = encodedSignedTransaction,
+            Transaction = signResult.Value,
         }, tracker);
         if (sendResult.IsError)
         {
@@ -328,6 +332,10 @@ public static class StellarDotnet
         if (userResult.IsError)
         {
             tracker?.EndOperation();
+            if (userResult.Code == StatusCode.ENTRY_NOT_FOUND)
+            {
+                return Result<NetworkState>.Ok(new NetworkState(userAddress, true));
+            }
             return Result<NetworkState>.Err(userResult);
         }
         User user = userResult.Value;
@@ -368,6 +376,7 @@ public static class StellarDotnet
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
             tracker?.EndOperation();
+            // it's normal to not find entries for users
             return Result<User>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqUser: no entries found for key {key}");
         }
         Entries entries = getLedgerEntriesResult.Entries.First();
@@ -554,11 +563,17 @@ public static class StellarDotnet
         return TransactionEnvelopeXdr.EncodeToBase64(envelope);
     }
 
-    static string SignAndEncodeTransaction(Transaction transaction)
+    static async Task<Result<string>> SignAndEncodeTransaction(Transaction transaction)
     {
         if (isWallet)
         {
             // TODO: sign with WalletManager
+            Result<string> signTransactionRes = await WalletManager.SignTransaction(EncodeTransaction(transaction), Network.Current.NetworkPassphrase);
+            if (signTransactionRes.IsError)
+            {
+                return Result<string>.Err(signTransactionRes);
+            }
+            return Result<string>.Ok(signTransactionRes.Value);
         }
         DecoratedSignature signature = transaction.Sign(userAccount);
         TransactionEnvelope.EnvelopeTypeTx envelope = new()
@@ -569,7 +584,7 @@ public static class StellarDotnet
                 signatures = new[] { signature },
             },
         };
-        return TransactionEnvelopeXdr.EncodeToBase64(envelope);
+        return Result<string>.Ok(TransactionEnvelopeXdr.EncodeToBase64(envelope));
     }
 
     static async Task<Result<GetTransactionResult>> WaitForGetTransactionResult(string txHash, int delayMS, TimingTracker tracker = null)
@@ -978,4 +993,5 @@ public enum StatusCode {
     WALLET_ADDRESS_MISSING,
     WALLET_NETWORK_DETAILS_ERROR,
     WALLET_PARSING_ERROR,
+    WALLET_SIGNING_ERROR,
 }

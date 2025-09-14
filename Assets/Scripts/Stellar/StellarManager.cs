@@ -80,34 +80,7 @@ public static class StellarManager
         string publicAddress = StrKey.EncodeStellarAccountId(account.PublicKey);
         return AccountAddress.Parse(publicAddress);
     }
-
-
-    public static async Task<Result<bool>> Connect()
-    {
-        TaskInfo task = SetCurrentTask("Connect");
-        TimingTracker tracker = new();
-        tracker.StartOperation("Connect");
-        var publicAddress = MuxedAccount.FromSecretSeed(StellarDotnet.sneed);
-        // check to make sure address exists on network
-        var result = await StellarDotnet.ReqAccountEntry(publicAddress);
-        if (result.IsError)
-        {
-            tracker.EndOperation();
-            DebugLogStellarManager(tracker.GetReport());
-            EndTask(task);
-            return ErrWithContext(result, "Connect: account not found");
-        }
-        // check to make sure contract exists on network
-        var userResult = await StellarDotnet.ReqUser(publicAddress.AccountId, tracker);
-        if (userResult.IsError)
-        {
-            Debug.LogError($"Connect() ReqUser failed with error {userResult.Code} {userResult.Message}");
-        }
-        tracker.EndOperation();
-        DebugLogStellarManager(tracker.GetReport());
-        EndTask(task);
-        return Result<bool>.Ok(true);
-    }
+    
     public static async Task<Result<bool>> UpdateState(bool showTask = true)
     {
         if (!GameManager.instance.IsOnline())

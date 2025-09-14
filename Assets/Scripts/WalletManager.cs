@@ -15,10 +15,9 @@ public class WalletManager : MonoBehaviour
 
     [DllImport("__Internal")]
     static extern void JSGetNetworkDetails();
-
+    
     [DllImport("__Internal")]
-    static extern void JSInvokeContractFunction(string address, string contractAddress, string contractFunction, string dataJson);
-
+    static extern void JSSignTransaction(string unsignedTransactionEnvelope, string networkPassphrase);
     public static string address;
     public static NetworkDetails networkDetails;
     
@@ -31,7 +30,7 @@ public class WalletManager : MonoBehaviour
     static TaskCompletionSource<JSResponse> checkWalletTaskSource;
     static TaskCompletionSource<JSResponse> getAddressTaskSource;
     static TaskCompletionSource<JSResponse> getNetworkDetailsTaskSource;
-    static TaskCompletionSource<JSResponse> invokeContractFunctionTaskSource;
+    static TaskCompletionSource<JSResponse> signTransactionTaskSource;
     
     static JsonSerializerSettings jsonSettings = new JsonSerializerSettings()
     {
@@ -163,53 +162,28 @@ public class WalletManager : MonoBehaviour
         Debug.Log($"GetNetworkDetails() completed with data {getNetworkDetailsRes.data}");
         return Result<string>.Ok(getNetworkDetailsRes.data);
     }
-    
-    public static async Task<Result<string>> InvokeContractFunction(string function, string data)
+
+    public static async Task<Result<string>> SignTransaction(string unsignedTransactionEnvelope, string networkPassphrase)
     {
-        if (invokeContractFunctionTaskSource != null && !invokeContractFunctionTaskSource.Task.IsCompleted)
+        if (signTransactionTaskSource != null && !signTransactionTaskSource.Task.IsCompleted)
         {
-            throw new Exception("InvokeContractFunction() is already in progress");
+            throw new Exception("SignTransaction() is already in progress");
         }
-        if (!webGL)
+
+        signTransactionTaskSource = new TaskCompletionSource<JSResponse>();
+        JSSignTransaction(unsignedTransactionEnvelope, networkPassphrase);
+        JSResponse signTransactionRes = await signTransactionTaskSource.Task;
+        signTransactionTaskSource = null;
+        if (signTransactionRes.code != 1)
         {
-            return Result<string>.Err(StatusCode.WALLET_NOT_AVAILABLE, "Not running in WebGL context");
+            // TODO: make this more robust 
+            Debug.Log("SignTransaction() failed with code " + signTransactionRes.code);
+            return Result<string>.Err(StatusCode.WALLET_SIGNING_ERROR, $"failed to sign transaction {signTransactionRes.data}");
         }
-        if (string.IsNullOrEmpty(address))
-        {
-            return Result<string>.Err(StatusCode.WALLET_ADDRESS_MISSING, "Wallet address not set");
-        }
-        string contractAddress = StellarManager.GetContractAddress();
-        if (string.IsNullOrEmpty(contractAddress))
-        {
-            return Result<string>.Err(StatusCode.CONTRACT_ERROR, "Contract address not set");
-        }
-        invokeContractFunctionTaskSource = new TaskCompletionSource<JSResponse>();
-        try
-        {
-            JSInvokeContractFunction(address, contractAddress, function, string.IsNullOrEmpty(data) ? "{}" : data);
-        }
-        catch (Exception e)
-        {
-            invokeContractFunctionTaskSource = null;
-            return Result<string>.Err(StatusCode.OTHER_ERROR, e.Message);
-        }
-        JSResponse res = await invokeContractFunctionTaskSource.Task;
-        invokeContractFunctionTaskSource = null;
-        if (res.code == 1)
-        {
-            return Result<string>.Ok(res.data);
-        }
-        StatusCode map = res.code switch
-        {
-            -1 => StatusCode.SIMULATION_FAILED,
-            -2 => StatusCode.WALLET_ERROR,
-            -3 => StatusCode.TRANSACTION_SEND_FAILED,
-            -4 => StatusCode.TRANSACTION_FAILED,
-            -666 => StatusCode.OTHER_ERROR,
-            _ => StatusCode.OTHER_ERROR,
-        };
-        return Result<string>.Err(map, res.data);
+        Debug.Log($"SignTransaction() completed with data {signTransactionRes.data}");
+        return Result<string>.Ok(signTransactionRes.data);
     }
+    
     public void StellarResponse(string json)
     {
         try
@@ -224,8 +198,8 @@ public class WalletManager : MonoBehaviour
                 "_JSCheckWallet" => checkWalletTaskSource,
                 "_JSGetFreighterAddress" => getAddressTaskSource,
                 "_JSGetNetworkDetails" => getNetworkDetailsTaskSource,
-                "_JSInvokeContractFunction" => invokeContractFunctionTaskSource,
-                _ => throw new Exception($"StellarResponse() function not found {response}")
+                "_JSSignTransaction" => signTransactionTaskSource,
+                _ => throw new Exception($"StellarResponse() function not found {response}"),
             };
             if (task == null)
             {
