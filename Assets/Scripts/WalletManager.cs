@@ -24,7 +24,7 @@ public class WalletManager : MonoBehaviour
     public static bool webGL;
     
     public static WalletManager instance;
-    
+
     
     // wrapper tasks
     static TaskCompletionSource<JSResponse> checkWalletTaskSource;
@@ -105,7 +105,12 @@ public class WalletManager : MonoBehaviour
             return Result<WalletConnection>.Err(StatusCode.WALLET_PARSING_ERROR, ex.Message);
         }
     }
-    
+
+    public static void DisconnectWallet()
+    {
+        address = null;
+        networkDetails = null;
+    }
     static async Task<Result<bool>> CheckWallet()
     {
         if (checkWalletTaskSource != null && !checkWalletTaskSource.Task.IsCompleted)

@@ -109,7 +109,7 @@ public static class StellarDotnet
     public static Result<bool> Initialize(bool isTestnet, bool inIsWallet, string inSecretSneed, string inContractId)
     {
         // Validate inputs early to avoid silent failures later
-        if (string.IsNullOrEmpty(inSecretSneed) || !StrKey.IsValidEd25519SecretSeed(inSecretSneed))
+        if (!inIsWallet && (string.IsNullOrEmpty(inSecretSneed) || !StrKey.IsValidEd25519SecretSeed(inSecretSneed)))
         {
             return Result<bool>.Err(StatusCode.OTHER_ERROR, "Initialize: invalid or missing secret seed (sneed)");
         }

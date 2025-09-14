@@ -22,7 +22,7 @@ public static class StellarManager
     public static event Action<TrustLineEntry> OnAssetsUpdated;
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
-    public static bool isWallet;
+    
     public static NetworkState networkState;
 
     static TaskInfo currentTask;
