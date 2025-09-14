@@ -1,14 +1,17 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class MainMenu2 : MenuBase
 {
-    public Button createLobbyButton;
-    public Button viewLobbyButton;
-    public Button settingsButton;
-    public Button networkButton;
-    public Button galleryButton;
-    public Button joinLobbyButton;
+    public TextMeshProUGUI topText;
+    public ButtonExtended createLobbyButton;
+    public ButtonExtended viewLobbyButton;
+    public ButtonExtended settingsButton;
+    public ButtonExtended networkButton;
+    public ButtonExtended galleryButton;
+    public ButtonExtended joinLobbyButton;
+    public ButtonExtended quitButton;
 
     private void Start()
     {
@@ -18,6 +21,8 @@ public class MainMenu2 : MenuBase
         networkButton.onClick.AddListener(HandleNetwork);
         galleryButton.onClick.AddListener(HandleGallery);
         joinLobbyButton.onClick.AddListener(HandleJoinLobby);
+        quitButton.onClick.AddListener(HandleQuit);
+        Refresh();
     }
 
     public void HandleCreateLobby()
@@ -49,8 +54,21 @@ public class MainMenu2 : MenuBase
     {
         EmitAction(MenuAction.GotoLobbyJoin);
     }
+
+    public void HandleQuit()
+    {
+        EmitAction(MenuAction.Quit);
+    }
+
     public override void Refresh()
     {
+        bool isOnline = GameManager.instance.IsOnline();
+        bool isInLobby = StellarManager.networkState.inLobby;
+        topText.text = isOnline ? "Online" : "Offline";
+        createLobbyButton.text.text = isOnline ? "CREATE LOBBY" : "SINGLEPLAYER";
+        joinLobbyButton.interactable = isOnline && !isInLobby;
+        viewLobbyButton.interactable = isOnline && isInLobby;
+        
     }
 }
 

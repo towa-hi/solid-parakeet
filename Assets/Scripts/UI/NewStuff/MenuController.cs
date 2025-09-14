@@ -189,6 +189,9 @@ public class MenuController : MonoBehaviour
             case MenuAction.SaveChanges:
                 _ = SaveChangesAsync();
                 break;
+            case MenuAction.Quit:
+                Application.Quit();
+                break;
             case MenuAction.None:
             default:
                 break;
@@ -212,7 +215,7 @@ public class MenuController : MonoBehaviour
     // Operation stubs (no-op for now)
     async Task ConnectToNetworkAsync(ModalConnectData data)
     {
-        Result<bool> result = Result<bool>.Err(StatusCode.OTHER_ERROR, "Unknown error");
+        Result<bool> result = default;
         await ExecuteBusyAsync(async () =>
         {
             result = await GameManager.instance.ConnectToNetwork(data);
@@ -223,8 +226,7 @@ public class MenuController : MonoBehaviour
         }
         else
         {
-            string message = string.IsNullOrEmpty(result.Message) ? "No details provided." : result.Message;
-            await ShowErrorAsync(result.Code, message);
+            await ShowErrorAsync(result.Code, result.Message);
         }
     }
 
@@ -340,7 +342,8 @@ public class MenuController : MonoBehaviour
             return;
         }
         string title = $"{code} ({(int)code})";
-        modal.Initialize(title, messageText, () => CloseTopModal());
+        string body = string.IsNullOrEmpty(messageText) ? "No details provided." : messageText;
+        modal.Initialize(title, body, () => CloseTopModal());
         modal.OnFocus(true);
         modalStack.Push(modal);
         await modal.AwaitCloseAsync();
@@ -352,6 +355,7 @@ public class MenuController : MonoBehaviour
 
     void GoOffline()
     {
+        GameManager.instance.OfflineMode();
         SetMenu(mainMenuPrefab);
     }
 }

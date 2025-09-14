@@ -27,11 +27,17 @@ public static class StellarDotnet
     static MuxedAccount.KeyTypeEd25519 cachedUserAccount;
     static string cachedUserAddress;
     static SCVal.ScvAddress cachedUserAddresSCVal;
+
+    static bool isWallet;
     
     public static MuxedAccount.KeyTypeEd25519 userAccount
     {
         get
         {
+            if (isWallet)
+            {
+                return MuxedAccount.FromPublicKey(StrKey.DecodeStellarAccountId(WalletManager.address));
+            }
             if (cachedUserAccount == null && !string.IsNullOrEmpty(sneed))
             {
                 cachedUserAccount = MuxedAccount.FromSecretSeed(sneed);
@@ -100,8 +106,17 @@ public static class StellarDotnet
 
     // Removed Soroban XDR normalization helpers (obsolete)
     
-    public static void Initialize(bool isTestnet, string inSecretSneed, string inContractId)
+    public static Result<bool> Initialize(bool isTestnet, bool inIsWallet, string inSecretSneed, string inContractId)
     {
+        // Validate inputs early to avoid silent failures later
+        if (string.IsNullOrEmpty(inSecretSneed) || !StrKey.IsValidEd25519SecretSeed(inSecretSneed))
+        {
+            return Result<bool>.Err(StatusCode.OTHER_ERROR, "Initialize: invalid or missing secret seed (sneed)");
+        }
+        if (string.IsNullOrEmpty(inContractId) || !StrKey.IsValidContractId(inContractId))
+        {
+            return Result<bool>.Err(StatusCode.OTHER_ERROR, "Initialize: invalid or missing contract id");
+        }
         if (isTestnet)
         {
             networkUri = new Uri("https://soroban-testnet.stellar.org");
@@ -112,11 +127,14 @@ public static class StellarDotnet
             networkUri = new Uri("https://soroban-mainnet.stellar.org");
             Network.UsePublicNetwork();
         }
+        
+        isWallet = inIsWallet;
         SetSneed(inSecretSneed);
         SetContractId(inContractId);
         
         // Warm up JSON.NET to avoid first-call initialization delay
         WarmUpJsonSerializer();
+        return Result<bool>.Ok(true);
     }
     
     static void WarmUpJsonSerializer()
@@ -291,7 +309,7 @@ public static class StellarDotnet
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
             tracker?.EndOperation();
-            return Result<LedgerEntry.dataUnion.Trustline>.Err(StatusCode.ENTRY_NOT_FOUND);
+            return Result<LedgerEntry.dataUnion.Trustline>.Err(StatusCode.ENTRY_NOT_FOUND, "GetAssets: no trustline entries found");
         }
         else
         {
@@ -350,7 +368,7 @@ public static class StellarDotnet
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
             tracker?.EndOperation();
-            return Result<User>.Err(StatusCode.ENTRY_NOT_FOUND);
+            return Result<User>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqUser: no entries found for key {key}");
         }
         Entries entries = getLedgerEntriesResult.Entries.First();
         if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
@@ -382,13 +400,13 @@ public static class StellarDotnet
         if (getLedgerEntriesResult.Entries.Count == 0)
         {
             tracker?.EndOperation();
-            return Result<LobbyInfo>.Err(StatusCode.ENTRY_NOT_FOUND);
+            return Result<LobbyInfo>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqLobbyInfo: no entries found for lobby {key}");
         }
         Entries entries = getLedgerEntriesResult.Entries.First();
         if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
         {
             tracker?.EndOperation();
-            return Result<LobbyInfo>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqUserData on {key} failed because data was not ContractData");
+            return Result<LobbyInfo>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqLobbyInfo on {key} failed because data was not ContractData");
         }
         LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
         tracker?.EndOperation();
@@ -538,6 +556,10 @@ public static class StellarDotnet
 
     static string SignAndEncodeTransaction(Transaction transaction)
     {
+        if (isWallet)
+        {
+            // TODO: sign with WalletManager
+        }
         DecoratedSignature signature = transaction.Sign(userAccount);
         TransactionEnvelope.EnvelopeTypeTx envelope = new()
         {

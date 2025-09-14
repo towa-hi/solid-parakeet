@@ -5,42 +5,40 @@ using Stellar.Utilities;
 
 public class NetworkMenu2 : MenuBase
 {
+    public ButtonExtended testnetTabButton;
+    public ButtonExtended mainnetTabButton;
+
+    public ButtonExtended sneedTabButton;
     public TMP_InputField contractField;
     public TMP_InputField sneedField;
-    public Button testnetButton;
-    public Button mainnetButton;
-    public Button walletButton;
-    public Button keyButton;
-    public GameObject keyPanel;
+    public TMP_InputField walletField;
 
     public Button connectButton;
     public Button offlineButton;
+    public GuiTabs networkTabs;
+    public GuiTabs connectMethodTabs;
 
     bool isTestnet = true;
-    bool isWallet = true;
+    bool isWallet = false;
+
 
     private void Start()
     {
-        contractField.onValueChanged.AddListener(HandleContractFieldChanged);
-        sneedField.onValueChanged.AddListener(HandleSneedFieldChanged);
-
-        testnetButton.onClick.AddListener(HandleTestnetButton);
-        mainnetButton.onClick.AddListener(HandleMainnetButton);
-        walletButton.onClick.AddListener(HandleWalletButton);
-        keyButton.onClick.AddListener(HandleKeyButton);
-
+        networkTabs.SetActiveTab(0);
+        bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
+        connectMethodTabs.SetActiveTab(isWebGL ? 0 : 1);
+        isTestnet = networkTabs.activeTab == 0;
+        isWallet = connectMethodTabs.activeTab == 0;
+        networkTabs.OnActiveTabChanged += OnNetworkTabChanged;
+        connectMethodTabs.OnActiveTabChanged += OnConnectMethodTabChanged;
         connectButton.onClick.AddListener(HandleConnect);
         offlineButton.onClick.AddListener(HandleOffline);
-
-        DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
-        contractField.text = defaultSettings.defaultContractAddress;
-        sneedField.text = defaultSettings.defaultHostSneed;
-
-        bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
-        if (!isWebGL)
-        {
-            isWallet = false;
-        }
+        contractField.onValueChanged.AddListener(HandleContractFieldChanged);
+        sneedField.onValueChanged.AddListener(HandleSneedFieldChanged);
+        string defaultContract = ResourceRoot.DefaultSettings.defaultContractAddress;
+        contractField.SetTextWithoutNotify(defaultContract);
+        string defaultSneed = ResourceRoot.DefaultSettings.defaultHostSneed;
+        sneedField.SetTextWithoutNotify(defaultSneed);
         Refresh();
     }
 
@@ -54,33 +52,30 @@ public class NetworkMenu2 : MenuBase
         Refresh();
     }
 
-    void HandleTestnetButton()
+    void OnNetworkTabChanged(int index)
     {
-        isTestnet = true;
-        Refresh();
+        isTestnet = index == 0;
+        contractField.interactable = isTestnet;
+        sneedTabButton.interactable = isTestnet;
+        if (!isTestnet)
+        {
+            connectMethodTabs.SetActiveTab(0);
+        }
     }
-
-    void HandleMainnetButton()
+    void OnConnectMethodTabChanged(int index)
     {
-        isTestnet = false;
-        Refresh();
-    }
-
-    void HandleWalletButton()
-    {
-        isWallet = true;
-        Refresh();
-    }
-
-    void HandleKeyButton()
-    {
-        isWallet = false;
-        Refresh();
+        isWallet = index == 0;
+        walletField.SetTextWithoutNotify(string.Empty);
     }
 
     public void HandleConnect()
     {
-        Emit(new ConnectToNetworkCommand(isTestnet, contractField.text, sneedField.text, isWallet));
+        ModalConnectData data = new ModalConnectData { isTestnet = isTestnet, contract = contractField.text, sneed = sneedField.text, isWallet = isWallet };
+        if (isWallet)
+        {
+            data.sneed = "wallet";
+        }
+        EmitAction(MenuAction.ConnectToNetwork, data);
     }
 
     public void HandleOffline()
@@ -91,51 +86,9 @@ public class NetworkMenu2 : MenuBase
     public override void Refresh()
     {
         bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
+        contractField.interactable = isTestnet;
+        sneedTabButton.interactable = isTestnet;
 
-        // Network target selection
-        testnetButton.interactable = !isTestnet;
-        mainnetButton.interactable = isTestnet;
-
-        // Wallet vs Key selection
-        if (!isWebGL)
-        {
-            walletButton.interactable = false;
-            keyButton.interactable = false;
-            keyPanel.SetActive(true);
-        }
-        else
-        {
-            walletButton.interactable = !isWallet;
-            keyButton.interactable = isWallet;
-            keyPanel.SetActive(!isWallet);
-        }
-
-        bool isSneedValid = false;
-        if (keyPanel.activeSelf)
-        {
-            isSneedValid = StrKey.IsValidEd25519SecretSeed(sneedField.text);
-            var sneedImage = sneedField.GetComponent<Image>();
-            if (sneedImage != null)
-            {
-                sneedImage.color = isSneedValid ? Color.white : Color.red;
-            }
-        }
-
-        bool isContractValid = StrKey.IsValidContractId(contractField.text);
-        var contractImage = contractField.GetComponent<Image>();
-        if (contractImage != null)
-        {
-            contractImage.color = isContractValid ? Color.white : Color.red;
-        }
-
-        if (isSneedValid || (isWallet && isContractValid))
-        {
-            connectButton.interactable = true;
-        }
-        else
-        {
-            connectButton.interactable = false;
-        }
     }
 }
 

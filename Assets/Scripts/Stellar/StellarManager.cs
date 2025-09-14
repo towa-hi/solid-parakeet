@@ -40,9 +40,8 @@ public static class StellarManager
         {
             return Result<bool>.Ok(true);
         }
-        return string.IsNullOrEmpty(inner.Message)
-            ? Result<bool>.Err(inner.Code, context)
-            : Result<bool>.Err(inner);
+        string combined = string.IsNullOrEmpty(inner.Message) ? context : ($"{context}: {inner.Message}");
+        return Result<bool>.Err(inner.Code, combined);
     }
 
     // True while a Stellar task is in progress
@@ -62,18 +61,17 @@ public static class StellarManager
             Debug.Log(message);
         }
     }
-    public static void Initialize(ModalConnectData data)
+    public static Result<bool> Initialize(ModalConnectData data)
     {
         DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
         currentTask = null;
         canceledTaskIds.Clear();
-        if (data.isWallet)
+        var init = StellarDotnet.Initialize(data.isTestnet, data.isWallet, data.sneed, data.contract);
+        if (init.IsError)
         {
-            data.isWallet = true;
-            Debug.Log("Using fake sneed for now because wallet mode");
-            data.sneed = defaultSettings.defaultHostSneed;
+            return ErrWithContext(init, "Initialize failed");
         }
-        StellarDotnet.Initialize(data.isTestnet, data.sneed, data.contract);
+        return Result<bool>.Ok(true);
     }
 
     public static AccountAddress GetHostAddress()
@@ -94,7 +92,6 @@ public static class StellarManager
         var result = await StellarDotnet.ReqAccountEntry(publicAddress);
         if (result.IsError)
         {
-            Debug.LogError($"Connect() ReqAccountEntry failed with error {result.Code} {result.Message}");
             tracker.EndOperation();
             DebugLogStellarManager(tracker.GetReport());
             EndTask(task);
@@ -148,7 +145,6 @@ public static class StellarManager
         var newNetworkStateResult = await StellarDotnet.ReqNetworkState(tracker);
         if (newNetworkStateResult.IsError)
         {
-            Debug.LogError($"UpdateState() ReqNetworkState failed with error {newNetworkStateResult.Code} {newNetworkStateResult.Message}");
             tracker.EndOperation();
             DebugLogStellarManager(tracker.GetReport());
             if (showTask)
@@ -240,10 +236,7 @@ public static class StellarManager
             lobby_id = GenerateLobbyId(),
             parameters = parameters,
         }, tracker);
-        if (result.IsError)
-        {
-            Debug.LogError($"MakeLobbyRequest() failed with error {result.Code} {result.Message}");
-        }
+        // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
@@ -265,10 +258,7 @@ public static class StellarManager
         {
             // intentionally empty
         }, tracker);
-        if (result.IsError)
-        {
-            Debug.LogError($"LeaveLobbyRequest() failed with error {result.Code} {result.Message}");
-        }
+        // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
@@ -289,10 +279,7 @@ public static class StellarManager
         {
             lobby_id = lobbyId,
         }, tracker);
-        if (result.IsError)
-        {
-            Debug.LogError($"JoinLobbyRequest() failed with error {result.Code} {result.Message}");
-        }
+        // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
@@ -350,10 +337,7 @@ public static class StellarManager
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"CommitSetupRequest");
         var result = await StellarDotnet.CallContractFunction("commit_setup", req, tracker);
-        if (result.IsError)
-        {
-            Debug.LogError($"CommitSetupRequest() failed with error {result.Code} {result.Message}");
-        }
+        // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
@@ -411,9 +395,7 @@ public static class StellarManager
         } else {
             result = await StellarDotnet.CallContractFunction("commit_move", commitMoveReq, tracker);
         }
-        if (result.IsError) {
-            Debug.LogError($"CommitMoveRequest() failed with error {result.Code} {result.Message}");
-        }
+        // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
@@ -436,7 +418,6 @@ public static class StellarManager
             var simResult = await StellarDotnet.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
             if (simResult.IsError)
             {
-                Debug.LogError($"ProveMoveRequest() failed with error {simResult.Code} {simResult.Message}");
                 tracker.EndOperation();
                 DebugLogStellarManager(tracker.GetReport());
                 EndTask(task);
@@ -445,7 +426,6 @@ public static class StellarManager
             var (_, simulateTransactionResult) = simResult.Value;
             if (simulateTransactionResult.Error != null)
             {
-                Debug.LogError($"ProveMoveRequest() simulate_collisions failed with error {simResult.Code} {simResult.Message}");
                 tracker.EndOperation();
                 DebugLogStellarManager(tracker.GetReport());
                 EndTask(task);
@@ -482,10 +462,7 @@ public static class StellarManager
         {
             result = await StellarDotnet.CallContractFunction("prove_move", proveMoveReq, tracker);
         }
-        if (result.IsError)
-        {
-            Debug.LogError($"ProveMoveRequest() failed with error {result.Code} {result.Message}");
-        }
+        // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
@@ -498,10 +475,7 @@ public static class StellarManager
         TimingTracker tracker = new();
         tracker.StartOperation($"ProveRankRequest");
         var result = await StellarDotnet.CallContractFunction("prove_rank", req, tracker);
-        if (result.IsError)
-        {
-            Debug.LogError($"ProveRankRequest() failed with error {result.Code} {result.Message}");
-        }
+        // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);

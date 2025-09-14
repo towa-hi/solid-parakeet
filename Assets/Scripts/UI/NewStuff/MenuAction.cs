@@ -20,6 +20,7 @@ public enum MenuAction
     JoinGame,
     Refresh,
     SaveChanges,
+    Quit,
 }
 
 

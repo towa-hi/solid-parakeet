@@ -79,7 +79,11 @@ public class GameManager : MonoBehaviour
                 return Result<bool>.Err(walletResult);
             }
         }
-        StellarManager.Initialize(data);
+        var init = StellarManager.Initialize(data);
+        if (init.IsError)
+        {
+            return Result<bool>.Err(init);
+        }
         onlineMode = OnlineMode.Online;
         PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
         Debug.Log($"Switched to {onlineMode} mode");
