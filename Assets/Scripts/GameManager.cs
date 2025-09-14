@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Contract;
-using PrimeTween;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -70,28 +69,28 @@ public class GameManager : MonoBehaviour
         return onlineMode == OnlineMode.Online;
     }
 
-    public async Task<bool> ConnectToNetwork(ModalConnectData data)
+    public async Task<Result<bool>> ConnectToNetwork(ModalConnectData data)
     {
         if (data.isWallet)
         {
-            var(success, address, networkDetails) = await WalletManager.ConnectWallet();
-            if (!success)
+            Result<WalletManager.WalletConnection> walletResult = await WalletManager.ConnectWallet();
+            if (walletResult.IsError)
             {
-                return false;
+                return Result<bool>.Err(walletResult);
             }
         }
         StellarManager.Initialize(data);
         onlineMode = OnlineMode.Online;
         PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
         Debug.Log($"Switched to {onlineMode} mode");
-        StatusCode code = await StellarManager.UpdateState();
-        if (code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT)
+        Result<bool> updateResult = await StellarManager.UpdateState();
+        if (updateResult.IsError)
         {
             Debug.LogWarning("Network unavailable; switching to Offline mode.");
             await SwitchToOfflineInternal();
-            return false;
+            return Result<bool>.Err(updateResult);
         }
-        return true;
+        return Result<bool>.Ok(true);
     }
 
     public async void OfflineMode()

@@ -46,28 +46,36 @@ public class WalletManager : MonoBehaviour
         #endif
     }
 
-    public static async Task<(bool success, string address, NetworkDetails networkDetails)> ConnectWallet()
+    public struct WalletConnection
     {
-        bool walletExists = await CheckWallet();
+        public string address;
+        public NetworkDetails networkDetails;
+    }
+
+    public static async Task<Result<WalletConnection>> ConnectWallet()
+    {
+        Result<bool> check = await CheckWallet();
         address = null;
         networkDetails = null;
-        if (!walletExists)
+        if (check.IsError)
         {
             Debug.LogWarning("Wallet could not be found");
-            return (false, null, null);
+            return Result<WalletConnection>.Err(check);
         }
-        address = await GetAddress();
-        if (string.IsNullOrEmpty(address))
+        Result<string> addrRes = await GetAddress();
+        if (addrRes.IsError)
         {
             Debug.LogWarning("Address not found");
-            return (false, null, null);
+            return Result<WalletConnection>.Err(addrRes);
         }
-        string networkDetailsJson = await GetNetworkDetails();
-        if (string.IsNullOrEmpty(networkDetailsJson))
+        address = addrRes.Value;
+        Result<string> ndRes = await GetNetworkDetails();
+        if (ndRes.IsError)
         {
             Debug.LogWarning("Network details not found");
-            return (false, null, null);
+            return Result<WalletConnection>.Err(ndRes);
         }
+        string networkDetailsJson = ndRes.Value;
         try
         {
             // First try to parse as error
@@ -75,27 +83,27 @@ public class WalletManager : MonoBehaviour
             if (!string.IsNullOrEmpty(errorObj?.error))
             {
                 Debug.LogError($"Network details error: {errorObj.error}");
-                return (false, null, null);
+                return Result<WalletConnection>.Err(StatusCode.WALLET_NETWORK_DETAILS_ERROR, errorObj.error);
             }
             // If no error, parse as network details
             NetworkDetails networkDetailsObj = JsonConvert.DeserializeObject<NetworkDetails>(networkDetailsJson, jsonSettings);
             if (networkDetailsObj == null)
             {
                 Debug.LogError("Invalid network details format");
-                return (false, null, null);
+                return Result<WalletConnection>.Err(StatusCode.WALLET_PARSING_ERROR, "Invalid wallet network details format");
             }
             Debug.Log($"Connected to network: {networkDetailsObj.network}");
             networkDetails = networkDetailsObj;
-            return (true, address, networkDetailsObj);
+            return Result<WalletConnection>.Ok(new WalletConnection { address = address, networkDetails = networkDetailsObj });
         }
         catch (JsonException ex)
         {
             Debug.LogError($"Failed to parse network details: {ex.Message}");
-            return (false, null, null);
+            return Result<WalletConnection>.Err(StatusCode.WALLET_PARSING_ERROR, ex.Message);
         }
     }
     
-    static async Task<bool> CheckWallet()
+    static async Task<Result<bool>> CheckWallet()
     {
         if (checkWalletTaskSource != null && !checkWalletTaskSource.Task.IsCompleted)
         {
@@ -108,13 +116,13 @@ public class WalletManager : MonoBehaviour
         if (checkWalletRes.code != 1)
         {
             Debug.Log("CheckWallet() failed with code " + checkWalletRes.code);
-            return false;
+            return Result<bool>.Err(StatusCode.WALLET_NOT_AVAILABLE, "Wallet not available");
         };
         Debug.Log("CheckWallet() completed");
-        return true;
+        return Result<bool>.Ok(true);
     }
 
-    static async Task<string> GetAddress()
+    static async Task<Result<string>> GetAddress()
     {
         if (getAddressTaskSource != null && !getAddressTaskSource.Task.IsCompleted)
         {
@@ -127,13 +135,13 @@ public class WalletManager : MonoBehaviour
         if (getAddressRes.code != 1)
         {
             Debug.Log("GetAddress() failed with code " + getAddressRes.code);
-            return null;
+            return Result<string>.Err(StatusCode.WALLET_ADDRESS_MISSING, "Wallet address missing");
         }
         Debug.Log($"GetAddress() completed with data {getAddressRes.data}");
-        return getAddressRes.data;
+        return Result<string>.Ok(getAddressRes.data);
     }
 
-    static async Task<string> GetNetworkDetails()
+    static async Task<Result<string>> GetNetworkDetails()
     {
         if (getNetworkDetailsTaskSource != null && !getNetworkDetailsTaskSource.Task.IsCompleted)
         {
@@ -146,10 +154,10 @@ public class WalletManager : MonoBehaviour
         if (getNetworkDetailsRes.code != 1)
         {
             Debug.Log("GetNetworkDetails() failed with code " + getNetworkDetailsRes.code);
-            return null;
+            return Result<string>.Err(StatusCode.WALLET_NETWORK_DETAILS_ERROR, "Wallet network details error");
         }
         Debug.Log($"GetNetworkDetails() completed with data {getNetworkDetailsRes.data}");
-        return getNetworkDetailsRes.data;
+        return Result<string>.Ok(getNetworkDetailsRes.data);
     }
     
     public void StellarResponse(string json)

@@ -79,9 +79,11 @@ public class GuiWallet : MenuElement
     
     async void HandleOnConnectWalletButton()
     {
-        (bool success, string address, NetworkDetails networkDetails) = await WalletManager.ConnectWallet();
-        if (success)
+        Result<WalletManager.WalletConnection> resultConn = await WalletManager.ConnectWallet();
+        if (resultConn.IsOk)
         {
+            WalletManager.address = resultConn.Value.address;
+            WalletManager.networkDetails = resultConn.Value.networkDetails;
             var result = await StellarManager.GetAccount(WalletManager.address);
             if (result.IsOk)
             {
@@ -96,14 +98,20 @@ public class GuiWallet : MenuElement
                 await StellarManager.GetAssets(WalletManager.address);
             }
         }
+        else
+        {
+            statusText.text = FormatStatusMessage(resultConn.Code);
+        }
         Refresh();
     }
 
     async void HandleRefreshButton()
     {
-        (bool success, string address, NetworkDetails networkDetails) = await WalletManager.ConnectWallet();
-        if (success)
+        Result<WalletManager.WalletConnection> resultConn2 = await WalletManager.ConnectWallet();
+        if (resultConn2.IsOk)
         {
+            WalletManager.address = resultConn2.Value.address;
+            WalletManager.networkDetails = resultConn2.Value.networkDetails;
             var result = await StellarManager.GetAccount(WalletManager.address);
             if (result.IsOk)
             {
@@ -118,7 +126,35 @@ public class GuiWallet : MenuElement
         else
         {
             accountEntry = null;
+            statusText.text = FormatStatusMessage(resultConn2.Code);
         }
         Refresh();
+    }
+
+    string FormatStatusMessage(StatusCode code)
+    {
+        switch (code)
+        {
+            case StatusCode.CONTRACT_ERROR: return "Contract error occurred.";
+            case StatusCode.NETWORK_ERROR: return "Network error occurred.";
+            case StatusCode.RPC_ERROR: return "RPC error occurred.";
+            case StatusCode.TIMEOUT: return "The request timed out.";
+            case StatusCode.OTHER_ERROR: return "An unexpected error occurred.";
+            case StatusCode.SERIALIZATION_ERROR: return "Serialization error occurred.";
+            case StatusCode.DESERIALIZATION_ERROR: return "Deserialization error occurred.";
+            case StatusCode.TRANSACTION_FAILED: return "Transaction failed.";
+            case StatusCode.TRANSACTION_NOT_FOUND: return "Transaction not found.";
+            case StatusCode.TRANSACTION_TIMEOUT: return "Transaction timed out.";
+            case StatusCode.ENTRY_NOT_FOUND: return "Required entry not found.";
+            case StatusCode.SIMULATION_FAILED: return "Simulation failed.";
+            case StatusCode.TRANSACTION_SEND_FAILED: return "Failed to send transaction.";
+            case StatusCode.WALLET_ERROR: return "Wallet error occurred.";
+            case StatusCode.WALLET_NOT_AVAILABLE: return "Wallet not available.";
+            case StatusCode.WALLET_ADDRESS_MISSING: return "Wallet address missing.";
+            case StatusCode.WALLET_NETWORK_DETAILS_ERROR: return "Failed to retrieve wallet network details.";
+            case StatusCode.WALLET_PARSING_ERROR: return "Failed to parse wallet response.";
+            case StatusCode.SUCCESS: return "Success.";
+            default: return "Operation failed.";
+        }
     }
 }

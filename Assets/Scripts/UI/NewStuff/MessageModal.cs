@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 public class MessageModal : ModalBase
 {
+    public TextMeshProUGUI title;
     public TextMeshProUGUI message;
     public Button closeButton;
     public Action OnCloseButton;
@@ -22,6 +23,20 @@ public class MessageModal : ModalBase
     
     public void Initialize(string messageText, Action inOnCloseButton)
     {
+        if (message)
+        {
+            message.text = messageText;
+        }
+        OnCloseButton = inOnCloseButton;
+        PrepareAwaitable();
+    }
+
+    public void Initialize(string titleText, string messageText, Action inOnCloseButton)
+    {
+        if (title)
+        {
+            title.text = titleText;
+        }
         if (message)
         {
             message.text = messageText;

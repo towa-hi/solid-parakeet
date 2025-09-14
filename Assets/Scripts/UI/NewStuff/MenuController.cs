@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -23,6 +24,7 @@ public class MenuController : MonoBehaviour
     // modal stack stuff
     public Stack<ModalBase> modalStack;
     bool isTransitioning;
+    int busyDepth;
 
     void Start()
     {
@@ -44,29 +46,62 @@ public class MenuController : MonoBehaviour
         if (isTransitioning) return;
         isTransitioning = true;
 
-        if (currentMenu != null)
+        await ExecuteBusyAsync(async () =>
         {
-            currentMenu.ActionInvoked -= HandleMenuAction;
-            await currentMenu.CloseAsync();
-            Destroy(currentMenu.gameObject);
-            currentMenu = null;
-            await Task.Yield();
-        }
+            if (currentMenu != null)
+            {
+                currentMenu.ActionInvoked -= HandleMenuAction;
+                currentMenu.CommandInvoked -= HandleMenuCommand;
+                await currentMenu.CloseAsync();
+                Destroy(currentMenu.gameObject);
+                currentMenu = null;
+                await Task.Yield();
+            }
 
-        GameObject instance = Instantiate(prefab, menuRoot);
-        MenuBase menuBase = instance.GetComponent<MenuBase>();
-        if (menuBase == null)
-        {
-            Debug.LogError("MenuController: Instantiated prefab has no MenuBase component.");
-            isTransitioning = false;
-            return;
-        }
-        currentMenu = menuBase;
-        currentMenu.ActionInvoked += HandleMenuAction;
-        currentMenu.Display(true);
-        await currentMenu.OpenAsync();
+            GameObject instance = Instantiate(prefab, menuRoot);
+            MenuBase menuBase = instance.GetComponent<MenuBase>();
+            if (menuBase == null)
+            {
+                Debug.LogError("MenuController: Instantiated prefab has no MenuBase component.");
+                return;
+            }
+            currentMenu = menuBase;
+            currentMenu.ActionInvoked += HandleMenuAction;
+            currentMenu.CommandInvoked += HandleMenuCommand;
+            currentMenu.Display(true);
+            await currentMenu.OpenAsync();
+        });
 
         isTransitioning = false;
+    }
+
+    void PushBusy()
+    {
+        busyDepth++;
+        foreach (ModalBase element in modalStack)
+        {
+            element.OnFocus(false);
+        }
+        if (currentMenu != null)
+        {
+            currentMenu.SetInteractable(false);
+        }
+    }
+
+    void PopBusy()
+    {
+        busyDepth = Mathf.Max(0, busyDepth - 1);
+        if (busyDepth == 0)
+        {
+            if (modalStack != null && modalStack.Count > 0)
+            {
+                modalStack.Peek().OnFocus(true);
+            }
+            else if (currentMenu != null)
+            {
+                currentMenu.SetInteractable(true);
+            }
+        }
     }
 
     public void OpenMessageModal(string messageText)
@@ -99,16 +134,22 @@ public class MenuController : MonoBehaviour
         Destroy(top.gameObject);
         if (modalStack.Count > 0)
         {
-            modalStack.Peek().OnFocus(true);
+            if (busyDepth == 0)
+            {
+                modalStack.Peek().OnFocus(true);
+            }
         }
         else if (currentMenu != null)
         {
             // ensure base menu is interactive again
-            currentMenu.SetInteractable(true);
+            if (busyDepth == 0)
+            {
+                currentMenu.SetInteractable(true);
+            }
         }
     }
 
-    void HandleMenuAction(MenuAction action)
+    void HandleMenuAction(MenuAction action, object payload)
     {
         Debug.Log($"MenuController received action: {action}");
         switch (action)
@@ -124,7 +165,14 @@ public class MenuController : MonoBehaviour
             case MenuAction.GotoGame: SetMenu(gameMenuPrefab); break;
 
             case MenuAction.ConnectToNetwork:
-                _ = ConnectToNetworkAsync();
+                if (payload is ModalConnectData connectData)
+                {
+                    _ = ConnectToNetworkAsync(connectData);
+                }
+                else
+                {
+                    Debug.LogError("MenuController: ConnectToNetwork action missing ModalConnectData payload");
+                }
                 break;
             case MenuAction.CreateLobby:
                 _ = CreateLobbyAsync();
@@ -147,26 +195,47 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    // Operation stubs (no-op for now)
-    async Task ConnectToNetworkAsync()
+    void HandleMenuCommand(IMenuCommand command)
     {
-        // Simulate a failed connection attempt
-        await Task.Yield();
-        bool success = false;
-        if (success)
+        switch (command)
+        {
+            case ConnectToNetworkCommand connect:
+                var data = new ModalConnectData { isTestnet = connect.isTestnet, contract = connect.contract, sneed = connect.sneed, isWallet = connect.isWallet };
+                _ = ConnectToNetworkAsync(data);
+                break;
+            default:
+                Debug.LogWarning($"MenuController: Unhandled command type {command.GetType().Name}");
+                break;
+        }
+    }
+
+    // Operation stubs (no-op for now)
+    async Task ConnectToNetworkAsync(ModalConnectData data)
+    {
+        Result<bool> result = Result<bool>.Err(StatusCode.OTHER_ERROR, "Unknown error");
+        await ExecuteBusyAsync(async () =>
+        {
+            result = await GameManager.instance.ConnectToNetwork(data);
+        });
+        if (result.IsOk)
         {
             SetMenu(mainMenuPrefab);
         }
         else
         {
-            await ShowMessageAsync("Failed to connect to the network.");
+            string message = string.IsNullOrEmpty(result.Message) ? "No details provided." : result.Message;
+            await ShowErrorAsync(result.Code, message);
         }
     }
 
     async Task CreateLobbyAsync()
     {
-        await Task.Yield();
         bool success = false;
+        await ExecuteBusyAsync(async () =>
+        {
+            await Task.Yield();
+            // perform create lobby request here
+        });
         if (success)
         {
             SetMenu(lobbyViewMenuPrefab);
@@ -179,8 +248,12 @@ public class MenuController : MonoBehaviour
 
     async Task JoinGameAsync()
     {
-        await Task.Yield();
         bool success = false;
+        await ExecuteBusyAsync(async () =>
+        {
+            await Task.Yield();
+            // perform join game request here
+        });
         if (success)
         {
             SetMenu(lobbyViewMenuPrefab);
@@ -197,7 +270,24 @@ public class MenuController : MonoBehaviour
 
     async Task SaveChangesAsync()
     {
-        await Task.Yield();
+        await ExecuteBusyAsync(async () =>
+        {
+            await Task.Yield();
+            // perform save request here
+        });
+    }
+
+    async Task ExecuteBusyAsync(Func<Task> work)
+    {
+        PushBusy();
+        try
+        {
+            await work();
+        }
+        finally
+        {
+            PopBusy();
+        }
     }
 
     // Awaitable modal helper
@@ -224,7 +314,37 @@ public class MenuController : MonoBehaviour
         modal.OnFocus(true);
         modalStack.Push(modal);
         await modal.AwaitCloseAsync();
-        if (modalStack.Count == 0 && currentMenu != null)
+        if (modalStack.Count == 0 && currentMenu != null && busyDepth == 0)
+        {
+            currentMenu.SetInteractable(true);
+        }
+    }
+
+    async Task ShowErrorAsync(StatusCode code, string messageText)
+    {
+        foreach (ModalBase element in modalStack)
+        {
+            element.OnFocus(false);
+        }
+        if (currentMenu != null)
+        {
+            currentMenu.SetInteractable(false);
+        }
+        GameObject instance = Instantiate(messageModalPrefab, modalRoot);
+        instance.transform.SetAsLastSibling();
+        MessageModal modal = instance.GetComponent<MessageModal>();
+        if (modal == null)
+        {
+            Debug.LogError("MenuController: messageModalPrefab is missing MessageModal component");
+            Destroy(instance);
+            return;
+        }
+        string title = $"{code} ({(int)code})";
+        modal.Initialize(title, messageText, () => CloseTopModal());
+        modal.OnFocus(true);
+        modalStack.Push(modal);
+        await modal.AwaitCloseAsync();
+        if (modalStack.Count == 0 && currentMenu != null && busyDepth == 0)
         {
             currentMenu.SetInteractable(true);
         }

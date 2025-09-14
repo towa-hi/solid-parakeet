@@ -80,7 +80,7 @@ public class NetworkMenu2 : MenuBase
 
     public void HandleConnect()
     {
-        EmitAction(MenuAction.ConnectToNetwork);
+        Emit(new ConnectToNetworkCommand(isTestnet, contractField.text, sneedField.text, isWallet));
     }
 
     public void HandleOffline()

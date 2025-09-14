@@ -11,7 +11,8 @@ public abstract class MenuBase : MonoBehaviour
     public Action OnTransitionEnd;
     public Action OnClosed;
     public Action OnOpened;
-    public event Action<MenuAction> ActionInvoked;
+    public event Action<MenuAction, object> ActionInvoked;
+    public event Action<IMenuCommand> CommandInvoked;
 
     public float openDuration;
     public float closeDuration;
@@ -98,7 +99,7 @@ public abstract class MenuBase : MonoBehaviour
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
         }
-        Debug.Log("MenuBase: invoking OnTransitionStart");
+        // Debug.Log("MenuBase: invoking OnTransitionStart");
         OnTransitionStart?.Invoke();
 
         if (canvasGroup != null)
@@ -129,7 +130,7 @@ public abstract class MenuBase : MonoBehaviour
                 canvasGroup.alpha = 1f;
             }
         }
-        Debug.Log("MenuBase: invoking OnTransitionEnd");
+        // Debug.Log("MenuBase: invoking OnTransitionEnd");
         OnTransitionEnd?.Invoke();
         if (canvasGroup != null)
         {
@@ -142,7 +143,17 @@ public abstract class MenuBase : MonoBehaviour
 
     protected void EmitAction(MenuAction action)
     {
-        ActionInvoked?.Invoke(action);
+        ActionInvoked?.Invoke(action, null);
+    }
+
+    protected void EmitAction(MenuAction action, object payload)
+    {
+        ActionInvoked?.Invoke(action, payload);
+    }
+
+    protected void Emit(IMenuCommand command)
+    {
+        CommandInvoked?.Invoke(command);
     }
 
     static float EaseInCubic(float t)

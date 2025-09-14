@@ -34,6 +34,17 @@ public static class StellarManager
     static bool desiredPolling;
     static int pollingHoldCount;
 
+    static Result<bool> ErrWithContext<T>(Result<T> inner, string context)
+    {
+        if (inner.IsOk)
+        {
+            return Result<bool>.Ok(true);
+        }
+        return string.IsNullOrEmpty(inner.Message)
+            ? Result<bool>.Err(inner.Code, context)
+            : Result<bool>.Err(inner);
+    }
+
     // True while a Stellar task is in progress
     public static bool IsBusy => currentTask != null;
 
@@ -73,7 +84,7 @@ public static class StellarManager
     }
 
 
-    public static async Task<StatusCode> Connect()
+    public static async Task<Result<bool>> Connect()
     {
         TaskInfo task = SetCurrentTask("Connect");
         TimingTracker tracker = new();
@@ -87,7 +98,7 @@ public static class StellarManager
             tracker.EndOperation();
             DebugLogStellarManager(tracker.GetReport());
             EndTask(task);
-            return result.Code;
+            return ErrWithContext(result, "Connect: account not found");
         }
         // check to make sure contract exists on network
         var userResult = await StellarDotnet.ReqUser(publicAddress.AccountId, tracker);
@@ -98,9 +109,9 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return Result<bool>.Ok(true);
     }
-    public static async Task<StatusCode> UpdateState(bool showTask = true)
+    public static async Task<Result<bool>> UpdateState(bool showTask = true)
     {
         if (!GameManager.instance.IsOnline())
         {
@@ -128,7 +139,7 @@ public static class StellarManager
                     OnNetworkStateUpdated?.Invoke();
                 }
             }
-            return StatusCode.SUCCESS;
+            return Result<bool>.Ok(true);
         }
         TaskInfo getNetworkStateTask = showTask ? SetCurrentTask("ReqNetworkState") : null;
         TimingTracker tracker = new();
@@ -145,7 +156,7 @@ public static class StellarManager
                 // Treat this as an abort so any follow-up EndTask is safely ignored
                 AbortCurrentTask();
             }
-            return newNetworkStateResult.Code;
+            return ErrWithContext(newNetworkStateResult, "UpdateState: failed to fetch network state");
         }
         NetworkState newNetworkState = newNetworkStateResult.Value;
         // if we got a user with an assigned current_lobby but we couldnt get a lobbyInfo 
@@ -182,7 +193,7 @@ public static class StellarManager
         {
             EndTask(getNetworkStateTask);
         }
-        return StatusCode.SUCCESS;
+        return Result<bool>.Ok(true);
     }
 
     public static bool SetContractAddress(string contractId)
@@ -212,13 +223,13 @@ public static class StellarManager
         return StellarDotnet.sneed;
     }
 
-    public static async Task<StatusCode> MakeLobbyRequest(LobbyParameters parameters)
+    public static async Task<Result<bool>> MakeLobbyRequest(LobbyParameters parameters)
     {
         if (!GameManager.instance.IsOnline())
         {
             FakeServer.MakeLobbyAsHost(parameters);
             FakeServer.JoinLobbyAsGuest(FakeServer.fakeLobbyId);
-            return StatusCode.SUCCESS;
+            return Result<bool>.Ok(true);
         }
         // Pause polling during contract invocation
         TimingTracker tracker = new();
@@ -236,16 +247,16 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "MakeLobbyRequest failed");
     }
 
-    public static async Task<StatusCode> LeaveLobbyRequest()
+    public static async Task<Result<bool>> LeaveLobbyRequest()
     {
         if (!GameManager.instance.IsOnline())
         {
             FakeServer.Reset();
             await UpdateState();
-            return StatusCode.SUCCESS;
+            return Result<bool>.Ok(true);
         }
         TimingTracker tracker = new();
         tracker.StartOperation($"LeaveLobbyRequest");
@@ -261,15 +272,15 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "LeaveLobbyRequest failed");
     }
 
-    public static async Task<StatusCode> JoinLobbyRequest(LobbyId lobbyId)
+    public static async Task<Result<bool>> JoinLobbyRequest(LobbyId lobbyId)
     {
         if (!GameManager.instance.IsOnline())
         {
             FakeServer.JoinLobbyAsGuest(lobbyId);
-            return StatusCode.SUCCESS;
+            return Result<bool>.Ok(true);
         }
         TaskInfo task = SetCurrentTask("JoinLobbyRequest");
         TimingTracker tracker = new();
@@ -285,7 +296,7 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "JoinLobbyRequest failed");
     }
 
     public static async Task<PackedHistory?> GetPackedHistory(uint lobbyId)
@@ -304,7 +315,7 @@ public static class StellarManager
         return result.IsError ? null : result.Value;
     }
 
-    public static async Task<StatusCode> CommitSetupRequest(CommitSetupReq req)
+    public static async Task<Result<bool>> CommitSetupRequest(CommitSetupReq req)
     {
         if (!GameManager.instance.IsOnline())
         {
@@ -333,7 +344,7 @@ public static class StellarManager
             // now host goes
             FakeServer.CommitSetup(req, true);
             Debug.Log("CommitSetupRequest fake host done");
-            return StatusCode.SUCCESS;
+            return Result<bool>.Ok(true);
         }
         TaskInfo task = SetCurrentTask("CommitSetupRequest");
         TimingTracker tracker = new TimingTracker();
@@ -346,10 +357,10 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "CommitSetupRequest failed");
     }
 
-    public static async Task<StatusCode> CommitMoveRequest(CommitMoveReq commitMoveReq, ProveMoveReq proveMoveReq, AccountAddress userAddress, LobbyInfo lobbyInfo, LobbyParameters lobbyParameters)
+    public static async Task<Result<bool>> CommitMoveRequest(CommitMoveReq commitMoveReq, ProveMoveReq proveMoveReq, AccountAddress userAddress, LobbyInfo lobbyInfo, LobbyParameters lobbyParameters)
     {
         Debug.Assert(commitMoveReq.lobby_id == proveMoveReq.lobby_id);
         Debug.Assert(commitMoveReq.move_hashes.Length == proveMoveReq.move_proofs.Length);
@@ -386,7 +397,7 @@ public static class StellarManager
             Debug.Log("CommitMoveRequest fake host move");
             FakeServer.CommitMoveAndProveMove(commitMoveReq, proveMoveReq, true);
             Debug.Log("CommitMoveRequest fake done");
-            return StatusCode.SUCCESS;
+            return Result<bool>.Ok(true);
         }
         TaskInfo task = SetCurrentTask("CommitMoveRequest");
         TimingTracker tracker = new();
@@ -406,10 +417,10 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "CommitMoveRequest failed");
     }
 
-    public static async Task<StatusCode> ProveMoveRequest(ProveMoveReq proveMoveReq, AccountAddress userAddress, LobbyInfo lobbyInfo, LobbyParameters lobbyParameters)
+    public static async Task<Result<bool>> ProveMoveRequest(ProveMoveReq proveMoveReq, AccountAddress userAddress, LobbyInfo lobbyInfo, LobbyParameters lobbyParameters)
     {
         Debug.Assert(lobbyInfo.phase == Phase.MoveProve);
         Debug.Assert(lobbyParameters.security_mode);
@@ -429,7 +440,7 @@ public static class StellarManager
                 tracker.EndOperation();
                 DebugLogStellarManager(tracker.GetReport());
                 EndTask(task);
-                return simResult.Code;
+                return ErrWithContext(simResult, "ProveMoveRequest: simulate_collisions failed");
             }
             var (_, simulateTransactionResult) = simResult.Value;
             if (simulateTransactionResult.Error != null)
@@ -438,7 +449,7 @@ public static class StellarManager
                 tracker.EndOperation();
                 DebugLogStellarManager(tracker.GetReport());
                 EndTask(task);
-                return StatusCode.SIMULATION_FAILED;
+                return Result<bool>.Err(StatusCode.SIMULATION_FAILED, "ProveMoveRequest: simulation returned error");
             }
             SCVal scVal = simulateTransactionResult.Results.FirstOrDefault()!.Result;
             UserMove simulatedMove = SCUtility.SCValToNative<UserMove>(scVal);
@@ -478,10 +489,10 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "ProveMoveRequest failed");
     }
 
-    public static async Task<StatusCode> ProveRankRequest(ProveRankReq req)
+    public static async Task<Result<bool>> ProveRankRequest(ProveRankReq req)
     {
         TaskInfo task = SetCurrentTask("Invoke Prove_rank");
         TimingTracker tracker = new();
@@ -494,7 +505,7 @@ public static class StellarManager
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
         EndTask(task);
-        return result.Code;
+        return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "ProveRankRequest failed");
     }
 
     public static async Task<Result<AccountEntry>> GetAccount(string key)
@@ -879,83 +890,6 @@ public static class StellarManager
         return new LobbyId(value);
     }
 
-    static ResultCode ProcessTransactionResult((SimulateTransactionResult, SendTransactionResult, GetTransactionResult) results)
-    {
-        return ProcessTransactionResult(results.Item1, results.Item2, results.Item3);
-    }
-
-    static ResultCode ProcessTransactionResult(SimulateTransactionResult simResult, SendTransactionResult sendResult,
-        GetTransactionResult getResult)
-    {
-        if (simResult == null)
-        {
-            Debug.LogError("ProcessTransactionResult: simulation failed to send");
-            return ResultCode.SIM_SEND_FAILED;
-        }
-
-        if (simResult.Error != null)
-        {
-            List<int> errorCodes = new();
-            foreach (DiagnosticEvent diag in simResult.DiagnosticEvents.Where(diag => !diag.inSuccessfulContractCall))
-            {
-                Debug.LogError(JsonUtility.ToJson(diag));
-                ContractEvent.bodyUnion.case_0 body = (ContractEvent.bodyUnion.case_0)diag._event.body;
-                foreach (SCVal topic in body.v0.topics)
-                {
-                    if (topic is not SCVal.ScvError { error: SCError.SceContract contractError }) continue;
-                    int code = (int)contractError.contractCode.InnerValue;
-                    errorCodes.Add(code);
-                }
-            }
-
-            if (errorCodes.Count > 1)
-            {
-                Debug.LogError("ProcessTransactionResult failed to simulate with more than 1 error");
-            }
-
-            foreach (int err in errorCodes)
-            {
-                ErrorCode errorCode = (ErrorCode)err;
-                Debug.LogError(errorCode.ToString());
-            }
-
-            return ResultCode.SIM_REJECTED;
-        }
-
-        if (sendResult == null)
-        {
-            return ResultCode.TX_SEND_FAILED;
-        }
-
-        if (sendResult.ErrorResult != null)
-        {
-            return ResultCode.TX_REJECTED;
-        }
-
-        if (getResult == null)
-        {
-            return ResultCode.GET_FAILED_OR_TIMED_OUT;
-        }
-        switch (getResult.Status)
-        {
-            case GetTransactionResultStatus.SUCCESS:
-                return ResultCode.SUCCESS;
-            case GetTransactionResultStatus.NOT_FOUND:
-                return ResultCode.GET_NOT_FOUND;
-            case GetTransactionResultStatus.FAILED:
-                Debug.LogError(getResult.ResultXdr);
-                if (getResult.TransactionResult.result is TransactionResult.resultUnion.TxFAILED txFailed)
-                {
-                    if (txFailed.results.FirstOrDefault() is OperationResult.OpINNER { tr: OperationResult.trUnion.InvokeHostFunction invokeHostFunction })
-                    {
-                        Debug.LogError(invokeHostFunction.invokeHostFunctionResult.Discriminator);
-                    }
-                }
-                return ResultCode.GET_FAILED_OR_TIMED_OUT;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-    }
 }
 
 public class TaskInfo
@@ -964,18 +898,4 @@ public class TaskInfo
     public string taskMessage;
 }
 
-public enum ResultCode
-{
-    SUCCESS,
-    SIM_SEND_FAILED,
-    SIM_REJECTED,
-    TX_SEND_FAILED,
-    TX_REJECTED,
-    GET_NOT_FOUND,
-    GET_FAILED_OR_TIMED_OUT,
-    GET_INSUFFICIENT_REFUNDABLE_FEE,
-
-    TRANSACTION_NOT_FOUND,
-    TRANSACTION_SIM_REJECTED_BY_CONTRACT,
-    TRANSACTION_FAILED_MISC,
-}
+ 

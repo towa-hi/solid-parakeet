@@ -248,7 +248,7 @@ public class BoardManager : MonoBehaviour
         LobbyInfo lobbyInfo = gnsFromStellarManager.lobbyInfo;
         LobbyParameters lobbyParameters = gnsFromStellarManager.lobbyParameters;
         AccountAddress userAddress = gnsFromStellarManager.address;
-        StatusCode operationResult = StatusCode.SUCCESS;
+        Result<bool> operationResult = Result<bool>.Ok(true);
         switch (req)
         {
             case CommitSetupReq commitSetupReq:
@@ -274,18 +274,20 @@ public class BoardManager : MonoBehaviour
                 throw new ArgumentOutOfRangeException(nameof(req));
         }
 
-        if (operationResult != StatusCode.SUCCESS)
+        if (operationResult.IsError)
         {
             GameManager.instance.OfflineMode();
-            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+            string message = string.IsNullOrEmpty(operationResult.Message) ? "You're now in Offline Mode." : operationResult.Message;
+            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", message);
             GameManager.instance.guiMenuController.GotoStartMenu();
             return false;
         }
-        StatusCode code = await StellarManager.UpdateState();
-        if (code != StatusCode.SUCCESS)
+        Result<bool> code = await StellarManager.UpdateState();
+        if (code.IsError)
         {
             GameManager.instance.OfflineMode();
-            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+            string message = string.IsNullOrEmpty(code.Message) ? "You're now in Offline Mode." : code.Message;
+            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", message);
             GameManager.instance.guiMenuController.GotoStartMenu();
             return false;
         }
