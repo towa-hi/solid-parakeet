@@ -28,8 +28,6 @@ public enum MenuAction
     MasterVolumeSlider,
     MusicVolumeSlider,
     EffectsVolumeSlider,
-    StartSingleplayerLobby,
-    StartMultiplayerLobby,
     EnterGame,
 }
 

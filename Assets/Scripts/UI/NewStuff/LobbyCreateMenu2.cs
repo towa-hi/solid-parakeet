@@ -110,7 +110,7 @@ public class LobbyCreateMenu2 : MenuBase
     }
     public override void Refresh()
     {
-        bool isOnline = GameManager.instance.IsOnline();
+        bool isOnline = StellarManager.networkContext.online;
         // deal with toggle buttons
         hostRedTeamToggle.interactable = !lobbyCreateData.hostTeam;
         hostBlueTeamToggle.interactable = lobbyCreateData.hostTeam;
@@ -120,11 +120,11 @@ public class LobbyCreateMenu2 : MenuBase
         eclipseIntervalDropdown.SetValueWithoutNotify(lobbyCreateData.blitzInterval);
         boardDropdown.SetValueWithoutNotify(boardDefs.ToList().IndexOf(lobbyCreateData.boardDef));
         // deal with text
-        string networkUri = isOnline ? StellarDotnet.networkUri.ToString() : "Offline";
+        string networkUri = isOnline ? StellarManager.networkContext.serverUri.ToString() : "Offline";
         networkText.text = networkUri;
-        contractText.text = isOnline ? StellarDotnet.contractAddress : "Offline";
-        addressText.text = isOnline ? StellarDotnet.userAddress : "Offline";
-        walletText.text = isOnline ? StellarDotnet.isWallet ? "Using Wallet" : "Using Key" : "Offline";
+        contractText.text = isOnline ? StellarManager.networkContext.contractAddress : "Offline";
+        addressText.text = isOnline ? StellarManager.networkContext.userAccount.AccountId : "Offline";
+        walletText.text = isOnline ? StellarManager.networkContext.isWallet ? "Using Wallet" : "Using Key" : "Offline";
 
         multiplayerButton.interactable = isOnline;
 

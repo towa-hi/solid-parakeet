@@ -26,3 +26,5 @@ MonoBehaviour:
   networkLogging: 1
   pollingLogging: 0
   stellarManagerLogging: 1
+  defaultTestnetUri: https://soroban-testnet.stellar.org
+  defaultMainnetUri: https://mainnet.sorobanrpc.com

@@ -69,7 +69,7 @@ public class GuiLobbyView : MonoBehaviour
             Destroy(entry.gameObject);
         }
         entries.Clear();
-        contractAddressText.text = StellarManager.GetContractAddress();
+        contractAddressText.text = StellarManager.networkContext.contractAddress;
         if (!mLobbyInfo.HasValue)
         {
             contractAddressText.text = "No lobby";

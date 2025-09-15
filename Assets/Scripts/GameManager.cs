@@ -9,12 +9,6 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Serialization;
 
-public enum OnlineMode
-{
-    Online = 0,
-    Offline = 1,
-}
-
 public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
@@ -29,11 +23,6 @@ public class GameManager : MonoBehaviour
     public AudioManager audioManager;
     public PoolManager poolManager;
 
-    // Online/Offline mode state
-    public OnlineMode onlineMode = OnlineMode.Online;
-    const string OnlineModePrefKey = "OnlineMode";
-
-
     void Awake()
     {
         if (instance == null)
@@ -47,15 +36,6 @@ public class GameManager : MonoBehaviour
         Debug.Log("Welcome to warmancer!");
         Debug.developerConsoleVisible = true;
         SettingsManager.Initialize();
-        // Initialize mode from PlayerPrefs before subsystems read it
-        if (PlayerPrefs.HasKey(OnlineModePrefKey))
-        {
-            onlineMode = (OnlineMode)PlayerPrefs.GetInt(OnlineModePrefKey);
-        }
-        else
-        {
-            PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
-        }
         cameraManager?.Initialize();
         guiMenuController?.Initialize();
         audioManager?.Initialize();
@@ -63,54 +43,6 @@ public class GameManager : MonoBehaviour
         Debug.Log("InputActions enabled");
     }
     
-    
-    public bool IsOnline()
-    {
-        return onlineMode == OnlineMode.Online;
-    }
-
-    public async Task<Result<bool>> ConnectToNetwork(ModalConnectData data)
-    {
-        if (data.isWallet)
-        {
-            Result<WalletManager.WalletConnection> walletResult = await WalletManager.ConnectWallet();
-            if (walletResult.IsError)
-            {
-                return Result<bool>.Err(walletResult);
-            }
-        }
-        var init = StellarManager.Initialize(data);
-        if (init.IsError)
-        {
-            return Result<bool>.Err(init);
-        }
-        onlineMode = OnlineMode.Online;
-        PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
-        Debug.Log($"Switched to {onlineMode} mode");
-        Result<bool> updateResult = await StellarManager.UpdateState();
-        if (updateResult.IsError)
-        {
-            Debug.LogWarning("Network unavailable; switching to Offline mode.");
-            await SwitchToOfflineInternal();
-            return Result<bool>.Err(updateResult);
-        }
-        return Result<bool>.Ok(true);
-    }
-
-    public async Task OfflineMode()
-    {
-        await SwitchToOfflineInternal();
-
-    }
-    async Task SwitchToOfflineInternal()
-    {
-        // Abort any in-flight network task to prevent stuck UI states
-        StellarManager.AbortCurrentTask();
-        onlineMode = OnlineMode.Offline;
-        PlayerPrefs.SetInt(OnlineModePrefKey, (int)onlineMode);
-        await StellarManager.UpdateState();
-        Debug.Log($"Switched to {onlineMode} mode");
-    }
     // TODO: move this somewhere else
     Coroutine lightningCoroutine;
     public void Lightning()

@@ -62,7 +62,7 @@ public class MainMenu2 : MenuBase
 
     public override void Refresh()
     {
-        bool isOnline = GameManager.instance.IsOnline();
+        bool isOnline = StellarManager.networkContext.online;
         bool isInLobby = StellarManager.networkState.inLobby;
         topText.text = isOnline ? "Online" : "Offline";
         createLobbyButton.text.text = isOnline ? "CREATE LOBBY" : "SINGLEPLAYER";

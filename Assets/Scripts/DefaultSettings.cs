@@ -17,4 +17,6 @@ public class DefaultSettings : ScriptableObject
     public bool networkLogging;
     public bool pollingLogging;
     public bool stellarManagerLogging;
+    public string defaultTestnetUri;
+    public string defaultMainnetUri;
 }

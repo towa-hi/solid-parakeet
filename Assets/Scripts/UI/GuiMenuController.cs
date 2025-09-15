@@ -101,26 +101,24 @@ public class GuiMenuController: MonoBehaviour
 		Result<bool> stateRes = await StellarManager.UpdateState();
 		if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
 		{
-			GameManager.instance.OfflineMode();
-			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
 			GotoStartMenu();
 			return;
 		}
 		ShowMenuElement(lobbyMakerElement);
 	}
 
-	async void OnStartButton()
+	void OnStartButton()
 	{
         Debug.Log("wew");
         OpenModal(modalConnectPrefab);
         Debug.Log("OnStartButton done");
 	}
 
-	async void OnStartOfflineButton()
+	void OnStartOfflineButton()
 	{
-        GameManager.instance.OfflineMode();
-        GotoMainMenu();
-        Debug.Log("OnStartOfflineButton done");
+		//_ = StellarManager.DisconnectFromNetwork();
+		GotoMainMenu();
+		Debug.Log("OnStartOfflineButton done");
 	}
 
 	void OpenSettingsModal()
@@ -209,7 +207,7 @@ public class GuiMenuController: MonoBehaviour
 
     async void OnConnectButton(ModalConnectData data)
     {
-        Result<bool> result = await GameManager.instance.ConnectToNetwork(data);
+        Result<bool> result = await StellarManager.Initialize(data);
         if (!result.IsOk)
         {
             string message = string.IsNullOrEmpty(result.Message) ? FormatStatusMessage(result.Code) : result.Message;
@@ -242,7 +240,7 @@ public class GuiMenuController: MonoBehaviour
 		Result<bool> stateRes = await StellarManager.UpdateState();
 		if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
 		{
-			GameManager.instance.OfflineMode();
+			//_ = StellarManager.DisconnectFromNetwork();
 			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
 			GotoStartMenu();
 			return;
@@ -264,27 +262,27 @@ public class GuiMenuController: MonoBehaviour
 	}
 	void CheckAssets()
 	{
-		_ = StellarManager.GetAssets(StellarManager.GetUserAddress());
+		//_ = StellarManager.GetAssets(StellarManager.GetUserAddress());
 	}
 	
 	async void ViewLobby()
 	{
 		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
 		Result<bool> stateRes = await StellarManager.UpdateState();
-		if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
-		{
-			GameManager.instance.OfflineMode();
-			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
-			GotoStartMenu();
-			return;
-		}
-		// In offline mode, go straight back into the game if a local lobby exists
-		if (!GameManager.instance.IsOnline() && StellarManager.networkState.inLobby)
-		{
-			ShowMenuElement(gameElement);
-			GameManager.instance.boardManager.StartBoardManager();
-			return;
-		}
+		// if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
+		// {
+		// 	//_ = StellarManager.DisconnectFromNetwork();
+		// 	OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+		// 	GotoStartMenu();
+		// 	return;
+		// }
+		// // In offline mode, go straight back into the game if a local lobby exists
+		// if (!StellarManager.IsOnline() && StellarManager.networkState.inLobby)
+		// {
+		// 	ShowMenuElement(gameElement);
+		// 	GameManager.instance.boardManager.StartBoardManager();
+		// 	return;
+		// }
 		ShowMenuElement(lobbyViewerElement);
 	}
 
@@ -307,7 +305,7 @@ public class GuiMenuController: MonoBehaviour
 		Result<bool> stateRes = await StellarManager.UpdateState();
 		if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
 		{
-			GameManager.instance.OfflineMode();
+			//_ = StellarManager.DisconnectFromNetwork();
 			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
 			GotoStartMenu();
 			return;
@@ -336,7 +334,7 @@ public class GuiMenuController: MonoBehaviour
 	async void StartSingleplayer(LobbyParameters parameters)
 	{
 		// Switch to offline mode
-		GameManager.instance.OfflineMode();
+		//_ = StellarManager.DisconnectFromNetwork();
 		// Create local lobby (offline branch handles host make + guest join)
 		await StellarManager.MakeLobbyRequest(parameters);
 		// Refresh local network state
@@ -367,7 +365,7 @@ public class GuiMenuController: MonoBehaviour
 		Result<bool> stateRes2 = await StellarManager.UpdateState();
 		if (stateRes2.IsError && (stateRes2.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
 		{
-			GameManager.instance.OfflineMode();
+			//_ = StellarManager.DisconnectFromNetwork();
 			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
 			GotoStartMenu();
 			return;
@@ -412,13 +410,13 @@ public class GuiMenuController: MonoBehaviour
 	{
 		currentElement?.EnableInput(false);
 		topBar.Show(true);
-		string address = StellarManager.GetUserAddress();
-		Color backgroundColor = Color.gray;
-		if (address != null)
-		{
-			backgroundColor = address == StellarManager.GetHostAddress() ? Color.red : Color.blue;
-		}
-		topBar.SetView(backgroundColor, task.taskMessage);
+		//string address = StellarManager.GetUserAddress();
+		// Color backgroundColor = Color.gray;
+		// if (address != null)
+		// {
+		// 	backgroundColor = address == StellarManager.GetHostAddress() ? Color.red : Color.blue;
+		// }
+		// topBar.SetView(backgroundColor, task.taskMessage);
 	}
 	
 	void HideTopBar(TaskInfo task)

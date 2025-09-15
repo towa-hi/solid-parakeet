@@ -41,7 +41,7 @@ public class GuiLobbyJoiner : MenuElement
 
     public override void Refresh()
     {
-        contractAddressText.text = StellarManager.GetContractAddress();
+        contractAddressText.text = StellarManager.networkContext.contractAddress;
         joinButton.interactable = lobbyIdInputField.text.Length > 0;
         string status = "Enter a valid lobby ID";
         if (joinButton.interactable)

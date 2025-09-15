@@ -230,41 +230,54 @@ public class MenuController : MonoBehaviour
     // Operation stubs (no-op for now)
     async Task ConnectToNetworkAsync(ModalConnectData data)
     {
-        Result<bool> result = default;
         await ExecuteBusyAsync(async () =>
         {
-            result = await GameManager.instance.ConnectToNetwork(data);
+            Result<bool> initializeResult = await StellarManager.Initialize(data);
+            if (initializeResult.IsError)
+            {
+                StellarManager.Uninitialize();
+                await ShowErrorAsync(initializeResult.Code, initializeResult.Message);
+                return;
+            }
+            Result<bool> updateResult = await StellarManager.UpdateState();
+            if (updateResult.IsError)
+            {
+                StellarManager.Uninitialize();
+                await ShowErrorAsync(updateResult.Code, updateResult.Message);
+                return;
+            }
         });
-        if (result.IsOk)
-        {
-            SetMenu(mainMenuPrefab);
-        }
-        else
-        {
-            await ShowErrorAsync(result.Code, result.Message);
-        }
+        
+        SetMenu(mainMenuPrefab);
     }
 
     async Task CreateLobbyAsync(LobbyCreateData lobbyCreateData)
     {
-        Result<LobbyParameters> lobbyParametersResult = lobbyCreateData.ToLobbyParameters();
-        if (lobbyParametersResult.IsError)
-        {
-            await ShowErrorAsync(lobbyParametersResult.Code, lobbyParametersResult.Message);
-            return;
-        }
-        LobbyParameters lobbyParameters = lobbyParametersResult.Value;
-        await GameManager.instance.OfflineMode();
-        Result<bool> result = default;
         await ExecuteBusyAsync(async () =>
         {
-            result = await StellarManager.MakeLobbyRequest(lobbyParameters);
+            Result<LobbyParameters> lobbyParametersResult = lobbyCreateData.ToLobbyParameters();
+            if (lobbyParametersResult.IsError)
+            {
+                await ShowErrorAsync(lobbyParametersResult.Code, lobbyParametersResult.Message);
+                return;
+            }
+            LobbyParameters lobbyParameters = lobbyParametersResult.Value;
+            Result<bool> result = await StellarManager.MakeLobbyRequest(lobbyParameters);
+            if (result.IsError)
+            {
+                StellarManager.Uninitialize();
+                await ShowErrorAsync(result.Code, result.Message);
+                return;
+            }
+            Result<bool> updateResult = await StellarManager.UpdateState();
+            if (updateResult.IsError)
+            {
+                StellarManager.Uninitialize();
+                await ShowErrorAsync(updateResult.Code, updateResult.Message);
+                return;
+            }
         });
-        if (result.IsError)
-        {
-            await ShowErrorAsync(result.Code, result.Message);
-            return;
-        }
+        
         SetMenu(lobbyViewMenuPrefab);
     }
 
@@ -372,7 +385,7 @@ public class MenuController : MonoBehaviour
     void GoOffline()
     {
         // get rid of this because the data flow is backwards
-        GameManager.instance.OfflineMode();
+        //_ = StellarManager.DisconnectFromNetwork();
         SetMenu(mainMenuPrefab);
     }
 }

@@ -2055,9 +2055,30 @@ public struct GameNetworkState
     }
 }
 
-public struct NetworkState
+public struct NetworkContext
 {
     public bool online;
+    public bool isWallet;
+    public MuxedAccount userAccount;
+    public bool isTestnet;
+    public string contractAddress;
+
+    public string serverUri;
+
+    public NetworkContext(bool inOnline, bool inIsWallet, MuxedAccount inUserAccount, bool inIsTestnet, string inServerUri, string inContractAddress)
+    {
+        online = inOnline;
+        isWallet = inIsWallet;
+        userAccount = inUserAccount;
+        isTestnet = inIsTestnet;
+        serverUri = inServerUri;
+        contractAddress = inContractAddress;
+    }
+}
+
+public struct NetworkState
+{
+    public bool fromOnline;
     public AccountAddress address;
     public User? user;
     public LobbyInfo? lobbyInfo;
@@ -2066,10 +2087,10 @@ public struct NetworkState
     
     public bool inLobby => lobbyInfo != null && lobbyParameters != null;
 
-    public NetworkState(AccountAddress inAddress, bool inOnline)
+    public NetworkState(NetworkContext networkContext)
     {
-        online = inOnline;
-        address = inAddress;
+        fromOnline = networkContext.online;
+        address = new AccountAddress(StrKey.EncodeStellarAccountId(networkContext.userAccount.PublicKey));
         user = null;
         lobbyInfo = null;
         lobbyParameters = null;

@@ -276,7 +276,7 @@ public class BoardManager : MonoBehaviour
 
         if (operationResult.IsError)
         {
-            GameManager.instance.OfflineMode();
+            //_ = StellarManager.DisconnectFromNetwork();
             string message = string.IsNullOrEmpty(operationResult.Message) ? "You're now in Offline Mode." : operationResult.Message;
             GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", message);
             GameManager.instance.guiMenuController.GotoStartMenu();
@@ -285,7 +285,7 @@ public class BoardManager : MonoBehaviour
         Result<bool> code = await StellarManager.UpdateState();
         if (code.IsError)
         {
-            GameManager.instance.OfflineMode();
+            //_ = StellarManager.DisconnectFromNetwork();
             string message = string.IsNullOrEmpty(code.Message) ? "You're now in Offline Mode." : code.Message;
             GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", message);
             GameManager.instance.guiMenuController.GotoStartMenu();

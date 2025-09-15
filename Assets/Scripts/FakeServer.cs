@@ -50,7 +50,9 @@ public static class FakeServer
     public static NetworkState GetFakeNetworkState()
     {
         Debug.Log("GetFakeNetworkState");
-        var networkState = new NetworkState(fakeHostAddress, false);
+        var networkState = new NetworkState();
+        networkState.fromOnline = false;
+        networkState.address = fakeHostAddress;
         networkState.user = fakeHost;
         networkState.lobbyInfo = fakeLobbyInfo;
         networkState.lobbyParameters = fakeParameters;

@@ -155,8 +155,10 @@ public class ModalConnect : ModalElement
 
 public struct ModalConnectData
 {
+    public bool online;
     public bool isTestnet;
     public string contract;
     public string sneed;
     public bool isWallet;
+    public string serverUri;
 }

@@ -98,7 +98,7 @@ public class GuiMainMenu : MenuElement
     {
         if (entry == null)
         {
-            string message = $"No SCRY could be found for account {StellarManager.GetUserAddress()}";
+            string message = $"No SCRY could be found for account {StellarManager.networkContext.userAccount.AccountId}";
             assetsText.text = message;
         }
         else if (entry.asset is TrustLineAsset.AssetTypeCreditAlphanum4 asset)
@@ -120,9 +120,9 @@ public class GuiMainMenu : MenuElement
     }
     public override void Refresh()
     {
-        string currentContract = StellarManager.GetContractAddress();
-        string currentSneed = StellarManager.GetCurrentSneed() ?? string.Empty;
-        string currentAddress = StellarManager.GetUserAddress();
+        string currentContract = StellarManager.networkContext.contractAddress;
+        string currentSneed = StellarManager.networkContext.userAccount.SecretSeed ?? string.Empty;
+        string currentAddress = StellarManager.networkContext.userAccount.AccountId;
 
         setContractButton.interactable = StrKey.IsValidContractId(contractField.text) && contractField.text != currentContract;
         setSneedButton.interactable = StrKey.IsValidEd25519SecretSeed(sneedField.text) && sneedField.text != currentSneed;
@@ -144,7 +144,7 @@ public class GuiMainMenu : MenuElement
         currentAddressText.text = string.IsNullOrEmpty(currentAddress) ? "No address" : currentAddress;
 
         // Offline gating
-        bool isOnline = GameManager.instance.IsOnline();
+        bool isOnline = StellarManager.networkContext.online;
         if (!isOnline)
         {
             currentLobbyText.text = "Offline";
@@ -196,12 +196,12 @@ public class GuiMainMenu : MenuElement
     
     void OnContractFieldChanged(string input)
     {
-        setContractButton.interactable = StellarManager.GetContractAddress() != contractField.text && StrKey.IsValidContractId(contractField.text);
+        setContractButton.interactable = StellarManager.networkContext.contractAddress != contractField.text && StrKey.IsValidContractId(contractField.text);
     }
     
     void OnSneedFieldChanged(string input)
     {
-        setSneedButton.interactable = StellarManager.GetCurrentSneed() != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
+        setSneedButton.interactable = StellarManager.networkContext.userAccount.SecretSeed != sneedField.text && StrKey.IsValidEd25519SecretSeed(sneedField.text);
     }
 
     void OnFillGuestSneed()
@@ -218,13 +218,13 @@ public class GuiMainMenu : MenuElement
     {
         string input = sneedField.text;
         sneedField.text = string.Empty;
-        StellarManager.SetSneed(input);
+        //StellarManager.SetSneed(input);
     }
     
     void OnSetContract()
     {
         string input = contractField.text;
         contractField.text = string.Empty;
-        StellarManager.SetContractAddress(input);
+        //StellarManager.SetContractAddress(input);
     }
 }

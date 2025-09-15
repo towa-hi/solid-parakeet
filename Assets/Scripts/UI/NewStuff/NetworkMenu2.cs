@@ -71,7 +71,15 @@ public class NetworkMenu2 : MenuBase
 
     public void HandleConnect()
     {
-        ModalConnectData data = new ModalConnectData { isTestnet = isTestnet, contract = contractField.text, sneed = sneedField.text, isWallet = isWallet };
+        ModalConnectData data = new ModalConnectData
+        {
+            online = true,
+            isTestnet = isTestnet, 
+            contract = contractField.text, 
+            sneed = sneedField.text, 
+            isWallet = isWallet,
+            serverUri = isTestnet ? ResourceRoot.DefaultSettings.defaultTestnetUri : ResourceRoot.DefaultSettings.defaultMainnetUri,
+        };
         if (isWallet)
         {
             data.sneed = "wallet";
@@ -81,7 +89,16 @@ public class NetworkMenu2 : MenuBase
 
     public void HandleOffline()
     {
-        EmitAction(MenuAction.GoOffline);
+        ModalConnectData data = new ModalConnectData
+        {
+            online = false,
+            isTestnet = isTestnet, 
+            contract = contractField.text, 
+            sneed = sneedField.text, // unused
+            isWallet = isWallet,
+            serverUri = "unused",
+        };
+        EmitAction(MenuAction.ConnectToNetwork, data);
     }
 
     public override void Refresh()

@@ -1,10 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 using Contract;
 using Stellar;
@@ -16,6 +13,9 @@ using Random = UnityEngine.Random;
 
 public static class StellarManager
 {
+    // Online/Offline mode - always start Offline; no persistence
+    enum OnlineModeInternal { Online = 0, Offline = 1 }
+
     public static event Action OnNetworkStateUpdated;
     public static event Action<GameNetworkState, NetworkDelta> OnGameStateBeforeApplied;
     public static event Action<GameNetworkState, NetworkDelta> OnGameStateAfterApplied;
@@ -23,6 +23,8 @@ public static class StellarManager
     public static event Action<TaskInfo> OnTaskStarted;
     public static event Action<TaskInfo> OnTaskEnded;
     
+    public static NetworkContext networkContext;
+
     public static NetworkState networkState;
 
     static TaskInfo currentTask;
@@ -33,6 +35,13 @@ public static class StellarManager
     static Coroutine pollingCoroutine;
     static bool desiredPolling;
     static int pollingHoldCount;
+
+    public static bool initialized = false;
+    
+    static StellarManager()
+    {
+        
+    }
 
     static Result<bool> ErrWithContext<T>(Result<T> inner, string context)
     {
@@ -46,6 +55,21 @@ public static class StellarManager
 
     // True while a Stellar task is in progress
     public static bool IsBusy => currentTask != null;
+
+    public static void SetContext(bool online, bool isWallet, MuxedAccount userAccount, bool isTestnet, string serverUri, string contractAddress)
+    {
+        networkContext = new NetworkContext(online, isWallet, userAccount, isTestnet, serverUri, contractAddress);
+        Debug.Log($"SetContext: online={online} userAccount={userAccount.AccountId} isWallet={isWallet} serverUri={serverUri} contractAddress={contractAddress}");
+        if (isTestnet)
+        {
+            Network.UseTestNetwork();
+        }
+        else
+        {
+            Network.UsePublicNetwork();
+        }
+    }
+
 
     static void DebugLogPoll(string message)
     {
@@ -61,33 +85,72 @@ public static class StellarManager
             Debug.Log(message);
         }
     }
-    public static Result<bool> Initialize(ModalConnectData data)
+
+    public static async Task<Result<bool>> Initialize(ModalConnectData data)
     {
-        DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
-        currentTask = null;
-        canceledTaskIds.Clear();
-        var init = StellarDotnet.Initialize(data.isTestnet, data.isWallet, data.sneed, data.contract);
-        if (init.IsError)
+        if (currentTask != null)
         {
-            return ErrWithContext(init, "Initialize failed");
+            return Result<bool>.Err(StatusCode.OTHER_ERROR, "ConnectToNetwork() is interrupting an existing task");
         }
+        if (!data.isWallet && !StrKey.IsValidEd25519SecretSeed(data.sneed))
+        {
+            return Result<bool>.Err(StatusCode.OTHER_ERROR, "Invalid seed");
+        }
+        if (!StrKey.IsValidContractId(data.contract))
+        {
+            return Result<bool>.Err(StatusCode.OTHER_ERROR, "Invalid contract id");
+        }
+        Uninitialize();
+        MuxedAccount userAccount;
+        if (data.online)
+        {
+            if (data.isWallet)
+            {
+                Result<WalletManager.WalletConnection> walletResult = await WalletManager.ConnectWallet();
+                if (walletResult.IsError)
+                {
+                    Uninitialize();
+                    return Result<bool>.Err(walletResult);
+                }
+                userAccount = MuxedAccount.FromPublicKey(StrKey.DecodeStellarAccountId(walletResult.Value.address));
+            }
+            else
+            {
+                userAccount = MuxedAccount.FromSecretSeed(data.sneed);
+            }
+        }
+        else
+        {
+            userAccount = MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed);
+        }
+        SetContext(data.online, data.isWallet, userAccount, data.isTestnet, data.serverUri, data.contract);
+        canceledTaskIds.Clear();
+        initialized = true;
         return Result<bool>.Ok(true);
     }
 
-    public static AccountAddress GetHostAddress()
+    public static void Uninitialize()
     {
-        MuxedAccount.KeyTypeEd25519 account = MuxedAccount.FromSecretSeed(StellarDotnet.sneed);
-        string publicAddress = StrKey.EncodeStellarAccountId(account.PublicKey);
-        return AccountAddress.Parse(publicAddress);
+        ResetPolling();
+        AbortCurrentTask();
+        SetContext(false, false, MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed), false, "unused", ResourceRoot.DefaultSettings.defaultContractAddress);
+        networkState = new NetworkState(networkContext);
+        initialized = false;
     }
+
+    // public static AccountAddress GetHostAddress()
+    // {
+    //     MuxedAccount.KeyTypeEd25519 account = MuxedAccount.FromSecretSeed(StellarDotnet.sneed);
+    //     string publicAddress = StrKey.EncodeStellarAccountId(account.PublicKey);
+    //     return AccountAddress.Parse(publicAddress);
+    // }
     
     public static async Task<Result<bool>> UpdateState(bool showTask = true)
     {
-        if (!GameManager.instance.IsOnline())
+        if (!networkContext.online)
         {
             NetworkState previousFakeNetworkState = networkState;
             NetworkState newFakeNetworkState = FakeServer.GetFakeNetworkState();
-            networkState = FakeServer.GetFakeNetworkState();
             bool fakeStateChanged = HasMeaningfulChange(previousFakeNetworkState, newFakeNetworkState);
             networkState = newFakeNetworkState;
             Debug.Log($"update state fake: changed={fakeStateChanged} prevPhase={(previousFakeNetworkState.lobbyInfo.HasValue ? previousFakeNetworkState.lobbyInfo.Value.phase.ToString() : "-")} prevSub={(previousFakeNetworkState.lobbyInfo.HasValue ? previousFakeNetworkState.lobbyInfo.Value.subphase.ToString() : "-")} prevTurn={(previousFakeNetworkState.gameState.HasValue ? previousFakeNetworkState.gameState.Value.turn.ToString() : "-")} -> currPhase={(newFakeNetworkState.lobbyInfo.HasValue ? newFakeNetworkState.lobbyInfo.Value.phase.ToString() : "-")} currSub={(newFakeNetworkState.lobbyInfo.HasValue ? newFakeNetworkState.lobbyInfo.Value.subphase.ToString() : "-")} currTurn={(newFakeNetworkState.gameState.HasValue ? newFakeNetworkState.gameState.Value.turn.ToString() : "-")}");
@@ -115,7 +178,7 @@ public static class StellarManager
         TimingTracker tracker = new();
         tracker.StartOperation("UpdateState");
         NetworkState previousNetworkState = networkState;
-        var newNetworkStateResult = await StellarDotnet.ReqNetworkState(tracker);
+        var newNetworkStateResult = await StellarDotnet.ReqNetworkState(networkContext, tracker);
         if (newNetworkStateResult.IsError)
         {
             tracker.EndOperation();
@@ -165,36 +228,9 @@ public static class StellarManager
         return Result<bool>.Ok(true);
     }
 
-    public static bool SetContractAddress(string contractId)
-    {
-        StellarDotnet.SetContractId(contractId);
-        return true;
-    }
-
-    public static bool SetSneed(string accountSneed)
-    {
-        StellarDotnet.SetSneed(accountSneed);
-        return true;
-    }
-
-    public static string GetUserAddress()
-    {
-        return StellarDotnet.sneed != null ? StellarDotnet.userAddress : null;
-    }
-
-    public static string GetContractAddress()
-    {
-        return StellarDotnet.contractAddress;
-    }
-
-    public static string GetCurrentSneed()
-    {
-        return StellarDotnet.sneed;
-    }
-
     public static async Task<Result<bool>> MakeLobbyRequest(LobbyParameters parameters)
     {
-        if (!GameManager.instance.IsOnline())
+        if (!networkContext.online)
         {
             FakeServer.MakeLobbyAsHost(parameters);
             FakeServer.JoinLobbyAsGuest(FakeServer.fakeLobbyId);
@@ -204,7 +240,7 @@ public static class StellarManager
         TimingTracker tracker = new();
         tracker.StartOperation($"MakeLobbyRequest");
         TaskInfo task = SetCurrentTask("MakeLobbyRequest");
-        var result = await StellarDotnet.CallContractFunction("make_lobby", new MakeLobbyReq()
+        var result = await StellarDotnet.CallContractFunction(networkContext, "make_lobby", new MakeLobbyReq()
         {
             lobby_id = GenerateLobbyId(),
             parameters = parameters,
@@ -218,7 +254,7 @@ public static class StellarManager
 
     public static async Task<Result<bool>> LeaveLobbyRequest()
     {
-        if (!GameManager.instance.IsOnline())
+        if (!networkContext.online)
         {
             FakeServer.Reset();
             await UpdateState();
@@ -227,7 +263,7 @@ public static class StellarManager
         TimingTracker tracker = new();
         tracker.StartOperation($"LeaveLobbyRequest");
         TaskInfo task = SetCurrentTask("LeaveLobbyRequest");
-        var result = await StellarDotnet.CallContractFunction("leave_lobby", new IScvMapCompatable[]
+        var result = await StellarDotnet.CallContractFunction(networkContext, "leave_lobby", new IScvMapCompatable[]
         {
             // intentionally empty
         }, tracker);
@@ -240,7 +276,7 @@ public static class StellarManager
 
     public static async Task<Result<bool>> JoinLobbyRequest(LobbyId lobbyId)
     {
-        if (!GameManager.instance.IsOnline())
+        if (!networkContext.online)
         {
             FakeServer.JoinLobbyAsGuest(lobbyId);
             return Result<bool>.Ok(true);
@@ -248,7 +284,7 @@ public static class StellarManager
         TaskInfo task = SetCurrentTask("JoinLobbyRequest");
         TimingTracker tracker = new();
         tracker.StartOperation($"JoinLobbyRequest");
-        var result = await StellarDotnet.CallContractFunction("join_lobby", new JoinLobbyReq()
+        var result = await StellarDotnet.CallContractFunction(networkContext, "join_lobby", new JoinLobbyReq()
         {
             lobby_id = lobbyId,
         }, tracker);
@@ -261,10 +297,14 @@ public static class StellarManager
 
     public static async Task<PackedHistory?> GetPackedHistory(uint lobbyId)
     {
+        if (!networkContext.online)
+        {
+            throw new Exception("GetPackedHistory is not supported in offline mode");
+        }
         TaskInfo task = SetCurrentTask("GetPackedHistory");
         TimingTracker tracker = new();
         tracker.StartOperation("GetPackedHistory");
-        var result = await StellarDotnet.ReqPackedHistory(lobbyId, tracker);
+        var result = await StellarDotnet.ReqPackedHistory(networkContext, lobbyId, tracker);
         if (result.IsError)
         {
             Debug.LogError($"GetPackedHistory() failed with error {result.Code} {result.Message}");
@@ -277,7 +317,7 @@ public static class StellarManager
 
     public static async Task<Result<bool>> CommitSetupRequest(CommitSetupReq req)
     {
-        if (!GameManager.instance.IsOnline())
+        if (!networkContext.online)
         {
             Debug.Log("CommitSetupRequest fake");
             // pretend the guest went first
@@ -309,7 +349,7 @@ public static class StellarManager
         TaskInfo task = SetCurrentTask("CommitSetupRequest");
         TimingTracker tracker = new TimingTracker();
         tracker.StartOperation($"CommitSetupRequest");
-        var result = await StellarDotnet.CallContractFunction("commit_setup", req, tracker);
+        var result = await StellarDotnet.CallContractFunction(networkContext, "commit_setup", req, tracker);
         // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
@@ -324,7 +364,7 @@ public static class StellarManager
         Debug.Assert(lobbyInfo.IsMySubphase(userAddress));
         Debug.Assert(lobbyInfo.phase == Phase.MoveCommit);
 
-        if (!GameManager.instance.IsOnline())
+        if (!networkContext.online)
         {
 
             Debug.Log("CommitMoveRequest fake guest move");
@@ -364,9 +404,9 @@ public static class StellarManager
         bool canBatchProveMove = lobbyInfo.subphase != Subphase.Both || !lobbyParameters.security_mode;
         Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> result;
         if (canBatchProveMove) {
-            result = await StellarDotnet.CallContractFunction("commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, tracker);
+            result = await StellarDotnet.CallContractFunction(networkContext, "commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, tracker);
         } else {
-            result = await StellarDotnet.CallContractFunction("commit_move", commitMoveReq, tracker);
+            result = await StellarDotnet.CallContractFunction(networkContext, "commit_move", commitMoveReq, tracker);
         }
         // result.Err already logs
         tracker.EndOperation();
@@ -388,7 +428,7 @@ public static class StellarManager
         PawnId[] neededRankProofs = Array.Empty<PawnId>();
         if (canSimulate)
         {
-            var simResult = await StellarDotnet.SimulateContractFunction("simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
+            var simResult = await StellarDotnet.SimulateContractFunction(networkContext, "simulate_collisions", new IScvMapCompatable[] { proveMoveReq }, tracker);
             if (simResult.IsError)
             {
                 tracker.EndOperation();
@@ -429,11 +469,11 @@ public static class StellarManager
                 lobby_id = proveMoveReq.lobby_id,
                 merkle_proofs = merkleProofs.ToArray(),
             };
-            result = await StellarDotnet.CallContractFunction("prove_move_and_prove_rank", new IScvMapCompatable[] { proveMoveReq, proveRankReq }, tracker);
+            result = await StellarDotnet.CallContractFunction(networkContext, "prove_move_and_prove_rank", new IScvMapCompatable[] { proveMoveReq, proveRankReq }, tracker);
         }
         else
         {
-            result = await StellarDotnet.CallContractFunction("prove_move", proveMoveReq, tracker);
+            result = await StellarDotnet.CallContractFunction(networkContext, "prove_move", proveMoveReq, tracker);
         }
         // result.Err already logs
         tracker.EndOperation();
@@ -447,7 +487,7 @@ public static class StellarManager
         TaskInfo task = SetCurrentTask("Invoke Prove_rank");
         TimingTracker tracker = new();
         tracker.StartOperation($"ProveRankRequest");
-        var result = await StellarDotnet.CallContractFunction("prove_rank", req, tracker);
+        var result = await StellarDotnet.CallContractFunction(networkContext, "prove_rank", req, tracker);
         // result.Err already logs
         tracker.EndOperation();
         DebugLogStellarManager(tracker.GetReport());
@@ -460,7 +500,7 @@ public static class StellarManager
         TimingTracker tracker = new();
         tracker.StartOperation($"GetAccount");
         TaskInfo task = SetCurrentTask("ReqAccountEntry");
-        var result = await StellarDotnet.ReqAccountEntry(MuxedAccount.FromAccountId(key));
+        var result = await StellarDotnet.ReqAccountEntry(networkContext, tracker);
         if (result.IsError)
         {
             Debug.LogError($"GetAccount() failed with error {result.Code} {result.Message}");
@@ -476,8 +516,7 @@ public static class StellarManager
         TaskInfo task = SetCurrentTask("ReqAccountEntry");
         TimingTracker tracker = new();
         tracker.StartOperation($"GetAssets");
-        var userAccount = MuxedAccount.FromAccountId(userId);
-        var result = await StellarDotnet.GetAssets(userAccount, tracker);
+        var result = await StellarDotnet.GetAssets(networkContext, tracker);
         if (result.IsError)
         {
             Debug.LogError($"GetAssets() failed with error {result.Code} {result.Message}");
@@ -492,6 +531,10 @@ public static class StellarManager
     // Start/stop centralized polling. Polling will automatically skip while busy
     public static void SetPolling(bool enable)
     {
+        if (!networkContext.online && enable)
+        {
+            throw new Exception("SetPolling is not supported in offline mode");
+        }
         desiredPolling = enable;
         if (enable && pollingHoldCount == 0)
         {
@@ -514,6 +557,7 @@ public static class StellarManager
 
     static IEnumerator PollCoroutine()
     {
+        // TODO: figure out how to handle offline mode
         while (isPolling)
         {
             // Avoid overlapping with any in-flight task
@@ -528,6 +572,18 @@ public static class StellarManager
             yield return new WaitForSeconds(0.5f);
         }
         pollingCoroutine = null;
+    }
+
+    static void ResetPolling()
+    {
+        desiredPolling = false;
+        pollingHoldCount = 0;
+        isPolling = false;
+        if (pollingCoroutine != null)
+        {
+            CoroutineRunner.instance.StopCoroutine(pollingCoroutine);
+            pollingCoroutine = null;
+        }
     }
 
     static bool HasCompleteGameData(NetworkState state)
@@ -736,7 +792,7 @@ public static class StellarManager
         // If lobby/game presence changed, it's a change
         bool prevInLobby = previous.inLobby;
         bool currInLobby = current.inLobby;
-        if (previous.online != current.online)
+        if (previous.fromOnline != current.fromOnline)
         {
             return true;
         }
@@ -830,7 +886,7 @@ public static class StellarManager
         }
     }
 
-    // NOTE: lobby IDs will be done server side in the future
+    // TODO: lobby IDs will be done server side in the future
     static LobbyId GenerateLobbyId()
     {
         uint value = (uint)Random.Range(100000, 1000000); // 6 digit number
