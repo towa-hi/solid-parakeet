@@ -227,7 +227,7 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    // Operation stubs (no-op for now)
+    // playaing offline means just sending a data with online = false
     async Task ConnectToNetworkAsync(ModalConnectData data)
     {
         await ExecuteBusyAsync(async () =>
@@ -247,7 +247,6 @@ public class MenuController : MonoBehaviour
                 return;
             }
         });
-        
         SetMenu(mainMenuPrefab);
     }
 
@@ -277,7 +276,6 @@ public class MenuController : MonoBehaviour
                 return;
             }
         });
-        
         SetMenu(lobbyViewMenuPrefab);
     }
 

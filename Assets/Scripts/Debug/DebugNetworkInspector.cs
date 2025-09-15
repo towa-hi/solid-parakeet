@@ -13,6 +13,8 @@ public class DebugNetworkInspector : MonoBehaviour
     [SerializeField] public bool isInitialized;
     [SerializeField] public string address;
     [SerializeField] public string stringDebug;
+
+    [SerializeField] public string networkContext;
     
     public HumanDebugNetworkInspector humanDebugNetworkInspector;
     
@@ -32,17 +34,16 @@ public class DebugNetworkInspector : MonoBehaviour
     void OnNetworkStateUpdated()
     {
         isInitialized = true;
-        UpdateDebugNetworkInspector(StellarManager.networkState);
+        UpdateDebugNetworkInspector();
         humanDebugNetworkInspector.UpdateDebugNetworkInspector(StellarManager.networkState);
     }
 
-    public static void UpdateDebugNetworkInspector(NetworkState networkState)
+    public static void UpdateDebugNetworkInspector()
     {
         if (instance == null) return;
         
-        instance.address = networkState.address.ToString();
-        
         // Convert networkState to JSON and store in stringDebug
-        instance.stringDebug = JsonConvert.SerializeObject(networkState, Formatting.Indented);
+        instance.stringDebug = JsonConvert.SerializeObject(StellarManager.networkState, Formatting.Indented);
+        instance.networkContext = JsonConvert.SerializeObject(StellarManager.networkContext, Formatting.Indented);
     }
 }

@@ -134,7 +134,7 @@ public static class StellarManager
         ResetPolling();
         AbortCurrentTask();
         SetContext(false, false, MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed), false, "unused", ResourceRoot.DefaultSettings.defaultContractAddress);
-        networkState = new NetworkState(networkContext);
+        SetNetworkState(new NetworkState(networkContext));
         initialized = false;
     }
 
@@ -152,7 +152,7 @@ public static class StellarManager
             NetworkState previousFakeNetworkState = networkState;
             NetworkState newFakeNetworkState = FakeServer.GetFakeNetworkState();
             bool fakeStateChanged = HasMeaningfulChange(previousFakeNetworkState, newFakeNetworkState);
-            networkState = newFakeNetworkState;
+            SetNetworkState(newFakeNetworkState);
             Debug.Log($"update state fake: changed={fakeStateChanged} prevPhase={(previousFakeNetworkState.lobbyInfo.HasValue ? previousFakeNetworkState.lobbyInfo.Value.phase.ToString() : "-")} prevSub={(previousFakeNetworkState.lobbyInfo.HasValue ? previousFakeNetworkState.lobbyInfo.Value.subphase.ToString() : "-")} prevTurn={(previousFakeNetworkState.gameState.HasValue ? previousFakeNetworkState.gameState.Value.turn.ToString() : "-")} -> currPhase={(newFakeNetworkState.lobbyInfo.HasValue ? newFakeNetworkState.lobbyInfo.Value.phase.ToString() : "-")} currSub={(newFakeNetworkState.lobbyInfo.HasValue ? newFakeNetworkState.lobbyInfo.Value.subphase.ToString() : "-")} currTurn={(newFakeNetworkState.gameState.HasValue ? newFakeNetworkState.gameState.Value.turn.ToString() : "-")}");
             if (fakeStateChanged)
             {
@@ -203,7 +203,7 @@ public static class StellarManager
             Debug.Assert(newNetworkState.gameState.HasValue == false);
         }
         bool stateChanged = HasMeaningfulChange(previousNetworkState, newNetworkState);
-        networkState = newNetworkState;
+        SetNetworkState(newNetworkState);
         if (stateChanged)
         {
             NetworkDelta delta = ComputeDelta(previousNetworkState, newNetworkState);
@@ -825,6 +825,13 @@ public static class StellarManager
         }
         // Fallback: compare simplified string representations
         return !string.Equals(previous.ToString(), current.ToString(), StringComparison.Ordinal);
+    }
+
+    static void SetNetworkState(NetworkState newState)
+    {
+        Debug.Log("network state updated");
+        networkState = newState;
+        DebugNetworkInspector.UpdateDebugNetworkInspector();
     }
 
     static TaskInfo SetCurrentTask(string message)
