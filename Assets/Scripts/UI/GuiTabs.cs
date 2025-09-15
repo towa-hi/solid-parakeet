@@ -31,11 +31,13 @@ public class GuiTabs : MonoBehaviour
             tab.tabBackground.color = inactiveTabColor;
             tab.bodyBackground.color = inactiveTabColor;
             tab.body.SetActive(false);
+            tab.button.interactable = true;
         }
         var selectedTab = tabs[index];
         selectedTab.tabBackground.color = activeTabColor;
         selectedTab.bodyBackground.color = activeTabColor;
         selectedTab.body.SetActive(true);
+        selectedTab.button.interactable = false;
         activeTab = index;
         OnActiveTabChanged?.Invoke(index);
     }

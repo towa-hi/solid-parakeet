@@ -28,7 +28,7 @@ public static class StellarDotnet
     static string cachedUserAddress;
     static SCVal.ScvAddress cachedUserAddresSCVal;
 
-    static bool isWallet;
+    public static bool isWallet;
     
     public static MuxedAccount.KeyTypeEd25519 userAccount
     {
@@ -89,7 +89,7 @@ public static class StellarDotnet
     public static string contractAddress;
     const int maxAttempts = 30;
     
-    static Uri networkUri;
+    public static Uri networkUri;
     // ReSharper disable once InconsistentNaming
     static readonly JsonSerializerSettings jsonSettings = new()
     {
@@ -994,4 +994,5 @@ public enum StatusCode {
     WALLET_NETWORK_DETAILS_ERROR,
     WALLET_PARSING_ERROR,
     WALLET_SIGNING_ERROR,
+    CLIENT_BOARD_VALIDATION_ERROR,
 }

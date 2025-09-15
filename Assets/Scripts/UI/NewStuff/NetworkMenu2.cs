@@ -17,13 +17,14 @@ public class NetworkMenu2 : MenuBase
     public Button offlineButton;
     public GuiTabs networkTabs;
     public GuiTabs connectMethodTabs;
-
+    public ButtonExtended walletTabButton;
     bool isTestnet = true;
     bool isWallet = false;
 
 
     private void Start()
     {
+        // TODO: make this use current network settings
         networkTabs.SetActiveTab(0);
         bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
         connectMethodTabs.SetActiveTab(isWebGL ? 0 : 1);

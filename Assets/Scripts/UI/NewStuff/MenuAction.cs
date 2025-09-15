@@ -21,6 +21,16 @@ public enum MenuAction
     Refresh,
     SaveChanges,
     Quit,
+    CheatModeToggle,
+    FastModeToggle,
+    DisplayBadgesToggle,
+    MoveCameraToggle,
+    MasterVolumeSlider,
+    MusicVolumeSlider,
+    EffectsVolumeSlider,
+    StartSingleplayerLobby,
+    StartMultiplayerLobby,
+    EnterGame,
 }
 
 

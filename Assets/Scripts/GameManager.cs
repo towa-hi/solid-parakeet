@@ -97,7 +97,7 @@ public class GameManager : MonoBehaviour
         return Result<bool>.Ok(true);
     }
 
-    public async void OfflineMode()
+    public async Task OfflineMode()
     {
         await SwitchToOfflineInternal();
 

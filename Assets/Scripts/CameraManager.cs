@@ -37,8 +37,8 @@ public class CameraManager : MonoBehaviour
 
     float GetTransitionDuration()
     {
-        int fastMode = PlayerPrefs.GetInt("FASTMODE");
-        if (fastMode == 1)
+        WarmancerSettings s = SettingsManager.Load();
+        if (s.fastMode)
         {
             return baseTransitionDuration * 0.25f;
         }
@@ -121,7 +121,7 @@ public class CameraManager : MonoBehaviour
     Tween currentTween;
     void Update()
     {
-        if (rotateOnMouse && SettingsManager.GetPref(SettingsKey.MOVECAMERA) == 1)
+        if (rotateOnMouse && SettingsManager.Load().moveCamera)
         {
             screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
             if (!IsPointerWithinScreen(screenPointerPosition))

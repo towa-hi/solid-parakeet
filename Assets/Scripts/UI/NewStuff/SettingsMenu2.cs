@@ -38,38 +38,29 @@ public class SettingsMenu2 : MenuBase
 
     WarmancerSettings LoadCurrentSettings()
     {
-        return new WarmancerSettings
-        {
-            cheatMode = SettingsManager.GetPref(SettingsKey.CHEATMODE),
-            fastMode = SettingsManager.GetPref(SettingsKey.FASTMODE),
-            displayBadges = SettingsManager.GetPref(SettingsKey.DISPLAYBADGES),
-            moveCamera = SettingsManager.GetPref(SettingsKey.MOVECAMERA),
-            masterVolume = SettingsManager.GetPref(SettingsKey.MASTERVOLUME),
-            musicVolume = SettingsManager.GetPref(SettingsKey.MUSICVOLUME),
-            effectsVolume = SettingsManager.GetPref(SettingsKey.EFFECTSVOLUME),
-        };
+        return SettingsManager.Load();
     }
     public void HandleCheatModeToggle()
     {
-        newSettings.cheatMode = newSettings.cheatMode == 0 ? 1 : 0;
+        newSettings.cheatMode = !newSettings.cheatMode;
         Refresh();
     }
 
     public void HandleFastModeToggle()
     {
-        newSettings.fastMode = newSettings.fastMode == 0 ? 1 : 0;
+        newSettings.fastMode = !newSettings.fastMode;
         Refresh();
     }
 
     public void HandleDisplayBadgesToggle()
     {
-        newSettings.displayBadges = newSettings.displayBadges == 0 ? 1 : 0;
+        newSettings.displayBadges = !newSettings.displayBadges;
         Refresh();
     }
 
     public void HandleMoveCameraToggle()
     {
-        newSettings.moveCamera = newSettings.moveCamera == 0 ? 1 : 0;
+        newSettings.moveCamera = !newSettings.moveCamera;
         Refresh();
     }
 
@@ -101,13 +92,10 @@ public class SettingsMenu2 : MenuBase
     }
     public override void Refresh()
     {
-        cheatModeToggleButton.text.text = newSettings.cheatMode == 1 ? "Enabled" : "Disabled";
-        fastModeToggleButton.text.text = newSettings.fastMode == 1 ? "Enabled" : "Disabled";
-        displayBadgesToggleButton.text.text = newSettings.displayBadges == 1 ? "Enabled" : "Disabled";
-        moveCameraToggleButton.text.text = newSettings.moveCamera == 1 ? "Enabled" : "Disabled";
-        masterVolumeSlider.value = newSettings.masterVolume / 100f;
-        musicVolumeSlider.value = newSettings.musicVolume / 100f;
-        effectsVolumeSlider.value = newSettings.effectsVolume / 100f;
+        cheatModeToggleButton.text.text = newSettings.cheatMode ? "Enabled" : "Disabled";
+        fastModeToggleButton.text.text = newSettings.fastMode ? "Enabled" : "Disabled";
+        displayBadgesToggleButton.text.text = newSettings.displayBadges ? "Enabled" : "Disabled";
+        moveCameraToggleButton.text.text = newSettings.moveCamera ? "Enabled" : "Disabled";
         masterVolumeSlider.SetValueWithoutNotify(newSettings.masterVolume / 100f);
         musicVolumeSlider.SetValueWithoutNotify(newSettings.musicVolume / 100f);
         effectsVolumeSlider.SetValueWithoutNotify(newSettings.effectsVolume / 100f);
@@ -120,14 +108,3 @@ public class SettingsMenu2 : MenuBase
 }
 
 
-
-    struct WarmancerSettings
-    {
-        public int cheatMode;
-        public int fastMode;
-        public int displayBadges;
-        public int moveCamera;
-        public int masterVolume;
-        public int musicVolume;
-        public int effectsVolume;
-    }

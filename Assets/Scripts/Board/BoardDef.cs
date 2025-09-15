@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using Contract;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "Board", menuName = "Scriptable Objects/Board")]
@@ -21,6 +22,51 @@ public class BoardDef : ScriptableObject
         return Array.Find(tiles, tile => tile.pos == pos);
     }
     
+    public Result<Board> ToSCVal()
+    {
+        List<TileState> tilesList = new();
+        if (boardName.Length > 32)
+        {
+            return Result<Board>.Err(StatusCode.CLIENT_BOARD_VALIDATION_ERROR, $"boardName is too long");
+        }
+        if (boardSize.x < 1 || boardSize.y < 1)
+        {
+            return Result<Board>.Err(StatusCode.CLIENT_BOARD_VALIDATION_ERROR, $"boardSize is invalid");
+        }
+        foreach (Tile tile in tiles)
+        {
+            if (tilesList.Any(t => t.pos == tile.pos))
+            {
+                return Result<Board>.Err(StatusCode.CLIENT_BOARD_VALIDATION_ERROR, $"{tile.pos} is not unique");
+            }
+            if (tile.pos.x < 0 || tile.pos.y < 0 || tile.pos.x >= boardSize.x || tile.pos.y >= boardSize.y)
+            {
+                return Result<Board>.Err(StatusCode.CLIENT_BOARD_VALIDATION_ERROR, $"{tile.pos} is out of bounds");
+            }
+            if (tile.setupTeam != Team.NONE && !tile.isPassable)
+            {
+                return Result<Board>.Err(StatusCode.CLIENT_BOARD_VALIDATION_ERROR, $"{tile.pos} is setup but not passable");
+            }
+            if (tile.autoSetupZone < 0 || tile.autoSetupZone >= 5)
+            {
+                return Result<Board>.Err(StatusCode.CLIENT_BOARD_VALIDATION_ERROR, $"{tile.pos} has an invalid setup zone");
+            }
+            TileState tileDef = new()
+            {
+                passable = tile.isPassable,
+                pos = tile.pos,
+                setup = tile.setupTeam,
+                setup_zone = (uint)tile.autoSetupZone,
+            };
+            tilesList.Add(tileDef);
+        }
+        return Result<Board>.Ok(new Board() {
+            name = boardName,
+            hex = isHex,
+            size = boardSize,
+            tiles = tilesList.ToArray(),
+        });
+    }
     public List<Tile> GetEmptySetupTiles(Team team, Rank rank, HashSet<Tile> usedTiles)
     {
         int setupZone = Rules.GetSetupZone(rank);

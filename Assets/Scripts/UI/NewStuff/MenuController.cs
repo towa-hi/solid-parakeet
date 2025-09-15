@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using Contract;
 
 public class MenuController : MonoBehaviour
 {
@@ -175,7 +176,14 @@ public class MenuController : MonoBehaviour
                 }
                 break;
             case MenuAction.CreateLobby:
-                _ = CreateLobbyAsync();
+                if (payload is LobbyCreateData lobbyCreateData)
+                {
+                    _ = CreateLobbyAsync(lobbyCreateData);
+                }
+                else
+                {
+                    Debug.LogError("MenuController: CreateLobby action missing LobbyCreateData payload");
+                }
                 break;
             case MenuAction.JoinGame:
                 _ = JoinGameAsync();
@@ -187,7 +195,14 @@ public class MenuController : MonoBehaviour
                 RefreshData();
                 break;
             case MenuAction.SaveChanges:
-                _ = SaveChangesAsync();
+                if (payload is WarmancerSettings settings)
+                {
+                    SaveChange(settings);
+                }
+                else
+                {
+                    Debug.LogError("MenuController: SaveChanges action missing WarmancerSettings payload");
+                }
                 break;
             case MenuAction.Quit:
                 Application.Quit();
@@ -230,22 +245,27 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    async Task CreateLobbyAsync()
+    async Task CreateLobbyAsync(LobbyCreateData lobbyCreateData)
     {
-        bool success = false;
+        Result<LobbyParameters> lobbyParametersResult = lobbyCreateData.ToLobbyParameters();
+        if (lobbyParametersResult.IsError)
+        {
+            await ShowErrorAsync(lobbyParametersResult.Code, lobbyParametersResult.Message);
+            return;
+        }
+        LobbyParameters lobbyParameters = lobbyParametersResult.Value;
+        await GameManager.instance.OfflineMode();
+        Result<bool> result = default;
         await ExecuteBusyAsync(async () =>
         {
-            await Task.Yield();
-            // perform create lobby request here
+            result = await StellarManager.MakeLobbyRequest(lobbyParameters);
         });
-        if (success)
+        if (result.IsError)
         {
-            SetMenu(lobbyViewMenuPrefab);
+            await ShowErrorAsync(result.Code, result.Message);
+            return;
         }
-        else
-        {
-            await ShowMessageAsync("Failed to create lobby.");
-        }
+        SetMenu(lobbyViewMenuPrefab);
     }
 
     async Task JoinGameAsync()
@@ -270,13 +290,9 @@ public class MenuController : MonoBehaviour
     {
     }
 
-    async Task SaveChangesAsync()
+    void SaveChange(WarmancerSettings settings)
     {
-        await ExecuteBusyAsync(async () =>
-        {
-            await Task.Yield();
-            // perform save request here
-        });
+        SettingsManager.Save(settings);
     }
 
     async Task ExecuteBusyAsync(Func<Task> work)
@@ -355,6 +371,7 @@ public class MenuController : MonoBehaviour
 
     void GoOffline()
     {
+        // get rid of this because the data flow is backwards
         GameManager.instance.OfflineMode();
         SetMenu(mainMenuPrefab);
     }

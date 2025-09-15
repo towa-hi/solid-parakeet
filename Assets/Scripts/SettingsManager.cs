@@ -5,70 +5,115 @@ using UnityEngine;
 public static class SettingsManager
 {
     public static event Action<SettingsKey, int> OnSettingChanged;
-    
+
+    const string PrefKey = "WarmancerSettings";
+    static WarmancerSettings _cache;
+    static bool _isCacheLoaded;
+
     public static void Initialize()
     {
-        // check if missing settings
-        bool missingSettings = false;
-        foreach (SettingsKey key in Enum.GetValues(typeof(SettingsKey)))
+        if (PlayerPrefs.HasKey(PrefKey))
         {
-            if (!PlayerPrefs.HasKey(key.ToString()))
+            // Load into cache once
+            string json = PlayerPrefs.GetString(PrefKey, string.Empty);
+            if (!string.IsNullOrEmpty(json))
             {
-                missingSettings = true; 
+                _cache = JsonUtility.FromJson<WarmancerSettings>(json);
+                _isCacheLoaded = true;
+                return;
             }
         }
-        if (missingSettings)
+
+        // Seed from DefaultSettings ScriptableObject
+        DefaultSettings defaults = ResourceRoot.DefaultSettings;
+        _cache = new WarmancerSettings
         {
-            DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
-            SetPref(SettingsKey.CHEATMODE, defaultSettings.cheatMode ? 1 : 0);
-            SetPref(SettingsKey.FASTMODE, defaultSettings.fastMode ? 1 : 0);
-            SetPref(SettingsKey.DISPLAYBADGES, defaultSettings.displayBadges ? 1 : 0);
-            SetPref(SettingsKey.MOVECAMERA, defaultSettings.moveCamera ? 1 : 0);
-            SetPref(SettingsKey.MASTERVOLUME, defaultSettings.masterVolume);
-            SetPref(SettingsKey.MUSICVOLUME, defaultSettings.musicVolume);
-            SetPref(SettingsKey.EFFECTSVOLUME, defaultSettings.effectsVolume);
-        }
+            cheatMode = defaults.cheatMode,
+            fastMode = defaults.fastMode,
+            displayBadges = defaults.displayBadges,
+            moveCamera = defaults.moveCamera,
+            masterVolume = defaults.masterVolume,
+            musicVolume = defaults.musicVolume,
+            effectsVolume = defaults.effectsVolume,
+        };
+        _isCacheLoaded = true;
+        string initialJson = JsonUtility.ToJson(_cache);
+        PlayerPrefs.SetString(PrefKey, initialJson);
+        PlayerPrefs.Save();
     }
-    static void SetPref(SettingsKey key, int val)
+
+    public static WarmancerSettings Load()
     {
-        string stringKey = key.ToString();
+        if (!_isCacheLoaded)
+        {
+            Initialize();
+        }
+        return _cache;
+    }
+
+    public static void Save(WarmancerSettings settings)
+    {
+        _cache = settings;
+        _isCacheLoaded = true;
+        string json = JsonUtility.ToJson(_cache);
+        PlayerPrefs.SetString(PrefKey, json);
+        PlayerPrefs.Save();
+    }
+
+    // Backward-compat wrappers (ModalSettings, legacy code). Prefer Load/Save going forward.
+    public static int GetPref(SettingsKey key)
+    {
+        WarmancerSettings s = Load();
         switch (key)
         {
-            case SettingsKey.CHEATMODE:
-            case SettingsKey.FASTMODE:
-            case SettingsKey.DISPLAYBADGES:
-            case SettingsKey.MOVECAMERA:
-                if (val != 0 && val != 1)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(val));
-                }
-                break;
-            case SettingsKey.MASTERVOLUME:
-            case SettingsKey.MUSICVOLUME:
-            case SettingsKey.EFFECTSVOLUME:
-                if (val is < 0 or > 100)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(val));
-                }
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(key), key, null);
+            case SettingsKey.CHEATMODE: return s.cheatMode ? 1 : 0;
+            case SettingsKey.FASTMODE: return s.fastMode ? 1 : 0;
+            case SettingsKey.DISPLAYBADGES: return s.displayBadges ? 1 : 0;
+            case SettingsKey.MOVECAMERA: return s.moveCamera ? 1 : 0;
+            case SettingsKey.MASTERVOLUME: return s.masterVolume;
+            case SettingsKey.MUSICVOLUME: return s.musicVolume;
+            case SettingsKey.EFFECTSVOLUME: return s.effectsVolume;
+            default: return 0;
         }
-        PlayerPrefs.SetInt(stringKey, val);
-        Debug.Log($"Set {stringKey} to {val}");
+    }
+
+    public static void SetPrefs(WarmancerSettings settings)
+    {
+        Save(settings);
+    }
+
+    public static void SetPrefs(Dictionary<SettingsKey, int> changed)
+    {
+        if (changed == null || changed.Count == 0) return;
+        WarmancerSettings s = Load();
+        foreach (KeyValuePair<SettingsKey, int> kv in changed)
+        {
+            ApplyPref(ref s, kv.Key, kv.Value);
+            OnSettingChanged?.Invoke(kv.Key, kv.Value);
+        }
+        Save(s);
+    }
+
+    static void SetPref(SettingsKey key, int val)
+    {
+        WarmancerSettings s = Load();
+        ApplyPref(ref s, key, val);
+        Save(s);
         OnSettingChanged?.Invoke(key, val);
     }
 
-    public static int GetPref(SettingsKey key)
+    static void ApplyPref(ref WarmancerSettings s, SettingsKey key, int val)
     {
-        return PlayerPrefs.GetInt(key.ToString());
-    }
-
-    public static void SetPrefs(Dictionary<SettingsKey, int> settings)
-    {
-        foreach (KeyValuePair<SettingsKey, int> setting in settings)
+        switch (key)
         {
-            SetPref(setting.Key, setting.Value);
+            case SettingsKey.CHEATMODE: s.cheatMode = val == 1; break;
+            case SettingsKey.FASTMODE: s.fastMode = val == 1; break;
+            case SettingsKey.DISPLAYBADGES: s.displayBadges = val == 1; break;
+            case SettingsKey.MOVECAMERA: s.moveCamera = val == 1; break;
+            case SettingsKey.MASTERVOLUME: s.masterVolume = val; break;
+            case SettingsKey.MUSICVOLUME: s.musicVolume = val; break;
+            case SettingsKey.EFFECTSVOLUME: s.effectsVolume = val; break;
+            default: break;
         }
     }
 }
@@ -82,4 +127,16 @@ public enum SettingsKey
     MASTERVOLUME,
     MUSICVOLUME,
     EFFECTSVOLUME,
+}
+
+
+public struct WarmancerSettings
+{
+    public bool cheatMode;
+    public bool fastMode;
+    public bool displayBadges;
+    public bool moveCamera;
+    public int masterVolume;
+    public int musicVolume;
+    public int effectsVolume;
 }
