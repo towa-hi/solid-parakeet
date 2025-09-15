@@ -66,8 +66,9 @@ public class MainMenu2 : MenuBase
         bool isInLobby = StellarManager.networkState.inLobby;
         topText.text = isOnline ? "Online" : "Offline";
         createLobbyButton.text.text = isOnline ? "CREATE LOBBY" : "SINGLEPLAYER";
+        createLobbyButton.interactable = !isInLobby;
         joinLobbyButton.interactable = isOnline && !isInLobby;
-        viewLobbyButton.interactable = isOnline && isInLobby;
+        viewLobbyButton.interactable = isInLobby;
         
     }
 }

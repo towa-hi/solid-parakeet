@@ -243,6 +243,7 @@ public static class StellarDotnet
             return Result<(Transaction, SimulateTransactionResult)>.Err(accountEntryResult);
         }
         AccountEntry accountEntry = accountEntryResult.Value;
+        // TODO: replace this horrible line
         List<SCVal> argsList = new() { new SCVal.ScvAddress() { address = new SCAddress.ScAddressTypeAccount() { accountId = new AccountID(context.userAccount.XdrPublicKey) } } };
         foreach (IScvMapCompatable arg in args)
         {
@@ -370,7 +371,7 @@ public static class StellarDotnet
     {
         tracker?.StartOperation($"ReqUser");
         // try to use the stellar rpc client
-        LedgerKey ledgerKey = MakeLedgerKey(context, "User", context.userAccount.PublicKey, ContractDataDurability.PERSISTENT);
+        LedgerKey ledgerKey = MakeLedgerKey(context, "User", new AccountAddress(context.userAccount.Address), ContractDataDurability.PERSISTENT);
         string encodedKey = LedgerKeyXdr.EncodeToBase64(ledgerKey);
         var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
         {
