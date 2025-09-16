@@ -187,17 +187,16 @@ public static class StellarDotnet
     
     public static async Task<Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>> CallContractFunction(NetworkContext context, string functionName, IScvMapCompatable[] args, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"CallContractFunction {functionName}");
-        var simResult = await SimulateContractFunction(context, functionName, args, tracker);
-        if (simResult.IsError)
+        using (tracker?.Scope($"CallContractFunction {functionName}"))
         {
-            tracker?.EndOperation();
-            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(simResult);
-        }
+            var simResult = await SimulateContractFunction(context, functionName, args, tracker);
+            if (simResult.IsError)
+            {
+                return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(simResult);
+            }
         (Transaction transaction, SimulateTransactionResult sim) = simResult.Value;
         if (sim is not {Error: null})
         {
-            tracker?.EndOperation();
             StatusCode code = HasContractError(sim) ? StatusCode.CONTRACT_ERROR : StatusCode.SIMULATION_FAILED;
             return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(code, (sim, null, null),$"CallContractFunction {functionName} failed because the simulation result was not successful");
         }
@@ -213,35 +212,32 @@ public static class StellarDotnet
         }, tracker);
         if (sendResult.IsError)
         {
-            tracker?.EndOperation();
             return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(sendResult);
         }
         SendTransactionResult send = sendResult.Value;
         if (send is not { ErrorResult: null })
         {
-            tracker?.EndOperation();
             return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.TRANSACTION_SEND_FAILED, (sim, send, null), $"CallContractFunction {functionName} failed because the transaction sending result was not successful");
         }
         var getResult = await WaitForGetTransactionResult(context, send.Hash, 200, tracker);
         if (getResult.IsError)
         {
-            tracker?.EndOperation();
             return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(getResult);
         }
         GetTransactionResult get = getResult.Value;
-        tracker?.EndOperation();
         return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Ok((sim, send, get));
+        }
     }
     
     public static async Task<Result<(Transaction, SimulateTransactionResult)>> SimulateContractFunction(NetworkContext context, string functionName, IScvMapCompatable[] args, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"SimulateContractFunction {functionName}");
-        var accountEntryResult = await ReqAccountEntry(context, tracker);
-        if (accountEntryResult.IsError)
+        using (tracker?.Scope($"SimulateContractFunction {functionName}"))
         {
-            tracker?.EndOperation();
-            return Result<(Transaction, SimulateTransactionResult)>.Err(accountEntryResult);
-        }
+            var accountEntryResult = await ReqAccountEntry(context, tracker);
+            if (accountEntryResult.IsError)
+            {
+                return Result<(Transaction, SimulateTransactionResult)>.Err(accountEntryResult);
+            }
         AccountEntry accountEntry = accountEntryResult.Value;
         // TODO: replace this horrible line
         List<SCVal> argsList = new() { new SCVal.ScvAddress() { address = new SCAddress.ScAddressTypeAccount() { accountId = new AccountID(context.userAccount.XdrPublicKey) } } };
@@ -256,233 +252,225 @@ public static class StellarDotnet
                 ResourceConfig = new(),
             },
             tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<(Transaction, SimulateTransactionResult)>.Err(result);
-        }
+            if (result.IsError)
+            {
+                return Result<(Transaction, SimulateTransactionResult)>.Err(result);
+            }
         SimulateTransactionResult simulateTransactionResult = result.Value;
         if (simulateTransactionResult.Error != null)
         {
-            tracker?.EndOperation();
             StatusCode code = HasContractError(simulateTransactionResult) ? StatusCode.CONTRACT_ERROR : StatusCode.SIMULATION_FAILED;
             return Result<(Transaction, SimulateTransactionResult)>.Err(code, (invokeContractTransaction, simulateTransactionResult), $"SimulateContractFunction {functionName} failed because the simulation result was not successful");
         }
-        tracker?.EndOperation();
         return Result<(Transaction, SimulateTransactionResult)>.Ok((invokeContractTransaction, simulateTransactionResult));
+        }
     }
     
     public static async Task<Result<AccountEntry>> ReqAccountEntry(NetworkContext context, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"ReqAccountEntry");
-        string encodedKey = EncodedAccountKey(context);
-        var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
+        using (tracker?.Scope("ReqAccountEntry"))
         {
-            Keys = new [] {encodedKey},
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<AccountEntry>.Err(result);
+            string encodedKey = EncodedAccountKey(context);
+            var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
+            {
+                Keys = new [] {encodedKey},
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<AccountEntry>.Err(result);
+            }
+            GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
+            if (getLedgerEntriesResult.Entries.Count != 1)
+            {
+                return Result<AccountEntry>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqAccountEntry on {context.userAccount.XdrPublicKey} failed because there was not exactly one entry");
+            }
+            LedgerEntry.dataUnion.Account entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
+            return Result<AccountEntry>.Ok(entry?.account);
         }
-        GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
-        if (getLedgerEntriesResult.Entries.Count != 1)
-        {
-            tracker?.EndOperation();
-            return Result<AccountEntry>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqAccountEntry on {context.userAccount.XdrPublicKey} failed because there was not exactly one entry");
-        }
-        LedgerEntry.dataUnion.Account entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Account;
-        tracker?.EndOperation();
-        return Result<AccountEntry>.Ok(entry?.account);
     }
     
     public static async Task<Result<LedgerEntry.dataUnion.Trustline>> GetAssets(NetworkContext context, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"GetAssets");
-        string encodedKey = EncodedTrustlineKey(context);
-        var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
+        using (tracker?.Scope("GetAssets"))
         {
-            Keys = new [] {encodedKey},
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<LedgerEntry.dataUnion.Trustline>.Err(result);
-        }
-        GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
-        if (getLedgerEntriesResult.Entries.Count == 0)
-        {
-            tracker?.EndOperation();
-            return Result<LedgerEntry.dataUnion.Trustline>.Err(StatusCode.ENTRY_NOT_FOUND, "GetAssets: no trustline entries found");
-        }
-        else
-        {
-            LedgerEntry.dataUnion.Trustline entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Trustline;
-            tracker?.EndOperation();
-            return Result<LedgerEntry.dataUnion.Trustline>.Ok(entry);
+            string encodedKey = EncodedTrustlineKey(context);
+            var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
+            {
+                Keys = new [] {encodedKey},
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<LedgerEntry.dataUnion.Trustline>.Err(result);
+            }
+            GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
+            if (getLedgerEntriesResult.Entries.Count == 0)
+            {
+                return Result<LedgerEntry.dataUnion.Trustline>.Err(StatusCode.ENTRY_NOT_FOUND, "GetAssets: no trustline entries found");
+            }
+            else
+            {
+                LedgerEntry.dataUnion.Trustline entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Trustline;
+                return Result<LedgerEntry.dataUnion.Trustline>.Ok(entry);
+            }
         }
     }
     
     public static async Task<Result<NetworkState>> ReqNetworkState(NetworkContext networkContext, TimingTracker tracker = null)
     {
-        tracker?.StartOperation("ReqNetworkState");
-        NetworkState networkState = new(networkContext);
-        User? user = null;
-        LobbyInfo? lobbyInfo = null;
-        LobbyParameters? lobbyParameters = null;
-        GameState? gameState = null;
-
-        var userResult = await ReqUser(networkContext, tracker);
-        if (userResult.IsError)
+        using (tracker?.Scope("ReqNetworkState"))
         {
-            tracker?.EndOperation();
-            if (userResult.Code == StatusCode.ENTRY_NOT_FOUND)
-            {
-                // because there is no user, we can return a empty network state
-                return Result<NetworkState>.Ok(networkState);
-            }
-            return Result<NetworkState>.Err(userResult);
-        }
-        user = userResult.Value;
-        LobbyId currentLobby = user.Value.current_lobby;
-        if (currentLobby != 0)
-        {
-            var lobbyStuffResult = await ReqLobbyStuff(networkContext, currentLobby, tracker);
-            if (lobbyStuffResult.IsError)
-            {
-                tracker?.EndOperation();
-                return Result<NetworkState>.Err(lobbyStuffResult);
-            }
-            (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = lobbyStuffResult.Value;
-            lobbyInfo = mLobbyInfo;
-            lobbyParameters = mLobbyParameters;
-            gameState = mGameState;
-        }
+            NetworkState networkState = new(networkContext);
+            User? user = null;
+            LobbyInfo? lobbyInfo = null;
+            LobbyParameters? lobbyParameters = null;
+            GameState? gameState = null;
 
-        networkState.user = user;
-        networkState.lobbyInfo = lobbyInfo;
-        networkState.lobbyParameters = lobbyParameters;
-        networkState.gameState = gameState;
-        tracker?.EndOperation();
-        return Result<NetworkState>.Ok(networkState);
+            var userResult = await ReqUser(networkContext, tracker);
+            if (userResult.IsError)
+            {
+                if (userResult.Code == StatusCode.ENTRY_NOT_FOUND)
+                {
+                    // because there is no user, we can return a empty network state
+                    return Result<NetworkState>.Ok(networkState);
+                }
+                return Result<NetworkState>.Err(userResult);
+            }
+            user = userResult.Value;
+            LobbyId currentLobby = user.Value.current_lobby;
+            if (currentLobby != 0)
+            {
+                var lobbyStuffResult = await ReqLobbyStuff(networkContext, currentLobby, tracker);
+                if (lobbyStuffResult.IsError)
+                {
+                    return Result<NetworkState>.Err(lobbyStuffResult);
+                }
+                (LobbyInfo? mLobbyInfo, LobbyParameters? mLobbyParameters, GameState? mGameState) = lobbyStuffResult.Value;
+                lobbyInfo = mLobbyInfo;
+                lobbyParameters = mLobbyParameters;
+                gameState = mGameState;
+            }
+
+            networkState.user = user;
+            networkState.lobbyInfo = lobbyInfo;
+            networkState.lobbyParameters = lobbyParameters;
+            networkState.gameState = gameState;
+            return Result<NetworkState>.Ok(networkState);
+        }
     }
     
     public static async Task<Result<User>> ReqUser(NetworkContext context, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"ReqUser");
-        // try to use the stellar rpc client
-        LedgerKey ledgerKey = MakeLedgerKey(context, "User", new AccountAddress(context.userAccount.Address), ContractDataDurability.PERSISTENT);
-        string encodedKey = LedgerKeyXdr.EncodeToBase64(ledgerKey);
-        var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
+        using (tracker?.Scope("ReqUser"))
         {
-            Keys = new [] {encodedKey},
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<User>.Err(result);
+            // try to use the stellar rpc client
+            LedgerKey ledgerKey = MakeLedgerKey(context, "User", new AccountAddress(context.userAccount.Address), ContractDataDurability.PERSISTENT);
+            string encodedKey = LedgerKeyXdr.EncodeToBase64(ledgerKey);
+            var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
+            {
+                Keys = new [] {encodedKey},
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<User>.Err(result);
+            }
+            GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
+            if (getLedgerEntriesResult.Entries.Count == 0)
+            {
+                // it's normal to not find entries for users
+                return Result<User>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqUser: no entries found for key {context.userAccount.AccountId}");
+            }
+            Entries entries = getLedgerEntriesResult.Entries.First();
+            if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
+            {
+                return Result<User>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqUserData on {context.userAccount.AccountId} failed because data was not ContractData");
+            }
+            User user = SCUtility.SCValToNative<User>(data.contractData.val);
+            return Result<User>.Ok(user);
         }
-        GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
-        if (getLedgerEntriesResult.Entries.Count == 0)
-        {
-            tracker?.EndOperation();
-            // it's normal to not find entries for users
-            return Result<User>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqUser: no entries found for key {context.userAccount.AccountId}");
-        }
-        Entries entries = getLedgerEntriesResult.Entries.First();
-        if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
-        {
-            return Result<User>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqUserData on {context.userAccount.AccountId} failed because data was not ContractData");
-        }
-        User user = SCUtility.SCValToNative<User>(data.contractData.val);
-        tracker?.EndOperation();
-        return Result<User>.Ok(user);
     }
 
     public static async Task<Result<LobbyInfo>> ReqLobbyInfo(NetworkContext context, uint key, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"ReqLobbyStuff");
-        string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "LobbyInfo", key, ContractDataDurability.TEMPORARY));
-        var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams
+        using (tracker?.Scope("ReqLobbyStuff"))
         {
-            Keys = new[]
+            string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "LobbyInfo", key, ContractDataDurability.TEMPORARY));
+            var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams
             {
-                lobbyInfoKey,
-            },
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<LobbyInfo>.Err(result);
+                Keys = new[]
+                {
+                    lobbyInfoKey,
+                },
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<LobbyInfo>.Err(result);
+            }
+            GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
+            if (getLedgerEntriesResult.Entries.Count == 0)
+            {
+                return Result<LobbyInfo>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqLobbyInfo: no entries found for lobby {key}");
+            }
+            Entries entries = getLedgerEntriesResult.Entries.First();
+            if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
+            {
+                return Result<LobbyInfo>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqLobbyInfo on {key} failed because data was not ContractData");
+            }
+            LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
+            return Result<LobbyInfo>.Ok(lobbyInfo);
         }
-        GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
-        if (getLedgerEntriesResult.Entries.Count == 0)
-        {
-            tracker?.EndOperation();
-            return Result<LobbyInfo>.Err(StatusCode.ENTRY_NOT_FOUND, $"ReqLobbyInfo: no entries found for lobby {key}");
-        }
-        Entries entries = getLedgerEntriesResult.Entries.First();
-        if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
-        {
-            tracker?.EndOperation();
-            return Result<LobbyInfo>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqLobbyInfo on {key} failed because data was not ContractData");
-        }
-        LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
-        tracker?.EndOperation();
-        return Result<LobbyInfo>.Ok(lobbyInfo);
     }
     
     static async Task<Result<(LobbyInfo?, LobbyParameters?, GameState?)>> ReqLobbyStuff(NetworkContext context, uint key, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"ReqLobbyStuff");
-        string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "LobbyInfo", key, ContractDataDurability.TEMPORARY));
-        string lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "LobbyParameters", key, ContractDataDurability.TEMPORARY));
-        string gameStateKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "GameState", key, ContractDataDurability.TEMPORARY));
-        var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams
+        using (tracker?.Scope($"ReqLobbyStuff"))
         {
-            Keys = new[]
+            string lobbyInfoKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "LobbyInfo", key, ContractDataDurability.TEMPORARY));
+            string lobbyParametersKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "LobbyParameters", key, ContractDataDurability.TEMPORARY));
+            string gameStateKey = LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "GameState", key, ContractDataDurability.TEMPORARY));
+            var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams
             {
-                lobbyInfoKey,
-                lobbyParametersKey,
-                gameStateKey,
-            },
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<(LobbyInfo?, LobbyParameters?, GameState?)>.Err(result);
+                Keys = new[]
+                {
+                    lobbyInfoKey,
+                    lobbyParametersKey,
+                    gameStateKey,
+                },
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<(LobbyInfo?, LobbyParameters?, GameState?)>.Err(result);
+            }
+            GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
+            (LobbyInfo?, LobbyParameters?, GameState?) tuple = (null, null, null);
+            foreach (Entries entry in getLedgerEntriesResult.Entries)
+            {
+                if (entry.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
+                {
+                    throw new Exception($"ReqLobbyStuff on {key} failed because data was not ContractData");
+                }
+                if (entry.Key == lobbyInfoKey)
+                {
+                    LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
+                    lobbyInfo.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
+                    tuple.Item1 = lobbyInfo;
+                    Debug.Log("wrote lobbyinfo");
+                }
+                else if (entry.Key == lobbyParametersKey)
+                {
+                    LobbyParameters lobbyParameters = SCUtility.SCValToNative<LobbyParameters>(data.contractData.val);
+                    lobbyParameters.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
+                    tuple.Item2 = lobbyParameters;
+                    Debug.Log("wrote lobbyparameters");
+                }
+                else if (entry.Key == gameStateKey)
+                {
+                    GameState gameState = SCUtility.SCValToNative<GameState>(data.contractData.val);
+                    gameState.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
+                    tuple.Item3 = gameState;
+                }
+            }
+            return Result<(LobbyInfo?, LobbyParameters?, GameState?)>.Ok(tuple);
         }
-        GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
-        (LobbyInfo?, LobbyParameters?, GameState?) tuple = (null, null, null);
-        foreach (Entries entry in getLedgerEntriesResult.Entries)
-        {
-            if (entry.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
-            {
-                throw new Exception($"ReqLobbyStuff on {key} failed because data was not ContractData");
-            }
-            if (entry.Key == lobbyInfoKey)
-            {
-                LobbyInfo lobbyInfo = SCUtility.SCValToNative<LobbyInfo>(data.contractData.val);
-                lobbyInfo.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
-                tuple.Item1 = lobbyInfo;
-                Debug.Log("wrote lobbyinfo");
-            }
-            else if (entry.Key == lobbyParametersKey)
-            {
-                LobbyParameters lobbyParameters = SCUtility.SCValToNative<LobbyParameters>(data.contractData.val);
-                lobbyParameters.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
-                tuple.Item2 = lobbyParameters;
-                Debug.Log("wrote lobbyparameters");
-            }
-            else if (entry.Key == gameStateKey)
-            {
-                GameState gameState = SCUtility.SCValToNative<GameState>(data.contractData.val);
-                gameState.liveUntilLedgerSeq = entry.LiveUntilLedgerSeq;
-                tuple.Item3 = gameState;
-            }
-        }
-        tracker?.EndOperation();
-        return Result<(LobbyInfo?, LobbyParameters?, GameState?)>.Ok(tuple);
     }
     
     static Transaction BuildInvokeContractTransaction(NetworkContext context, AccountEntry accountEntry, string functionName, SCVal[] args, bool increment)
@@ -530,34 +518,32 @@ public static class StellarDotnet
 
     public static async Task<Result<PackedHistory>> ReqPackedHistory(NetworkContext context, uint key, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"ReqPackedHistory");
-        var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams
+        using (tracker?.Scope($"ReqPackedHistory"))
         {
-            Keys = new[]
+            var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams
             {
-                LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "PackedHistory", key, ContractDataDurability.TEMPORARY)),
-            },
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<PackedHistory>.Err(result);
+                Keys = new[]
+                {
+                    LedgerKeyXdr.EncodeToBase64(MakeLedgerKey(context, "PackedHistory", key, ContractDataDurability.TEMPORARY)),
+                },
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<PackedHistory>.Err(result);
+            }
+            GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
+            if (getLedgerEntriesResult.Entries.Count == 0)
+            {
+                return Result<PackedHistory>.Err(StatusCode.ENTRY_NOT_FOUND);
+            }
+            Entries entries = getLedgerEntriesResult.Entries.First();
+            if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
+            {
+                return Result<PackedHistory>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqPackedHistory on {key} failed because data was not ContractData");
+            }
+            PackedHistory packedHistory = SCUtility.SCValToNative<PackedHistory>(data.contractData.val);
+            return Result<PackedHistory>.Ok(packedHistory);
         }
-        GetLedgerEntriesResult getLedgerEntriesResult = result.Value;
-        if (getLedgerEntriesResult.Entries.Count == 0)
-        {
-            tracker?.EndOperation();
-            return Result<PackedHistory>.Err(StatusCode.ENTRY_NOT_FOUND);
-        }
-        Entries entries = getLedgerEntriesResult.Entries.First();
-        if (entries.LedgerEntryData is not LedgerEntry.dataUnion.ContractData data)
-        {
-            tracker?.EndOperation();
-            return Result<PackedHistory>.Err(StatusCode.SERIALIZATION_ERROR, $"ReqPackedHistory on {key} failed because data was not ContractData");
-        }
-        PackedHistory packedHistory = SCUtility.SCValToNative<PackedHistory>(data.contractData.val);
-        tracker?.EndOperation();
-        return Result<PackedHistory>.Ok(packedHistory);
     }
 
     static string EncodeTransaction(Transaction transaction)
@@ -601,183 +587,183 @@ public static class StellarDotnet
 
     static async Task<Result<GetTransactionResult>> WaitForGetTransactionResult(NetworkContext context, string txHash, int delayMS, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"WaitForGetTransactionResult");
-        int attempts = 0;
-        tracker?.StartOperation($"Initial delay ({delayMS}ms)");
-        await AsyncDelay.Delay(delayMS);
-        tracker?.EndOperation();
-        while (attempts < maxAttempts)
+        using (tracker?.Scope($"WaitForGetTransactionResult"))
         {
-            attempts++;
-            //delayMS *= 2;
-            var result = await GetTransactionAsync(context, new GetTransactionParams()
+            int attempts = 0;
+            using (tracker?.Scope($"Initial delay ({delayMS}ms)"))
             {
-                Hash = txHash,
-            }, tracker);
-            if (result.IsError)
-            {
-                tracker?.EndOperation();
-                return Result<GetTransactionResult>.Err(result);
+                await AsyncDelay.Delay(delayMS);
             }
-            GetTransactionResult completion = result.Value;
-            switch (completion.Status)
+            while (attempts < maxAttempts)
             {
-                case GetTransactionResultStatus.FAILED:
-                    DebugLog("WaitForTransaction: FAILED");
-                    tracker?.EndOperation();
-                    return Result<GetTransactionResult>.Err(StatusCode.TRANSACTION_FAILED, completion.ResultMetaXdr);
-                case GetTransactionResultStatus.NOT_FOUND:
-                    tracker?.StartOperation($"Retry delay ({delayMS}ms)");
-                    await AsyncDelay.Delay(delayMS);
-                    tracker?.EndOperation();
-                    continue;
-                case GetTransactionResultStatus.SUCCESS:
-                    DebugLog("WaitForTransaction: SUCCESS");
-                    tracker?.EndOperation();
-                    return Result<GetTransactionResult>.Ok(completion);
+                attempts++;
+                var result = await GetTransactionAsync(context, new GetTransactionParams()
+                {
+                    Hash = txHash,
+                }, tracker);
+                if (result.IsError)
+                {
+                    return Result<GetTransactionResult>.Err(result);
+                }
+                GetTransactionResult completion = result.Value;
+                switch (completion.Status)
+                {
+                    case GetTransactionResultStatus.FAILED:
+                        DebugLog("WaitForTransaction: FAILED");
+                        return Result<GetTransactionResult>.Err(StatusCode.TRANSACTION_FAILED, completion.ResultMetaXdr);
+                    case GetTransactionResultStatus.NOT_FOUND:
+                        using (tracker?.Scope($"Retry delay ({delayMS}ms)"))
+                        {
+                            await AsyncDelay.Delay(delayMS);
+                        }
+                        continue;
+                    case GetTransactionResultStatus.SUCCESS:
+                        DebugLog("WaitForTransaction: SUCCESS");
+                        return Result<GetTransactionResult>.Ok(completion);
+                }
             }
+            DebugLog("WaitForTransaction: timed out");
+            return Result<GetTransactionResult>.Err(StatusCode.TRANSACTION_TIMEOUT);
         }
-        DebugLog("WaitForTransaction: timed out");
-        tracker?.EndOperation();
-        return Result<GetTransactionResult>.Err(StatusCode.TRANSACTION_TIMEOUT);
-        
     }
     
     
     // variant of StellarRPCClient.SimulateTransactionAsync()
     static async Task<Result<SimulateTransactionResult>> SimulateTransactionAsync(NetworkContext context, SimulateTransactionParams parameters = null, TimingTracker tracker = null)
     {
-        tracker?.StartOperation("SimulateTransactionAsync");
-        var result = await SendJsonRequest<SimulateTransactionResult>(context, new() 
+        using (tracker?.Scope("SimulateTransactionAsync"))
         {
-            JsonRpc = "2.0",
-            Method = "simulateTransaction",
-            Params = parameters,
-            Id = 1,
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<SimulateTransactionResult>.Err(result);
+            var result = await SendJsonRequest<SimulateTransactionResult>(context, new() 
+            {
+                JsonRpc = "2.0",
+                Method = "simulateTransaction",
+                Params = parameters,
+                Id = 1,
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<SimulateTransactionResult>.Err(result);
+            }
+            SimulateTransactionResult transactionResult = result.Value;
+            return Result<SimulateTransactionResult>.Ok(transactionResult);
         }
-        SimulateTransactionResult transactionResult = result.Value;
-        tracker?.EndOperation();
-        return Result<SimulateTransactionResult>.Ok(transactionResult);
     }
     
     // variant of StellarRPCClient.SendTransactionAsync()
     static async Task<Result<SendTransactionResult>> SendTransactionAsync(NetworkContext context, SendTransactionParams parameters = null, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"SendTransactionAsync");
-        var result = await SendJsonRequest<SendTransactionResult>(context, new()
+        using (tracker?.Scope($"SendTransactionAsync"))
         {
-            JsonRpc = "2.0",
-            Method = "sendTransaction",
-            Params = parameters,
-            Id = 1,
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<SendTransactionResult>.Err(result);
+            var result = await SendJsonRequest<SendTransactionResult>(context, new()
+            {
+                JsonRpc = "2.0",
+                Method = "sendTransaction",
+                Params = parameters,
+                Id = 1,
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<SendTransactionResult>.Err(result);
+            }
+            SendTransactionResult transactionResult = result.Value;
+            return Result<SendTransactionResult>.Ok(transactionResult);
         }
-        SendTransactionResult transactionResult = result.Value;
-        tracker?.EndOperation();
-        return Result<SendTransactionResult>.Ok(transactionResult);
     }
 
 
     static async Task<Result<GetEventsResult>> GetEventsAsync(NetworkContext context, GetEventsParams parameters, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"GetEventsAsync");
-        var result = await SendJsonRequest<GetEventsResult>(context, new() {
-            JsonRpc = "2.0",
-            Method = "getEvents",
-            Params = parameters,
-            Id = 1,
-        }, tracker);
-        if (result.IsError)
+        using (tracker?.Scope($"GetEventsAsync"))
         {
-            tracker?.EndOperation();
-            return Result<GetEventsResult>.Err(result);
+            var result = await SendJsonRequest<GetEventsResult>(context, new() {
+                JsonRpc = "2.0",
+                Method = "getEvents",
+                Params = parameters,
+                Id = 1,
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<GetEventsResult>.Err(result);
+            }
+            GetEventsResult eventsResult = result.Value;
+            latestLedger = eventsResult.LatestLedger;
+            return Result<GetEventsResult>.Ok(eventsResult);
         }
-        GetEventsResult eventsResult = result.Value;
-        latestLedger = eventsResult.LatestLedger;
-        tracker?.EndOperation();
-        return Result<GetEventsResult>.Ok(eventsResult);
     }
     
     // variant of StellarRPCClient.GetLedgerEntriesAsync()
     static async Task<Result<GetLedgerEntriesResult>> GetLedgerEntriesAsync(NetworkContext context, GetLedgerEntriesParams parameters = null, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"GetLedgerEntriesAsync");
-        var result = await SendJsonRequest<GetLedgerEntriesResult>(context, new()
+        using (tracker?.Scope($"GetLedgerEntriesAsync"))
         {
-            JsonRpc = "2.0",
-            Method = "getLedgerEntries",
-            Params = parameters,
-            Id = 1
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<GetLedgerEntriesResult>.Err(result);
+            var result = await SendJsonRequest<GetLedgerEntriesResult>(context, new()
+            {
+                JsonRpc = "2.0",
+                Method = "getLedgerEntries",
+                Params = parameters,
+                Id = 1
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<GetLedgerEntriesResult>.Err(result);
+            }
+            GetLedgerEntriesResult ledgerEntriesAsync = result.Value;
+            latestLedger = ledgerEntriesAsync.LatestLedger;
+            return Result<GetLedgerEntriesResult>.Ok(ledgerEntriesAsync);
         }
-        GetLedgerEntriesResult ledgerEntriesAsync = result.Value;
-        latestLedger = ledgerEntriesAsync.LatestLedger;
-        tracker?.EndOperation();
-        return Result<GetLedgerEntriesResult>.Ok(ledgerEntriesAsync);
     }
     
     // variant of StellarRPCClient.GetTransactionAsync()
     static async Task<Result<GetTransactionResult>> GetTransactionAsync(NetworkContext context, GetTransactionParams parameters = null, TimingTracker tracker = null)
     {
-        tracker?.StartOperation($"GetTransactionAsync");
-        var result = await SendJsonRequest<GetTransactionResult>(context, new()
+        using (tracker?.Scope($"GetTransactionAsync"))
         {
-            JsonRpc = "2.0",
-            Method = "getTransaction",
-            Params = parameters,
-            Id = 1
-        }, tracker);
-        if (result.IsError)
-        {
-            tracker?.EndOperation();
-            return Result<GetTransactionResult>.Err(result);
+            var result = await SendJsonRequest<GetTransactionResult>(context, new()
+            {
+                JsonRpc = "2.0",
+                Method = "getTransaction",
+                Params = parameters,
+                Id = 1
+            }, tracker);
+            if (result.IsError)
+            {
+                return Result<GetTransactionResult>.Err(result);
+            }
+            GetTransactionResult transactionAsync = result.Value;
+            latestLedger = transactionAsync.LatestLedger;
+            return Result<GetTransactionResult>.Ok(transactionAsync);
         }
-        GetTransactionResult transactionAsync = result.Value;
-        latestLedger = transactionAsync.LatestLedger;
-        tracker?.EndOperation();
-        return Result<GetTransactionResult>.Ok(transactionAsync);
     }
     
     static async Task<Result<T>> SendJsonRequest<T>(NetworkContext context, JsonRpcRequest request, TimingTracker tracker = null)
     {
-        tracker?.StartOperation("SendJsonRequest");
-        string json = JsonConvert.SerializeObject(request, jsonSettings);
-        UnityWebRequest unityWebRequest = new(context.serverUri, "POST") {
-            uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json)),
-            downloadHandler = new DownloadHandlerBuffer(),
-        };
-        unityWebRequest.SetRequestHeader("Content-Type", "application/json");
-        DebugLog($"SendJsonRequest: request: {json}");
-        tracker?.StartOperation("SendWebRequest");
-        await unityWebRequest.SendWebRequest();
-        tracker?.EndOperation();
-        if (unityWebRequest.result == UnityWebRequest.Result.ConnectionError || unityWebRequest.result == UnityWebRequest.Result.ProtocolError)
+        using (tracker?.Scope("SendJsonRequest"))
         {
-            return Result<T>.Err(StatusCode.NETWORK_ERROR, $"SendJsonRequest: error: {unityWebRequest.error}");
+            string json = JsonConvert.SerializeObject(request, jsonSettings);
+            UnityWebRequest unityWebRequest = new(context.serverUri, "POST") {
+                uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json)),
+                downloadHandler = new DownloadHandlerBuffer(),
+            };
+            unityWebRequest.SetRequestHeader("Content-Type", "application/json");
+            DebugLog($"SendJsonRequest: request: {json}");
+            using (tracker?.Scope("SendWebRequest"))
+            {
+                await unityWebRequest.SendWebRequest();
+            }
+            if (unityWebRequest.result == UnityWebRequest.Result.ConnectionError || unityWebRequest.result == UnityWebRequest.Result.ProtocolError)
+            {
+                return Result<T>.Err(StatusCode.NETWORK_ERROR, $"SendJsonRequest: error: {unityWebRequest.error}");
+            }
+            DebugLog($"SendJsonRequest: response: {unityWebRequest.downloadHandler.text}");
+            string responseText = unityWebRequest.downloadHandler.text;
+            
+            T result = JsonConvert.DeserializeObject<JsonRpcResponse<T>>(responseText, jsonSettings).Result;
+            if (result == null)
+            {
+                return Result<T>.Err(StatusCode.DESERIALIZATION_ERROR, "SendJsonRequest: error: JSON deserialization failed");
+            }
+            return Result<T>.Ok(result);
         }
-        DebugLog($"SendJsonRequest: response: {unityWebRequest.downloadHandler.text}");
-        string responseText = unityWebRequest.downloadHandler.text;
-        
-        T result = JsonConvert.DeserializeObject<JsonRpcResponse<T>>(responseText, jsonSettings).Result;
-        if (result == null)
-        {
-            return Result<T>.Err(StatusCode.DESERIALIZATION_ERROR, "SendJsonRequest: error: JSON deserialization failed");
-        }
-        tracker?.EndOperation();
-        return Result<T>.Ok(result);
     }
 
     static bool HasContractError(SimulateTransactionResult simulate)
@@ -924,6 +910,30 @@ public class TimingTracker
 {
     TimingNode root;
     TimingNode current;
+    
+    public readonly struct OperationScope : IDisposable
+    {
+        readonly TimingTracker tracker;
+        public OperationScope(TimingTracker tracker, string name)
+        {
+            this.tracker = tracker;
+            tracker?.StartOperation(name);
+        }
+        public void Dispose()
+        {
+            tracker?.EndOperation();
+        }
+    }
+    
+    public OperationScope Scope(string name)
+    {
+        return new OperationScope(this, name);
+    }
+    
+    public static OperationScope Scope(TimingTracker tracker, string name)
+    {
+        return new OperationScope(tracker, name);
+    }
     
     public void StartOperation(string name)
     {
