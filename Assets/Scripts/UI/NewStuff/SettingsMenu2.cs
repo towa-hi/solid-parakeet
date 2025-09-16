@@ -88,7 +88,7 @@ public class SettingsMenu2 : MenuBase
 
     public void HandleSaveChanges()
     {
-        EmitAction(MenuAction.SaveChanges, newSettings);
+        EmitAction(new SaveChangesSignal(newSettings));
     }
     public override void Refresh()
     {
@@ -106,5 +106,6 @@ public class SettingsMenu2 : MenuBase
         saveChangesButton.interactable = newSettings.cheatMode != oldSettings.cheatMode || newSettings.fastMode != oldSettings.fastMode || newSettings.displayBadges != oldSettings.displayBadges || newSettings.moveCamera != oldSettings.moveCamera || newSettings.masterVolume != oldSettings.masterVolume || newSettings.musicVolume != oldSettings.musicVolume || newSettings.effectsVolume != oldSettings.effectsVolume;
     }
 }
+
 
 

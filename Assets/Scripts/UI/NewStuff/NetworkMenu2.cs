@@ -84,7 +84,7 @@ public class NetworkMenu2 : MenuBase
         {
             data.sneed = "wallet";
         }
-        EmitAction(MenuAction.ConnectToNetwork, data);
+        EmitAction(new ConnectToNetworkSignal(data));
     }
 
     public void HandleOffline()
@@ -98,7 +98,7 @@ public class NetworkMenu2 : MenuBase
             isWallet = isWallet,
             serverUri = "unused",
         };
-        EmitAction(MenuAction.ConnectToNetwork, data);
+        EmitAction(new ConnectToNetworkSignal(data));
     }
 
     public override void Refresh()
@@ -109,5 +109,6 @@ public class NetworkMenu2 : MenuBase
 
     }
 }
+
 
 

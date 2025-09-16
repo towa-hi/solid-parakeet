@@ -2,6 +2,16 @@ using System;
 using System.Threading.Tasks;
 using UnityEngine;
 
+public abstract record MenuSignal(MenuAction Action);
+
+public sealed record SimpleMenuSignal(MenuAction Action) : MenuSignal(Action);
+
+public sealed record ConnectToNetworkSignal(ModalConnectData Data) : MenuSignal(MenuAction.ConnectToNetwork);
+
+public sealed record CreateLobbySignal(LobbyCreateData Data) : MenuSignal(MenuAction.CreateLobby);
+
+public sealed record SaveChangesSignal(WarmancerSettings Settings) : MenuSignal(MenuAction.SaveChanges);
+
 [RequireComponent(typeof(CanvasGroup))]
 public abstract class MenuBase : MonoBehaviour
 {
@@ -11,7 +21,7 @@ public abstract class MenuBase : MonoBehaviour
     public Action OnTransitionEnd;
     public Action OnClosed;
     public Action OnOpened;
-    public event Action<MenuAction, object> ActionInvoked;
+    public event Action<MenuSignal> ActionInvoked;
     public event Action<IMenuCommand> CommandInvoked;
 
     public float openDuration;
@@ -143,12 +153,12 @@ public abstract class MenuBase : MonoBehaviour
 
     protected void EmitAction(MenuAction action)
     {
-        ActionInvoked?.Invoke(action, null);
+        ActionInvoked?.Invoke(new SimpleMenuSignal(action));
     }
 
-    protected void EmitAction(MenuAction action, object payload)
+    protected void EmitAction(MenuSignal signal)
     {
-        ActionInvoked?.Invoke(action, payload);
+        ActionInvoked?.Invoke(signal);
     }
 
     protected void Emit(IMenuCommand command)
@@ -167,3 +177,7 @@ public abstract class MenuBase : MonoBehaviour
         return 1f - t * t * t;
     }
 }
+
+
+
+

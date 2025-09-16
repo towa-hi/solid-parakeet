@@ -150,10 +150,24 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    void HandleMenuAction(MenuAction action, object payload)
+    void HandleMenuAction(MenuSignal signal)
     {
-        Debug.Log($"MenuController received action: {action}");
-        switch (action)
+        Debug.Log($"MenuController received action: {signal.Action}");
+
+        switch (signal)
+        {
+            case ConnectToNetworkSignal connectSignal:
+                _ = ConnectToNetworkAsync(connectSignal.Data);
+                return;
+            case CreateLobbySignal createLobbySignal:
+                _ = CreateLobbyAsync(createLobbySignal.Data);
+                return;
+            case SaveChangesSignal saveChangesSignal:
+                SaveChange(saveChangesSignal.Settings);
+                return;
+        }
+
+        switch (signal.Action)
         {
             case MenuAction.GotoStartMenu: SetMenu(startMenuPrefab); break;
             case MenuAction.GotoNetwork: SetMenu(networkMenuPrefab); break;
@@ -164,27 +178,6 @@ public class MenuController : MonoBehaviour
             case MenuAction.GotoSettings: SetMenu(settingsMenuPrefab); break;
             case MenuAction.GotoGallery: SetMenu(galleryMenuPrefab); break;
             case MenuAction.GotoGame: SetMenu(gameMenuPrefab); break;
-
-            case MenuAction.ConnectToNetwork:
-                if (payload is ModalConnectData connectData)
-                {
-                    _ = ConnectToNetworkAsync(connectData);
-                }
-                else
-                {
-                    Debug.LogError("MenuController: ConnectToNetwork action missing ModalConnectData payload");
-                }
-                break;
-            case MenuAction.CreateLobby:
-                if (payload is LobbyCreateData lobbyCreateData)
-                {
-                    _ = CreateLobbyAsync(lobbyCreateData);
-                }
-                else
-                {
-                    Debug.LogError("MenuController: CreateLobby action missing LobbyCreateData payload");
-                }
-                break;
             case MenuAction.JoinGame:
                 _ = JoinGameAsync();
                 break;
@@ -194,18 +187,13 @@ public class MenuController : MonoBehaviour
             case MenuAction.Refresh:
                 RefreshData();
                 break;
-            case MenuAction.SaveChanges:
-                if (payload is WarmancerSettings settings)
-                {
-                    SaveChange(settings);
-                }
-                else
-                {
-                    Debug.LogError("MenuController: SaveChanges action missing WarmancerSettings payload");
-                }
-                break;
             case MenuAction.Quit:
                 Application.Quit();
+                break;
+            case MenuAction.ConnectToNetwork:
+            case MenuAction.CreateLobby:
+            case MenuAction.SaveChanges:
+                Debug.LogError($"MenuController: {signal.Action} requires a payload signal but received {signal.GetType().Name}.");
                 break;
             case MenuAction.None:
             default:
