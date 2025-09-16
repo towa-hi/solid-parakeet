@@ -67,6 +67,7 @@ public class MenuController : MonoBehaviour
                 return;
             }
             currentMenu = menuBase;
+            currentMenu.SetMenuController(this);
             currentMenu.ActionInvoked += HandleMenuAction;
             currentMenu.CommandInvoked += HandleMenuCommand;
             currentMenu.Display(true);
@@ -162,43 +163,15 @@ public class MenuController : MonoBehaviour
             case CreateLobbySignal createLobbySignal:
                 _ = CreateLobbyAsync(createLobbySignal.Data);
                 return;
+            case JoinGameSignal joinGameSignal:
+                _ = JoinGameFromMenu(joinGameSignal.Id);
+                return;
             case SaveChangesSignal saveChangesSignal:
                 SaveChange(saveChangesSignal.Settings);
                 return;
         }
 
-        switch (signal.Action)
-        {
-            case MenuAction.GotoStartMenu: SetMenu(startMenuPrefab); break;
-            case MenuAction.GotoNetwork: SetMenu(networkMenuPrefab); break;
-            case MenuAction.GotoMainMenu: SetMenu(mainMenuPrefab); break;
-            case MenuAction.GotoLobbyCreate: SetMenu(lobbyCreateMenuPrefab); break;
-            case MenuAction.GotoLobbyView: SetMenu(lobbyViewMenuPrefab); break;
-            case MenuAction.GotoLobbyJoin: SetMenu(lobbyJoinMenuPrefab); break;
-            case MenuAction.GotoSettings: SetMenu(settingsMenuPrefab); break;
-            case MenuAction.GotoGallery: SetMenu(galleryMenuPrefab); break;
-            case MenuAction.GotoGame: SetMenu(gameMenuPrefab); break;
-            case MenuAction.JoinGame:
-                _ = JoinGameAsync();
-                break;
-            case MenuAction.GoOffline:
-                GoOffline();
-                break;
-            case MenuAction.Refresh:
-                RefreshData();
-                break;
-            case MenuAction.Quit:
-                Application.Quit();
-                break;
-            case MenuAction.ConnectToNetwork:
-            case MenuAction.CreateLobby:
-            case MenuAction.SaveChanges:
-                Debug.LogError($"MenuController: {signal.Action} requires a payload signal but received {signal.GetType().Name}.");
-                break;
-            case MenuAction.None:
-            default:
-                break;
-        }
+        Debug.LogWarning($"MenuController: Unhandled signal {signal.GetType().Name}");
     }
 
     void HandleMenuCommand(IMenuCommand command)
@@ -267,26 +240,48 @@ public class MenuController : MonoBehaviour
         SetMenu(lobbyViewMenuPrefab);
     }
 
-    async Task JoinGameAsync()
+    public async Task JoinGameFromMenu(LobbyId lobbyId)
     {
-        bool success = false;
         await ExecuteBusyAsync(async () =>
         {
-            await Task.Yield();
-            // perform join game request here
-        });
-        if (success)
-        {
+            var result = await StellarManager.JoinLobbyRequest(lobbyId);
+            if (result.IsError)
+            {
+                await ShowErrorAsync(result.Code, result.Message);
+                return;
+            }
+            var update = await StellarManager.UpdateState();
+            if (update.IsError)
+            {
+                await ShowErrorAsync(update.Code, update.Message);
+                return;
+            }
             SetMenu(lobbyViewMenuPrefab);
-        }
-        else
-        {
-            await ShowMessageAsync("Failed to join game.");
-        }
+        });
     }
 
-    void RefreshData()
+    public void RefreshData()
     {
+    }
+
+    public async Task LeaveLobbyForMenu()
+    {
+        await ExecuteBusyAsync(async () =>
+        {
+            var result = await StellarManager.LeaveLobbyRequest();
+            if (result.IsError)
+            {
+                await ShowErrorAsync(result.Code, result.Message);
+                return;
+            }
+            var update = await StellarManager.UpdateState();
+            if (update.IsError)
+            {
+                await ShowErrorAsync(update.Code, update.Message);
+                return;
+            }
+            SetMenu(mainMenuPrefab);
+        });
     }
 
     void SaveChange(WarmancerSettings settings)

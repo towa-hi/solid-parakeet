@@ -83,12 +83,13 @@ public class SettingsMenu2 : MenuBase
     }
     public void HandleBack()
     {
-        EmitAction(MenuAction.GotoMainMenu);
+        menuController.SetMenu(menuController.mainMenuPrefab);
     }
 
     public void HandleSaveChanges()
     {
-        EmitAction(new SaveChangesSignal(newSettings));
+        // Persist and remain on page
+        SettingsManager.Save(newSettings);
     }
     public override void Refresh()
     {

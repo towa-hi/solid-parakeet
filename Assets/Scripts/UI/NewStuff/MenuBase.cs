@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using UnityEngine;
+using Contract;
 
 public abstract record MenuSignal(MenuAction Action);
 
@@ -10,12 +11,15 @@ public sealed record ConnectToNetworkSignal(ModalConnectData Data) : MenuSignal(
 
 public sealed record CreateLobbySignal(LobbyCreateData Data) : MenuSignal(MenuAction.CreateLobby);
 
+public sealed record JoinGameSignal(LobbyId Id) : MenuSignal(MenuAction.JoinGame);
+
 public sealed record SaveChangesSignal(WarmancerSettings Settings) : MenuSignal(MenuAction.SaveChanges);
 
 [RequireComponent(typeof(CanvasGroup))]
 public abstract class MenuBase : MonoBehaviour
 {
     protected CanvasGroup canvasGroup;
+    protected MenuController menuController;
     public CameraAnchor cameraAnchor;
     public Action OnTransitionStart;
     public Action OnTransitionEnd;
@@ -35,6 +39,11 @@ public abstract class MenuBase : MonoBehaviour
         {
             canvasGroup = GetComponent<CanvasGroup>();
         }
+    }
+
+    public void SetMenuController(MenuController controller)
+    {
+        menuController = controller;
     }
 
     public virtual void Display(bool display)

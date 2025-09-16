@@ -18,6 +18,7 @@ public enum MenuAction
     GoOffline,
     CreateLobby,
     JoinGame,
+    LeaveLobby,
     Refresh,
     SaveChanges,
     Quit,

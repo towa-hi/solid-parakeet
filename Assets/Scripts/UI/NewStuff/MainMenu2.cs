@@ -27,37 +27,37 @@ public class MainMenu2 : MenuBase
 
     public void HandleCreateLobby()
     {
-        EmitAction(MenuAction.GotoLobbyCreate);
+        menuController.SetMenu(menuController.lobbyCreateMenuPrefab);
     }
 
     public void HandleViewLobby()
     {
-        EmitAction(MenuAction.GotoLobbyView);
+        menuController.SetMenu(menuController.lobbyViewMenuPrefab);
     }
 
     public void HandleSettings()
     {
-        EmitAction(MenuAction.GotoSettings);
+        menuController.SetMenu(menuController.settingsMenuPrefab);
     }
 
     public void HandleNetwork()
     {
-        EmitAction(MenuAction.GotoNetwork);
+        menuController.SetMenu(menuController.networkMenuPrefab);
     }
 
     public void HandleGallery()
     {
-        EmitAction(MenuAction.GotoGallery);
+        menuController.SetMenu(menuController.galleryMenuPrefab);
     }
 
     public void HandleJoinLobby()
     {
-        EmitAction(MenuAction.GotoLobbyJoin);
+        menuController.SetMenu(menuController.lobbyJoinMenuPrefab);
     }
 
     public void HandleQuit()
     {
-        EmitAction(MenuAction.Quit);
+        Application.Quit();
     }
 
     public override void Refresh()

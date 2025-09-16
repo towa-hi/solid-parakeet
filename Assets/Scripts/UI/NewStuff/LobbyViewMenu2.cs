@@ -22,15 +22,18 @@ public class LobbyViewMenu2 : MenuBase
     public GameObject maxPawnEntryPrefab;
     HashSet<GuiMaxPawnListEntry> entries = new HashSet<GuiMaxPawnListEntry>();
 
-    public Button enterGameButton;
-    public Button backButton;
-    public Button refreshButton;
+    public ButtonExtended enterGameButton;
+    public ButtonExtended backButton;
+    public ButtonExtended refreshButton;
+
+    public ButtonExtended leaveLobbyButton;
 
     private void Start()
     {
         enterGameButton.onClick.AddListener(HandleEnterGame);
         backButton.onClick.AddListener(HandleBack);
         refreshButton.onClick.AddListener(HandleRefresh);
+        if (leaveLobbyButton != null) leaveLobbyButton.onClick.AddListener(HandleLeaveLobby);
 
         if (copyContractAddressButton != null) copyContractAddressButton.onClick.AddListener(CopyContractAddress);
         if (copyLobbyIdButton != null) copyLobbyIdButton.onClick.AddListener(CopyLobbyId);
@@ -40,17 +43,21 @@ public class LobbyViewMenu2 : MenuBase
 
     public void HandleEnterGame()
     {
-        EmitAction(MenuAction.GotoGame);
+        menuController.SetMenu(menuController.gameMenuPrefab);
     }
 
     public void HandleBack()
     {
-        EmitAction(MenuAction.GotoMainMenu);
+        menuController.SetMenu(menuController.mainMenuPrefab);
     }
 
     public void HandleRefresh()
     {
-        EmitAction(MenuAction.Refresh);
+        menuController.RefreshData();
+    }
+    public void HandleLeaveLobby()
+    {
+        _ = menuController.LeaveLobbyForMenu();
     }
     public override void Refresh()
     {
