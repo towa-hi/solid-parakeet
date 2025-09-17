@@ -30,19 +30,10 @@ public class MenuController : MonoBehaviour
     void Start()
     {
         modalStack = new();
-        if (startMenuPrefab)
-        {
-            SetMenu(startMenuPrefab);
-        }
+        _ = SetMenuAsync(startMenuPrefab);
     }
 
-    public void SetMenu(GameObject prefab)
-    {
-        if (prefab == null) return;
-        _ = SetMenuAsync(prefab);
-    }
-
-    async Task SetMenuAsync(GameObject prefab)
+    public async Task SetMenuAsync(GameObject prefab)
     {
         if (isTransitioning) return;
         isTransitioning = true;
@@ -51,8 +42,6 @@ public class MenuController : MonoBehaviour
         {
             if (currentMenu != null)
             {
-                currentMenu.ActionInvoked -= HandleMenuAction;
-                currentMenu.CommandInvoked -= HandleMenuCommand;
                 await currentMenu.CloseAsync();
                 Destroy(currentMenu.gameObject);
                 currentMenu = null;
@@ -68,13 +57,10 @@ public class MenuController : MonoBehaviour
             }
             currentMenu = menuBase;
             currentMenu.SetMenuController(this);
-            currentMenu.ActionInvoked += HandleMenuAction;
-            currentMenu.CommandInvoked += HandleMenuCommand;
             currentMenu.Display(true);
             await currentMenu.OpenAsync();
+            isTransitioning = false;
         });
-
-        isTransitioning = false;
     }
 
     void PushBusy()
@@ -151,43 +137,6 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    void HandleMenuAction(MenuSignal signal)
-    {
-        Debug.Log($"MenuController received action: {signal.Action}");
-
-        switch (signal)
-        {
-            case ConnectToNetworkSignal connectSignal:
-                _ = ConnectToNetworkAsync(connectSignal.Data);
-                return;
-            case CreateLobbySignal createLobbySignal:
-                _ = CreateLobbyAsync(createLobbySignal.Data);
-                return;
-            case JoinGameSignal joinGameSignal:
-                _ = JoinGameFromMenu(joinGameSignal.Id);
-                return;
-            case SaveChangesSignal saveChangesSignal:
-                SaveChange(saveChangesSignal.Settings);
-                return;
-        }
-
-        Debug.LogWarning($"MenuController: Unhandled signal {signal.GetType().Name}");
-    }
-
-    void HandleMenuCommand(IMenuCommand command)
-    {
-        switch (command)
-        {
-            case ConnectToNetworkCommand connect:
-                var data = new ModalConnectData { isTestnet = connect.isTestnet, contract = connect.contract, sneed = connect.sneed, isWallet = connect.isWallet };
-                _ = ConnectToNetworkAsync(data);
-                break;
-            default:
-                Debug.LogWarning($"MenuController: Unhandled command type {command.GetType().Name}");
-                break;
-        }
-    }
-
     // playaing offline means just sending a data with online = false
     public async Task ConnectToNetworkAsync(ModalConnectData data)
     {
@@ -207,8 +156,8 @@ public class MenuController : MonoBehaviour
                 await ShowErrorAsync(updateResult.Code, updateResult.Message);
                 return;
             }
+            await SetMenuAsync(mainMenuPrefab);
         });
-        SetMenu(mainMenuPrefab);
     }
 
     public async Task CreateLobbyAsync(LobbyCreateData lobbyCreateData)
@@ -236,8 +185,8 @@ public class MenuController : MonoBehaviour
                 await ShowErrorAsync(updateResult.Code, updateResult.Message);
                 return;
             }
+            await SetMenuAsync(lobbyViewMenuPrefab);
         });
-        SetMenu(lobbyViewMenuPrefab);
     }
 
     public async Task JoinGameFromMenu(LobbyId lobbyId)
@@ -256,7 +205,7 @@ public class MenuController : MonoBehaviour
                 await ShowErrorAsync(update.Code, update.Message);
                 return;
             }
-            SetMenu(lobbyViewMenuPrefab);
+            await SetMenuAsync(lobbyViewMenuPrefab);
         });
     }
 
@@ -280,11 +229,11 @@ public class MenuController : MonoBehaviour
                 await ShowErrorAsync(update.Code, update.Message);
                 return;
             }
-            SetMenu(mainMenuPrefab);
+            await SetMenuAsync(mainMenuPrefab);
         });
     }
 
-    void SaveChange(WarmancerSettings settings)
+    public void SaveChange(WarmancerSettings settings)
     {
         SettingsManager.Save(settings);
     }
@@ -363,10 +312,4 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    void GoOffline()
-    {
-        // get rid of this because the data flow is backwards
-        //_ = StellarManager.DisconnectFromNetwork();
-        SetMenu(mainMenuPrefab);
-    }
 }

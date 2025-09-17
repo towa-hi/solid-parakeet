@@ -12,7 +12,7 @@ public class GalleryMenu2 : MenuBase
 
     public void HandleBack()
     {
-        menuController.SetMenu(menuController.mainMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.mainMenuPrefab);
     }
     public override void Refresh()
     {

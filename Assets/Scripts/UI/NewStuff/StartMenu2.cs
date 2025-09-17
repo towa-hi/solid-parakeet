@@ -14,13 +14,13 @@ public class StartMenu2 : MenuBase
 
     public void HandleConnectToNetwork()
     {
-        menuController.SetMenu(menuController.networkMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.networkMenuPrefab);
     }
 
     public void HandleOffline()
     {
         // GoOffline means just go back to main menu in this flow
-        menuController.SetMenu(menuController.mainMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.mainMenuPrefab);
     }
     public override void Refresh()
     {

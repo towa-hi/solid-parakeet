@@ -83,7 +83,7 @@ public class SettingsMenu2 : MenuBase
     }
     public void HandleBack()
     {
-        menuController.SetMenu(menuController.mainMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.mainMenuPrefab);
     }
 
     public void HandleSaveChanges()

@@ -35,6 +35,7 @@ public class LobbyCreateMenu2 : MenuBase
             blitzInterval = 0,
             securityMode = false,
         };
+        ResetEclipseIntervalDropdown();
         multiplayerButton.onClick.AddListener(HandleMultiplayer);
         singleplayerButton.onClick.AddListener(HandleSingleplayer);
         backButton.onClick.AddListener(HandleBack);
@@ -76,7 +77,7 @@ public class LobbyCreateMenu2 : MenuBase
 
     public void HandleBack()
     {
-        EmitAction(MenuAction.GotoMainMenu);
+        _ = menuController.SetMenuAsync(menuController.mainMenuPrefab);
     }
     public void HandleBoardDropdown(int index)
     {

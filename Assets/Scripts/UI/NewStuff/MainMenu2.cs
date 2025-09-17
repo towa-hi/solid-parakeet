@@ -27,32 +27,32 @@ public class MainMenu2 : MenuBase
 
     public void HandleCreateLobby()
     {
-        menuController.SetMenu(menuController.lobbyCreateMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.lobbyCreateMenuPrefab);
     }
 
     public void HandleViewLobby()
     {
-        menuController.SetMenu(menuController.lobbyViewMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.lobbyViewMenuPrefab);
     }
 
     public void HandleSettings()
     {
-        menuController.SetMenu(menuController.settingsMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.settingsMenuPrefab);
     }
 
     public void HandleNetwork()
     {
-        menuController.SetMenu(menuController.networkMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.networkMenuPrefab);
     }
 
     public void HandleGallery()
     {
-        menuController.SetMenu(menuController.galleryMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.galleryMenuPrefab);
     }
 
     public void HandleJoinLobby()
     {
-        menuController.SetMenu(menuController.lobbyJoinMenuPrefab);
+        _ = menuController.SetMenuAsync(menuController.lobbyJoinMenuPrefab);
     }
 
     public void HandleQuit()

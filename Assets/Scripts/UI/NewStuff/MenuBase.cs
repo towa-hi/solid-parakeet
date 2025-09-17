@@ -3,17 +3,6 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Contract;
 
-public abstract record MenuSignal(MenuAction Action);
-
-public sealed record SimpleMenuSignal(MenuAction Action) : MenuSignal(Action);
-
-public sealed record ConnectToNetworkSignal(ModalConnectData Data) : MenuSignal(MenuAction.ConnectToNetwork);
-
-public sealed record CreateLobbySignal(LobbyCreateData Data) : MenuSignal(MenuAction.CreateLobby);
-
-public sealed record JoinGameSignal(LobbyId Id) : MenuSignal(MenuAction.JoinGame);
-
-public sealed record SaveChangesSignal(WarmancerSettings Settings) : MenuSignal(MenuAction.SaveChanges);
 
 [RequireComponent(typeof(CanvasGroup))]
 public abstract class MenuBase : MonoBehaviour
@@ -25,9 +14,6 @@ public abstract class MenuBase : MonoBehaviour
     public Action OnTransitionEnd;
     public Action OnClosed;
     public Action OnOpened;
-    public event Action<MenuSignal> ActionInvoked;
-    public event Action<IMenuCommand> CommandInvoked;
-
     public float openDuration;
     public float closeDuration;
     bool _isClosing;
@@ -158,21 +144,6 @@ public abstract class MenuBase : MonoBehaviour
         }
         _isOpening = false;
         OnOpened?.Invoke();
-    }
-
-    protected void EmitAction(MenuAction action)
-    {
-        ActionInvoked?.Invoke(new SimpleMenuSignal(action));
-    }
-
-    protected void EmitAction(MenuSignal signal)
-    {
-        ActionInvoked?.Invoke(signal);
-    }
-
-    protected void Emit(IMenuCommand command)
-    {
-        CommandInvoked?.Invoke(command);
     }
 
     static float EaseInCubic(float t)

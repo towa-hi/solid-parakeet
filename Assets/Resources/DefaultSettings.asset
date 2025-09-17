@@ -28,3 +28,4 @@ MonoBehaviour:
   stellarManagerLogging: 1
   defaultTestnetUri: https://soroban-testnet.stellar.org
   defaultMainnetUri: https://mainnet.sorobanrpc.com
+  isDev: 1
