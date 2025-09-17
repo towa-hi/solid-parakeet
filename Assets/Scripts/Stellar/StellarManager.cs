@@ -58,6 +58,9 @@ public static class StellarManager
 
     public static void SetContext(bool online, bool isWallet, MuxedAccount userAccount, bool isTestnet, string serverUri, string contractAddress)
     {
+        // Abort any in-flight task and stop polling before changing context
+        AbortCurrentTask();
+        ResetPolling();
         networkContext = new NetworkContext(online, isWallet, userAccount, isTestnet, serverUri, contractAddress);
         Debug.Log($"SetContext: online={online} userAccount={userAccount.AccountId} isWallet={isWallet} serverUri={serverUri} contractAddress={contractAddress}");
         if (isTestnet)
@@ -68,6 +71,26 @@ public static class StellarManager
         {
             Network.UsePublicNetwork();
         }
+    }
+
+    public static void SwitchOnlineMode(bool online)
+    {
+        if (networkContext.online == online)
+        {
+            return;
+        }
+        // Ensure any running work is cancelled and polling is stopped while switching
+        AbortCurrentTask();
+        ResetPolling();
+        networkContext.online = online;
+        if (!online)
+        {
+            // Reset local server state when going offline to avoid stale data
+            FakeServer.Reset();
+        }
+        // Reset client-side network state to reflect the new context immediately
+        SetNetworkState(new NetworkState(networkContext));
+        OnNetworkStateUpdated?.Invoke();
     }
 
 
@@ -188,6 +211,16 @@ public static class StellarManager
                 return ErrWithContext(newNetworkStateResult, "UpdateState: failed to fetch network state");
             }
             NetworkState newNetworkState = newNetworkStateResult.Value;
+            // Ignore stale response if context changed during request
+            if (!SameContext(newNetworkState.requestContext, networkContext))
+            {
+                Debug.LogWarning($"UpdateState(): Ignoring stale response due to context change. request.online={newNetworkState.requestContext.online} current.online={networkContext.online}");
+                if (showTask)
+                {
+                    scope.Cancel();
+                }
+                return Result<bool>.Ok(true);
+            }
             // if we got a user with an assigned current_lobby but we couldnt get a lobbyInfo 
             if (newNetworkState.user is User user && user.current_lobby != 0 && newNetworkState.lobbyInfo.HasValue == false)
             {
@@ -218,6 +251,17 @@ public static class StellarManager
             }
             return Result<bool>.Ok(true);
         }
+    }
+
+    static bool SameContext(NetworkContext a, NetworkContext b)
+    {
+        if (a.online != b.online) return false;
+        if (a.isWallet != b.isWallet) return false;
+        if (a.isTestnet != b.isTestnet) return false;
+        if (!string.Equals(a.serverUri, b.serverUri, StringComparison.Ordinal)) return false;
+        if (!string.Equals(a.contractAddress, b.contractAddress, StringComparison.Ordinal)) return false;
+        // Compare account id when available
+        return string.Equals(a.userAccount.AccountId, b.userAccount.AccountId, StringComparison.Ordinal);
     }
 
     public static async Task<Result<bool>> MakeLobbyRequest(LobbyParameters parameters, bool isMultiplayer)

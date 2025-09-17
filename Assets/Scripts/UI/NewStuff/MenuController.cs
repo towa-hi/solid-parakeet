@@ -164,6 +164,11 @@ public class MenuController : MonoBehaviour
     {
         await ExecuteBusyAsync(async () =>
         {
+            // Force offline mode for singleplayer so subsequent requests/state use FakeServer
+            if (!lobbyCreateData.isMultiplayer)
+            {
+                StellarManager.SwitchOnlineMode(false);
+            }
             Result<LobbyParameters> lobbyParametersResult = lobbyCreateData.ToLobbyParameters();
             if (lobbyParametersResult.IsError)
             {

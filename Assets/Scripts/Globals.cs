@@ -2084,6 +2084,9 @@ public struct NetworkState
     public LobbyInfo? lobbyInfo;
     public LobbyParameters? lobbyParameters;
     public GameState? gameState;
+    // Snapshot of the NetworkContext at the time the request was made
+    [JsonIgnore]
+    public NetworkContext requestContext;
     
     public bool inLobby => lobbyInfo != null && lobbyParameters != null;
 
@@ -2095,6 +2098,7 @@ public struct NetworkState
         lobbyInfo = null;
         lobbyParameters = null;
         gameState = null;
+        requestContext = networkContext;
     }
     
     public (LobbyInfo lobbyInfo, GameState gameState, LobbyParameters lobbyParameters) GetGameData()
