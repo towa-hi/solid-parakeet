@@ -22,60 +22,7 @@ using UnityEngine.Networking;
 
 public static class StellarDotnet
 {
-    // sneed and derived properties
-    // public static string sneed;
-    // static MuxedAccount.KeyTypeEd25519 cachedUserAccount;
-    // static string cachedUserAddress;
-    // static SCVal.ScvAddress cachedUserAddresSCVal;
-
-    // public static bool isWallet;
-    
-    // public static MuxedAccount.KeyTypeEd25519 userAccount
-    // {
-    //     get
-    //     {
-    //         if (isWallet)
-    //         {
-    //             return MuxedAccount.FromPublicKey(StrKey.DecodeStellarAccountId(WalletManager.address));
-    //         }
-    //         if (cachedUserAccount == null && !string.IsNullOrEmpty(sneed))
-    //         {
-    //             cachedUserAccount = MuxedAccount.FromSecretSeed(sneed);
-    //         }
-    //         return cachedUserAccount;
-    //     }
-    // }
-    
-    // public static string userAddress
-    // {
-    //     get
-    //     {
-    //         if (cachedUserAddress == null && userAccount != null)
-    //         {
-    //             cachedUserAddress = StrKey.EncodeStellarAccountId(userAccount.PublicKey);
-    //         }
-    //         return cachedUserAddress;
-    //     }
-    // }
-    
-    // static SCVal.ScvAddress userAddressSCVal
-    // {
-    //     get
-    //     {
-    //         if (cachedUserAddresSCVal == null && userAccount != null)
-    //         {
-    //             cachedUserAddresSCVal = new SCVal.ScvAddress()
-    //             {
-    //                 address = new SCAddress.ScAddressTypeAccount()
-    //                 {
-    //                     accountId = new AccountID(userAccount.XdrPublicKey),
-    //                 },
-    //             };
-    //         }
-    //         return cachedUserAddresSCVal;
-    //     }
-    // }
-
+    static UnityWebRequest activeRequest;
     static long latestLedger;
     
     static void DebugLog(string message)
@@ -104,39 +51,6 @@ public static class StellarDotnet
         NullValueHandling = NullValueHandling.Ignore,
     };
 
-    // Removed Soroban XDR normalization helpers (obsolete)
-    
-    // public static Result<bool> Initialize(bool isTestnet, bool inIsWallet, string inSecretSneed, string inContractId)
-    // {
-    //     // Validate inputs early to avoid silent failures later
-    //     if (!inIsWallet && (string.IsNullOrEmpty(inSecretSneed) || !StrKey.IsValidEd25519SecretSeed(inSecretSneed)))
-    //     {
-    //         return Result<bool>.Err(StatusCode.OTHER_ERROR, "Initialize: invalid or missing secret seed (sneed)");
-    //     }
-    //     if (string.IsNullOrEmpty(inContractId) || !StrKey.IsValidContractId(inContractId))
-    //     {
-    //         return Result<bool>.Err(StatusCode.OTHER_ERROR, "Initialize: invalid or missing contract id");
-    //     }
-    //     if (isTestnet)
-    //     {
-    //         networkUri = new Uri("https://soroban-testnet.stellar.org");
-    //         Network.UseTestNetwork();
-    //     }
-    //     else
-    //     {
-    //         networkUri = new Uri("https://soroban-mainnet.stellar.org");
-    //         Network.UsePublicNetwork();
-    //     }
-        
-    //     isWallet = inIsWallet;
-    //     SetSneed(inSecretSneed);
-    //     SetContractId(inContractId);
-        
-    //     // Warm up JSON.NET to avoid first-call initialization delay
-    //     WarmUpJsonSerializer();
-    //     return Result<bool>.Ok(true);
-    // }
-    
     static void WarmUpJsonSerializer()
     {
         try
@@ -166,19 +80,6 @@ public static class StellarDotnet
         }
     }
 
-    // public static void SetSneed(string inSneed)
-    // {
-    //     sneed = inSneed;
-    //     // Clear cached values when sneed changes
-    //     cachedUserAccount = null;
-    //     cachedUserAddress = null;
-    //     cachedUserAddresSCVal = null;
-    // }
-    
-    // public static void SetContractId(string inContractAddress)
-    // {
-    //     contractAddress = inContractAddress;
-    // }
 
     public static async Task<Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>> CallContractFunction(NetworkContext context, string functionName, IScvMapCompatable arg, TimingTracker tracker = null)
     {
@@ -748,7 +649,18 @@ public static class StellarDotnet
             DebugLog($"SendJsonRequest: request: {json}");
             using (tracker?.Scope("SendWebRequest"))
             {
-                await unityWebRequest.SendWebRequest();
+                activeRequest = unityWebRequest;
+                try
+                {
+                    await unityWebRequest.SendWebRequest();
+                }
+                finally
+                {
+                    if (ReferenceEquals(activeRequest, unityWebRequest))
+                    {
+                        activeRequest = null;
+                    }
+                }
             }
             if (unityWebRequest.result == UnityWebRequest.Result.ConnectionError || unityWebRequest.result == UnityWebRequest.Result.ProtocolError)
             {
@@ -764,6 +676,28 @@ public static class StellarDotnet
             }
             return Result<T>.Ok(result);
         }
+    }
+
+    public static void AbortActiveRequest()
+    {
+        try
+        {
+            activeRequest?.Abort();
+        }
+        catch (Exception)
+        {
+            // Swallow any abort exceptions; request may already be finished/disposed
+        }
+        finally
+        {
+            activeRequest = null;
+        }
+    }
+
+    public static void ResetStatic()
+    {
+        AbortActiveRequest();
+        latestLedger = 0;
     }
 
     static bool HasContractError(SimulateTransactionResult simulate)

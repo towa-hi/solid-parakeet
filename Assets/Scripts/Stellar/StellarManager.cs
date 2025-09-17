@@ -61,6 +61,7 @@ public static class StellarManager
         // Abort any in-flight task and stop polling before changing context
         AbortCurrentTask();
         ResetPolling();
+        StellarDotnet.AbortActiveRequest();
         networkContext = new NetworkContext(online, isWallet, userAccount, isTestnet, serverUri, contractAddress);
         Debug.Log($"SetContext: online={online} userAccount={userAccount.AccountId} isWallet={isWallet} serverUri={serverUri} contractAddress={contractAddress}");
         if (isTestnet)
@@ -82,6 +83,7 @@ public static class StellarManager
         // Ensure any running work is cancelled and polling is stopped while switching
         AbortCurrentTask();
         ResetPolling();
+        StellarDotnet.AbortActiveRequest();
         networkContext.online = online;
         if (!online)
         {
@@ -156,6 +158,9 @@ public static class StellarManager
     {
         ResetPolling();
         AbortCurrentTask();
+        StellarDotnet.AbortActiveRequest();
+        StellarDotnet.ResetStatic();
+        canceledTaskIds.Clear();
         SetContext(false, false, MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed), false, "unused", ResourceRoot.DefaultSettings.defaultContractAddress);
         SetNetworkState(new NetworkState(networkContext));
         initialized = false;

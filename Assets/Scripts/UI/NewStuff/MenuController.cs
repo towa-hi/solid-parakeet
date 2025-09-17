@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Contract;
 
 public class MenuController : MonoBehaviour
@@ -119,6 +120,8 @@ public class MenuController : MonoBehaviour
     {
         if (modalStack == null || modalStack.Count == 0) return;
         ModalBase top = modalStack.Pop();
+        // Signal any AwaitCloseAsync waiters before destroying the modal
+        top.CompleteClose();
         Destroy(top.gameObject);
         if (modalStack.Count > 0)
         {
@@ -140,78 +143,86 @@ public class MenuController : MonoBehaviour
     // playaing offline means just sending a data with online = false
     public async Task ConnectToNetworkAsync(ModalConnectData data)
     {
-        await ExecuteBusyAsync(async () =>
-        {
-            Result<bool> initializeResult = await StellarManager.Initialize(data);
-            if (initializeResult.IsError)
-            {
-                StellarManager.Uninitialize();
-                await ShowErrorAsync(initializeResult.Code, initializeResult.Message);
-                return;
-            }
-            Result<bool> updateResult = await StellarManager.UpdateState();
-            if (updateResult.IsError)
-            {
-                StellarManager.Uninitialize();
-                await ShowErrorAsync(updateResult.Code, updateResult.Message);
-                return;
-            }
-            await SetMenuAsync(mainMenuPrefab);
-        });
+		Result<bool> op = await ExecuteBusyAsync(async () =>
+		{
+			Result<bool> initializeResult = await StellarManager.Initialize(data);
+			if (initializeResult.IsError)
+			{
+				return Result<bool>.Err(initializeResult);
+			}
+			Result<bool> updateResult = await StellarManager.UpdateState();
+			if (updateResult.IsError)
+			{
+				return Result<bool>.Err(updateResult);
+			}
+			return Result<bool>.Ok(true);
+		});
+
+		if (op.IsError)
+		{
+			await HandleOpError(op, true);
+			return;
+		}
+		await SetMenuAsync(mainMenuPrefab);
     }
 
     public async Task CreateLobbyAsync(LobbyCreateData lobbyCreateData)
     {
-        await ExecuteBusyAsync(async () =>
-        {
-            // Force offline mode for singleplayer so subsequent requests/state use FakeServer
-            if (!lobbyCreateData.isMultiplayer)
-            {
-                StellarManager.SwitchOnlineMode(false);
-            }
-            Result<LobbyParameters> lobbyParametersResult = lobbyCreateData.ToLobbyParameters();
-            if (lobbyParametersResult.IsError)
-            {
-                await ShowErrorAsync(lobbyParametersResult.Code, lobbyParametersResult.Message);
-                return;
-            }
-            LobbyParameters lobbyParameters = lobbyParametersResult.Value;
-            Result<bool> result = await StellarManager.MakeLobbyRequest(lobbyParameters, lobbyCreateData.isMultiplayer);
-            if (result.IsError)
-            {
-                StellarManager.Uninitialize();
-                await ShowErrorAsync(result.Code, result.Message);
-                return;
-            }
-            Result<bool> updateResult = await StellarManager.UpdateState();
-            if (updateResult.IsError)
-            {
-                StellarManager.Uninitialize();
-                await ShowErrorAsync(updateResult.Code, updateResult.Message);
-                return;
-            }
-            await SetMenuAsync(lobbyViewMenuPrefab);
-        });
+		Result<bool> op = await ExecuteBusyAsync(async () =>
+		{
+			// Force offline mode for singleplayer so subsequent requests/state use FakeServer
+			if (!lobbyCreateData.isMultiplayer)
+			{
+				StellarManager.SwitchOnlineMode(false);
+			}
+			Result<LobbyParameters> lobbyParametersResult = lobbyCreateData.ToLobbyParameters();
+			if (lobbyParametersResult.IsError)
+			{
+				return Result<bool>.Err(lobbyParametersResult);
+			}
+			LobbyParameters lobbyParameters = lobbyParametersResult.Value;
+			Result<bool> result = await StellarManager.MakeLobbyRequest(lobbyParameters, lobbyCreateData.isMultiplayer);
+			if (result.IsError)
+			{
+				return Result<bool>.Err(result);
+			}
+			Result<bool> updateResult = await StellarManager.UpdateState();
+			if (updateResult.IsError)
+			{
+				return Result<bool>.Err(updateResult);
+			}
+			return Result<bool>.Ok(true);
+		});
+		if (op.IsError)
+		{
+			await HandleOpError(op, true);
+			return;
+		}
+		await SetMenuAsync(lobbyViewMenuPrefab);
     }
 
     public async Task JoinGameFromMenu(LobbyId lobbyId)
     {
-        await ExecuteBusyAsync(async () =>
-        {
-            var result = await StellarManager.JoinLobbyRequest(lobbyId);
-            if (result.IsError)
-            {
-                await ShowErrorAsync(result.Code, result.Message);
-                return;
-            }
-            var update = await StellarManager.UpdateState();
-            if (update.IsError)
-            {
-                await ShowErrorAsync(update.Code, update.Message);
-                return;
-            }
-            await SetMenuAsync(lobbyViewMenuPrefab);
-        });
+		Result<bool> op = await ExecuteBusyAsync(async () =>
+		{
+			var result = await StellarManager.JoinLobbyRequest(lobbyId);
+			if (result.IsError)
+			{
+				return Result<bool>.Err(result);
+			}
+			var update = await StellarManager.UpdateState();
+			if (update.IsError)
+			{
+				return Result<bool>.Err(update);
+			}
+			return Result<bool>.Ok(true);
+		});
+		if (op.IsError)
+		{
+			await HandleOpError(op, false);
+			return;
+		}
+		await SetMenuAsync(lobbyViewMenuPrefab);
     }
 
     public void RefreshData()
@@ -220,30 +231,39 @@ public class MenuController : MonoBehaviour
 
     public async Task LeaveLobbyForMenu()
     {
-        await ExecuteBusyAsync(async () =>
-        {
-            var result = await StellarManager.LeaveLobbyRequest();
-            if (result.IsError)
-            {
-                await ShowErrorAsync(result.Code, result.Message);
-                return;
-            }
-            var update = await StellarManager.UpdateState();
-            if (update.IsError)
-            {
-                await ShowErrorAsync(update.Code, update.Message);
-                return;
-            }
-            await SetMenuAsync(mainMenuPrefab);
-        });
+		Result<bool> op = await ExecuteBusyAsync(async () =>
+		{
+			var result = await StellarManager.LeaveLobbyRequest();
+			if (result.IsError)
+			{
+				return Result<bool>.Err(result);
+			}
+			var update = await StellarManager.UpdateState();
+			if (update.IsError)
+			{
+				return Result<bool>.Err(update);
+			}
+			return Result<bool>.Ok(true);
+		});
+		if (op.IsError)
+		{
+			await HandleOpError(op, false);
+			return;
+		}
+		await SetMenuAsync(mainMenuPrefab);
     }
 
+    public async Task EnterGame()
+    {
+        await SetMenuAsync(gameMenuPrefab);
+        GameManager.instance.boardManager.StartBoardManager();
+    }
     public void SaveChange(WarmancerSettings settings)
     {
         SettingsManager.Save(settings);
     }
 
-    async Task ExecuteBusyAsync(Func<Task> work)
+	async Task ExecuteBusyAsync(Func<Task> work)
     {
         PushBusy();
         try
@@ -255,6 +275,19 @@ public class MenuController : MonoBehaviour
             PopBusy();
         }
     }
+
+	async Task<Result<T>> ExecuteBusyAsync<T>(Func<Task<Result<T>>> work)
+	{
+		PushBusy();
+		try
+		{
+			return await work();
+		}
+		finally
+		{
+			PopBusy();
+		}
+	}
 
     // Awaitable modal helper
     async Task ShowMessageAsync(string messageText)
@@ -284,6 +317,33 @@ public class MenuController : MonoBehaviour
         {
             currentMenu.SetInteractable(true);
         }
+    }
+
+    async Task HandleOpError(Result<bool> r, bool uninit)
+    {
+        if (uninit) StellarManager.Uninitialize();
+        await ShowErrorAsync(r.Code, r.Message);
+        if (IsConnectionEnvError(r.Code))
+        {
+            await RestartSceneAsync();
+        }
+    }
+
+    bool IsConnectionEnvError(StatusCode code)
+    {
+        return code == StatusCode.NETWORK_ERROR
+            || code == StatusCode.TIMEOUT
+            || code == StatusCode.RPC_ERROR
+            || code == StatusCode.TRANSACTION_SEND_FAILED;
+    }
+
+    async Task RestartSceneAsync()
+    {
+        StellarManager.Uninitialize();
+        await Task.Yield();
+        Scene current = SceneManager.GetActiveScene();
+        Debug.Log("Restarting scene...");
+        SceneManager.LoadScene(current.name);
     }
 
     async Task ShowErrorAsync(StatusCode code, string messageText)

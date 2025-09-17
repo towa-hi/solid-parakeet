@@ -43,7 +43,7 @@ public class LobbyViewMenu2 : MenuBase
 
     public void HandleEnterGame()
     {
-        _ = menuController.SetMenuAsync(menuController.gameMenuPrefab);
+        _ = menuController.EnterGame();
     }
 
     public void HandleBack()
