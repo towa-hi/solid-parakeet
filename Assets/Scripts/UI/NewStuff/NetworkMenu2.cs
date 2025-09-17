@@ -18,6 +18,10 @@ public class NetworkMenu2 : MenuBase
     public GuiTabs networkTabs;
     public GuiTabs connectMethodTabs;
     public ButtonExtended walletTabButton;
+
+    public GameObject debugPanel;
+    public ButtonExtended debugSetHostButton;
+    public ButtonExtended debugSetGuestButton;
     bool isTestnet = true;
     bool isWallet = false;
 
@@ -40,7 +44,20 @@ public class NetworkMenu2 : MenuBase
         contractField.SetTextWithoutNotify(defaultContract);
         string defaultSneed = ResourceRoot.DefaultSettings.defaultHostSneed;
         sneedField.SetTextWithoutNotify(defaultSneed);
+        debugSetHostButton.onClick.AddListener(HandleDebugSetHost);
+        debugSetGuestButton.onClick.AddListener(HandleDebugSetGuest);
+        debugPanel.SetActive(false);
         Refresh();
+    }
+
+    void HandleDebugSetHost()
+    {
+        sneedField.text = ResourceRoot.DefaultSettings.defaultHostSneed;
+    }
+
+    void HandleDebugSetGuest()
+    {
+        sneedField.text = ResourceRoot.DefaultSettings.defaultGuestSneed;
     }
 
     void HandleContractFieldChanged(string input)
@@ -106,7 +123,8 @@ public class NetworkMenu2 : MenuBase
         bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
         contractField.interactable = isTestnet;
         sneedTabButton.interactable = isTestnet;
-
+        bool isDev = ResourceRoot.DefaultSettings.isDev;
+        debugPanel.SetActive(isDev);
     }
 }
 

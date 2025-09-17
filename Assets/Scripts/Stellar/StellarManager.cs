@@ -220,9 +220,9 @@ public static class StellarManager
         }
     }
 
-    public static async Task<Result<bool>> MakeLobbyRequest(LobbyParameters parameters)
+    public static async Task<Result<bool>> MakeLobbyRequest(LobbyParameters parameters, bool isMultiplayer)
     {
-        if (!networkContext.online)
+        if (!networkContext.online || !isMultiplayer)
         {
             FakeServer.MakeLobbyAsHost(parameters);
             FakeServer.JoinLobbyAsGuest(FakeServer.fakeLobbyId);

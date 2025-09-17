@@ -65,13 +65,13 @@ public class LobbyCreateMenu2 : MenuBase
     public void HandleMultiplayer()
     {
         lobbyCreateData.isMultiplayer = true;
-        EmitAction(new CreateLobbySignal(lobbyCreateData));
+        _ = menuController.CreateLobbyAsync(lobbyCreateData);
     }
 
     public void HandleSingleplayer()
     {
         lobbyCreateData.isMultiplayer = false;
-        EmitAction(new CreateLobbySignal(lobbyCreateData));
+        _ = menuController.CreateLobbyAsync(lobbyCreateData);
     }
 
     public void HandleBack()

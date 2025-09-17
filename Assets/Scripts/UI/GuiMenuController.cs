@@ -47,7 +47,7 @@ public class GuiMenuController: MonoBehaviour
 		mainMenuElement.OnAssetButton += CheckAssets;
 		
 		lobbyMakerElement.OnBackButton += GotoMainMenu;
-		lobbyMakerElement.OnSinglePlayerButton += StartSingleplayer;
+		//lobbyMakerElement.OnSinglePlayerButton += StartSingleplayer;
 		lobbyMakerElement.OnSubmitLobbyButton += OnSubmitLobbyButton;
 		
 		lobbyViewerElement.OnBackButton += GotoMainMenu;
@@ -319,33 +319,17 @@ public class GuiMenuController: MonoBehaviour
 	
 	async void OnSubmitLobbyButton(LobbyParameters parameters)
 	{
-		var resultCode = await StellarManager.MakeLobbyRequest(parameters);
-		if (resultCode.IsOk)
-		{
-			ShowMenuElement(lobbyViewerElement);
-		}
-		else
-		{
-			OpenErrorModal("Create Lobby Failed", FormatStatusMessage(resultCode.Code));
-		}
+		// var resultCode = await StellarManager.MakeLobbyRequest(parameters, true);
+		// if (resultCode.IsOk)
+		// {
+		// 	ShowMenuElement(lobbyViewerElement);
+		// }
+		// else
+		// {
+		// 	OpenErrorModal("Create Lobby Failed", FormatStatusMessage(resultCode.Code));
+		// }
 	}
 
-	
-	async void StartSingleplayer(LobbyParameters parameters)
-	{
-		// Switch to offline mode
-		//_ = StellarManager.DisconnectFromNetwork();
-		// Create local lobby (offline branch handles host make + guest join)
-		await StellarManager.MakeLobbyRequest(parameters);
-		// Refresh local network state
-		await StellarManager.UpdateState();
-		// Enter game
-		if (StellarManager.networkState.inLobby)
-		{
-			ShowMenuElement(gameElement);
-			GameManager.instance.boardManager.StartBoardManager();
-		}
-	}
 	async void DeleteLobby()
 	{
 		var resultCode = await StellarManager.LeaveLobbyRequest();

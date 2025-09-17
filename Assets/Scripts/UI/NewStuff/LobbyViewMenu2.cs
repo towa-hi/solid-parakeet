@@ -6,39 +6,39 @@ using Contract;
 
 public class LobbyViewMenu2 : MenuBase
 {
-    public TextMeshProUGUI contractAddressText;
-    public Button copyContractAddressButton;
     public TextMeshProUGUI lobbyIdText;
-    public Button copyLobbyIdButton;
-    public TextMeshProUGUI hostAddressText;
-    public Button copyHostAddressButton;
-    public TextMeshProUGUI guestAddressText;
-    public Button copyGuestAddressButton;
+    public TextMeshProUGUI contractAddressText;
+    public TextMeshProUGUI userAddressText;
+    public TextMeshProUGUI freighterWalletText;
     public TextMeshProUGUI boardNameText;
-    public Toggle mustFillAllSetupTilesToggle;
-    public Toggle securityModeToggle;
-
-    public Transform maxPawnListRoot;
-    public GameObject maxPawnEntryPrefab;
-    HashSet<GuiMaxPawnListEntry> entries = new HashSet<GuiMaxPawnListEntry>();
-
-    public ButtonExtended enterGameButton;
+    public TextMeshProUGUI eclipseIntervalText;
+    public TextMeshProUGUI securityModeText;
+    public TextMeshProUGUI hostTeamText;
+    public TextMeshProUGUI networkText;
+    public TextMeshProUGUI lobbyHostAddressText;
+    public TextMeshProUGUI lobbyGuestAddressText;
+    public TextMeshProUGUI lobbyStatusText;
     public ButtonExtended backButton;
-    public ButtonExtended refreshButton;
+    public ButtonExtended leaveButton;
+    public ButtonExtended enterGameButton;
+    public ButtonExtended copyLobbyIdButton;
+    public ButtonExtended copyContractAddressButton;
+    public ButtonExtended copyUserAddressButton;
+    public ButtonExtended copyHostAddressButton;
+    public ButtonExtended copyGuestAddressButton;
 
-    public ButtonExtended leaveLobbyButton;
 
     private void Start()
     {
-        enterGameButton.onClick.AddListener(HandleEnterGame);
         backButton.onClick.AddListener(HandleBack);
-        refreshButton.onClick.AddListener(HandleRefresh);
-        if (leaveLobbyButton != null) leaveLobbyButton.onClick.AddListener(HandleLeaveLobby);
-
-        if (copyContractAddressButton != null) copyContractAddressButton.onClick.AddListener(CopyContractAddress);
-        if (copyLobbyIdButton != null) copyLobbyIdButton.onClick.AddListener(CopyLobbyId);
-        if (copyHostAddressButton != null) copyHostAddressButton.onClick.AddListener(CopyHostAddress);
-        if (copyGuestAddressButton != null) copyGuestAddressButton.onClick.AddListener(CopyGuestAddress);
+        leaveButton.onClick.AddListener(HandleLeaveLobby);
+        enterGameButton.onClick.AddListener(HandleEnterGame);
+        copyLobbyIdButton.onClick.AddListener(CopyLobbyId);
+        copyContractAddressButton.onClick.AddListener(CopyContractAddress);
+        copyUserAddressButton.onClick.AddListener(CopyUserAddress);
+        copyHostAddressButton.onClick.AddListener(CopyHostAddress);
+        copyGuestAddressButton.onClick.AddListener(CopyGuestAddress);
+        Refresh();
     }
 
     public void HandleEnterGame()
@@ -51,92 +51,100 @@ public class LobbyViewMenu2 : MenuBase
         menuController.SetMenu(menuController.mainMenuPrefab);
     }
 
-    public void HandleRefresh()
-    {
-        menuController.RefreshData();
-    }
     public void HandleLeaveLobby()
     {
         _ = menuController.LeaveLobbyForMenu();
     }
+
     public override void Refresh()
     {
-        // Clear previous entries
-        foreach (var entry in entries)
+        bool isOnline = StellarManager.networkState.fromOnline;
+        string networkUri = isOnline ? StellarManager.networkContext.serverUri.ToString() : "Offline";
+        networkText.text = networkUri;
+        contractAddressText.text = isOnline ? StellarManager.networkContext.contractAddress : "Offline";
+        userAddressText.text = isOnline ? StellarManager.networkContext.userAccount.AccountId : "Offline";
+        freighterWalletText.text = isOnline ? StellarManager.networkContext.isWallet ? "Using Wallet" : "Using Key" : "Offline";
+        LobbyInfo? lobbyInfo = StellarManager.networkState.lobbyInfo;
+        if (lobbyInfo.HasValue)
         {
-            if (entry != null)
-            {
-                Destroy(entry.gameObject);
-            }
+            lobbyIdText.text = lobbyInfo.Value.index.ToString();
+            lobbyHostAddressText.text = lobbyInfo.Value.host_address.ToString();
+            lobbyGuestAddressText.text = lobbyInfo.Value.guest_address.ToString();
+            lobbyStatusText.text = lobbyInfo.Value.phase.ToString();
         }
-        entries.Clear();
-
-        if (contractAddressText != null)
+        else
         {
-            contractAddressText.text = StellarManager.networkContext.contractAddress;
-        }
-
-        LobbyInfo? mLobbyInfo = StellarManager.networkState.lobbyInfo;
-        LobbyParameters? mLobbyParams = StellarManager.networkState.lobbyParameters;
-
-        if (!mLobbyInfo.HasValue)
-        {
-            if (contractAddressText != null) contractAddressText.text = "No lobby";
-            if (lobbyIdText != null) lobbyIdText.text = "No lobby";
-            if (hostAddressText != null) hostAddressText.text = "No lobby";
-            if (guestAddressText != null) guestAddressText.text = "No lobby";
-            if (boardNameText != null) boardNameText.text = "No lobby";
-            if (mustFillAllSetupTilesToggle != null) mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(false);
-            if (securityModeToggle != null) securityModeToggle.SetIsOnWithoutNotify(false);
-            return;
+            lobbyIdText.text = "Not found";
+            lobbyHostAddressText.text = "Not found";
+            lobbyGuestAddressText.text = "Not found";
+            lobbyStatusText.text = "Not found";
         }
 
-        LobbyInfo lobbyInfo = mLobbyInfo.Value;
-        if (lobbyIdText != null) lobbyIdText.text = lobbyInfo.index.ToString();
-        if (hostAddressText != null)
+        LobbyParameters? lobbyParameters = StellarManager.networkState.lobbyParameters;
+        if (lobbyParameters.HasValue)
         {
-            if (lobbyInfo.host_address != null)
-            {
-                hostAddressText.text = lobbyInfo.host_address.Value;
-            }
-            else hostAddressText.text = string.Empty;
+            eclipseIntervalText.text = lobbyParameters.Value.blitz_interval.ToString();
+            securityModeText.text = lobbyParameters.Value.security_mode.ToString();
+            hostTeamText.text = lobbyParameters.Value.host_team.ToString();
         }
-        if (guestAddressText != null)
+        else
         {
-            if (lobbyInfo.guest_address != null)
-            {
-                guestAddressText.text = lobbyInfo.guest_address.Value;
-            }
-            else guestAddressText.text = string.Empty;
+            eclipseIntervalText.text = "Not found";
+            securityModeText.text = "Not found";
+            hostTeamText.text = "Not found";
         }
-
-        if (mLobbyParams.HasValue)
-        {
-            LobbyParameters lobbyParams = mLobbyParams.Value;
-            if (boardNameText != null) boardNameText.text = lobbyParams.board.name;
-            if (mustFillAllSetupTilesToggle != null) mustFillAllSetupTilesToggle.SetIsOnWithoutNotify(lobbyParams.must_fill_all_tiles);
-            if (securityModeToggle != null) securityModeToggle.SetIsOnWithoutNotify(lobbyParams.security_mode);
-
-            // Rebuild max pawns list
-            if (maxPawnListRoot != null && maxPawnEntryPrefab != null && lobbyParams.max_ranks != null)
-            {
-                foreach (Rank rank in System.Enum.GetValues(typeof(Rank)))
-                {
-                    int idx = (int)rank;
-                    if (idx < 0 || idx >= lobbyParams.max_ranks.Length) continue;
-                    uint max = lobbyParams.max_ranks[idx];
-                    GameObject entryObj = Instantiate(maxPawnEntryPrefab, maxPawnListRoot);
-                    GuiMaxPawnListEntry entry = entryObj.GetComponent<GuiMaxPawnListEntry>();
-                    if (entry != null)
-                    {
-                        entry.Initialize(rank, max);
-                        entries.Add(entry);
-                    }
-                }
-            }
-        }
+        (bool startable, string reason) = IsLobbyStartable(StellarManager.networkState);
+        enterGameButton.interactable = startable;
+        lobbyStatusText.text = reason;
     }
 
+    (bool startable, string reason) IsLobbyStartable(NetworkState networkState)
+    {
+        LobbyInfo? maybeLobbyInfo = networkState.lobbyInfo;
+        LobbyParameters? maybeLobbyParameters = networkState.lobbyParameters;
+        if (!maybeLobbyInfo.HasValue)
+        {
+            return (false, "lobby not found");
+        }
+        if (!maybeLobbyParameters.HasValue)
+        {
+            return (false, "lobby parameters not found");
+        }
+        LobbyInfo lobbyInfo = maybeLobbyInfo.Value;
+        LobbyParameters lobbyParameters = maybeLobbyParameters.Value;
+
+        if (lobbyInfo.phase == Phase.Aborted || lobbyInfo.phase == Phase.Finished)
+        {
+            string winner = lobbyInfo.subphase switch
+            {
+                Subphase.Guest when lobbyParameters.host_team == Team.RED => "guest (blue)",
+                Subphase.Guest => "guest (red)",
+                Subphase.Host when lobbyParameters.host_team == Team.RED => "host (red)",
+                Subphase.Host => "host (blue)",
+                Subphase.None => "tie",
+                _ => "inconclusive",
+            };
+            return (false, $"lobby has ended. winner: {winner}");
+
+        }
+        
+        // check if lobby is in a joinable state
+        if (lobbyInfo.host_address == null)
+        {
+            return (false, "lobby.host_address is empty");
+        }
+        if (lobbyInfo.guest_address == null)
+        {
+            return (false, "lobby.guest_address is empty");
+        }
+        if (lobbyParameters.security_mode && lobbyInfo.phase != Phase.SetupCommit && !CacheManager.RankProofsCacheExists(StellarManager.networkState.address, lobbyInfo.index))
+        {
+            // TODO: more thurough cache check here
+            return (false, "this client does not have the required cached data to play this lobby");
+        }
+        // check if your connection context is involved in the lobby
+        return (true, "Game is in progress");
+    }
     void CopyLobbyId()
     {
         if (lobbyIdText != null && !string.IsNullOrEmpty(lobbyIdText.text))
@@ -153,19 +161,27 @@ public class LobbyViewMenu2 : MenuBase
         }
     }
 
+    void CopyUserAddress()
+    {
+        if (userAddressText != null && !string.IsNullOrEmpty(userAddressText.text))
+        {
+            GUIUtility.systemCopyBuffer = userAddressText.text;
+        }
+    }
+
     void CopyHostAddress()
     {
-        if (hostAddressText != null && !string.IsNullOrEmpty(hostAddressText.text))
+        if (lobbyHostAddressText != null && !string.IsNullOrEmpty(lobbyHostAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = hostAddressText.text;
+            GUIUtility.systemCopyBuffer = lobbyHostAddressText.text;
         }
     }
 
     void CopyGuestAddress()
     {
-        if (guestAddressText != null && !string.IsNullOrEmpty(guestAddressText.text))
+        if (lobbyGuestAddressText != null && !string.IsNullOrEmpty(lobbyGuestAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = guestAddressText.text;
+            GUIUtility.systemCopyBuffer = lobbyGuestAddressText.text;
         }
     }
 }

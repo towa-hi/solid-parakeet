@@ -19,4 +19,5 @@ public class DefaultSettings : ScriptableObject
     public bool stellarManagerLogging;
     public string defaultTestnetUri;
     public string defaultMainnetUri;
+    public bool isDev;
 }

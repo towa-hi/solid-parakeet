@@ -189,7 +189,7 @@ public class MenuController : MonoBehaviour
     }
 
     // playaing offline means just sending a data with online = false
-    async Task ConnectToNetworkAsync(ModalConnectData data)
+    public async Task ConnectToNetworkAsync(ModalConnectData data)
     {
         await ExecuteBusyAsync(async () =>
         {
@@ -211,7 +211,7 @@ public class MenuController : MonoBehaviour
         SetMenu(mainMenuPrefab);
     }
 
-    async Task CreateLobbyAsync(LobbyCreateData lobbyCreateData)
+    public async Task CreateLobbyAsync(LobbyCreateData lobbyCreateData)
     {
         await ExecuteBusyAsync(async () =>
         {
@@ -222,7 +222,7 @@ public class MenuController : MonoBehaviour
                 return;
             }
             LobbyParameters lobbyParameters = lobbyParametersResult.Value;
-            Result<bool> result = await StellarManager.MakeLobbyRequest(lobbyParameters);
+            Result<bool> result = await StellarManager.MakeLobbyRequest(lobbyParameters, lobbyCreateData.isMultiplayer);
             if (result.IsError)
             {
                 StellarManager.Uninitialize();
