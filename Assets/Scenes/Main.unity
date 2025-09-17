@@ -6025,7 +6025,6 @@ MonoBehaviour:
   cameraManager: {fileID: 1527594348}
   audioManager: {fileID: 1527594349}
   poolManager: {fileID: 1537931235}
-  onlineMode: 0
 --- !u!114 &1527594348
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6045,7 +6044,7 @@ MonoBehaviour:
   lairDungeonAnchor: {fileID: 1268339873}
   boardAnchor: {fileID: 261227647}
   mainCamera: {fileID: 1942059859}
-  baseTransitionDuration: 3
+  baseTransitionDuration: 0.5
   parentConstraint: {fileID: 1942059861}
   moveSettings:
     startFromCurrent: 0
@@ -7561,6 +7560,7 @@ MonoBehaviour:
   isInitialized: 0
   address: 
   stringDebug: 
+  networkContext: 
   humanDebugNetworkInspector: {fileID: 1899628308}
 --- !u!1 &1790162723
 GameObject:

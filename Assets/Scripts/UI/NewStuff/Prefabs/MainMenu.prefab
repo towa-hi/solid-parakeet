@@ -544,7 +544,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da4df847f883f6349b52cd920a59cd12, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraAnchor: {fileID: 0}
+  area: 2
   openDuration: 0.25
   closeDuration: 0.25
   topText: {fileID: 3226723483283834441}

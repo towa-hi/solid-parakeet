@@ -14,7 +14,7 @@ public class CameraManager : MonoBehaviour
     public CameraAnchor boardAnchor;
     
     public Camera mainCamera;
-    public float baseTransitionDuration = 1.5f;
+    public float baseTransitionDuration = 0.5f;
     public ParentConstraint parentConstraint;
     
     [SerializeField] TweenSettings<Vector3> moveSettings;

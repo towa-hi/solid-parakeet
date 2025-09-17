@@ -3695,7 +3695,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ccc3fd419d5f6541b06eace2c772108, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraAnchor: {fileID: 0}
+  area: 1
   openDuration: 0.25
   closeDuration: 0.25
   testnetTabButton: {fileID: 1188647459224404005}

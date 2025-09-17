@@ -1523,7 +1523,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cbc61841adb72c646b80acc241a50386, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraAnchor: {fileID: 0}
+  area: 2
   openDuration: 0.25
   closeDuration: 0.25
   boardDropdown: {fileID: 5890572811822904562}

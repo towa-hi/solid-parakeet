@@ -36,9 +36,16 @@ public class MenuController : MonoBehaviour
 
     public async Task SetMenuAsync(GameObject prefab)
     {
+        GameObject instance = Instantiate(prefab, menuRoot);
+        MenuBase menuBase = instance.GetComponent<MenuBase>();
+        if (menuBase == null)
+        {
+            Debug.LogError("MenuController: Instantiated prefab has no MenuBase component.");
+            return;
+        }
         if (isTransitioning) return;
         isTransitioning = true;
-
+        GameManager.instance.cameraManager.MoveCameraTo(menuBase.area, false);
         await ExecuteBusyAsync(async () =>
         {
             if (currentMenu != null)
@@ -49,13 +56,7 @@ public class MenuController : MonoBehaviour
                 await Task.Yield();
             }
 
-            GameObject instance = Instantiate(prefab, menuRoot);
-            MenuBase menuBase = instance.GetComponent<MenuBase>();
-            if (menuBase == null)
-            {
-                Debug.LogError("MenuController: Instantiated prefab has no MenuBase component.");
-                return;
-            }
+            
             currentMenu = menuBase;
             currentMenu.SetMenuController(this);
             currentMenu.Display(true);
@@ -140,7 +141,7 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    // playaing offline means just sending a data with online = false
+    // playing offline means just sending a data with online = false
     public async Task ConnectToNetworkAsync(ModalConnectData data)
     {
 		Result<bool> op = await ExecuteBusyAsync(async () =>

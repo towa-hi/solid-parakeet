@@ -7,9 +7,9 @@ using Contract;
 [RequireComponent(typeof(CanvasGroup))]
 public abstract class MenuBase : MonoBehaviour
 {
+    public Area area;
     protected CanvasGroup canvasGroup;
     protected MenuController menuController;
-    public CameraAnchor cameraAnchor;
     public Action OnTransitionStart;
     public Action OnTransitionEnd;
     public Action OnClosed;
