@@ -8116,13 +8116,14 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   gapStrength: 1.5
-  lineLength: 2.7
   hoveredCard: {fileID: 0}
-  cardSpacing: 0.25
-  cardEulerOffset: {x: 0, y: -2, z: 0}
-  cardZOffsetPerIndex: 0.01
+  spline: {fileID: 1879980152}
+  alignToSplineTangent: 0
+  forceYawZero: 1
+  cardEulerOffset: {x: 0, y: 0, z: 0}
+  cardZOffsetPerIndex: 0.001
   arrangeAlongWidth: 1
-  autoLayoutEveryFrame: 1
+  autoLayoutEveryFrame: 0
   debugLayoutLogs: 1
 --- !u!1 &1834318381
 GameObject:
@@ -8335,6 +8336,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1879980151}
+  - component: {fileID: 1879980152}
   m_Layer: 0
   m_Name: CardRoot
   m_TagString: Untagged
@@ -8357,6 +8359,86 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1940241210}
   m_LocalEulerAnglesHint: {x: 35, y: 0, z: 0}
+--- !u!114 &1879980152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1879980150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dab5c7d4c32e743048dfca98e2d5914f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Spline:
+    m_EditModeType: 1
+    m_Knots: []
+    m_MetaData: []
+    m_Closed: 0
+    m_IntData:
+      m_Data: []
+    m_FloatData:
+      m_Data: []
+    m_Float4Data:
+      m_Data: []
+    m_ObjectData:
+      m_Data: []
+  m_Splines:
+  - m_EditModeType: 1
+    m_Knots:
+    - Position:
+        x: -1.3
+        y: 0
+        z: 0
+      TangentIn:
+        x: 0
+        y: 0
+        z: -0.26
+      TangentOut:
+        x: 0
+        y: 0
+        z: 0.26
+      Rotation:
+        value:
+          x: -0.0037777696
+          y: 0.7070965
+          z: -0.0037777703
+          w: 0.7070968
+    - Position:
+        x: 1.3
+        y: 0
+        z: 0
+      TangentIn:
+        x: 0
+        y: 0
+        z: -0.26
+      TangentOut:
+        x: 0
+        y: 0
+        z: 0.26
+      Rotation:
+        value:
+          x: -0.034786943
+          y: 0.70625067
+          z: -0.034786936
+          w: 0.7062505
+    m_MetaData:
+    - Mode: 3
+      Tension: 0.5
+    - Mode: 3
+      Tension: 0.5
+    m_Closed: 0
+    m_IntData:
+      m_Data: []
+    m_FloatData:
+      m_Data: []
+    m_Float4Data:
+      m_Data: []
+    m_ObjectData:
+      m_Data: []
+  m_Knots:
+    m_KnotsLink: []
 --- !u!1 &1895252788
 GameObject:
   m_ObjectHideFlags: 0
@@ -14410,7 +14492,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1410560795576115016, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4243935540630372093, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
       propertyPath: m_Name

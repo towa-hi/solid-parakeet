@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Splines;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -17,12 +18,18 @@ public class SetupScreen : MonoBehaviour
     // Spline/line layout config
     public AnimationCurve gapCurve; // maps proximity to hovered (1 near -> 0 far) to extra gap
     public float gapStrength = 1.5f; // scales extra gap beyond base spacing
-    public float lineLength = 2.0f; // total length of the line centered at cardRoot
     public Card hoveredCard;
     List<Card> orderedCardsCache;
 
+    public SplineContainer spline;
+    public bool alignToSplineTangent = false; // if true, cards face along spline; else keep yaw 0
+    public bool forceYawZero = true; // force Y rotation to 0 regardless of tangent
+    public float rollAroundTangentDegrees = 0f; // additional roll around spline tangent (Z in tangent frame)
+    public float fanRollMaxDegrees = 15f; // max Z-roll for outermost cards to fan like a hand
+    public AnimationCurve fanRollCurve; // maps 0..1 (center->edge) to 0..1 roll multiplier
+    public Vector3 fanAxisLocal = Vector3.forward; // axis to fan around when not aligning to tangent
+
     // Layout configuration
-    public float cardSpacing = 0.25f; // world units between card centers
     public Vector3 cardEulerOffset = Vector3.zero; // additional rotation for cards
     public float cardZOffsetPerIndex = 0.001f; // small depth offset to reduce z-fighting
     public bool arrangeAlongWidth = true; // true = along cardRoot.right, false = along cardRoot.up
@@ -66,7 +73,8 @@ public class SetupScreen : MonoBehaviour
             {
                 cardPrefab = pawnDef.blueCard;
             }
-            Card card = Instantiate(cardPrefab, cardRoot).GetComponent<Card>();
+            Transform parentTransform = spline != null ? spline.transform : cardRoot;
+            Card card = Instantiate(cardPrefab, parentTransform).GetComponent<Card>();
             card.SetBaseRotation(cardEulerOffset);
             // Subscribe to card hover events so SetupScreen can drive effects
             card.HoverEnter += OnCardHoverEnter;
@@ -84,30 +92,31 @@ public class SetupScreen : MonoBehaviour
             Debug.Log($"[SetupScreen.Initialize] Total children under cardRoot after spawn: {cardRoot.childCount}");
         }
         BuildOrderedCache();
-        ApplyLineLayout(null);
+        ApplySplineLayout(null);
     }
 
     void Update()
     {
         if (autoLayoutEveryFrame)
         {
-            ApplyLineLayout(hoveredCard);
+            ApplySplineLayout(hoveredCard);
         }
     }
 
     public void LayoutCards()
     {
-        ApplyLineLayout(null);
+        ApplySplineLayout(null);
     }
 
     void BuildOrderedCache()
     {
-        if (cardRoot == null) return;
-        if (orderedCardsCache == null) orderedCardsCache = new List<Card>(cardRoot.childCount);
+        Transform parentTransform = spline != null ? spline.transform : cardRoot;
+        if (parentTransform == null) return;
+        if (orderedCardsCache == null) orderedCardsCache = new List<Card>(parentTransform.childCount);
         orderedCardsCache.Clear();
-        for (int i = 0; i < cardRoot.childCount; i++)
+        for (int i = 0; i < parentTransform.childCount; i++)
         {
-            Card c = cardRoot.GetChild(i).GetComponent<Card>();
+            Card c = parentTransform.GetChild(i).GetComponent<Card>();
             if (c != null) orderedCardsCache.Add(c);
         }
     }
@@ -115,7 +124,7 @@ public class SetupScreen : MonoBehaviour
     public void OnCardHoverEnter(Card card)
     {
         hoveredCard = card;
-        ApplyLineLayout(card);
+        ApplySplineLayout(card);
     }
 
     public void OnCardHoverExit(Card card)
@@ -124,39 +133,47 @@ public class SetupScreen : MonoBehaviour
         {
             hoveredCard = null;
         }
-        ApplyLineLayout(null);
+        ApplySplineLayout(null);
     }
 
-    void ApplyLineLayout(Card target)
+    void ApplySplineLayout(Card target)
     {
         BuildOrderedCache();
         int n = orderedCardsCache != null ? orderedCardsCache.Count : 0;
-        if (cardRoot == null || n == 0) return;
+		if (debugLayoutLogs)
+		{
+			Debug.Log($"[SetupScreen.ApplySplineLayout] begin n={n} cardRoot={(cardRoot != null ? cardRoot.name : "null")} spline={(spline != null ? spline.name : "null")}");
+		}
+		if (cardRoot == null || n == 0 || spline == null)
+		{
+			if (debugLayoutLogs)
+			{
+				Debug.Log("[SetupScreen.ApplySplineLayout] early return: missing refs or no children");
+			}
+			return;
+		}
 
-        Vector3 center = cardRoot.position;
-        Vector3 axis = arrangeAlongWidth ? cardRoot.right : cardRoot.up;
-        Vector3 forward = cardRoot.forward;
-        Quaternion rotation = cardRoot.rotation * Quaternion.Euler(cardEulerOffset);
+        // Baseline: n parameters evenly across [0,1]
+        float baseGapT = n > 1 ? (1f / (n - 1)) : 0f;
+        float[] t0 = new float[n];
+        for (int i = 0; i < n; i++) t0[i] = baseGapT * i;
 
-        // Baseline: n points evenly across fixed length [-L/2, +L/2]
-        float baseGap = n > 1 ? (lineLength / (n - 1)) : 0f;
-        float[] s0 = new float[n];
-        for (int i = 0; i < n; i++) s0[i] = (-lineLength * 0.5f) + baseGap * i;
-
-        int hoveredIndex = target != null ? orderedCardsCache.IndexOf(target) : -1;
-        float[] s = new float[n];
+		int hoveredIndex = target != null ? orderedCardsCache.IndexOf(target) : -1;
+		if (debugLayoutLogs)
+		{
+			Debug.Log($"[SetupScreen.ApplySplineLayout] hoveredIndex={hoveredIndex}");
+		}
+        float[] ts = new float[n];
         if (hoveredIndex < 0)
         {
-            for (int i = 0; i < n; i++) s[i] = s0[i];
+            for (int i = 0; i < n; i++) ts[i] = t0[i];
         }
         else
         {
             int gaps = n - 1;
             float[] w = new float[gaps];
-            int leftCount = hoveredIndex; // number of gaps on left side
-            int rightCount = (n - 1) - hoveredIndex; // number of gaps on right side
-
-            // compute per-gap weights with proximity on each side
+            int leftCount = hoveredIndex;
+            int rightCount = (n - 1) - hoveredIndex;
             for (int g = 0; g < gaps; g++)
             {
                 bool isLeft = g < hoveredIndex;
@@ -164,59 +181,88 @@ public class SetupScreen : MonoBehaviour
                 {
                     int sideNorm = Mathf.Max(leftCount - 1, 1);
                     int dist = (hoveredIndex - 1) - g; // 0 near hovered
-                    float t = leftCount <= 1 ? 1f : 1f - (float)dist / sideNorm;
-                    float curve = gapCurve != null ? gapCurve.Evaluate(t) : t;
+                    float prox = leftCount <= 1 ? 1f : 1f - (float)dist / sideNorm;
+                    float curve = gapCurve != null ? gapCurve.Evaluate(prox) : prox;
                     w[g] = 1f + gapStrength * curve;
                 }
                 else
                 {
                     int sideNorm = Mathf.Max(rightCount - 1, 1);
                     int dist = g - hoveredIndex; // 0 near hovered
-                    float t = rightCount <= 1 ? 1f : 1f - (float)dist / sideNorm;
-                    float curve = gapCurve != null ? gapCurve.Evaluate(t) : t;
+                    float prox = rightCount <= 1 ? 1f : 1f - (float)dist / sideNorm;
+                    float curve = gapCurve != null ? gapCurve.Evaluate(prox) : prox;
                     w[g] = 1f + gapStrength * curve;
                 }
             }
-
-            // normalize gaps separately per side so endpoints remain at ±L/2 and hovered stays anchored
-            float leftSpan = baseGap * leftCount;
-            float rightSpan = baseGap * rightCount;
+            float leftSpanT = baseGapT * leftCount;
+            float rightSpanT = baseGapT * rightCount;
             float sumLeft = 0f, sumRight = 0f;
-            for (int g = 0; g < gaps; g++)
-            {
-                if (g < hoveredIndex) sumLeft += w[g]; else sumRight += w[g];
-            }
-            float[] gapLen = new float[gaps];
+            for (int g = 0; g < gaps; g++) { if (g < hoveredIndex) sumLeft += w[g]; else sumRight += w[g]; }
+            float[] gapLenT = new float[gaps];
             for (int g = 0; g < gaps; g++)
             {
                 if (g < hoveredIndex)
-                {
-                    gapLen[g] = leftCount > 0 ? (w[g] / (sumLeft > 0f ? sumLeft : leftCount)) * leftSpan : 0f;
-                }
+                    gapLenT[g] = leftCount > 0 ? (w[g] / (sumLeft > 0f ? sumLeft : leftCount)) * leftSpanT : 0f;
                 else
-                {
-                    gapLen[g] = rightCount > 0 ? (w[g] / (sumRight > 0f ? sumRight : rightCount)) * rightSpan : 0f;
-                }
+                    gapLenT[g] = rightCount > 0 ? (w[g] / (sumRight > 0f ? sumRight : rightCount)) * rightSpanT : 0f;
             }
-
-            // accumulate positions from hovered index outward
-            s[hoveredIndex] = s0[hoveredIndex];
-            for (int i = hoveredIndex + 1; i < n; i++)
-            {
-                s[i] = s[i - 1] + gapLen[i - 1];
-            }
-            for (int i = hoveredIndex - 1; i >= 0; i--)
-            {
-                s[i] = s[i + 1] - gapLen[i];
-            }
+            ts[hoveredIndex] = t0[hoveredIndex];
+            for (int i = hoveredIndex + 1; i < n; i++) ts[i] = ts[i - 1] + gapLenT[i - 1];
+            for (int i = hoveredIndex - 1; i >= 0; i--) ts[i] = ts[i + 1] - gapLenT[i];
         }
+
+		if (debugLayoutLogs)
+		{
+			try { Debug.Log($"[SetupScreen.ApplySplineLayout] t-array=[{string.Join(",", ts.Select(v => v.ToString("F3")))}]"); }
+			catch { }
+		}
 
         for (int i = 0; i < n; i++)
-        {
-            Transform t = orderedCardsCache[i].transform;
-            Vector3 pos = center + axis * s[i] + forward * (cardZOffsetPerIndex * i);
-            t.position = pos;
-            t.rotation = rotation;
-        }
+		{
+			Transform tr = orderedCardsCache[i].transform;
+			float tt = Mathf.Clamp01(ts[i]);
+			// SplineContainer.Evaluate* returns WORLD space; convert to LOCAL before assignment
+			Vector3 worldPos = spline.EvaluatePosition(tt);
+			Vector3 worldTangent = spline.EvaluateTangent(tt);
+			Vector3 worldUp = spline.EvaluateUpVector(tt);
+			Vector3 localPos = spline.transform.InverseTransformPoint(worldPos);
+			Vector3 localTangent = spline.transform.InverseTransformDirection(worldTangent);
+			Vector3 localUp = spline.transform.InverseTransformDirection(worldUp);
+            Quaternion lrot;
+            if (alignToSplineTangent)
+            {
+                Vector3 lt = localTangent.sqrMagnitude > 0.0001f ? localTangent.normalized : Vector3.forward;
+                Vector3 lu = localUp.sqrMagnitude > 0.0001f ? localUp.normalized : Vector3.up;
+                lrot = Quaternion.LookRotation(lt, lu);
+            }
+            else
+            {
+                lrot = Quaternion.identity;
+            }
+			Vector3 zOffset = Vector3.forward * (cardZOffsetPerIndex * i);
+			tr.localPosition = localPos + zOffset;
+            Vector3 appliedOffset = forceYawZero ? new Vector3(cardEulerOffset.x, 0f, cardEulerOffset.z) : cardEulerOffset;
+
+            // Fan-out roll around Z based on index distance from center
+            float fanRoll = 0f;
+            if (n > 1 && Mathf.Abs(fanRollMaxDegrees) > 0.0001f)
+            {
+                float center = (n - 1) * 0.5f;
+                float norm = center > 0f ? (i - center) / center : 0f; // -1 .. +1
+                float mag = Mathf.Abs(norm);
+                float curve = fanRollCurve != null ? Mathf.Clamp01(fanRollCurve.Evaluate(mag)) : mag;
+                fanRoll = Mathf.Sign(norm) * fanRollMaxDegrees * curve;
+            }
+
+            // Optional roll around tangent if using spline alignment
+            float tangentRoll = (alignToSplineTangent && Mathf.Abs(rollAroundTangentDegrees) > 0.0001f) ? rollAroundTangentDegrees : 0f;
+            Vector3 rollAxis = alignToSplineTangent ? Vector3.forward : (fanAxisLocal.sqrMagnitude > 0.0001f ? fanAxisLocal.normalized : Vector3.forward);
+            Quaternion rollQ = Quaternion.AngleAxis(tangentRoll + fanRoll, rollAxis);
+            tr.localRotation = lrot * rollQ * Quaternion.Euler(appliedOffset);
+			if (debugLayoutLogs)
+			{
+				Debug.Log($"[SetupScreen.ApplySplineLayout] set i={i} t={tt:F3} worldPos={worldPos:F3} localPos={(localPos + zOffset):F3}");
+			}
+		}
     }
 }
