@@ -11,8 +11,6 @@ public class CardSorting : MonoBehaviour
 	const int kMinStencil = 1;
 	const int kMaxStencil = 255;
 
-	[SerializeField]
-	[Range(kMinStencil, kMaxStencil)]
 	int stencilRef;
 
 	public int StencilRef => stencilRef;
@@ -28,13 +26,11 @@ public class CardSorting : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-		// If not assigned in inspector, auto-assign a unique id and apply
-		if (stencilRef < kMinStencil || stencilRef > kMaxStencil)
-		{
-			AssignUniqueStencilRef();
-		}
+		// Always assign a unique stencil id at runtime and apply
+		AssignUniqueStencilRef();
 		ApplyStencilRefToAllLayers();
 		AssignUniqueRenderQueues();
+		Debug.Log($"CardSorting.Start: stencilRef={stencilRef}");
     }
 
     // Update is called once per frame

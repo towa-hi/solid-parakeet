@@ -14,6 +14,7 @@ public class RenderEffect : MonoBehaviour
             EffectType.FILL => (1u << 6),
             EffectType.HOVEROUTLINE => (1u << 7),
             EffectType.SELECTOUTLINE => (1u << 8),
+            EffectType.CARDHOVEROUTLINE => (1u << 9),
             _ => throw new ArgumentException(),
         };
         if (enable)
@@ -45,4 +46,6 @@ public enum EffectType
     FILL,
     HOVEROUTLINE,
     SELECTOUTLINE,
+
+    CARDHOVEROUTLINE,
 }

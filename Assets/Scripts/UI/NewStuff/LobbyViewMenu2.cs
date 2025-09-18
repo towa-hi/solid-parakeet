@@ -41,9 +41,16 @@ public class LobbyViewMenu2 : MenuBase
         Refresh();
     }
 
-    public void HandleEnterGame()
+    public async void HandleEnterGame()
     {
-        _ = menuController.EnterGame();
+        try
+        {
+            await menuController.EnterGame();
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogException(ex);
+        }
     }
 
     public void HandleBack()

@@ -5556,7 +5556,8 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1035372901}
   m_Father: {fileID: 15766421}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -8072,6 +8073,30 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1813733047}
   m_CullTransparentMesh: 1
+--- !u!1 &1822278682 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2840901862917742968, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
+  m_PrefabInstance: {fileID: 7445202723801994251}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1822278685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1822278682}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8808509b120b6b4f9a433c5822db675, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cardRoot: {fileID: 1879980151}
+  cardSpacing: 0.25
+  cardEulerOffset: {x: 0, y: 0, z: 0}
+  cardZOffsetPerIndex: 0.01
+  arrangeAlongWidth: 1
+  autoLayoutEveryFrame: 0
+  debugLayoutLogs: 1
 --- !u!1 &1834318381
 GameObject:
   m_ObjectHideFlags: 0
@@ -8274,6 +8299,37 @@ Transform:
   - {fileID: 1806869363}
   m_Father: {fileID: 698686908}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1879980150
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1879980151}
+  m_Layer: 0
+  m_Name: CardRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1879980151
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1879980150}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.30070576, y: 0, z: 0, w: 0.953717}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1940241210}
+  m_LocalEulerAnglesHint: {x: 35, y: 0, z: 0}
 --- !u!1 &1895252788
 GameObject:
   m_ObjectHideFlags: 0
@@ -11220,6 +11276,8 @@ MonoBehaviour:
   sorting: {fileID: 7728643717747543722}
   pivot: {fileID: 8485023270089518512}
   rotation: {fileID: 1830448571178133734}
+  renderEffect: {fileID: 0}
+  baseRotationEuler: {x: 0, y: 0, z: 0}
 --- !u!33 &828315945886937155
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -13163,7 +13221,6 @@ RectTransform:
   - {fileID: 6197468424672655792}
   - {fileID: 2126589468293136351}
   - {fileID: 3114013592752140298}
-  - {fileID: 1035372901}
   - {fileID: 1152632649}
   - {fileID: 1925629841}
   m_Father: {fileID: 15766421}
@@ -14323,17 +14380,25 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1410560795576115016, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4243935540630372093, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
       propertyPath: m_Name
       value: 3DGUI
       objectReference: {fileID: 0}
     - target: {fileID: 4243935540630372093, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 6447418419773590843, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 383026192816551750, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1879980151}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 865611edf0d4ba347baaba1d09573375, type: 3}
 --- !u!23 &5940154766719849041
@@ -16178,7 +16243,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1432370035003889368}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dd997638e2223bd458207122f6397cc3, type: 3}
   m_Name: 
@@ -16392,7 +16457,7 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 2387958193983423608}
+    m_TransformParent: {fileID: 1353504008}
     m_Modifications:
     - target: {fileID: 14534838556282641, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
       propertyPath: m_AnchorMax.y
@@ -17278,6 +17343,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2357161617163206493, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
+      propertyPath: setupScreen
+      value: 
+      objectReference: {fileID: 1822278685}
     - target: {fileID: 2437012705132814279, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
       propertyPath: m_AnchorMax.y
       value: 1
@@ -18930,6 +18999,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameGuiController
       objectReference: {fileID: 0}
+    - target: {fileID: 6651357311157992481, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6668097480962788888, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -20069,7 +20142,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2840901862917742968, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1822278685}
   m_SourcePrefab: {fileID: 100100000, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
 --- !u!114 &7728643717747543722
 MonoBehaviour:
@@ -20088,7 +20164,6 @@ MonoBehaviour:
   - {fileID: 6364431889084680860}
   - {fileID: 2428957192919120337}
   - {fileID: 8000211796457502370}
-  stencilRef: 1
 --- !u!4 &7916903561921099349
 Transform:
   m_ObjectHideFlags: 0

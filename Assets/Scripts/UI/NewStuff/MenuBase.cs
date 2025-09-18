@@ -49,7 +49,7 @@ public abstract class MenuBase : MonoBehaviour
     public void Close()
     {
         if (_isClosing) return;
-        _ = CloseAsync();
+		LogTaskExceptions(CloseAsync());
     }
 
     public virtual async Task CloseAsync()
@@ -92,7 +92,7 @@ public abstract class MenuBase : MonoBehaviour
     public void Open()
     {
         if (_isOpening) return;
-        _ = OpenAsync();
+		LogTaskExceptions(OpenAsync());
     }
 
     public virtual async Task OpenAsync()
@@ -156,6 +156,29 @@ public abstract class MenuBase : MonoBehaviour
         t = 1f - t;
         return 1f - t * t * t;
     }
+
+	// Ensure exceptions from fire-and-forget Tasks are surfaced to Unity's Console
+	static void LogTaskExceptions(Task task)
+	{
+		if (task == null) return;
+		if (task.IsCompleted)
+		{
+			if (task.IsFaulted && task.Exception != null)
+			{
+				Debug.LogException(task.Exception);
+			}
+		}
+		else
+		{
+			_ = task.ContinueWith(t =>
+			{
+				if (t.IsFaulted && t.Exception != null)
+				{
+					Debug.LogException(t.Exception);
+				}
+			}, TaskContinuationOptions.OnlyOnFaulted);
+		}
+	}
 }
 
 

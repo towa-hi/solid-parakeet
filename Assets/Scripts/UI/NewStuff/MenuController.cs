@@ -257,6 +257,8 @@ public class MenuController : MonoBehaviour
     public async Task EnterGame()
     {
         await SetMenuAsync(gameMenuPrefab);
+        // Ensure we resume on Unity's main thread and allow UI transition to fully settle
+        await Task.Yield();
         GameManager.instance.boardManager.StartBoardManager();
     }
     public void SaveChange(WarmancerSettings settings)

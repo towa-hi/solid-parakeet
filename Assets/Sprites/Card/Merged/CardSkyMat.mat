@@ -125,6 +125,7 @@ Material:
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _Color_Density: 2
+    - _CoverageGain: 1
     - _Cull: 2
     - _Cutoff: 0.5
     - _DetailAlbedoMapScale: 1
@@ -132,6 +133,7 @@ Material:
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EDITION: 1
+    - _EdgeFeather: 0
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
     - _Glossiness: 0
@@ -139,6 +141,7 @@ Material:
     - _Metallic: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.005
+    - _ParallaxStrength: 0.25
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1

@@ -24,6 +24,8 @@ public class GuiSetup : GameElement
     public Action OnSubmitButton;
     public Action<Rank> OnEntryClicked;
     
+    public SetupScreen setupScreen;
+
     void Start()
     {
         clearButton.onClick.AddListener(() => OnClearButton?.Invoke());
@@ -47,7 +49,7 @@ public class GuiSetup : GameElement
             rankListEntry.SetButtonOnClick(OnEntryClicked);
             entries[rank].Refresh((int)maxRanks[i], 0, false, true);
         }
-        
+        setupScreen.Initialize(netState);
     }
 
 
@@ -114,10 +116,10 @@ public class GuiSetup : GameElement
         {
             Initialize(setInitialize.Value);
         }
-        if (setRefreshEntries.HasValue)
-        {
-            RefreshRankEntryList(setRefreshEntries.Value.Item1, setRefreshEntries.Value.Item2);
-        }
+        // if (setRefreshEntries.HasValue)
+        // {
+        //     RefreshRankEntryList(setRefreshEntries.Value.Item1, setRefreshEntries.Value.Item2);
+        // }
         if (setStatus.Length != 0)
         {
             statusText.text = setStatus;
@@ -136,17 +138,17 @@ public class GuiSetup : GameElement
         }
     }
     
-    void RefreshRankEntryList((Rank rank, int max, int committed)[] ranksRemaining, Rank? selectedRank)
-    {
-        // TODO: these parameters are insanely stupid
-        foreach ((Rank rank, int max, int committed) in ranksRemaining)
-        {
-            bool entrySelected = rank == selectedRank;
-            entries[rank].Refresh(max, committed, entrySelected, true);
-        }
-        bool pawnsComitted = ranksRemaining.Any(e => e.max - e.committed != 0);
-        submitButton.interactable = pawnsComitted;
-        clearButton.interactable = true;
-        autoSetupButton.interactable = true;
-    }
+    // void RefreshRankEntryList((Rank rank, int max, int committed)[] ranksRemaining, Rank? selectedRank)
+    // {
+    //     // TODO: these parameters are insanely stupid
+    //     foreach ((Rank rank, int max, int committed) in ranksRemaining)
+    //     {
+    //         bool entrySelected = rank == selectedRank;
+    //         entries[rank].Refresh(max, committed, entrySelected, true);
+    //     }
+    //     bool pawnsComitted = ranksRemaining.Any(e => e.max - e.committed != 0);
+    //     submitButton.interactable = pawnsComitted;
+    //     clearButton.interactable = true;
+    //     autoSetupButton.interactable = true;
+    // }
 }

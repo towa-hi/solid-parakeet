@@ -43,6 +43,7 @@ public class BoardManager : MonoBehaviour
 
     public void CloseBoardManager()
     {
+        guiGame.ShowElement(false);
         // Stop polling immediately
         StellarManager.SetPolling(false);
         
@@ -77,6 +78,7 @@ public class BoardManager : MonoBehaviour
     void Initialize(GameNetworkState netState)
     {
         CloseBoardManager();
+        guiGame.ShowElement(true);
         clickInputManager.SetUpdating(true);
         CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         GameLogger.Initialize(netState);

@@ -24,3 +24,5 @@ MonoBehaviour:
   blueAnimatorOverrideController: {fileID: 22100000, guid: 1dd20c2723b1f5a4dab2c86a8c545ae2, type: 2}
   redAttackOverrideController: {fileID: 22100000, guid: be5f628b3fc262a479e143b4a182dac7, type: 2}
   blueAttackOverrideController: {fileID: 22100000, guid: 22d1c996ea7369645841d3eb737eb24d, type: 2}
+  redCard: {fileID: 6608800163096799148, guid: 3077a80be5798d446b98ace190aceea8, type: 3}
+  blueCard: {fileID: 133688238592311505, guid: 6a6cdeb71f5ca3847be46a3956c3e1ff, type: 3}

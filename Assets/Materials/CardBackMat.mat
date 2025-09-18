@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: PaperMat
+  m_Name: CardBackMat
   m_Shader: {fileID: 4800000, guid: 0dde7f0097aeb2541aea684ca0ad0e3c, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -16,7 +16,7 @@ Material:
   - _CAST_SHADOWS_ON
   - _COLORRAMPLIGHTINGSTAGE_BEFORELIGHTING
   - _GREYSCALESTAGE_BEFORELIGHTING
-  - _LIGHTMODEL_CLASSIC
+  - _LIGHTMODEL_NONE
   - _MATCAPBLENDMODE_MULTIPLY
   - _OUTLINETYPE_NONE
   - _RECEIVE_SHADOWS_ON
@@ -28,7 +28,6 @@ Material:
   - _USE_WIND_VERTICAL_MASK
   m_InvalidKeywords:
   - _ALBEDOVERTEXCOLORMODE_REPLACE
-  - _ALPHATEST_ON
   - _GLITCHWORLDSPACE_ON
   - _HEIGHTGRADIENTPOSITIONSPACE_LOCAL
   - _RECEIVEDSHADOWSTYPE_CLASSIC
@@ -41,6 +40,7 @@ Material:
   stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
+  - FORWARDADD
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -50,7 +50,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: 784f4a091b8b633449160af47b8248d7, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BlendingNormalMapB:
@@ -110,7 +110,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 784f4a091b8b633449160af47b8248d7, type: 3}
+        m_Texture: {fileID: 2800000, guid: c7b49196ccac69947b31d32531e8cf35, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MatcapTex:
@@ -191,11 +191,11 @@ Material:
     - _AffectedByLightmaps: 0
     - _AlbedoVertexColorMode: 1
     - _AlbedoVertexColorOn: 0
-    - _AlphaClip: 1
+    - _AlphaClip: 0
     - _AlphaCutoffOn: 1
     - _AlphaCutoffValue: 0.25
     - _AlphaRoundOn: 0
-    - _AlphaToMask: 1
+    - _AlphaToMask: 0
     - _AnisoShininess: 0.85
     - _Anisotropy: 0.45
     - _Blend: 0
@@ -228,7 +228,7 @@ Material:
     - _CullingMode: 2
     - _CustomAmbientLightOn: 0
     - _CustomShadowColorOn: 0
-    - _Cutoff: 1
+    - _Cutoff: 0.5
     - _DepthColoringOn: 0
     - _DepthGlowColorIntensity: 25
     - _DepthGlowDist: 0.2
@@ -304,7 +304,7 @@ Material:
     - _IntersectionFadeFactor: 1
     - _IntersectionFadeOn: 0
     - _IntersectionGlowOn: 0
-    - _LightModel: 1
+    - _LightModel: 0
     - _LightmapColorCorrection: 0
     - _Matcap: 0
     - _MatcapBlend: 1
@@ -356,7 +356,7 @@ Material:
     - _ShakeBlend: 1
     - _ShakeSpeedMult: 1
     - _Shininess: 16
-    - _Smoothness: 0
+    - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularAtten: 0.5
     - _SpecularHighlights: 1
@@ -366,7 +366,6 @@ Material:
     - _SpherizeNormals: 0
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
-    - _StencilRef: 1
     - _StochasticSampling: 0
     - _StochasticScale: 3.464
     - _StochasticSkew: 0.57735026
@@ -433,7 +432,7 @@ Material:
     - _VertexDistortionNoiseSpeed: {r: 4, g: 4, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!114 &2452933306883621589
+--- !u!114 &6825073527524291101
 MonoBehaviour:
   m_ObjectHideFlags: 11
   m_CorrespondingSourceObject: {fileID: 0}
