@@ -8091,11 +8091,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cardRoot: {fileID: 1879980151}
+  gapCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  gapStrength: 1.5
+  lineLength: 2.7
+  hoveredCard: {fileID: 0}
   cardSpacing: 0.25
-  cardEulerOffset: {x: 0, y: 0, z: 0}
+  cardEulerOffset: {x: 0, y: -2, z: 0}
   cardZOffsetPerIndex: 0.01
   arrangeAlongWidth: 1
-  autoLayoutEveryFrame: 0
+  autoLayoutEveryFrame: 1
   debugLayoutLogs: 1
 --- !u!1 &1834318381
 GameObject:
@@ -11278,6 +11305,7 @@ MonoBehaviour:
   rotation: {fileID: 1830448571178133734}
   renderEffect: {fileID: 0}
   baseRotationEuler: {x: 0, y: 0, z: 0}
+  currentLocalOffset: {x: 0, y: 0, z: 0}
 --- !u!33 &828315945886937155
 MeshFilter:
   m_ObjectHideFlags: 0

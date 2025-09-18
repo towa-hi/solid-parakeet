@@ -14,6 +14,13 @@ public class SetupScreen : MonoBehaviour
     public Transform cardRoot;
     public Dictionary<Rank, Card> cards = new();
 
+    // Spline/line layout config
+    public AnimationCurve gapCurve; // maps proximity to hovered (1 near -> 0 far) to extra gap
+    public float gapStrength = 1.5f; // scales extra gap beyond base spacing
+    public float lineLength = 2.0f; // total length of the line centered at cardRoot
+    public Card hoveredCard;
+    List<Card> orderedCardsCache;
+
     // Layout configuration
     public float cardSpacing = 0.25f; // world units between card centers
     public Vector3 cardEulerOffset = Vector3.zero; // additional rotation for cards
@@ -61,6 +68,9 @@ public class SetupScreen : MonoBehaviour
             }
             Card card = Instantiate(cardPrefab, cardRoot).GetComponent<Card>();
             card.SetBaseRotation(cardEulerOffset);
+            // Subscribe to card hover events so SetupScreen can drive effects
+            card.HoverEnter += OnCardHoverEnter;
+            card.HoverExit += OnCardHoverExit;
             cards.Add(pawnDef.rank, card);
             if (debugLayoutLogs)
             {
@@ -73,78 +83,140 @@ public class SetupScreen : MonoBehaviour
         {
             Debug.Log($"[SetupScreen.Initialize] Total children under cardRoot after spawn: {cardRoot.childCount}");
         }
-        LayoutCards();
+        BuildOrderedCache();
+        ApplyLineLayout(null);
     }
 
     void Update()
     {
         if (autoLayoutEveryFrame)
         {
-            LayoutCards();
+            ApplyLineLayout(hoveredCard);
         }
     }
 
     public void LayoutCards()
     {
-        if (cardRoot == null)
-        {
-            if (debugLayoutLogs)
-            {
-                Debug.Log("[SetupScreen.LayoutCards] Early return: cardRoot is null");
-            }
-            return;
-        }
+        ApplyLineLayout(null);
+    }
 
-        int childCount = cardRoot.childCount;
-        if (childCount == 0)
+    void BuildOrderedCache()
+    {
+        if (cardRoot == null) return;
+        if (orderedCardsCache == null) orderedCardsCache = new List<Card>(cardRoot.childCount);
+        orderedCardsCache.Clear();
+        for (int i = 0; i < cardRoot.childCount; i++)
         {
-            if (debugLayoutLogs)
-            {
-                Debug.Log("[SetupScreen.LayoutCards] Early return: no children to layout");
-            }
-            return;
+            Card c = cardRoot.GetChild(i).GetComponent<Card>();
+            if (c != null) orderedCardsCache.Add(c);
         }
+    }
+
+    public void OnCardHoverEnter(Card card)
+    {
+        hoveredCard = card;
+        ApplyLineLayout(card);
+    }
+
+    public void OnCardHoverExit(Card card)
+    {
+        if (hoveredCard == card)
+        {
+            hoveredCard = null;
+        }
+        ApplyLineLayout(null);
+    }
+
+    void ApplyLineLayout(Card target)
+    {
+        BuildOrderedCache();
+        int n = orderedCardsCache != null ? orderedCardsCache.Count : 0;
+        if (cardRoot == null || n == 0) return;
 
         Vector3 center = cardRoot.position;
         Vector3 axis = arrangeAlongWidth ? cardRoot.right : cardRoot.up;
+        Vector3 forward = cardRoot.forward;
         Quaternion rotation = cardRoot.rotation * Quaternion.Euler(cardEulerOffset);
-        if (debugLayoutLogs)
+
+        // Baseline: n points evenly across fixed length [-L/2, +L/2]
+        float baseGap = n > 1 ? (lineLength / (n - 1)) : 0f;
+        float[] s0 = new float[n];
+        for (int i = 0; i < n; i++) s0[i] = (-lineLength * 0.5f) + baseGap * i;
+
+        int hoveredIndex = target != null ? orderedCardsCache.IndexOf(target) : -1;
+        float[] s = new float[n];
+        if (hoveredIndex < 0)
         {
-            Debug.Log($"[SetupScreen.LayoutCards] childCount={childCount} center={center:F3} axis={axis:F3} arrangeAlongWidth={arrangeAlongWidth} spacing={cardSpacing} zPerIndex={cardZOffsetPerIndex} eulerOffset={cardEulerOffset}");
+            for (int i = 0; i < n; i++) s[i] = s0[i];
+        }
+        else
+        {
+            int gaps = n - 1;
+            float[] w = new float[gaps];
+            int leftCount = hoveredIndex; // number of gaps on left side
+            int rightCount = (n - 1) - hoveredIndex; // number of gaps on right side
+
+            // compute per-gap weights with proximity on each side
+            for (int g = 0; g < gaps; g++)
+            {
+                bool isLeft = g < hoveredIndex;
+                if (isLeft)
+                {
+                    int sideNorm = Mathf.Max(leftCount - 1, 1);
+                    int dist = (hoveredIndex - 1) - g; // 0 near hovered
+                    float t = leftCount <= 1 ? 1f : 1f - (float)dist / sideNorm;
+                    float curve = gapCurve != null ? gapCurve.Evaluate(t) : t;
+                    w[g] = 1f + gapStrength * curve;
+                }
+                else
+                {
+                    int sideNorm = Mathf.Max(rightCount - 1, 1);
+                    int dist = g - hoveredIndex; // 0 near hovered
+                    float t = rightCount <= 1 ? 1f : 1f - (float)dist / sideNorm;
+                    float curve = gapCurve != null ? gapCurve.Evaluate(t) : t;
+                    w[g] = 1f + gapStrength * curve;
+                }
+            }
+
+            // normalize gaps separately per side so endpoints remain at ±L/2 and hovered stays anchored
+            float leftSpan = baseGap * leftCount;
+            float rightSpan = baseGap * rightCount;
+            float sumLeft = 0f, sumRight = 0f;
+            for (int g = 0; g < gaps; g++)
+            {
+                if (g < hoveredIndex) sumLeft += w[g]; else sumRight += w[g];
+            }
+            float[] gapLen = new float[gaps];
+            for (int g = 0; g < gaps; g++)
+            {
+                if (g < hoveredIndex)
+                {
+                    gapLen[g] = leftCount > 0 ? (w[g] / (sumLeft > 0f ? sumLeft : leftCount)) * leftSpan : 0f;
+                }
+                else
+                {
+                    gapLen[g] = rightCount > 0 ? (w[g] / (sumRight > 0f ? sumRight : rightCount)) * rightSpan : 0f;
+                }
+            }
+
+            // accumulate positions from hovered index outward
+            s[hoveredIndex] = s0[hoveredIndex];
+            for (int i = hoveredIndex + 1; i < n; i++)
+            {
+                s[i] = s[i - 1] + gapLen[i - 1];
+            }
+            for (int i = hoveredIndex - 1; i >= 0; i--)
+            {
+                s[i] = s[i + 1] - gapLen[i];
+            }
         }
 
-        if (childCount == 1)
+        for (int i = 0; i < n; i++)
         {
-            Transform only = cardRoot.GetChild(0);
-            if (debugLayoutLogs)
-            {
-                Debug.Log($"[SetupScreen.LayoutCards] Single child '{only.name}' before worldPos={only.position:F3} localPos={only.localPosition:F3}");
-            }
-            only.position = center;
-            only.rotation = rotation;
-            if (debugLayoutLogs)
-            {
-                Debug.Log($"[SetupScreen.LayoutCards] Single child '{only.name}' after worldPos={only.position:F3} localPos={only.localPosition:F3}");
-            }
-            return;
-        }
-
-        // Symmetric spacing around center: indexOffset in [-k, +k]
-        float mid = (childCount - 1) * 0.5f;
-        for (int i = 0; i < childCount; i++)
-        {
-            Transform child = cardRoot.GetChild(i);
-            Vector3 beforeWorld = child.position;
-            Vector3 beforeLocal = child.localPosition;
-            float offsetIndex = i - mid; // e.g., for 5: -2,-1,0,1,2
-            Vector3 pos = center + axis * (offsetIndex * cardSpacing);
-            Vector3 depthOffset = cardRoot.forward * (cardZOffsetPerIndex * i);
-            child.position = pos + depthOffset;
-            child.rotation = rotation;
-            if (debugLayoutLogs)
-            {
-                Debug.Log($"[SetupScreen.LayoutCards] i={i} '{child.name}' offsetIndex={offsetIndex} beforeW={beforeWorld:F3} beforeL={beforeLocal:F3} afterW={child.position:F3} afterL={child.localPosition:F3}");
-            }
+            Transform t = orderedCardsCache[i].transform;
+            Vector3 pos = center + axis * s[i] + forward * (cardZOffsetPerIndex * i);
+            t.position = pos;
+            t.rotation = rotation;
         }
     }
 }
