@@ -14,6 +14,7 @@ public class SetupScreen : MonoBehaviour
     // CardHand will be deprecated as this is supposed to replace it
     public Transform cardRoot;
     public Dictionary<Rank, Card> cards = new();
+    List<Transform> slots = new();
 
     // Spline/line layout config
     public AnimationCurve gapCurve; // maps proximity to hovered (1 near -> 0 far) to extra gap
@@ -42,7 +43,7 @@ public class SetupScreen : MonoBehaviour
         {
             Debug.Log($"[SetupScreen.Initialize] Begin. cardRoot={(cardRoot != null ? cardRoot.name : "null")}" );
         }
-        // clear old cards
+        // clear old cards and slots
         int destroyed = 0;
         foreach (Transform child in cardRoot) { Destroy(child.gameObject); destroyed++; }
         if (debugLayoutLogs)
@@ -50,6 +51,7 @@ public class SetupScreen : MonoBehaviour
             Debug.Log($"[SetupScreen.Initialize] Cleared {destroyed} existing children under cardRoot.");
         }
         cards = new();
+        slots = new();
         // populate cardRoot and cards
         uint[] maxRanks = netState.lobbyParameters.max_ranks;
         PawnDef[] pawnDefs = ResourceRoot.OrderedPawnDefs.ToArray();
@@ -73,9 +75,14 @@ public class SetupScreen : MonoBehaviour
             {
                 cardPrefab = pawnDef.blueCard;
             }
-            Transform parentTransform = spline != null ? spline.transform : cardRoot;
-            Card card = Instantiate(cardPrefab, parentTransform).GetComponent<Card>();
+            // Create slot under cardRoot
+            GameObject slotGO = new GameObject($"CardSlot_{pawnDef.rank}");
+            slotGO.transform.SetParent(cardRoot, false);
+            slots.Add(slotGO.transform);
+            // Spawn card under cardRoot
+            Card card = Instantiate(cardPrefab, cardRoot).GetComponent<Card>();
             card.SetBaseRotation(cardEulerOffset);
+            card.SetSlot(slotGO.transform);
             // Subscribe to card hover events so SetupScreen can drive effects
             card.HoverEnter += OnCardHoverEnter;
             card.HoverExit += OnCardHoverExit;
@@ -110,15 +117,11 @@ public class SetupScreen : MonoBehaviour
 
     void BuildOrderedCache()
     {
-        Transform parentTransform = spline != null ? spline.transform : cardRoot;
+        Transform parentTransform = cardRoot;
         if (parentTransform == null) return;
         if (orderedCardsCache == null) orderedCardsCache = new List<Card>(parentTransform.childCount);
         orderedCardsCache.Clear();
-        for (int i = 0; i < parentTransform.childCount; i++)
-        {
-            Card c = parentTransform.GetChild(i).GetComponent<Card>();
-            if (c != null) orderedCardsCache.Add(c);
-        }
+        foreach (var kv in cards) { if (kv.Value != null) orderedCardsCache.Add(kv.Value); }
     }
 
     public void OnCardHoverEnter(Card card)
@@ -219,7 +222,7 @@ public class SetupScreen : MonoBehaviour
 
         for (int i = 0; i < n; i++)
 		{
-			Transform tr = orderedCardsCache[i].transform;
+            Transform slotTr = slots[i];
 			float tt = Mathf.Clamp01(ts[i]);
 			// SplineContainer.Evaluate* returns WORLD space; convert to LOCAL before assignment
 			Vector3 worldPos = spline.EvaluatePosition(tt);
@@ -240,7 +243,7 @@ public class SetupScreen : MonoBehaviour
                 lrot = Quaternion.identity;
             }
 			Vector3 zOffset = Vector3.forward * (cardZOffsetPerIndex * i);
-			tr.localPosition = localPos + zOffset;
+            slotTr.localPosition = localPos + zOffset;
             Vector3 appliedOffset = forceYawZero ? new Vector3(cardEulerOffset.x, 0f, cardEulerOffset.z) : cardEulerOffset;
 
             // Fan-out roll around Z based on index distance from center
@@ -258,10 +261,10 @@ public class SetupScreen : MonoBehaviour
             float tangentRoll = (alignToSplineTangent && Mathf.Abs(rollAroundTangentDegrees) > 0.0001f) ? rollAroundTangentDegrees : 0f;
             Vector3 rollAxis = alignToSplineTangent ? Vector3.forward : (fanAxisLocal.sqrMagnitude > 0.0001f ? fanAxisLocal.normalized : Vector3.forward);
             Quaternion rollQ = Quaternion.AngleAxis(tangentRoll + fanRoll, rollAxis);
-            tr.localRotation = lrot * rollQ * Quaternion.Euler(appliedOffset);
+            slotTr.localRotation = lrot * rollQ * Quaternion.Euler(appliedOffset);
 			if (debugLayoutLogs)
 			{
-				Debug.Log($"[SetupScreen.ApplySplineLayout] set i={i} t={tt:F3} worldPos={worldPos:F3} localPos={(localPos + zOffset):F3}");
+                Debug.Log($"[SetupScreen.ApplySplineLayout] set SLOT i={i} t={tt:F3} worldPos={worldPos:F3} localPos={(localPos + zOffset):F3}");
 			}
 		}
     }
