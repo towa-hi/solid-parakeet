@@ -356,11 +356,9 @@ MonoBehaviour:
   rotation: {fileID: 6676232012487079349}
   renderEffect: {fileID: 1334621661861741007}
   baseRotationEuler: {x: 0, y: 0, z: 0}
-  usePositionConstraint: 1
-  dragRoot: {fileID: 0}
-  anchorFollowLerpSpeed: 1
-  blendToAnchorDuration: 0.05
-  blendToParentDuration: 0.12
+  slot: {fileID: 0}
+  followPositionLerpSpeed: 12
+  followRotationLerpSpeed: 12
   currentLocalOffset: {x: 0, y: 0, z: 0}
 --- !u!114 &3350707126563902457
 MonoBehaviour:
