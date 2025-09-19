@@ -6,15 +6,15 @@ using UnityEngine.EventSystems;
  
 
 [DefaultExecutionOrder(10000)]
-public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     public CardSorting sorting;
 
     public Transform pivot;
+    public Transform wobblePivot;
     public CardRotation rotation;
 
     public RenderEffect renderEffect;
-
     public Vector3 baseRotationEuler;
 
 		// Simple slot following
@@ -26,8 +26,17 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 		[Tooltip("How quickly the card eases toward its slot rotation.")]
 		public float followRotationLerpSpeed = 12f;
 
+		[Header("Selection Settings")]
+		[Tooltip("Scale multiplier when selected.")]
+		public float selectionScaleMultiplier = 1.1f;
+		[Tooltip("How quickly the selection scale eases.")]
+		public float selectionScaleLerpSpeed = 12f;
+		bool isSelected;
+		Vector3 basePivotLocalScale;
+
     public event System.Action<Card> HoverEnter;
     public event System.Action<Card> HoverExit;
+    public event System.Action<Card> Clicked;
     bool isHovered;
 
     // Pivot local-position tween state
@@ -57,6 +66,7 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             basePivotLocalPosition = pivot.localPosition;
         }
 			isHovered = false;
+			basePivotLocalScale = pivot != null ? pivot.localScale : transform.localScale;
 			if (pivot != null)
 			{
 				pivot.localPosition = basePivotLocalPosition;
@@ -125,6 +135,16 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 				transform.position = Vector3.Lerp(transform.position, slot.position, sp);
 				transform.rotation = Quaternion.Slerp(transform.rotation, slot.rotation, sr);
 			}
+
+			// Selection scale easing (pivot only)
+			Vector3 targetScale = isSelected ? (basePivotLocalScale * selectionScaleMultiplier) : basePivotLocalScale;
+			float ss = 1f - Mathf.Exp(-selectionScaleLerpSpeed * Time.deltaTime);
+			pivot.localScale = Vector3.Lerp(pivot.localScale, targetScale, ss);
+		}
+
+		public void SetSelected(bool selected)
+		{
+			isSelected = selected;
 		}
 
 		// Removed constraint-based code for simplicity; card follows assigned slot.
@@ -165,6 +185,11 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             isHovered = false;
             HoverExit?.Invoke(this);
         }
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        Clicked?.Invoke(this);
     }
 
     void OnDisable()

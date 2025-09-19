@@ -359,6 +359,8 @@ MonoBehaviour:
   slot: {fileID: 0}
   followPositionLerpSpeed: 12
   followRotationLerpSpeed: 12
+  selectionScaleMultiplier: 1.2
+  selectionScaleLerpSpeed: 12
   currentLocalOffset: {x: 0, y: 0, z: 0}
 --- !u!114 &3350707126563902457
 MonoBehaviour:
@@ -728,7 +730,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3459161810144882915}
   - component: {fileID: 6676232012487079349}
-  - component: {fileID: 763278104961958756}
   m_Layer: 5
   m_Name: Pivot
   m_TagString: Untagged
@@ -771,26 +772,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a2dec73136bc4f40a354bf5a72a0dc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxRotationAngle: 10
+  maxRotationAngle: 5
   smoothSpeed: 5
---- !u!1818360608 &763278104961958756
-PositionConstraint:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6132069995067436456}
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Weight: 1
-  m_TranslationAtRest: {x: 0, y: 0, z: -0.05}
-  m_TranslationOffset: {x: 0, y: 0, z: 0}
-  m_AffectTranslationX: 1
-  m_AffectTranslationY: 1
-  m_AffectTranslationZ: 1
-  m_Active: 0
-  m_IsLocked: 0
-  m_Sources: []
 --- !u!1 &6257991031004303609
 GameObject:
   m_ObjectHideFlags: 0

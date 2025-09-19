@@ -50,6 +50,7 @@ public class GuiSetup : GameElement
             entries[rank].Refresh((int)maxRanks[i], 0, false, true);
         }
         setupScreen.Initialize(netState);
+        setupScreen.OnCardRankClicked = OnEntryClicked;
     }
 
 
@@ -116,10 +117,10 @@ public class GuiSetup : GameElement
         {
             Initialize(setInitialize.Value);
         }
-        // if (setRefreshEntries.HasValue)
-        // {
-        //     RefreshRankEntryList(setRefreshEntries.Value.Item1, setRefreshEntries.Value.Item2);
-        // }
+        if (setRefreshEntries.HasValue)
+        {
+            setupScreen.RefreshFromRanks(setRefreshEntries.Value.Item1);
+        }
         if (setStatus.Length != 0)
         {
             statusText.text = setStatus;
