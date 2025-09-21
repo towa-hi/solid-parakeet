@@ -15,6 +15,6 @@ public class GameMenu : MenuBase
 
     void HandleBack()
     {
-        _ = menuController.SetMenuAsync(menuController.mainMenuPrefab);
+        menuController.ExitGame();
     }
 }

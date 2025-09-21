@@ -53,11 +53,13 @@ public class GuiSetup : GameElement
         setupScreen.OnCardRankClicked = OnEntryClicked;
     }
 
-
+    void OnDisable()
+    {
+        setupScreen.Uninitialize();
+    }
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
-
-        // what to do
+        // Handle setup UI only during SetupCommitPhase; otherwise ensure uninitialized
         GameNetworkState? setInitialize = null;
         ((Rank, int, int)[], Rank?)? setRefreshEntries = null;
         string setStatus = "";
@@ -68,7 +70,21 @@ public class GuiSetup : GameElement
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
             GameNetworkState cachedNetState = netStateUpdated.phase.cachedNetState;
-            setInitialize = cachedNetState;
+            bool isSetupPhase = netStateUpdated.phase is SetupCommitPhase;
+            if (isSetupPhase)
+            {
+                setInitialize = cachedNetState;
+            }
+            else
+            {
+                // Leaving setup: make sure 3D setup is uninitialized and hidden
+                if (setupScreen != null)
+                {
+                    setupScreen.Uninitialize();
+                }
+                // Early-out: no further setup UI changes needed in other phases
+                return;
+            }
             switch (netStateUpdated.phase)
             {
                 case SetupCommitPhase:
@@ -139,17 +155,4 @@ public class GuiSetup : GameElement
         }
     }
     
-    // void RefreshRankEntryList((Rank rank, int max, int committed)[] ranksRemaining, Rank? selectedRank)
-    // {
-    //     // TODO: these parameters are insanely stupid
-    //     foreach ((Rank rank, int max, int committed) in ranksRemaining)
-    //     {
-    //         bool entrySelected = rank == selectedRank;
-    //         entries[rank].Refresh(max, committed, entrySelected, true);
-    //     }
-    //     bool pawnsComitted = ranksRemaining.Any(e => e.max - e.committed != 0);
-    //     submitButton.interactable = pawnsComitted;
-    //     clearButton.interactable = true;
-    //     autoSetupButton.interactable = true;
-    // }
 }

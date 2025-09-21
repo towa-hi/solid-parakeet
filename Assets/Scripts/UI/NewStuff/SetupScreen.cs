@@ -126,6 +126,76 @@ public class SetupScreen : MonoBehaviour
         }
     }
 
+    public void Uninitialize()
+    {
+        if (debugLayoutLogs)
+        {
+            Debug.Log("[SetupScreen.Uninitialize] Begin.");
+        }
+        // Stop any running coroutines started by this component (e.g., AnimateInitialLayout)
+        StopAllCoroutines();
+
+        // Clear selection/hover visuals
+        if (selectedCard != null)
+        {
+            if (selectedCard.renderEffect != null)
+            {
+                selectedCard.renderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
+            }
+            selectedCard.SetSelected(false);
+            selectedCard = null;
+        }
+        hoveredCard = null;
+
+        // Unsubscribe from card events
+        if (cards != null)
+        {
+            foreach (var kv in cards)
+            {
+                Card c = kv.Value;
+                if (c == null) continue;
+                c.HoverEnter -= OnCardHoverEnter;
+                c.HoverExit -= OnCardHoverExit;
+                c.Clicked -= OnCardClicked;
+            }
+            cards.Clear();
+        }
+
+        // Destroy all spawned children (cards and slots)
+        if (cardRoot != null)
+        {
+            List<GameObject> children = new List<GameObject>();
+            foreach (Transform child in cardRoot)
+            {
+                children.Add(child.gameObject);
+            }
+            int destroyed = 0;
+            for (int i = 0; i < children.Count; i++)
+            {
+                Destroy(children[i]);
+                destroyed++;
+            }
+            if (debugLayoutLogs)
+            {
+                Debug.Log($"[SetupScreen.Uninitialize] Destroyed {destroyed} children under cardRoot.");
+            }
+        }
+
+        // Clear slot references
+        if (slots != null)
+        {
+            slots.Clear();
+        }
+
+        // Remove external callbacks
+        OnCardRankClicked = null;
+
+        if (debugLayoutLogs)
+        {
+            Debug.Log("[SetupScreen.Uninitialize] End.");
+        }
+    }
+
     void Update()
     {
         if (autoLayoutEveryFrame)

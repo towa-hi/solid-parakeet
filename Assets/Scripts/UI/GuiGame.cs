@@ -72,10 +72,24 @@ public class GuiGame : MenuElement
             if (movement.gameObject.activeSelf != showMovement) { movement.ShowElement(showMovement); }
             if (resolve.gameObject.activeSelf != showResolve) { resolve.ShowElement(showResolve); }
         }
-        // Forward phase updates for content/data changes
-        setup.PhaseStateChanged(changes);
-        movement.PhaseStateChanged(changes);
-        resolve.PhaseStateChanged(changes);
+        // Forward phase updates only to the relevant/visible panels
+        if (changes.GetNetStateUpdated() is NetStateUpdated nsu)
+        {
+            PhaseBase phase = nsu.phase;
+            bool isSetup = phase is SetupCommitPhase;
+            bool isMovement = phase is MoveCommitPhase || phase is MoveProvePhase || phase is RankProvePhase;
+            bool isResolve = phase is ResolvePhase;
+            if (isSetup) { setup.PhaseStateChanged(changes); }
+            if (isMovement) { movement.PhaseStateChanged(changes); }
+            if (isResolve) { resolve.PhaseStateChanged(changes); }
+        }
+        else
+        {
+            // No phase change; forward conservatively to active panels only
+            if (setup.gameObject.activeSelf) { setup.PhaseStateChanged(changes); }
+            if (movement.gameObject.activeSelf) { movement.PhaseStateChanged(changes); }
+            if (resolve.gameObject.activeSelf) { resolve.PhaseStateChanged(changes); }
+        }
     }
 
     public override void ShowElement(bool show)

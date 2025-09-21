@@ -261,6 +261,12 @@ public class MenuController : MonoBehaviour
         await Task.Yield();
         GameManager.instance.boardManager.StartBoardManager();
     }
+
+    public void ExitGame()
+    {
+        GameManager.instance.boardManager.CloseBoardManager();
+        _ = SetMenuAsync(mainMenuPrefab);
+    }
     public void SaveChange(WarmancerSettings settings)
     {
         SettingsManager.Save(settings);
