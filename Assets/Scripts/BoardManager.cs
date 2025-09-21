@@ -124,6 +124,17 @@ public class BoardManager : MonoBehaviour
         Debug.Log($"BoardManager::OnGameStateBeforeApplied turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
         bool shouldPoll = !netState.IsMySubphase();
         // No local task references to reset; StellarManager governs busy state
+        // If server indicates game is over outside of resolve (e.g., resignation), immediately switch to FinishedPhase
+        if ((netState.lobbyInfo.phase is Phase.Finished or Phase.Aborted) && delta.TurnResolve is null)
+        {
+            // Enter a FinishedPhase locally if not already there so GuiGame can show modal
+            if (currentPhase is not FinishedPhase)
+            {
+                currentPhase?.ExitState(clickInputManager, guiGame);
+                currentPhase = new FinishedPhase();
+                currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
+            }
+        }
 
         // Check if phase actually changed
         Phase newPhase = netState.lobbyInfo.phase;

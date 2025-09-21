@@ -148,6 +148,9 @@ public class PawnView : MonoBehaviour
                     }
                     setIsMovePairStart = resolvePhase.tr.moves.ContainsKey(pawnId);
                     break;
+                case FinishedPhase:
+                    // Game over: keep current visuals, no special updates
+                    break;
                 case MoveCommitPhase moveCommitPhase:
                     // General non-resolve updates
                     setAliveView = pawn.alive;

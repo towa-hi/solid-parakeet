@@ -147,6 +147,23 @@ public static class FakeServer
         fakeLobbyInfo = lobbyInfo;
     }
 
+    public static void Resign(bool isHost)
+    {
+        Debug.Log($"FakeServer.Resign isHost={isHost}");
+        Debug.Assert(fakeIsOnline);
+        Debug.Assert(fakeLobbyInfo.HasValue);
+        LobbyInfo lobbyInfo = fakeLobbyInfo.Value;
+        // If already finished, ignore
+        if (lobbyInfo.phase == Phase.Finished || lobbyInfo.phase == Phase.Aborted)
+        {
+            Debug.Log("FakeServer.Resign ignored: game already finished");
+            return;
+        }
+        lobbyInfo.phase = Phase.Finished;
+        lobbyInfo.subphase = isHost ? Subphase.Guest : Subphase.Host;
+        fakeLobbyInfo = lobbyInfo;
+    }
+
     public static void CommitSetup(CommitSetupReq req, bool isHost)
     {
         Debug.Log("Fake CommitSetup");
@@ -269,8 +286,41 @@ public static class FakeServer
                 throw;
             }
 
-            lobbyInfo.phase = Phase.MoveCommit;
-            lobbyInfo.subphase = Subphase.Both;
+            // After applying resolve, check game over using same logic as contract
+            bool hostFlagAlive = true;
+            bool guestFlagAlive = true;
+            foreach (var pawn in gameState.pawns)
+            {
+                if (!pawn.alive && pawn.rank.HasValue && pawn.rank.Value == Rank.THRONE)
+                {
+                    // Determine owner via team on PawnId versus lobby parameters
+                    Team ownerTeam = pawn.GetTeam();
+                    if (ownerTeam == parameters.host_team)
+                    {
+                        hostFlagAlive = false;
+                    }
+                    else
+                    {
+                        guestFlagAlive = false;
+                    }
+                }
+            }
+            Subphase winner = Subphase.Both;
+            if (hostFlagAlive && !guestFlagAlive) winner = Subphase.Host;
+            else if (!hostFlagAlive && guestFlagAlive) winner = Subphase.Guest;
+            else if (!hostFlagAlive && !guestFlagAlive) winner = Subphase.None; // tie
+
+            if (winner != Subphase.Both)
+            {
+                lobbyInfo.phase = Phase.Finished;
+                lobbyInfo.subphase = winner;
+                Debug.Log($"[FakeServer] Game over: winner={winner}");
+            }
+            else
+            {
+                lobbyInfo.phase = Phase.MoveCommit;
+                lobbyInfo.subphase = Subphase.Both;
+            }
             Debug.Log($"[FakeServer] Resolve complete: advancing turn {gameState.turn} -> {gameState.turn + 1}; pawns {gameState.pawns.Length}");
             gameState.turn++;
             // save changes
@@ -338,6 +388,13 @@ public static class FakeServer
         board.ally_team = team;
         //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
         var top_moves = await AiPlayer.NodeScoreStrategy(board, board.root_state);
+        if (top_moves == null || top_moves.Count == 0)
+        {
+            // No legal moves: auto-resign for this side
+            bool isHostSide = parameters.host_team == team;
+            Resign(isHostSide);
+            return new List<HiddenMove>();
+        }
         Debug.Log($"top_moves {top_moves.Count}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
         ImmutableHashSet<AiPlayer.SimMove> moves = null;

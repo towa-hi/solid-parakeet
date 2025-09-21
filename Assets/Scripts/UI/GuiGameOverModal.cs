@@ -1,13 +1,26 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GuiGameOverModal : MonoBehaviour
 {
     public TextMeshProUGUI text;
+    public Button closeButton;
 
-    public void Initialize(uint endState, Team team)
+    Action onClose;
+
+    void Awake()
     {
+        if (closeButton != null)
+        {
+            closeButton.onClick.AddListener(() => onClose?.Invoke());
+        }
+    }
+
+    public void Initialize(uint endState, Team team, Action onCloseCallback)
+    {
+        onClose = onCloseCallback;
         string message = "";
         switch (endState)
         {

@@ -181,6 +181,9 @@ public class TileView : MonoBehaviour
                     }
                     break;
                 }
+                case FinishedPhase:
+                    // Game over: no-op for tiles
+                    break;
                 case MoveProvePhase moveProvePhase:
                 {
                     setIsHovered = moveProvePhase.hoveredPos == posView;

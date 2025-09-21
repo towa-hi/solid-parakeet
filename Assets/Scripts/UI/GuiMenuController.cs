@@ -147,6 +147,7 @@ public class GuiMenuController: MonoBehaviour
 
 	void OpenModal(GameObject modalPrefab)
 	{
+		if (modalStack == null) { modalStack = new(); }
 		foreach (ModalElement element in modalStack)
 		{
 			element.OnFocus(false);
@@ -158,6 +159,7 @@ public class GuiMenuController: MonoBehaviour
 	}
 	void CloseModal()
 	{
+		if (modalStack == null) { modalStack = new(); }
 		if (modalStack.Count > 0)
 		{
 			ModalElement modal = modalStack.Pop();
@@ -174,6 +176,7 @@ public class GuiMenuController: MonoBehaviour
 
 	void CloseAllModals()
 	{
+		if (modalStack == null) { modalStack = new(); }
 		while (modalStack.Count > 0)
 		{
 			CloseModal();
@@ -222,7 +225,7 @@ public class GuiMenuController: MonoBehaviour
 		ShowMenuElement(startMenuElement);
 	}
 	
-	void GotoMainMenu()
+    public void GotoMainMenu()
 	{
 		CloseAllModals();
 		if (GameManager.instance.boardManager.initialized)

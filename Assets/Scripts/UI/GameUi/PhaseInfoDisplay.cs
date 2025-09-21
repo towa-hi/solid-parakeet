@@ -62,7 +62,8 @@ public class PhaseInfoDisplay : MonoBehaviour
                 turnText = "TURN " + netState.gameState.turn.ToString();
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                // Unknown/unsupported phase: leave indicators hidden without crashing
+                break;
         }
 
         if (!netState.lobbyParameters.security_mode)

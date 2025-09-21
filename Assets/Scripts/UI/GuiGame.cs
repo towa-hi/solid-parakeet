@@ -10,6 +10,7 @@ public class GuiGame : MenuElement
     public GuiMovement movement;
     public GuiResolve resolve;
     public ArenaController arenaController; // injected from BoardManager or scene
+    public GuiGameOverModal gameOverModal; // overlay, enable/disable only
     
     public CameraAnchor boardAnchor;
     bool isUpdating;
@@ -71,6 +72,12 @@ public class GuiGame : MenuElement
             if (setup.gameObject.activeSelf != showSetup) { setup.ShowElement(showSetup); }
             if (movement.gameObject.activeSelf != showMovement) { movement.ShowElement(showMovement); }
             if (resolve.gameObject.activeSelf != showResolve) { resolve.ShowElement(showResolve); }
+
+            // Game over handling: show overlay regardless of which subpanel is active
+            if (phase is FinishedPhase)
+            {
+                TryShowGameOver(netStateUpdated.phase.cachedNetState);
+            }
         }
         // Forward phase updates only to the relevant/visible panels
         if (changes.GetNetStateUpdated() is NetStateUpdated nsu)
@@ -90,6 +97,74 @@ public class GuiGame : MenuElement
             if (movement.gameObject.activeSelf) { movement.PhaseStateChanged(changes); }
             if (resolve.gameObject.activeSelf) { resolve.PhaseStateChanged(changes); }
         }
+    }
+
+    void TryShowGameOver(GameNetworkState netState)
+    {
+        // Find modal if not wired
+        if (gameOverModal == null)
+        {
+            gameOverModal = GetComponentInChildren<GuiGameOverModal>(true);
+        }
+        if (gameOverModal == null)
+        {
+            Debug.LogWarning("GuiGame: gameOverModal is not assigned and could not be found in children.");
+            return;
+        }
+		// Ensure overlay is displayed regardless of which subpanel is active
+		if (!gameOverModal.transform.IsChildOf(transform))
+		{
+			gameOverModal.transform.SetParent(transform, false);
+		}
+		if (!gameObject.activeInHierarchy)
+		{
+			ShowElement(true);
+		}
+        // Compute end state
+        uint endState = 4; // inconclusive default
+        if (netState.lobbyInfo.phase == Phase.Finished)
+        {
+            // winner encoded in subphase
+            Team hostTeam = netState.lobbyParameters.host_team;
+            Team guestTeam = hostTeam == Team.RED ? Team.BLUE : Team.RED;
+            switch (netState.lobbyInfo.subphase)
+            {
+                case Subphase.Host:
+                    endState = hostTeam == Team.RED ? 1u : 2u;
+                    break;
+                case Subphase.Guest:
+                    endState = guestTeam == Team.RED ? 1u : 2u;
+                    break;
+                case Subphase.None:
+                    endState = 0u; // tie
+                    break;
+                default:
+                    endState = 4u;
+                    break;
+            }
+        }
+        else if (netState.lobbyInfo.phase == Phase.Aborted)
+        {
+            endState = 4u; // inconclusive
+        }
+
+        // Always enable and initialize overlay; button returns to main menu
+        if (!gameOverModal.gameObject.activeSelf)
+        {
+            gameOverModal.gameObject.SetActive(true);
+        }
+        gameOverModal.Initialize(endState, netState.userTeam, ExitToMainMenu);
+    }
+
+    void ExitToMainMenu()
+    {
+        var menuController = UnityEngine.Object.FindObjectOfType<MenuController>();
+        if (menuController == null)
+        {
+            Debug.LogError("GuiGame: MenuController not found in scene for ExitToMainMenu()");
+            return;
+        }
+        menuController.ExitGame();
     }
 
     public override void ShowElement(bool show)
