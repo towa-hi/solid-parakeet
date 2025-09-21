@@ -57,7 +57,7 @@ public class GuiSetup : GameElement
     {
         setupScreen.Uninitialize();
     }
-    public void PhaseStateChanged(PhaseChangeSet changes)
+    public override void PhaseStateChanged(PhaseChangeSet changes)
     {
         // Handle setup UI only during SetupCommitPhase; otherwise ensure uninitialized
         GameNetworkState? setInitialize = null;

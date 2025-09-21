@@ -443,13 +443,15 @@ public abstract class MenuElement: MonoBehaviour
 	public abstract void Refresh();
 }
 
-public class GameElement: MonoBehaviour
+public abstract class GameElement: MonoBehaviour
 {
 
 	public virtual void ShowElement(bool show)
 	{
 		gameObject.SetActive(show);
 	}
+
+	public abstract void PhaseStateChanged(PhaseChangeSet changes);
 	
 }
 

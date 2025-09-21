@@ -39,7 +39,7 @@ public class GuiResolve : GameElement
     
     // no phasestatechanged listen here
 
-    public void PhaseStateChanged(PhaseChangeSet changes)
+    public override void PhaseStateChanged(PhaseChangeSet changes)
     {
         // Reflect resolve sub-state in status text based on operations
         foreach (GameOperation op in changes.operations)

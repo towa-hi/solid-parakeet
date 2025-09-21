@@ -15,6 +15,9 @@ public class GuiGame : MenuElement
     public CameraAnchor boardAnchor;
     bool isUpdating;
     int busyCount;
+    
+    // Single active game element (state machine style)
+    GameElement currentGameElement;
 
     // Injected reference from new MenuController pipeline
     public MenuController injectedMenuController;
@@ -62,41 +65,34 @@ public class GuiGame : MenuElement
     
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
-        // Centralize which Game GUI panel is visible based on the active phase type
-        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
-        {
-            // Initialize UI subsystems that depend on board parameters (e.g., arena)
-            resolve.arenaController = ArenaController.instance;
-            resolve.Initialize(netStateUpdated.phase.cachedNetState);
-            PhaseBase phase = netStateUpdated.phase;
-            bool showSetup = phase is SetupCommitPhase;
-            bool showMovement = phase is MoveCommitPhase || phase is MoveProvePhase || phase is RankProvePhase;
-            bool showResolve = phase is ResolvePhase;
-            bool showGameOver = phase is FinishedPhase;
-            if (setup.gameObject.activeSelf != showSetup) { setup.ShowElement(showSetup); }
-            if (movement.gameObject.activeSelf != showMovement) { movement.ShowElement(showMovement); }
-            if (resolve.gameObject.activeSelf != showResolve) { resolve.ShowElement(showResolve); }
-            if (gameOver.gameObject.activeSelf != showGameOver) { gameOver.ShowElement(showGameOver); }
-        }
-        // Forward phase updates only to the relevant/visible panels
+        // Switch active element only when the phase object changes, then forward to the active element
         if (changes.GetNetStateUpdated() is NetStateUpdated nsu)
         {
             PhaseBase phase = nsu.phase;
-            bool isSetup = phase is SetupCommitPhase;
-            bool isMovement = phase is MoveCommitPhase || phase is MoveProvePhase || phase is RankProvePhase;
-            bool isResolve = phase is ResolvePhase;
-            if (isSetup) { setup.PhaseStateChanged(changes); }
-            if (isMovement) { movement.PhaseStateChanged(changes); }
-            if (isResolve) { resolve.PhaseStateChanged(changes); }
+            GameElement desired = GetElementForPhase(phase);
+            if (currentGameElement != null)
+            {
+                currentGameElement.ShowElement(false);
+            }
+            currentGameElement = desired;
+            // One-time initialization hooks on enter
+            if (desired == resolve)
+            {
+                resolve.arenaController = ArenaController.instance;
+                resolve.Initialize(nsu.phase.cachedNetState);
+            }
+            currentGameElement.ShowElement(true);
         }
-        else
-        {
-            // No phase change; forward conservatively to active panels only
-            if (setup.gameObject.activeSelf) { setup.PhaseStateChanged(changes); }
-            if (movement.gameObject.activeSelf) { movement.PhaseStateChanged(changes); }
-            if (resolve.gameObject.activeSelf) { resolve.PhaseStateChanged(changes); }
-            if (gameOver.gameObject.activeSelf) { gameOver.PhaseStateChanged(changes); }
-        }
+        currentGameElement?.PhaseStateChanged(changes);
+    }
+
+    GameElement GetElementForPhase(PhaseBase phase)
+    {
+        if (phase is SetupCommitPhase) return setup;
+        if (phase is MoveCommitPhase || phase is MoveProvePhase || phase is RankProvePhase) return movement;
+        if (phase is ResolvePhase) return resolve;
+        if (phase is FinishedPhase) return gameOver;
+        return movement;
     }
 
     void ExitToMainMenu()
@@ -122,6 +118,7 @@ public class GuiGame : MenuElement
             setup.ShowElement(false);
             movement.ShowElement(false);
             resolve.ShowElement(false);
+            gameOver.ShowElement(false);
             Debug.Log("GuiGame.ShowElement(true): hiding subpanels by default (resolve hidden)");
         }
     }

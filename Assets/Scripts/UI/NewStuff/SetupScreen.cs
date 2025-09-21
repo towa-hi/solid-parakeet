@@ -66,6 +66,15 @@ public class SetupScreen : MonoBehaviour
         for (int i = 0; i < maxRanks.Length; i++)
         {
             PawnDef pawnDef = pawnDefs[i];
+			// Only spawn cards for ranks with a positive max in max_ranks
+			if (maxRanks[i] == 0)
+			{
+				if (debugLayoutLogs)
+				{
+					Debug.Log($"[SetupScreen.Initialize] Skipping rank {pawnDef.rank} (i={i}) because max_ranks is 0.");
+				}
+				continue;
+			}
             if (pawnDef.rank == Rank.UNKNOWN)
             {
                 continue;

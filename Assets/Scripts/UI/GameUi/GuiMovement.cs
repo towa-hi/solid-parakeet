@@ -49,7 +49,7 @@ public class GuiMovement : GameElement
         
     }
     
-    public void PhaseStateChanged(PhaseChangeSet changes)
+    public override void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
         GameNetworkState? setInitialize = null;

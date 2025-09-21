@@ -24,7 +24,7 @@ public class GuiGameOver : GameElement
         menuController = controller;
     }
 
-    public void PhaseStateChanged(PhaseChangeSet changes)
+    public override void PhaseStateChanged(PhaseChangeSet changes)
     {
         if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
         {
