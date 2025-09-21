@@ -165,8 +165,8 @@ public class BoardManager : MonoBehaviour
         currentPhase.UpdateNetworkState(netState, delta);
         GameLogger.RecordNetworkState(netState);
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
-        // Manage polling: suspend while in ResolvePhase
-        if (currentPhase is ResolvePhase)
+        // Manage polling: suspend while in ResolvePhase and when game is finished/aborted
+        if (currentPhase is ResolvePhase || currentPhase is FinishedPhase)
         {
             shouldPoll = false;
         }
@@ -289,19 +289,39 @@ public class BoardManager : MonoBehaviour
 
         if (operationResult.IsError)
         {
-            //_ = StellarManager.DisconnectFromNetwork();
             string message = string.IsNullOrEmpty(operationResult.Message) ? "You're now in Offline Mode." : operationResult.Message;
-            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", message);
-            GameManager.instance.guiMenuController.GotoStartMenu();
+            // Ensure polling stays paused on fatal error
+            StellarManager.SetPolling(false);
+            // Use new MenuController modal system and exit game
+            MenuController menuController = UnityEngine.Object.FindFirstObjectByType<MenuController>();
+            if (menuController != null)
+            {
+                menuController.OpenMessageModal($"Network Unavailable\n{message}");
+                menuController.ExitGame();
+            }
+            else
+            {
+                Debug.LogError($"MenuController not found. Error: {message}");
+            }
             return false;
         }
         Result<bool> code = await StellarManager.UpdateState();
         if (code.IsError)
         {
-            //_ = StellarManager.DisconnectFromNetwork();
             string message = string.IsNullOrEmpty(code.Message) ? "You're now in Offline Mode." : code.Message;
-            GameManager.instance.guiMenuController.OpenErrorModal("Network Unavailable", message);
-            GameManager.instance.guiMenuController.GotoStartMenu();
+            // Ensure polling stays paused on fatal error
+            StellarManager.SetPolling(false);
+            // Use new MenuController modal system and exit game
+            MenuController menuController = UnityEngine.Object.FindFirstObjectByType<MenuController>();
+            if (menuController != null)
+            {
+                menuController.OpenMessageModal($"Network Unavailable\n{message}");
+                menuController.ExitGame();
+            }
+            else
+            {
+                Debug.LogError($"MenuController not found. Error: {message}");
+            }
             return false;
         }
         return true;
