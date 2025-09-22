@@ -329,8 +329,15 @@ public class BoardManager : MonoBehaviour
         ClientMode routeMode = ModeDecider.DecideClientMode(netState, delta);
         if (routeMode == ClientMode.Setup)
         {
-            Debug.Log("BoardManager: Routing ClickInputManager to SetupModeInputRouter");
-            clickInputManager.OnMouseInput = SetupModeInputRouter;
+            Debug.Log("BoardManager: Routing ClickInputManager to dispatch hover/click actions");
+            clickInputManager.OnMouseInput = (pos, clicked) =>
+            {
+                store.Dispatch(new SetupHoverAction(pos));
+                if (clicked && !StellarManager.IsBusy)
+                {
+                    store.Dispatch(new SetupClickAt(pos));
+                }
+            };
         }
         else
         {
@@ -358,6 +365,10 @@ public class BoardManager : MonoBehaviour
     // passed to currentPhase
     void PhaseStateChanged(PhaseChangeSet changes)
     {
+        if (true) {
+            Debug.Log("BoardManager.PhaseStateChanged: ignored");
+            return;
+        }
         // Central callback - receives all operations and broadcasts to views
         // boardmanager handles its own stuff first
         foreach (GameOperation operation in changes.operations)
@@ -557,22 +568,8 @@ public class BoardManager : MonoBehaviour
                     }
                     break;
                 case SetupPendingChangedEvent pend:
-                {
-                    // Build a tile-position map for committed ranks and broadcast
-                    var byTile = new System.Collections.Generic.Dictionary<UnityEngine.Vector2Int, Rank?>();
-                    foreach (var kv in pend.NewMap)
-                    {
-                        Rank? old = pend.OldMap.ContainsKey(kv.Key) ? pend.OldMap[kv.Key] : null;
-                        if (old == kv.Value) continue;
-                        var pawn = currentPhase.cachedNetState.GetPawnFromId(kv.Key);
-                        byTile[pawn.pos] = kv.Value;
-                    }
-                    if (byTile.Count > 0)
-                    {
-                        ViewEventBus.RaiseSetupCommitMarkersChanged(byTile);
-                    }
+                    // No additional broadcast; views use OnSetupPendingChanged
                     break;
-                }
             }
         }
     }

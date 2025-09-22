@@ -77,6 +77,12 @@ public class GuiSetup : GameElement
     {
         Debug.Log("GuiSetup.InitializeFromState");
         Initialize(net);
+        // Deterministic initial UI state
+        bool isMyTurn = net.IsMySubphase();
+        statusText.text = isMyTurn ? "Commit your pawn setup" : "Awaiting opponent setup";
+        autoSetupButton.interactable = isMyTurn;
+        submitButton.interactable = false;
+        clearButton.interactable = false;
         // Apply initial UI state: selection and pending counts
         if (ui.SelectedRank is Rank sel)
         {
@@ -85,6 +91,8 @@ public class GuiSetup : GameElement
         if (ui.PendingCommits != null)
         {
             HandleSetupPendingChanged(new Dictionary<PawnId, Rank?>(), ui.PendingCommits);
+            // auto-setup remains gated by turn; submit/clear toggled by handler
+            autoSetupButton.interactable = isMyTurn;
         }
     }
 

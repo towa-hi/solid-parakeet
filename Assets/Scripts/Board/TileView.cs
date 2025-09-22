@@ -104,7 +104,6 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnSetupModeChanged += HandleSetupModeChanged;
         ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
         ViewEventBus.OnSetupHoverChanged += HandleSetupHoverChanged;
-        ViewEventBus.OnSetupCommitMarkersChanged += HandleSetupCommitMarkersChanged;
     }
 
     void OnDisable()
@@ -112,7 +111,6 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnSetupModeChanged -= HandleSetupModeChanged;
         ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
         ViewEventBus.OnSetupHoverChanged -= HandleSetupHoverChanged;
-        ViewEventBus.OnSetupCommitMarkersChanged -= HandleSetupCommitMarkersChanged;
     }
 
     void HandleSetupModeChanged(bool active)
@@ -120,13 +118,6 @@ public class TileView : MonoBehaviour
         if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupModeChanged active={active}");
         isSetupTile = active && setupView != Team.NONE;
         SetTileDebug();
-    }
-
-    void HandleSetupCommitMarkersChanged(System.Collections.Generic.Dictionary<Vector2Int, Rank?> byTile)
-    {
-        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupCommitMarkersChanged (no color override in setup)");
-        // Do not override base setup tint here. Legacy behavior keeps team tint during setup regardless of commits.
-        // Any per-commit visual markers should be handled by pawn/other overlays.
     }
 
     void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn)
@@ -143,19 +134,7 @@ public class TileView : MonoBehaviour
 
     void HandleSetupPendingChanged(System.Collections.Generic.Dictionary<PawnId, Rank?> oldMap, System.Collections.Generic.Dictionary<PawnId, Rank?> newMap)
     {
-        // Highlight tiles that host pawns with a pending commit
-        bool hasPending = false;
-        foreach (var kv in newMap)
-        {
-            PawnId id = kv.Key;
-            if (kv.Value is Rank)
-            {
-                // Approximation: if this tile is the pos of that pawn, flag setup color
-                // In a full impl, BoardManager can raise a per-tile event with exact positions
-                hasPending = hasPending || false; // leave as no-op per-tile; BoardManager adapter handles per-tile refresh
-            }
-        }
-        // No per-tile change here; TileView relies on BoardManager adapter for fine-grained updates during migration
+        // No per-tile visual mutation here; team tint stays constant in setup
     }
 
     public void PhaseStateChanged(PhaseChangeSet changes)
@@ -262,7 +241,7 @@ public class TileView : MonoBehaviour
                     throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
             }
         }
-
+        
         // for local changes
         foreach (GameOperation operation in changes.operations)
         {
@@ -304,9 +283,10 @@ public class TileView : MonoBehaviour
                     }
                     break;
             }
+            // execute intentions that require side effects after decision
         }
         // now do the stuff
-
+        
         if (setIsHovered is bool inIsHovered)
         {
             isHovered = inIsHovered;
@@ -327,7 +307,7 @@ public class TileView : MonoBehaviour
         {
             isMovePairTarget = inIsMovePairTarget;
         }
-
+        
         if (setIsSetupTile is bool inIsSetupTile)
         {
             isSetupTile = inIsSetupTile;
