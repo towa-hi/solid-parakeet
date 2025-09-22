@@ -138,7 +138,7 @@ MonoBehaviour:
   squareTile: {fileID: 5739318882471615815}
   squareTileRenderer: {fileID: 2934894991281654609}
   hexTile: {fileID: 8623800938259665381}
-  hexTileRenderer: {fileID: 0}
+  hexTileRenderer: {fileID: 7690978473870381786}
   symbolRenderer: {fileID: 2780195916417525697}
   isPassable: 0
   setupTeam: 0
@@ -223,6 +223,11 @@ PrefabInstance:
 --- !u!4 &5054726302161738844 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 602351131653977845, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
+  m_PrefabInstance: {fileID: 5655964658254129833}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &7690978473870381786 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2649767840048937075, guid: e53ad861c55ff354985d8254a69d133e, type: 3}
   m_PrefabInstance: {fileID: 5655964658254129833}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &8623800938259665381 stripped

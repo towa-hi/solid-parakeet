@@ -144,10 +144,15 @@ public class LobbyViewMenu2 : MenuBase
         {
             return (false, "lobby.guest_address is empty");
         }
-        if (lobbyParameters.security_mode && lobbyInfo.phase != Phase.SetupCommit && !CacheManager.RankProofsCacheExists(StellarManager.networkState.address, lobbyInfo.index))
+        if (lobbyParameters.security_mode)
         {
-            // TODO: more thurough cache check here
-            return (false, "this client does not have the required cached data to play this lobby");
+            bool isMyTurnInSetup = lobbyInfo.phase == Phase.SetupCommit && lobbyInfo.IsMySubphase(StellarManager.networkState.address);
+            bool needsCache = !isMyTurnInSetup;
+            if (needsCache && !CacheManager.RankProofsCacheExists(StellarManager.networkState.address, lobbyInfo.index))
+            {
+                // Require local rank proofs unless user is about to commit setup (can generate locally)
+                return (false, "secure mode: missing local rank proofs for this lobby/account");
+            }
         }
         // check if your connection context is involved in the lobby
         return (true, "Game is in progress");

@@ -20,13 +20,14 @@ public class GuiGame : MenuElement
     GameElement currentGameElement;
 
     // Injected reference from new MenuController pipeline
-    public MenuController injectedMenuController;
+    public MenuController menuController;
 
     public event Action EscapePressed;
     
     void Start()
     {
         Debug.Log("GuiGame.Start()");
+        gameOver.OnReturnClicked += ExitToMainMenu;
     }
 
     void OnEnable()
@@ -91,14 +92,7 @@ public class GuiGame : MenuElement
 
     void ExitToMainMenu()
     {
-        if (injectedMenuController == null) { Debug.LogError("GuiGame: injected MenuController is null for ExitToMainMenu()"); return; }
-        injectedMenuController.ExitGame();
-    }
-
-    public void SetMenuController(MenuController controller)
-    {
-        injectedMenuController = controller;
-        gameOver.SetMenuController(controller);
+        menuController.ExitGame();
     }
 
     public override void ShowElement(bool show)

@@ -140,7 +140,7 @@ public class BoardManager : MonoBehaviour
         Phase newPhase = netState.lobbyInfo.phase;
         bool isInitialPhase = currentPhase == null; // intent: no phase has been set yet
         bool shouldSwitchPhase = isInitialPhase || (delta.TurnChanged && delta.TurnResolve.HasValue) || delta.PhaseChanged; // intent: we need to change local phase now
-        bool shouldSwitchToResolvePhase = delta is { TurnChanged: true, TurnResolve: not null };
+        bool shouldSwitchToResolvePhase = delta.TurnResolve.HasValue; // enter resolve whenever resolve payload exists
         if (shouldSwitchPhase)
         {
             PhaseBase nextPhase = newPhase switch

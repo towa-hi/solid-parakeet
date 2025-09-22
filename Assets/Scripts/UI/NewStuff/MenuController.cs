@@ -144,27 +144,30 @@ public class MenuController : MonoBehaviour
     // playing offline means just sending a data with online = false
     public async Task ConnectToNetworkAsync(ModalConnectData data)
     {
-		Result<bool> op = await ExecuteBusyAsync(async () =>
-		{
-			Result<bool> initializeResult = await StellarManager.Initialize(data);
-			if (initializeResult.IsError)
-			{
-				return Result<bool>.Err(initializeResult);
-			}
-			Result<bool> updateResult = await StellarManager.UpdateState();
-			if (updateResult.IsError)
-			{
-				return Result<bool>.Err(updateResult);
-			}
-			return Result<bool>.Ok(true);
-		});
+	    Result<bool> op = await ExecuteBusyAsync(async () =>
+        {
+            Result<bool> initializeResult = await StellarManager.Initialize(data);
+            if (initializeResult.IsError)
+            {
+                return Result<bool>.Err(initializeResult);
+            }
 
-		if (op.IsError)
-		{
-			await HandleOpError(op, true);
-			return;
-		}
-		await SetMenuAsync(mainMenuPrefab);
+            Result<bool> updateResult = await StellarManager.UpdateState();
+            if (updateResult.IsError)
+            {
+                return Result<bool>.Err(updateResult);
+            }
+
+            return Result<bool>.Ok(true);
+        });
+
+        if (op.IsError)
+        {
+            await HandleOpError(op, true);
+            return;
+        }
+
+        await SetMenuAsync(mainMenuPrefab);
     }
 
     public async Task CreateLobbyAsync(LobbyCreateData lobbyCreateData)

@@ -19557,6 +19557,10 @@ PrefabInstance:
       propertyPath: gameOverModal
       value: 
       objectReference: {fileID: 0}
+    - target: {fileID: 7232157828981243203, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
+      propertyPath: menuController
+      value: 
+      objectReference: {fileID: 1353504009}
     - target: {fileID: 7296493904376678568, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
       propertyPath: m_AnchorMax.y
       value: 1

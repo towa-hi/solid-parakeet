@@ -27,7 +27,7 @@ public abstract class MenuBase : MonoBehaviour
         }
     }
 
-    public void SetMenuController(MenuController controller)
+    public virtual void SetMenuController(MenuController controller)
     {
         menuController = controller;
     }

@@ -9,19 +9,14 @@ public class GuiGameOver : GameElement
     public TextMeshProUGUI messageText;
     public Button returnButton;
 
-    MenuController menuController;
+    public event Action OnReturnClicked;
 
     void Start()
     {
         if (returnButton != null)
         {
-            returnButton.onClick.AddListener(OnReturnClicked);
+            returnButton.onClick.AddListener(OnReturnClicked.Invoke);
         }
-    }
-
-    public void SetMenuController(MenuController controller)
-    {
-        menuController = controller;
     }
 
     public override void PhaseStateChanged(PhaseChangeSet changes)
@@ -73,16 +68,6 @@ public class GuiGameOver : GameElement
             default:
                 return "The game has ended";
         }
-    }
-
-    void OnReturnClicked()
-    {
-        if (menuController == null)
-        {
-            Debug.LogError("GuiGameOver: MenuController not set");
-            return;
-        }
-        menuController.ExitGame();
     }
 }
 

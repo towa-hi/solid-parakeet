@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Stellar.Utilities;
+using System.Threading.Tasks;
 
 public class NetworkMenu2 : MenuBase
 {
@@ -101,7 +102,7 @@ public class NetworkMenu2 : MenuBase
         {
             data.sneed = "wallet";
         }
-        _ = menuController.ConnectToNetworkAsync(data);
+        _ = menuController.ConnectToNetworkAsync(data).ContinueWith(task => Debug.LogException(task.Exception), TaskContinuationOptions.OnlyOnFaulted);
     }
 
     public void HandleOffline()

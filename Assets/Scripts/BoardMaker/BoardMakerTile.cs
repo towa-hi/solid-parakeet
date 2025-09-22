@@ -19,7 +19,7 @@ public class BoardMakerTile : MonoBehaviour
     public Team setupTeam;
     public int autoSetupZone;
     
-    static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+    static readonly int BaseColorID = Shader.PropertyToID("_Color");
     static readonly int MainTexID = Shader.PropertyToID("_BaseMap");
 
     public void Initialize(Vector2Int inPos, bool isHex)

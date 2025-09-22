@@ -591,7 +591,7 @@ public static class StellarManager
 
     static bool HasCompleteGameData(NetworkState state)
     {
-        return state.inLobby && state.lobbyInfo.HasValue && state.lobbyParameters.HasValue && state.gameState.HasValue;
+        return state.inLobby && state is { lobbyInfo: { host_address: not null, guest_address: not null }, lobbyParameters: not null, gameState: not null };
     }
 
     static NetworkDelta ComputeDelta(NetworkState previous, NetworkState current)
@@ -616,7 +616,31 @@ public static class StellarManager
             {
                 GameNetworkState prevGns = new GameNetworkState(previous);
                 GameNetworkState currGns = new GameNetworkState(current);
-                delta.TurnResolve = BuildTurnResolveDeltaSimple(prevGns, currGns);
+                TurnResolveDelta tr = BuildTurnResolveDeltaSimple(prevGns, currGns);
+                // Only set TurnResolve when there is something to resolve
+                if ((tr.moves != null && tr.moves.Count > 0) || (tr.battles != null && tr.battles.Length > 0))
+                {
+                    delta.TurnResolve = tr;
+                }
+            }
+            else if (delta.PhaseChanged)
+            {
+                // Handle game-ending resolve where server may set phase to Finished without incrementing turn
+                Phase prevPhase = previous.lobbyInfo!.Value.phase;
+                Phase currPhase = current.lobbyInfo!.Value.phase;
+                bool ended = currPhase is Phase.Finished or Phase.Aborted;
+                bool cameFromActiveTurn = prevPhase is Phase.MoveCommit or Phase.MoveProve or Phase.RankProve;
+                if (ended && cameFromActiveTurn)
+                {
+                    GameNetworkState prevGns = new GameNetworkState(previous);
+                    GameNetworkState currGns = new GameNetworkState(current);
+                    TurnResolveDelta tr = BuildTurnResolveDeltaSimple(prevGns, currGns);
+                    // Only set TurnResolve when there is something to resolve; resignation should go straight to Finished
+                    if ((tr.moves != null && tr.moves.Count > 0) || (tr.battles != null && tr.battles.Length > 0))
+                    {
+                        delta.TurnResolve = tr;
+                    }
+                }
             }
         }
         else
