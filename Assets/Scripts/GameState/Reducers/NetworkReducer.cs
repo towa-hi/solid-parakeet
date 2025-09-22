@@ -22,6 +22,9 @@ public sealed class NetworkReducer : IGameReducer
             {
                 ui = ui with { ResolveData = a.Delta.TurnResolve.Value, Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
             }
+            // Notify views of mode change with sufficient context
+            // Views should not mutate state; they can initialize visuals from net+ui
+            ViewEventBus.RaiseClientModeChanged(newMode, a.Net, ui);
         }
         else if (a.Delta.TurnResolve.HasValue)
         {

@@ -42,6 +42,8 @@ public class SetupScreen : MonoBehaviour
     [Header("Initial Slot Placement")]
     public bool animateSlotsOnInitialize = true;
     public float slotAddInterval = 0.06f;
+    bool initialized;
+    bool pendingOpenAnimation;
     [Header("Hover Presentation")]
     public float hoverYOffsetLocal = 0.05f;
     
@@ -125,14 +127,10 @@ public class SetupScreen : MonoBehaviour
         {
             Debug.Log($"[SetupScreen.Initialize] Total children under cardRoot after spawn: {cardRoot.childCount}");
         }
-        if (animateSlotsOnInitialize)
-        {
-            StartCoroutine(AnimateInitialLayout());
-        }
-        else
-        {
-            ApplySplineLayout(null);
-        }
+        // Always apply a static initial layout; defer animation until panel is active
+        ApplySplineLayout(null);
+        initialized = true;
+        pendingOpenAnimation = animateSlotsOnInitialize;
     }
 
     public void Uninitialize()
@@ -143,6 +141,8 @@ public class SetupScreen : MonoBehaviour
         }
         // Stop any running coroutines started by this component (e.g., AnimateInitialLayout)
         StopAllCoroutines();
+        initialized = false;
+        pendingOpenAnimation = false;
 
         // Clear selection/hover visuals
         if (selectedCard != null)
@@ -415,6 +415,16 @@ public class SetupScreen : MonoBehaviour
             Quaternion rollQ = Quaternion.AngleAxis(tangentRoll + fanRoll, rollAxis);
             slotTr.localRotation = lrot * rollQ * Quaternion.Euler(appliedOffset);
         }
+    }
+
+    public void PlayOpenAnimation()
+    {
+        if (!initialized) return;
+        if (!gameObject.activeInHierarchy || !isActiveAndEnabled) return;
+        if (!pendingOpenAnimation) return;
+        StopAllCoroutines();
+        pendingOpenAnimation = false;
+        StartCoroutine(AnimateInitialLayout());
     }
 
     public void RefreshFromRanks((Rank rank, int max, int committed)[] ranksRemaining)

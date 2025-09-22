@@ -30,25 +30,17 @@ public class GuiGame : MenuElement
         gameOver.OnReturnClicked += ExitToMainMenu;
     }
 
-    void OnEnable()
+    void Awake()
     {
-        isUpdating = gameObject.activeInHierarchy;
-        if (StellarManager.IsBusy)
-        {
-            busyCount = 1;
-            ApplyBusy(true);
-        }
 #if USE_GAME_STORE
-        ViewEventBus.OnSetupModeChanged += HandleSetupModeChanged;
+        ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
 #endif
     }
 
-    void OnDisable()
+    void OnDestroy()
     {
-        busyCount = 0;
-        ApplyBusy(false);
 #if USE_GAME_STORE
-        ViewEventBus.OnSetupModeChanged -= HandleSetupModeChanged;
+        ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
 #endif
     }
 
@@ -111,17 +103,36 @@ public class GuiGame : MenuElement
     }
 
 #if USE_GAME_STORE
-    void HandleSetupModeChanged(bool active)
+    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
-        // Mode-driven panel switching in flagged builds
-        GameElement desired = active ? (GameElement)setup : movement;
+        GameElement desired = mode switch
+        {
+            ClientMode.Setup => setup,
+            ClientMode.Move => movement,
+            ClientMode.Resolve => resolve,
+            ClientMode.Finished or ClientMode.Aborted => gameOver,
+            _ => movement,
+        };
         if (currentGameElement == desired)
         {
-            return; // already showing correct panel; avoid disabling/enabling and uninitializing
+            return;
         }
         if (currentGameElement != null) currentGameElement.ShowElement(false);
         currentGameElement = desired;
         currentGameElement.ShowElement(true);
+        // Initialize panel deterministically on mode change
+        if (desired == setup)
+        {
+            setup.InitializeFromState(net, ui);
+        }
+        else if (desired == movement)
+        {
+            movement.InitializeFromState(net, ui);
+        }
+        else if (desired == resolve)
+        {
+            resolve.Initialize(net);
+        }
     }
 #endif
 
@@ -138,6 +149,14 @@ public class GuiGame : MenuElement
             resolve.ShowElement(false);
             gameOver.ShowElement(false);
             Debug.Log("GuiGame.ShowElement(true): hiding subpanels by default (resolve hidden)");
+            // Panel will be activated by ClientModeChanged shortly after; keep all hidden now
+        }
+        else
+        {
+            // Clear current element pointer so re-entry will re-activate desired panel
+            currentGameElement = null;
+            busyCount = 0;
+            ApplyBusy(false);
         }
     }
 

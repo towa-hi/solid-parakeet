@@ -37,10 +37,18 @@ public class GuiSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
 
-    void OnEnable()
+    // Subscriptions controlled by BoardManager lifecycle, not Unity enable/disable
+    public void AttachSubscriptions()
     {
         ViewEventBus.OnSetupRankSelected += HandleSetupRankSelected;
         ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
+    }
+
+    public void DetachSubscriptions()
+    {
+        setupScreen.Uninitialize();
+        ViewEventBus.OnSetupRankSelected -= HandleSetupRankSelected;
+        ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
     }
 
     void Initialize(GameNetworkState netState)
@@ -61,6 +69,10 @@ public class GuiSetup : GameElement
         }
         setupScreen.Initialize(netState);
         setupScreen.OnCardRankClicked = OnEntryClicked;
+        if (setupScreen.isActiveAndEnabled)
+        {
+            setupScreen.PlayOpenAnimation();
+        }
         // do rankrefresh on setupscreen from maxpawns
         List<(Rank, int, int)> rankList = new();
         for (int i = 0; i < maxRanks.Length; i++)
@@ -76,6 +88,10 @@ public class GuiSetup : GameElement
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
         Debug.Log("GuiSetup.InitializeFromState");
+        if (!isActiveAndEnabled)
+        {
+            return;
+        }
         Initialize(net);
         // Deterministic initial UI state
         bool isMyTurn = net.IsMySubphase();
@@ -99,12 +115,7 @@ public class GuiSetup : GameElement
     // Removed; setup is initialized via legacy PhaseStateChanged in non-flag builds,
     // and via event bus + board init in flagged builds.
 
-    void OnDisable()
-    {
-        setupScreen.Uninitialize();
-        ViewEventBus.OnSetupRankSelected -= HandleSetupRankSelected;
-        ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
-    }
+    // Unsubscribe handled at game teardown
     public override void PhaseStateChanged(PhaseChangeSet changes)
     {
 #if USE_GAME_STORE

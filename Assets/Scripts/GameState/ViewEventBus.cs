@@ -5,17 +5,30 @@ using UnityEngine;
 
 public static class ViewEventBus
 {
-    public static event Action<bool> OnSetupModeChanged;
-    public static event Action<Vector2Int, bool> OnSetupHoverChanged;
+    public static event Action<ClientMode, GameNetworkState, LocalUiState> OnClientModeChanged;
+    public static event Action<Vector2Int, bool, SetupInputTool> OnSetupHoverChanged;
     public static event Action<Dictionary<PawnId, Rank?>, Dictionary<PawnId, Rank?>> OnSetupPendingChanged;
     public static event Action<Rank?, Rank?> OnSetupRankSelected;
-    public static event Action<SetupInputTool> OnSetupCursorToolChanged;
+    
+    // Movement events (store-driven)
+    public static event Action<Vector2Int, bool, MoveInputTool, HashSet<Vector2Int>> OnMoveHoverChanged;
+    
+    public static event Action<Vector2Int?, HashSet<Vector2Int>> OnMoveSelectionChanged;
+    public static event Action<Dictionary<PawnId, (Vector2Int start, Vector2Int target)>, Dictionary<PawnId, (Vector2Int start, Vector2Int target)>> OnMovePairsChanged;
+    
+    // Utility resolver for views needing TileView from board space
+    public static Func<Vector2Int, TileView> TileViewResolver;
 
-    public static void RaiseSetupModeChanged(bool active) => OnSetupModeChanged?.Invoke(active);
-    public static void RaiseSetupHoverChanged(Vector2Int pos, bool isMyTurn) => OnSetupHoverChanged?.Invoke(pos, isMyTurn);
+    public static void RaiseSetupHoverChanged(Vector2Int pos, bool isMyTurn, SetupInputTool tool) => OnSetupHoverChanged?.Invoke(pos, isMyTurn, tool);
     public static void RaiseSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap) => OnSetupPendingChanged?.Invoke(oldMap, newMap);
     public static void RaiseSetupRankSelected(Rank? oldRank, Rank? newRank) => OnSetupRankSelected?.Invoke(oldRank, newRank);
-    public static void RaiseSetupCursorToolChanged(SetupInputTool tool) => OnSetupCursorToolChanged?.Invoke(tool);
+    
+    public static void RaiseClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui) => OnClientModeChanged?.Invoke(mode, net, ui);
+    // Movement raisers
+    public static void RaiseMoveHoverChanged(Vector2Int pos, bool isMyTurn, MoveInputTool tool, HashSet<Vector2Int> targets) => OnMoveHoverChanged?.Invoke(pos, isMyTurn, tool, targets ?? new HashSet<Vector2Int>());
+    
+    public static void RaiseMoveSelectionChanged(Vector2Int? selectedPos, HashSet<Vector2Int> validTargets) => OnMoveSelectionChanged?.Invoke(selectedPos, validTargets);
+    public static void RaiseMovePairsChanged(Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs) => OnMovePairsChanged?.Invoke(oldPairs, newPairs);
 }
 
 

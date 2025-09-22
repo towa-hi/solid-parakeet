@@ -17,17 +17,31 @@ public class CursorController : MonoBehaviour
     void Awake()
     {
         instance = this;
-        ViewEventBus.OnSetupCursorToolChanged += UpdateCursor;
+        ViewEventBus.OnSetupHoverChanged += HandleSetupHover;
+        ViewEventBus.OnMoveHoverChanged += HandleMoveHover;
     }
     
     void OnDestroy()
     {
-        ViewEventBus.OnSetupCursorToolChanged -= UpdateCursor;
+        ViewEventBus.OnSetupHoverChanged -= HandleSetupHover;
+        ViewEventBus.OnMoveHoverChanged -= HandleMoveHover;
     }
     
     void Start()
     {
         ChangeCursor(CursorType.DEFAULT);
+    }
+
+    static void HandleSetupHover(Vector2Int pos, bool isMyTurn, SetupInputTool tool)
+    {
+        if (!isMyTurn) { ChangeCursor(CursorType.DISABLED); return; }
+        UpdateCursor(tool);
+    }
+
+    static void HandleMoveHover(Vector2Int pos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> _)
+    {
+        if (!isMyTurn) { ChangeCursor(CursorType.DISABLED); return; }
+        UpdateCursor(tool);
     }
 
     static void ChangeCursor(CursorType cursorType)

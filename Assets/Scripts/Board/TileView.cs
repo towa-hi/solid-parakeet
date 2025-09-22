@@ -99,28 +99,50 @@ public class TileView : MonoBehaviour
     {
     }
 
-    void OnEnable()
+    // Subscriptions are managed by board lifecycle; avoid toggling on enable/disable
+    public void AttachSubscriptions()
     {
-        ViewEventBus.OnSetupModeChanged += HandleSetupModeChanged;
+        ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
         ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
         ViewEventBus.OnSetupHoverChanged += HandleSetupHoverChanged;
+        ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
+        ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
+        ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
+        
     }
 
-    void OnDisable()
+    public void DetachSubscriptions()
     {
-        ViewEventBus.OnSetupModeChanged -= HandleSetupModeChanged;
+        ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
         ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
         ViewEventBus.OnSetupHoverChanged -= HandleSetupHoverChanged;
+        ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
+        ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
+        ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
+        
     }
 
-    void HandleSetupModeChanged(bool active)
+    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
-        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupModeChanged active={active}");
-        isSetupTile = active && setupView != Team.NONE;
+        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: ClientModeChanged mode={mode}");
+        // Reset base visuals common to any mode switch
+        isHovered = false;
+        isSelected = false;
+        isTargetable = false;
+        isMovePairStart = false;
+        isMovePairTarget = false;
+        pointedTile = null;
+        arrow.gameObject.SetActive(false);
+        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
+        tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
+        tileModel.renderEffect.SetEffect(EffectType.FILL, false);
+        tileModel.elevator.localPosition = initialElevatorLocalPos;
+        // Mode-specific initialization
+        isSetupTile = (mode == ClientMode.Setup) && setupView != Team.NONE;
         SetTileDebug();
     }
 
-    void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn)
+    void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn, SetupInputTool _)
     {
         if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupHover pos={hoveredPos} myTurn={isMyTurn}");
         isHovered = isMyTurn && posView == hoveredPos;
@@ -135,6 +157,64 @@ public class TileView : MonoBehaviour
     void HandleSetupPendingChanged(System.Collections.Generic.Dictionary<PawnId, Rank?> oldMap, System.Collections.Generic.Dictionary<PawnId, Rank?> newMap)
     {
         // No per-tile visual mutation here; team tint stays constant in setup
+    }
+
+    void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
+    {
+        if (!isMyTurn) { isHovered = false; }
+        else { isHovered = posView == hoveredPos; }
+        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
+        // Elevate lightly only in movement when selection intent
+        Vector3 target = (isHovered && tool == MoveInputTool.SELECT) ? hoveredElevatorLocalPos : initialElevatorLocalPos;
+        if (tileModel.elevator.localPosition != target)
+        {
+            currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
+            {
+                tileModel.elevator.localPosition = target;
+            });
+        }
+        // Hover targetable sphere
+        bool show = hoverTargets != null && hoverTargets.Contains(posView);
+        sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, show);
+    }
+
+    void HandleMoveSelectionChanged(Vector2Int? selected, System.Collections.Generic.HashSet<Vector2Int> validTargets)
+    {
+        isSelected = selected.HasValue && selected.Value == posView;
+        isTargetable = validTargets.Contains(posView);
+        tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, isSelected);
+        tileModel.renderEffect.SetEffect(EffectType.FILL, isTargetable);
+        Vector3 target = (isSelected) ? selectedElevatorLocalPos : initialElevatorLocalPos;
+        if (tileModel.elevator.localPosition != target)
+        {
+            currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
+            {
+                tileModel.elevator.localPosition = target;
+            });
+        }
+    }
+
+    void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
+    {
+        // Recompute move pair flags for this tile
+        isMovePairStart = false;
+        isMovePairTarget = false;
+        TileView targetTile = null;
+        foreach (var kv in newPairs)
+        {
+            if (kv.Value.start == posView) { isMovePairStart = true; }
+            if (kv.Value.target == posView) { isMovePairTarget = true; }
+            if (kv.Value.start == posView)
+            {
+                targetTile = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(kv.Value.target) : null;
+            }
+        }
+        arrow.gameObject.SetActive(isMovePairStart && targetTile != null);
+        if (isMovePairStart && targetTile != null) { arrow.ArcFromTiles(this, targetTile); pointedTile = targetTile; }
+        Color finalColor = Color.clear;
+        if (isMovePairStart) finalColor = Color.green * 0.5f;
+        if (isMovePairTarget) finalColor = Color.blue * 0.5f;
+        SetTopColor(finalColor);
     }
 
     public void PhaseStateChanged(PhaseChangeSet changes)

@@ -34,7 +34,7 @@ public sealed class GameStore
         foreach (IGameReducer reducer in reducers)
         {
             (GameSnapshot reduced, List<GameEvent> events) = reducer.Reduce(next, action);
-            UnityEngine.Debug.Log($"Reducer {reducer.GetType().Name} -> stateChanged={(reduced != null)} events={(events?.Count ?? 0)}");
+            //UnityEngine.Debug.Log($"Reducer {reducer.GetType().Name} -> stateChanged={(reduced != null)} events={(events?.Count ?? 0)}");
             next = reduced ?? next;
             if (events != null && events.Count > 0)
             {

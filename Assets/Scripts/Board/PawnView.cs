@@ -37,7 +37,7 @@ public class PawnView : MonoBehaviour
 
     public bool cheatMode;
     public static event Action<PawnId> OnMoveAnimationCompleted;
-    bool isSetupModeActive;
+    ClientMode currentMode;
 
     public void TestSetSprite(Rank testRank, Team testTeam)
     {
@@ -46,22 +46,61 @@ public class PawnView : MonoBehaviour
         DisplayRankView(testRank);
     }
 
-    void OnEnable()
+    // Subscriptions are managed by board lifecycle; avoid toggling on enable/disable
+    public void AttachSubscriptions()
     {
         ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
-        ViewEventBus.OnSetupModeChanged += HandleSetupModeChanged;
+        ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
+        ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
+        ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
+        ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
     }
-    
-    void OnDisable()
+
+    public void DetachSubscriptions()
     {
-        // Cancel any ongoing animations to avoid lingering effects across phases/scenes
         StopAllCoroutines();
         ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
-        ViewEventBus.OnSetupModeChanged -= HandleSetupModeChanged;
+        ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
+        ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
+        ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
+        ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
     }
     public void TestSpriteSelectTransition(bool newAnimationState)
     {
         animator.SetBool(animatorIsSelected, newAnimationState);
+    }
+
+    void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, MoveInputTool tool, HashSet<Vector2Int> hoverTargets)
+    {
+        // Pawn-specific hover visuals are minimal; selection/pairs control animator below
+    }
+
+    void HandleMoveSelectionChanged(Vector2Int? selectedPos, HashSet<Vector2Int> validTargets)
+    {
+        bool newIsSelected = selectedPos.HasValue && selectedPos.Value == posView;
+        if (newIsSelected != isSelected)
+        {
+            isSelected = newIsSelected;
+            bool setAnimatorIsSelected = isSelected || isMovePairStart;
+            if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
+            {
+                animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
+            }
+        }
+    }
+
+    void HandleMovePairsChanged(Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
+    {
+        bool newIsStart = newPairs.ContainsKey(pawnId);
+        if (newIsStart != isMovePairStart)
+        {
+            isMovePairStart = newIsStart;
+            bool setAnimatorIsSelected = isSelected || isMovePairStart;
+            if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
+            {
+                animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
+            }
+        }
     }
 
     public void HurtAnimation()
@@ -86,14 +125,26 @@ public class PawnView : MonoBehaviour
         DisplayRankView(Rank.UNKNOWN);
 
     }
-    void HandleSetupModeChanged(bool active)
+    // Removed: Setup mode event is redundant with client mode event
+
+    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
-        isSetupModeActive = active;
-        if (active)
+        currentMode = mode;
+        // Reset per-mode visuals
+        isSelected = false;
+        isMovePairStart = false;
+        animator.SetBool(animatorIsSelected, false);
+        // Visibility policy: in Setup, hide unknowns; otherwise show if alive
+        if (mode == ClientMode.Setup)
         {
-            // Hide unknowns in setup mode
             bool shouldBeVisible = rankView != Rank.UNKNOWN && aliveView;
             model.SetActive(shouldBeVisible);
+            visibleView = shouldBeVisible;
+        }
+        else
+        {
+            model.SetActive(aliveView);
+            visibleView = aliveView;
         }
     }
 
@@ -109,7 +160,7 @@ public class PawnView : MonoBehaviour
             rankView = displayRank;
         }
         // In setup mode, unknowns should not render at all
-        if (isSetupModeActive)
+        if (currentMode == ClientMode.Setup)
         {
             bool shouldBeVisible = displayRank != Rank.UNKNOWN && aliveView;
             if (shouldBeVisible != (visibleView && aliveView))

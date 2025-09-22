@@ -22,6 +22,7 @@ public class GuiMovement : GameElement
     public Toggle autoSubmitToggle;
     public GuiGameOverModal gameOverModal;
     public PhaseInfoDisplay phaseInfoDisplay;
+    GameNetworkState? lastNetState;
     
     public Action OnMenuButton;
     public Action OnExtraButton;
@@ -44,13 +45,46 @@ public class GuiMovement : GameElement
         autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
     }
 
+    void OnEnable()
+    {
+        // no-op; subscriptions managed by board lifecycle
+    }
+
+    void OnDisable()
+    {
+        // no-op; subscriptions managed by board lifecycle
+    }
+
     void Initialize(GameNetworkState netState)
     {
-        
+        lastNetState = netState;
+        bool isMyTurn = netState.IsMySubphase();
+        statusText.text = isMyTurn ? "Commit your move" : "Awaiting opponent move";
+        refreshButton.interactable = true;
+        submitMoveButton.interactable = false;
+        submitMoveButtonText.text = $"Commit Move (0/{netState.GetMaxMovesThisTurn()})";
+        phaseInfoDisplay.Set(netState);
+    }
+    public void AttachSubscriptions()
+    {
+        ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
+        ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
+        ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
+    }
+
+    public void DetachSubscriptions()
+    {
+        ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
+        ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
+        ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
     }
     
     public override void PhaseStateChanged(PhaseChangeSet changes)
     {
+#if USE_GAME_STORE
+        // In flagged builds, movement UI is driven by ViewEventBus and InitializeFromState; ignore legacy updates
+        return;
+#endif
         // what to do
         GameNetworkState? setInitialize = null;
         GameNetworkState? setPhaseInfoDisplay = null;
@@ -164,7 +198,36 @@ public class GuiMovement : GameElement
 
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
-        // No-op for now; movement UI can seed status text if needed
+        if (!isActiveAndEnabled)
+        {
+            return;
+        }
         Initialize(net);
+    }
+
+    void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> _)
+    {
+        // Only cursor/selection visuals handled by tiles; GUI updates not needed here
+    }
+
+    void HandleMoveSelectionChanged(Vector2Int? selectedPos, System.Collections.Generic.HashSet<Vector2Int> validTargets)
+    {
+        if (selectedPos.HasValue)
+        {
+            statusText.text = "Select a target position";
+        }
+        else
+        {
+            // selection cleared; leave status untouched
+        }
+    }
+
+    void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
+    {
+        int planned = newPairs.Count;
+        int allowed = lastNetState is GameNetworkState net ? net.GetMaxMovesThisTurn() : 1;
+        submitMoveButton.interactable = planned > 0;
+        submitMoveButtonText.text = $"Commit Move ({planned}/{allowed})";
+        statusText.text = planned > 0 ? "Submit move" : "Select a pawn";
     }
 }

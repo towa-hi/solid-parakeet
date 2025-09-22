@@ -123,6 +123,52 @@ public sealed class NetworkEffects : IGameEffect
                 await StellarManager.UpdateState();
                 break;
             }
+            case MoveSubmit:
+            {
+                // Build CommitMoveReq + ProveMoveReq from LocalUiState.MovePairs
+                GameNetworkState net = state.Net;
+                var pairs = state.Ui?.MovePairs ?? new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>();
+                if (!net.IsMySubphase() || pairs.Count == 0)
+                {
+                    break;
+                }
+                List<HiddenMove> hiddenMoves = new();
+                List<byte[]> moveHashes = new();
+                foreach (var kv in pairs)
+                {
+                    PawnId pawnId = kv.Key;
+                    Vector2Int start = kv.Value.start;
+                    Vector2Int target = kv.Value.target;
+                    HiddenMove hm = new()
+                    {
+                        pawn_id = pawnId,
+                        salt = Globals.RandomSalt(),
+                        start_pos = start,
+                        target_pos = target,
+                    };
+                    CacheManager.StoreHiddenMove(hm, net.address, net.lobbyInfo.index);
+                    hiddenMoves.Add(hm);
+                    moveHashes.Add(SCUtility.Get16ByteHash(hm));
+                }
+                CommitMoveReq commit = new()
+                {
+                    lobby_id = net.lobbyInfo.index,
+                    move_hashes = moveHashes.ToArray(),
+                };
+                ProveMoveReq prove = new()
+                {
+                    lobby_id = net.lobbyInfo.index,
+                    move_proofs = hiddenMoves.ToArray(),
+                };
+                Result<bool> result = await StellarManager.CommitMoveRequest(commit, prove, net.address, net.lobbyInfo, net.lobbyParameters);
+                if (result.IsError)
+                {
+                    HandleFatalNetworkError(result.Message);
+                    return;
+                }
+                await StellarManager.UpdateState();
+                break;
+            }
         }
     }
 

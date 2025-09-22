@@ -123,6 +123,7 @@ public class BoardManager : MonoBehaviour
         // Clear existing tileviews and replace
         foreach (TileView tile in tileViews.Values)
         {
+            tile.DetachSubscriptions();
             Destroy(tile.gameObject);
         }
         tileViews.Clear();
@@ -130,6 +131,7 @@ public class BoardManager : MonoBehaviour
         // Clear any existing pawnviews and replace
         foreach (PawnView pawnView in pawnViews.Values)
         {
+            pawnView.DetachSubscriptions();
             Destroy(pawnView.gameObject);
         }
         pawnViews.Clear();
@@ -142,7 +144,13 @@ public class BoardManager : MonoBehaviour
             store.EventsEmitted -= OnStoreEvents;
             store = null;
         }
-        ViewEventBus.RaiseSetupModeChanged(false);
+        // Mode change handled by NetworkReducer; nothing to emit here
+        // Detach GUI subscriptions to avoid duplicate handlers on next game
+        if (guiGame != null)
+        {
+            if (guiGame.setup != null) guiGame.setup.DetachSubscriptions();
+            if (guiGame.movement != null) guiGame.movement.DetachSubscriptions();
+        }
 #endif
         initialized = false;
     }
@@ -174,16 +182,16 @@ public class BoardManager : MonoBehaviour
         store.EventsEmitted += OnStoreEvents;
         ClientMode initMode = ModeDecider.DecideClientMode(netState, default);
         Debug.Log($"BoardManager.Initialize: initial ClientMode={initMode}");
-        // Announce current setup mode for views on init
-        ViewEventBus.RaiseSetupModeChanged(initMode == ClientMode.Setup);
+        // Do not emit initial mode here; let OnGameStateBeforeApplied and reducer drive it to avoid races
         // Wire GUI once per game start (flagged path)
         guiGame.setup.OnClearButton = () => store.Dispatch(new SetupClearAll());
         guiGame.setup.OnAutoSetupButton = () => store.Dispatch(new SetupAutoFill());
         guiGame.setup.OnRefreshButton = () => store.Dispatch(new RefreshRequested());
         guiGame.setup.OnSubmitButton = () => store.Dispatch(new SetupSubmit());
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
-        // Seed UI elements from current state
-        guiGame.setup.InitializeFromState(netState, store.State.Ui ?? LocalUiState.Empty);
+        guiGame.setup.AttachSubscriptions();
+        guiGame.movement.AttachSubscriptions();
+        // Do not initialize panels directly; ClientModeChanged will initialize the active one
         // Immediately request a fresh network snapshot to avoid showing stale state on new games
         store.Dispatch(new RefreshRequested());
 #endif
@@ -197,6 +205,7 @@ public class BoardManager : MonoBehaviour
             GameObject tileObject = Instantiate(tilePrefab, worldPosition, Quaternion.identity, transform);
             TileView tileView = tileObject.GetComponent<TileView>();
             tileView.Initialize(tile, board.hex);
+            tileView.AttachSubscriptions();
             tileViews.Add(tile.pos, tileView);
         }
         foreach (PawnState pawn in netState.gameState.pawns)
@@ -204,8 +213,11 @@ public class BoardManager : MonoBehaviour
             GameObject pawnObject = Instantiate(pawnPrefab, transform);
             PawnView pawnView = pawnObject.GetComponent<PawnView>();
             pawnView.Initialize(pawn, tileViews[pawn.pos]);
+            pawnView.AttachSubscriptions();
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
+        // Expose a resolver so views can map positions to TileViews (for arrows, etc.)
+        ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
         Debug.Log("BoardManager.Initialize: finished creating views; starting music");
         AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
         
@@ -237,7 +249,14 @@ public class BoardManager : MonoBehaviour
         // Compute client mode (read-only for now)
         ClientMode clientMode = ModeDecider.DecideClientMode(netState, delta);
         Debug.Log($"BoardManager.OnGameStateBeforeApplied: ClientMode={clientMode}");
-        ViewEventBus.RaiseSetupModeChanged(clientMode == ClientMode.Setup);
+        // Emit mode every update to let UI swap lazily if reducer skipped (e.g., first frame)
+#if USE_GAME_STORE
+        LocalUiState currentUi = store?.State.Ui ?? LocalUiState.Empty;
+#else
+        LocalUiState currentUi = LocalUiState.Empty;
+#endif
+        ViewEventBus.RaiseClientModeChanged(clientMode, netState, currentUi);
+        // Mode changes are emitted by NetworkReducer
         
         bool shouldPoll = !netState.IsMySubphase();
         // No local task references to reset; StellarManager governs busy state
@@ -307,9 +326,8 @@ public class BoardManager : MonoBehaviour
         currentPhase.UpdateNetworkState(netState, delta);
         GameLogger.RecordNetworkState(netState);
 #if USE_GAME_STORE
-        // In Setup mode under the new system, do NOT broadcast PhaseChangeSet to tiles/pawns,
-        // because legacy MoveCommit visuals will override setup visuals.
-        if (clientMode != ClientMode.Setup)
+        // Under the new system, broadcast PhaseChangeSet only for Resolve/Finished to reuse legacy animation paths.
+        if (clientMode == ClientMode.Resolve || clientMode == ClientMode.Finished || clientMode == ClientMode.Aborted)
         {
             PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
         }
@@ -341,7 +359,18 @@ public class BoardManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("BoardManager: Using phase OnMouseInput routing");
+            Debug.Log("BoardManager: Routing ClickInputManager to movement actions");
+            clickInputManager.OnMouseInput = (pos, clicked) =>
+            {
+                store.Dispatch(new MoveHoverAction(pos));
+                if (clicked && !StellarManager.IsBusy)
+                {
+                    store.Dispatch(new MoveClickAt(pos));
+                }
+            };
+            // Wire movement GUI buttons to store
+            guiGame.movement.OnRefreshButton = () => store.Dispatch(new RefreshRequested());
+            guiGame.movement.OnSubmitMoveButton = () => store.Dispatch(new MoveSubmit());
         }
 #endif
     }
@@ -711,24 +740,9 @@ public class SetupCommitPhase : PhaseBase
 #endif
         }) : null;
 
-#if USE_GAME_STORE
-        if (set)
-        {
-            ViewEventBus.OnSetupCursorToolChanged += HandleSetupCursorToolChanged;
-        }
-        else
-        {
-            ViewEventBus.OnSetupCursorToolChanged -= HandleSetupCursorToolChanged;
-        }
-#endif
     }
 
-#if USE_GAME_STORE
-    void HandleSetupCursorToolChanged(SetupInputTool tool)
-    {
-        setupInputTool = tool;
-    }
-#endif
+    
     
     public override void UpdateNetworkState(GameNetworkState netState)
     {
