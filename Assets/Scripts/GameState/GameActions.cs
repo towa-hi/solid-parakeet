@@ -3,6 +3,11 @@ using Contract;
 using System.Collections.Generic;
 using UnityEngine;
 
+namespace System.Runtime.CompilerServices {
+    public class IsExternalInit {
+    }
+}
+
 public abstract record GameAction;
 
 public record NetworkStateChanged(GameNetworkState Net, NetworkDelta Delta) : GameAction;

@@ -24,24 +24,16 @@ public class GuiGame : MenuElement
 
     public event Action EscapePressed;
     
-    void Start()
+    protected override void Awake()
     {
-        Debug.Log("GuiGame.Start()");
+        base.Awake();
         gameOver.OnReturnClicked += ExitToMainMenu;
-    }
-
-    void Awake()
-    {
-#if USE_GAME_STORE
         ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
-#endif
     }
 
     void OnDestroy()
     {
-#if USE_GAME_STORE
         ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
-#endif
     }
 
     void Update()
@@ -55,56 +47,14 @@ public class GuiGame : MenuElement
         }
     }
     
-    
-    
-    public void PhaseStateChanged(PhaseChangeSet changes)
-    {
-#if USE_GAME_STORE
-        // In flagged builds, prefer mode-driven panel switching; PhaseChangeSet still forwarded for legacy
-        if (changes.GetNetStateUpdated() is NetStateUpdated)
-        {
-            // Do not switch panels here; mode handler handles it
-        }
-        currentGameElement?.PhaseStateChanged(changes);
-        return;
-#endif
-        if (changes.GetNetStateUpdated() is NetStateUpdated nsu)
-        {
-            PhaseBase phase = nsu.phase;
-            GameElement desired = GetElementForPhase(phase);
-            if (currentGameElement != null)
-            {
-                currentGameElement.ShowElement(false);
-            }
-            currentGameElement = desired;
-            // One-time initialization hooks on enter
-            if (desired == resolve)
-            {
-                resolve.arenaController = ArenaController.instance;
-                resolve.Initialize(nsu.phase.cachedNetState);
-            }
-            currentGameElement.ShowElement(true);
-        }
-        currentGameElement?.PhaseStateChanged(changes);
-    }
-
-    GameElement GetElementForPhase(PhaseBase phase)
-    {
-        if (phase is SetupCommitPhase) return setup;
-        if (phase is MoveCommitPhase || phase is MoveProvePhase || phase is RankProvePhase) return movement;
-        if (phase is ResolvePhase) return resolve;
-        if (phase is FinishedPhase) return gameOver;
-        return movement;
-    }
-
     void ExitToMainMenu()
     {
         menuController.ExitGame();
     }
 
-#if USE_GAME_STORE
     void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
+        Debug.Log($"GuiGame.HandleClientModeChanged: mode={mode}");
         GameElement desired = mode switch
         {
             ClientMode.Setup => setup,
@@ -134,7 +84,6 @@ public class GuiGame : MenuElement
             resolve.Initialize(net);
         }
     }
-#endif
 
     public override void ShowElement(bool show)
     {

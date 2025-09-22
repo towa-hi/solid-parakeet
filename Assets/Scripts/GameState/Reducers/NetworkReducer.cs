@@ -10,7 +10,8 @@ public sealed class NetworkReducer : IGameReducer
             return (state, null);
         }
         GameSnapshot current = state ?? GameSnapshot.Empty;
-        ClientMode newMode = ModeDecider.DecideClientMode(a.Net, a.Delta);
+        // Use UI-aware mode decision so we can transition from Resolve->Move when UI reaches Final
+        ClientMode newMode = ModeDecider.DecideClientMode(a.Net, a.Delta, current.Ui ?? LocalUiState.Empty);
         ClientMode oldMode = current.Mode;
         LocalUiState ui = current.Ui ?? LocalUiState.Empty;
         if (newMode != oldMode)

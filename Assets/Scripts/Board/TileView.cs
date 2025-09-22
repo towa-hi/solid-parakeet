@@ -103,23 +103,19 @@ public class TileView : MonoBehaviour
     public void AttachSubscriptions()
     {
         ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
-        ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
         ViewEventBus.OnSetupHoverChanged += HandleSetupHoverChanged;
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
-        ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChanged;
     }
 
     public void DetachSubscriptions()
     {
         ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
-        ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
         ViewEventBus.OnSetupHoverChanged -= HandleSetupHoverChanged;
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
-        ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
     }
 
     void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
@@ -143,6 +139,9 @@ public class TileView : MonoBehaviour
         // When entering modes, seed arrows immediately for Resolve only (Move arrows will be driven by events)
         switch (mode)
         {
+            case ClientMode.Move:
+                SetTopColor(Color.clear);
+                break;
             case ClientMode.Resolve:
             {
                 // Use resolve payload moves for arrows
@@ -190,11 +189,6 @@ public class TileView : MonoBehaviour
         {
             tileModel.elevator.localPosition = initialElevatorLocalPos;
         }
-    }
-
-    void HandleSetupPendingChanged(System.Collections.Generic.Dictionary<PawnId, Rank?> oldMap, System.Collections.Generic.Dictionary<PawnId, Rank?> newMap)
-    {
-        // No per-tile visual mutation here; team tint stays constant in setup
     }
 
     void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
@@ -255,257 +249,6 @@ public class TileView : MonoBehaviour
         SetTopColor(finalColor);
     }
 
-    void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
-    {
-        // Arrows do not change with checkpoints; no-op
-    }
-
-    public void PhaseStateChanged(PhaseChangeSet changes)
-    {
-        // what to do
-        bool? setIsHovered = null;
-        bool? setIsSelected = null;
-        bool? setIsTargetable = null;
-        bool? setIsMovePairStart = null;
-        bool? setIsMovePairTarget = null;
-        TileView movePairTargetTile = null;
-        bool? setIsSetupTile = null;
-        bool? setIsTargetableSphere = null;
-        MoveInputTool? setMoveInputTool = null;
-        Transform elevator = tileModel.elevator;
-        // figure out what to do based on what happened
-        // for net changes
-        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
-        {
-            setIsHovered = false;
-            setIsSelected = false;
-            setIsTargetable = false;
-            setIsMovePairStart = false;
-            setIsMovePairTarget = false;
-            setIsSetupTile = false;
-            setIsTargetableSphere = false;
-            movePairTargetTile = null;
-            switch (netStateUpdated.phase)
-            {
-                case SetupCommitPhase setupCommitPhase:
-                    setIsSetupTile = true;
-                    break;
-                case ResolvePhase resolvePhase:
-                    foreach (MoveEvent moveEvent in resolvePhase.tr.moves.Values)
-                    {
-                        if (moveEvent.from == posView)
-                        {
-                            if (enableDebugLogs) Debug.Log($"set setIsMovePairStart to true because found {posView} in tr.moves");
-                            setIsMovePairStart = true;
-                            movePairTargetTile = resolvePhase.tileViews[moveEvent.target];
-                        }
-                        if (moveEvent.target == posView)
-                        {
-                            setIsMovePairTarget = true;
-                        }
-                    }
-                    break;
-                case MoveCommitPhase moveCommitPhase:
-                {
-                    setIsHovered = moveCommitPhase.hoveredPos == posView;
-                    setIsSelected = moveCommitPhase.selectedPos.HasValue &&
-                                    moveCommitPhase.selectedPos.Value == posView;
-                    setIsTargetable = moveCommitPhase.validTargetPositions.Contains(posView);
-                    if (moveCommitPhase.cachedNetState.IsMySubphase())
-                    {
-                        foreach ((Vector2Int start, Vector2Int target) in moveCommitPhase.movePairs.Values)
-                        {
-                            if (start == posView)
-                            {
-                                setIsMovePairStart = true;
-                                movePairTargetTile = moveCommitPhase.tileViews[target];
-                            }
-                            if (target == posView)
-                            {
-                                setIsMovePairTarget = true;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        foreach (HiddenMove move in moveCommitPhase.turnHiddenMoves)
-                        {
-                            if (move.start_pos == posView)
-                            {
-                                setIsMovePairStart = true;
-                                movePairTargetTile = moveCommitPhase.tileViews[move.target_pos];
-                            }
-                            if (move.target_pos == posView)
-                            {
-                                setIsMovePairTarget = true;
-                            }
-                        }
-                    }
-                    break;
-                }
-                case FinishedPhase:
-                    // Game over: no-op for tiles
-                    break;
-                case MoveProvePhase moveProvePhase:
-                {
-                    setIsHovered = moveProvePhase.hoveredPos == posView;
-                    setIsMovePairStart = moveProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
-                    setIsMovePairTarget = moveProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
-                    break;
-                }
-                case RankProvePhase rankProvePhase:
-                {
-                    setIsHovered = rankProvePhase.hoveredPos == posView;
-                    setIsMovePairStart = rankProvePhase.turnHiddenMoves.Any(hm => hm.start_pos == posView);
-                    setIsMovePairTarget = rankProvePhase.turnHiddenMoves.Any(hm => hm.target_pos == posView);
-                    break;
-                }
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(netStateUpdated.phase));
-            }
-        }
-        
-        // for local changes
-        foreach (GameOperation operation in changes.operations)
-        {
-            switch (operation)
-            {
-                case SetupHoverChanged(_, var newHoveredPos, var setupCommitPhase):
-                {
-                    setIsHovered = setupCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
-                    break;
-                }
-                case MoveHoverChanged(var moveInputTool, var newHoveredPos, var moveCommitPhase):
-                {
-                    setMoveInputTool = moveInputTool;
-                    setIsHovered = moveCommitPhase.cachedNetState.IsMySubphase() && posView == newHoveredPos;
-                    setIsTargetableSphere = moveCommitPhase.selectedPos == null && moveCommitPhase.hoveredValidTargetPositions.Contains(posView);
-                    break;
-                }
-                case MovePosSelected(var newPos, var targetablePositions, var movePairsSnapshot):
-                    setIsSelected = newPos.HasValue && posView == newPos.Value;
-                    setIsTargetable = targetablePositions.Contains(posView);
-                    break;
-                case MovePairUpdated(var movePairs, var changedPawnId, var moveCommitPhase):
-                    setIsSelected = false;
-                    setIsTargetable = false;
-                    setIsMovePairStart = false;
-                    setIsMovePairTarget = false;
-                    movePairTargetTile = null;
-                    foreach ((Vector2Int start, Vector2Int target) in movePairs.Values)
-                    {
-                        if (start == posView)
-                        {
-                            setIsMovePairStart = true;
-                            movePairTargetTile = moveCommitPhase.tileViews[target];
-                        }
-                        if (target == posView)
-                        {
-                            setIsMovePairTarget = true;
-                        }
-                    }
-                    break;
-            }
-            // execute intentions that require side effects after decision
-        }
-        // now do the stuff
-        
-        if (setIsHovered is bool inIsHovered)
-        {
-            isHovered = inIsHovered;
-        }
-        if (setIsSelected is bool inIsSelected)
-        {
-            isSelected = inIsSelected;
-        }
-        if (setIsTargetable is bool inIsTargetable)
-        {
-            isTargetable = inIsTargetable;
-        }
-        if (setIsMovePairStart is bool inIsMovePairStart)
-        {
-            isMovePairStart = inIsMovePairStart;
-        }
-        if (setIsMovePairTarget is bool inIsMovePairTarget)
-        {
-            isMovePairTarget = inIsMovePairTarget;
-        }
-        
-        if (setIsSetupTile is bool inIsSetupTile)
-        {
-            isSetupTile = inIsSetupTile;
-        }
-        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
-        tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, isSelected);
-        tileModel.renderEffect.SetEffect(EffectType.FILL, isTargetable);
-        Color finalColor = Color.clear;
-        bool pulse = false;
-        if (isMovePairStart)
-        {
-            finalColor = Color.green * 0.5f;
-            if (movePairTargetTile && movePairTargetTile != pointedTile) 
-            {
-                arrow.gameObject.SetActive(true);
-                arrow.ArcFromTiles(this, movePairTargetTile);
-                pointedTile = movePairTargetTile;
-            }
-        }
-        else
-        {
-            arrow.gameObject.SetActive(false);
-            pointedTile = null;
-        }
-        if (isMovePairTarget)
-        {
-            finalColor = Color.blue * 0.5f;
-        }
-        if (isSelected)
-        {
-            finalColor = Color.green;
-            pulse = true;
-        }
-        if (isSetupTile)
-        {
-            finalColor = setupView switch
-            {
-                Team.RED => redTeamColor,
-                Team.BLUE => blueTeamColor,
-                _ => finalColor,
-            };
-        }
-        SetTopColor(finalColor);
-        pulseBaseColor = pulse;
-        if (!pulseBaseColor)
-        {
-            // Ensure base color matches the static color when not pulsing
-            Material mat = tileModel.flatRenderer.material;
-            mat.SetColor(BaseColorProperty, flatColor);
-        }
-        Vector3 finalTargetPos = initialElevatorLocalPos;
-        if (isHovered)
-        {
-            if (setMoveInputTool is MoveInputTool.SELECT)
-            {
-                finalTargetPos = hoveredElevatorLocalPos;
-            }
-        }
-        if (isSelected || isMovePairStart)
-        {
-            finalTargetPos = selectedElevatorLocalPos;
-        }
-        if (elevator.localPosition != finalTargetPos) 
-        {
-            currentTween = Tween.LocalPositionAtSpeed(elevator, finalTargetPos, 0.3f, Ease.OutCubic).OnComplete(() =>
-            {
-                elevator.localPosition = finalTargetPos;
-            });
-        }
-        if (setIsTargetableSphere is bool inIsTargetableSphere)
-        {
-            sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, inIsTargetableSphere);
-        }
-    }
-    
     void SetTopColor(Color color)
     {
         Material mat = tileModel.flatRenderer.material;

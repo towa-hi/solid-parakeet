@@ -451,9 +451,6 @@ public abstract class GameElement: MonoBehaviour
 		gameObject.SetActive(show);
 	}
 
-	public abstract void PhaseStateChanged(PhaseChangeSet changes);
-
-	// Centralized initializer hook for new store-driven UI
 	public abstract void InitializeFromState(GameNetworkState net, LocalUiState ui);
 	
 }

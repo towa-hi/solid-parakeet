@@ -13,10 +13,7 @@ public class GuiGameOver : GameElement
 
     void Start()
     {
-        if (returnButton != null)
-        {
-            returnButton.onClick.AddListener(OnReturnClicked.Invoke);
-        }
+        returnButton.onClick.AddListener(OnReturnClicked.Invoke);
     }
 
     // New system: drive from client mode change
@@ -76,10 +73,6 @@ public class GuiGameOver : GameElement
         ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
     }
 
-    public override void PhaseStateChanged(PhaseChangeSet changes)
-    {
-        // No-op under new system; driven by client mode event
-    }
 }
 
 

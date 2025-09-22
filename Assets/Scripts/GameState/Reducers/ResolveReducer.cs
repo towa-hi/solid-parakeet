@@ -28,7 +28,7 @@ public sealed class ResolveReducer : IGameReducer
                 {
                     ClientMode nextMode = ModeDecider.DecideClientMode(state.Net, default, ui);
                     ViewEventBus.RaiseClientModeChanged(nextMode, state.Net, ui);
-                    return (state with { Ui = ui }, null);
+                    return (state with { Ui = ui, Mode = nextMode }, null);
                 }
                 if (ui.Checkpoint == ResolveCheckpoint.Pre)
                 {
@@ -58,7 +58,7 @@ public sealed class ResolveReducer : IGameReducer
                 {
                     ClientMode nextMode = ModeDecider.DecideClientMode(state.Net, default, ui);
                     ViewEventBus.RaiseClientModeChanged(nextMode, state.Net, ui);
-                    return (state with { Ui = ui }, null);
+                    return (state with { Ui = ui, Mode = nextMode }, null);
                 }
                 else
                 {

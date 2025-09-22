@@ -13859,6 +13859,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8564955284350181653, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
   m_PrefabInstance: {fileID: 4517064006677752985}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &4517064006677752988 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2966429184841500503, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
+  m_PrefabInstance: {fileID: 4517064006677752985}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c03c0dd6a504ba949899a1474dc7cef1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!210 &4548965425099972549
 SortingGroup:
   m_ObjectHideFlags: 0
@@ -18917,6 +18928,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6355870113692411673, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
+      propertyPath: arenaController
+      value: 
+      objectReference: {fileID: 4517064006677752988}
     - target: {fileID: 6381967898980566066, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
       propertyPath: m_AnchorMax.y
       value: 1
