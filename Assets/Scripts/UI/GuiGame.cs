@@ -32,9 +32,6 @@ public class GuiGame : MenuElement
     void OnEnable()
     {
         isUpdating = gameObject.activeInHierarchy;
-        // StellarManager.OnTaskStarted += HandleTaskStarted;
-        // StellarManager.OnTaskEnded += HandleTaskEnded;
-        // Reflect current busy state if we were enabled mid-task
         if (StellarManager.IsBusy)
         {
             busyCount = 1;
@@ -44,8 +41,6 @@ public class GuiGame : MenuElement
 
     void OnDisable()
     {
-        // StellarManager.OnTaskStarted -= HandleTaskStarted;
-        // StellarManager.OnTaskEnded -= HandleTaskEnded;
         busyCount = 0;
         ApplyBusy(false);
     }
@@ -65,7 +60,6 @@ public class GuiGame : MenuElement
     
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
-        // Switch active element only when the phase object changes, then forward to the active element
         if (changes.GetNetStateUpdated() is NetStateUpdated nsu)
         {
             PhaseBase phase = nsu.phase;
