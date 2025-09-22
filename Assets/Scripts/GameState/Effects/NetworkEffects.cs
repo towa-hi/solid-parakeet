@@ -16,6 +16,83 @@ public sealed class NetworkEffects : IGameEffect
     {
         switch (action)
         {
+            case NetworkStateChanged a:
+            {
+                // Auto-submit proofs when entering/progressing MoveProve or RankProve
+                if (StellarManager.IsBusy)
+                {
+                    break;
+                }
+                GameNetworkState net = state.Net;
+                // Auto ProveMove when in MoveProve and it's our subphase
+                if (net.lobbyInfo.phase == Phase.MoveProve && net.IsMySubphase())
+                {
+                    var hashes = net.GetUserMove().move_hashes;
+                    if (hashes != null && hashes.Length > 0)
+                    {
+                        List<HiddenMove> hiddenMoves = new();
+                        bool missing = false;
+                        foreach (var h in hashes)
+                        {
+                            var maybe = CacheManager.GetHiddenMove(h);
+                            if (maybe is HiddenMove hm)
+                            {
+                                hiddenMoves.Add(hm);
+                            }
+                            else
+                            {
+                                Debug.LogWarning("Auto ProveMove: missing hidden move for a committed hash; skipping auto-submit");
+                                missing = true;
+                                break;
+                            }
+                        }
+                        if (!missing)
+                        {
+                            ProveMoveReq prove = new()
+                            {
+                                lobby_id = net.lobbyInfo.index,
+                                move_proofs = hiddenMoves.ToArray(),
+                            };
+                            store.Dispatch(new ProveMoveAction(prove));
+                        }
+                    }
+                    break;
+                }
+                // Auto ProveRank when in RankProve and it's our subphase
+                if (net.lobbyInfo.phase == Phase.RankProve && net.IsMySubphase())
+                {
+                    var needed = net.GetUserMove().needed_rank_proofs;
+                    if (needed != null && needed.Length > 0)
+                    {
+                        List<HiddenRank> hiddenRanks = new();
+                        List<MerkleProof> merkleProofs = new();
+                        bool missing = false;
+                        foreach (PawnId pawnId in needed)
+                        {
+                            if (CacheManager.GetHiddenRankAndProof(pawnId) is not CachedRankProof cached)
+                            {
+                                Debug.LogWarning($"Auto ProveRank: missing cached rank/proof for pawn {pawnId}; skipping auto-submit");
+                                missing = true;
+                                break;
+                            }
+                            hiddenRanks.Add(cached.hidden_rank);
+                            merkleProofs.Add(cached.merkle_proof);
+                        }
+                        if (!missing)
+                        {
+                            ProveRankReq req = new()
+                            {
+                                lobby_id = net.lobbyInfo.index,
+                                hidden_ranks = hiddenRanks.ToArray(),
+                                merkle_proofs = merkleProofs.ToArray(),
+                            };
+                            store.Dispatch(new ProveRankAction(req));
+                        }
+                    }
+                    break;
+                }
+                break;
+            }
             case RefreshRequested:
             {
                 await StellarManager.UpdateState();
