@@ -51,6 +51,13 @@ public class GuiSetup : GameElement
         }
         setupScreen.Initialize(netState);
         setupScreen.OnCardRankClicked = OnEntryClicked;
+        // do rankrefresh on setupscreen from maxpawns
+        List<(Rank, int, int)> rankList = new();
+        for (int i = 0; i < maxRanks.Length; i++)
+        {
+            rankList.Add(((Rank)i, (int)maxRanks[i], 0));
+        }
+        setupScreen.RefreshFromRanks(rankList.ToArray());
     }
 
     void OnDisable()
