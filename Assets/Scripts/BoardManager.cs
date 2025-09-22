@@ -33,6 +33,24 @@ public class BoardManager : MonoBehaviour
     
     PhaseBase currentPhase;
     
+#if USE_GAME_STORE
+    GameStore store;
+    // Local shim reducer to avoid namespace/type resolution issues early on
+    sealed class __NetworkReducerShim : IGameReducer
+    {
+        public (GameSnapshot nextState, System.Collections.Generic.List<GameEvent> events) Reduce(GameSnapshot state, GameAction action)
+        {
+            if (action is NetworkStateChanged a)
+            {
+                ClientMode mode = ModeDecider.DecideClientMode(a.Net, a.Delta);
+                GameSnapshot next = (state ?? GameSnapshot.Empty) with { Net = a.Net, Mode = mode };
+                return (next, null);
+            }
+            return (state, null);
+        }
+    }
+#endif
+    
     
     public void StartBoardManager()
     {
@@ -82,6 +100,17 @@ public class BoardManager : MonoBehaviour
         clickInputManager.SetUpdating(true);
         CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         GameLogger.Initialize(netState);
+        // Initialize store (flagged)
+#if USE_GAME_STORE
+        // Initialize store with a single network reducer (local shim to avoid cross-assembly issues)
+        IGameReducer[] reducers = new IGameReducer[] { new __NetworkReducerShim() };
+        IGameEffect[] effects = new IGameEffect[] { };
+        store = new GameStore(
+            new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
+            reducers,
+            effects
+        );
+#endif
         // set up board and pawns
         Board board = netState.lobbyParameters.board;
         grid.SetBoard(board.hex);
@@ -122,6 +151,13 @@ public class BoardManager : MonoBehaviour
             return;
         }
         Debug.Log($"BoardManager::OnGameStateBeforeApplied turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
+#if USE_GAME_STORE
+        // Feed the store; views still driven by existing flow for now
+        store?.Dispatch(new NetworkStateChanged(netState, delta));
+#endif
+        // Compute client mode (read-only for now)
+        ClientMode clientMode = ModeDecider.DecideClientMode(netState, delta);
+        Debug.Log($"ClientMode={clientMode}");
         bool shouldPoll = !netState.IsMySubphase();
         // No local task references to reset; StellarManager governs busy state
         // If server indicates game is over outside of resolve (e.g., resignation), immediately switch to FinishedPhase
@@ -136,13 +172,17 @@ public class BoardManager : MonoBehaviour
             }
         }
 
-        // Check if phase actually changed
+        // Check if mode actually changed and use ModeDecider/ModePhaseFactory to map
         Phase newPhase = netState.lobbyInfo.phase;
         bool isInitialPhase = currentPhase == null; // intent: no phase has been set yet
         bool shouldSwitchPhase = isInitialPhase || (delta.TurnChanged && delta.TurnResolve.HasValue) || delta.PhaseChanged; // intent: we need to change local phase now
-        bool shouldSwitchToResolvePhase = delta.TurnResolve.HasValue; // enter resolve whenever resolve payload exists
         if (shouldSwitchPhase)
         {
+#if USE_GAME_STORE
+            ClientMode mode = ModeDecider.DecideClientMode(netState, delta);
+            PhaseBase nextPhase = ModePhaseFactory.CreatePhase(mode, netState, delta);
+#else
+            bool shouldSwitchToResolvePhase = delta.TurnResolve.HasValue; // enter resolve whenever resolve payload exists
             PhaseBase nextPhase = newPhase switch
             {
                 Phase.SetupCommit => new SetupCommitPhase(),
@@ -154,6 +194,7 @@ public class BoardManager : MonoBehaviour
                 Phase.Lobby => throw new NotImplementedException(),
                 _ => throw new ArgumentOutOfRangeException(),
             };
+#endif
             // set phase
             currentPhase?.ExitState(clickInputManager, guiGame);
             currentPhase = nextPhase;
