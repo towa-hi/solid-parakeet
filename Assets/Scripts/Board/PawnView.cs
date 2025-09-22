@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Collections;
+using System.Collections.Generic;
 using Contract;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -43,6 +44,20 @@ public class PawnView : MonoBehaviour
         rankView = testRank;
         DisplayRankView(testRank);
     }
+
+    void OnEnable()
+    {
+        ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
+        ViewEventBus.OnSetupModeChanged += HandleSetupModeChanged;
+    }
+    
+    void OnDisable()
+    {
+        // Cancel any ongoing animations to avoid lingering effects across phases/scenes
+        StopAllCoroutines();
+        ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
+        ViewEventBus.OnSetupModeChanged -= HandleSetupModeChanged;
+    }
     public void TestSpriteSelectTransition(bool newAnimationState)
     {
         animator.SetBool(animatorIsSelected, newAnimationState);
@@ -70,10 +85,28 @@ public class PawnView : MonoBehaviour
         DisplayRankView(Rank.UNKNOWN);
 
     }
-    void OnDisable()
+    void HandleSetupModeChanged(bool active)
     {
-        // Cancel any ongoing animations to avoid lingering effects across phases/scenes
-        StopAllCoroutines();
+        // No-op placeholder for now; visuals are driven by pending commits updates
+    }
+
+    void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)
+    {
+        if (newMap.TryGetValue(pawnId, out Rank? rank))
+        {
+            Rank displayRank = rank ?? Rank.UNKNOWN;
+            if (displayRank != rankView)
+            {
+                DisplayRankView(displayRank);
+                rankView = displayRank;
+            }
+            bool shouldBeVisible = displayRank != Rank.UNKNOWN;
+            if (shouldBeVisible != (visibleView && aliveView))
+            {
+                visibleView = shouldBeVisible;
+                model.SetActive(shouldBeVisible && aliveView);
+            }
+        }
     }
 
 

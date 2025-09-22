@@ -740,16 +740,32 @@ public static class StellarManager
     }
     static TurnResolveDelta BuildTurnResolveDeltaSimple(GameNetworkState previous, GameNetworkState current)
     {
-        // Compare raw GameState pawn arrays directly; they are index-aligned and consistent across states
+        // Compare by PawnId across snapshots; array order may change across turns
         PawnState[] pre = previous.gameState.pawns;
         PawnState[] post = current.gameState.pawns;
+        Dictionary<PawnId, PawnState> preMap = new();
+        Dictionary<PawnId, PawnState> postMap = new();
+        for (int i = 0; i < pre.Length; i++)
+        {
+            preMap[pre[i].pawn_id] = pre[i];
+        }
+        for (int i = 0; i < post.Length; i++)
+        {
+            postMap[post[i].pawn_id] = post[i];
+        }
         Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas = new();
         List<BattleEvent> battles = new();
         Dictionary<PawnId, MoveEvent> moves = new();
-        for (int i = 0; i < pre.Length; i++)
+        foreach (var kv in preMap)
         {
-            PawnState prePawn = pre[i];
-            PawnState postPawn = post[i];
+            PawnId id = kv.Key;
+            PawnState prePawn = kv.Value;
+            if (!postMap.TryGetValue(id, out PawnState postPawn))
+            {
+                // Pawn may have died and been removed; construct a dead post state with same id/pos for delta purposes
+                postPawn = prePawn;
+                postPawn.alive = false;
+            }
             SnapshotPawnDelta pawnDelta = new(prePawn, postPawn);
             pawnDeltas[pawnDelta.pawnId] = pawnDelta;
             if (prePawn.alive && prePawn.pos != postPawn.pos)

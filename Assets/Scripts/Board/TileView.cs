@@ -13,6 +13,7 @@ public class TileView : MonoBehaviour
     public TileModel tileModel;
     public TileModel hexTileModel;
     public TileModel squareTileModel;
+    public bool enableDebugLogs;
     public ProceduralArrow arrow;
     public RenderEffect sphereRenderEffect;
     
@@ -98,6 +99,65 @@ public class TileView : MonoBehaviour
     {
     }
 
+    void OnEnable()
+    {
+        ViewEventBus.OnSetupModeChanged += HandleSetupModeChanged;
+        ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
+        ViewEventBus.OnSetupHoverChanged += HandleSetupHoverChanged;
+        ViewEventBus.OnSetupCommitMarkersChanged += HandleSetupCommitMarkersChanged;
+    }
+
+    void OnDisable()
+    {
+        ViewEventBus.OnSetupModeChanged -= HandleSetupModeChanged;
+        ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
+        ViewEventBus.OnSetupHoverChanged -= HandleSetupHoverChanged;
+        ViewEventBus.OnSetupCommitMarkersChanged -= HandleSetupCommitMarkersChanged;
+    }
+
+    void HandleSetupModeChanged(bool active)
+    {
+        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupModeChanged active={active}");
+        isSetupTile = active && setupView != Team.NONE;
+        SetTileDebug();
+    }
+
+    void HandleSetupCommitMarkersChanged(System.Collections.Generic.Dictionary<Vector2Int, Rank?> byTile)
+    {
+        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupCommitMarkersChanged (no color override in setup)");
+        // Do not override base setup tint here. Legacy behavior keeps team tint during setup regardless of commits.
+        // Any per-commit visual markers should be handled by pawn/other overlays.
+    }
+
+    void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn)
+    {
+        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupHover pos={hoveredPos} myTurn={isMyTurn}");
+        isHovered = isMyTurn && posView == hoveredPos;
+        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
+        // In setup mode we do NOT elevate tiles on hover. Ensure elevator stays at base.
+        if (tileModel.elevator.localPosition != initialElevatorLocalPos)
+        {
+            tileModel.elevator.localPosition = initialElevatorLocalPos;
+        }
+    }
+
+    void HandleSetupPendingChanged(System.Collections.Generic.Dictionary<PawnId, Rank?> oldMap, System.Collections.Generic.Dictionary<PawnId, Rank?> newMap)
+    {
+        // Highlight tiles that host pawns with a pending commit
+        bool hasPending = false;
+        foreach (var kv in newMap)
+        {
+            PawnId id = kv.Key;
+            if (kv.Value is Rank)
+            {
+                // Approximation: if this tile is the pos of that pawn, flag setup color
+                // In a full impl, BoardManager can raise a per-tile event with exact positions
+                hasPending = hasPending || false; // leave as no-op per-tile; BoardManager adapter handles per-tile refresh
+            }
+        }
+        // No per-tile change here; TileView relies on BoardManager adapter for fine-grained updates during migration
+    }
+
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
         // what to do
@@ -133,7 +193,7 @@ public class TileView : MonoBehaviour
                     {
                         if (moveEvent.from == posView)
                         {
-                            Debug.Log($"set setIsMovePairStart to true because found {posView} in tr.moves");
+                            if (enableDebugLogs) Debug.Log($"set setIsMovePairStart to true because found {posView} in tr.moves");
                             setIsMovePairStart = true;
                             movePairTargetTile = resolvePhase.tileViews[moveEvent.target];
                         }

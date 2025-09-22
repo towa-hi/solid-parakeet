@@ -17,6 +17,12 @@ public class CursorController : MonoBehaviour
     void Awake()
     {
         instance = this;
+        ViewEventBus.OnSetupCursorToolChanged += UpdateCursor;
+    }
+    
+    void OnDestroy()
+    {
+        ViewEventBus.OnSetupCursorToolChanged -= UpdateCursor;
     }
     
     void Start()

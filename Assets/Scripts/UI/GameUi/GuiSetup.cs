@@ -17,6 +17,9 @@ public class GuiSetup : GameElement
     public TextMeshProUGUI statusText;
     public GameObject rankEntryPrefab;
     public Dictionary<Rank, GuiRankListEntry> entries;
+    Dictionary<Rank, int> usedCounts = new();
+    Rank? selectedRank;
+    GameNetworkState? lastNetState;
 
     public Action OnClearButton;
     public Action OnAutoSetupButton;
@@ -34,8 +37,15 @@ public class GuiSetup : GameElement
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
 
+    void OnEnable()
+    {
+        ViewEventBus.OnSetupRankSelected += HandleSetupRankSelected;
+        ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
+    }
+
     void Initialize(GameNetworkState netState)
     {
+        lastNetState = netState;
         // Clear existing entries
         foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
         entries = new();
@@ -58,11 +68,16 @@ public class GuiSetup : GameElement
             rankList.Add(((Rank)i, (int)maxRanks[i], 0));
         }
         setupScreen.RefreshFromRanks(rankList.ToArray());
+        // reset local trackers
+        usedCounts.Clear();
+        selectedRank = null;
     }
 
     void OnDisable()
     {
         setupScreen.Uninitialize();
+        ViewEventBus.OnSetupRankSelected -= HandleSetupRankSelected;
+        ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
     }
     public override void PhaseStateChanged(PhaseChangeSet changes)
     {
@@ -162,4 +177,60 @@ public class GuiSetup : GameElement
         }
     }
     
+    void HandleSetupRankSelected(Rank? oldRank, Rank? newRank)
+    {
+        selectedRank = newRank;
+        if (lastNetState is not GameNetworkState net) return;
+        uint[] maxRanks = lastNetState.Value.lobbyParameters.max_ranks;
+        for (int i = 0; i < maxRanks.Length; i++)
+        {
+            Rank rank = (Rank)i;
+            int used = usedCounts.TryGetValue(rank, out int u) ? u : 0;
+            if (entries != null && entries.TryGetValue(rank, out GuiRankListEntry entry))
+            {
+                bool interactable = used < maxRanks[i];
+                entry.Refresh((int)maxRanks[i], used, newRank == rank, interactable);
+            }
+        }
+    }
+
+    void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)
+    {
+        if (lastNetState is not GameNetworkState net) return;
+        // recompute used counts per rank
+        usedCounts.Clear();
+        foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+        {
+            usedCounts[(Rank)rank] = 0;
+        }
+        foreach (var kv in newMap)
+        {
+            if (kv.Value is Rank r)
+            {
+                usedCounts[r] = usedCounts.TryGetValue(r, out int c) ? c + 1 : 1;
+            }
+        }
+        uint[] maxRanks = net.lobbyParameters.max_ranks;
+        var ranksArray = new (Rank, int, int)[maxRanks.Length];
+        bool allFilled = true;
+        bool anyUsed = false;
+        for (int i = 0; i < maxRanks.Length; i++)
+        {
+            Rank rk = (Rank)i;
+            int max = (int)maxRanks[i];
+            int used = usedCounts.TryGetValue(rk, out int u) ? u : 0;
+            ranksArray[i] = (rk, max, used);
+            allFilled &= used == max;
+            anyUsed |= used > 0;
+            if (entries != null && entries.TryGetValue(rk, out GuiRankListEntry entry))
+            {
+                bool interactable = used < max;
+                entry.Refresh(max, used, selectedRank == rk, interactable);
+            }
+        }
+        setupScreen.RefreshFromRanks(ranksArray);
+        submitButton.interactable = allFilled;
+        clearButton.interactable = anyUsed;
+    }
+
 }

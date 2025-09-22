@@ -40,13 +40,251 @@ public class BoardManager : MonoBehaviour
     {
         public (GameSnapshot nextState, System.Collections.Generic.List<GameEvent> events) Reduce(GameSnapshot state, GameAction action)
         {
-            if (action is NetworkStateChanged a)
+            if (action is not NetworkStateChanged a)
             {
-                ClientMode mode = ModeDecider.DecideClientMode(a.Net, a.Delta);
-                GameSnapshot next = (state ?? GameSnapshot.Empty) with { Net = a.Net, Mode = mode };
-                return (next, null);
+                return (state, null);
             }
-            return (state, null);
+            state ??= GameSnapshot.Empty;
+            ClientMode newMode = ModeDecider.DecideClientMode(a.Net, a.Delta);
+            ClientMode oldMode = state.Mode;
+            LocalUiState ui = state.Ui ?? LocalUiState.Empty;
+            if (newMode != oldMode)
+            {
+                // Centralized reset on mode change
+                ui = LocalUiState.Empty;
+                if (newMode == ClientMode.Resolve && a.Delta.TurnResolve.HasValue)
+                {
+                    ui = ui with { ResolveData = a.Delta.TurnResolve.Value, Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
+                }
+            }
+            else if (a.Delta.TurnResolve.HasValue)
+            {
+                // Attach resolve data when provided (e.g., initial entry)
+                ui = (ui ?? LocalUiState.Empty) with { ResolveData = a.Delta.TurnResolve.Value };
+            }
+            GameSnapshot next = state with { Net = a.Net, Mode = newMode, Ui = ui };
+            return (next, null);
+        }
+    }
+    // Local shim effects to route contract calls through actions and manage polling
+    sealed class __NetworkEffectsShim : IGameEffect
+    {
+        public BoardManager owner;
+        public void Initialize(GameStore store) { }
+        public async void OnActionAndEvents(GameAction action, System.Collections.Generic.IReadOnlyList<GameEvent> events, GameSnapshot state)
+        {
+            switch (action)
+            {
+                case NetworkStateChanged a:
+                {
+                    // Centralized polling policy when using the store
+                    bool isFinished = a.Net.lobbyInfo.phase is Phase.Finished or Phase.Aborted;
+                    ClientMode mode = ModeDecider.DecideClientMode(a.Net, a.Delta);
+                    bool shouldPoll = !a.Net.IsMySubphase() && !isFinished && mode != ClientMode.Resolve;
+                    StellarManager.SetPolling(shouldPoll);
+                    break;
+                }
+                case RefreshRequested:
+                    await StellarManager.UpdateState();
+                    break;
+                case CommitSetupAction a:
+                {
+                    var result = await StellarManager.CommitSetupRequest(a.Req);
+                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
+                    await StellarManager.UpdateState();
+                    break;
+                }
+                case SetupSubmit:
+                {
+                    // Build CommitSetupReq from LocalUiState
+                    var net = state.Net;
+                    var ui = state.Ui ?? LocalUiState.Empty;
+                    var pending = ui.PendingCommits;
+                    var hiddenRanks = new System.Collections.Generic.List<HiddenRank>();
+                    var commits = new System.Collections.Generic.List<SetupCommit>();
+                    foreach (var kv in pending)
+                    {
+                        if (kv.Value is not Rank rank) { continue; }
+                        var pawn = net.GetPawnFromId(kv.Key);
+                        var hiddenRank = new HiddenRank { pawn_id = pawn.pawn_id, rank = rank, salt = Globals.RandomSalt() };
+                        hiddenRanks.Add(hiddenRank);
+                        commits.Add(new SetupCommit { hidden_rank_hash = SCUtility.Get16ByteHash(hiddenRank), pawn_id = pawn.pawn_id });
+                    }
+                    var leaves = new System.Collections.Generic.List<byte[]>();
+                    foreach (var c in commits) leaves.Add(c.hidden_rank_hash);
+                    (byte[] root, MerkleTree tree) = MerkleTree.BuildMerkleTree(leaves.ToArray());
+                    var req = new CommitSetupReq { lobby_id = net.lobbyInfo.index, rank_commitment_root = root, zz_hidden_ranks = net.lobbyParameters.security_mode ? new HiddenRank[]{} : hiddenRanks.ToArray() };
+                    if (net.lobbyParameters.security_mode)
+                    {
+                        var proofs = new System.Collections.Generic.List<CachedRankProof>();
+                        for (int i = 0; i < commits.Count; i++)
+                        {
+                            var hidden = hiddenRanks[i];
+                            var proof = tree.GenerateProof((uint)i);
+                            proofs.Add(new CachedRankProof { hidden_rank = hidden, merkle_proof = proof });
+                        }
+                        CacheManager.StoreHiddenRanksAndProofs(proofs, net.address, net.lobbyInfo.index);
+                    }
+                    owner.store.Dispatch(new CommitSetupAction(req));
+                    break;
+                }
+                case CommitMoveAndProveAction a:
+                {
+                    var gns = state.Net;
+                    var result = await StellarManager.CommitMoveRequest(a.CommitReq, a.ProveReq, gns.address, gns.lobbyInfo, gns.lobbyParameters);
+                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
+                    await StellarManager.UpdateState();
+                    break;
+                }
+                case ProveMoveAction a:
+                {
+                    var gns = state.Net;
+                    var result = await StellarManager.ProveMoveRequest(a.Req, gns.address, gns.lobbyInfo, gns.lobbyParameters);
+                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
+                    await StellarManager.UpdateState();
+                    break;
+                }
+                case ProveRankAction a:
+                {
+                    var result = await StellarManager.ProveRankRequest(a.Req);
+                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
+                    await StellarManager.UpdateState();
+                    break;
+                }
+                case ResolvePrev:
+                case ResolveNext:
+                case ResolveSkip:
+                {
+                    // Emit same operation to keep UI in sync immediately
+                    if (owner.currentPhase is ResolvePhase rp)
+                    {
+                        var ckpt = rp.currentCheckpoint;
+                        var idx = rp.currentBattleIndex;
+                        if (action is ResolvePrev)
+                        {
+                            if (ckpt == ResolvePhase.Checkpoint.Final)
+                            {
+                                idx = (rp.tr.battles?.Length ?? 0) - 1;
+                                ckpt = idx >= 0 ? ResolvePhase.Checkpoint.Battle : ResolvePhase.Checkpoint.PostMoves;
+                            }
+                            else if (ckpt == ResolvePhase.Checkpoint.Battle)
+                            {
+                                if (idx > 0) idx--; else { ckpt = ResolvePhase.Checkpoint.Pre; idx = -1; }
+                            }
+                            else if (ckpt == ResolvePhase.Checkpoint.PostMoves)
+                            {
+                                ckpt = ResolvePhase.Checkpoint.Pre; idx = -1;
+                            }
+                        }
+                        else if (action is ResolveNext)
+                        {
+                            if (ckpt == ResolvePhase.Checkpoint.Pre)
+                            {
+                                ckpt = ResolvePhase.Checkpoint.PostMoves;
+                            }
+                            else if (ckpt == ResolvePhase.Checkpoint.PostMoves)
+                            {
+                                bool hasBattles = (rp.tr.battles?.Length ?? 0) > 0;
+                                ckpt = hasBattles ? ResolvePhase.Checkpoint.Battle : ResolvePhase.Checkpoint.Final;
+                                if (ckpt == ResolvePhase.Checkpoint.Battle) idx = 0;
+                            }
+                            else if (ckpt == ResolvePhase.Checkpoint.Battle)
+                            {
+                                int total = rp.tr.battles?.Length ?? 0;
+                                idx = idx + 1 < total ? idx + 1 : idx;
+                                if (idx + 1 >= total) ckpt = ResolvePhase.Checkpoint.Final;
+                            }
+                            else if (ckpt == ResolvePhase.Checkpoint.Final)
+                            {
+                                owner.PhaseStateChanged(new PhaseChangeSet(new ResolveDone()));
+                                break;
+                            }
+                        }
+                        else if (action is ResolveSkip)
+                        {
+                            // Immediately end resolve and transition out
+                            owner.PhaseStateChanged(new PhaseChangeSet(new ResolveDone()));
+                            break;
+                        }
+                        rp.currentCheckpoint = ckpt;
+                        rp.currentBattleIndex = idx;
+                        owner.PhaseStateChanged(new PhaseChangeSet(new ResolveCheckpointEntered(ckpt, rp.tr, idx, rp)));
+                    }
+                    break;
+                }
+            }
+        }
+
+        static void HandleFatalNetworkError(string message)
+        {
+            string msg = string.IsNullOrEmpty(message) ? "You're now in Offline Mode." : message;
+            StellarManager.SetPolling(false);
+            MenuController menuController = UnityEngine.Object.FindFirstObjectByType<MenuController>();
+            if (menuController != null)
+            {
+                menuController.OpenMessageModal($"Network Unavailable\n{msg}");
+                menuController.ExitGame();
+            }
+            else
+            {
+                UnityEngine.Debug.LogError($"MenuController not found. Error: {msg}");
+            }
+        }
+    }
+    // Local shim reducer for resolve stepping
+    sealed class __ResolveReducerShim : IGameReducer
+    {
+        public (GameSnapshot nextState, System.Collections.Generic.List<GameEvent> events) Reduce(GameSnapshot state, GameAction action)
+        {
+            if (state == null) state = GameSnapshot.Empty;
+            LocalUiState ui = state.Ui ?? LocalUiState.Empty;
+            switch (action)
+            {
+                case NetworkStateChanged a when a.Delta.TurnResolve.HasValue:
+                    ui = ui with { ResolveData = a.Delta.TurnResolve.Value, Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
+                    return (state with { Ui = ui }, null);
+                case ResolvePrev:
+                {
+                    if (ui.Checkpoint == ResolveCheckpoint.Final)
+                    {
+                        int last = (ui.ResolveData.battles?.Length ?? 0) - 1;
+                        ui = last >= 0 ? ui with { Checkpoint = ResolveCheckpoint.Battle, BattleIndex = last } : ui with { Checkpoint = ResolveCheckpoint.PostMoves };
+                    }
+                    else if (ui.Checkpoint == ResolveCheckpoint.Battle)
+                    {
+                        ui = ui.BattleIndex > 0 ? ui with { BattleIndex = ui.BattleIndex - 1 } : ui with { Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
+                    }
+                    else if (ui.Checkpoint == ResolveCheckpoint.PostMoves)
+                    {
+                        ui = ui with { Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
+                    }
+                    return (state with { Ui = ui }, null);
+                }
+                case ResolveNext:
+                {
+                    if (ui.Checkpoint == ResolveCheckpoint.Pre)
+                    {
+                        ui = ui with { Checkpoint = ResolveCheckpoint.PostMoves };
+                    }
+                    else if (ui.Checkpoint == ResolveCheckpoint.PostMoves)
+                    {
+                        bool hasBattles = (ui.ResolveData.battles?.Length ?? 0) > 0;
+                        ui = hasBattles ? ui with { Checkpoint = ResolveCheckpoint.Battle, BattleIndex = 0 } : ui with { Checkpoint = ResolveCheckpoint.Final };
+                    }
+                    else if (ui.Checkpoint == ResolveCheckpoint.Battle)
+                    {
+                        int next = ui.BattleIndex + 1;
+                        int total = ui.ResolveData.battles?.Length ?? 0;
+                        ui = next < total ? ui with { BattleIndex = next } : ui with { Checkpoint = ResolveCheckpoint.Final };
+                    }
+                    return (state with { Ui = ui }, null);
+                }
+                case ResolveSkip:
+                    ui = ui with { Checkpoint = ResolveCheckpoint.Final };
+                    return (state with { Ui = ui }, null);
+                default:
+                    return (state, null);
+            }
         }
     }
 #endif
@@ -103,13 +341,18 @@ public class BoardManager : MonoBehaviour
         // Initialize store (flagged)
 #if USE_GAME_STORE
         // Initialize store with a single network reducer (local shim to avoid cross-assembly issues)
-        IGameReducer[] reducers = new IGameReducer[] { new __NetworkReducerShim() };
-        IGameEffect[] effects = new IGameEffect[] { };
+        IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new __ResolveReducerShim(), new UiReducer() };
+        var effect = new __NetworkEffectsShim();
+        effect.owner = this;
+        IGameEffect[] effects = new IGameEffect[] { effect };
         store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
             reducers,
             effects
         );
+        store.EventsEmitted += OnStoreEvents;
+        // Announce current setup mode for views on init
+        ViewEventBus.RaiseSetupModeChanged(ModeDecider.DecideClientMode(netState, default) == ClientMode.Setup);
 #endif
         // set up board and pawns
         Board board = netState.lobbyParameters.board;
@@ -158,6 +401,7 @@ public class BoardManager : MonoBehaviour
         // Compute client mode (read-only for now)
         ClientMode clientMode = ModeDecider.DecideClientMode(netState, delta);
         Debug.Log($"ClientMode={clientMode}");
+        ViewEventBus.RaiseSetupModeChanged(clientMode == ClientMode.Setup);
         bool shouldPoll = !netState.IsMySubphase();
         // No local task references to reset; StellarManager governs busy state
         // If server indicates game is over outside of resolve (e.g., resignation), immediately switch to FinishedPhase
@@ -168,6 +412,9 @@ public class BoardManager : MonoBehaviour
             {
                 currentPhase?.ExitState(clickInputManager, guiGame);
                 currentPhase = new FinishedPhase();
+#if USE_GAME_STORE
+                currentPhase.SetActionDispatcher(store != null ? new System.Action<GameAction>(store.Dispatch) : null);
+#endif
                 currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
             }
         }
@@ -175,7 +422,20 @@ public class BoardManager : MonoBehaviour
         // Check if mode actually changed and use ModeDecider/ModePhaseFactory to map
         Phase newPhase = netState.lobbyInfo.phase;
         bool isInitialPhase = currentPhase == null; // intent: no phase has been set yet
-        bool shouldSwitchPhase = isInitialPhase || (delta.TurnChanged && delta.TurnResolve.HasValue) || delta.PhaseChanged; // intent: we need to change local phase now
+        // Switch when: initial, server says phase changed, or a resolve payload is present.
+        // Also: if we are currently in ResolvePhase and the server advanced the turn without a TurnResolve,
+        // switch back to the server-declared phase (usually MoveCommit) to avoid getting stuck in resolve.
+        bool turnAdvancedNoResolve = delta.TurnChanged && !delta.TurnResolve.HasValue;
+        if (turnAdvancedNoResolve)
+        {
+            Debug.LogWarning($"BoardManager: Turn advanced without resolve. Current phase: {currentPhase.GetType().Name}");
+        }
+        bool stuckInResolve = currentPhase is ResolvePhase && turnAdvancedNoResolve;
+        if (stuckInResolve)
+        {
+            Debug.LogWarning($"BoardManager: Stuck in ResolvePhase. Current phase: {currentPhase.GetType().Name}");
+        }
+        bool shouldSwitchPhase = isInitialPhase || (delta.TurnChanged && delta.TurnResolve.HasValue) || delta.PhaseChanged || stuckInResolve; // intent: we need to change local phase now
         if (shouldSwitchPhase)
         {
 #if USE_GAME_STORE
@@ -198,6 +458,9 @@ public class BoardManager : MonoBehaviour
             // set phase
             currentPhase?.ExitState(clickInputManager, guiGame);
             currentPhase = nextPhase;
+#if USE_GAME_STORE
+            currentPhase.SetActionDispatcher(store != null ? new System.Action<GameAction>(store.Dispatch) : null);
+#endif
             Debug.Log($"BoardManager: Switched to phase type {currentPhase.GetType().Name} (netPhase={newPhase})");
             currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
         }
@@ -211,8 +474,29 @@ public class BoardManager : MonoBehaviour
         {
             shouldPoll = false;
         }
+#if !USE_GAME_STORE
         StellarManager.SetPolling(shouldPoll);
+#endif
+#if USE_GAME_STORE
+        // Route input by mode: in Setup mode, bypass phase and use mode-driven router
+        if (ModeDecider.DecideClientMode(netState, delta) == ClientMode.Setup)
+        {
+            clickInputManager.OnMouseInput = SetupModeInputRouter;
+        }
+#endif
     }
+
+#if USE_GAME_STORE
+    void SetupModeInputRouter(Vector2Int hoveredPos, bool clicked)
+    {
+        if (store == null) return;
+        // Always update hover first so UiReducer computes tool
+        store.Dispatch(new SetupHoverAction(hoveredPos));
+        if (!clicked) return;
+        if (StellarManager.IsBusy) return;
+        store.Dispatch(new SetupClickAt(hoveredPos));
+    }
+#endif
     
     // passed to currentPhase
     void PhaseStateChanged(PhaseChangeSet changes)
@@ -240,6 +524,10 @@ public class BoardManager : MonoBehaviour
                         Phase.MoveCommit => new MoveCommitPhase(),
                         _ => throw new ArgumentOutOfRangeException(),
                     };
+                    
+#if USE_GAME_STORE
+                    currentPhase.SetActionDispatcher(store != null ? new System.Action<GameAction>(store.Dispatch) : null);
+#endif
                     currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
                     currentPhase.UpdateNetworkState(cachedNetworkState, delta);
                     PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
@@ -276,7 +564,11 @@ public class BoardManager : MonoBehaviour
         }
         // Stop polling while network request is in progress
         StellarManager.SetPolling(false);
+#if USE_GAME_STORE
+        store?.Dispatch(new RefreshRequested());
+#else
         _ = StellarManager.UpdateState();
+#endif
         // Don't reset here - let OnNetworkStateUpdated handle cleanup
         return true;
     }
@@ -297,6 +589,30 @@ public class BoardManager : MonoBehaviour
         }
         // Stop polling while contract call is in progress
         StellarManager.SetPolling(false);
+#if USE_GAME_STORE
+        // Ensure an await on flagged path to avoid async-without-await warning
+        await System.Threading.Tasks.Task.Yield();
+        switch (req)
+        {
+            case CommitSetupReq setup:
+                store?.Dispatch(new CommitSetupAction(setup));
+                return true;
+            case CommitMoveReq commit when req2 is ProveMoveReq prove:
+                store?.Dispatch(new CommitMoveAndProveAction(commit, prove));
+                return true;
+            case ProveMoveReq proveMove:
+                store?.Dispatch(new ProveMoveAction(proveMove));
+                return true;
+            case ProveRankReq proveRank:
+                store?.Dispatch(new ProveRankAction(proveRank));
+                return true;
+            case JoinLobbyReq:
+            case MakeLobbyReq:
+                throw new NotImplementedException();
+            default:
+                throw new ArgumentOutOfRangeException(nameof(req));
+        }
+#else
         // just for now
         GameNetworkState gnsFromStellarManager = new(StellarManager.networkState);
         LobbyInfo lobbyInfo = gnsFromStellarManager.lobbyInfo;
@@ -366,8 +682,44 @@ public class BoardManager : MonoBehaviour
             return false;
         }
         return true;
+#endif
     }
 
+#if USE_GAME_STORE
+    void OnStoreEvents(System.Collections.Generic.IReadOnlyList<GameEvent> events)
+    {
+        foreach (var e in events)
+        {
+            switch (e)
+            {
+                case SetupRankSelectedEvent sel:
+                    // Update cursor based on whether a rank is selected
+                    if (currentPhase is SetupCommitPhase scp)
+                    {
+                        CursorController.UpdateCursor(scp.setupInputTool);
+                    }
+                    break;
+                case SetupPendingChangedEvent pend:
+                {
+                    // Build a tile-position map for committed ranks and broadcast
+                    var byTile = new System.Collections.Generic.Dictionary<UnityEngine.Vector2Int, Rank?>();
+                    foreach (var kv in pend.NewMap)
+                    {
+                        Rank? old = pend.OldMap.ContainsKey(kv.Key) ? pend.OldMap[kv.Key] : null;
+                        if (old == kv.Value) continue;
+                        var pawn = currentPhase.cachedNetState.GetPawnFromId(kv.Key);
+                        byTile[pawn.pos] = kv.Value;
+                    }
+                    if (byTile.Count > 0)
+                    {
+                        ViewEventBus.RaiseSetupCommitMarkersChanged(byTile);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+#endif
     
 }
 
@@ -383,6 +735,7 @@ public abstract class PhaseBase
     Action<PhaseChangeSet> OnPhaseStateChanged;
     Func<IReq, IReq, Task<bool>> OnCallContract;
     Func<bool> OnGetNetworkState;
+    protected System.Action<GameAction> DispatchAction;
     
     protected PhaseBase()
     {
@@ -405,6 +758,11 @@ public abstract class PhaseBase
         pawnViews = bmPawnViews;
         clickInputManager.OnMouseInput = OnMouseInput;
         SetGui(guiGame, true);
+    }
+
+    public void SetActionDispatcher(System.Action<GameAction> dispatcher)
+    {
+        DispatchAction = dispatcher;
     }
 
     protected abstract void SetGui(GuiGame guiGame, bool set);
@@ -458,12 +816,65 @@ public class SetupCommitPhase : PhaseBase
 
     protected override void SetGui(GuiGame guiGame, bool set)
     {
-        guiGame.setup.OnClearButton = set ? OnClear : null;
-        guiGame.setup.OnAutoSetupButton = set ? OnAutoSetup : null;
-        guiGame.setup.OnRefreshButton = set ? OnRefresh : null;
-        guiGame.setup.OnSubmitButton = set ? OnSubmit : null;
-        guiGame.setup.OnEntryClicked = set ? OnEntryClicked : null;
+        guiGame.setup.OnClearButton = set ? (System.Action)(() =>
+        {
+#if USE_GAME_STORE
+            DispatchAction?.Invoke(new SetupClearAll());
+#else
+            OnClear();
+#endif
+        }) : null;
+        guiGame.setup.OnAutoSetupButton = set ? (System.Action)(() =>
+        {
+#if USE_GAME_STORE
+            DispatchAction?.Invoke(new SetupAutoFill());
+#else
+            OnAutoSetup();
+#endif
+        }) : null;
+        guiGame.setup.OnRefreshButton = set ? (System.Action)(() =>
+        {
+#if USE_GAME_STORE
+            DispatchAction?.Invoke(new RefreshRequested());
+#else
+            OnRefresh();
+#endif
+        }) : null;
+        guiGame.setup.OnSubmitButton = set ? (System.Action)(() =>
+        {
+#if USE_GAME_STORE
+            DispatchAction?.Invoke(new SetupSubmit());
+#else
+            OnSubmit();
+#endif
+        }) : null;
+        guiGame.setup.OnEntryClicked = set ? (System.Action<Rank>)((clickedRank) =>
+        {
+#if USE_GAME_STORE
+            DispatchAction?.Invoke(new SetupSelectRank(clickedRank));
+#else
+            OnEntryClicked(clickedRank);
+#endif
+        }) : null;
+
+#if USE_GAME_STORE
+        if (set)
+        {
+            ViewEventBus.OnSetupCursorToolChanged += HandleSetupCursorToolChanged;
+        }
+        else
+        {
+            ViewEventBus.OnSetupCursorToolChanged -= HandleSetupCursorToolChanged;
+        }
+#endif
     }
+
+#if USE_GAME_STORE
+    void HandleSetupCursorToolChanged(SetupInputTool tool)
+    {
+        setupInputTool = tool;
+    }
+#endif
     
     public override void UpdateNetworkState(GameNetworkState netState)
     {
@@ -499,7 +910,9 @@ public class SetupCommitPhase : PhaseBase
         {
             pendingCommits[pawnId] = null;
         }
+#if !USE_GAME_STORE
         InvokeOnPhaseStateChanged(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
+#endif
     }
 
     void OnAutoSetup()
@@ -515,7 +928,9 @@ public class SetupCommitPhase : PhaseBase
             PawnState pawn = cachedNetState.GetAlivePawnFromPosUnchecked(pos);
             pendingCommits[pawn.pawn_id] = rank;
         }
+#if !USE_GAME_STORE
         InvokeOnPhaseStateChanged(new PhaseChangeSet(new SetupRankCommitted(oldPendingCommits, this)));
+#endif
     }
     
     void OnRefresh()
@@ -576,7 +991,12 @@ public class SetupCommitPhase : PhaseBase
             rank_commitment_root = root,
             zz_hidden_ranks = cachedNetState.lobbyParameters.security_mode ? new HiddenRank[]{} : hiddenRanks.ToArray(),
         };
+#if USE_GAME_STORE
+        // In flagged mode, submission is handled by SetupSubmit effect; do not invoke legacy call.
+        return;
+#else
         _ = InvokeOnCallContract(req, null);
+#endif
     }
 
     void OnEntryClicked(Rank clickedRank)
@@ -590,34 +1010,64 @@ public class SetupCommitPhase : PhaseBase
         {
             selectedRank = clickedRank;
         }
+#if USE_GAME_STORE
+        DispatchAction?.Invoke(new SetupSelectRank(selectedRank));
+#else
         InvokeOnPhaseStateChanged(new PhaseChangeSet(new SetupRankSelected(oldSelectedRank, this)));
+#endif
     }
 
     protected override void OnMouseInput(Vector2Int inHoveredPos, bool clicked)
     {
-        //Debug.Log($"On Hover {hoveredPos}");
+        Debug.Log($"SetupCommitPhase.OnMouseInput hovered={inHoveredPos} clicked={clicked} busy={StellarManager.IsBusy}");
         List<GameOperation> operations = new();
         Vector2Int oldHoveredPos = hoveredPos;
         hoveredPos = inHoveredPos;
+#if USE_GAME_STORE
+        // First update hover so UiReducer can compute the correct tool synchronously
+        Debug.Log($"SetupCommitPhase: dispatch SetupHoverAction {hoveredPos}");
+        DispatchAction?.Invoke(new SetupHoverAction(hoveredPos));
+#endif
         if (clicked && !StellarManager.IsBusy)
         {
             switch (setupInputTool)
             {
                 case SetupInputTool.NONE:
+                    Debug.Log("SetupCommitPhase: tool NONE");
                     break;
                 case SetupInputTool.ADD:
-                    operations.Add(CommitPosition(hoveredPos));
+                    {
+#if USE_GAME_STORE
+                        Debug.Log($"SetupCommitPhase: dispatch SetupCommitAt {hoveredPos}");
+                        DispatchAction?.Invoke(new SetupCommitAt(hoveredPos));
+#else
+                        operations.Add(CommitPosition(hoveredPos));
+#endif
+                    }
                     break;
                 case SetupInputTool.REMOVE:
-                    operations.Add(UncommitPosition(hoveredPos));
+                    {
+#if USE_GAME_STORE
+                        Debug.Log($"SetupCommitPhase: dispatch SetupUncommitAt {hoveredPos}");
+                        DispatchAction?.Invoke(new SetupUncommitAt(hoveredPos));
+#else
+                        operations.Add(UncommitPosition(hoveredPos));
+#endif
+                    }
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
+        
+#if !USE_GAME_STORE
         setupInputTool = GetNextTool();
         operations.Add(new SetupHoverChanged(oldHoveredPos, hoveredPos, this));
+#endif
+#if !USE_GAME_STORE
+        // Keep hover/cursor visuals responsive in legacy path
         InvokeOnPhaseStateChanged(new PhaseChangeSet(operations));
+#endif
     }
 
     SetupInputTool GetNextTool()
@@ -754,6 +1204,11 @@ public class ResolvePhase: PhaseBase
 
     void OnPrev()
     {
+        Debug.Log("ResolvePhase.OnPrev: clicked");
+#if USE_GAME_STORE
+        DispatchAction?.Invoke(new ResolvePrev());
+        return;
+#else
         switch (currentCheckpoint)
         {
             case Checkpoint.Final:
@@ -787,10 +1242,16 @@ public class ResolvePhase: PhaseBase
                 break;
         }
         EnterCheckpoint(currentCheckpoint);
+#endif
     }
 
     void OnNext()
     {
+        Debug.Log("ResolvePhase.OnNext: clicked");
+#if USE_GAME_STORE
+        DispatchAction?.Invoke(new ResolveNext());
+        return;
+#else
         switch (currentCheckpoint)
         {
             case Checkpoint.Pre:
@@ -820,11 +1281,18 @@ public class ResolvePhase: PhaseBase
                 ExitResolve();
                 break;
         }
+#endif
     }
 
     void OnSkip()
     {
+        Debug.Log("ResolvePhase.OnSkip: clicked");
+#if USE_GAME_STORE
+        DispatchAction?.Invoke(new ResolveSkip());
+        return;
+#else
         ExitResolve();
+#endif
     }
 
     void ExitResolve()
