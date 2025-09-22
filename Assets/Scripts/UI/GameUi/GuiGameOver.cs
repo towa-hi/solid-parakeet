@@ -69,6 +69,11 @@ public class GuiGameOver : GameElement
                 return "The game has ended";
         }
     }
+
+    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
+    {
+        // No-op: GuiGameOver initializes itself from phase updates when game ends
+    }
 }
 
 

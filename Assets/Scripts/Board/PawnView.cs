@@ -37,6 +37,7 @@ public class PawnView : MonoBehaviour
 
     public bool cheatMode;
     public static event Action<PawnId> OnMoveAnimationCompleted;
+    bool isSetupModeActive;
 
     public void TestSetSprite(Rank testRank, Team testTeam)
     {
@@ -87,24 +88,34 @@ public class PawnView : MonoBehaviour
     }
     void HandleSetupModeChanged(bool active)
     {
-        // No-op placeholder for now; visuals are driven by pending commits updates
+        isSetupModeActive = active;
+        if (active)
+        {
+            // Hide unknowns in setup mode
+            bool shouldBeVisible = rankView != Rank.UNKNOWN && aliveView;
+            model.SetActive(shouldBeVisible);
+        }
     }
 
     void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)
     {
-        if (newMap.TryGetValue(pawnId, out Rank? rank))
+        // Determine committed rank (if any) for this pawn
+        Rank? maybeRank;
+        bool hasEntry = newMap.TryGetValue(pawnId, out maybeRank);
+        Rank displayRank = hasEntry && maybeRank is Rank r ? r : Rank.UNKNOWN;
+        if (displayRank != rankView)
         {
-            Rank displayRank = rank ?? Rank.UNKNOWN;
-            if (displayRank != rankView)
-            {
-                DisplayRankView(displayRank);
-                rankView = displayRank;
-            }
-            bool shouldBeVisible = displayRank != Rank.UNKNOWN;
+            DisplayRankView(displayRank);
+            rankView = displayRank;
+        }
+        // In setup mode, unknowns should not render at all
+        if (isSetupModeActive)
+        {
+            bool shouldBeVisible = displayRank != Rank.UNKNOWN && aliveView;
             if (shouldBeVisible != (visibleView && aliveView))
             {
                 visibleView = shouldBeVisible;
-                model.SetActive(shouldBeVisible && aliveView);
+                model.SetActive(shouldBeVisible);
             }
         }
     }

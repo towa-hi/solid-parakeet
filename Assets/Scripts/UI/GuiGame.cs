@@ -38,12 +38,18 @@ public class GuiGame : MenuElement
             busyCount = 1;
             ApplyBusy(true);
         }
+#if USE_GAME_STORE
+        ViewEventBus.OnSetupModeChanged += HandleSetupModeChanged;
+#endif
     }
 
     void OnDisable()
     {
         busyCount = 0;
         ApplyBusy(false);
+#if USE_GAME_STORE
+        ViewEventBus.OnSetupModeChanged -= HandleSetupModeChanged;
+#endif
     }
 
     void Update()
@@ -61,6 +67,15 @@ public class GuiGame : MenuElement
     
     public void PhaseStateChanged(PhaseChangeSet changes)
     {
+#if USE_GAME_STORE
+        // In flagged builds, prefer mode-driven panel switching; PhaseChangeSet still forwarded for legacy
+        if (changes.GetNetStateUpdated() is NetStateUpdated)
+        {
+            // Do not switch panels here; mode handler handles it
+        }
+        currentGameElement?.PhaseStateChanged(changes);
+        return;
+#endif
         if (changes.GetNetStateUpdated() is NetStateUpdated nsu)
         {
             PhaseBase phase = nsu.phase;
@@ -94,6 +109,21 @@ public class GuiGame : MenuElement
     {
         menuController.ExitGame();
     }
+
+#if USE_GAME_STORE
+    void HandleSetupModeChanged(bool active)
+    {
+        // Mode-driven panel switching in flagged builds
+        GameElement desired = active ? (GameElement)setup : movement;
+        if (currentGameElement == desired)
+        {
+            return; // already showing correct panel; avoid disabling/enabling and uninitializing
+        }
+        if (currentGameElement != null) currentGameElement.ShowElement(false);
+        currentGameElement = desired;
+        currentGameElement.ShowElement(true);
+    }
+#endif
 
     public override void ShowElement(bool show)
     {

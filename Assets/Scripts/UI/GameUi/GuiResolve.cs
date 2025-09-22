@@ -120,4 +120,9 @@ public class GuiResolve : GameElement
         AudioManager.PlayMidButtonClick();
         OnSkipButton?.Invoke();
     }
+
+    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
+    {
+        Initialize(net);
+    }
 }

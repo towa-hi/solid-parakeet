@@ -161,4 +161,10 @@ public class GuiMovement : GameElement
         AudioManager.PlayMidButtonClick();
         OnMenuButton?.Invoke();
     }
+
+    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
+    {
+        // No-op for now; movement UI can seed status text if needed
+        Initialize(net);
+    }
 }

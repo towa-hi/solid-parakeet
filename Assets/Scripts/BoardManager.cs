@@ -35,202 +35,6 @@ public class BoardManager : MonoBehaviour
     
 #if USE_GAME_STORE
     GameStore store;
-    // Local shim reducer to avoid namespace/type resolution issues early on
-    sealed class __NetworkReducerShim : IGameReducer
-    {
-        public (GameSnapshot nextState, System.Collections.Generic.List<GameEvent> events) Reduce(GameSnapshot state, GameAction action)
-        {
-            if (action is not NetworkStateChanged a)
-            {
-                return (state, null);
-            }
-            state ??= GameSnapshot.Empty;
-            ClientMode newMode = ModeDecider.DecideClientMode(a.Net, a.Delta);
-            ClientMode oldMode = state.Mode;
-            LocalUiState ui = state.Ui ?? LocalUiState.Empty;
-            if (newMode != oldMode)
-            {
-                // Centralized reset on mode change
-                ui = LocalUiState.Empty;
-                if (newMode == ClientMode.Resolve && a.Delta.TurnResolve.HasValue)
-                {
-                    ui = ui with { ResolveData = a.Delta.TurnResolve.Value, Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
-                }
-            }
-            else if (a.Delta.TurnResolve.HasValue)
-            {
-                // Attach resolve data when provided (e.g., initial entry)
-                ui = (ui ?? LocalUiState.Empty) with { ResolveData = a.Delta.TurnResolve.Value };
-            }
-            GameSnapshot next = state with { Net = a.Net, Mode = newMode, Ui = ui };
-            return (next, null);
-        }
-    }
-    // Local shim effects to route contract calls through actions and manage polling
-    sealed class __NetworkEffectsShim : IGameEffect
-    {
-        public BoardManager owner;
-        public void Initialize(GameStore store) { }
-        public async void OnActionAndEvents(GameAction action, System.Collections.Generic.IReadOnlyList<GameEvent> events, GameSnapshot state)
-        {
-            switch (action)
-            {
-                case NetworkStateChanged a:
-                {
-                    // Centralized polling policy when using the store
-                    bool isFinished = a.Net.lobbyInfo.phase is Phase.Finished or Phase.Aborted;
-                    ClientMode mode = ModeDecider.DecideClientMode(a.Net, a.Delta);
-                    bool shouldPoll = !a.Net.IsMySubphase() && !isFinished && mode != ClientMode.Resolve;
-                    StellarManager.SetPolling(shouldPoll);
-                    break;
-                }
-                case RefreshRequested:
-                    await StellarManager.UpdateState();
-                    break;
-                case CommitSetupAction a:
-                {
-                    var result = await StellarManager.CommitSetupRequest(a.Req);
-                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
-                    await StellarManager.UpdateState();
-                    break;
-                }
-                case SetupSubmit:
-                {
-                    // Build CommitSetupReq from LocalUiState
-                    var net = state.Net;
-                    var ui = state.Ui ?? LocalUiState.Empty;
-                    var pending = ui.PendingCommits;
-                    var hiddenRanks = new System.Collections.Generic.List<HiddenRank>();
-                    var commits = new System.Collections.Generic.List<SetupCommit>();
-                    foreach (var kv in pending)
-                    {
-                        if (kv.Value is not Rank rank) { continue; }
-                        var pawn = net.GetPawnFromId(kv.Key);
-                        var hiddenRank = new HiddenRank { pawn_id = pawn.pawn_id, rank = rank, salt = Globals.RandomSalt() };
-                        hiddenRanks.Add(hiddenRank);
-                        commits.Add(new SetupCommit { hidden_rank_hash = SCUtility.Get16ByteHash(hiddenRank), pawn_id = pawn.pawn_id });
-                    }
-                    var leaves = new System.Collections.Generic.List<byte[]>();
-                    foreach (var c in commits) leaves.Add(c.hidden_rank_hash);
-                    (byte[] root, MerkleTree tree) = MerkleTree.BuildMerkleTree(leaves.ToArray());
-                    var req = new CommitSetupReq { lobby_id = net.lobbyInfo.index, rank_commitment_root = root, zz_hidden_ranks = net.lobbyParameters.security_mode ? new HiddenRank[]{} : hiddenRanks.ToArray() };
-                    if (net.lobbyParameters.security_mode)
-                    {
-                        var proofs = new System.Collections.Generic.List<CachedRankProof>();
-                        for (int i = 0; i < commits.Count; i++)
-                        {
-                            var hidden = hiddenRanks[i];
-                            var proof = tree.GenerateProof((uint)i);
-                            proofs.Add(new CachedRankProof { hidden_rank = hidden, merkle_proof = proof });
-                        }
-                        CacheManager.StoreHiddenRanksAndProofs(proofs, net.address, net.lobbyInfo.index);
-                    }
-                    owner.store.Dispatch(new CommitSetupAction(req));
-                    break;
-                }
-                case CommitMoveAndProveAction a:
-                {
-                    var gns = state.Net;
-                    var result = await StellarManager.CommitMoveRequest(a.CommitReq, a.ProveReq, gns.address, gns.lobbyInfo, gns.lobbyParameters);
-                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
-                    await StellarManager.UpdateState();
-                    break;
-                }
-                case ProveMoveAction a:
-                {
-                    var gns = state.Net;
-                    var result = await StellarManager.ProveMoveRequest(a.Req, gns.address, gns.lobbyInfo, gns.lobbyParameters);
-                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
-                    await StellarManager.UpdateState();
-                    break;
-                }
-                case ProveRankAction a:
-                {
-                    var result = await StellarManager.ProveRankRequest(a.Req);
-                    if (result.IsError) { HandleFatalNetworkError(result.Message); return; }
-                    await StellarManager.UpdateState();
-                    break;
-                }
-                case ResolvePrev:
-                case ResolveNext:
-                case ResolveSkip:
-                {
-                    // Emit same operation to keep UI in sync immediately
-                    if (owner.currentPhase is ResolvePhase rp)
-                    {
-                        var ckpt = rp.currentCheckpoint;
-                        var idx = rp.currentBattleIndex;
-                        if (action is ResolvePrev)
-                        {
-                            if (ckpt == ResolvePhase.Checkpoint.Final)
-                            {
-                                idx = (rp.tr.battles?.Length ?? 0) - 1;
-                                ckpt = idx >= 0 ? ResolvePhase.Checkpoint.Battle : ResolvePhase.Checkpoint.PostMoves;
-                            }
-                            else if (ckpt == ResolvePhase.Checkpoint.Battle)
-                            {
-                                if (idx > 0) idx--; else { ckpt = ResolvePhase.Checkpoint.Pre; idx = -1; }
-                            }
-                            else if (ckpt == ResolvePhase.Checkpoint.PostMoves)
-                            {
-                                ckpt = ResolvePhase.Checkpoint.Pre; idx = -1;
-                            }
-                        }
-                        else if (action is ResolveNext)
-                        {
-                            if (ckpt == ResolvePhase.Checkpoint.Pre)
-                            {
-                                ckpt = ResolvePhase.Checkpoint.PostMoves;
-                            }
-                            else if (ckpt == ResolvePhase.Checkpoint.PostMoves)
-                            {
-                                bool hasBattles = (rp.tr.battles?.Length ?? 0) > 0;
-                                ckpt = hasBattles ? ResolvePhase.Checkpoint.Battle : ResolvePhase.Checkpoint.Final;
-                                if (ckpt == ResolvePhase.Checkpoint.Battle) idx = 0;
-                            }
-                            else if (ckpt == ResolvePhase.Checkpoint.Battle)
-                            {
-                                int total = rp.tr.battles?.Length ?? 0;
-                                idx = idx + 1 < total ? idx + 1 : idx;
-                                if (idx + 1 >= total) ckpt = ResolvePhase.Checkpoint.Final;
-                            }
-                            else if (ckpt == ResolvePhase.Checkpoint.Final)
-                            {
-                                owner.PhaseStateChanged(new PhaseChangeSet(new ResolveDone()));
-                                break;
-                            }
-                        }
-                        else if (action is ResolveSkip)
-                        {
-                            // Immediately end resolve and transition out
-                            owner.PhaseStateChanged(new PhaseChangeSet(new ResolveDone()));
-                            break;
-                        }
-                        rp.currentCheckpoint = ckpt;
-                        rp.currentBattleIndex = idx;
-                        owner.PhaseStateChanged(new PhaseChangeSet(new ResolveCheckpointEntered(ckpt, rp.tr, idx, rp)));
-                    }
-                    break;
-                }
-            }
-        }
-
-        static void HandleFatalNetworkError(string message)
-        {
-            string msg = string.IsNullOrEmpty(message) ? "You're now in Offline Mode." : message;
-            StellarManager.SetPolling(false);
-            MenuController menuController = UnityEngine.Object.FindFirstObjectByType<MenuController>();
-            if (menuController != null)
-            {
-                menuController.OpenMessageModal($"Network Unavailable\n{msg}");
-                menuController.ExitGame();
-            }
-            else
-            {
-                UnityEngine.Debug.LogError($"MenuController not found. Error: {msg}");
-            }
-        }
-    }
     // Local shim reducer for resolve stepping
     sealed class __ResolveReducerShim : IGameReducer
     {
@@ -292,8 +96,11 @@ public class BoardManager : MonoBehaviour
     
     public void StartBoardManager()
     {
+        Debug.Log("BoardManager.StartBoardManager: begin");
         GameNetworkState netState = new(StellarManager.networkState);
+        Debug.Log($"BoardManager.StartBoardManager: snapshot lobbyPhase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} turn={netState.gameState.turn} security={netState.lobbyParameters.security_mode}");
         Initialize(netState);
+        Debug.Log("BoardManager.StartBoardManager: seeding initial OnGameStateBeforeApplied");
         OnGameStateBeforeApplied(netState, default); // seed once on start
     }
 
@@ -328,34 +135,61 @@ public class BoardManager : MonoBehaviour
         pawnViews.Clear();
         
         clickInputManager.SetUpdating(false);
+#if USE_GAME_STORE
+        // Reset store and event subscriptions to avoid stale UI/state between games
+        if (store != null)
+        {
+            store.EventsEmitted -= OnStoreEvents;
+            store = null;
+        }
+        ViewEventBus.RaiseSetupModeChanged(false);
+#endif
         initialized = false;
     }
     
     void Initialize(GameNetworkState netState)
     {
+        Debug.Log("BoardManager.Initialize: begin");
         CloseBoardManager();
+        Debug.Log("BoardManager.Initialize: showing GuiGame and enabling ClickInputManager");
         guiGame.ShowElement(true);
         clickInputManager.SetUpdating(true);
-        CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
+        Debug.Log($"BoardManager.Initialize: cache init? security_mode={netState.lobbyParameters.security_mode}");
+        // Initialize cache only in secure mode; single-player/offline and non-secure should not touch cache
+        if (netState.lobbyParameters.security_mode)
+        {
+            CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
+        }
         GameLogger.Initialize(netState);
         // Initialize store (flagged)
 #if USE_GAME_STORE
-        // Initialize store with a single network reducer (local shim to avoid cross-assembly issues)
+        Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
         IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new __ResolveReducerShim(), new UiReducer() };
-        var effect = new __NetworkEffectsShim();
-        effect.owner = this;
-        IGameEffect[] effects = new IGameEffect[] { effect };
+        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects() };
         store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
             reducers,
             effects
         );
         store.EventsEmitted += OnStoreEvents;
+        ClientMode initMode = ModeDecider.DecideClientMode(netState, default);
+        Debug.Log($"BoardManager.Initialize: initial ClientMode={initMode}");
         // Announce current setup mode for views on init
-        ViewEventBus.RaiseSetupModeChanged(ModeDecider.DecideClientMode(netState, default) == ClientMode.Setup);
+        ViewEventBus.RaiseSetupModeChanged(initMode == ClientMode.Setup);
+        // Wire GUI once per game start (flagged path)
+        guiGame.setup.OnClearButton = () => store.Dispatch(new SetupClearAll());
+        guiGame.setup.OnAutoSetupButton = () => store.Dispatch(new SetupAutoFill());
+        guiGame.setup.OnRefreshButton = () => store.Dispatch(new RefreshRequested());
+        guiGame.setup.OnSubmitButton = () => store.Dispatch(new SetupSubmit());
+        guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
+        // Seed UI elements from current state
+        guiGame.setup.InitializeFromState(netState, store.State.Ui ?? LocalUiState.Empty);
+        // Immediately request a fresh network snapshot to avoid showing stale state on new games
+        store.Dispatch(new RefreshRequested());
 #endif
         // set up board and pawns
         Board board = netState.lobbyParameters.board;
+        Debug.Log($"BoardManager.Initialize: building board hex={board.hex} tiles={board.tiles.Length} pawns={netState.gameState.pawns.Length}");
         grid.SetBoard(board.hex);
         foreach (TileState tile in board.tiles)
         {
@@ -372,12 +206,14 @@ public class BoardManager : MonoBehaviour
             pawnView.Initialize(pawn, tileViews[pawn.pos]);
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
+        Debug.Log("BoardManager.Initialize: finished creating views; starting music");
         AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
         
         StellarManager.OnGameStateBeforeApplied += OnGameStateBeforeApplied;
         
         initialized = true;
         // Initialize arena once per game load
+        Debug.Log("BoardManager.Initialize: end (initialized=true)");
         ArenaController.instance?.Initialize(netState.lobbyParameters.board.hex);
     }
     
@@ -393,15 +229,16 @@ public class BoardManager : MonoBehaviour
         {
             return;
         }
-        Debug.Log($"BoardManager::OnGameStateBeforeApplied turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
+        Debug.Log($"BoardManager.OnGameStateBeforeApplied: turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
 #if USE_GAME_STORE
         // Feed the store; views still driven by existing flow for now
         store?.Dispatch(new NetworkStateChanged(netState, delta));
 #endif
         // Compute client mode (read-only for now)
         ClientMode clientMode = ModeDecider.DecideClientMode(netState, delta);
-        Debug.Log($"ClientMode={clientMode}");
+        Debug.Log($"BoardManager.OnGameStateBeforeApplied: ClientMode={clientMode}");
         ViewEventBus.RaiseSetupModeChanged(clientMode == ClientMode.Setup);
+        
         bool shouldPoll = !netState.IsMySubphase();
         // No local task references to reset; StellarManager governs busy state
         // If server indicates game is over outside of resolve (e.g., resignation), immediately switch to FinishedPhase
@@ -439,6 +276,7 @@ public class BoardManager : MonoBehaviour
         if (shouldSwitchPhase)
         {
 #if USE_GAME_STORE
+            // In flagged builds, avoid SetupCommitPhase entirely; input is routed by mode
             ClientMode mode = ModeDecider.DecideClientMode(netState, delta);
             PhaseBase nextPhase = ModePhaseFactory.CreatePhase(mode, netState, delta);
 #else
@@ -461,14 +299,23 @@ public class BoardManager : MonoBehaviour
 #if USE_GAME_STORE
             currentPhase.SetActionDispatcher(store != null ? new System.Action<GameAction>(store.Dispatch) : null);
 #endif
-            Debug.Log($"BoardManager: Switched to phase type {currentPhase.GetType().Name} (netPhase={newPhase})");
+            Debug.Log($"BoardManager: Switched to phase type {currentPhase.GetType().Name} (serverPhase={newPhase}, clientMode={clientMode})");
             currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
         }
         
         // Always update the network state
         currentPhase.UpdateNetworkState(netState, delta);
         GameLogger.RecordNetworkState(netState);
+#if USE_GAME_STORE
+        // In Setup mode under the new system, do NOT broadcast PhaseChangeSet to tiles/pawns,
+        // because legacy MoveCommit visuals will override setup visuals.
+        if (clientMode != ClientMode.Setup)
+        {
+            PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
+        }
+#else
         PhaseStateChanged(new PhaseChangeSet(new NetStateUpdated(currentPhase)));
+#endif
         // Manage polling: suspend while in ResolvePhase and when game is finished/aborted
         if (currentPhase is ResolvePhase || currentPhase is FinishedPhase)
         {
@@ -479,9 +326,15 @@ public class BoardManager : MonoBehaviour
 #endif
 #if USE_GAME_STORE
         // Route input by mode: in Setup mode, bypass phase and use mode-driven router
-        if (ModeDecider.DecideClientMode(netState, delta) == ClientMode.Setup)
+        ClientMode routeMode = ModeDecider.DecideClientMode(netState, delta);
+        if (routeMode == ClientMode.Setup)
         {
+            Debug.Log("BoardManager: Routing ClickInputManager to SetupModeInputRouter");
             clickInputManager.OnMouseInput = SetupModeInputRouter;
+        }
+        else
+        {
+            Debug.Log("BoardManager: Using phase OnMouseInput routing");
         }
 #endif
     }
@@ -491,9 +344,13 @@ public class BoardManager : MonoBehaviour
     {
         if (store == null) return;
         // Always update hover first so UiReducer computes tool
+        Debug.Log($"SetupModeInputRouter: hover pos={hoveredPos} clicked={clicked}");
         store.Dispatch(new SetupHoverAction(hoveredPos));
         if (!clicked) return;
         if (StellarManager.IsBusy) return;
+        var mode = store.State.Mode;
+        var tool = (store.State.Ui ?? LocalUiState.Empty).SetupTool;
+        Debug.Log($"SetupModeInputRouter: dispatch click at {hoveredPos} mode={mode} tool={tool}");
         store.Dispatch(new SetupClickAt(hoveredPos));
     }
 #endif

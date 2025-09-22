@@ -73,6 +73,24 @@ public class GuiSetup : GameElement
         selectedRank = null;
     }
 
+    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
+    {
+        Debug.Log("GuiSetup.InitializeFromState");
+        Initialize(net);
+        // Apply initial UI state: selection and pending counts
+        if (ui.SelectedRank is Rank sel)
+        {
+            HandleSetupRankSelected(null, sel);
+        }
+        if (ui.PendingCommits != null)
+        {
+            HandleSetupPendingChanged(new Dictionary<PawnId, Rank?>(), ui.PendingCommits);
+        }
+    }
+
+    // Removed; setup is initialized via legacy PhaseStateChanged in non-flag builds,
+    // and via event bus + board init in flagged builds.
+
     void OnDisable()
     {
         setupScreen.Uninitialize();
@@ -81,6 +99,10 @@ public class GuiSetup : GameElement
     }
     public override void PhaseStateChanged(PhaseChangeSet changes)
     {
+#if USE_GAME_STORE
+        // In flagged builds, setup UI is driven by ViewEventBus and InitializeFromNet; ignore phase-driven updates
+        return;
+#endif
         // Handle setup UI only during SetupCommitPhase; otherwise ensure uninitialized
         GameNetworkState? setInitialize = null;
         ((Rank, int, int)[], Rank?)? setRefreshEntries = null;
