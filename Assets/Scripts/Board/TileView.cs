@@ -108,7 +108,7 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
-        
+        ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChanged;
     }
 
     public void DetachSubscriptions()
@@ -119,7 +119,7 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
-        
+        ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
     }
 
     void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
@@ -140,6 +140,44 @@ public class TileView : MonoBehaviour
         // Mode-specific initialization
         isSetupTile = (mode == ClientMode.Setup) && setupView != Team.NONE;
         SetTileDebug();
+        // When entering modes, seed arrows immediately for Resolve only (Move arrows will be driven by events)
+        switch (mode)
+        {
+            case ClientMode.Resolve:
+            {
+                // Use resolve payload moves for arrows
+                bool start = false;
+                bool target = false;
+                TileView targetTile = null;
+                var tr = ui.ResolveData;
+                if (tr.moves != null)
+                {
+                    foreach (var kv in tr.moves)
+                    {
+                        var mv = kv.Value;
+                        if (mv.from == posView)
+                        {
+                            start = true;
+                            if (ViewEventBus.TileViewResolver != null) targetTile = ViewEventBus.TileViewResolver(mv.target);
+                        }
+                        if (mv.target == posView) target = true;
+                    }
+                }
+                isMovePairStart = start;
+                isMovePairTarget = target;
+                arrow.gameObject.SetActive(start && targetTile != null);
+                if (start && targetTile != null)
+                {
+                    arrow.ArcFromTiles(this, targetTile);
+                    pointedTile = targetTile;
+                }
+                Color col = Color.clear;
+                if (isMovePairStart) col = Color.green * 0.5f;
+                if (isMovePairTarget) col = Color.blue * 0.5f;
+                SetTopColor(col);
+                break;
+            }
+        }
     }
 
     void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn, SetupInputTool _)
@@ -215,6 +253,11 @@ public class TileView : MonoBehaviour
         if (isMovePairStart) finalColor = Color.green * 0.5f;
         if (isMovePairTarget) finalColor = Color.blue * 0.5f;
         SetTopColor(finalColor);
+    }
+
+    void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
+    {
+        // Arrows do not change with checkpoints; no-op
     }
 
     public void PhaseStateChanged(PhaseChangeSet changes)

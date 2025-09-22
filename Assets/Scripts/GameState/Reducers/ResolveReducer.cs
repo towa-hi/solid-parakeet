@@ -10,32 +10,26 @@ public sealed class ResolveReducer : IGameReducer
         switch (action)
         {
             case NetworkStateChanged a when a.Delta.TurnResolve.HasValue:
-                // Capture resolve data upon receiving it
+                // Capture resolve data upon receiving it and notify views to apply Pre checkpoint immediately
                 ui = ui with { ResolveData = a.Delta.TurnResolve.Value, Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
+                ViewEventBus.RaiseResolveCheckpointChanged(ResolveCheckpoint.Pre, ui.ResolveData, -1, a.Net);
                 return (state with { Ui = ui }, null);
             case ResolvePrev:
             {
-                if (ui.Checkpoint == ResolveCheckpoint.Final)
-                {
-                    int last = (ui.ResolveData.battles?.Length ?? 0) - 1;
-                    ui = last >= 0
-                        ? ui with { Checkpoint = ResolveCheckpoint.Battle, BattleIndex = last }
-                        : ui with { Checkpoint = ResolveCheckpoint.PostMoves };
-                }
-                else if (ui.Checkpoint == ResolveCheckpoint.Battle)
-                {
-                    ui = ui.BattleIndex > 0
-                        ? ui with { BattleIndex = ui.BattleIndex - 1 }
-                        : ui with { Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
-                }
-                else if (ui.Checkpoint == ResolveCheckpoint.PostMoves)
-                {
-                    ui = ui with { Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
-                }
+                // Always jump straight back to Pre
+                ui = ui with { Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
+                ViewEventBus.RaiseResolveCheckpointChanged(ui.Checkpoint, ui.ResolveData, ui.BattleIndex, state.Net);
                 return (state with { Ui = ui }, null);
             }
             case ResolveNext:
             {
+                // If already at Final, advance to next mode based on ModeDecider (Finished vs Move)
+                if (ui.Checkpoint == ResolveCheckpoint.Final)
+                {
+                    ClientMode nextMode = ModeDecider.DecideClientMode(state.Net, default, ui);
+                    ViewEventBus.RaiseClientModeChanged(nextMode, state.Net, ui);
+                    return (state with { Ui = ui }, null);
+                }
                 if (ui.Checkpoint == ResolveCheckpoint.Pre)
                 {
                     ui = ui with { Checkpoint = ResolveCheckpoint.PostMoves };
@@ -55,15 +49,23 @@ public sealed class ResolveReducer : IGameReducer
                         ? ui with { BattleIndex = next }
                         : ui with { Checkpoint = ResolveCheckpoint.Final };
                 }
-                else if (ui.Checkpoint == ResolveCheckpoint.Final)
-                {
-                    // signal done by staying in Final; Phase will interpret it as ResolveDone if needed
-                }
+                // If we just entered Final, stay in Resolve until user presses Next/Skip again
+                ViewEventBus.RaiseResolveCheckpointChanged(ui.Checkpoint, ui.ResolveData, ui.BattleIndex, state.Net);
                 return (state with { Ui = ui }, null);
             }
             case ResolveSkip:
-                ui = ui with { Checkpoint = ResolveCheckpoint.Final };
-                return (state with { Ui = ui }, null);
+                if (ui.Checkpoint == ResolveCheckpoint.Final)
+                {
+                    ClientMode nextMode = ModeDecider.DecideClientMode(state.Net, default, ui);
+                    ViewEventBus.RaiseClientModeChanged(nextMode, state.Net, ui);
+                    return (state with { Ui = ui }, null);
+                }
+                else
+                {
+                    ui = ui with { Checkpoint = ResolveCheckpoint.Final };
+                    ViewEventBus.RaiseResolveCheckpointChanged(ui.Checkpoint, ui.ResolveData, ui.BattleIndex, state.Net);
+                    return (state with { Ui = ui }, null);
+                }
             default:
                 return (state, null);
         }

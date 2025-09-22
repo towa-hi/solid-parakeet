@@ -47,6 +47,14 @@ public class SetupScreen : MonoBehaviour
     [Header("Hover Presentation")]
     public float hoverYOffsetLocal = 0.05f;
     
+    void OnEnable()
+    {
+        cardRoot.gameObject.SetActive(true);
+    }
+    void OnDisable()
+    {
+        cardRoot.gameObject.SetActive(false);
+    }
     public void Initialize(GameNetworkState netState)
     {
         if (debugLayoutLogs)

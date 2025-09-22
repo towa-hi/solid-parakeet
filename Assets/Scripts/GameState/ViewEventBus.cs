@@ -15,6 +15,8 @@ public static class ViewEventBus
     
     public static event Action<Vector2Int?, HashSet<Vector2Int>> OnMoveSelectionChanged;
     public static event Action<Dictionary<PawnId, (Vector2Int start, Vector2Int target)>, Dictionary<PawnId, (Vector2Int start, Vector2Int target)>> OnMovePairsChanged;
+    // Resolve events (store-driven)
+    public static event Action<ResolveCheckpoint, TurnResolveDelta, int, GameNetworkState> OnResolveCheckpointChanged;
     
     // Utility resolver for views needing TileView from board space
     public static Func<Vector2Int, TileView> TileViewResolver;
@@ -29,6 +31,9 @@ public static class ViewEventBus
     
     public static void RaiseMoveSelectionChanged(Vector2Int? selectedPos, HashSet<Vector2Int> validTargets) => OnMoveSelectionChanged?.Invoke(selectedPos, validTargets);
     public static void RaiseMovePairsChanged(Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs) => OnMovePairsChanged?.Invoke(oldPairs, newPairs);
+
+    public static void RaiseResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
+        => OnResolveCheckpointChanged?.Invoke(checkpoint, tr, battleIndex, net);
 }
 
 

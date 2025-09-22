@@ -46,7 +46,6 @@ public class GuiSetup : GameElement
 
     public void DetachSubscriptions()
     {
-        setupScreen.Uninitialize();
         ViewEventBus.OnSetupRankSelected -= HandleSetupRankSelected;
         ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
     }

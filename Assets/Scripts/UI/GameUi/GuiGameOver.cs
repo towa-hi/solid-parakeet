@@ -19,23 +19,14 @@ public class GuiGameOver : GameElement
         }
     }
 
-    public override void PhaseStateChanged(PhaseChangeSet changes)
+    // New system: drive from client mode change
+    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
-        if (changes.GetNetStateUpdated() is NetStateUpdated netStateUpdated)
-        {
-            GameNetworkState netState = netStateUpdated.phase.cachedNetState;
-            bool isFinished = netState.lobbyInfo.phase is Phase.Finished or Phase.Aborted;
-            ShowElement(isFinished);
-            if (!isFinished)
-            {
-                return;
-            }
-            string msg = BuildMessage(netState);
-            if (messageText != null)
-            {
-                messageText.text = msg;
-            }
-        }
+        bool isFinished = mode == ClientMode.Finished || mode == ClientMode.Aborted;
+        ShowElement(isFinished);
+        if (!isFinished) return;
+        string msg = BuildMessage(net);
+        if (messageText != null) messageText.text = msg;
     }
 
     string BuildMessage(GameNetworkState netState)
@@ -72,7 +63,22 @@ public class GuiGameOver : GameElement
 
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
-        // No-op: GuiGameOver initializes itself from phase updates when game ends
+        HandleClientModeChanged(ModeDecider.DecideClientMode(net, default), net, ui);
+    }
+
+    public void AttachSubscriptions()
+    {
+        ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
+    }
+
+    public void DetachSubscriptions()
+    {
+        ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
+    }
+
+    public override void PhaseStateChanged(PhaseChangeSet changes)
+    {
+        // No-op under new system; driven by client mode event
     }
 }
 

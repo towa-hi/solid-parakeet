@@ -37,11 +37,24 @@ public class GuiResolve : GameElement
         nextButtonLabel.text = "[apply moves] ->";
     }
     
-    // no phasestatechanged listen here
+    public void AttachSubscriptions()
+    {
+        ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChanged;
+    }
+
+    public void DetachSubscriptions()
+    {
+        ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
+    }
+    
+    // no phasestatechanged listen here under new system
 
     public override void PhaseStateChanged(PhaseChangeSet changes)
     {
-        // Reflect resolve sub-state in status text based on operations
+#if USE_GAME_STORE
+        return;
+#else
+        // Reflect resolve sub-state in status text based on operations (legacy)
         foreach (GameOperation op in changes.operations)
         {
             switch (op)
@@ -51,9 +64,11 @@ public class GuiResolve : GameElement
                     break;
             }
         }
+#endif
         // Visibility is handled centrally by GuiGame. Do not toggle here.
     }
- void ResolveCheckpointEntered(ResolvePhase.Checkpoint checkpoint, TurnResolveDelta tr, int battleIndex) {    
+ 
+    void ResolveCheckpointEntered(ResolvePhase.Checkpoint checkpoint, TurnResolveDelta tr, int battleIndex) {    
         string prevLabel = null;
         string nextLabel = null;
         string status = null;
@@ -92,6 +107,20 @@ public class GuiResolve : GameElement
         prevButtonLabel.text = prevLabel;
         nextButtonLabel.text = nextLabel;
     }
+
+    void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
+    {
+        // Map to legacy enum for existing method
+        ResolvePhase.Checkpoint ck = checkpoint switch
+        {
+            ResolveCheckpoint.Pre => ResolvePhase.Checkpoint.Pre,
+            ResolveCheckpoint.PostMoves => ResolvePhase.Checkpoint.PostMoves,
+            ResolveCheckpoint.Battle => ResolvePhase.Checkpoint.Battle,
+            ResolveCheckpoint.Final => ResolvePhase.Checkpoint.Final,
+            _ => ResolvePhase.Checkpoint.Pre,
+        };
+        ResolveCheckpointEntered(ck, tr, battleIndex);
+    }
     void HandleMenuButton()
     {
         //just play a mid button click and invoke the event in these functions
@@ -124,5 +153,7 @@ public class GuiResolve : GameElement
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
         Initialize(net);
+        // Seed from current checkpoint if any
+        HandleResolveCheckpointChanged(ui.Checkpoint, ui.ResolveData, ui.BattleIndex, net);
     }
 }

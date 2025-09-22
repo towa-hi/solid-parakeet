@@ -19,12 +19,14 @@ public class CursorController : MonoBehaviour
         instance = this;
         ViewEventBus.OnSetupHoverChanged += HandleSetupHover;
         ViewEventBus.OnMoveHoverChanged += HandleMoveHover;
+        ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
     }
     
     void OnDestroy()
     {
         ViewEventBus.OnSetupHoverChanged -= HandleSetupHover;
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHover;
+        ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
     }
     
     void Start()
@@ -42,6 +44,14 @@ public class CursorController : MonoBehaviour
     {
         if (!isMyTurn) { ChangeCursor(CursorType.DISABLED); return; }
         UpdateCursor(tool);
+    }
+
+    static void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+    {
+        if (mode == ClientMode.Resolve || mode == ClientMode.Finished || mode == ClientMode.Aborted)
+        {
+            ChangeCursor(CursorType.DEFAULT);
+        }
     }
 
     static void ChangeCursor(CursorType cursorType)

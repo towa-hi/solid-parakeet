@@ -35,62 +35,7 @@ public class BoardManager : MonoBehaviour
     
 #if USE_GAME_STORE
     GameStore store;
-    // Local shim reducer for resolve stepping
-    sealed class __ResolveReducerShim : IGameReducer
-    {
-        public (GameSnapshot nextState, System.Collections.Generic.List<GameEvent> events) Reduce(GameSnapshot state, GameAction action)
-        {
-            if (state == null) state = GameSnapshot.Empty;
-            LocalUiState ui = state.Ui ?? LocalUiState.Empty;
-            switch (action)
-            {
-                case NetworkStateChanged a when a.Delta.TurnResolve.HasValue:
-                    ui = ui with { ResolveData = a.Delta.TurnResolve.Value, Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
-                    return (state with { Ui = ui }, null);
-                case ResolvePrev:
-                {
-                    if (ui.Checkpoint == ResolveCheckpoint.Final)
-                    {
-                        int last = (ui.ResolveData.battles?.Length ?? 0) - 1;
-                        ui = last >= 0 ? ui with { Checkpoint = ResolveCheckpoint.Battle, BattleIndex = last } : ui with { Checkpoint = ResolveCheckpoint.PostMoves };
-                    }
-                    else if (ui.Checkpoint == ResolveCheckpoint.Battle)
-                    {
-                        ui = ui.BattleIndex > 0 ? ui with { BattleIndex = ui.BattleIndex - 1 } : ui with { Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
-                    }
-                    else if (ui.Checkpoint == ResolveCheckpoint.PostMoves)
-                    {
-                        ui = ui with { Checkpoint = ResolveCheckpoint.Pre, BattleIndex = -1 };
-                    }
-                    return (state with { Ui = ui }, null);
-                }
-                case ResolveNext:
-                {
-                    if (ui.Checkpoint == ResolveCheckpoint.Pre)
-                    {
-                        ui = ui with { Checkpoint = ResolveCheckpoint.PostMoves };
-                    }
-                    else if (ui.Checkpoint == ResolveCheckpoint.PostMoves)
-                    {
-                        bool hasBattles = (ui.ResolveData.battles?.Length ?? 0) > 0;
-                        ui = hasBattles ? ui with { Checkpoint = ResolveCheckpoint.Battle, BattleIndex = 0 } : ui with { Checkpoint = ResolveCheckpoint.Final };
-                    }
-                    else if (ui.Checkpoint == ResolveCheckpoint.Battle)
-                    {
-                        int next = ui.BattleIndex + 1;
-                        int total = ui.ResolveData.battles?.Length ?? 0;
-                        ui = next < total ? ui with { BattleIndex = next } : ui with { Checkpoint = ResolveCheckpoint.Final };
-                    }
-                    return (state with { Ui = ui }, null);
-                }
-                case ResolveSkip:
-                    ui = ui with { Checkpoint = ResolveCheckpoint.Final };
-                    return (state with { Ui = ui }, null);
-                default:
-                    return (state, null);
-            }
-        }
-    }
+    
 #endif
     
     
@@ -150,6 +95,7 @@ public class BoardManager : MonoBehaviour
         {
             if (guiGame.setup != null) guiGame.setup.DetachSubscriptions();
             if (guiGame.movement != null) guiGame.movement.DetachSubscriptions();
+            if (guiGame.resolve != null) guiGame.resolve.DetachSubscriptions();
         }
 #endif
         initialized = false;
@@ -172,7 +118,7 @@ public class BoardManager : MonoBehaviour
         // Initialize store (flagged)
 #if USE_GAME_STORE
         Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
-        IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new __ResolveReducerShim(), new UiReducer() };
+        IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new ResolveReducer(), new UiReducer() };
         IGameEffect[] effects = new IGameEffect[] { new NetworkEffects() };
         store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
@@ -191,6 +137,7 @@ public class BoardManager : MonoBehaviour
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
         guiGame.setup.AttachSubscriptions();
         guiGame.movement.AttachSubscriptions();
+        guiGame.resolve.AttachSubscriptions();
         // Do not initialize panels directly; ClientModeChanged will initialize the active one
         // Immediately request a fresh network snapshot to avoid showing stale state on new games
         store.Dispatch(new RefreshRequested());
@@ -247,7 +194,12 @@ public class BoardManager : MonoBehaviour
         store?.Dispatch(new NetworkStateChanged(netState, delta));
 #endif
         // Compute client mode (read-only for now)
-        ClientMode clientMode = ModeDecider.DecideClientMode(netState, delta);
+        ClientMode clientMode =
+#if USE_GAME_STORE
+            ModeDecider.DecideClientMode(netState, delta, store?.State.Ui ?? LocalUiState.Empty);
+#else
+            ModeDecider.DecideClientMode(netState, delta);
+#endif
         Debug.Log($"BoardManager.OnGameStateBeforeApplied: ClientMode={clientMode}");
         // Emit mode every update to let UI swap lazily if reducer skipped (e.g., first frame)
 #if USE_GAME_STORE
@@ -260,20 +212,7 @@ public class BoardManager : MonoBehaviour
         
         bool shouldPoll = !netState.IsMySubphase();
         // No local task references to reset; StellarManager governs busy state
-        // If server indicates game is over outside of resolve (e.g., resignation), immediately switch to FinishedPhase
-        if ((netState.lobbyInfo.phase is Phase.Finished or Phase.Aborted) && delta.TurnResolve is null)
-        {
-            // Enter a FinishedPhase locally if not already there so GuiGame can show modal
-            if (currentPhase is not FinishedPhase)
-            {
-                currentPhase?.ExitState(clickInputManager, guiGame);
-                currentPhase = new FinishedPhase();
-#if USE_GAME_STORE
-                currentPhase.SetActionDispatcher(store != null ? new System.Action<GameAction>(store.Dispatch) : null);
-#endif
-                currentPhase.EnterState(PhaseStateChanged, CallContract, GetNetworkState, clickInputManager, tileViews, pawnViews, guiGame);
-            }
-        }
+        // Legacy FinishedPhase routing not needed under the new system; ClientMode router will show game over UI
 
         // Check if mode actually changed and use ModeDecider/ModePhaseFactory to map
         Phase newPhase = netState.lobbyInfo.phase;
