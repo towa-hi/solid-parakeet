@@ -8,18 +8,16 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: CardBackMat
-  m_Shader: {fileID: 4800000, guid: 0dde7f0097aeb2541aea684ca0ad0e3c, type: 3}
+  m_Shader: {fileID: 4800000, guid: 8a970d62549d99d4eab51bffa33b0ee9, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ALPHA_CUTOFF_ON
-  - _CAST_SHADOWS_ON
   - _COLORRAMPLIGHTINGSTAGE_BEFORELIGHTING
   - _GREYSCALESTAGE_BEFORELIGHTING
   - _LIGHTMODEL_NONE
   - _MATCAPBLENDMODE_MULTIPLY
   - _OUTLINETYPE_NONE
-  - _RECEIVE_SHADOWS_ON
   - _REFLECTIONS_NONE
   - _RIMLIGHTINGSTAGE_BEFORELIGHTING
   - _SHADINGMODEL_BASIC
@@ -36,7 +34,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 2000
   stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
@@ -211,7 +209,7 @@ Material:
     - _Brightness: 0
     - _BrightnessLM: 0
     - _BumpScale: 1
-    - _CastShadowsOn: 1
+    - _CastShadowsOn: 0
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _ColorMask: 15
@@ -334,7 +332,7 @@ Material:
     - _PosterizeNumColors: 8
     - _QueueOffset: 0
     - _RecalculateNormals: 0
-    - _ReceiveShadows: 1
+    - _ReceiveShadows: 0
     - _ReceivedShadowsType: 0
     - _Reflections: 0
     - _ReflectionsAtten: 0.5
