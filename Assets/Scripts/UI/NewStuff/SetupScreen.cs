@@ -49,11 +49,11 @@ public class SetupScreen : MonoBehaviour
     
     void OnEnable()
     {
-        cardRoot.gameObject.SetActive(true);
+        if (cardRoot) cardRoot.gameObject.SetActive(true);
     }
     void OnDisable()
     {
-        cardRoot.gameObject.SetActive(false);
+        if (cardRoot) cardRoot.gameObject.SetActive(false);
     }
     public void Initialize(GameNetworkState netState)
     {
