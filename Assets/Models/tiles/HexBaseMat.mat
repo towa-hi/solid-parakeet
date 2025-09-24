@@ -13,10 +13,10 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _AFFECTED_BY_LIGHTMAPS_ON
-  - _ALPHA_CUTOFF_ON
   - _CAST_SHADOWS_ON
   - _COLORRAMPLIGHTINGSTAGE_BEFORELIGHTING
   - _GREYSCALESTAGE_BEFORELIGHTING
+  - _HEIGHT_GRADIENT_ON
   - _LIGHTMODEL_CLASSIC
   - _MATCAPBLENDMODE_MULTIPLY
   - _OUTLINETYPE_NONE
@@ -37,7 +37,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 3000
   stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
@@ -106,7 +106,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _FadeTex:
-        m_Texture: {fileID: 2800000, guid: fcb69fdadf254834880fe3c443965278, type: 3}
+        m_Texture: {fileID: 2800000, guid: f39690d17007ab242928cd91e5a530a6, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -192,16 +192,16 @@ Material:
     - _AlbedoVertexColorMode: 1
     - _AlbedoVertexColorOn: 0
     - _AlphaClip: 0
-    - _AlphaCutoffOn: 1
+    - _AlphaCutoffOn: 0
     - _AlphaCutoffValue: 0.25
     - _AlphaRoundOn: 0
     - _AlphaToMask: 0
     - _AnisoShininess: 0.85
     - _Anisotropy: 0.45
     - _Blend: 0
-    - _BlendDst: 0
+    - _BlendDst: 10
     - _BlendModePreserveSpecular: 1
-    - _BlendSrc: 1
+    - _BlendSrc: 5
     - _BlendingMaskCutoffB: 0.1
     - _BlendingMaskCutoffG: 0.1
     - _BlendingMaskCutoffWhite: 0.15
@@ -240,7 +240,7 @@ Material:
     - _DistortTexXSpeed: 2
     - _DistortTexYSpeed: 2
     - _DitherOn: 0
-    - _DitherScale: 1
+    - _DitherScale: 0.216
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EmissionEnabled: 0
@@ -273,7 +273,7 @@ Material:
     - _HandDrawnAmount: 10
     - _HandDrawnSpeed: 5
     - _HardnessFakeGI: 0.75
-    - _HeightGradientOn: 0
+    - _HeightGradientOn: 1
     - _HeightGradientPositionSpace: 0
     - _HighlightCutoff: 0.5
     - _HighlightSmoothness: 0.5
@@ -301,7 +301,7 @@ Material:
     - _HueShiftEnabled: 0
     - _HueShiftLM: 0
     - _InflateBlend: 1
-    - _IntersectionFadeFactor: 1
+    - _IntersectionFadeFactor: 0.1
     - _IntersectionFadeOn: 0
     - _IntersectionGlowOn: 0
     - _LightModel: 1
@@ -311,13 +311,13 @@ Material:
     - _MatcapBlendMode: 0
     - _MatcapIntensity: 1
     - _MaxDistanceToFade: 100
-    - _MaxGradientHeight: 0.75
+    - _MaxGradientHeight: 0.07
     - _MaxInflate: 0.2
     - _MaxRim: 1
     - _Metallic: 0
     - _MetallicMapOn: 0
     - _MinDistanceToFade: 0
-    - _MinGradientHeight: 0
+    - _MinGradientHeight: -0.49
     - _MinInflate: 0
     - _MinRim: 0
     - _NearFade: 0
@@ -338,7 +338,7 @@ Material:
     - _ReceivedShadowsType: 0
     - _Reflections: 0
     - _ReflectionsAtten: 0.5
-    - _RenderPreset: 1
+    - _RenderPreset: 2
     - _RimAttenuation: 1
     - _RimLighting: 0
     - _RimLightingStage: 0
@@ -405,7 +405,7 @@ Material:
     - _WindVerticalMaskMinY: -1
     - _WorkflowMode: 1
     - _ZTestMode: 4
-    - _ZWrite: 1
+    - _ZWrite: 0
     m_Colors:
     - _AOColor: {r: 0, g: 0, b: 0, a: 0}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
@@ -415,7 +415,7 @@ Material:
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _FadeBurnColor: {r: 1, g: 1, b: 0, a: 1}
     - _GlitchOffset: {r: -0.5, g: 0, b: 0, a: 0}
-    - _GradientHeightColor01: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    - _GradientHeightColor01: {r: 0.4245283, g: 0.4245283, b: 0.4245283, a: 0}
     - _GradientHeightColor02: {r: 1, g: 1, b: 1, a: 1}
     - _GreyscaleTintColor: {r: 1, g: 1, b: 1, a: 1}
     - _HighlightOffset: {r: 0, g: 0, b: 0, a: 0}
