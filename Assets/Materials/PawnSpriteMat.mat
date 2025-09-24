@@ -28,6 +28,7 @@ Material:
   - _ALPHA_CUTOFF_ON
   - _COLORRAMPLIGHTINGSTAGE_BEFORELIGHTING
   - _GREYSCALESTAGE_BEFORELIGHTING
+  - _HEIGHT_GRADIENT_ON
   - _LIGHTMODEL_CLASSIC
   - _MATCAPBLENDMODE_MULTIPLY
   - _OUTLINETYPE_NONE
@@ -441,7 +442,7 @@ Material:
     - _HandDrawnAmount: 10
     - _HandDrawnSpeed: 5
     - _HardnessFakeGI: 0.75
-    - _HeightGradientOn: 0
+    - _HeightGradientOn: 1
     - _HeightGradientPositionSpace: 0
     - _HighlightCutoff: 0.124
     - _HighlightSmoothness: 0.5
@@ -496,7 +497,7 @@ Material:
     - _MaxCameraDistance: 968.02
     - _MaxDistanceToFade: 100
     - _MaxFadeDistance: 250
-    - _MaxGradientHeight: 0.61
+    - _MaxGradientHeight: -1.18
     - _MaxInflate: 0.2
     - _MaxRim: 1
     - _MaxXUV: 1
@@ -504,7 +505,7 @@ Material:
     - _Metallic: 0
     - _MetallicMapOn: 0
     - _MinDistanceToFade: 0
-    - _MinGradientHeight: 0
+    - _MinGradientHeight: -2.86
     - _MinInflate: 0
     - _MinRim: 0
     - _MinXUV: 0
@@ -685,7 +686,7 @@ Material:
     - _GradBotRightCol: {r: 0, g: 1, b: 0, a: 1}
     - _GradTopLeftCol: {r: 1, g: 0, b: 0, a: 1}
     - _GradTopRightCol: {r: 1, g: 1, b: 0, a: 1}
-    - _GradientHeightColor01: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    - _GradientHeightColor01: {r: 0, g: 0, b: 0, a: 1}
     - _GradientHeightColor02: {r: 1, g: 1, b: 1, a: 1}
     - _GreyscaleTintColor: {r: 1, g: 1, b: 1, a: 1}
     - _HighlightOffset: {r: 0, g: 0, b: 0, a: 0}
