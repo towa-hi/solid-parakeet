@@ -53,7 +53,7 @@ public class BoardManager : MonoBehaviour
         GameLogger.Initialize(netState);
         Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
         IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new ResolveReducer(), new UiReducer() };
-        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects() };
+        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects(), new global::ViewAdapterEffects() };
         store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
             reducers,
@@ -96,11 +96,14 @@ public class BoardManager : MonoBehaviour
         }
         // Expose a resolver so views can map positions to TileViews (for arrows, etc.)
         ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
-		// Seed initial mode to views now that board/pawn views exist
-		ViewEventBus.RaiseClientModeChanged(initMode, netState, store.State.Ui ?? LocalUiState.Empty);
+        // Seed initial mode to views now that board/pawn views exist
+        ViewEventBus.RaiseClientModeChanged(initMode, netState, store.State.Ui ?? LocalUiState.Empty);
         Debug.Log("BoardManager.Initialize: finished creating views; starting music");
         AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
+        // Ensure no duplicate subscriptions if StartBoardManager is called repeatedly
+        StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
         StellarManager.OnGameStateBeforeApplied += OnGameStateBeforeApplied;
+        clickInputManager.OnMouseInput -= OnMouseInput;
         clickInputManager.OnMouseInput += OnMouseInput;
         initialized = true;
         // Initialize arena once per game load
@@ -118,6 +121,10 @@ public class BoardManager : MonoBehaviour
         
         // Unsubscribe from events
         StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
+        if (clickInputManager != null)
+        {
+            clickInputManager.OnMouseInput -= OnMouseInput;
+        }
         
         // Cancel any in-flight Stellar task to avoid Task-is-already-set on menu navigation
         StellarManager.AbortCurrentTask();
@@ -141,6 +148,8 @@ public class BoardManager : MonoBehaviour
         clickInputManager.SetUpdating(false);
         // Reset store and event subscriptions to avoid stale UI/state between games
         store = null;
+        // Clear resolver to avoid stale references held by views/utilities
+        ViewEventBus.TileViewResolver = null;
         // Mode change handled by NetworkReducer; nothing to emit here
         // Detach GUI subscriptions to avoid duplicate handlers on next game
         if (guiGame != null)
@@ -167,8 +176,7 @@ public class BoardManager : MonoBehaviour
         Debug.Log($"BoardManager.OnGameStateBeforeApplied: turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
 
 		store?.Dispatch(new NetworkStateChanged(netState, delta));
-        bool shouldPoll = !netState.IsMySubphase();
-        StellarManager.SetPolling(shouldPoll);
+        // Polling toggles are now handled by PollingEffects
     }
 
     void OnMouseInput(Vector2Int pos, bool clicked)

@@ -18,6 +18,9 @@ public sealed class NetworkEffects : IGameEffect
         {
             case NetworkStateChanged a:
             {
+                // Toggle polling based on whose subphase it is
+                bool shouldPoll = !a.Net.IsMySubphase();
+                StellarManager.SetPolling(shouldPoll);
                 // Auto-submit proofs when entering/progressing MoveProve or RankProve
                 if (StellarManager.IsBusy)
                 {
