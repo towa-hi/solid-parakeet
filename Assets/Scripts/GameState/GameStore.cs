@@ -28,7 +28,7 @@ public sealed class GameStore
             return;
         }
 
-        UnityEngine.Debug.Log($"GameStore.Dispatch action={action.GetType().Name}");
+        //UnityEngine.Debug.Log($"GameStore.Dispatch action={action.GetType().Name}");
         GameSnapshot next = State;
         List<GameEvent> allEvents = null;
         foreach (IGameReducer reducer in reducers)
@@ -45,7 +45,7 @@ public sealed class GameStore
         State = next;
         if (allEvents != null && allEvents.Count > 0)
         {
-            UnityEngine.Debug.Log($"GameStore.EventsEmitted count={allEvents.Count}");
+            //UnityEngine.Debug.Log($"GameStore.EventsEmitted count={allEvents.Count}");
             EventsEmitted?.Invoke(allEvents);
         }
         IReadOnlyList<GameEvent> emitted = allEvents != null ? (IReadOnlyList<GameEvent>)allEvents : Array.Empty<GameEvent>();

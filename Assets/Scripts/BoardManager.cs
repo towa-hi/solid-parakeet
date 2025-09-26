@@ -39,6 +39,9 @@ public class BoardManager : MonoBehaviour
     public void StartBoardManager()
     {
         Debug.Log("BoardManager.StartBoardManager: begin");
+		// Reset debug ScriptableObject at launch so we start from a clean slate
+		var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
+		if (debugSO != null) debugSO.ResetState();
         GameNetworkState netState = new(StellarManager.networkState);
         Debug.Log($"BoardManager.StartBoardManager: snapshot lobbyPhase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} turn={netState.gameState.turn} security={netState.lobbyParameters.security_mode}");
         CloseBoardManager();
@@ -53,7 +56,7 @@ public class BoardManager : MonoBehaviour
         GameLogger.Initialize(netState);
         Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
         IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new ResolveReducer(), new UiReducer() };
-        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects(), new global::ViewAdapterEffects() };
+        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects(), new global::ViewAdapterEffects(), new global::StoreDebugEffect() };
         store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
             reducers,
@@ -148,6 +151,9 @@ public class BoardManager : MonoBehaviour
         clickInputManager.SetUpdating(false);
         // Reset store and event subscriptions to avoid stale UI/state between games
         store = null;
+        // Reset debug SO if present
+        var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
+        if (debugSO != null) debugSO.ResetState();
         // Clear resolver to avoid stale references held by views/utilities
         ViewEventBus.TileViewResolver = null;
         // Mode change handled by NetworkReducer; nothing to emit here
@@ -181,7 +187,7 @@ public class BoardManager : MonoBehaviour
 
     void OnMouseInput(Vector2Int pos, bool clicked)
     {
-        Debug.Log($"BoardManager.OnMouseInput: pos={pos} clicked={clicked} mode={store?.State.Mode}");
+        //Debug.Log($"BoardManager.OnMouseInput: pos={pos} clicked={clicked} mode={store?.State.Mode}");
         switch (store?.State.Mode)
         {
             case ClientMode.Setup:

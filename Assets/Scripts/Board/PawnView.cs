@@ -23,23 +23,16 @@ public class PawnView : MonoBehaviour
     public RenderEffect renderEffect;
     // immutable
     public PawnId pawnId;
-    public Vector2Int startPos;
     public Team team;
 
     // cached
     public Rank rankView;
     public bool aliveView;
     public Vector2Int posView;
-    public bool isMyTeam;
-    public bool visibleView;
-    public bool isSelected;
-    public bool isMovePairStart;
 
     public bool cheatMode;
     public static event Action<PawnId> OnMoveAnimationCompleted;
     ClientMode currentMode;
-    ResolveCheckpoint currentResolveCheckpoint = ResolveCheckpoint.Pre;
-    int currentBattleIndex = -1;
 
     public void TestSetSprite(Rank testRank, Team testTeam)
     {
@@ -74,29 +67,19 @@ public class PawnView : MonoBehaviour
 
     void HandleMoveSelectionChanged(Vector2Int? selectedPos, HashSet<Vector2Int> validTargets)
     {
-        bool newIsSelected = selectedPos.HasValue && selectedPos.Value == posView;
-        if (newIsSelected != isSelected)
+        bool setAnimatorIsSelected = selectedPos.HasValue && selectedPos.Value == posView;
+        if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
         {
-            isSelected = newIsSelected;
-            bool setAnimatorIsSelected = isSelected || isMovePairStart;
-            if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
-            {
-                animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
-            }
+            animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
         }
     }
 
     void HandleMovePairsChanged(Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
     {
-        bool newIsStart = newPairs.ContainsKey(pawnId);
-        if (newIsStart != isMovePairStart)
+        bool setAnimatorIsSelected = newPairs.ContainsKey(pawnId);
+        if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
         {
-            isMovePairStart = newIsStart;
-            bool setAnimatorIsSelected = isSelected || isMovePairStart;
-            if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
-            {
-                animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
-            }
+            animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
         }
     }
 
@@ -109,15 +92,11 @@ public class PawnView : MonoBehaviour
     {
         // never changes
         pawnId = pawn.pawn_id;
-        startPos = pawnId.Decode().Item1;
         team = pawnId.Decode().Item2;
         gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
         rankView = Rank.UNKNOWN;
         aliveView = pawn.alive;
         posView = Vector2Int.zero;
-        visibleView = false;
-        isSelected = false;
-        isMovePairStart = false;
         DisplayPosView(tileView);
         DisplayRankView(Rank.UNKNOWN);
 
@@ -126,14 +105,8 @@ public class PawnView : MonoBehaviour
 
     void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
-		currentMode = mode;
-		// Reset resolve checkpoint tracking
-		currentResolveCheckpoint = ui.Checkpoint;
-		currentBattleIndex = ui.BattleIndex;
-		// Reset per-mode visuals
-		isSelected = false;
-		isMovePairStart = false;
-		animator.SetBool(animatorIsSelected, false);
+        currentMode = mode;
+        animator.SetBool(animatorIsSelected, false);
 
 		// Helper: re-seed from authoritative network snapshot
 		void ReseedFromNet()
@@ -167,42 +140,36 @@ public class PawnView : MonoBehaviour
 					Rank known = net.GetPawnFromId(pawnId).GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
 					Rank rv = known == Rank.UNKNOWN ? (delta.preRevealed ? delta.preRank : Rank.UNKNOWN) : known;
 					if (rv != rankView) { DisplayRankView(rv); rankView = rv; }
-					model.SetActive(aliveView);
-					visibleView = aliveView;
+                    model.SetActive(aliveView);
 					break;
 				}
-				// Fallback if no payload: re-seed from net
+                // Fallback if no payload: re-seed from net
 				ReseedFromNet();
-				model.SetActive(aliveView);
-				visibleView = aliveView;
+                model.SetActive(aliveView);
 				break;
 			case ClientMode.Setup:
 				ReseedFromNet();
-				{
-					bool shouldBeVisible = rankView != Rank.UNKNOWN && aliveView;
-					model.SetActive(shouldBeVisible);
-					visibleView = shouldBeVisible;
-				}
+                {
+                    bool shouldBeVisible = rankView != Rank.UNKNOWN && aliveView;
+                    model.SetActive(shouldBeVisible);
+                }
 				break;
 			case ClientMode.Move:
 			case ClientMode.Finished:
 			case ClientMode.Aborted:
-				ReseedFromNet();
-				model.SetActive(aliveView);
-				visibleView = aliveView;
+                ReseedFromNet();
+                model.SetActive(aliveView);
 				break;
 			default:
-				ReseedFromNet();
-				model.SetActive(aliveView);
-				visibleView = aliveView;
+                ReseedFromNet();
+                model.SetActive(aliveView);
 				break;
 		}
     }
 
     void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
-        currentResolveCheckpoint = checkpoint;
-        currentBattleIndex = battleIndex;
+        // checkpoint and battleIndex are consumed immediately; no persistent fields needed
         // Apply pawn snapshot based on checkpoint, mirroring legacy logic
         if (!tr.pawnDeltas.TryGetValue(pawnId, out SnapshotPawnDelta delta))
         {
@@ -247,7 +214,6 @@ public class PawnView : MonoBehaviour
         }
         // Visibility: always show pawns in resolve; rank may be unknown per rules
         model.SetActive(aliveView);
-        visibleView = aliveView;
     }
 
     void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)
@@ -265,11 +231,7 @@ public class PawnView : MonoBehaviour
         if (currentMode == ClientMode.Setup)
         {
             bool shouldBeVisible = displayRank != Rank.UNKNOWN && aliveView;
-            if (shouldBeVisible != (visibleView && aliveView))
-            {
-                visibleView = shouldBeVisible;
-                model.SetActive(shouldBeVisible);
-            }
+            model.SetActive(shouldBeVisible);
         }
     }
 

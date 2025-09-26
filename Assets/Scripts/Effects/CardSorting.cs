@@ -67,7 +67,7 @@ public class CardSorting : MonoBehaviour
 	public void AssignUniqueStencilRef()
 	{
 		int id = AcquireStencilId();
-		Debug.Log($"stencilRef: {id}");
+		//Debug.Log($"stencilRef: {id}");
 		stencilRef = id;
 		ApplyStencilRefToAllLayers();
 	}

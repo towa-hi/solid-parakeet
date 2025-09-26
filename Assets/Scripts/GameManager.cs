@@ -18,7 +18,7 @@ public class GameManager : MonoBehaviour
     public Volume globalVolume;
     [FormerlySerializedAs("testBoardManager")] public BoardManager boardManager;
     //public GuiManager guiManager;
-    [FormerlySerializedAs("guiTestMenuController")] public GuiMenuController guiMenuController;
+    //[FormerlySerializedAs("guiTestMenuController")] public GuiMenuController guiMenuController;
     public CameraManager cameraManager;
     public AudioManager audioManager;
     public PoolManager poolManager;
@@ -33,11 +33,14 @@ public class GameManager : MonoBehaviour
         {
             throw new("MORE THAN ONE GAMEMANAGER IN SCENE");
         }
+        // Reset debug SO on game launch so it starts clean
+        var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
+        if (debugSO != null) debugSO.ResetState();
         Debug.Log("Welcome to warmancer!");
         Debug.developerConsoleVisible = true;
         SettingsManager.Initialize();
         cameraManager?.Initialize();
-        guiMenuController?.Initialize();
+        //guiMenuController?.Initialize();
         audioManager?.Initialize();
         Globals.InputActions.Game.Enable();
         Debug.Log("InputActions enabled");
