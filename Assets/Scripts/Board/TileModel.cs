@@ -8,4 +8,7 @@ public class TileModel : MonoBehaviour
     public Renderer flatRenderer;
     public Transform tileOrigin;
     public Transform elevator;
+
+    public GameObject fogObject;
+    public ParticleSystem fogParticleSystem;
 }

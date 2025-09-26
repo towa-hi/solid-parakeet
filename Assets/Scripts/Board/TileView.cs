@@ -107,6 +107,7 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
+        ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChangedForTile;
     }
 
     public void DetachSubscriptions()
@@ -116,6 +117,7 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
+        ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChangedForTile;
     }
 
     void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
@@ -177,6 +179,9 @@ public class TileView : MonoBehaviour
                 break;
             }
         }
+
+        // Update fog visibility based on current mode/context
+        UpdateFogForContext(mode, net, ui);
     }
 
     void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn, SetupInputTool _)
@@ -247,6 +252,103 @@ public class TileView : MonoBehaviour
         if (isMovePairStart) finalColor = Color.green * 0.5f;
         if (isMovePairTarget) finalColor = Color.blue * 0.5f;
         SetTopColor(finalColor);
+    }
+
+    // Resolve checkpoint updates: drive fog based on snapshot temporary states
+    void HandleResolveCheckpointChangedForTile(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
+    {
+        bool showFog = ComputeFogForResolve(checkpoint, tr, net);
+        SetFog(showFog);
+    }
+
+    // Compute fog for non-resolve vs resolve contexts
+    void UpdateFogForContext(ClientMode mode, GameNetworkState net, LocalUiState ui)
+    {
+        if (mode == ClientMode.Resolve && ui != null && ui.ResolveData.pawnDeltas != null)
+        {
+            bool showFog = ComputeFogForResolve(ResolveCheckpoint.Pre, ui.ResolveData, net);
+            SetFog(showFog);
+            return;
+        }
+        // Default (Setup/Move/others): look at current net state
+        bool fog = ComputeFogFromNetwork(net);
+        SetFog(fog);
+    }
+
+    bool ComputeFogFromNetwork(GameNetworkState net)
+    {
+        PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
+        if (occ is PawnState pawn)
+        {
+            return !pawn.zz_revealed; // show fog when not revealed
+        }
+        return false;
+    }
+
+    bool ComputeFogForResolve(ResolveCheckpoint checkpoint, TurnResolveDelta tr, GameNetworkState net)
+    {
+        switch (checkpoint)
+        {
+            case ResolveCheckpoint.Pre:
+            {
+                // Fog depends on last turn's occupant at this position (pre state)
+                var preOccupants = tr.pawnDeltas.Values.Where(d => d.preAlive && d.prePos == posView);
+                bool anyUnrevealed = preOccupants.Any(d => !d.preRevealed);
+                return anyUnrevealed;
+            }
+            case ResolveCheckpoint.PostMoves:
+            {
+                // Fog depends on current occupant(s) after moves (post state). If any occupant not revealed, fog is ON
+                var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
+                if (!postOccupants.Any()) return false;
+                if (postOccupants.Count() > 1)
+                {
+                    Debug.Log($"TileView[{posView}]: PostMoves: multiple occupants found, fog is set to if any occupants are not revealed");
+                    foreach (var d in postOccupants)
+                    {
+                        Debug.Log($"TileView[{posView}]: PostMoves: occupant {d.pawnId} revealed={d.preRevealed}");
+                    }
+                }
+                bool anyUnrevealed = postOccupants.Any(d => !d.preRevealed);
+                return anyUnrevealed;
+            }
+            case ResolveCheckpoint.Battle:
+            {
+                // After battles, fog depends on current occupant(s). Battles reveal pawns, so this typically returns false.
+                var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
+                if (!postOccupants.Any()) return false;
+                bool anyUnrevealed = postOccupants.Any(d => !d.postRevealed);
+                return anyUnrevealed;
+            }
+            case ResolveCheckpoint.Final:
+            default:
+            {
+                // Final: authoritative network state
+                PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
+                if (occ is PawnState pawn)
+                {
+                    return !pawn.zz_revealed;
+                }
+                return false;
+            }
+        }
+    }
+
+    void SetFog(bool show)
+    {
+        if (tileModel == null)
+        {
+            return;
+        }
+        if (tileModel.fogObject != null)
+        {
+            tileModel.fogObject.SetActive(show);
+        }
+        if (tileModel.fogParticleSystem != null)
+        {
+            var go = tileModel.fogParticleSystem.gameObject;
+            if (go != null) go.SetActive(show);
+        }
     }
 
     void SetTopColor(Color color)

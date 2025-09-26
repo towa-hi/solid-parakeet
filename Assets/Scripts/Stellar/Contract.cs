@@ -706,6 +706,31 @@ namespace Contract
             }
             return null;
         }
+
+		public Vector2Int GetActualSize()
+		{
+			if (tiles == null || tiles.Length == 0)
+			{
+				return Vector2Int.zero;
+			}
+			int maxX = -1;
+			int maxY = -1;
+			for (int i = 0; i < tiles.Length; i++)
+			{
+				if (!tiles[i].passable)
+				{
+					continue;
+				}
+				Vector2Int p = tiles[i].pos;
+				if (p.x > maxX) maxX = p.x;
+				if (p.y > maxY) maxY = p.y;
+			}
+			if (maxX < 0 || maxY < 0)
+			{
+				return Vector2Int.zero;
+			}
+			return new Vector2Int(maxX, maxY);
+		}
     }
 
     [Serializable]
