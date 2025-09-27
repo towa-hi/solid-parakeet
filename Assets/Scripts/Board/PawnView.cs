@@ -25,20 +25,17 @@ public class PawnView : MonoBehaviour
     public PawnId pawnId;
     public Team team;
 
-    // cached
-    public Rank rankView;
-    public bool aliveView;
-    public Vector2Int posView;
+    // cached values strictly for checking redundant setting
+    public PawnDef cachedPawnDef;
 
-    public bool cheatMode;
     public static event Action<PawnId> OnMoveAnimationCompleted;
-    ClientMode currentMode;
 
     public void TestSetSprite(Rank testRank, Team testTeam)
     {
-        team = testTeam;
-        rankView = testRank;
-        DisplayRankView(testRank);
+        // fix this later
+        // team = testTeam;
+        // rankView = testRank;
+        // DisplayRankView(testRank);
     }
 
     // Subscriptions are managed by board lifecycle; avoid toggling on enable/disable
@@ -67,20 +64,22 @@ public class PawnView : MonoBehaviour
 
     void HandleMoveSelectionChanged(Vector2Int? selectedPos, HashSet<Vector2Int> validTargets)
     {
-        bool setAnimatorIsSelected = selectedPos.HasValue && selectedPos.Value == posView;
-        if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
+        if (selectedPos.HasValue)
         {
-            animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
+            TileView tv = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(selectedPos.Value) : null;
+            bool isSelectedNow = IsBoundToTile(tv);
+            SetAnimatorIsSelected(isSelectedNow);
+        }
+        else
+        {
+            SetAnimatorIsSelected(false);
         }
     }
 
     void HandleMovePairsChanged(Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
     {
-        bool setAnimatorIsSelected = newPairs.ContainsKey(pawnId);
-        if (animator.GetBool(animatorIsSelected) != setAnimatorIsSelected)
-        {
-            animator.SetBool(animatorIsSelected, setAnimatorIsSelected);
-        }
+        bool isInvolved = newPairs.ContainsKey(pawnId);
+        SetAnimatorIsSelected(isInvolved);
     }
 
     public void HurtAnimation()
@@ -94,181 +93,117 @@ public class PawnView : MonoBehaviour
         pawnId = pawn.pawn_id;
         team = pawnId.Decode().Item2;
         gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
-        rankView = Rank.UNKNOWN;
-        aliveView = pawn.alive;
-        posView = Vector2Int.zero;
-        DisplayPosView(tileView);
-        DisplayRankView(Rank.UNKNOWN);
-
+        SetPosSnap(tileView);
+        SetRank(Rank.UNKNOWN);
     }
-    // Removed: Setup mode event is redundant with client mode event
 
     void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
-        currentMode = mode;
-        animator.SetBool(animatorIsSelected, false);
+        SetAnimatorIsSelected(false);
 
-		// Helper: re-seed from authoritative network snapshot
-		void ReseedFromNet()
-		{
-			try
-			{
-				PawnState p = net.GetPawnFromId(pawnId);
-				aliveView = p.alive;
-				if (posView != p.pos)
-				{
-					TileView tv2 = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(p.pos) : null;
-					if (tv2 != null) { DisplayPosView(tv2); }
-					posView = p.pos;
-				}
-				Rank known2 = p.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
-				if (known2 != rankView) { DisplayRankView(known2); rankView = known2; }
-			}
-			catch (Exception) { }
-		}
+        PawnState p = net.GetPawnFromId(pawnId);
+        bool alive = p.alive;
+        Vector2Int pos = p.pos;
+        Rank known = p.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
+
+        TileView tv = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(pos) : null;
+        if (tv != null)
+        {
+            SetPosSnap(tv);
+        }
 
 		switch (mode)
 		{
-			case ClientMode.Resolve:
-				
-				break;
 			case ClientMode.Setup:
-				ReseedFromNet();
-                {
-                    bool shouldBeVisible = rankView != Rank.UNKNOWN && aliveView;
-                    model.SetActive(shouldBeVisible);
-                }
+			{
+				SetRank(known);
+				bool shouldBeVisible = alive && known != Rank.UNKNOWN;
+				SetModelVisible(shouldBeVisible);
 				break;
+			}
+			case ClientMode.Resolve:
+			{
+				SetRank(known);
+				SetModelVisible(alive);
+				break;
+			}
 			case ClientMode.Move:
 			case ClientMode.Finished:
 			case ClientMode.Aborted:
-                ReseedFromNet();
-                model.SetActive(aliveView);
-				break;
 			default:
-                ReseedFromNet();
-                model.SetActive(aliveView);
+			{
+				SetRank(known);
+				SetModelVisible(alive);
 				break;
+			}
 		}
     }
 
     void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
-        // checkpoint and battleIndex are consumed immediately; no persistent fields needed
-        // Apply pawn snapshot based on checkpoint, mirroring TileView's snapshot-first fallback logic
+        bool isMyTeam = team == net.userTeam;
+        PawnState current = net.GetPawnFromId(pawnId);
         if (!tr.pawnDeltas.TryGetValue(pawnId, out SnapshotPawnDelta delta))
         {
             return;
         }
-		Rank GetRankFromSnapshot(PawnState[] snapshot)
-		{
-			// Always show our own pawn's rank based on local knowledge, not snapshot
-			Team myTeam = pawnId.Decode().Item2;
-			if (myTeam == net.userTeam)
-			{
-				PawnState current = net.GetPawnFromId(pawnId);
-				return current.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
-			}
-			// For opponent pawns, use snapshot reveal state
-			if (snapshot == null) return Rank.UNKNOWN;
-			for (int i = 0; i < snapshot.Length; i++)
-			{
-				if (snapshot[i].pawn_id == pawnId)
-				{
-					PawnState p = snapshot[i];
-					return (p.zz_revealed && p.rank.HasValue) ? p.rank.Value : Rank.UNKNOWN;
-				}
-			}
-			return Rank.UNKNOWN;
-		}
-
+        Rank GetRankFromSnapshot(PawnState state)
+        {
+            if (isMyTeam)
+            {
+                return current.GetKnownRank(net.userTeam).Value;
+            }
+            else
+            {
+                if (state.zz_revealed)
+                {
+                    return state.rank.Value;
+                }
+                else
+                {
+                    return Rank.UNKNOWN;
+                }
+            }
+        }
+        TileView startTile = ViewEventBus.TileViewResolver(delta.prePos);
+        TileView targetTile = ViewEventBus.TileViewResolver(delta.postPos);
         switch (checkpoint)
         {
             case ResolveCheckpoint.Pre:
-                for (int i = 0; i < tr.preSnapshot.Length; i++)
-                {
-                    if (tr.preSnapshot[i].pawn_id == pawnId)
-                    {
-                        aliveView = tr.preSnapshot[i].alive;
-                        model.SetActive(aliveView);
-                        break;
-                    }
-                }
-                posView = delta.prePos;
-                DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                {
-                    
-                    Rank displayRank = GetRankFromSnapshot(tr.preSnapshot);
-                    DisplayRankView(displayRank);
-                    rankView = displayRank;
-                }
+            {
+                PawnState preState = tr.preSnapshot.First(p => p.pawn_id == pawnId);
+                SetModelVisible(preState.alive);
+                SetRank(GetRankFromSnapshot(preState));
+                SetPosSnap(startTile);
                 break;
+            }
             case ResolveCheckpoint.PostMoves:
-                for (int i = 0; i < tr.postMovesSnapshot.Length; i++)
+            {
+                PawnState postMovesState = tr.postMovesSnapshot.First(p => p.pawn_id == pawnId);
+                SetModelVisible(postMovesState.alive);
+                SetRank(GetRankFromSnapshot(postMovesState));
+                if (tr.moves != null && tr.moves.TryGetValue(pawnId, out MoveEvent mv))
                 {
-                    if (tr.postMovesSnapshot[i].pawn_id == pawnId)
-                    {
-                        aliveView = tr.postMovesSnapshot[i].alive;
-                        model.SetActive(aliveView);
-                        break;
-                    }
-                }
-                posView = delta.prePos;
-                DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                {
-                    Rank displayRank = GetRankFromSnapshot(tr.postMovesSnapshot);
-                    DisplayRankView(displayRank);
-                    rankView = displayRank;
-                }
-                // Animate arc if this pawn has a move
-                if (tr.moves.TryGetValue(pawnId, out MoveEvent mv))
-                {
-                    TileView from = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(mv.from) : null;
-                    TileView to = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(mv.target) : null;
-                    if (from != null && to != null) SetArcToTile(from, to);
+                    SetPosArc(startTile, targetTile);
                 }
                 break;
+            }
             case ResolveCheckpoint.Battle:
-                // During battle sequence we may show postPos after certain battles
-                posView = delta.postPos;
-                DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                {
-                    PawnState[] snap = tr.battleSnapshots[Mathf.Clamp(battleIndex, 0, tr.battleSnapshots.Length - 1)];
-                    for (int i = 0; i < snap.Length; i++)
-                    {
-                        if (snap[i].pawn_id == pawnId)
-                        {
-                            aliveView = snap[i].alive;
-                            model.SetActive(aliveView);
-                            break;
-                        }
-                    }
-                }
-                {
-                    PawnState[] snap = tr.battleSnapshots[Mathf.Clamp(battleIndex, 0, tr.battleSnapshots.Length - 1)];
-                    Rank displayRank = GetRankFromSnapshot(snap);
-                    DisplayRankView(displayRank);
-                    rankView = displayRank;
-                }
+            {
+                PawnState battleState = tr.battleSnapshots[battleIndex].First(p => p.pawn_id == pawnId);
+                SetModelVisible(battleState.alive);
+                SetRank(GetRankFromSnapshot(battleState));
+                SetPosSnap(targetTile);
                 break;
+            }
             case ResolveCheckpoint.Final:
-                for (int i = 0; i < tr.finalSnapshot.Length; i++)
-                {
-                    if (tr.finalSnapshot[i].pawn_id == pawnId)
-                    {
-                        aliveView = tr.finalSnapshot[i].alive;
-                        model.SetActive(aliveView);
-                        break;
-                    }
-                }
-                posView = delta.postPos;
-                DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                {
-                    Rank displayRank = GetRankFromSnapshot(tr.finalSnapshot);
-                    DisplayRankView(displayRank);
-                    rankView = displayRank;
-                }
+            default:
+            {
+                SetModelVisible(current.alive);
+                SetRank(current.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN);
+                SetPosSnap(targetTile);
                 break;
+            }
         }
     }
 
@@ -278,46 +213,10 @@ public class PawnView : MonoBehaviour
         Rank? maybeRank;
         bool hasEntry = newMap.TryGetValue(pawnId, out maybeRank);
         Rank displayRank = hasEntry && maybeRank is Rank r ? r : Rank.UNKNOWN;
-        if (displayRank != rankView)
-        {
-            DisplayRankView(displayRank);
-            rankView = displayRank;
-        }
-        // In setup mode, unknowns should not render at all
-        if (currentMode == ClientMode.Setup)
-        {
-            bool shouldBeVisible = displayRank != Rank.UNKNOWN && aliveView;
-            model.SetActive(shouldBeVisible);
-        }
-    }
-
-    void DisplayPosView(TileView tileView = null)
-    {
-        StopAllCoroutines();
-        SetConstraintToTile(tileView);
-        if (tileView)
-        {
-            Transform target = tileView.tileModel.tileOrigin;
-            transform.position = target.position;
-            transform.rotation = target.rotation;
-        }
-    }
-
-    void DisplayRankView(Rank rank)
-    {
-        PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(rank);
-        animator.runtimeAnimatorController = team switch
-        {
-            Team.RED => pawnDef.redAnimatorOverrideController,
-            Team.BLUE => pawnDef.blueAnimatorOverrideController,
-            _ => throw new ArgumentOutOfRangeException(),
-        };
-        float randNormTime = Random.Range(0f, 1f);
-        animator.Play("Idle", 0, randNormTime);
-        animator.Update(0f);
-        
-        //Debug.Log($"{gameObject.name} rank badge set to {rank}");
-        badge.SetBadge(team, rank);
+        SetRank(displayRank);
+        // In setup mode, unknowns should not render at all (event is setup-specific)
+        bool shouldBeVisible = displayRank != Rank.UNKNOWN;
+        SetModelVisible(shouldBeVisible);
     }
 
     void SetConstraintToTile([CanBeNull] TileView tileView)
@@ -342,6 +241,117 @@ public class PawnView : MonoBehaviour
         parentConstraint.SetRotationOffset(0, Vector3.zero);
         parentConstraint.weight = 1f;
         parentConstraint.constraintActive = true;
+    }
+
+    // ===== Tier 1: Direct view mutators / setters =====
+
+    void SetModelVisible(bool visible)
+    {
+		if (model.activeSelf != visible)
+        {
+            model.SetActive(visible);
+        }
+    }
+
+    void SetAnimatorIsSelected(bool selected)
+    {
+		if (animator.GetBool(animatorIsSelected) != selected)
+        {
+            animator.SetBool(animatorIsSelected, selected);
+        }
+    }
+
+	void SetAnimatorIdleRandomized()
+    {
+        float randNormTime = Random.Range(0f, 1f);
+        animator.Play("Idle", 0, randNormTime);
+        animator.Update(0f);
+    }
+
+    void SetTransformToTile([CanBeNull] TileView tileView)
+    {
+        if (!tileView) return;
+        Transform target = tileView.tileModel.tileOrigin;
+        transform.position = target.position;
+        transform.rotation = target.rotation;
+    }
+
+    void SetRenderEffect(EffectType effect, bool enabled)
+    {
+        renderEffect.SetEffect(effect, enabled);
+    }
+
+    bool IsBoundToTile([CanBeNull] TileView tileView)
+    {
+        if (!tileView) return false;
+        if (parentConstraint.sourceCount == 0) return false;
+        ConstraintSource cs = parentConstraint.GetSource(0);
+        return cs.sourceTransform == tileView.tileModel.tileOrigin;
+    }
+
+    void SetRank(Rank rank)
+    {
+        PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(rank);
+        if (pawnDef == cachedPawnDef)
+        {
+            return;
+        }
+        cachedPawnDef = pawnDef;
+        Debug.Log($"SetRank: {gameObject.name} {rank}");
+        AnimatorStateInfo info = animator.GetCurrentAnimatorStateInfo(0);
+        int stateHash = info.fullPathHash;
+        float norm = info.normalizedTime - Mathf.Floor(info.normalizedTime);
+        RuntimeAnimatorController controller = team switch
+        {
+            Team.RED => pawnDef.redAnimatorOverrideController,
+            Team.BLUE => pawnDef.blueAnimatorOverrideController,
+            _ => null,
+        };
+        animator.runtimeAnimatorController = controller;
+        bool restored = false;
+        try
+        {
+            animator.Play(stateHash, 0, norm);
+            restored = true;
+        }
+        catch (Exception)
+        {
+        }
+        animator.Update(0f);
+        if (!restored)
+        {
+            SetAnimatorIdleRandomized();
+        }
+
+        badge.SetBadge(team, rank);
+    }
+
+    void SetPosSnap([CanBeNull] TileView tileView)
+    {
+        StopAllCoroutines();
+        SetConstraintToTile(tileView);
+        if (tileView)
+        {
+            SetTransformToTile(tileView);
+        }
+    }
+
+    void SetPosArc([CanBeNull] TileView initialTile, TileView targetTile)
+    {
+        StopAllCoroutines();
+        if (initialTile)
+        {
+            parentConstraint.constraintActive = false;
+            transform.position = initialTile.origin.position;
+            transform.rotation = initialTile.origin.rotation;
+        }
+        StartCoroutine(ArcToTileNoNotify(targetTile));
+    }
+
+    IEnumerator ArcToTileNoNotify(TileView targetTile)
+    {
+        yield return ArcToPosition(targetTile.origin, Globals.PawnMoveDuration, 0.5f);
+        SetConstraintToTile(targetTile);
     }
 
 

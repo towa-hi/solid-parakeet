@@ -901,7 +901,7 @@ namespace Contract
         {
             return pawn_id.Decode().Item1;
         }
-
+        // TODO: figure out a better place to move this later
         public Rank? GetKnownRank(Team userTeam)
         {
             if (GetTeam() == userTeam)
