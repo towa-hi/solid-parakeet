@@ -6161,7 +6161,6 @@ MonoBehaviour:
   purgatory: {fileID: 835277602}
   globalVolume: {fileID: 1836091540}
   boardManager: {fileID: 1972489292}
-  guiMenuController: {fileID: 6332685528582712760}
   cameraManager: {fileID: 1527594348}
   audioManager: {fileID: 1527594349}
   poolManager: {fileID: 1537931235}

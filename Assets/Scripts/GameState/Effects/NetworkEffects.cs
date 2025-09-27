@@ -219,6 +219,16 @@ public sealed class NetworkEffects : IGameEffect
                     PawnId pawnId = kv.Key;
                     Vector2Int start = kv.Value.start;
                     Vector2Int target = kv.Value.target;
+                    // Diagnostics: verify that at submit time the start tile still holds this pawn id
+                    var occ = net.GetAlivePawnFromPosChecked(start);
+                    if (occ is PawnState occPawn && occPawn.pawn_id != pawnId)
+                    {
+                        Debug.LogWarning($"NetworkEffects: MoveSubmit mismatch at start. start={start} target={target} expectedId={pawnId} nowId={occPawn.pawn_id}");
+                    }
+                    else if (occ is null)
+                    {
+                        Debug.LogWarning($"NetworkEffects: MoveSubmit no occupant at start. start={start} target={target} expectedId={pawnId}");
+                    }
                     HiddenMove hm = new()
                     {
                         pawn_id = pawnId,

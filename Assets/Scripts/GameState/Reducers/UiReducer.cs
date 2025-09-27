@@ -155,6 +155,13 @@ public sealed class UiReducer : IGameReducer
                     }
                     var dict = new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>(ui.MovePairs);
                     PawnId id = state.Net.GetAlivePawnFromPosUnchecked(sel).pawn_id;
+                    // Diagnostics: log move pair construction and sanity-check current occupant
+                    var occNow = state.Net.GetAlivePawnFromPosChecked(sel);
+                    if (occNow is PawnState occPawn && occPawn.pawn_id != id)
+                    {
+                        Debug.LogWarning($"UiReducer: occupant id changed at start before setting move pair. start={sel} expectedId={id} nowId={occPawn.pawn_id}");
+                    }
+                    Debug.Log($"UiReducer: setting move pair id={id} start={sel} target={moveClick.Pos}");
                     dict[id] = (sel, moveClick.Pos);
                     var oldPairs = new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>(ui.MovePairs);
                     ui = ui with { MovePairs = dict, SelectedPos = null };

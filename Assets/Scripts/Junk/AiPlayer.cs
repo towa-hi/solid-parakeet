@@ -930,7 +930,8 @@ public static class AiPlayer
             pawn_aa.pos = pawn_bb.pos;
             pawn_bb.pos = temp;
 
-            BattlePawnsOut(in pawn_a, in pawn_b, out var _hasW_sw, out var _W_sw, out var _hasLA_sw, out var _LA_sw, out var _hasLB_sw, out var _LB_sw);
+            // IMPORTANT: resolve battle using the swapped positions so the winner ends at the target tile
+            BattlePawnsOut(in pawn_aa, in pawn_bb, out var _hasW_sw, out var _W_sw, out var _hasLA_sw, out var _LA_sw, out var _hasLB_sw, out var _LB_sw);
             if (_hasW_sw)
             {
                 var p = _W_sw;

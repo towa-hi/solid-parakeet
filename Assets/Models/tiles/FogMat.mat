@@ -26,6 +26,8 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _COLORRAMPLIGHTINGSTAGE_BEFORELIGHTING
+  - _FADE_BURN_ON
+  - _FADE_ON
   - _GREYSCALESTAGE_BEFORELIGHTING
   - _LIGHTMODEL_CLASSIC
   - _MATCAPBLENDMODE_MULTIPLY
@@ -116,7 +118,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _FadeTex:
-        m_Texture: {fileID: 2800000, guid: fcb69fdadf254834880fe3c443965278, type: 3}
+        m_Texture: {fileID: 2800000, guid: 9faaae225d6b27f48b0bfddb6575477d, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -250,7 +252,7 @@ Material:
     - _DistortTexXSpeed: 0.6
     - _DistortTexYSpeed: 0.6
     - _DitherOn: 0
-    - _DitherScale: 1
+    - _DitherScale: 0.271
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EmissionEnabled: 0
@@ -258,10 +260,10 @@ Material:
     - _EnvironmentReflections: 1
     - _FaceDownCutoff: 0.25
     - _FadeAmount: 0
-    - _FadeBurnOn: 0
-    - _FadeBurnWidth: 0.01
+    - _FadeBurnOn: 1
+    - _FadeBurnWidth: 0.1689
     - _FadeByCamDistanceOn: 0
-    - _FadeOn: 0
+    - _FadeOn: 1
     - _FadePower: 1
     - _FadeTransition: 0.2
     - _FogOn: 0
@@ -419,11 +421,11 @@ Material:
     m_Colors:
     - _AOColor: {r: 0, g: 0, b: 0, a: 0}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _Color: {r: 0.3207547, g: 0.3207547, b: 0.3207547, a: 0.8352941}
+    - _Color: {r: 0.32075462, g: 0.32075462, b: 0.32075462, a: 0.7882353}
     - _CustomAmbientColor: {r: 0.65, g: 0.65, b: 0.65, a: 1}
     - _DepthGlowColor: {r: 1, g: 0.9869999, b: 0.6, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _FadeBurnColor: {r: 1, g: 1, b: 0, a: 1}
+    - _FadeBurnColor: {r: 0.34117648, g: 0, b: 0.17780855, a: 1}
     - _GlitchOffset: {r: -0.5, g: 0, b: 0, a: 0}
     - _GradientHeightColor01: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     - _GradientHeightColor02: {r: 1, g: 1, b: 1, a: 1}

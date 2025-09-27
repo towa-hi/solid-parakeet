@@ -2202,6 +2202,11 @@ public struct TurnResolveDelta
     public Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas;
     public Dictionary<PawnId, MoveEvent> moves;
     public BattleEvent[] battles;
+	// Full board snapshots for each checkpoint
+	public PawnState[] preSnapshot; // last turn's pawn states
+	public PawnState[] postMovesSnapshot; // after moves applied, before reveals
+	public PawnState[][] battleSnapshots; // after each battle applied (ordered to match battles)
+	public PawnState[] finalSnapshot; // authoritative current state
 }
 
 public struct SnapshotPawnDelta

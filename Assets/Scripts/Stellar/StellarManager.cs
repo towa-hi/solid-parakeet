@@ -620,7 +620,12 @@ public static class StellarManager
                 // Only set TurnResolve when there is something to resolve
                 if ((tr.moves != null && tr.moves.Count > 0) || (tr.battles != null && tr.battles.Length > 0))
                 {
+                    Debug.Log($"[Delta] TurnChanged: moves={tr.moves.Count} battles={tr.battles.Length}");
                     delta.TurnResolve = tr;
+                }
+                else
+                {
+                    Debug.LogWarning("[Delta] TurnChanged but no moves/battles detected; UI may remain in Move. Investigate server resolve vs delta detection.");
                 }
             }
             else if (delta.PhaseChanged)
@@ -740,9 +745,11 @@ public static class StellarManager
     }
     static TurnResolveDelta BuildTurnResolveDeltaSimple(GameNetworkState previous, GameNetworkState current)
     {
+        Debug.Log("[ResolveDelta] Begin building TurnResolveDeltaSimple");
         // Compare by PawnId across snapshots; array order may change across turns
         PawnState[] pre = previous.gameState.pawns;
         PawnState[] post = current.gameState.pawns;
+        Debug.Log($"[ResolveDelta] Pre count={pre.Length} Post count={post.Length}");
         Dictionary<PawnId, PawnState> preMap = new();
         Dictionary<PawnId, PawnState> postMap = new();
         for (int i = 0; i < pre.Length; i++)
@@ -778,7 +785,13 @@ public static class StellarManager
                 };
             }
         }
+        Debug.Log($"[ResolveDelta] Move candidates={moves.Count}");
         Dictionary<Vector2Int, (SnapshotPawnDelta, SnapshotPawnDelta)> collisionPairs = ComputeCollisions(pawnDeltas);
+        foreach (var kv in collisionPairs)
+        {
+            var (ra, rb) = kv.Value;
+            Debug.Log($"[ResolveDelta] Collision at {kv.Key} RED={ra.pawnId} pre={ra.prePos}->{ra.postPos} BLUE={rb.pawnId} pre={rb.prePos}->{rb.postPos}");
+        }
 
         // Build battles from collision pairs
         foreach (var kv in collisionPairs)
@@ -802,10 +815,75 @@ public static class StellarManager
             });
         }
 
+        // Build checkpoint snapshots
+        PawnState[] preSnapshot = preMap.Values.ToArray();
+        // Post-moves snapshot: apply position changes but do not change revealed flags beyond what post reports
+        // Also take moved/moved_scout directly from authoritative current state
+        Dictionary<PawnId, PawnState> currentMapForFlags = new Dictionary<PawnId, PawnState>();
+        foreach (var ps in current.gameState.pawns)
+        {
+            currentMapForFlags[ps.pawn_id] = ps;
+        }
+        PawnState[] postMovesSnapshot = preSnapshot.Select(p =>
+        {
+            if (pawnDeltas.TryGetValue(p.pawn_id, out var d))
+            {
+                PawnState s = p;
+                s.pos = d.postPos; // apply move target
+                s.alive = d.postAlive;
+                s.zz_revealed = d.preRevealed; // before reveals: keep pre reveal
+                s.rank = d.preRevealed ? d.preRank : null;
+                // Update moved flags for postMoves snapshot from current authoritative state
+                if (currentMapForFlags.TryGetValue(s.pawn_id, out var curr))
+                {
+                    s.moved = curr.moved;
+                    s.moved_scout = curr.moved_scout;
+                }
+                return s;
+            }
+            return p;
+        }).ToArray();
+
+        // Battle snapshots: for each battle, update the postMoves snapshot with that battle's outcomes
+        List<PawnState[]> battleSnapshots = new List<PawnState[]>();
+        PawnState[] working = postMovesSnapshot.ToArray();
+        foreach (var b in battles)
+        {
+            // Reveal participants and apply deaths
+            HashSet<PawnId> revealed = new HashSet<PawnId>(b.revealed);
+            HashSet<PawnId> dead = new HashSet<PawnId>(b.dead);
+            for (int i = 0; i < working.Length; i++)
+            {
+                PawnState s = working[i];
+                if (revealed.Contains(s.pawn_id))
+                {
+                    // set revealed based on post snapshot
+                    if (pawnDeltas.TryGetValue(s.pawn_id, out var d))
+                    {
+                        s.zz_revealed = d.postRevealed;
+                        s.rank = d.postRevealed ? d.postRank : null;
+                    }
+                }
+                if (dead.Contains(s.pawn_id))
+                {
+                    s.alive = false;
+                }
+                working[i] = s;
+            }
+            battleSnapshots.Add(working.Select(x => x).ToArray());
+        }
+
+        PawnState[] finalSnapshot = current.gameState.pawns.ToArray();
+        Debug.Log($"[ResolveDelta] Final: moves={moves.Count} battles={battles.Count} preAlive={pre.Count(p=>p.alive)} postAlive={post.Count(p=>p.alive)}");
+
         return new TurnResolveDelta {
             pawnDeltas = pawnDeltas,
             moves = moves,
             battles = battles.ToArray(),
+            preSnapshot = preSnapshot,
+            postMovesSnapshot = postMovesSnapshot,
+            battleSnapshots = battleSnapshots.ToArray(),
+            finalSnapshot = finalSnapshot,
         };
     }
 

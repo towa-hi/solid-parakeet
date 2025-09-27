@@ -19,17 +19,9 @@ public class TileView : MonoBehaviour
     
     // never changes
     public Vector2Int posView; // this is the key of tileView it must never change
-    public bool passableView;
-    public Team setupView;
-    public uint setupZoneView;
     
     
-    public bool isHovered = false;
-    public bool isSelected = false;
-    public bool isTargetable = false;
-    public bool isMovePairStart = false;
-    public bool isMovePairTarget = false;
-    public bool isSetupTile = false;
+    // Avoid caching transient UI flags; derive from events instead
     
     public Color redTeamColor;
     public Color blueTeamColor;
@@ -38,9 +30,9 @@ public class TileView : MonoBehaviour
 
     public TileView pointedTile;
     
-    
-    static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
     static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
+    static readonly int FogColorProperty = Shader.PropertyToID("_Color");
+    static readonly int FadeAmountProperty = Shader.PropertyToID("_FadeAmount");
     public TweenSettings<Vector3> startTweenSettings;
     public Sequence startSequence;
     public Tween currentTween;
@@ -49,11 +41,15 @@ public class TileView : MonoBehaviour
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
     
-    // Base color pulse config
-    bool pulseBaseColor;
-    [SerializeField] float emissionPulseSpeed = 2f;
-    [SerializeField] float minEmissionAlpha = 0.25f;
-    [SerializeField] float maxEmissionAlpha = 0.5f;
+    // Fog/reveal visual state
+    Tween fogAlphaTween;
+    Tween revealFadeTween;
+    float currentFogAlpha01 = 0f;
+    bool? lastRevealedState = null;
+    const float HiddenMovedAlpha01 = 150f / 255f;
+    const float HiddenUnmovedAlpha01 = 200f / 255f;
+    const float UnrevealedFadeAmount = 1f; // as requested
+    const float RevealedFadeAmount = 1f;   // as requested
     
     public void Initialize(TileState tile, bool hex)
     {
@@ -73,25 +69,16 @@ public class TileView : MonoBehaviour
             throw new ArgumentException("set to wrong tile pos");
         }
         
-        passableView = tile.passable;
-        setupView = tile.setup;
-        setupZoneView = tile.setup_zone;
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
         tileModel = hex ? hexTileModel : squareTileModel;
-        tileModel.gameObject.SetActive(passableView);
+        SetVisible(tile.passable);
     }
 
 
     public void SetTileDebug()
     {
-        Color finalColor = setupView switch
-        {
-            Team.RED => redTeamColor,
-            Team.BLUE => blueTeamColor,
-            _ => Color.clear,
-        };
-        SetTopColor(finalColor);
+        SetTopColor(Color.clear);
         sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
     }
     
@@ -120,23 +107,16 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChangedForTile;
     }
 
-    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+	void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
         if (enableDebugLogs) Debug.Log($"TileView[{posView}]: ClientModeChanged mode={mode}");
         // Reset base visuals common to any mode switch
-        isHovered = false;
-        isSelected = false;
-        isTargetable = false;
-        isMovePairStart = false;
-        isMovePairTarget = false;
-        pointedTile = null;
-        arrow.gameObject.SetActive(false);
-        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
-        tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
-        tileModel.renderEffect.SetEffect(EffectType.FILL, false);
-        tileModel.elevator.localPosition = initialElevatorLocalPos;
+		SetArrow(null);
+		SetRenderEffect(EffectType.HOVEROUTLINE, false);
+		SetRenderEffect(EffectType.SELECTOUTLINE, false);
+		SetRenderEffect(EffectType.FILL, false);
+		SetElevator(initialElevatorLocalPos.y);
         // Mode-specific initialization
-        isSetupTile = (mode == ClientMode.Setup) && setupView != Team.NONE;
         SetTileDebug();
         // When entering modes, seed arrows immediately for Resolve only (Move arrows will be driven by events)
         switch (mode)
@@ -164,31 +144,24 @@ public class TileView : MonoBehaviour
                         if (mv.target == posView) target = true;
                     }
                 }
-                isMovePairStart = start;
-                isMovePairTarget = target;
-                arrow.gameObject.SetActive(start && targetTile != null);
-                if (start && targetTile != null)
-                {
-                    arrow.ArcFromTiles(this, targetTile);
-                    pointedTile = targetTile;
-                }
+                SetArrow((start && targetTile != null) ? targetTile : null);
                 Color col = Color.clear;
-                if (isMovePairStart) col = Color.green * 0.5f;
-                if (isMovePairTarget) col = Color.blue * 0.5f;
+                if (start) col = Color.green * 0.5f;
+                if (target) col = Color.blue * 0.5f;
                 SetTopColor(col);
                 break;
             }
         }
 
-        // Update fog visibility based on current mode/context
+        // Update fog visuals based on current mode/context
         UpdateFogForContext(mode, net, ui);
     }
 
-    void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn, SetupInputTool _)
+	void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn, SetupInputTool _)
     {
         if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupHover pos={hoveredPos} myTurn={isMyTurn}");
-        isHovered = isMyTurn && posView == hoveredPos;
-        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
+        bool hovered = isMyTurn && posView == hoveredPos;
+        SetRenderEffect(EffectType.HOVEROUTLINE, hovered);
         // In setup mode we do NOT elevate tiles on hover. Ensure elevator stays at base.
         if (tileModel.elevator.localPosition != initialElevatorLocalPos)
         {
@@ -196,69 +169,54 @@ public class TileView : MonoBehaviour
         }
     }
 
-    void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
+	void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
     {
-        if (!isMyTurn) { isHovered = false; }
-        else { isHovered = posView == hoveredPos; }
-        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
+        bool hovered = isMyTurn && posView == hoveredPos;
+        SetRenderEffect(EffectType.HOVEROUTLINE, hovered);
         // Elevate lightly only in movement when selection intent
-        Vector3 target = (isHovered && tool == MoveInputTool.SELECT) ? hoveredElevatorLocalPos : initialElevatorLocalPos;
-        if (tileModel.elevator.localPosition != target)
-        {
-            currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
-            {
-                tileModel.elevator.localPosition = target;
-            });
-        }
+		Vector3 target = (hovered && tool == MoveInputTool.SELECT) ? hoveredElevatorLocalPos : initialElevatorLocalPos;
+		SetElevator(target.y);
         // Hover targetable sphere
         bool show = hoverTargets != null && hoverTargets.Contains(posView);
         sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, show);
     }
 
-    void HandleMoveSelectionChanged(Vector2Int? selected, System.Collections.Generic.HashSet<Vector2Int> validTargets)
+	void HandleMoveSelectionChanged(Vector2Int? selected, System.Collections.Generic.HashSet<Vector2Int> validTargets)
     {
-        isSelected = selected.HasValue && selected.Value == posView;
-        isTargetable = validTargets.Contains(posView);
-        tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, isSelected);
-        tileModel.renderEffect.SetEffect(EffectType.FILL, isTargetable);
-        Vector3 target = (isSelected) ? selectedElevatorLocalPos : initialElevatorLocalPos;
-        if (tileModel.elevator.localPosition != target)
-        {
-            currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
-            {
-                tileModel.elevator.localPosition = target;
-            });
-        }
+        bool selectedNow = selected.HasValue && selected.Value == posView;
+        bool targetableNow = validTargets.Contains(posView);
+        SetRenderEffect(EffectType.SELECTOUTLINE, selectedNow);
+        SetRenderEffect(EffectType.FILL, targetableNow);
+		Vector3 target = (selectedNow) ? selectedElevatorLocalPos : initialElevatorLocalPos;
+		SetElevator(target.y);
     }
 
-    void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
+	void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
     {
-        // Recompute move pair flags for this tile
-        isMovePairStart = false;
-        isMovePairTarget = false;
+        // Recompute move pair flags for this tile (no caching)
+        bool isStart = false;
+        bool isTarget = false;
         TileView targetTile = null;
         foreach (var kv in newPairs)
         {
-            if (kv.Value.start == posView) { isMovePairStart = true; }
-            if (kv.Value.target == posView) { isMovePairTarget = true; }
+            if (kv.Value.start == posView) { isStart = true; }
+            if (kv.Value.target == posView) { isTarget = true; }
             if (kv.Value.start == posView)
             {
                 targetTile = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(kv.Value.target) : null;
             }
         }
-        arrow.gameObject.SetActive(isMovePairStart && targetTile != null);
-        if (isMovePairStart && targetTile != null) { arrow.ArcFromTiles(this, targetTile); pointedTile = targetTile; }
+        SetArrow((isStart && targetTile != null) ? targetTile : null);
         Color finalColor = Color.clear;
-        if (isMovePairStart) finalColor = Color.green * 0.5f;
-        if (isMovePairTarget) finalColor = Color.blue * 0.5f;
+        if (isStart) finalColor = Color.green * 0.5f;
+        if (isTarget) finalColor = Color.blue * 0.5f;
         SetTopColor(finalColor);
     }
 
     // Resolve checkpoint updates: drive fog based on snapshot temporary states
     void HandleResolveCheckpointChangedForTile(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
-        bool showFog = ComputeFogForResolve(checkpoint, tr, net);
-        SetFog(showFog);
+        UpdateFogForResolve(checkpoint, tr, battleIndex, net);
     }
 
     // Compute fog for non-resolve vs resolve contexts
@@ -266,89 +224,243 @@ public class TileView : MonoBehaviour
     {
         if (mode == ClientMode.Resolve && ui != null && ui.ResolveData.pawnDeltas != null)
         {
-            bool showFog = ComputeFogForResolve(ResolveCheckpoint.Pre, ui.ResolveData, net);
-            SetFog(showFog);
+            UpdateFogForResolve(ResolveCheckpoint.Pre, ui.ResolveData, -1, net);
             return;
         }
         // Default (Setup/Move/others): look at current net state
-        bool fog = ComputeFogFromNetwork(net);
-        SetFog(fog);
+        UpdateFogFromNetwork(net);
     }
 
-    bool ComputeFogFromNetwork(GameNetworkState net)
+    void UpdateFogFromNetwork(GameNetworkState net)
     {
         PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
         if (occ is PawnState pawn)
         {
-            return !pawn.zz_revealed; // show fog when not revealed
+            ApplyFogForPawn(true, pawn.moved);
+            HandleRevealChange(pawn.zz_revealed);
+            return;
         }
-        return false;
+        // No pawn: clear fog
+        ApplyFogForPawn(false, false);
+        HandleRevealChange(true);
     }
 
-    bool ComputeFogForResolve(ResolveCheckpoint checkpoint, TurnResolveDelta tr, GameNetworkState net)
+    void UpdateFogForResolve(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
+        bool revealed = true;
+        bool moved = false;
+        bool hasPawn = false;
         switch (checkpoint)
         {
             case ResolveCheckpoint.Pre:
             {
-                // Fog depends on last turn's occupant at this position (pre state)
-                var preOccupants = tr.pawnDeltas.Values.Where(d => d.preAlive && d.prePos == posView);
-                bool anyUnrevealed = preOccupants.Any(d => !d.preRevealed);
-                return anyUnrevealed;
+                if (tr.preSnapshot != null)
+                {
+                    var occ = tr.preSnapshot.Where(p => p.alive && p.pos == posView);
+                    if (occ.Any())
+                    {
+                        var p = occ.First();
+                        hasPawn = true;
+                        revealed = p.zz_revealed;
+                        moved = p.moved;
+                    }
+                    else { revealed = true; }
+                }
+                else
+                {
+                    var preOccupants = tr.pawnDeltas.Values.Where(d => d.preAlive && d.prePos == posView);
+                    if (preOccupants.Any())
+                    {
+                        var d = preOccupants.First();
+                        hasPawn = true;
+                        revealed = d.preRevealed;
+                        // moved flag unknown in delta pre -> assume false
+                        moved = false;
+                    }
+                    else { revealed = true; }
+                }
+                break;
             }
             case ResolveCheckpoint.PostMoves:
             {
-                // Fog depends on current occupant(s) after moves (post state). If any occupant not revealed, fog is ON
-                var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
-                if (!postOccupants.Any()) return false;
-                if (postOccupants.Count() > 1)
+                if (tr.postMovesSnapshot != null)
                 {
-                    Debug.Log($"TileView[{posView}]: PostMoves: multiple occupants found, fog is set to if any occupants are not revealed");
-                    foreach (var d in postOccupants)
+                    var occ = tr.postMovesSnapshot.Where(p => p.alive && p.pos == posView);
+                    if (occ.Any())
                     {
-                        Debug.Log($"TileView[{posView}]: PostMoves: occupant {d.pawnId} revealed={d.preRevealed}");
+                        var p = occ.First();
+                        hasPawn = true;
+                        revealed = p.zz_revealed;
+                        moved = p.moved;
                     }
+                    else { revealed = true; }
                 }
-                bool anyUnrevealed = postOccupants.Any(d => !d.preRevealed);
-                return anyUnrevealed;
+                else
+                {
+                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
+                    if (postOccupants.Any())
+                    {
+                        var d = postOccupants.First();
+                        hasPawn = true;
+                        // After moves, we still only have preRevealed in deltas here
+                        revealed = d.preRevealed;
+                        moved = false;
+                    }
+                    else { revealed = true; }
+                }
+                break;
             }
             case ResolveCheckpoint.Battle:
             {
-                // After battles, fog depends on current occupant(s). Battles reveal pawns, so this typically returns false.
-                var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
-                if (!postOccupants.Any()) return false;
-                bool anyUnrevealed = postOccupants.Any(d => !d.postRevealed);
-                return anyUnrevealed;
+                if (tr.battleSnapshots != null && tr.battleSnapshots.Length > 0)
+                {
+                    int idx = Mathf.Clamp(battleIndex, 0, tr.battleSnapshots.Length - 1);
+                    var snap = tr.battleSnapshots[idx];
+                    var occ = snap.Where(p => p.alive && p.pos == posView);
+                    if (occ.Any())
+                    {
+                        var p = occ.First();
+                        hasPawn = true;
+                        revealed = p.zz_revealed;
+                        moved = p.moved;
+                    }
+                    else { revealed = true; }
+                }
+                else
+                {
+                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
+                    if (postOccupants.Any())
+                    {
+                        var d = postOccupants.First();
+                        hasPawn = true;
+                        revealed = d.postRevealed;
+                        moved = false;
+                    }
+                    else { revealed = true; }
+                }
+                break;
             }
             case ResolveCheckpoint.Final:
             default:
             {
-                // Final: authoritative network state
                 PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
                 if (occ is PawnState pawn)
                 {
-                    return !pawn.zz_revealed;
+                    hasPawn = true;
+                    revealed = pawn.zz_revealed;
+                    moved = pawn.moved;
                 }
-                return false;
+                else { revealed = true; }
+                break;
             }
         }
+        ApplyFogForPawn(hasPawn, moved);
+        HandleRevealChange(revealed);
     }
 
-    void SetFog(bool show)
+
+	// ===== Tier 1: Direct view mutators / tweens =====
+
+	void SetVisible(bool visible)
+	{
+		if (tileModel == null || tileModel.gameObject == null) return;
+		if (tileModel.gameObject.activeSelf != visible)
+		{
+			tileModel.gameObject.SetActive(visible);
+		}
+	}
+	void SetElevator(float localY)
+	{
+		if (tileModel == null || tileModel.elevator == null) return;
+		Vector3 current = tileModel.elevator.localPosition;
+		Vector3 target = new Vector3(current.x, localY, current.z);
+		if (current == target) return;
+		currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
+		{
+			tileModel.elevator.localPosition = target;
+		});
+	}
+
+	void SetRenderEffect(EffectType effect, bool enabled)
+	{
+		if (tileModel == null || tileModel.renderEffect == null) return;
+		tileModel.renderEffect.SetEffect(effect, enabled);
+	}
+
+	void SetArrow(TileView target)
+	{
+		if (arrow == null) return;
+		if (target != null)
+		{
+			arrow.gameObject.SetActive(true);
+			arrow.ArcFromTiles(this, target);
+			pointedTile = target;
+		}
+		else
+		{
+			arrow.Clear();
+			arrow.gameObject.SetActive(false);
+			pointedTile = null;
+		}
+	}
+
+	void SetFogFade(bool isRevealed)
+	{
+		Renderer r = tileModel != null ? (tileModel.topRenderer != null ? tileModel.topRenderer : tileModel.flatRenderer) : null;
+		if (r == null) return;
+		Material m = r.material;
+		if (!m.HasProperty(FadeAmountProperty)) return;
+		float from = m.GetFloat(FadeAmountProperty);
+		float to = isRevealed ? 0f : 1f;
+		if (revealFadeTween.isAlive) revealFadeTween.Stop();
+		revealFadeTween = PrimeTween.Tween.Custom(from, to, 0.25f, (val) =>
+		{
+			m.SetFloat(FadeAmountProperty, val);
+		}, Ease.OutCubic);
+	}
+
+	void SetFogColor(Color targetColor)
+	{
+		// Ensure fog object active
+		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
+		{
+			tileModel.fogObject.SetActive(true);
+		}
+		Renderer fogRenderer = tileModel.fogObject.GetComponent<Renderer>();
+		Material fogMat = fogRenderer.material;
+		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
+		Color startColor = baseColor;
+		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, targetColor.a);
+		if (Mathf.Approximately(startColor.a, endColor.a))
+		{
+			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
+			currentFogAlpha01 = endColor.a;
+			return;
+		}
+		if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
+		fogAlphaTween = PrimeTween.Tween.Custom(startColor.a, endColor.a, 0.2f, (val) =>
+		{
+			Color c = baseColor;
+			c.a = val;
+			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, c); else fogMat.color = c;
+			currentFogAlpha01 = val;
+		}, Ease.OutCubic);
+	}
+
+    void ApplyFogForPawn(bool hasPawn, bool hasMoved)
     {
-        if (tileModel == null)
+		float targetAlpha = hasPawn ? (hasMoved ? HiddenMovedAlpha01 : HiddenUnmovedAlpha01) : 0f;
+		SetFogColor(new Color(0f, 0f, 0f, targetAlpha));
+    }
+
+    void HandleRevealChange(bool isRevealed)
+    {
+        if (lastRevealedState.HasValue && lastRevealedState.Value == isRevealed)
         {
             return;
         }
-        if (tileModel.fogObject != null)
-        {
-            tileModel.fogObject.SetActive(show);
-        }
-        if (tileModel.fogParticleSystem != null)
-        {
-            var go = tileModel.fogParticleSystem.gameObject;
-            if (go != null) go.SetActive(show);
-        }
+        lastRevealedState = isRevealed;
+        SetFogFade(isRevealed);
     }
 
     void SetTopColor(Color color)
@@ -364,21 +476,6 @@ public class TileView : MonoBehaviour
             flatColor = color;
         }
         mat.SetColor(BaseColorProperty, flatColor);
-    }
-    
-    void Update()
-    {
-        if (!pulseBaseColor)
-        {
-            return;
-        }
-        // Pulse the alpha of the base color using absolute time
-        float t = (Mathf.Sin(Time.time * emissionPulseSpeed) + 1f) * 0.5f; // 0..1
-        float alpha = Mathf.Lerp(minEmissionAlpha, maxEmissionAlpha, t);
-        Material mat = tileModel.flatRenderer.material;
-        Color c = flatColor;
-        c.a = alpha;
-        mat.SetColor(BaseColorProperty, c);
     }
 
     public void OverrideArrow(Transform target)
