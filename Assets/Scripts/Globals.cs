@@ -2180,22 +2180,18 @@ public enum ResolveCheckpointType
     Final,
 }
 
-public enum SetupInputTool
+// Removed legacy SetupInputTool and MoveInputTool in favor of unified CursorInputTool
+
+public enum CursorInputTool
 {
     NONE,
-    ADD,
-    REMOVE,
+    SETUP_SET_RANK,
+    SETUP_UNSET_RANK,
+    MOVE_SELECT,
+    MOVE_TARGET,
+    MOVE_CLEAR,
+    MOVE_CLEAR_MOVEPAIR,
 }
-
-public enum MoveInputTool
-{
-    NONE,
-    SELECT,
-    TARGET,
-    CLEAR_SELECT,
-    CLEAR_MOVEPAIR,
-}
-
 
 public struct TurnResolveDelta
 {

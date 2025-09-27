@@ -38,6 +38,9 @@ public class TileView : MonoBehaviour
     public Tween currentTween;
     Vector3 initialElevatorLocalPos;
     
+    // Track whether this tile is currently selected in Move mode
+    bool isSelected;
+    
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
     
@@ -116,14 +119,37 @@ public class TileView : MonoBehaviour
 		SetRenderEffect(EffectType.SELECTOUTLINE, false);
 		SetRenderEffect(EffectType.FILL, false);
 		SetElevator(initialElevatorLocalPos.y);
+        isSelected = false;
         // Mode-specific initialization
         SetTileDebug();
+        TileState tile = net.GetTileUnchecked(posView);
+        SetTopColor(Color.clear);
         // When entering modes, seed arrows immediately for Resolve only (Move arrows will be driven by events)
         switch (mode)
         {
+			case ClientMode.Setup:
+			{
+				ApplyTeamColor(tile.setup);
+				// Disable fog entirely in setup mode
+				ApplyFogForPawn(false, false);
+				HandleRevealChange(true);
+				break;
+			}
             case ClientMode.Move:
-                SetTopColor(Color.clear);
-                break;
+			{
+				PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
+				if (occ is PawnState pawn)
+				{
+					ApplyFogForPawn(true, pawn.moved);
+					HandleRevealChange(pawn.zz_revealed);
+				}
+				else
+				{
+					ApplyFogForPawn(false, false);
+					HandleRevealChange(true);
+				}
+				break;
+			}
             case ClientMode.Resolve:
             {
                 // Use resolve payload moves for arrows
@@ -149,32 +175,24 @@ public class TileView : MonoBehaviour
                 if (start) col = Color.green * 0.5f;
                 if (target) col = Color.blue * 0.5f;
                 SetTopColor(col);
-                break;
+				break;
             }
         }
-
-        // Update fog visuals based on current mode/context
-        UpdateFogForContext(mode, net, ui);
     }
 
-	void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn, SetupInputTool _)
+    void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn)
     {
         if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupHover pos={hoveredPos} myTurn={isMyTurn}");
         bool hovered = isMyTurn && posView == hoveredPos;
         SetRenderEffect(EffectType.HOVEROUTLINE, hovered);
-        // In setup mode we do NOT elevate tiles on hover. Ensure elevator stays at base.
-        if (tileModel.elevator.localPosition != initialElevatorLocalPos)
-        {
-            tileModel.elevator.localPosition = initialElevatorLocalPos;
-        }
     }
 
-	void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
+    void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
     {
         bool hovered = isMyTurn && posView == hoveredPos;
         SetRenderEffect(EffectType.HOVEROUTLINE, hovered);
         // Elevate lightly only in movement when selection intent
-		Vector3 target = (hovered && tool == MoveInputTool.SELECT) ? hoveredElevatorLocalPos : initialElevatorLocalPos;
+		Vector3 target = isSelected ? selectedElevatorLocalPos : ((hovered && hoverTargets != null && hoverTargets.Count > 0) ? hoveredElevatorLocalPos : initialElevatorLocalPos);
 		SetElevator(target.y);
         // Hover targetable sphere
         bool show = hoverTargets != null && hoverTargets.Contains(posView);
@@ -187,6 +205,7 @@ public class TileView : MonoBehaviour
         bool targetableNow = validTargets.Contains(posView);
         SetRenderEffect(EffectType.SELECTOUTLINE, selectedNow);
         SetRenderEffect(EffectType.FILL, targetableNow);
+		isSelected = selectedNow;
 		Vector3 target = (selectedNow) ? selectedElevatorLocalPos : initialElevatorLocalPos;
 		SetElevator(target.y);
     }
@@ -219,31 +238,7 @@ public class TileView : MonoBehaviour
         UpdateFogForResolve(checkpoint, tr, battleIndex, net);
     }
 
-    // Compute fog for non-resolve vs resolve contexts
-    void UpdateFogForContext(ClientMode mode, GameNetworkState net, LocalUiState ui)
-    {
-        if (mode == ClientMode.Resolve && ui != null && ui.ResolveData.pawnDeltas != null)
-        {
-            UpdateFogForResolve(ResolveCheckpoint.Pre, ui.ResolveData, -1, net);
-            return;
-        }
-        // Default (Setup/Move/others): look at current net state
-        UpdateFogFromNetwork(net);
-    }
 
-    void UpdateFogFromNetwork(GameNetworkState net)
-    {
-        PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
-        if (occ is PawnState pawn)
-        {
-            ApplyFogForPawn(true, pawn.moved);
-            HandleRevealChange(pawn.zz_revealed);
-            return;
-        }
-        // No pawn: clear fog
-        ApplyFogForPawn(false, false);
-        HandleRevealChange(true);
-    }
 
     void UpdateFogForResolve(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
@@ -297,7 +292,7 @@ public class TileView : MonoBehaviour
                 }
                 else
                 {
-                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
+                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postPos == posView);
                     if (postOccupants.Any())
                     {
                         var d = postOccupants.First();
@@ -328,7 +323,7 @@ public class TileView : MonoBehaviour
                 }
                 else
                 {
-                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postAlive && d.postPos == posView);
+                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postPos == posView);
                     if (postOccupants.Any())
                     {
                         var d = postOccupants.First();
@@ -477,6 +472,21 @@ public class TileView : MonoBehaviour
         }
         mat.SetColor(BaseColorProperty, flatColor);
     }
+
+	void ApplyTeamColor(Team team)
+	{
+		Color c = Color.clear;
+		switch (team)
+		{
+			case Team.RED:
+				c = redTeamColor;
+				break;
+			case Team.BLUE:
+				c = blueTeamColor;
+				break;
+		}
+		SetTopColor(c);
+	}
 
     public void OverrideArrow(Transform target)
     {

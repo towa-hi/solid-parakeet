@@ -130,22 +130,7 @@ public class PawnView : MonoBehaviour
 		switch (mode)
 		{
 			case ClientMode.Resolve:
-				// If resolve payload is present, apply Pre snapshot immediately so pawns are in expected pre state
-				if (ui.ResolveData.moves != null && ui.ResolveData.pawnDeltas.TryGetValue(pawnId, out SnapshotPawnDelta delta))
-				{
-					aliveView = delta.preAlive;
-					posView = delta.prePos;
-					TileView tv = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null;
-					if (tv != null) { DisplayPosView(tv); }
-					Rank known = net.GetPawnFromId(pawnId).GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
-					Rank rv = known == Rank.UNKNOWN ? (delta.preRevealed ? delta.preRank : Rank.UNKNOWN) : known;
-					if (rv != rankView) { DisplayRankView(rv); rankView = rv; }
-                    model.SetActive(aliveView);
-					break;
-				}
-                // Fallback if no payload: re-seed from net
-				ReseedFromNet();
-                model.SetActive(aliveView);
+				
 				break;
 			case ClientMode.Setup:
 				ReseedFromNet();
@@ -170,26 +155,71 @@ public class PawnView : MonoBehaviour
     void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
         // checkpoint and battleIndex are consumed immediately; no persistent fields needed
-        // Apply pawn snapshot based on checkpoint, mirroring legacy logic
+        // Apply pawn snapshot based on checkpoint, mirroring TileView's snapshot-first fallback logic
         if (!tr.pawnDeltas.TryGetValue(pawnId, out SnapshotPawnDelta delta))
         {
             return;
         }
-        PawnState current = net.GetPawnFromId(pawnId);
-        Rank knownRank = current.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
+		Rank GetRankFromSnapshot(PawnState[] snapshot)
+		{
+			// Always show our own pawn's rank based on local knowledge, not snapshot
+			Team myTeam = pawnId.Decode().Item2;
+			if (myTeam == net.userTeam)
+			{
+				PawnState current = net.GetPawnFromId(pawnId);
+				return current.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
+			}
+			// For opponent pawns, use snapshot reveal state
+			if (snapshot == null) return Rank.UNKNOWN;
+			for (int i = 0; i < snapshot.Length; i++)
+			{
+				if (snapshot[i].pawn_id == pawnId)
+				{
+					PawnState p = snapshot[i];
+					return (p.zz_revealed && p.rank.HasValue) ? p.rank.Value : Rank.UNKNOWN;
+				}
+			}
+			return Rank.UNKNOWN;
+		}
+
         switch (checkpoint)
         {
             case ResolveCheckpoint.Pre:
-                aliveView = delta.preAlive;
+                for (int i = 0; i < tr.preSnapshot.Length; i++)
+                {
+                    if (tr.preSnapshot[i].pawn_id == pawnId)
+                    {
+                        aliveView = tr.preSnapshot[i].alive;
+                        model.SetActive(aliveView);
+                        break;
+                    }
+                }
                 posView = delta.prePos;
                 DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                DisplayRankView(knownRank == Rank.UNKNOWN ? (delta.preRevealed ? delta.preRank : Rank.UNKNOWN) : knownRank);
+                {
+                    
+                    Rank displayRank = GetRankFromSnapshot(tr.preSnapshot);
+                    DisplayRankView(displayRank);
+                    rankView = displayRank;
+                }
                 break;
             case ResolveCheckpoint.PostMoves:
-                aliveView = delta.preAlive;
+                for (int i = 0; i < tr.postMovesSnapshot.Length; i++)
+                {
+                    if (tr.postMovesSnapshot[i].pawn_id == pawnId)
+                    {
+                        aliveView = tr.postMovesSnapshot[i].alive;
+                        model.SetActive(aliveView);
+                        break;
+                    }
+                }
                 posView = delta.prePos;
                 DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                DisplayRankView(knownRank == Rank.UNKNOWN ? (delta.preRevealed ? delta.preRank : Rank.UNKNOWN) : knownRank);
+                {
+                    Rank displayRank = GetRankFromSnapshot(tr.postMovesSnapshot);
+                    DisplayRankView(displayRank);
+                    rankView = displayRank;
+                }
                 // Animate arc if this pawn has a move
                 if (tr.moves.TryGetValue(pawnId, out MoveEvent mv))
                 {
@@ -202,18 +232,44 @@ public class PawnView : MonoBehaviour
                 // During battle sequence we may show postPos after certain battles
                 posView = delta.postPos;
                 DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                aliveView = delta.preAlive; // deaths apply after battle completes
-                DisplayRankView(knownRank == Rank.UNKNOWN ? (delta.preRevealed ? delta.preRank : Rank.UNKNOWN) : knownRank);
+                {
+                    PawnState[] snap = tr.battleSnapshots[Mathf.Clamp(battleIndex, 0, tr.battleSnapshots.Length - 1)];
+                    for (int i = 0; i < snap.Length; i++)
+                    {
+                        if (snap[i].pawn_id == pawnId)
+                        {
+                            aliveView = snap[i].alive;
+                            model.SetActive(aliveView);
+                            break;
+                        }
+                    }
+                }
+                {
+                    PawnState[] snap = tr.battleSnapshots[Mathf.Clamp(battleIndex, 0, tr.battleSnapshots.Length - 1)];
+                    Rank displayRank = GetRankFromSnapshot(snap);
+                    DisplayRankView(displayRank);
+                    rankView = displayRank;
+                }
                 break;
             case ResolveCheckpoint.Final:
-                aliveView = delta.postAlive;
+                for (int i = 0; i < tr.finalSnapshot.Length; i++)
+                {
+                    if (tr.finalSnapshot[i].pawn_id == pawnId)
+                    {
+                        aliveView = tr.finalSnapshot[i].alive;
+                        model.SetActive(aliveView);
+                        break;
+                    }
+                }
                 posView = delta.postPos;
                 DisplayPosView(ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(posView) : null);
-                DisplayRankView(knownRank == Rank.UNKNOWN ? (delta.postRevealed ? delta.postRank : Rank.UNKNOWN) : knownRank);
+                {
+                    Rank displayRank = GetRankFromSnapshot(tr.finalSnapshot);
+                    DisplayRankView(displayRank);
+                    rankView = displayRank;
+                }
                 break;
         }
-        // Visibility: always show pawns in resolve; rank may be unknown per rules
-        model.SetActive(aliveView);
     }
 
     void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)

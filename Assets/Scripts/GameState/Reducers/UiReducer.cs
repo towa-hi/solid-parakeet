@@ -5,6 +5,11 @@ using UnityEngine;
 
 public sealed class UiReducer : IGameReducer
 {
+    private static bool IsMoveSelect(CursorInputTool tool) => tool == CursorInputTool.MOVE_SELECT;
+    private static bool IsMoveTarget(CursorInputTool tool) => tool == CursorInputTool.MOVE_TARGET;
+    private static bool IsMoveClearSelect(CursorInputTool tool) => tool == CursorInputTool.MOVE_CLEAR;
+    private static bool IsMoveClearPair(CursorInputTool tool) => tool == CursorInputTool.MOVE_CLEAR_MOVEPAIR;
+
     public (GameSnapshot nextState, List<GameEvent> events) Reduce(GameSnapshot state, GameAction action)
     {
         if (state == null) state = GameSnapshot.Empty;
@@ -18,9 +23,8 @@ public sealed class UiReducer : IGameReducer
                 Debug.Log($"UiReducer: SetupSelectRank old={ui.SelectedRank} new={selRank.Rank}");
                 Rank? old = ui.SelectedRank;
                 ui = ui with { SelectedRank = selRank.Rank };
-                var setupTool = UiSelectors.ComputeSetupTool(state.Net, ui);
                 emitted ??= new List<GameEvent>();
-                emitted.Add(new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), setupTool));
+                emitted.Add(new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase()));
                 emitted.Add(new SetupRankSelectedEvent(old, ui.SelectedRank));
                 return (state with { Ui = ui }, emitted);
             }
@@ -29,10 +33,9 @@ public sealed class UiReducer : IGameReducer
                 Debug.Log("UiReducer: SetupClearAll");
                 var oldMap = new Dictionary<PawnId, Rank?>(ui.PendingCommits);
                 ui = ui with { PendingCommits = new Dictionary<PawnId, Rank?>() };
-                var setupTool = UiSelectors.ComputeSetupTool(state.Net, ui);
                 emitted = new List<GameEvent>
                 {
-                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), setupTool),
+                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase()),
                     new SetupPendingChangedEvent(oldMap, new Dictionary<PawnId, Rank?>(ui.PendingCommits))
                 };
                 return (state with { Ui = ui }, emitted);
@@ -49,10 +52,9 @@ public sealed class UiReducer : IGameReducer
                     dict[pawn.pawn_id] = kv.Value;
                 }
                 ui = ui with { PendingCommits = dict };
-                var setupTool = UiSelectors.ComputeSetupTool(state.Net, ui);
                 emitted = new List<GameEvent>
                 {
-                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), setupTool),
+                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase()),
                     new SetupPendingChangedEvent(oldMap, new Dictionary<PawnId, Rank?>(dict))
                 };
                 return (state with { Ui = ui }, emitted);
@@ -65,10 +67,9 @@ public sealed class UiReducer : IGameReducer
                 var pawn = state.Net.GetAlivePawnFromPosUnchecked(commit.Pos);
                 dict[pawn.pawn_id] = ui.SelectedRank;
                 ui = ui with { PendingCommits = dict };
-                var setupTool = UiSelectors.ComputeSetupTool(state.Net, ui);
                 emitted = new List<GameEvent>
                 {
-                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), setupTool),
+                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase()),
                     new SetupPendingChangedEvent(oldMap, new Dictionary<PawnId, Rank?>(dict))
                 };
                 return (state with { Ui = ui }, emitted);
@@ -81,10 +82,9 @@ public sealed class UiReducer : IGameReducer
                 var pawn = state.Net.GetAlivePawnFromPosUnchecked(uncommit.Pos);
                 dict[pawn.pawn_id] = null;
                 ui = ui with { PendingCommits = dict };
-                var setupTool = UiSelectors.ComputeSetupTool(state.Net, ui);
                 emitted = new List<GameEvent>
                 {
-                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), setupTool),
+                    new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase()),
                     new SetupPendingChangedEvent(oldMap, new Dictionary<PawnId, Rank?>(dict))
                 };
                 return (state with { Ui = ui }, emitted);
@@ -98,42 +98,40 @@ public sealed class UiReducer : IGameReducer
                 Debug.Log($"UiReducer: SetupHoverAction pos={hover.Pos}");
                 ui = ui with { HoveredPos = hover.Pos };
                 bool isMyTurn = state.Net.IsMySubphase();
-                var setupTool = UiSelectors.ComputeSetupTool(state.Net, ui);
-                emitted = new List<GameEvent> { new SetupHoverChangedEvent(hover.Pos, isMyTurn, setupTool) };
+                emitted = new List<GameEvent> { new SetupHoverChangedEvent(hover.Pos, isMyTurn) };
                 return (state with { Ui = ui }, emitted);
             }
             case SetupClickAt click:
             {
-                var setupTool = UiSelectors.ComputeSetupTool(state.Net, ui);
-                Debug.Log($"UiReducer: SetupClickAt pos={click.Pos} tool={setupTool}");
+                var cursorTool = UiSelectors.ComputeCursorTool(state.Mode, state.Net, ui);
+                Debug.Log($"UiReducer: SetupClickAt pos={click.Pos} tool={cursorTool}");
                 // Delegate to existing handlers based on current tool
                 if (!state.Net.IsMySubphase()) return (state, null);
-                return setupTool switch
-                {
-                    SetupInputTool.ADD => Reduce(state, new SetupCommitAt(click.Pos)),
-                    SetupInputTool.REMOVE => Reduce(state, new SetupUncommitAt(click.Pos)),
-                    _ => (state, null),
-                };
+                if (cursorTool == CursorInputTool.SETUP_SET_RANK) return Reduce(state, new SetupCommitAt(click.Pos));
+                if (cursorTool == CursorInputTool.SETUP_UNSET_RANK) return Reduce(state, new SetupUncommitAt(click.Pos));
+                return (state, null);
             }
             // Movement
             case MoveHoverAction moveHover:
             {
                 ui = ui with { HoveredPos = moveHover.Pos };
                 bool isMyTurn = state.Net.IsMySubphase();
-                MoveInputTool tool = UiSelectors.ComputeMoveTool(state.Net, ui);
                 HashSet<Vector2Int> targets = new HashSet<Vector2Int>();
-                if (tool == MoveInputTool.SELECT && state.Net.GetAlivePawnFromPosChecked(moveHover.Pos) is PawnState pawn)
+                if (isMyTurn && ui.SelectedPos is not Vector2Int &&
+                    ui.MovePairs.Count < state.Net.GetMaxMovesThisTurn() &&
+                    state.Net.GetAlivePawnFromPosChecked(moveHover.Pos) is PawnState pawn &&
+                    state.Net.CanUserMovePawn(pawn.pawn_id))
                 {
                     targets = state.Net.GetValidMoveTargetList(pawn.pawn_id, ui.MovePairs.ToDictionary(kv => kv.Key, kv => (kv.Value.start, kv.Value.target)));
                 }
-                emitted = new List<GameEvent> { new MoveHoverChangedEvent(moveHover.Pos, isMyTurn, tool, targets) };
+                emitted = new List<GameEvent> { new MoveHoverChangedEvent(moveHover.Pos, isMyTurn, targets) };
                 return (state with { Ui = ui }, emitted);
             }
             case MoveClickAt moveClick:
             {
                 if (!state.Net.IsMySubphase()) return (state, null);
-                MoveInputTool tool = UiSelectors.ComputeMoveTool(state.Net, ui);
-                if (tool == MoveInputTool.SELECT)
+                var cursorTool = UiSelectors.ComputeCursorTool(state.Mode, state.Net, ui);
+                if (IsMoveSelect(cursorTool))
                 {
                     Vector2Int pos = moveClick.Pos;
                     ui = ui with { SelectedPos = pos };
@@ -143,11 +141,11 @@ public sealed class UiReducer : IGameReducer
                         var validTargets = state.Net.GetValidMoveTargetList(pawn.pawn_id, ui.MovePairs.ToDictionary(kv => kv.Key, kv => (kv.Value.start, kv.Value.target)));
                         emitted.Add(new MoveSelectionChangedEvent(ui.SelectedPos, validTargets));
                     }
-                    MoveInputTool newTool = UiSelectors.ComputeMoveTool(state.Net, ui);
-                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), newTool, new HashSet<Vector2Int>()));
+                    var newCursorTool = UiSelectors.ComputeCursorTool(state.Mode, state.Net, ui);
+                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), new HashSet<Vector2Int>()));
                     return (state with { Ui = ui }, emitted);
                 }
-                if (tool == MoveInputTool.TARGET)
+                if (IsMoveTarget(cursorTool))
                 {
                     if (ui.SelectedPos is not Vector2Int sel)
                     {
@@ -170,19 +168,19 @@ public sealed class UiReducer : IGameReducer
                         new MovePairsChangedEvent(oldPairs, new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>(dict)),
                         new MoveSelectionChangedEvent(null, new HashSet<Vector2Int>())
                     };
-                    MoveInputTool newTool = UiSelectors.ComputeMoveTool(state.Net, ui);
-                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), newTool, new HashSet<Vector2Int>()));
+                    var newCursorTool = UiSelectors.ComputeCursorTool(state.Mode, state.Net, ui);
+                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), new HashSet<Vector2Int>()));
                     return (state with { Ui = ui }, emitted);
                 }
-                if (tool == MoveInputTool.CLEAR_SELECT)
+                if (IsMoveClearSelect(cursorTool))
                 {
                     ui = ui with { SelectedPos = null };
                     emitted = new List<GameEvent> { new MoveSelectionChangedEvent(null, new HashSet<Vector2Int>()) };
-                    MoveInputTool newTool = UiSelectors.ComputeMoveTool(state.Net, ui);
-                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), newTool, new HashSet<Vector2Int>()));
+                    var newCursorTool = UiSelectors.ComputeCursorTool(state.Mode, state.Net, ui);
+                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), new HashSet<Vector2Int>()));
                     return (state with { Ui = ui }, emitted);
                 }
-                if (tool == MoveInputTool.CLEAR_MOVEPAIR)
+                if (IsMoveClearPair(cursorTool))
                 {
                     Vector2Int hovered = moveClick.Pos;
                     var oldPairs = new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>(ui.MovePairs);
@@ -193,8 +191,8 @@ public sealed class UiReducer : IGameReducer
                     }
                     ui = ui with { MovePairs = dict };
                     emitted = new List<GameEvent> { new MovePairsChangedEvent(oldPairs, new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>(dict)) };
-                    MoveInputTool newTool = UiSelectors.ComputeMoveTool(state.Net, ui);
-                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), newTool, new HashSet<Vector2Int>()));
+                    var newCursorTool = UiSelectors.ComputeCursorTool(state.Mode, state.Net, ui);
+                    emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), new HashSet<Vector2Int>()));
                     return (state with { Ui = ui }, emitted);
                 }
                 return (state, null);

@@ -17,16 +17,12 @@ public class CursorController : MonoBehaviour
     void Awake()
     {
         instance = this;
-        ViewEventBus.OnSetupHoverChanged += HandleSetupHover;
-        ViewEventBus.OnMoveHoverChanged += HandleMoveHover;
-        ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
+        ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
     
     void OnDestroy()
     {
-        ViewEventBus.OnSetupHoverChanged -= HandleSetupHover;
-        ViewEventBus.OnMoveHoverChanged -= HandleMoveHover;
-        ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
+        ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
     
     void Start()
@@ -34,24 +30,13 @@ public class CursorController : MonoBehaviour
         ChangeCursor(CursorType.DEFAULT);
     }
 
-    static void HandleSetupHover(Vector2Int pos, bool isMyTurn, SetupInputTool tool)
+    static void HandleStateUpdated(GameSnapshot snapshot)
     {
-        if (!isMyTurn) { ChangeCursor(CursorType.DISABLED); return; }
+        var mode = snapshot.Mode;
+        var net = snapshot.Net;
+        var ui = snapshot.Ui ?? LocalUiState.Empty;
+        var tool = UiSelectors.ComputeCursorTool(mode, net, ui);
         UpdateCursor(tool);
-    }
-
-    static void HandleMoveHover(Vector2Int pos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> _)
-    {
-        if (!isMyTurn) { ChangeCursor(CursorType.DISABLED); return; }
-        UpdateCursor(tool);
-    }
-
-    static void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
-    {
-        if (mode == ClientMode.Resolve || mode == ClientMode.Finished || mode == ClientMode.Aborted)
-        {
-            ChangeCursor(CursorType.DEFAULT);
-        }
     }
 
     static void ChangeCursor(CursorType cursorType)
@@ -84,41 +69,29 @@ public class CursorController : MonoBehaviour
         }
     }
     
-    public static void UpdateCursor(SetupInputTool tool)
+    public static void UpdateCursor(CursorInputTool tool)
     {
         switch (tool)
         {
-            case SetupInputTool.NONE:
+            case CursorInputTool.NONE:
                 ChangeCursor(CursorType.DEFAULT);
                 break;
-            case SetupInputTool.ADD:
+            case CursorInputTool.SETUP_SET_RANK:
                 ChangeCursor(CursorType.PLUS);
                 break;
-            case SetupInputTool.REMOVE:
+            case CursorInputTool.SETUP_UNSET_RANK:
                 ChangeCursor(CursorType.MINUS);
                 break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-    }
-
-    public static void UpdateCursor(MoveInputTool tool)
-    {
-        switch (tool)
-        {
-            case MoveInputTool.NONE:
-                ChangeCursor(CursorType.DEFAULT);
-                break;
-            case MoveInputTool.SELECT:
+            case CursorInputTool.MOVE_SELECT:
                 ChangeCursor(CursorType.PLUS);
                 break;
-            case MoveInputTool.TARGET:
+            case CursorInputTool.MOVE_TARGET:
                 ChangeCursor(CursorType.TARGET);
                 break;
-            case MoveInputTool.CLEAR_SELECT:
+            case CursorInputTool.MOVE_CLEAR:
                 ChangeCursor(CursorType.MINUS);
                 break;
-            case MoveInputTool.CLEAR_MOVEPAIR:
+            case CursorInputTool.MOVE_CLEAR_MOVEPAIR:
                 ChangeCursor(CursorType.MINUS);
                 break;
             default:

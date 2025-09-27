@@ -76,7 +76,7 @@ public class GuiMovement : GameElement
         phaseInfoDisplay.Set(net);
     }
 
-    void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> _)
+    void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
     {
         // Only cursor/selection visuals handled by tiles; GUI updates not needed here
     }

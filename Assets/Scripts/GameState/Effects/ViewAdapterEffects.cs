@@ -22,24 +22,22 @@ public sealed class ViewAdapterEffects : IGameEffect
 						ViewEventBus.RaiseClientModeChanged(m.Mode, m.Net, m.Ui);
 						// Emit an initial hover update appropriate for the new mode so cursor updates immediately
 						bool isMyTurn = m.Net.IsMySubphase();
-						if (m.Mode == ClientMode.Move)
+					if (m.Mode == ClientMode.Move)
 						{
-							var tool = UiSelectors.ComputeMoveTool(m.Net, m.Ui);
 							var targets = new System.Collections.Generic.HashSet<UnityEngine.Vector2Int>();
-							if (tool == MoveInputTool.SELECT && m.Net.GetAlivePawnFromPosChecked(m.Ui.HoveredPos) is Contract.PawnState pawn)
+						if (UiSelectors.ComputeCursorTool(m.Mode, m.Net, m.Ui) == CursorInputTool.MOVE_SELECT && m.Net.GetAlivePawnFromPosChecked(m.Ui.HoveredPos) is Contract.PawnState pawn)
 							{
 								targets = m.Net.GetValidMoveTargetList(pawn.pawn_id, m.Ui.MovePairs.ToDictionary(kv => kv.Key, kv => (kv.Value.start, kv.Value.target)));
 							}
-							ViewEventBus.RaiseMoveHoverChanged(m.Ui.HoveredPos, isMyTurn, tool, targets);
+						ViewEventBus.RaiseMoveHoverChanged(m.Ui.HoveredPos, isMyTurn, targets);
 						}
-						else if (m.Mode == ClientMode.Setup)
+					else if (m.Mode == ClientMode.Setup)
 						{
-							var tool = UiSelectors.ComputeSetupTool(m.Net, m.Ui);
-							ViewEventBus.RaiseSetupHoverChanged(m.Ui.HoveredPos, isMyTurn, tool);
+						ViewEventBus.RaiseSetupHoverChanged(m.Ui.HoveredPos, isMyTurn);
 						}
 						break;
 				case SetupHoverChangedEvent sh:
-					ViewEventBus.RaiseSetupHoverChanged(sh.Pos, sh.IsMyTurn, sh.Tool);
+					ViewEventBus.RaiseSetupHoverChanged(sh.Pos, sh.IsMyTurn);
 					break;
 				case SetupRankSelectedEvent sr:
 					ViewEventBus.RaiseSetupRankSelected(sr.OldRank, sr.NewRank);
@@ -48,7 +46,7 @@ public sealed class ViewAdapterEffects : IGameEffect
 					ViewEventBus.RaiseSetupPendingChanged(sp.OldMap, sp.NewMap);
 					break;
 				case MoveHoverChangedEvent mh:
-					ViewEventBus.RaiseMoveHoverChanged(mh.Pos, mh.IsMyTurn, mh.Tool, mh.Targets);
+					ViewEventBus.RaiseMoveHoverChanged(mh.Pos, mh.IsMyTurn, mh.Targets);
 					break;
 				case MoveSelectionChangedEvent ms:
 					ViewEventBus.RaiseMoveSelectionChanged(ms.SelectedPos, ms.Targets);

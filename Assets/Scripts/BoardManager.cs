@@ -101,6 +101,7 @@ public class BoardManager : MonoBehaviour
         ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
         // Seed initial mode to views now that board/pawn views exist
         ViewEventBus.RaiseClientModeChanged(initMode, netState, store.State.Ui ?? LocalUiState.Empty);
+        ViewEventBus.RaiseStateUpdated(store.State);
         Debug.Log("BoardManager.Initialize: finished creating views; starting music");
         AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
         // Ensure no duplicate subscriptions if StartBoardManager is called repeatedly
@@ -192,16 +193,20 @@ public class BoardManager : MonoBehaviour
         {
             case ClientMode.Setup:
                 store.Dispatch(new SetupHoverAction(pos));
+                ViewEventBus.RaiseStateUpdated(store.State);
                 if (clicked && !StellarManager.IsBusy)
                 {
                     store.Dispatch(new SetupClickAt(pos));
+                    ViewEventBus.RaiseStateUpdated(store.State);
                 }
                 break;
             case ClientMode.Move:
                 store.Dispatch(new MoveHoverAction(pos));
+                ViewEventBus.RaiseStateUpdated(store.State);
                 if (clicked && !StellarManager.IsBusy)
                 {
                     store.Dispatch(new MoveClickAt(pos));
+                    ViewEventBus.RaiseStateUpdated(store.State);
                 }
                 break;
         }

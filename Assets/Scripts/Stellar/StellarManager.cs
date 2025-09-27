@@ -830,7 +830,7 @@ public static class StellarManager
             {
                 PawnState s = p;
                 s.pos = d.postPos; // apply move target
-                s.alive = d.postAlive;
+                s.alive = d.preAlive;
                 s.zz_revealed = d.preRevealed; // before reveals: keep pre reveal
                 s.rank = d.preRevealed ? d.preRank : null;
                 // Update moved flags for postMoves snapshot from current authoritative state
