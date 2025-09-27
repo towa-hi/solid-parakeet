@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Contract;
 using UnityEngine;
 using PrimeTween;
@@ -63,6 +62,9 @@ public class TileView : MonoBehaviour
         
         SetTile(tile, hex);
         initialElevatorLocalPos = tileModel.elevator.localPosition;
+        // Ensure fog is disabled on initialization
+        ApplyFogForPawn(false, false);
+        HandleRevealChange(true);
     }
 
     void SetTile(TileState tile, bool hex)
@@ -97,7 +99,6 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
-        ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChangedForTile;
     }
 
     public void DetachSubscriptions()
@@ -107,7 +108,6 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
-        ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChangedForTile;
     }
 
 	void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
@@ -130,24 +130,10 @@ public class TileView : MonoBehaviour
 			case ClientMode.Setup:
 			{
 				ApplyTeamColor(tile.setup);
-				// Disable fog entirely in setup mode
-				ApplyFogForPawn(false, false);
-				HandleRevealChange(true);
 				break;
 			}
             case ClientMode.Move:
 			{
-				PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
-				if (occ is PawnState pawn)
-				{
-					ApplyFogForPawn(true, pawn.moved);
-					HandleRevealChange(pawn.zz_revealed);
-				}
-				else
-				{
-					ApplyFogForPawn(false, false);
-					HandleRevealChange(true);
-				}
 				break;
 			}
             case ClientMode.Resolve:
@@ -233,125 +219,6 @@ public class TileView : MonoBehaviour
     }
 
     // Resolve checkpoint updates: drive fog based on snapshot temporary states
-    void HandleResolveCheckpointChangedForTile(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
-    {
-        UpdateFogForResolve(checkpoint, tr, battleIndex, net);
-    }
-
-
-
-    void UpdateFogForResolve(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
-    {
-        bool revealed = true;
-        bool moved = false;
-        bool hasPawn = false;
-        switch (checkpoint)
-        {
-            case ResolveCheckpoint.Pre:
-            {
-                if (tr.preSnapshot != null)
-                {
-                    var occ = tr.preSnapshot.Where(p => p.alive && p.pos == posView);
-                    if (occ.Any())
-                    {
-                        var p = occ.First();
-                        hasPawn = true;
-                        revealed = p.zz_revealed;
-                        moved = p.moved;
-                    }
-                    else { revealed = true; }
-                }
-                else
-                {
-                    var preOccupants = tr.pawnDeltas.Values.Where(d => d.preAlive && d.prePos == posView);
-                    if (preOccupants.Any())
-                    {
-                        var d = preOccupants.First();
-                        hasPawn = true;
-                        revealed = d.preRevealed;
-                        // moved flag unknown in delta pre -> assume false
-                        moved = false;
-                    }
-                    else { revealed = true; }
-                }
-                break;
-            }
-            case ResolveCheckpoint.PostMoves:
-            {
-                if (tr.postMovesSnapshot != null)
-                {
-                    var occ = tr.postMovesSnapshot.Where(p => p.alive && p.pos == posView);
-                    if (occ.Any())
-                    {
-                        var p = occ.First();
-                        hasPawn = true;
-                        revealed = p.zz_revealed;
-                        moved = p.moved;
-                    }
-                    else { revealed = true; }
-                }
-                else
-                {
-                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postPos == posView);
-                    if (postOccupants.Any())
-                    {
-                        var d = postOccupants.First();
-                        hasPawn = true;
-                        // After moves, we still only have preRevealed in deltas here
-                        revealed = d.preRevealed;
-                        moved = false;
-                    }
-                    else { revealed = true; }
-                }
-                break;
-            }
-            case ResolveCheckpoint.Battle:
-            {
-                if (tr.battleSnapshots != null && tr.battleSnapshots.Length > 0)
-                {
-                    int idx = Mathf.Clamp(battleIndex, 0, tr.battleSnapshots.Length - 1);
-                    var snap = tr.battleSnapshots[idx];
-                    var occ = snap.Where(p => p.alive && p.pos == posView);
-                    if (occ.Any())
-                    {
-                        var p = occ.First();
-                        hasPawn = true;
-                        revealed = p.zz_revealed;
-                        moved = p.moved;
-                    }
-                    else { revealed = true; }
-                }
-                else
-                {
-                    var postOccupants = tr.pawnDeltas.Values.Where(d => d.postPos == posView);
-                    if (postOccupants.Any())
-                    {
-                        var d = postOccupants.First();
-                        hasPawn = true;
-                        revealed = d.postRevealed;
-                        moved = false;
-                    }
-                    else { revealed = true; }
-                }
-                break;
-            }
-            case ResolveCheckpoint.Final:
-            default:
-            {
-                PawnState? occ = net.GetAlivePawnFromPosChecked(posView);
-                if (occ is PawnState pawn)
-                {
-                    hasPawn = true;
-                    revealed = pawn.zz_revealed;
-                    moved = pawn.moved;
-                }
-                else { revealed = true; }
-                break;
-            }
-        }
-        ApplyFogForPawn(hasPawn, moved);
-        HandleRevealChange(revealed);
-    }
 
 
 	// ===== Tier 1: Direct view mutators / tweens =====
@@ -399,7 +266,7 @@ public class TileView : MonoBehaviour
 		}
 	}
 
-	void SetFogFade(bool isRevealed)
+    void SetFogFade(bool isRevealed)
 	{
 		Renderer r = tileModel != null ? (tileModel.topRenderer != null ? tileModel.topRenderer : tileModel.flatRenderer) : null;
 		if (r == null) return;
@@ -414,7 +281,7 @@ public class TileView : MonoBehaviour
 		}, Ease.OutCubic);
 	}
 
-	void SetFogColor(Color targetColor)
+    void SetFogColor(Color targetColor)
 	{
 		// Ensure fog object active
 		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
@@ -456,6 +323,16 @@ public class TileView : MonoBehaviour
         }
         lastRevealedState = isRevealed;
         SetFogFade(isRevealed);
+    }
+
+    // Single public entrypoint for fog updates driven by pawn state
+    public void UpdateFogFromPawnState(PawnState? pawn)
+    {
+        bool hasPawn = pawn.HasValue && pawn.Value.alive && pawn.Value.pos == posView;
+        bool moved = hasPawn && pawn.Value.moved;
+        bool revealed = hasPawn ? pawn.Value.zz_revealed : true;
+        ApplyFogForPawn(hasPawn, moved);
+        HandleRevealChange(revealed);
     }
 
     void SetTopColor(Color color)
