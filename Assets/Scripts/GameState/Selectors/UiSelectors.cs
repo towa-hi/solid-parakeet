@@ -7,6 +7,7 @@ public static class UiSelectors
 {
 	public static CursorInputTool ComputeCursorTool(ClientMode mode, GameNetworkState net, LocalUiState uiState)
 	{
+		if (uiState.WaitingForResponse != null) return CursorInputTool.NONE;
 		if (!net.IsMySubphase()) return CursorInputTool.NONE;
 		switch (mode)
 		{

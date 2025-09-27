@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Contract;
@@ -14,6 +15,7 @@ public sealed class NetworkEffects : IGameEffect
 
     public async void OnActionAndEvents(GameAction action, IReadOnlyList<GameEvent> events, GameSnapshot state)
     {
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         switch (action)
         {
             case NetworkStateChanged a:
@@ -98,53 +100,67 @@ public sealed class NetworkEffects : IGameEffect
             }
             case RefreshRequested:
             {
+                store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
                 await StellarManager.UpdateState();
+                store.Dispatch(new UiWaitingForResponse(null));
                 break;
             }
             case CommitSetupAction a:
             {
+                store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
                 Result<bool> result = await StellarManager.CommitSetupRequest(a.Req);
                 if (result.IsError)
                 {
                     HandleFatalNetworkError(result.Message);
+                    store.Dispatch(new UiWaitingForResponse(null));
                     return;
                 }
                 await StellarManager.UpdateState();
+                store.Dispatch(new UiWaitingForResponse(null));
                 break;
             }
             case CommitMoveAndProveAction a:
             {
                 GameNetworkState gns = state.Net;
+                store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
                 Result<bool> result = await StellarManager.CommitMoveRequest(a.CommitReq, a.ProveReq, gns.address, gns.lobbyInfo, gns.lobbyParameters);
                 if (result.IsError)
                 {
                     HandleFatalNetworkError(result.Message);
+                    store.Dispatch(new UiWaitingForResponse(null));
                     return;
                 }
                 await StellarManager.UpdateState();
+                store.Dispatch(new UiWaitingForResponse(null));
                 break;
             }
             case ProveMoveAction a:
             {
                 GameNetworkState gns = state.Net;
+                store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
                 Result<bool> result = await StellarManager.ProveMoveRequest(a.Req, gns.address, gns.lobbyInfo, gns.lobbyParameters);
                 if (result.IsError)
                 {
                     HandleFatalNetworkError(result.Message);
+                    store.Dispatch(new UiWaitingForResponse(null));
                     return;
                 }
                 await StellarManager.UpdateState();
+                store.Dispatch(new UiWaitingForResponse(null));
                 break;
             }
             case ProveRankAction a:
             {
+                store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
                 Result<bool> result = await StellarManager.ProveRankRequest(a.Req);
                 if (result.IsError)
                 {
                     HandleFatalNetworkError(result.Message);
+                    store.Dispatch(new UiWaitingForResponse(null));
                     return;
                 }
                 await StellarManager.UpdateState();
+                store.Dispatch(new UiWaitingForResponse(null));
                 break;
             }
             case SetupSubmit:
@@ -194,13 +210,16 @@ public sealed class NetworkEffects : IGameEffect
                     rank_commitment_root = root,
                     zz_hidden_ranks = net.lobbyParameters.security_mode ? new HiddenRank[]{} : hiddenRanks.ToArray(),
                 };
+                store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
                 Result<bool> submit = await StellarManager.CommitSetupRequest(req);
                 if (submit.IsError)
                 {
                     HandleFatalNetworkError(submit.Message);
+                    store.Dispatch(new UiWaitingForResponse(null));
                     return;
                 }
                 await StellarManager.UpdateState();
+                store.Dispatch(new UiWaitingForResponse(null));
                 break;
             }
             case MoveSubmit:
@@ -250,13 +269,16 @@ public sealed class NetworkEffects : IGameEffect
                     lobby_id = net.lobbyInfo.index,
                     move_proofs = hiddenMoves.ToArray(),
                 };
+                store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
                 Result<bool> result = await StellarManager.CommitMoveRequest(commit, prove, net.address, net.lobbyInfo, net.lobbyParameters);
                 if (result.IsError)
                 {
                     HandleFatalNetworkError(result.Message);
+                    store.Dispatch(new UiWaitingForResponse(null));
                     return;
                 }
                 await StellarManager.UpdateState();
+                store.Dispatch(new UiWaitingForResponse(null));
                 break;
             }
         }

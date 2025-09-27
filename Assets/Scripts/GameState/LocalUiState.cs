@@ -6,6 +6,8 @@ public record LocalUiState
 {
     public Vector2Int? SelectedPos { get; init; }
     public Vector2Int HoveredPos { get; init; }
+    // Info while a non-polling network request is inflight; null when idle
+    public UiWaitingForResponseData WaitingForResponse { get; init; }
 
     // Move planning
     public Dictionary<PawnId, (Vector2Int start, Vector2Int target)> MovePairs { get; init; } = new();
@@ -23,5 +25,11 @@ public record LocalUiState
 }
 
 public enum ResolveCheckpoint { Pre, PostMoves, Battle, Final }
+
+public record UiWaitingForResponseData
+{
+    public GameAction Action { get; init; }
+    public long TimestampMs { get; init; }
+}
 
 

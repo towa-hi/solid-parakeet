@@ -29,11 +29,14 @@ public class GuiGame : MenuElement
         base.Awake();
         gameOver.OnReturnClicked += ExitToMainMenu;
         ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
+		// Drive interactivity from store-driven UI state updates
+		ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
 
     void OnDestroy()
     {
         ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
+		ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
 
     void Update()
@@ -99,12 +102,13 @@ public class GuiGame : MenuElement
             gameOver.ShowElement(false);
             Debug.Log("GuiGame.ShowElement(true): hiding subpanels by default (resolve hidden)");
             // Panel will be activated by ClientModeChanged shortly after; keep all hidden now
+			// Initialize to interactable; upcoming state updates will adjust if waiting
+			ApplyBusy(false);
         }
         else
         {
             // Clear current element pointer so re-entry will re-activate desired panel
             currentGameElement = null;
-            busyCount = 0;
             ApplyBusy(false);
         }
     }
@@ -114,20 +118,11 @@ public class GuiGame : MenuElement
         
     }
 
-    void HandleTaskStarted(TaskInfo _)
-    {
-        busyCount++;
-        ApplyBusy(true);
-    }
-
-    void HandleTaskEnded(TaskInfo _)
-    {
-        busyCount = Math.Max(0, busyCount - 1);
-        if (busyCount == 0)
-        {
-            ApplyBusy(false);
-        }
-    }
+	void HandleStateUpdated(GameSnapshot snapshot)
+	{
+		bool waiting = snapshot?.Ui?.WaitingForResponse != null;
+		ApplyBusy(waiting);
+	}
 
     void ApplyBusy(bool isBusy)
     {

@@ -17,6 +17,11 @@ public sealed class UiReducer : IGameReducer
         List<GameEvent> emitted = null;
         switch (action)
         {
+            case UiWaitingForResponse w:
+            {
+                ui = ui with { WaitingForResponse = w.Data };
+                return (state with { Ui = ui }, null);
+            }
             // Setup
             case SetupSelectRank selRank:
             {

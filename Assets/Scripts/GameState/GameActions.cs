@@ -17,6 +17,7 @@ public record CommitSetupAction(CommitSetupReq Req) : GameAction;
 public record CommitMoveAndProveAction(CommitMoveReq CommitReq, ProveMoveReq ProveReq) : GameAction;
 public record ProveMoveAction(ProveMoveReq Req) : GameAction;
 public record ProveRankAction(ProveRankReq Req) : GameAction;
+public record UiWaitingForResponse(UiWaitingForResponseData Data) : GameAction;
 
 // UI actions (stubbed for now)
 public record SelectTile(Vector2Int Pos) : GameAction;
