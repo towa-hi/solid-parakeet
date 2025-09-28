@@ -186,6 +186,7 @@ public class BoardManager : MonoBehaviour
 
     void OnMouseInput(Vector2Int pos, bool clicked)
     {
+        if (WalletManager.IsWalletBusy) return;
         //Debug.Log($"BoardManager.OnMouseInput: pos={pos} clicked={clicked} mode={store?.State.Mode}");
         switch (store?.State.Mode)
         {

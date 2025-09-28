@@ -25,6 +25,23 @@ public class WalletManager : MonoBehaviour
     
     public static WalletManager instance;
 
+    // Indicates a wallet modal/operation is active (e.g., connect, sign)
+    public static bool IsWalletBusy { get; private set; }
+    public static event Action<bool> OnWalletBusyChanged;
+
+    static void SetWalletBusy(bool busy)
+    {
+        if (IsWalletBusy == busy) return;
+        IsWalletBusy = busy;
+        try
+        {
+            OnWalletBusyChanged?.Invoke(IsWalletBusy);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"OnWalletBusyChanged handler threw: {e}");
+        }
+    }
     
     // wrapper tasks
     static TaskCompletionSource<JSResponse> checkWalletTaskSource;
@@ -57,18 +74,21 @@ public class WalletManager : MonoBehaviour
 
     public static async Task<Result<WalletConnection>> ConnectWallet()
     {
+        SetWalletBusy(true);
         Result<bool> check = await CheckWallet();
         address = null;
         networkDetails = null;
         if (check.IsError)
         {
             Debug.LogWarning("Wallet could not be found");
+            SetWalletBusy(false);
             return Result<WalletConnection>.Err(check);
         }
         Result<string> addrRes = await GetAddress();
         if (addrRes.IsError)
         {
             Debug.LogWarning("Address not found");
+            SetWalletBusy(false);
             return Result<WalletConnection>.Err(addrRes);
         }
         address = addrRes.Value;
@@ -76,6 +96,7 @@ public class WalletManager : MonoBehaviour
         if (ndRes.IsError)
         {
             Debug.LogWarning("Network details not found");
+            SetWalletBusy(false);
             return Result<WalletConnection>.Err(ndRes);
         }
         string networkDetailsJson = ndRes.Value;
@@ -97,11 +118,14 @@ public class WalletManager : MonoBehaviour
             }
             Debug.Log($"Connected to network: {networkDetailsObj.network}");
             networkDetails = networkDetailsObj;
-            return Result<WalletConnection>.Ok(new WalletConnection { address = address, networkDetails = networkDetailsObj });
+            var ok = Result<WalletConnection>.Ok(new WalletConnection { address = address, networkDetails = networkDetailsObj });
+            SetWalletBusy(false);
+            return ok;
         }
         catch (JsonException ex)
         {
             Debug.LogError($"Failed to parse network details: {ex.Message}");
+            SetWalletBusy(false);
             return Result<WalletConnection>.Err(StatusCode.WALLET_PARSING_ERROR, ex.Message);
         }
     }
@@ -174,7 +198,7 @@ public class WalletManager : MonoBehaviour
         {
             throw new Exception("SignTransaction() is already in progress");
         }
-
+        SetWalletBusy(true);
         signTransactionTaskSource = new TaskCompletionSource<JSResponse>();
         JSSignTransaction(unsignedTransactionEnvelope, networkPassphrase);
         JSResponse signTransactionRes = await signTransactionTaskSource.Task;
@@ -183,10 +207,13 @@ public class WalletManager : MonoBehaviour
         {
             // TODO: make this more robust 
             Debug.Log("SignTransaction() failed with code " + signTransactionRes.code);
+            SetWalletBusy(false);
             return Result<string>.Err(StatusCode.WALLET_SIGNING_ERROR, $"failed to sign transaction {signTransactionRes.data}");
         }
         Debug.Log($"SignTransaction() completed with data {signTransactionRes.data}");
-        return Result<string>.Ok(signTransactionRes.data);
+        var result = Result<string>.Ok(signTransactionRes.data);
+        SetWalletBusy(false);
+        return result;
     }
     
     public void StellarResponse(string json)

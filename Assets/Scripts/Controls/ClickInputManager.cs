@@ -47,6 +47,7 @@ public class ClickInputManager : MonoBehaviour
     void Update()
     {
         if (!isUpdating) return;
+        if (WalletManager.IsWalletBusy) return;
         if (!Application.isFocused) return;
 		EnsureLayerPriorities();
 		if (EventSystem.current == null) return;

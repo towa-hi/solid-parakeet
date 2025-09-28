@@ -31,7 +31,13 @@ public class MenuController : MonoBehaviour
     void Start()
     {
         modalStack = new();
+        WalletManager.OnWalletBusyChanged += HandleWalletBusyChanged;
         _ = SetMenuAsync(startMenuPrefab);
+    }
+
+    void OnDestroy()
+    {
+        WalletManager.OnWalletBusyChanged -= HandleWalletBusyChanged;
     }
 
     public async Task SetMenuAsync(GameObject prefab)
@@ -90,6 +96,34 @@ public class MenuController : MonoBehaviour
             else if (currentMenu != null)
             {
                 currentMenu.SetInteractable(true);
+            }
+        }
+    }
+
+    void HandleWalletBusyChanged(bool isBusy)
+    {
+        if (isBusy)
+        {
+            // Suspend interactivity while wallet UI is active
+            if (currentMenu != null) currentMenu.SetInteractable(false);
+            foreach (ModalBase element in modalStack)
+            {
+                element.OnFocus(false);
+            }
+        }
+        else
+        {
+            // Restore if not otherwise busy
+            if (busyDepth == 0)
+            {
+                if (modalStack != null && modalStack.Count > 0)
+                {
+                    modalStack.Peek().OnFocus(true);
+                }
+                else if (currentMenu != null)
+                {
+                    currentMenu.SetInteractable(true);
+                }
             }
         }
     }

@@ -43,6 +43,7 @@ public class GuiGame : MenuElement
     {
         if (!isUpdating) return;
         if (!Application.isFocused) return;
+        if (WalletManager.IsWalletBusy) return;
         bool pressed = Globals.InputActions.Game.Escape.WasPressedThisFrame();
         if (pressed)
         {
