@@ -126,9 +126,13 @@ public class GuiGame : MenuElement
 
     void ApplyBusy(bool isBusy)
     {
-        Debug.Log($"applybusy {isBusy}");
         if (canvasGroup == null) return;
+        bool old = canvasGroup.interactable;
         canvasGroup.interactable = !isBusy;
+        if (old != canvasGroup.interactable)
+        {
+            Debug.Log($"ApplyBusy: interactable changed to {canvasGroup.interactable}");
+        }
         // Keep blocking raycasts so clicks don't pass through to world while UI is disabled
         canvasGroup.blocksRaycasts = true;
     }

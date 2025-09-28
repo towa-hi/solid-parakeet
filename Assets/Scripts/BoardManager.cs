@@ -53,7 +53,6 @@ public class BoardManager : MonoBehaviour
         {
             CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         }
-        GameLogger.Initialize(netState);
         Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
         IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new ResolveReducer(), new UiReducer() };
         IGameEffect[] effects = new IGameEffect[] { new NetworkEffects(), new global::ViewAdapterEffects(), new global::StoreDebugEffect() };

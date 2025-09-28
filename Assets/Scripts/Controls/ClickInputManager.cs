@@ -22,14 +22,22 @@ public class ClickInputManager : MonoBehaviour
 
     void Awake()
     {
-        layerPriorities = new()
-        {
-            { LayerMask.NameToLayer("UI"), 0 }, // UI
-            { LayerMask.NameToLayer("TileView"), 1 }, 
-            { LayerMask.NameToLayer("BoardMakerTile"), 2},
-            { LayerMask.NameToLayer("Default"), 3}, // Default priority for other layers
-        };
+		EnsureLayerPriorities();
     }
+
+	void EnsureLayerPriorities()
+	{
+		if (layerPriorities == null || layerPriorities.Count == 0)
+		{
+			layerPriorities = new()
+			{
+				{ LayerMask.NameToLayer("UI"), 0 }, // UI
+				{ LayerMask.NameToLayer("TileView"), 1 }, 
+				{ LayerMask.NameToLayer("BoardMakerTile"), 2},
+				{ LayerMask.NameToLayer("Default"), 3}, // Default priority for other layers
+			};
+		}
+	}
     
     public void SetUpdating(bool inIsUpdating)
     {
@@ -40,6 +48,8 @@ public class ClickInputManager : MonoBehaviour
     {
         if (!isUpdating) return;
         if (!Application.isFocused) return;
+		EnsureLayerPriorities();
+		if (EventSystem.current == null) return;
         // get screen pointer position
         screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
         PointerEventData eventData = new(EventSystem.current)
@@ -48,16 +58,19 @@ public class ClickInputManager : MonoBehaviour
         };
         List<RaycastResult> results = new();
         EventSystem.current.RaycastAll(eventData, results);
-        results.Sort((a, b) =>
-        {
-            if (!a.gameObject || !b.gameObject) return 0;
-            
-            int layerA = a.gameObject.layer;
-            int layerB = b.gameObject.layer;
-            int priorityA = layerPriorities.TryGetValue(layerA, out int priority) ? priority : int.MaxValue;
-            int priorityB = layerPriorities.TryGetValue(layerB, out int layerPriority) ? layerPriority : int.MaxValue;
-            return priorityA.CompareTo(priorityB);
-        });
+		if (results.Count > 1)
+		{
+			results.Sort((a, b) =>
+			{
+				if (!a.gameObject || !b.gameObject) return 0;
+				
+				int layerA = a.gameObject.layer;
+				int layerB = b.gameObject.layer;
+				int priorityA = layerPriorities.TryGetValue(layerA, out int priority) ? priority : int.MaxValue;
+				int priorityB = layerPriorities.TryGetValue(layerB, out int layerPriority) ? layerPriority : int.MaxValue;
+				return priorityA.CompareTo(priorityB);
+			});
+		}
         resultsCount = results.Count;
         bool hitUI = false;
         bool hitTileView = false;
