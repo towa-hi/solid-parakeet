@@ -889,10 +889,11 @@ namespace Contract
     [Serializable]
     public struct History : IScvMapCompatable
     {
-        public GameState game_state;
-        public LobbyInfo lobby_info;
+        public GameState start_game_state;
+        public LobbyInfo start_lobby_info;
+        public GameState[] final_game_state;
+        public LobbyInfo[] final_lobby_info;
         public LobbyParameters lobby_parameters;
-        public Turn[] turns;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -900,10 +901,11 @@ namespace Contract
             {
                 map = new SCMap(new[]
                 {
-                    SCUtility.FieldToSCMapEntry("game_state", game_state),
-                    SCUtility.FieldToSCMapEntry("lobby_info", lobby_info),
+                    SCUtility.FieldToSCMapEntry("start_game_state", start_game_state),
+                    SCUtility.FieldToSCMapEntry("start_lobby_info", start_lobby_info),
+                    SCUtility.FieldToSCMapEntry("final_game_state", final_game_state),
+                    SCUtility.FieldToSCMapEntry("final_lobby_info", final_lobby_info),
                     SCUtility.FieldToSCMapEntry("lobby_parameters", lobby_parameters),
-                    SCUtility.FieldToSCMapEntry("turns", turns),
                 }),
             };
         }
@@ -947,6 +949,91 @@ namespace Contract
                 map = new SCMap(new[]
                 {
                     SCUtility.FieldToSCMapEntry("turns", turns),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct HistoryTurns : IScvMapCompatable
+    {
+        public PackedTurn[] turns;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("turns", turns),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct UnpackedMove : IScvMapCompatable
+    {
+        public PawnId pawn_id;
+        public Vector2Int start_pos;
+        public Vector2Int target_pos;
+
+        public static UnpackedMove FromPacked(uint packed)
+        {
+            uint pawnId = packed & 0x1FFu; // 9 bits
+            int sx = (int)((packed >> 9) & 0xFu);
+            int sy = (int)((packed >> 13) & 0xFu);
+            int tx = (int)((packed >> 17) & 0xFu);
+            int ty = (int)((packed >> 21) & 0xFu);
+            return new UnpackedMove
+            {
+                pawn_id = new PawnId(pawnId),
+                start_pos = new Vector2Int(sx, sy),
+                target_pos = new Vector2Int(tx, ty),
+            };
+        }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
+                    SCUtility.FieldToSCMapEntry("start_pos", start_pos),
+                    SCUtility.FieldToSCMapEntry("target_pos", target_pos),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct UnpackedTurn : IScvMapCompatable
+    {
+        public UnpackedMove[] moves;
+
+        public static UnpackedTurn FromPacked(PackedTurn packedTurn)
+        {
+            if (packedTurn.moves == null || packedTurn.moves.Length == 0)
+            {
+                return new UnpackedTurn { moves = Array.Empty<UnpackedMove>() };
+            }
+            UnpackedMove[] result = new UnpackedMove[packedTurn.moves.Length];
+            for (int i = 0; i < packedTurn.moves.Length; i++)
+            {
+                uint packed = packedTurn.moves[i].Value;
+                result[i] = UnpackedMove.FromPacked(packed);
+            }
+            return new UnpackedTurn { moves = result };
+        }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("moves", moves),
                 }),
             };
         }
