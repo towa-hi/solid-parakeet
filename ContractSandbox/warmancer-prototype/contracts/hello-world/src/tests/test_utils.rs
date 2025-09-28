@@ -64,6 +64,7 @@ impl TestSetup {
         self.client.commit_move(address, req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
         post_snapshot.print_snapshot_info(req.lobby_id, post_label);
+        validate_history_after_step(&pre_snapshot, &post_snapshot);
     }
 
     pub fn prove_move(&self, address: &Address, req: &ProveMoveReq, label: &str) -> () {
@@ -75,6 +76,7 @@ impl TestSetup {
         self.client.prove_move(address, req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
         post_snapshot.print_snapshot_info(req.lobby_id, post_label);
+        validate_history_after_step(&pre_snapshot, &post_snapshot);
     }
 
     pub fn prove_rank(&self, address: &Address, req: &ProveRankReq, label: &str) -> () {
@@ -86,6 +88,7 @@ impl TestSetup {
         self.client.prove_rank(address, req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
         post_snapshot.print_snapshot_info(req.lobby_id, post_label);
+        validate_history_after_step(&pre_snapshot, &post_snapshot);
     }
 
     pub fn commit_move_and_prove_move(&self, address: &Address, req: &CommitMoveReq, prove_req: &ProveMoveReq, label: &str) -> () {
@@ -97,6 +100,7 @@ impl TestSetup {
         self.client.commit_move_and_prove_move(address, req, prove_req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
         post_snapshot.print_snapshot_info(req.lobby_id, post_label);
+        validate_history_after_step(&pre_snapshot, &post_snapshot);
     }
 
     pub fn prove_move_and_prove_rank(&self, address: &Address, req: &ProveMoveReq, rank_req: &ProveRankReq, label: &str) -> () {
@@ -108,6 +112,7 @@ impl TestSetup {
         self.client.prove_move_and_prove_rank(address, req, rank_req);
         let post_snapshot = extract_full_snapshot(&self.env, &self.contract_id, req.lobby_id);
         post_snapshot.print_snapshot_info(req.lobby_id, post_label);
+        validate_history_after_step(&pre_snapshot, &post_snapshot);
     }
 
     pub fn simulate_collisions(&self, address: &Address, req: &ProveMoveReq, label: &str) -> UserMove {

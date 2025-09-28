@@ -178,17 +178,18 @@ pub struct Turn {
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct History {
-    pub game_state: GameState,
-    pub lobby_info: LobbyInfo,
+    pub start_game_state: GameState,
+    pub start_lobby_info: LobbyInfo,
+    pub final_game_state: Vec<GameState>,
+    pub final_lobby_info: Vec<LobbyInfo>,
     pub lobby_parameters: LobbyParameters,
-    pub turns: Vec<PackedTurn>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PackedTurn {
     pub moves: Vec<PackedMove>,
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PackedHistory {
+pub struct HistoryTurns {
     pub turns: Vec<PackedTurn>,
 }
 // // endregion
@@ -242,6 +243,7 @@ pub enum DataKey {
     LobbyParameters(LobbyId), // immutable lobby data
     GameState(LobbyId), // game state
     History(LobbyId),
+    HistoryTurns(LobbyId),
 }
 #[contracttype]#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AnyValue {
@@ -250,6 +252,7 @@ pub enum AnyValue {
     LobbyParameters(LobbyParameters),
     GameState(GameState),
     History(History),
+    HistoryTurns(HistoryTurns),
 }
 // endregion
 // region contract
@@ -277,6 +280,8 @@ impl Contract {
         temporary.extend_ttl(&DataKey::LobbyParameters(lobby_id), THRESHOLD, EXTEND);
         temporary.extend_ttl(&DataKey::GameState(lobby_id), THRESHOLD, EXTEND);
         temporary.extend_ttl(&DataKey::History(lobby_id), THRESHOLD, EXTEND);
+        let persistent = e.storage().persistent();
+        persistent.extend_ttl(&DataKey::HistoryTurns(lobby_id), THRESHOLD, EXTEND);
         Ok(())
     }
     /// Admin-only: Create or replace a storage entry for the given key with the provided value.
@@ -302,6 +307,10 @@ impl Contract {
             }
             (DataKey::History(id), AnyValue::History(v)) => {
                 temporary.set(&DataKey::History(id), &v);
+            }
+            (DataKey::HistoryTurns(id), AnyValue::HistoryTurns(v)) => {
+                let persistent = e.storage().persistent();
+                persistent.set(&DataKey::HistoryTurns(id), &v);
             }
             _ => { return Err(Error::InvalidArgs) }
         }
@@ -344,6 +353,10 @@ impl Contract {
         }
         // Reject lobby id if a persistent history already exists for this key
         if persistent.has(&DataKey::History(req.lobby_id)) {
+            return Err(Error::AlreadyExists)
+        }
+        // Also reject if persistent turns exist for this key
+        if persistent.has(&DataKey::HistoryTurns(req.lobby_id)) {
             return Err(Error::AlreadyExists)
         }
         let lobby_parameters_key = DataKey::LobbyParameters(req.lobby_id);
@@ -435,6 +448,18 @@ impl Contract {
         // always save lobby_info since we always clear the address
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(lobby_id), &lobby_info);
+        // If lobby ended due to leave, write final history snapshot
+        if lobby_info.phase == Phase::Finished || lobby_info.phase == Phase::Aborted {
+            let history_opt: Option<History> = temporary.get(&DataKey::History(lobby_id));
+            if let Some(mut history) = history_opt {
+                let game_state_opt: Option<GameState> = temporary.get(&DataKey::GameState(lobby_id));
+                if let Some(game_state) = game_state_opt {
+                    history.final_game_state.push_back(game_state);
+                    history.final_lobby_info.push_back(lobby_info.clone());
+                    temporary.set(&DataKey::History(lobby_id), &history);
+                }
+            }
+        }
         Ok(())
     }
     /// Join as guest, automatically starting the game.
@@ -507,8 +532,10 @@ impl Contract {
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        // Initialize empty history for this lobby
-        temporary.set(&DataKey::History(req.lobby_id), &History { game_state: game_state.clone(), lobby_info: lobby_info.clone(), lobby_parameters: lobby_parameters.clone(), turns: Vec::new(e) });
+        // Initialize empty history and persistent turns for this lobby
+        temporary.set(&DataKey::History(req.lobby_id), &History { start_game_state: game_state.clone(), start_lobby_info: lobby_info.clone(), final_game_state: Vec::new(e), final_lobby_info: Vec::new(e), lobby_parameters: lobby_parameters.clone() });
+        let persistent = e.storage().persistent();
+        persistent.set(&DataKey::HistoryTurns(req.lobby_id), &HistoryTurns { turns: Vec::new(e) });
         persistent.set(&user_key, &user);
         Self::extend_lobby_ttl(e, address, req.lobby_id)?;
         Ok(())
@@ -610,6 +637,19 @@ impl Contract {
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
+        // Write final history at game end for insecure flow
+        if lobby_info.phase == Phase::Finished || lobby_info.phase == Phase::Aborted {
+            let mut history: History = temporary.get(&DataKey::History(req.lobby_id)).unwrap_or(History {
+                start_game_state: game_state.clone(),
+                start_lobby_info: lobby_info.clone(),
+                final_game_state: Vec::new(e),
+                final_lobby_info: Vec::new(e),
+                lobby_parameters: lobby_parameters.clone(),
+            });
+            history.final_game_state.push_back(game_state.clone());
+            history.final_lobby_info.push_back(lobby_info.clone());
+            temporary.set(&DataKey::History(req.lobby_id), &history);
+        }
         Ok(lobby_info)
     }
     /// Submit and immediately prove moves in one call.
@@ -634,14 +674,25 @@ impl Contract {
         let temporary = e.storage().temporary();
         let mut lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
-        let mut history: History = temporary.get(&DataKey::History(req.lobby_id)).unwrap_or(History { game_state: game_state.clone(), lobby_info: lobby_info.clone(), lobby_parameters: lobby_parameters.clone(), turns: Vec::new(e) });
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         Self::commit_move_internal(&address, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
-        Self::prove_move_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters, &mut history)?;
+        Self::prove_move_internal(e, &address, req.lobby_id, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        temporary.set(&DataKey::History(req.lobby_id), &history);
+        // Write final history at game end (covers insecure flow)
+        if lobby_info.phase == Phase::Finished || lobby_info.phase == Phase::Aborted {
+            let mut history: History = temporary.get(&DataKey::History(req.lobby_id)).unwrap_or(History {
+                start_game_state: game_state.clone(),
+                start_lobby_info: lobby_info.clone(),
+                final_game_state: Vec::new(e),
+                final_lobby_info: Vec::new(e),
+                lobby_parameters: lobby_parameters.clone(),
+            });
+            history.final_game_state.push_back(game_state.clone());
+            history.final_lobby_info.push_back(lobby_info.clone());
+            temporary.set(&DataKey::History(req.lobby_id), &history);
+        }
         Ok(lobby_info)
     }
     /// Reveal and validate committed moves.
@@ -672,11 +723,16 @@ impl Contract {
             return Err(Error::WrongSecurityMode)
         }
         let mut history: History = temporary.get(&DataKey::History(req.lobby_id)).unwrap();
-        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters, &mut history)?;
+        Self::prove_move_internal(e, &address, req.lobby_id, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        temporary.set(&DataKey::History(req.lobby_id), &history);
+        if lobby_info.phase == Phase::Finished || lobby_info.phase == Phase::Aborted {
+            history.final_game_state.push_back(game_state.clone());
+            history.final_lobby_info.push_back(lobby_info.clone());
+            temporary.set(&DataKey::History(req.lobby_id), &history);
+        }
+        // HistoryTurns are written in record_packed_moves_for_completed_turn
         Ok(lobby_info)
     }
     /// Prove moves and any required rank proofs in a single call (security mode only).
@@ -699,15 +755,20 @@ impl Contract {
             return Err(Error::WrongSecurityMode)
         }
         let mut history: History = temporary.get(&DataKey::History(req.lobby_id)).unwrap();
-        Self::prove_move_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters, &mut history)?;
+        Self::prove_move_internal(e, &address, req.lobby_id, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         // skip if game was aborted due to an illegal move
         if lobby_info.phase != Phase::Aborted {
-            Self::prove_rank_internal(e, &address, &req2, &mut lobby_info, &mut game_state, &lobby_parameters, &mut history)?;
+            Self::prove_rank_internal(e, &address, req.lobby_id, &req2, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         }
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        temporary.set(&DataKey::History(req.lobby_id), &history);
+        if lobby_info.phase == Phase::Finished || lobby_info.phase == Phase::Aborted {
+            history.final_game_state.push_back(game_state.clone());
+            history.final_lobby_info.push_back(lobby_info.clone());
+            temporary.set(&DataKey::History(req.lobby_id), &history);
+        }
+        // HistoryTurns are written in record_packed_moves_for_completed_turn
         Ok(lobby_info)
     }
     /// Reveal ranks for collision resolution.
@@ -736,11 +797,16 @@ impl Contract {
         let mut game_state: GameState = temporary.get(&DataKey::GameState(req.lobby_id)).unwrap();
         let lobby_parameters: LobbyParameters = temporary.get(&DataKey::LobbyParameters(req.lobby_id)).unwrap();
         let mut history: History = temporary.get(&DataKey::History(req.lobby_id)).unwrap();
-        Self::prove_rank_internal(e, &address, &req, &mut lobby_info, &mut game_state, &lobby_parameters, &mut history)?;
+        Self::prove_rank_internal(e, &address, req.lobby_id, &req, &mut lobby_info, &mut game_state, &lobby_parameters)?;
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
-        temporary.set(&DataKey::History(req.lobby_id), &history);
+        // Write final history at game end
+        if lobby_info.phase == Phase::Finished || lobby_info.phase == Phase::Aborted {
+            history.final_game_state.push_back(game_state.clone());
+            history.final_lobby_info.push_back(lobby_info.clone());
+            temporary.set(&DataKey::History(req.lobby_id), &history);
+        }
         Ok(lobby_info)
     }
     /// Claim victory due to opponent timeout. WIP
@@ -791,6 +857,18 @@ impl Contract {
         }
         lobby_info.last_edited_ledger_seq = e.ledger().sequence();
         temporary.set(&DataKey::LobbyInfo(req.lobby_id), &lobby_info);
+        // If this call ends the game, append final history snapshot
+        if lobby_info.phase == Phase::Finished || lobby_info.phase == Phase::Aborted {
+            let history_opt: Option<History> = temporary.get(&DataKey::History(req.lobby_id));
+            if let Some(mut history) = history_opt {
+                let game_state_opt: Option<GameState> = temporary.get(&DataKey::GameState(req.lobby_id));
+                if let Some(game_state) = game_state_opt {
+                    history.final_game_state.push_back(game_state);
+                    history.final_lobby_info.push_back(lobby_info.clone());
+                    temporary.set(&DataKey::History(req.lobby_id), &history);
+                }
+            }
+        }
         Ok(lobby_info)
     }
     // endregion
@@ -833,7 +911,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         game_state.moves.set(u_index.u32(), u_move);
         Ok(())
     }
-    pub(crate) fn prove_move_internal(e: &Env, address: &Address, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters, history: &mut History) -> Result<(), Error> {
+    pub(crate) fn prove_move_internal(e: &Env, address: &Address, lobby_id: LobbyId, req: &ProveMoveReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<(), Error> {
         if lobby_parameters.security_mode {
             if lobby_info.phase != Phase::MoveProve {
                 return Err(Error::WrongPhase)
@@ -1020,13 +1098,15 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                         lobby_info.phase = Phase::Finished;
                         lobby_info.subphase = winner;
                         game_state.turn += 1;
+                        // Record the final completed turn as well
+                        Self::record_packed_moves_for_completed_turn(e, lobby_id, game_state);
                     }
                     else {
                         lobby_info.phase = Phase::MoveCommit;
                         lobby_info.subphase = Subphase::Both;
                         game_state.turn += 1;
                         // Append packed moves to history for this completed turn
-                        Self::record_packed_moves_for_completed_turn(e, game_state, &mut history);
+                        Self::record_packed_moves_for_completed_turn(e, lobby_id, game_state);
                     }
                 }
                 (true, false) => {
@@ -1047,7 +1127,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         }
         Ok(())
     }
-    pub(crate) fn prove_rank_internal(e: &Env, address: &Address, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters, history: &mut History) -> Result<(), Error> {
+    pub(crate) fn prove_rank_internal(e: &Env, address: &Address, lobby_id: LobbyId, req: &ProveRankReq, lobby_info: &mut LobbyInfo, game_state: &mut GameState, lobby_parameters: &LobbyParameters) -> Result<(), Error> {
         let u_index = Self::get_player_index(address, &lobby_info);
         if lobby_info.phase != Phase::RankProve {
             return Err(Error::WrongPhase)
@@ -1103,13 +1183,15 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 lobby_info.phase = Phase::Finished;
                 lobby_info.subphase = winner;
                 game_state.turn += 1;
+                // Record the final completed turn as well
+                Self::record_packed_moves_for_completed_turn(e, lobby_id, game_state);
             }
             else {
                 lobby_info.phase = Phase::MoveCommit;
                 lobby_info.subphase = Subphase::Both;
                 game_state.turn += 1;
                 // Append packed moves to history for this completed turn
-                Self::record_packed_moves_for_completed_turn(e, game_state, &mut history);
+                Self::record_packed_moves_for_completed_turn(e, lobby_id, game_state);
             }
         } else {
             // Standard case: advance to next player's turn
@@ -1640,8 +1722,10 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
                 total_movable_max += max;
             }
         }
-        if h_dead_movable >= total_movable_max { h_survived = false; }
-        if g_dead_movable >= total_movable_max { g_survived = false; }
+        if total_movable_max > 0 {
+            if h_dead_movable >= total_movable_max { h_survived = false; }
+            if g_dead_movable >= total_movable_max { g_survived = false; }
+        }
 
         // Stalemate: no legal adjacent moves (skip known immovables 0 and 11 if revealed)
         let mut passable_map: Map<Pos, bool> = Map::new(e);
@@ -1658,6 +1742,8 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
 
         let mut h_any_can_move = false;
         let mut g_any_can_move = false;
+        let mut h_considered_movables: u32 = 0;
+        let mut g_considered_movables: u32 = 0;
         let neighbor_count: usize = if lobby_parameters.board.hex { 6 } else { 4 };
         for (_, (_, pawn)) in pawns_map.iter() {
             if !pawn.alive { continue; }
@@ -1665,6 +1751,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             if !pawn.rank.is_empty() {
                 let r = pawn.rank.get_unchecked(0);
                 if r == 0 || r == 11 { continue; }
+                if owner_index == UserIndex::Host { h_considered_movables += 1; } else { g_considered_movables += 1; }
             }
             let mut neighbors = [Pos { x: -42069, y: -42069 }; 6];
             Self::get_neighbors(&pawn.pos, lobby_parameters.board.hex, &mut neighbors);
@@ -1688,8 +1775,12 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             }
         }
 
-        if !h_any_can_move { h_survived = false; }
-        if !g_any_can_move { g_survived = false; }
+        // Only declare blocked-loss if both sides have at least one movable pawn considered
+        if h_considered_movables > 0 && g_considered_movables > 0 {
+            // Only declare blocked-loss asymmetrically. If both cannot move, do not end the game here.
+            if !h_any_can_move && g_any_can_move { h_survived = false; }
+            if !g_any_can_move && h_any_can_move { g_survived = false; }
+        }
 
         match (h_survived, g_survived) {
             (true, false) => return Subphase::Host,
@@ -1868,7 +1959,7 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
             target_pos: Pos { x: tx, y: ty },
         }
     }
-    pub(crate) fn record_packed_moves_for_completed_turn(e: &Env, game_state: &mut GameState, history: &mut History) {
+    pub(crate) fn record_packed_moves_for_completed_turn(e: &Env, lobby_id: LobbyId, game_state: &mut GameState) {
         // Completed turn is the one we just incremented to, so use turn-1 as index
         let turn_index = if game_state.turn > 0 { game_state.turn - 1 } else { 0u32 };
         // Collect both players' proved moves for that turn
@@ -1880,13 +1971,18 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
         for mv in guest_moves.iter() { all_packed.push_back(Self::pack_move(&mv)); }
 
         // Ensure capacity up to turn_index
-        let mut turns = history.turns.clone();
+        // Read existing turns from persistent storage
+        let persistent = e.storage().persistent();
+        let mut history_turns: HistoryTurns = persistent.get(&DataKey::HistoryTurns(lobby_id)).unwrap_or(HistoryTurns { turns: Vec::new(e) });
+        let mut turns = history_turns.turns.clone();
         while (turns.len()) <= turn_index { turns.push_back(PackedTurn { moves: Vec::new(e) }); }
         // Set the moves for this turn
         let mut t = turns.get_unchecked(turn_index);
         t.moves = all_packed;
         turns.set(turn_index, t);
-        history.turns = turns;
+        history_turns.turns = turns;
+        // Persist updated turns
+        persistent.set(&DataKey::HistoryTurns(lobby_id), &history_turns);
         // Clear moves after recording
         game_state.moves = Self::create_empty_moves(e);
     }

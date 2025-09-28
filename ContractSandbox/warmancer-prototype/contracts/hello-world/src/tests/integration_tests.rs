@@ -13,7 +13,7 @@ fn extend_lobby_ttl(setup: &TestSetup, lobby_id: u32) {
         setup.env.storage().temporary().extend_ttl(&DataKey::LobbyInfo(lobby_id), 100, 17280);
         setup.env.storage().temporary().extend_ttl(&DataKey::GameState(lobby_id), 100, 17280);
         setup.env.storage().temporary().extend_ttl(&DataKey::LobbyParameters(lobby_id), 100, 17280);
-        setup.env.storage().temporary().extend_ttl(&DataKey::PackedHistory(lobby_id), 100, 17280);
+        setup.env.storage().temporary().extend_ttl(&DataKey::History(lobby_id), 100, 17280);
     });
 }
 
