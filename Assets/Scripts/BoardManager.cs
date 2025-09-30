@@ -17,6 +17,7 @@ public class BoardManager : MonoBehaviour
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
     public BoardGrid grid;
+    public Graveyard graveyard;
     public ClickInputManager clickInputManager;
     public Vortex vortex;
     public Transform cameraBounds;
@@ -96,6 +97,13 @@ public class BoardManager : MonoBehaviour
             pawnView.AttachSubscriptions();
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
+        // Initialize and seed Graveyard
+        if (graveyard != null)
+        {
+            graveyard.Initialize(netState);
+            graveyard.AttachSubscriptions();
+            graveyard.SeedFromSnapshot(netState.gameState.pawns);
+        }
         // Expose a resolver so views can map positions to TileViews (for arrows, etc.)
         ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
         // Seed initial mode to views now that board/pawn views exist
@@ -155,6 +163,11 @@ public class BoardManager : MonoBehaviour
         if (debugSO != null) debugSO.ResetState();
         // Clear resolver to avoid stale references held by views/utilities
         ViewEventBus.TileViewResolver = null;
+        // Detach Graveyard subscriptions
+        if (graveyard != null)
+        {
+            graveyard.DetachSubscriptions();
+        }
         // Mode change handled by NetworkReducer; nothing to emit here
         // Detach GUI subscriptions to avoid duplicate handlers on next game
         if (guiGame != null)
