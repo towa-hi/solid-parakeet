@@ -459,7 +459,7 @@ public static class FakeServer
         return (null, a, b);
     }
 
-    public static async Task<List<HiddenMove>> TempFakeHiddenMoves(Team team)
+    public static Task<List<HiddenMove>> TempFakeHiddenMoves(Team team)
     {
         uint lesser_move_threshold = 0; // Increase to make have it randomly make worse moves.
         Debug.Assert(fakeIsOnline);
@@ -467,27 +467,24 @@ public static class FakeServer
         GameState gameState = fakeGameState.Value;
         var board = AiPlayer.MakeSimGameBoard(parameters, gameState);
         board.ally_team = team;
-        //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
-        var top_moves = await AiPlayer.NodeScoreStrategy(board, board.root_state);
-        if (top_moves == null || top_moves.Count == 0)
+        var planCollection = AiZeroPlanner.PlanMoves(board, board.root_state, team);
+        if (planCollection.Count == 0)
         {
             // No legal moves: auto-resign for this side
             bool isHostSide = parameters.host_team == team;
             Resign(isHostSide);
-            return new List<HiddenMove>();
+            return Task.FromResult(new List<HiddenMove>());
         }
-        Debug.Log($"top_moves {top_moves.Count}");
-        var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
-        ImmutableHashSet<AiPlayer.SimMove> moves = null;
-        // Pick random top move and also assemble blitz move if needed.
-        if (max_moves > 1)
+        Debug.Log($"zero-alloc planner produced {planCollection.Count} plans");
+        int choiceUpper = lesser_move_threshold > 0 ? Mathf.Min(planCollection.Count, (int)lesser_move_threshold) : planCollection.Count;
+        if (choiceUpper <= 0)
         {
-            top_moves = AiPlayer.CombineMoves(top_moves, max_moves, lesser_move_threshold);
+            choiceUpper = planCollection.Count;
         }
-        moves = top_moves[(int)Random.Range(0, Mathf.Min(top_moves.Count - 1, lesser_move_threshold))];
-        // Convert to HiddenMoves.
-        List<HiddenMove> result_moves = new();
-        foreach (var move in moves)
+        int choice = Mathf.Clamp(UnityEngine.Random.Range(0, choiceUpper), 0, planCollection.Count - 1);
+        var plan = planCollection[choice];
+        List<HiddenMove> result_moves = new List<HiddenMove>(plan.Count);
+        foreach (var move in plan.Moves)
         {
             result_moves.Add(new HiddenMove()
             {
@@ -496,6 +493,6 @@ public static class FakeServer
                 target_pos = move.next_pos,
             });
         }
-        return result_moves;
+        return Task.FromResult(result_moves);
     }
 }

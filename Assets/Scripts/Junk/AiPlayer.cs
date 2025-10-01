@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq.Expressions;
@@ -130,6 +131,12 @@ public static class AiPlayer
         public float ai_safety_margin_ms = 0.1f;
         // Minimum acceptable framerate for budgeting (frames may stretch up to this).
         public int ai_minimum_fps = 30;
+        // Weight applied to the proportion of enemy force we have revealed.
+        public float enemy_entropy_weight = 0.5f;
+        // Weight applied to the proportion of our force the opponent has seen.
+        public float self_entropy_weight = 0.65f;
+        // Per-rank importance weights used when measuring how much of an army is revealed.
+        public float[] reveal_rank_weights;
     }
 
     public struct SimAverage
@@ -151,9 +158,10 @@ public static class AiPlayer
             {
                 id = pawn.pawn_id,
                 team = pawn.GetTeam(),
-                rank = pawn.rank.HasValue ? pawn.rank.Value : Rank.UNKNOWN, // Cheating!
+                rank = pawn.rank.HasValue ? pawn.rank.Value : Rank.UNKNOWN,
                 pos = pawn.pos,
                 has_moved = pawn.moved,
+                has_moved_scout = pawn.moved_scout,
                 is_revealed = pawn.zz_revealed,
                 throne_probability = 0.0,
                 alive = pawn.alive,
@@ -240,6 +248,11 @@ public static class AiPlayer
             size = lobby_parameters.board.size,
             tiles = tiles.ToImmutable(),
         };
+        board.reveal_rank_weights = new float[(int)Rank.UNKNOWN];
+        for (int i = 0; i < board.reveal_rank_weights.Length; i++)
+        {
+            board.reveal_rank_weights[i] = i;
+        }
         for (Rank i = 0; i < Rank.UNKNOWN; i++)
         {
             board.total_material += (uint)(board.max_ranks[(int)i] * (int)i);
@@ -399,54 +412,64 @@ public static class AiPlayer
         
         return final_estimates;
     }
-    static bool __boring_move_pruning = true;
     static List<SimMove> ally_moves = new();
-    static List<SimMove> oppn_moves = new();
-    static List<SimMove> ally_moves_2 = new();
-    static List<SimMove> oppn_moves_2 = new();
     static List<KeyValuePair<SimMove, float>> node_scores = new();
+    struct UnknownPawnInfo
+    {
+        public Vector2Int position;
+        public SimPawn pawn;
+        public Rank[] strictRanks;
+        public Rank[] relaxedRanks;
+    }
+
+    struct MoveCandidate
+    {
+        public SimMove move;
+        public float likelihood;
+    }
+
+    class DeterminizationSample
+    {
+        public Dictionary<Vector2Int, SimPawn> pawns = new();
+        public Dictionary<PawnId, SimPawn> dead = new();
+        public List<MoveCandidate> opponentMoves = new();
+        public Vector2Int opponentThrone;
+        public float baseValue;
+    }
+
+    static readonly List<DeterminizationSample> determinizationSamples = new();
+    static readonly List<UnknownPawnInfo> unknownPawnInfos = new();
+    static readonly List<SimMove> tempMoves = new();
+    static readonly List<Rank> rankScratch = new();
+    static readonly Rank[] allPlayableRanks = System.Enum.GetValues(typeof(Rank))
+        .Cast<Rank>()
+        .Where(r => r != Rank.UNKNOWN)
+        .ToArray();
+    static readonly Rank[] scoutOnly = new[] { Rank.SCOUT };
     // Scores the utility of each ally move against the average outcome of each
     // opponent's possible simultaneous moves. Reduces the utility of probabilistically bad moves
     // like a pawn suiciding on another.
     // Also nudges the pawns toward the enemy throne (which can also just make it b-line the throne, for now).
+
     public static async Task<List<SimMoveSet>> NodeScoreStrategy(
         SimGameBoard board,
         SimGameState state)
     {
         var ally_team = board.ally_team;
         var oppn_team = ally_team == Team.RED ? Team.BLUE : Team.RED;
-        var _nss_start_time = Time.realtimeSinceStartupAsDouble;
-        // estimate ranks get applied here
+        var start_time = Time.realtimeSinceStartupAsDouble;
+
+        AI_NodeScore.Begin();
+
         node_scores.Clear();
         ally_moves.Clear();
         GetAllSingleMovesForTeamList(board, state.pawns, ally_team, ally_moves);
-        oppn_moves.Clear();
-        GetAllSingleMovesForTeamList(board, state.pawns, oppn_team, oppn_moves);
-        int first_turn_evals = 0;
-        int first_turn_all_possibilities = 0;
-        int second_turn_evals = 0;
-        int second_turn_all_possibilities = 0;
-        var changed_pawns = new Dictionary<PawnId, SimPawn>();
-        var changed_pawns_2 = new Dictionary<PawnId, SimPawn>();
-        var changed_pawns_3 = new Dictionary<PawnId, SimPawn>();
-        float second_ply_sum = 0f;
-        int second_ply_count = 0;
-        int paths_pruned_ally_suicide = 0;
-        int paths_pruned_ally_suicide_2 = 0;
-        int paths_pruned_oppn_suicide = 0;
-        int paths_pruned_oppn_suicide_2 = 0;
-        int paths_pruned_ally_boring_2 = 0;
-        int paths_pruned_oppn_boring_2 = 0;
-        SimPawn ally_pawn = default;
-        SimPawn oppn_pawn = default;
-        AI_NodeScore.Begin();
+
         // Budgeted yield based on frame time to keep the main thread smooth.
         double __lastYieldTime = Time.realtimeSinceStartupAsDouble;
         async Task __MaybeYield()
         {
-            // Determine target frame time and available headroom.
             double targetFrameTime = (Application.targetFrameRate > 0) ? (1.0 / Application.targetFrameRate) : (1.0 / 60.0);
-            // Respect minimum acceptable FPS by letting frames stretch up to this duration.
             if (board.ai_minimum_fps > 0)
             {
                 double minAcceptableFrameTime = 1.0 / Mathf.Max(1, board.ai_minimum_fps);
@@ -463,7 +486,6 @@ public static class AiPlayer
             float budgetSeconds;
             if (board.ai_auto_budget)
             {
-                // Headroom is the time left to reach target; if we're over, headroom is near zero.
                 double headroom = Mathf.Max(0f, (float)(targetFrameTime - observedFrameTime));
                 float safety = Mathf.Max(0f, board.ai_safety_margin_ms) / 1000f;
                 float usable = Mathf.Max(0f, (float)headroom - safety);
@@ -471,7 +493,6 @@ public static class AiPlayer
             }
             else
             {
-                // Use fixed fraction of target frame time.
                 float frac = Mathf.Clamp01(board.ai_budget_fraction);
                 budgetSeconds = Mathf.Clamp((float)(targetFrameTime * frac), minBudget, maxBudget);
             }
@@ -481,208 +502,457 @@ public static class AiPlayer
             {
                 __lastYieldTime = now;
                 await Task.Yield();
-                __lastYieldTime = Time.realtimeSinceStartupAsDouble;
-            }
-        }
-        // 2 ply search for simultaenous moves
-        foreach (var ally_move in ally_moves)
-        {
-            await __MaybeYield();
-            float move_score_total = 0;
-            bool is_scout = state.pawns[ally_move.last_pos].rank == Rank.SCOUT;
-            // check if this branch is worth evaluating at all
-            if (state.pawns.ContainsKey(ally_move.next_pos))
-            {
-                ally_pawn = state.pawns[ally_move.last_pos];
-                oppn_pawn = state.pawns[ally_move.next_pos];
-                BattlePawnsOut(in ally_pawn, in oppn_pawn,
-                    out var _hasW_sw, out var _W_sw,
-                    out var _hasLA_sw, out var _LA_sw,
-                    out var _hasLB_sw, out var _LB_sw);
-                // Ally suicides only if the loser is the ally (non-tie)
-                if (_hasLA_sw && !_hasLB_sw && _LA_sw.id == ally_pawn.id)
-                {
-                    paths_pruned_ally_suicide++;
-                    continue;
-                }
-            }
-            int oppn_moves_skipped = 0;
-            // Baseline after applying only ally_move (used if all opponent replies are skipped)
-            float __baseline_after_ally;
-            {
-                MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, ally_move);
-                __baseline_after_ally = EvaluateState(board, state.pawns, state.dead_pawns);
-                MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_2);
-            }
-            foreach (var oppn_move in oppn_moves)
-            {
-                await __MaybeYield();
-                // check to see if opponents response is intentionally suiciding without allocating
-                if (state.pawns.ContainsKey(oppn_move.next_pos))
-                {
-                    oppn_pawn = state.pawns[oppn_move.last_pos];
-                    ally_pawn = state.pawns[oppn_move.next_pos];
-                    BattlePawnsOut(in ally_pawn, in oppn_pawn,
-                        out var _hasW_sw, out var _W_sw,
-                        out var _hasLA_sw, out var _LA_sw,
-                        out var _hasLB_sw, out var _LB_sw);
-                    // Opponent suicides only if the loser is the opponent (non-tie)
-                    if (_hasLA_sw && !_hasLB_sw && _LA_sw.id == oppn_pawn.id)
-                    {
-                        paths_pruned_oppn_suicide ++;
-                        oppn_moves_skipped++;
-                        continue;
-                    }
-                }
-                MutApplyMove(state.pawns, state.dead_pawns, changed_pawns, ally_move, oppn_move);
-                var move_value = EvaluateState(board, state.pawns, state.dead_pawns);
-                first_turn_all_possibilities++;
-                // check if terminal
-                if (IsTerminal(board, state.pawns, state.dead_pawns) || is_scout)
-                {
-                    move_score_total += move_value;
-                }
-                else
-                {
-                    //await Task.Yield();
-                    second_ply_sum = 0f;
-                    second_ply_count = 0;
-                    //move_score_total += substate.value;
-                    ally_moves_2.Clear();
-                    GetAllSingleMovesForTeamList(board, state.pawns, ally_team, ally_moves_2);
-                    oppn_moves_2.Clear();
-                    GetAllSingleMovesForTeamList(board, state.pawns, oppn_team, oppn_moves_2);
-                    int ally_moves_2_skipped = 0;
-                    foreach (var ally_move_2 in ally_moves_2)
-                    {
-                        await __MaybeYield();
-                        second_turn_all_possibilities++;
-                        if (state.pawns.ContainsKey(ally_move_2.next_pos))
-                        {
-                            ally_pawn = state.pawns[ally_move_2.last_pos];
-                            oppn_pawn = state.pawns[ally_move_2.next_pos];
-                            BattlePawnsOut(in ally_pawn, in oppn_pawn,
-                                out var _hasW_sw, out var _W_sw,
-                                out var _hasLA_sw, out var _LA_sw,
-                                out var _hasLB_sw, out var _LB_sw);
-                            if (_hasLA_sw && !_hasLB_sw && _LA_sw.id == ally_pawn.id)
-                            {
-                                paths_pruned_ally_suicide_2++;
-                                ally_moves_2_skipped++;
-                                continue;
-                            }
-                        }
-                        else if (__boring_move_pruning)
-                        {
-                            // if adjacent tiles do not contain opponent pawns, then it is a boring move
-                            foreach (var dir in Shared.GetDirections(ally_move_2.next_pos, board.is_hex))
-                            {
-                                if (state.pawns.TryGetValue(ally_move_2.next_pos + dir, out var other_pawn))
-                                {
-                                    if (other_pawn.team != ally_pawn.team)
-                                    {
-                                        break;
-                                    }
-                                }
-                                else
-                                {
-                                    paths_pruned_ally_boring_2++;
-                                    continue;
-                                }
-                            }
-                        }
-                        // Baseline after applying only ally_move_2 (used if all opp replies are skipped)
-                        float move_value_2;
-                        MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, ally_move_2);
-                        move_value_2 = EvaluateState(board, state.pawns, state.dead_pawns);
-                        MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_2);
-                        // Skip ally second moves that are strictly worse than the first-ply outcome.
-                        if (move_value_2 < move_value)
-                        {
-                            // paths_pruned_ally_no_effect++;
-                            continue;
-                        }
-                        float move_score_total_2 = 0f;
-                        int oppn_moves_2_skipped = 0;
-                        foreach (var oppn_move_2 in oppn_moves_2)
-                        {
-                            await __MaybeYield();
-                            if (state.pawns.ContainsKey(oppn_move_2.next_pos))
-                            {
-                                oppn_pawn = state.pawns[oppn_move_2.last_pos];
-                                ally_pawn = state.pawns[oppn_move_2.next_pos];
-                                BattlePawnsOut(in ally_pawn, in oppn_pawn,
-                                    out var _hasW_sw, out var _W_sw,
-                                    out var _hasLA_sw, out var _LA_sw,
-                                    out var _hasLB_sw, out var _LB_sw);
-                                if (_hasLA_sw && !_hasLB_sw && _LA_sw.id == oppn_pawn.id)
-                                {
-                                    paths_pruned_oppn_suicide_2++;
-                                    oppn_moves_2_skipped++;
-                                    continue;
-                                }
-                            }
-                            else if (__boring_move_pruning)
-                            {
-                                foreach (var dir in Shared.GetDirections(oppn_move_2.next_pos, board.is_hex))
-                                {
-                                    if (state.pawns.TryGetValue(oppn_move_2.next_pos + dir, out var other_pawn))
-                                    {
-                                        if (other_pawn.team != oppn_pawn.team)
-                                        {
-                                            break;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        paths_pruned_oppn_boring_2++;
-                                        continue;
-                                    }
-                                }
-                            }
-                            MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, ally_move_2, oppn_move_2);
-                            move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
-                            MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_3);
-                        }
-                        {
-                            int __considered2 = oppn_moves_2.Count - oppn_moves_2_skipped;
-                            second_ply_sum += __considered2 > 0 ? (move_score_total_2 / __considered2) : move_value_2;
-                        }
-                        second_ply_count++;
-                        second_turn_evals++;
-                    }
-                    move_score_total += second_ply_count > 0 ? (second_ply_sum / second_ply_count) : EvaluateState(board, state.pawns, state.dead_pawns);
-                    first_turn_evals++;
-                }
-                MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns);
-            }
-            {
-                int __considered1 = oppn_moves.Count - oppn_moves_skipped;
-                float __avg = __considered1 > 0 ? (move_score_total / __considered1) : __baseline_after_ally;
-                node_scores.Add(new KeyValuePair<SimMove, float>(ally_move, __avg));
             }
         }
 
-        node_scores.Sort((x, y) => y.Value.CompareTo(x.Value));
-        var _nss_elapsed = Time.realtimeSinceStartupAsDouble - _nss_start_time;
-        Debug.Log($"NodeScoreStrategy elapsed: {_nss_elapsed:F4}s, time per eval {_nss_elapsed / (first_turn_evals + second_turn_evals)}s, First turn evals: {first_turn_all_possibilities}/{first_turn_evals}, Second turn evals: {second_turn_all_possibilities}/{second_turn_evals}");
-        Debug.Log($"NodeScoreStrategy Paths pruned ally suicide: {paths_pruned_ally_suicide}, Paths pruned oppn suicide: {paths_pruned_oppn_suicide}, Paths pruned ally suicide 2: {paths_pruned_ally_suicide_2}, Paths pruned oppn suicide 2: {paths_pruned_oppn_suicide_2}");
-        Debug.Log($"NodeScoreStrategy Paths pruned ally boring 2: {paths_pruned_ally_boring_2}, Paths pruned oppn boring 2: {paths_pruned_oppn_boring_2}");
-        // Build list of keys without LINQ
-        var __result = new List<SimMoveSet>(node_scores.Count);
-        foreach (var __kv in node_scores)
+        if (ally_moves.Count == 0)
         {
-            __result.Add(SimMoveSet.Empty.Add(__kv.Key));
+            AI_NodeScore.End();
+            return new List<SimMoveSet>();
         }
+
+        int sample_count = ComputeSampleCount(ally_moves.Count, state.pawns.Count);
+        BuildDeterminizationSamples(board, state, oppn_team, sample_count);
+
+        var changed_pawns = new Dictionary<PawnId, SimPawn>();
+        int evaluation_count = 0;
+
+        foreach (var ally_move in ally_moves)
+        {
+            await __MaybeYield();
+
+            double aggregateScore = 0.0;
+            int consideredSamples = 0;
+
+            foreach (var sample in determinizationSamples)
+            {
+                await __MaybeYield();
+
+                float sampleScore;
+                if (sample.opponentMoves.Count == 0)
+                {
+                    MutApplyMove(sample.pawns, sample.dead, changed_pawns, ally_move);
+                    sampleScore = EvaluateState(board, sample.pawns, sample.dead);
+                    evaluation_count++;
+                    MutUndoApplyMove(sample.pawns, sample.dead, changed_pawns);
+                }
+                else
+                {
+                    double weightedSum = 0.0;
+                    double weightTotal = 0.0;
+
+                    foreach (var candidate in sample.opponentMoves)
+                    {
+                        await __MaybeYield();
+                        MutApplyMove(sample.pawns, sample.dead, changed_pawns, ally_move, candidate.move);
+                        float value = EvaluateState(board, sample.pawns, sample.dead);
+                        evaluation_count++;
+                        MutUndoApplyMove(sample.pawns, sample.dead, changed_pawns);
+                        double weight = candidate.likelihood;
+                        weightedSum += value * weight;
+                        weightTotal += weight;
+                    }
+
+                    sampleScore = weightTotal > 0.0 ? (float)(weightedSum / weightTotal) : sample.baseValue;
+                }
+
+                aggregateScore += sampleScore;
+                consideredSamples++;
+            }
+
+            float finalScore = consideredSamples > 0 ? (float)(aggregateScore / consideredSamples) : float.NegativeInfinity;
+            node_scores.Add(new KeyValuePair<SimMove, float>(ally_move, finalScore));
+        }
+
+        node_scores.Sort((x, y) => y.Value.CompareTo(x.Value));
+
+        var result = new List<SimMoveSet>(node_scores.Count);
+        foreach (var kv in node_scores)
+        {
+            result.Add(SimMoveSet.Empty.Add(kv.Key));
+        }
+
         node_scores.Clear();
         ally_moves.Clear();
-        oppn_moves.Clear();
-        ally_moves_2.Clear();
-        oppn_moves_2.Clear();
-        changed_pawns.Clear();
-        changed_pawns_2.Clear();
+        determinizationSamples.Clear();
+        unknownPawnInfos.Clear();
+        tempMoves.Clear();
+
         AI_NodeScore.End();
-        return __result;
+
+        var elapsed = Time.realtimeSinceStartupAsDouble - start_time;
+        Debug.Log($"NodeScoreStrategy elapsed: {elapsed:F4}s, samples: {sample_count}, evals: {evaluation_count}");
+
+        return result;
+    }
+
+    static int ComputeSampleCount(int allyMoveCount, int pawnCount)
+    {
+        allyMoveCount = Mathf.Max(1, allyMoveCount);
+        pawnCount = Mathf.Max(1, pawnCount);
+        float rootMoves = Mathf.Sqrt(allyMoveCount);
+        float rootPawns = Mathf.Sqrt(pawnCount);
+        int result = Mathf.Clamp(Mathf.CeilToInt(rootMoves + 0.5f * rootPawns), 4, 24);
+        return result;
+    }
+
+    static void BuildDeterminizationSamples(
+        SimGameBoard board,
+        SimGameState state,
+        Team opponentTeam,
+        int requestedSamples)
+    {
+        determinizationSamples.Clear();
+
+        // Track remaining rank counts for the opponent.
+        var baseAvailable = (uint[])board.max_ranks.Clone();
+        foreach (var pawn in state.dead_pawns.Values)
+        {
+            if (pawn.team == opponentTeam && pawn.rank != Rank.UNKNOWN)
+            {
+                int idx = (int)pawn.rank;
+                if (idx >= 0 && idx < baseAvailable.Length && baseAvailable[idx] > 0)
+                {
+                    baseAvailable[idx]--;
+                }
+            }
+        }
+        foreach (var pawn in state.pawns.Values)
+        {
+            if (pawn.team == opponentTeam && pawn.is_revealed && pawn.rank != Rank.UNKNOWN)
+            {
+                int idx = (int)pawn.rank;
+                if (idx >= 0 && idx < baseAvailable.Length && baseAvailable[idx] > 0)
+                {
+                    baseAvailable[idx]--;
+                }
+            }
+        }
+
+        unknownPawnInfos.Clear();
+        foreach (var kv in state.pawns)
+        {
+            var pawn = kv.Value;
+            if (pawn.team != opponentTeam)
+            {
+                continue;
+            }
+            if (pawn.is_revealed || pawn.rank != Rank.UNKNOWN)
+            {
+                continue;
+            }
+
+            unknownPawnInfos.Add(new UnknownPawnInfo
+            {
+                position = kv.Key,
+                pawn = pawn,
+                strictRanks = BuildStrictCandidates(pawn, baseAvailable),
+                relaxedRanks = BuildRelaxedCandidates(pawn),
+            });
+        }
+
+        int sampleCount = Mathf.Max(1, requestedSamples);
+        if (unknownPawnInfos.Count == 0)
+        {
+            sampleCount = 1;
+        }
+
+        var order = unknownPawnInfos.ToArray();
+        for (int i = 0; i < sampleCount; i++)
+        {
+            var sample = new DeterminizationSample
+            {
+                pawns = new Dictionary<Vector2Int, SimPawn>(state.pawns),
+                dead = new Dictionary<PawnId, SimPawn>(state.dead_pawns),
+            };
+
+            if (unknownPawnInfos.Count > 0)
+            {
+                var available = (uint[])baseAvailable.Clone();
+                var shuffled = (UnknownPawnInfo[])order.Clone();
+                MutShuffle(shuffled);
+                foreach (var info in shuffled)
+                {
+                    if (!sample.pawns.TryGetValue(info.position, out var pawn))
+                    {
+                        continue;
+                    }
+                    var assignedRank = AssignRankForUnknown(info, available);
+                    pawn.rank = assignedRank;
+                    sample.pawns[info.position] = pawn;
+                }
+            }
+
+            sample.opponentThrone = GetThronePos(sample.pawns, opponentTeam);
+            sample.baseValue = EvaluateState(board, sample.pawns, sample.dead);
+            BuildOpponentMoveDistribution(board, sample, opponentTeam);
+            determinizationSamples.Add(sample);
+        }
+    }
+
+    static Rank[] BuildStrictCandidates(in SimPawn pawn, uint[] available)
+    {
+        rankScratch.Clear();
+        foreach (var rank in allPlayableRanks)
+        {
+            int idx = (int)rank;
+            if (idx < 0 || idx >= available.Length)
+            {
+                continue;
+            }
+            if (available[idx] == 0)
+            {
+                continue;
+            }
+            if (pawn.has_moved_scout && rank != Rank.SCOUT)
+            {
+                continue;
+            }
+            if (pawn.has_moved && (rank == Rank.THRONE || rank == Rank.TRAP))
+            {
+                continue;
+            }
+            rankScratch.Add(rank);
+        }
+        if (rankScratch.Count == 0)
+        {
+            return Array.Empty<Rank>();
+        }
+        var result = rankScratch.ToArray();
+        rankScratch.Clear();
+        return result;
+    }
+
+    static Rank[] BuildRelaxedCandidates(in SimPawn pawn)
+    {
+        if (pawn.has_moved_scout)
+        {
+            return scoutOnly;
+        }
+        return allPlayableRanks;
+    }
+
+    static Rank AssignRankForUnknown(UnknownPawnInfo info, uint[] available)
+    {
+        if (TryAssignRank(info.strictRanks, available, out var strictRank))
+        {
+            return strictRank;
+        }
+        if (TryAssignRank(info.relaxedRanks, available, out var relaxedRank))
+        {
+            return relaxedRank;
+        }
+        return SelectFallbackRank(available);
+    }
+
+    static bool TryAssignRank(Rank[] candidates, uint[] available, out Rank assigned)
+    {
+        assigned = Rank.UNKNOWN;
+        if (candidates == null || candidates.Length == 0)
+        {
+            return false;
+        }
+        rankScratch.Clear();
+        foreach (var rank in candidates)
+        {
+            int idx = (int)rank;
+            if (idx < 0 || idx >= available.Length)
+            {
+                continue;
+            }
+            if (available[idx] > 0)
+            {
+                rankScratch.Add(rank);
+            }
+        }
+        if (rankScratch.Count == 0)
+        {
+            return false;
+        }
+        int choice = UnityEngine.Random.Range(0, rankScratch.Count);
+        assigned = rankScratch[choice];
+        available[(int)assigned]--;
+        rankScratch.Clear();
+        return true;
+    }
+
+    static Rank SelectFallbackRank(uint[] available)
+    {
+        int bestIndex = -1;
+        uint bestValue = 0;
+        foreach (var rank in allPlayableRanks)
+        {
+            int idx = (int)rank;
+            if (idx < 0 || idx >= available.Length)
+            {
+                continue;
+            }
+            uint count = available[idx];
+            if (count == 0)
+            {
+                continue;
+            }
+            if (bestIndex < 0 || count > bestValue)
+            {
+                bestIndex = idx;
+                bestValue = count;
+            }
+        }
+        if (bestIndex >= 0)
+        {
+            available[bestIndex]--;
+            return (Rank)bestIndex;
+        }
+        return Rank.GRUNT;
+    }
+
+    static void BuildOpponentMoveDistribution(
+        SimGameBoard board,
+        DeterminizationSample sample,
+        Team opponentTeam)
+    {
+        sample.opponentMoves.Clear();
+        GetAllSingleMovesForTeamList(board, sample.pawns, opponentTeam, tempMoves);
+        if (tempMoves.Count == 0)
+        {
+            return;
+        }
+
+        Vector2Int? enemyThrone = null;
+        var enemyThroneCandidate = GetThronePos(sample.pawns, board.ally_team);
+        if (sample.pawns.TryGetValue(enemyThroneCandidate, out var enemyThronePawn) &&
+            enemyThronePawn.team == board.ally_team &&
+            enemyThronePawn.rank == Rank.THRONE)
+        {
+            enemyThrone = enemyThroneCandidate;
+        }
+
+        Vector2Int? friendlyThrone = null;
+        if (sample.pawns.TryGetValue(sample.opponentThrone, out var friendlyPawn) &&
+            friendlyPawn.team == opponentTeam &&
+            friendlyPawn.rank == Rank.THRONE)
+        {
+            friendlyThrone = sample.opponentThrone;
+        }
+
+        float maxScore = float.NegativeInfinity;
+        foreach (var move in tempMoves)
+        {
+            float score = ScoreMoveHeuristic(board, sample.pawns, move, opponentTeam, enemyThrone, friendlyThrone);
+            if (float.IsNaN(score))
+            {
+                score = 0f;
+            }
+            sample.opponentMoves.Add(new MoveCandidate { move = move, likelihood = score });
+            if (score > maxScore)
+            {
+                maxScore = score;
+            }
+        }
+
+        if (sample.opponentMoves.Count == 0)
+        {
+            return;
+        }
+
+        float sum = 0f;
+        for (int i = 0; i < sample.opponentMoves.Count; i++)
+        {
+            var candidate = sample.opponentMoves[i];
+            float weight = Mathf.Exp(candidate.likelihood - maxScore);
+            if (float.IsInfinity(weight) || float.IsNaN(weight))
+            {
+                weight = 1f;
+            }
+            candidate.likelihood = weight;
+            sample.opponentMoves[i] = candidate;
+            sum += weight;
+        }
+
+        if (sum <= Mathf.Epsilon)
+        {
+            float uniform = 1f / sample.opponentMoves.Count;
+            for (int i = 0; i < sample.opponentMoves.Count; i++)
+            {
+                var candidate = sample.opponentMoves[i];
+                candidate.likelihood = uniform;
+                sample.opponentMoves[i] = candidate;
+            }
+            return;
+        }
+
+        for (int i = 0; i < sample.opponentMoves.Count; i++)
+        {
+            var candidate = sample.opponentMoves[i];
+            candidate.likelihood /= sum;
+            sample.opponentMoves[i] = candidate;
+        }
+    }
+
+    static float ScoreMoveHeuristic(
+        SimGameBoard board,
+        Dictionary<Vector2Int, SimPawn> pawns,
+        SimMove move,
+        Team movingTeam,
+        Vector2Int? enemyThrone,
+        Vector2Int? friendlyThrone)
+    {
+        if (!pawns.TryGetValue(move.last_pos, out var mover))
+        {
+            return 0f;
+        }
+
+        float score = 0f;
+        if (pawns.TryGetValue(move.next_pos, out var target) && target.team != movingTeam)
+        {
+            BattlePawnsOut(in mover, in target,
+                out var hasWinner, out var winner,
+                out var hasLoserA, out var loserA,
+                out var hasLoserB, out var loserB);
+            if (hasWinner)
+            {
+                if (winner.team == movingTeam)
+                {
+                    score += 6f + (float)winner.rank - (float)target.rank;
+                    if (target.rank == Rank.THRONE)
+                    {
+                        score += 20f;
+                    }
+                }
+                else
+                {
+                    if (hasLoserA && loserA.id == mover.id)
+                    {
+                        score -= 6f + (float)target.rank - (float)mover.rank;
+                    }
+                    else if (hasLoserB && loserB.id == mover.id)
+                    {
+                        score -= 6f + (float)target.rank - (float)mover.rank;
+                    }
+                }
+            }
+            else
+            {
+                score -= 2f;
+            }
+        }
+        else if (enemyThrone.HasValue)
+        {
+            score += DeltaDist(move, enemyThrone.Value);
+        }
+
+        if (friendlyThrone.HasValue)
+        {
+            score -= 0.1f * DeltaDist(move, friendlyThrone.Value);
+        }
+
+        if (!mover.is_revealed)
+        {
+            score += 0.1f;
+        }
+
+        score += UnityEngine.Random.value * 0.01f;
+        return score;
     }
 
     // Greedy join moves together
@@ -1432,7 +1702,6 @@ public static class AiPlayer
         return false;
     }
     const float material_weight = 0.5f;
-    const float revealed_weight = 0.1f;
     // Get a score of a state's power balance, if it's in favor of one team or the other.
     // Simple strategy:
     // Win: 1
@@ -1490,37 +1759,51 @@ public static class AiPlayer
             int red_seers = 0;
             int blue_seers = 0;
 
-            int red_revealed = 0;
-            int blue_revealed = 0;
-            int red_count = 0;
-            int blue_count = 0;
+            float red_entropy_total = 0f;
+            float red_entropy_revealed = 0f;
+            float blue_entropy_total = 0f;
+            float blue_entropy_revealed = 0f;
 
+            var reveal_weights = board.reveal_rank_weights;
             if (pawns is Dictionary<Vector2Int, SimPawn> __pawnsDict)
             {
                 var __valEnum = __pawnsDict.Values.GetEnumerator();
                 while (__valEnum.MoveNext())
                 {
                     var pawn = __valEnum.Current;
+                    float rank_entropy_weight = 0f;
+                    if (pawn.rank < Rank.UNKNOWN)
+                    {
+                        int rank_index = (int)pawn.rank;
+                        if (reveal_weights != null && (uint)rank_index < (uint)reveal_weights.Length)
+                        {
+                            rank_entropy_weight = reveal_weights[rank_index];
+                        }
+                        else
+                        {
+                            rank_entropy_weight = rank_index;
+                        }
+                    }
                     if (pawn.team == Team.RED)
                     {
                         red_base += (int)pawn.rank;
+                        red_entropy_total += rank_entropy_weight;
                         if (pawn.rank == Rank.SCOUT) { red_scouts++; }
                         else if (pawn.rank == Rank.SEER) { red_seers++; }
-                        red_count++;
                         if (pawn.is_revealed)
                         {
-                            red_revealed++;
+                            red_entropy_revealed += rank_entropy_weight;
                         }
                     }
                     else
                     {
                         blue_base += (int)pawn.rank;
+                        blue_entropy_total += rank_entropy_weight;
                         if (pawn.rank == Rank.SCOUT) { blue_scouts++; }
                         else if (pawn.rank == Rank.SEER) { blue_seers++; }
-                        blue_count++;
                         if (pawn.is_revealed)
                         {
-                            blue_revealed++;
+                            blue_entropy_revealed += rank_entropy_weight;
                         }
                     }
                 }
@@ -1542,10 +1825,15 @@ public static class AiPlayer
             float material_score = (ally - oppn) / denom;
             material_score *= material_weight;
             final_score += material_score;
-            int oppn_revealed = board.ally_team == Team.RED ? blue_revealed : red_revealed;
-            int oppn_total = board.ally_team == Team.RED ? blue_count : red_count;
-            float revealed_score = oppn_total > 0 ? (float)oppn_revealed / oppn_total : 0f;
-            final_score += revealed_score * revealed_weight;
+            float oppn_entropy_total = board.ally_team == Team.RED ? blue_entropy_total : red_entropy_total;
+            float oppn_entropy_revealed = board.ally_team == Team.RED ? blue_entropy_revealed : red_entropy_revealed;
+            float oppn_entropy_ratio = oppn_entropy_total > 0f ? oppn_entropy_revealed / oppn_entropy_total : 0f;
+            final_score += oppn_entropy_ratio * board.enemy_entropy_weight;
+
+            float ally_entropy_total = board.ally_team == Team.RED ? red_entropy_total : blue_entropy_total;
+            float ally_entropy_revealed = board.ally_team == Team.RED ? red_entropy_revealed : blue_entropy_revealed;
+            float ally_entropy_ratio = ally_entropy_total > 0f ? ally_entropy_revealed / ally_entropy_total : 0f;
+            final_score -= ally_entropy_ratio * board.self_entropy_weight;
             return final_score;
         }
         finally
