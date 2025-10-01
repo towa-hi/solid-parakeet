@@ -28,7 +28,8 @@ public sealed class GameStore
             return;
         }
 
-        UnityEngine.Debug.Log($"GameStore.Dispatch action={action.GetType().Name}");
+        //UnityEngine.Debug.Log($"GameStore.Dispatch action={action.GetType().Name}");
+        GameSnapshot previous = State;
         GameSnapshot next = State;
         List<GameEvent> allEvents = null;
         foreach (IGameReducer reducer in reducers)
@@ -45,13 +46,18 @@ public sealed class GameStore
         State = next;
         if (allEvents != null && allEvents.Count > 0)
         {
-            UnityEngine.Debug.Log($"GameStore.EventsEmitted count={allEvents.Count}");
+            //UnityEngine.Debug.Log($"GameStore.EventsEmitted count={allEvents.Count}");
             EventsEmitted?.Invoke(allEvents);
         }
         IReadOnlyList<GameEvent> emitted = allEvents != null ? (IReadOnlyList<GameEvent>)allEvents : Array.Empty<GameEvent>();
         foreach (IGameEffect effect in effects)
         {
             effect.OnActionAndEvents(action, emitted, State);
+        }
+        // Notify views of state updates when UI or core state has changed
+        if (!Equals(previous.Ui, State.Ui) || previous.Mode != State.Mode || !Equals(previous.Net, State.Net))
+        {
+            ViewEventBus.RaiseStateUpdated(State);
         }
     }
 }

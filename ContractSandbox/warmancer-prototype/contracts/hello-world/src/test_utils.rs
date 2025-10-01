@@ -1093,6 +1093,8 @@ pub struct SnapshotFull {
     pub lobby_info: LobbyInfo,
     pub game_state: GameState,
     pub pawns_map: Map<PawnId, (u32, PawnState)>,
+    pub history_opt: Option<History>,
+    pub history_turns_opt: Option<HistoryTurns>,
 }
 
 impl SnapshotFull {
@@ -1144,6 +1146,8 @@ pub fn extract_full_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) ->
         let lobby_parameters_key = DataKey::LobbyParameters(lobby_id);
         let lobby_info_key = DataKey::LobbyInfo(lobby_id);
         let game_state_key = DataKey::GameState(lobby_id);
+        let history_key = DataKey::History(lobby_id);
+        let history_turns_key = DataKey::HistoryTurns(lobby_id);
         
         let lobby_parameters: LobbyParameters = env.storage()
             .temporary()
@@ -1160,14 +1164,56 @@ pub fn extract_full_snapshot(env: &Env, contract_id: &Address, lobby_id: u32) ->
         
         // Create the pawns map from packed pawns
         let pawns_map = Contract::create_pawns_map(env, &game_state.pawns);
+
+        // Optionally read history and history turns
+        let history_opt: Option<History> = env.storage()
+            .temporary()
+            .get(&history_key);
+        let history_turns_opt: Option<HistoryTurns> = env.storage()
+            .persistent()
+            .get(&history_turns_key);
         
         SnapshotFull {
             lobby_parameters,
             lobby_info,
             game_state,
             pawns_map,
+            history_opt,
+            history_turns_opt,
         }
     })
+}
+
+pub fn validate_history_after_step(pre: &SnapshotFull, post: &SnapshotFull) {
+    // History should exist once the match has started
+    assert!(post.history_opt.is_some(), "History should be initialized after join");
+    let pre_turn = pre.game_state.turn;
+    let post_turn = post.game_state.turn;
+    let pre_turns_len: usize = pre.history_turns_opt.as_ref().map(|h| h.turns.len() as usize).unwrap_or(0);
+    let post_turns_len: usize = post.history_turns_opt.as_ref().map(|h| h.turns.len() as usize).unwrap_or(0);
+    let advanced = post_turn == pre_turn + 1;
+    if advanced {
+        // Must have recorded a new turn
+        assert!(post_turns_len >= (post_turn as usize), "HistoryTurns should contain the completed turn");
+        let last_index = (post_turn - 1) as usize;
+        if let Some(history_turns) = &post.history_turns_opt {
+            let packed_turn = history_turns.turns.get(last_index as u32).expect("PackedTurn for last completed turn should exist");
+            assert!(packed_turn.moves.len() > 0, "PackedTurn should contain at least one move");
+        } else {
+            panic!("HistoryTurns must be present in persistent storage after turn advancement");
+        }
+        // Final state should only be set when game ends
+        let is_final = post.lobby_info.phase == Phase::Finished || post.lobby_info.phase == Phase::Aborted;
+        let hist = post.history_opt.as_ref().unwrap();
+        if is_final {
+            assert!(hist.final_game_state.len() > 0 && hist.final_lobby_info.len() > 0, "Final history should be written at game end");
+        } else {
+            assert!(hist.final_game_state.len() == 0 && hist.final_lobby_info.len() == 0, "Final history should be empty before game end");
+        }
+    } else {
+        // No advancement: turns length should not increase
+        assert!(post_turns_len == pre_turns_len, "HistoryTurns should only grow when the turn advances");
+    }
 }
 
 pub fn get_merkel(e: &Env, setup_commits: &Vec<SetupCommit>, hidden_ranks: &Vec<HiddenRank>) -> (BytesN<16>, Vec<MerkleProof>) {

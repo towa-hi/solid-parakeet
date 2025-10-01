@@ -324,8 +324,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sorting: {fileID: 6820674764595354503}
   pivot: {fileID: 4622545592572393629}
+  wobblePivot: {fileID: 0}
   rotation: {fileID: 0}
   renderEffect: {fileID: 1196831165288348593}
+  baseRotationEuler: {x: 0, y: 0, z: 0}
+  slot: {fileID: 0}
+  followPositionLerpSpeed: 12
+  followRotationLerpSpeed: 12
+  selectionScaleMultiplier: 1.1
+  selectionScaleLerpSpeed: 12
+  currentLocalOffset: {x: 0, y: 0, z: 0}
 --- !u!1 &7510833773616640355
 GameObject:
   m_ObjectHideFlags: 0
@@ -490,6 +498,10 @@ PrefabInstance:
     - target: {fileID: 3350707126563902457, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
       propertyPath: stencilRef
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7980144522872877193, guid: 426b716095e3da442bc343a664cb9b12, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.000011
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

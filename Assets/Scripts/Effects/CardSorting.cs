@@ -30,7 +30,6 @@ public class CardSorting : MonoBehaviour
 		AssignUniqueStencilRef();
 		ApplyStencilRefToAllLayers();
 		AssignUniqueRenderQueues();
-		Debug.Log($"CardSorting.Start: stencilRef={stencilRef}");
     }
 
     // Update is called once per frame
@@ -67,7 +66,7 @@ public class CardSorting : MonoBehaviour
 	public void AssignUniqueStencilRef()
 	{
 		int id = AcquireStencilId();
-		Debug.Log($"stencilRef: {id}");
+		//Debug.Log($"stencilRef: {id}");
 		stencilRef = id;
 		ApplyStencilRefToAllLayers();
 	}

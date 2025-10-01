@@ -33,6 +33,12 @@ public class PawnSprite : MonoBehaviour
         }
     }
 
+    public void SetSprite(Sprite sprite)
+    {
+        currentSprite = sprite;
+        OnDidApplyAnimationProperties();
+    }
+
     // Called at runtime _and_ when scrubbing animated properties in the Editor
     void OnDidApplyAnimationProperties()
     {

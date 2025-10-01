@@ -233,22 +233,103 @@ public static class FakeServer
                 // Use AiPlayer mechanics to resolve simultaneous moves reliably
                 var simBoard = AiPlayer.MakeSimGameBoard(parameters, gameState);
                 var baseState = simBoard.root_state;
+                // Diagnostics: map pawn_id to current position
+                var idToPos = new Dictionary<PawnId, Vector2Int>();
+                foreach (var kv in baseState.pawns)
+                {
+                    idToPos[kv.Value.id] = kv.Key;
+                }
                 var moveSetBuilder = System.Collections.Immutable.ImmutableHashSet.CreateBuilder<AiPlayer.SimMove>();
+                int missingStart = 0;
+                int mismatchedId = 0;
+                // host moves
                 foreach (HiddenMove moveProof in gameState.moves[0].move_proofs)
                 {
+                    bool hasStart = baseState.pawns.TryGetValue(moveProof.start_pos, out var atStart);
+                    if (!hasStart)
+                    {
+                        missingStart++;
+                        bool foundById = idToPos.TryGetValue(moveProof.pawn_id, out var actualPos);
+                        bool isDead = baseState.dead_pawns.ContainsKey(moveProof.pawn_id);
+                        Debug.LogWarning($"[FakeServer] Pre-resolve: missing start pawn (host). start={moveProof.start_pos} target={moveProof.target_pos} pawnId={moveProof.pawn_id} foundById={foundById} actualPos={(foundById ? actualPos : new Vector2Int(-1, -1))} deadById={isDead}");
+                    }
+                    else if (atStart.id != moveProof.pawn_id)
+                    {
+                        mismatchedId++;
+                        bool foundById = idToPos.TryGetValue(moveProof.pawn_id, out var actualPos);
+                        bool isDead = baseState.dead_pawns.ContainsKey(moveProof.pawn_id);
+                        Debug.LogWarning($"[FakeServer] Pre-resolve: pawn_id mismatch at start (host). start={moveProof.start_pos} target={moveProof.target_pos} expectedId={atStart.id} gotId={moveProof.pawn_id} foundById={foundById} actualPos={(foundById ? actualPos : new Vector2Int(-1, -1))} deadById={isDead}");
+                    }
                     moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
+                // guest moves
                 foreach (HiddenMove moveProof in gameState.moves[1].move_proofs)
                 {
+                    bool hasStart = baseState.pawns.TryGetValue(moveProof.start_pos, out var atStart);
+                    if (!hasStart)
+                    {
+                        missingStart++;
+                        bool foundById = idToPos.TryGetValue(moveProof.pawn_id, out var actualPos);
+                        bool isDead = baseState.dead_pawns.ContainsKey(moveProof.pawn_id);
+                        Debug.LogWarning($"[FakeServer] Pre-resolve: missing start pawn (guest). start={moveProof.start_pos} target={moveProof.target_pos} pawnId={moveProof.pawn_id} foundById={foundById} actualPos={(foundById ? actualPos : new Vector2Int(-1, -1))} deadById={isDead}");
+                    }
+                    else if (atStart.id != moveProof.pawn_id)
+                    {
+                        mismatchedId++;
+                        bool foundById = idToPos.TryGetValue(moveProof.pawn_id, out var actualPos);
+                        bool isDead = baseState.dead_pawns.ContainsKey(moveProof.pawn_id);
+                        Debug.LogWarning($"[FakeServer] Pre-resolve: pawn_id mismatch at start (guest). start={moveProof.start_pos} target={moveProof.target_pos} expectedId={atStart.id} gotId={moveProof.pawn_id} foundById={foundById} actualPos={(foundById ? actualPos : new Vector2Int(-1, -1))} deadById={isDead}");
+                    }
                     moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
+                if (missingStart > 0 || mismatchedId > 0)
+                {
+                    Debug.LogWarning($"[FakeServer] Pre-resolve summary: missingStart={missingStart} mismatchedId={mismatchedId} turn={baseState.turn} pawns={baseState.pawns.Count}");
+                }
                 var moveSet = moveSetBuilder.ToImmutable();
+                // Detect swap pairs for diagnostics
+                int swapPairs = 0;
+                var moveSetLookup = new HashSet<(Vector2Int, Vector2Int)>();
+                foreach (var m in moveSet) moveSetLookup.Add((m.last_pos, m.next_pos));
+                foreach (var m in moveSet)
+                {
+                    if (moveSetLookup.Contains((m.next_pos, m.last_pos))) swapPairs++;
+                }
+                if (swapPairs > 0)
+                {
+                    Debug.LogWarning($"[FakeServer] Pre-resolve: detected potential swap pairs x{swapPairs / 2}");
+                }
                 // Ensure no duplicate movers (same pawn moving twice). Duplicate targets allowed.
                 // Compact: compare count vs distinct(last_pos)
                 int distinctStarts = moveSet.Select(m => m.last_pos).Distinct().Count();
                 if (distinctStarts != moveSet.Count)
                 {
                     Debug.LogWarning("[FakeServer] Duplicate movers detected in move set");
+                }
+                // Diagnostic: list the final move set
+                foreach (var mm in moveSet)
+                {
+                    Debug.Log($"[FakeServer] Pre-resolve move: {mm.last_pos} -> {mm.next_pos}");
+                }
+                // Diagnostic: occupant info at involved positions
+                foreach (var mm in moveSet)
+                {
+                    if (baseState.pawns.TryGetValue(mm.last_pos, out var occStart))
+                    {
+                        Debug.Log($"[FakeServer] Occ at start {mm.last_pos}: id={occStart.id} team={occStart.team} rank={occStart.rank} alive={occStart.alive}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[FakeServer] No occ at start {mm.last_pos}");
+                    }
+                    if (baseState.pawns.TryGetValue(mm.next_pos, out var occNext))
+                    {
+                        Debug.Log($"[FakeServer] Occ at target {mm.next_pos}: id={occNext.id} team={occNext.team} rank={occNext.rank} alive={occNext.alive}");
+                    }
+                    else
+                    {
+                        Debug.Log($"[FakeServer] No occ at target {mm.next_pos}");
+                    }
                 }
                 var derived = AiPlayer.GetDerivedStateFromMove(simBoard, baseState, moveSet);
                 // Sanity: turn advanced

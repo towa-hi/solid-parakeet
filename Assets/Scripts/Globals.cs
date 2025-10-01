@@ -2180,28 +2180,29 @@ public enum ResolveCheckpointType
     Final,
 }
 
-public enum SetupInputTool
+// Removed legacy SetupInputTool and MoveInputTool in favor of unified CursorInputTool
+
+public enum CursorInputTool
 {
     NONE,
-    ADD,
-    REMOVE,
+    SETUP_SET_RANK,
+    SETUP_UNSET_RANK,
+    MOVE_SELECT,
+    MOVE_TARGET,
+    MOVE_CLEAR,
+    MOVE_CLEAR_MOVEPAIR,
 }
-
-public enum MoveInputTool
-{
-    NONE,
-    SELECT,
-    TARGET,
-    CLEAR_SELECT,
-    CLEAR_MOVEPAIR,
-}
-
 
 public struct TurnResolveDelta
 {
     public Dictionary<PawnId, SnapshotPawnDelta> pawnDeltas;
     public Dictionary<PawnId, MoveEvent> moves;
     public BattleEvent[] battles;
+	// Full board snapshots for each checkpoint
+	public PawnState[] preSnapshot; // last turn's pawn states
+	public PawnState[] postMovesSnapshot; // after moves applied, before reveals
+	public PawnState[][] battleSnapshots; // after each battle applied (ordered to match battles)
+	public PawnState[] finalSnapshot; // authoritative current state
 }
 
 public struct SnapshotPawnDelta

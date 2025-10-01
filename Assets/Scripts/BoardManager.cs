@@ -17,6 +17,7 @@ public class BoardManager : MonoBehaviour
     public GameObject tilePrefab;
     public GameObject pawnPrefab;
     public BoardGrid grid;
+    public Graveyard graveyard;
     public ClickInputManager clickInputManager;
     public Vortex vortex;
     public Transform cameraBounds;
@@ -39,6 +40,9 @@ public class BoardManager : MonoBehaviour
     public void StartBoardManager()
     {
         Debug.Log("BoardManager.StartBoardManager: begin");
+		// Reset debug ScriptableObject at launch so we start from a clean slate
+		var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
+		if (debugSO != null) debugSO.ResetState();
         GameNetworkState netState = new(StellarManager.networkState);
         Debug.Log($"BoardManager.StartBoardManager: snapshot lobbyPhase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} turn={netState.gameState.turn} security={netState.lobbyParameters.security_mode}");
         CloseBoardManager();
@@ -50,10 +54,9 @@ public class BoardManager : MonoBehaviour
         {
             CacheManager.Initialize(netState.address, netState.lobbyInfo.index);
         }
-        GameLogger.Initialize(netState);
         Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
         IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new ResolveReducer(), new UiReducer() };
-        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects() };
+        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects(), new global::ViewAdapterEffects(), new global::StoreDebugEffect() };
         store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
             reducers,
@@ -94,13 +97,23 @@ public class BoardManager : MonoBehaviour
             pawnView.AttachSubscriptions();
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
+        // Initialize and seed Graveyard
+        if (graveyard != null)
+        {
+            graveyard.Initialize(netState);
+            graveyard.AttachSubscriptions();
+            graveyard.SeedFromSnapshot(netState.gameState.pawns);
+        }
         // Expose a resolver so views can map positions to TileViews (for arrows, etc.)
         ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
-		// Seed initial mode to views now that board/pawn views exist
-		ViewEventBus.RaiseClientModeChanged(initMode, netState, store.State.Ui ?? LocalUiState.Empty);
+        // Seed initial mode to views now that board/pawn views exist
+        ViewEventBus.RaiseClientModeChanged(initMode, netState, store.State.Ui ?? LocalUiState.Empty);
         Debug.Log("BoardManager.Initialize: finished creating views; starting music");
         AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
+        // Ensure no duplicate subscriptions if StartBoardManager is called repeatedly
+        StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
         StellarManager.OnGameStateBeforeApplied += OnGameStateBeforeApplied;
+        clickInputManager.OnMouseInput -= OnMouseInput;
         clickInputManager.OnMouseInput += OnMouseInput;
         initialized = true;
         // Initialize arena once per game load
@@ -118,6 +131,10 @@ public class BoardManager : MonoBehaviour
         
         // Unsubscribe from events
         StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
+        if (clickInputManager != null)
+        {
+            clickInputManager.OnMouseInput -= OnMouseInput;
+        }
         
         // Cancel any in-flight Stellar task to avoid Task-is-already-set on menu navigation
         StellarManager.AbortCurrentTask();
@@ -141,6 +158,16 @@ public class BoardManager : MonoBehaviour
         clickInputManager.SetUpdating(false);
         // Reset store and event subscriptions to avoid stale UI/state between games
         store = null;
+        // Reset debug SO if present
+        var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
+        if (debugSO != null) debugSO.ResetState();
+        // Clear resolver to avoid stale references held by views/utilities
+        ViewEventBus.TileViewResolver = null;
+        // Detach Graveyard subscriptions
+        if (graveyard != null)
+        {
+            graveyard.DetachSubscriptions();
+        }
         // Mode change handled by NetworkReducer; nothing to emit here
         // Detach GUI subscriptions to avoid duplicate handlers on next game
         if (guiGame != null)
@@ -167,27 +194,31 @@ public class BoardManager : MonoBehaviour
         Debug.Log($"BoardManager.OnGameStateBeforeApplied: turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
 
 		store?.Dispatch(new NetworkStateChanged(netState, delta));
-        bool shouldPoll = !netState.IsMySubphase();
-        StellarManager.SetPolling(shouldPoll);
+        // Polling toggles are now handled by PollingEffects
     }
 
     void OnMouseInput(Vector2Int pos, bool clicked)
     {
-        Debug.Log($"BoardManager.OnMouseInput: pos={pos} clicked={clicked} mode={store?.State.Mode}");
+        if (WalletManager.IsWalletBusy) return;
+        //Debug.Log($"BoardManager.OnMouseInput: pos={pos} clicked={clicked} mode={store?.State.Mode}");
         switch (store?.State.Mode)
         {
             case ClientMode.Setup:
-                store.Dispatch(new SetupHoverAction(pos));
-                if (clicked && !StellarManager.IsBusy)
+				store.Dispatch(new SetupHoverAction(pos));
+				if (clicked && !StellarManager.IsBusy)
                 {
                     store.Dispatch(new SetupClickAt(pos));
+					// Do another hover pass immediately after the click
+					store.Dispatch(new SetupHoverAction(pos));
                 }
                 break;
             case ClientMode.Move:
-                store.Dispatch(new MoveHoverAction(pos));
-                if (clicked && !StellarManager.IsBusy)
+				store.Dispatch(new MoveHoverAction(pos));
+				if (clicked && !StellarManager.IsBusy)
                 {
                     store.Dispatch(new MoveClickAt(pos));
+					// Do another hover pass immediately after the click
+					store.Dispatch(new MoveHoverAction(pos));
                 }
                 break;
         }

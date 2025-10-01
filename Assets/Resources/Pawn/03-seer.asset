@@ -26,3 +26,5 @@ MonoBehaviour:
   blueAttackOverrideController: {fileID: 22100000, guid: 22d1c996ea7369645841d3eb737eb24d, type: 2}
   redCard: {fileID: 9091286772987540140, guid: a4408b76c0dd595409cebd71da7403d4, type: 3}
   blueCard: {fileID: 5686631205273747704, guid: dd6d1c4bb1d96ac47aec287c8b05e184, type: 3}
+  redGraveyardSprite: {fileID: 21300000, guid: f72ac1ccf4002d546a069f4b1f57eeac, type: 3}
+  blueGraveyardSprite: {fileID: 21300000, guid: e1c5387af3657cf4cac10e2d3b180c6e, type: 3}

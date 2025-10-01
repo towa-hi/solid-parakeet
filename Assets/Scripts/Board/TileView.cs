@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Contract;
 using UnityEngine;
 using PrimeTween;
@@ -19,17 +18,9 @@ public class TileView : MonoBehaviour
     
     // never changes
     public Vector2Int posView; // this is the key of tileView it must never change
-    public bool passableView;
-    public Team setupView;
-    public uint setupZoneView;
     
     
-    public bool isHovered = false;
-    public bool isSelected = false;
-    public bool isTargetable = false;
-    public bool isMovePairStart = false;
-    public bool isMovePairTarget = false;
-    public bool isSetupTile = false;
+    // Avoid caching transient UI flags; derive from events instead
     
     public Color redTeamColor;
     public Color blueTeamColor;
@@ -38,22 +29,29 @@ public class TileView : MonoBehaviour
 
     public TileView pointedTile;
     
-    
-    static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
     static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
+    static readonly int FogColorProperty = Shader.PropertyToID("_Color");
+    static readonly int FadeAmountProperty = Shader.PropertyToID("_FadeAmount");
     public TweenSettings<Vector3> startTweenSettings;
     public Sequence startSequence;
     public Tween currentTween;
     Vector3 initialElevatorLocalPos;
     
+    // Track whether this tile is currently selected in Move mode
+    bool isSelected;
+    
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
     
-    // Base color pulse config
-    bool pulseBaseColor;
-    [SerializeField] float emissionPulseSpeed = 2f;
-    [SerializeField] float minEmissionAlpha = 0.25f;
-    [SerializeField] float maxEmissionAlpha = 0.5f;
+    // Fog/reveal visual state
+    Tween fogAlphaTween;
+    Tween revealFadeTween;
+    float currentFogAlpha01 = 0f;
+    bool? lastRevealedState = null;
+    const float HiddenMovedAlpha01 = 150f / 255f;
+    const float HiddenUnmovedAlpha01 = 200f / 255f;
+    const float UnrevealedFadeAmount = 1f; // as requested
+    const float RevealedFadeAmount = 1f;   // as requested
     
     public void Initialize(TileState tile, bool hex)
     {
@@ -64,6 +62,9 @@ public class TileView : MonoBehaviour
         
         SetTile(tile, hex);
         initialElevatorLocalPos = tileModel.elevator.localPosition;
+        // Ensure fog is disabled on initialization
+        ApplyFogForPawn(false, false);
+        HandleRevealChange(true);
     }
 
     void SetTile(TileState tile, bool hex)
@@ -73,25 +74,16 @@ public class TileView : MonoBehaviour
             throw new ArgumentException("set to wrong tile pos");
         }
         
-        passableView = tile.passable;
-        setupView = tile.setup;
-        setupZoneView = tile.setup_zone;
         hexTileModel.gameObject.SetActive(false);
         squareTileModel.gameObject.SetActive(false);
         tileModel = hex ? hexTileModel : squareTileModel;
-        tileModel.gameObject.SetActive(passableView);
+        SetVisible(tile.passable);
     }
 
 
     public void SetTileDebug()
     {
-        Color finalColor = setupView switch
-        {
-            Team.RED => redTeamColor,
-            Team.BLUE => blueTeamColor,
-            _ => Color.clear,
-        };
-        SetTopColor(finalColor);
+        SetTopColor(Color.clear);
         sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
     }
     
@@ -118,30 +110,32 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
     }
 
-    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+	void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
         if (enableDebugLogs) Debug.Log($"TileView[{posView}]: ClientModeChanged mode={mode}");
         // Reset base visuals common to any mode switch
-        isHovered = false;
+		SetArrow(null);
+		SetRenderEffect(EffectType.HOVEROUTLINE, false);
+		SetRenderEffect(EffectType.SELECTOUTLINE, false);
+		SetRenderEffect(EffectType.FILL, false);
+		SetElevator(initialElevatorLocalPos.y);
         isSelected = false;
-        isTargetable = false;
-        isMovePairStart = false;
-        isMovePairTarget = false;
-        pointedTile = null;
-        arrow.gameObject.SetActive(false);
-        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, false);
-        tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, false);
-        tileModel.renderEffect.SetEffect(EffectType.FILL, false);
-        tileModel.elevator.localPosition = initialElevatorLocalPos;
         // Mode-specific initialization
-        isSetupTile = (mode == ClientMode.Setup) && setupView != Team.NONE;
         SetTileDebug();
+        TileState tile = net.GetTileUnchecked(posView);
+        SetTopColor(Color.clear);
         // When entering modes, seed arrows immediately for Resolve only (Move arrows will be driven by events)
         switch (mode)
         {
+			case ClientMode.Setup:
+			{
+				ApplyTeamColor(tile.setup);
+				break;
+			}
             case ClientMode.Move:
-                SetTopColor(Color.clear);
-                break;
+			{
+				break;
+			}
             case ClientMode.Resolve:
             {
                 // Use resolve payload moves for arrows
@@ -162,91 +156,183 @@ public class TileView : MonoBehaviour
                         if (mv.target == posView) target = true;
                     }
                 }
-                isMovePairStart = start;
-                isMovePairTarget = target;
-                arrow.gameObject.SetActive(start && targetTile != null);
-                if (start && targetTile != null)
-                {
-                    arrow.ArcFromTiles(this, targetTile);
-                    pointedTile = targetTile;
-                }
+                SetArrow((start && targetTile != null) ? targetTile : null);
                 Color col = Color.clear;
-                if (isMovePairStart) col = Color.green * 0.5f;
-                if (isMovePairTarget) col = Color.blue * 0.5f;
+                if (start) col = Color.green * 0.5f;
+                if (target) col = Color.blue * 0.5f;
                 SetTopColor(col);
-                break;
+				break;
             }
         }
     }
 
-    void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn, SetupInputTool _)
+    void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn)
     {
         if (enableDebugLogs) Debug.Log($"TileView[{posView}]: SetupHover pos={hoveredPos} myTurn={isMyTurn}");
-        isHovered = isMyTurn && posView == hoveredPos;
-        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
-        // In setup mode we do NOT elevate tiles on hover. Ensure elevator stays at base.
-        if (tileModel.elevator.localPosition != initialElevatorLocalPos)
-        {
-            tileModel.elevator.localPosition = initialElevatorLocalPos;
-        }
+        bool hovered = isMyTurn && posView == hoveredPos;
+        SetRenderEffect(EffectType.HOVEROUTLINE, hovered);
     }
 
-    void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, MoveInputTool tool, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
+    void HandleMoveHoverChanged(Vector2Int hoveredPos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> hoverTargets)
     {
-        if (!isMyTurn) { isHovered = false; }
-        else { isHovered = posView == hoveredPos; }
-        tileModel.renderEffect.SetEffect(EffectType.HOVEROUTLINE, isHovered);
+        bool hovered = isMyTurn && posView == hoveredPos;
+        SetRenderEffect(EffectType.HOVEROUTLINE, hovered);
         // Elevate lightly only in movement when selection intent
-        Vector3 target = (isHovered && tool == MoveInputTool.SELECT) ? hoveredElevatorLocalPos : initialElevatorLocalPos;
-        if (tileModel.elevator.localPosition != target)
-        {
-            currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
-            {
-                tileModel.elevator.localPosition = target;
-            });
-        }
+		Vector3 target = isSelected ? selectedElevatorLocalPos : ((hovered && hoverTargets != null && hoverTargets.Count > 0) ? hoveredElevatorLocalPos : initialElevatorLocalPos);
+		SetElevator(target.y);
         // Hover targetable sphere
         bool show = hoverTargets != null && hoverTargets.Contains(posView);
         sphereRenderEffect.SetEffect(EffectType.SELECTOUTLINE, show);
     }
 
-    void HandleMoveSelectionChanged(Vector2Int? selected, System.Collections.Generic.HashSet<Vector2Int> validTargets)
+	void HandleMoveSelectionChanged(Vector2Int? selected, System.Collections.Generic.HashSet<Vector2Int> validTargets)
     {
-        isSelected = selected.HasValue && selected.Value == posView;
-        isTargetable = validTargets.Contains(posView);
-        tileModel.renderEffect.SetEffect(EffectType.SELECTOUTLINE, isSelected);
-        tileModel.renderEffect.SetEffect(EffectType.FILL, isTargetable);
-        Vector3 target = (isSelected) ? selectedElevatorLocalPos : initialElevatorLocalPos;
-        if (tileModel.elevator.localPosition != target)
-        {
-            currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
-            {
-                tileModel.elevator.localPosition = target;
-            });
-        }
+        bool selectedNow = selected.HasValue && selected.Value == posView;
+        bool targetableNow = validTargets.Contains(posView);
+        SetRenderEffect(EffectType.SELECTOUTLINE, selectedNow);
+        SetRenderEffect(EffectType.FILL, targetableNow);
+		isSelected = selectedNow;
+		Vector3 target = (selectedNow) ? selectedElevatorLocalPos : initialElevatorLocalPos;
+		SetElevator(target.y);
     }
 
-    void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
+	void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
     {
-        // Recompute move pair flags for this tile
-        isMovePairStart = false;
-        isMovePairTarget = false;
+        // Recompute move pair flags for this tile (no caching)
+        bool isStart = false;
+        bool isTarget = false;
         TileView targetTile = null;
         foreach (var kv in newPairs)
         {
-            if (kv.Value.start == posView) { isMovePairStart = true; }
-            if (kv.Value.target == posView) { isMovePairTarget = true; }
+            if (kv.Value.start == posView) { isStart = true; }
+            if (kv.Value.target == posView) { isTarget = true; }
             if (kv.Value.start == posView)
             {
                 targetTile = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(kv.Value.target) : null;
             }
         }
-        arrow.gameObject.SetActive(isMovePairStart && targetTile != null);
-        if (isMovePairStart && targetTile != null) { arrow.ArcFromTiles(this, targetTile); pointedTile = targetTile; }
+        SetArrow((isStart && targetTile != null) ? targetTile : null);
         Color finalColor = Color.clear;
-        if (isMovePairStart) finalColor = Color.green * 0.5f;
-        if (isMovePairTarget) finalColor = Color.blue * 0.5f;
+        if (isStart) finalColor = Color.green * 0.5f;
+        if (isTarget) finalColor = Color.blue * 0.5f;
         SetTopColor(finalColor);
+    }
+
+    // Resolve checkpoint updates: drive fog based on snapshot temporary states
+
+
+	// ===== Tier 1: Direct view mutators / tweens =====
+
+	void SetVisible(bool visible)
+	{
+		if (tileModel == null || tileModel.gameObject == null) return;
+		if (tileModel.gameObject.activeSelf != visible)
+		{
+			tileModel.gameObject.SetActive(visible);
+		}
+	}
+	void SetElevator(float localY)
+	{
+		if (tileModel == null || tileModel.elevator == null) return;
+		Vector3 current = tileModel.elevator.localPosition;
+		Vector3 target = new Vector3(current.x, localY, current.z);
+		if (current == target) return;
+		currentTween = PrimeTween.Tween.LocalPositionAtSpeed(tileModel.elevator, target, 0.3f, PrimeTween.Ease.OutCubic).OnComplete(() =>
+		{
+			tileModel.elevator.localPosition = target;
+		});
+	}
+
+	void SetRenderEffect(EffectType effect, bool enabled)
+	{
+		if (tileModel == null || tileModel.renderEffect == null) return;
+		tileModel.renderEffect.SetEffect(effect, enabled);
+	}
+
+	void SetArrow(TileView target)
+	{
+		if (arrow == null) return;
+		if (target != null)
+		{
+			arrow.gameObject.SetActive(true);
+			arrow.ArcFromTiles(this, target);
+			pointedTile = target;
+		}
+		else
+		{
+			arrow.Clear();
+			arrow.gameObject.SetActive(false);
+			pointedTile = null;
+		}
+	}
+
+    void SetFogFade(bool isRevealed)
+	{
+		Renderer r = tileModel != null ? (tileModel.topRenderer != null ? tileModel.topRenderer : tileModel.flatRenderer) : null;
+		if (r == null) return;
+		Material m = r.material;
+		if (!m.HasProperty(FadeAmountProperty)) return;
+		float from = m.GetFloat(FadeAmountProperty);
+		float to = isRevealed ? 0f : 1f;
+		if (revealFadeTween.isAlive) revealFadeTween.Stop();
+		revealFadeTween = PrimeTween.Tween.Custom(from, to, 0.25f, (val) =>
+		{
+			m.SetFloat(FadeAmountProperty, val);
+		}, Ease.OutCubic);
+	}
+
+    void SetFogColor(Color targetColor)
+	{
+		// Ensure fog object active
+		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
+		{
+			tileModel.fogObject.SetActive(true);
+		}
+		Renderer fogRenderer = tileModel.fogObject.GetComponent<Renderer>();
+		Material fogMat = fogRenderer.material;
+		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
+		Color startColor = baseColor;
+		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, targetColor.a);
+		if (Mathf.Approximately(startColor.a, endColor.a))
+		{
+			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
+			currentFogAlpha01 = endColor.a;
+			return;
+		}
+		if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
+		fogAlphaTween = PrimeTween.Tween.Custom(startColor.a, endColor.a, 0.2f, (val) =>
+		{
+			Color c = baseColor;
+			c.a = val;
+			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, c); else fogMat.color = c;
+			currentFogAlpha01 = val;
+		}, Ease.OutCubic);
+	}
+
+    void ApplyFogForPawn(bool hasPawn, bool hasMoved)
+    {
+		float targetAlpha = hasPawn ? (hasMoved ? HiddenMovedAlpha01 : HiddenUnmovedAlpha01) : 0f;
+		SetFogColor(new Color(0f, 0f, 0f, targetAlpha));
+    }
+
+    void HandleRevealChange(bool isRevealed)
+    {
+        if (lastRevealedState.HasValue && lastRevealedState.Value == isRevealed)
+        {
+            return;
+        }
+        lastRevealedState = isRevealed;
+        SetFogFade(isRevealed);
+    }
+
+    // Single public entrypoint for fog updates driven by pawn state
+    public void UpdateFogFromPawnState(PawnState? pawn)
+    {
+        bool hasPawn = pawn.HasValue && pawn.Value.alive && pawn.Value.pos == posView;
+        bool moved = hasPawn && pawn.Value.moved;
+        bool revealed = hasPawn ? pawn.Value.zz_revealed : true;
+        ApplyFogForPawn(hasPawn, moved);
+        HandleRevealChange(revealed);
     }
 
     void SetTopColor(Color color)
@@ -263,21 +349,21 @@ public class TileView : MonoBehaviour
         }
         mat.SetColor(BaseColorProperty, flatColor);
     }
-    
-    void Update()
-    {
-        if (!pulseBaseColor)
-        {
-            return;
-        }
-        // Pulse the alpha of the base color using absolute time
-        float t = (Mathf.Sin(Time.time * emissionPulseSpeed) + 1f) * 0.5f; // 0..1
-        float alpha = Mathf.Lerp(minEmissionAlpha, maxEmissionAlpha, t);
-        Material mat = tileModel.flatRenderer.material;
-        Color c = flatColor;
-        c.a = alpha;
-        mat.SetColor(BaseColorProperty, c);
-    }
+
+	void ApplyTeamColor(Team team)
+	{
+		Color c = Color.clear;
+		switch (team)
+		{
+			case Team.RED:
+				c = redTeamColor;
+				break;
+			case Team.BLUE:
+				c = blueTeamColor;
+				break;
+		}
+		SetTopColor(c);
+	}
 
     public void OverrideArrow(Transform target)
     {

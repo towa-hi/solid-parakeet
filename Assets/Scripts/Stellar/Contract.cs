@@ -28,6 +28,24 @@ namespace Contract
     {
         static void DebugLog(string msg) { if (ResourceRoot.DefaultSettings.serializationLogging) { Debug.Log(msg); } }
         
+        static string DescribeType(Type t)
+        {
+            return t == null ? "null" : t.FullName;
+        }
+        
+        static string DescribeScVal(SCVal v)
+        {
+            if (v == null) return "null";
+            try
+            {
+                return $"{v.GetType().Name} (Discriminator {v.Discriminator})";
+            }
+            catch
+            {
+                return v.GetType().Name;
+            }
+        }
+        
         public static SCVal NativeToSCVal(object input)
         {
             if (input == null)
@@ -82,13 +100,22 @@ namespace Contract
                     SCVal[] scValArray = new SCVal[inputArray.Length];
                     for (int i = 0; i < inputArray.Length; i++)
                     {
-                        scValArray[i] = NativeToSCVal(inputArray.GetValue(i));
+                        try
+                        {
+                            scValArray[i] = NativeToSCVal(inputArray.GetValue(i));
+                        }
+                        catch (Exception ex)
+                        {
+                            object element = inputArray.GetValue(i);
+                            string elementType = element == null ? "null" : DescribeType(element.GetType());
+                            throw new InvalidOperationException($"NativeToSCVal: Failed converting array element at index {i} of type '{elementType}'.", ex);
+                        }
                     }
                     return new SCVal.ScvVec() { vec = new SCVec(scValArray) };
                 case IScvMapCompatable inputStruct:
                     return inputStruct.ToScvMap();
                 default:
-                    throw new NotImplementedException($"Type {type} not implemented.");
+                    throw new NotImplementedException($"NativeToSCVal: Type '{DescribeType(type)}' not implemented.");
             }
         }
 
@@ -96,7 +123,7 @@ namespace Contract
         {
             if (scVal == null)
             {
-                throw new ArgumentNullException();
+                throw new ArgumentNullException(nameof(scVal));
             }
             DebugLog($"SCValToNative: Converting SCVal of discriminator {scVal.Discriminator} to native type {targetType}.");
             switch (targetType)
@@ -248,7 +275,14 @@ namespace Contract
                             for (int i = 0; i < len; i++)
                             {
                                 DebugLog($"SCValToNative: Converting collection element at index {i}.");
-                                convertedElements[i] = SCValToNative(vecInnerArray[i], elementType);
+                                try
+                                {
+                                    convertedElements[i] = SCValToNative(vecInnerArray[i], elementType);
+                                }
+                                catch (Exception ex)
+                                {
+                                    throw new InvalidOperationException($"SCValToNative: Failed converting collection element at index {i} from {DescribeScVal(vecInnerArray[i])} to element type '{DescribeType(elementType)}' (target collection type '{DescribeType(targetType)}').", ex);
+                                }
                             }
                             if (targetType.IsArray)
                             {
@@ -289,8 +323,24 @@ namespace Contract
                                 {
                                     if (dict.TryGetValue("x", out SCMapEntry xEntry) && dict.TryGetValue("y", out SCMapEntry yEntry))
                                     {
-                                        int x = (int)SCValToNative(xEntry.val, typeof(int));
-                                        int y = (int)SCValToNative(yEntry.val, typeof(int));
+                                        int x;
+                                        int y;
+                                        try
+                                        {
+                                            x = (int)SCValToNative(xEntry.val, typeof(int));
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            throw new InvalidOperationException($"SCValToNative: Failed converting Vector2Int field 'x' from {DescribeScVal(xEntry.val)} to 'int'.", ex);
+                                        }
+                                        try
+                                        {
+                                            y = (int)SCValToNative(yEntry.val, typeof(int));
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            throw new InvalidOperationException($"SCValToNative: Failed converting Vector2Int field 'y' from {DescribeScVal(yEntry.val)} to 'int'.", ex);
+                                        }
                                         return new Vector2Int(x, y);
                                     }
                                     else
@@ -320,8 +370,15 @@ namespace Contract
                                                 Type underlyingType = field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>)
                                                     ? Nullable.GetUnderlyingType(field.FieldType)
                                                     : field.FieldType;
-                                                object fieldValue = SCValToNative(nullableInnerArray[0], underlyingType);
-                                                field.SetValue(instance, fieldValue);
+                                                try
+                                                {
+                                                    object fieldValue = SCValToNative(nullableInnerArray[0], underlyingType);
+                                                    field.SetValue(instance, fieldValue);
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    throw new InvalidOperationException($"SCValToNative: Failed converting nullable field '{field.Name}' from {DescribeScVal(nullableInnerArray[0])} to '{DescribeType(underlyingType)}'.", ex);
+                                                }
                                             }
                                             else if (nullableInnerArray.Length == 0)
                                             {
@@ -336,8 +393,15 @@ namespace Contract
                                         }
                                         else
                                         {
-                                            object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
-                                            field.SetValue(instance, fieldValue);
+                                            try
+                                            {
+                                                object fieldValue = SCValToNative(mapEntry.val, field.FieldType);
+                                                field.SetValue(instance, fieldValue);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                throw new InvalidOperationException($"SCValToNative: Failed converting field '{field.Name}' from {DescribeScVal(mapEntry.val)} to '{DescribeType(field.FieldType)}'.", ex);
+                                            }
                                         }
                                     }
                                     else
@@ -355,12 +419,19 @@ namespace Contract
                     break;
             }
             DebugLog("SCValToNative: SCVal type not supported for conversion.");
-            throw new NotSupportedException("SCVal type not supported for conversion.");
+            throw new NotSupportedException($"SCValToNative: Unsupported conversion from {DescribeScVal(scVal)} to target type '{DescribeType(targetType)}'.");
         }
         
         public static T SCValToNative<T>(SCVal scVal)
         {
-            return (T)SCValToNative(scVal, typeof(T));
+            try
+            {
+                return (T)SCValToNative(scVal, typeof(T));
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"SCValToNative<{DescribeType(typeof(T))}>: Failed converting {DescribeScVal(scVal)} to '{DescribeType(typeof(T))}'.", ex);
+            }
         }
         
         public static SCMapEntry FieldToSCMapEntry(string fieldName, object input)
@@ -394,19 +465,38 @@ namespace Contract
                 else
                 {
                     // Serialize non-null nullable as single-item Vec
+                    SCVal inner;
+                    try
+                    {
+                        inner = NativeToSCVal(input);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException($"NativeToSCVal: Failed converting field '{fieldName}' (nullable) of type '{DescribeType(input.GetType())}' to SCVal.", ex);
+                    }
                     return new SCMapEntry()
                     {
                         key = new SCVal.ScvSymbol() { sym = new SCSymbol(fieldName) },
-                        val = new SCVal.ScvVec() { vec = new SCVec(new SCVal[] { NativeToSCVal(input) }) },
+                        val = new SCVal.ScvVec() { vec = new SCVec(new SCVal[] { inner }) },
                     };
                 }
             }
             else
             {
+                SCVal value;
+                try
+                {
+                    value = NativeToSCVal(input);
+                }
+                catch (Exception ex)
+                {
+                    string inputType = input == null ? "null" : DescribeType(input.GetType());
+                    throw new InvalidOperationException($"NativeToSCVal: Failed converting field '{fieldName}' of type '{inputType}' to SCVal.", ex);
+                }
                 return new SCMapEntry()
                 {
                     key = new SCVal.ScvSymbol() { sym = new SCSymbol(fieldName) },
-                    val = NativeToSCVal(input),
+                    val = value,
                 };
             }
         }
@@ -706,6 +796,31 @@ namespace Contract
             }
             return null;
         }
+
+		public Vector2Int GetActualSize()
+		{
+			if (tiles == null || tiles.Length == 0)
+			{
+				return Vector2Int.zero;
+			}
+			int maxX = -1;
+			int maxY = -1;
+			for (int i = 0; i < tiles.Length; i++)
+			{
+				if (!tiles[i].passable)
+				{
+					continue;
+				}
+				Vector2Int p = tiles[i].pos;
+				if (p.x > maxX) maxX = p.x;
+				if (p.y > maxY) maxY = p.y;
+			}
+			if (maxX < 0 || maxY < 0)
+			{
+				return Vector2Int.zero;
+			}
+			return new Vector2Int(maxX, maxY);
+		}
     }
 
     [Serializable]
@@ -774,10 +889,11 @@ namespace Contract
     [Serializable]
     public struct History : IScvMapCompatable
     {
-        public GameState game_state;
-        public LobbyInfo lobby_info;
+        public GameState start_game_state;
+        public LobbyInfo start_lobby_info;
+        public GameState[] final_game_state;
+        public LobbyInfo[] final_lobby_info;
         public LobbyParameters lobby_parameters;
-        public Turn[] turns;
 
         public SCVal.ScvMap ToScvMap()
         {
@@ -785,10 +901,11 @@ namespace Contract
             {
                 map = new SCMap(new[]
                 {
-                    SCUtility.FieldToSCMapEntry("game_state", game_state),
-                    SCUtility.FieldToSCMapEntry("lobby_info", lobby_info),
+                    SCUtility.FieldToSCMapEntry("start_game_state", start_game_state),
+                    SCUtility.FieldToSCMapEntry("start_lobby_info", start_lobby_info),
+                    SCUtility.FieldToSCMapEntry("final_game_state", final_game_state),
+                    SCUtility.FieldToSCMapEntry("final_lobby_info", final_lobby_info),
                     SCUtility.FieldToSCMapEntry("lobby_parameters", lobby_parameters),
-                    SCUtility.FieldToSCMapEntry("turns", turns),
                 }),
             };
         }
@@ -838,6 +955,91 @@ namespace Contract
     }
 
     [Serializable]
+    public struct HistoryTurns : IScvMapCompatable
+    {
+        public PackedTurn[] turns;
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("turns", turns),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct UnpackedMove : IScvMapCompatable
+    {
+        public PawnId pawn_id;
+        public Vector2Int start_pos;
+        public Vector2Int target_pos;
+
+        public static UnpackedMove FromPacked(uint packed)
+        {
+            uint pawnId = packed & 0x1FFu; // 9 bits
+            int sx = (int)((packed >> 9) & 0xFu);
+            int sy = (int)((packed >> 13) & 0xFu);
+            int tx = (int)((packed >> 17) & 0xFu);
+            int ty = (int)((packed >> 21) & 0xFu);
+            return new UnpackedMove
+            {
+                pawn_id = new PawnId(pawnId),
+                start_pos = new Vector2Int(sx, sy),
+                target_pos = new Vector2Int(tx, ty),
+            };
+        }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("pawn_id", pawn_id),
+                    SCUtility.FieldToSCMapEntry("start_pos", start_pos),
+                    SCUtility.FieldToSCMapEntry("target_pos", target_pos),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
+    public struct UnpackedTurn : IScvMapCompatable
+    {
+        public UnpackedMove[] moves;
+
+        public static UnpackedTurn FromPacked(PackedTurn packedTurn)
+        {
+            if (packedTurn.moves == null || packedTurn.moves.Length == 0)
+            {
+                return new UnpackedTurn { moves = Array.Empty<UnpackedMove>() };
+            }
+            UnpackedMove[] result = new UnpackedMove[packedTurn.moves.Length];
+            for (int i = 0; i < packedTurn.moves.Length; i++)
+            {
+                uint packed = packedTurn.moves[i].Value;
+                result[i] = UnpackedMove.FromPacked(packed);
+            }
+            return new UnpackedTurn { moves = result };
+        }
+
+        public SCVal.ScvMap ToScvMap()
+        {
+            return new SCVal.ScvMap
+            {
+                map = new SCMap(new[]
+                {
+                    SCUtility.FieldToSCMapEntry("moves", moves),
+                }),
+            };
+        }
+    }
+
+    [Serializable]
     public struct SetupCommit : IScvMapCompatable
     {
         public byte[] hidden_rank_hash;
@@ -876,7 +1078,7 @@ namespace Contract
         {
             return pawn_id.Decode().Item1;
         }
-
+        // TODO: figure out a better place to move this later
         public Rank? GetKnownRank(Team userTeam)
         {
             if (GetTeam() == userTeam)

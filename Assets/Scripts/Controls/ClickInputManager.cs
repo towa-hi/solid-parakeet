@@ -10,7 +10,6 @@ public class ClickInputManager : MonoBehaviour
 
     public GameObject hoveredObject; // first object closest to the camera that the pointer is over
     public bool isOverUI; // is pointer over UI element 
-    public PawnView hoveredPawnView; // closest pawnView pointer is over
     public TileView hoveredTileView; // closest tileView pointer is over
     public BoardMakerTile hoveredBoardMakerTile;
     public Dictionary<int, int> layerPriorities;
@@ -23,15 +22,22 @@ public class ClickInputManager : MonoBehaviour
 
     void Awake()
     {
-        layerPriorities = new()
-        {
-            { LayerMask.NameToLayer("UI"), 0 }, // UI
-            { LayerMask.NameToLayer("PawnView"), 1 }, // Highest priority
-            { LayerMask.NameToLayer("TileView"), 2 }, // Lower priority
-            { LayerMask.NameToLayer("BoardMakerTile"), 3},
-            { LayerMask.NameToLayer("Default"), 4 }, // Default priority for other layers
-        };
+		EnsureLayerPriorities();
     }
+
+	void EnsureLayerPriorities()
+	{
+		if (layerPriorities == null || layerPriorities.Count == 0)
+		{
+			layerPriorities = new()
+			{
+				{ LayerMask.NameToLayer("UI"), 0 }, // UI
+				{ LayerMask.NameToLayer("TileView"), 1 }, 
+				{ LayerMask.NameToLayer("BoardMakerTile"), 2},
+				{ LayerMask.NameToLayer("Default"), 3}, // Default priority for other layers
+			};
+		}
+	}
     
     public void SetUpdating(bool inIsUpdating)
     {
@@ -41,7 +47,10 @@ public class ClickInputManager : MonoBehaviour
     void Update()
     {
         if (!isUpdating) return;
+        if (WalletManager.IsWalletBusy) return;
         if (!Application.isFocused) return;
+		EnsureLayerPriorities();
+		if (EventSystem.current == null) return;
         // get screen pointer position
         screenPointerPosition = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
         PointerEventData eventData = new(EventSystem.current)
@@ -50,24 +59,24 @@ public class ClickInputManager : MonoBehaviour
         };
         List<RaycastResult> results = new();
         EventSystem.current.RaycastAll(eventData, results);
-        // sort so UI is always on top, then PawnViews then TileViews
-        results.Sort((a, b) =>
-        {
-            if (!a.gameObject || !b.gameObject) return 0;
-            
-            int layerA = a.gameObject.layer;
-            int layerB = b.gameObject.layer;
-            int priorityA = layerPriorities.TryGetValue(layerA, out int priority) ? priority : int.MaxValue;
-            int priorityB = layerPriorities.TryGetValue(layerB, out int layerPriority) ? layerPriority : int.MaxValue;
-            return priorityA.CompareTo(priorityB);
-        });
+		if (results.Count > 1)
+		{
+			results.Sort((a, b) =>
+			{
+				if (!a.gameObject || !b.gameObject) return 0;
+				
+				int layerA = a.gameObject.layer;
+				int layerB = b.gameObject.layer;
+				int priorityA = layerPriorities.TryGetValue(layerA, out int priority) ? priority : int.MaxValue;
+				int priorityB = layerPriorities.TryGetValue(layerB, out int layerPriority) ? layerPriority : int.MaxValue;
+				return priorityA.CompareTo(priorityB);
+			});
+		}
         resultsCount = results.Count;
         bool hitUI = false;
-        bool hitPawnView = false;
         bool hitTileView = false;
         bool hitBoardMakerTile = false;
         GameObject currentHoveredObject = results.Count == 0 ? null : results[0].gameObject;
-        PawnView currentHoveredPawnView = null;
         TileView currentHoveredTileView = null;
         BoardMakerTile currentHoveredBoardMakerTile = null;
         foreach (RaycastResult result in results)
@@ -84,11 +93,6 @@ public class ClickInputManager : MonoBehaviour
             }
             else
             {
-                if (!hitPawnView && hitLayer == LayerMask.NameToLayer("PawnView"))
-                {
-                    hitPawnView = true;
-                    currentHoveredPawnView = hitObject.GetComponentInParent<PawnView>();
-                }
                 if (!hitTileView && hitLayer == LayerMask.NameToLayer("TileView"))
                 {
                     hitTileView = true;
@@ -106,10 +110,6 @@ public class ClickInputManager : MonoBehaviour
         {
             currentHoveredPosition = Globals.Purgatory;
         }
-        else if (currentHoveredPawnView)
-        {
-            currentHoveredPosition = currentHoveredPawnView.posView;
-        }
         else if (currentHoveredTileView)
         {
             currentHoveredPosition = currentHoveredTileView.posView;
@@ -123,7 +123,6 @@ public class ClickInputManager : MonoBehaviour
             currentHoveredPosition = Globals.Purgatory;
         }
         isOverUI = hitUI;
-        hoveredPawnView = hitUI ? null : currentHoveredPawnView;
         hoveredTileView = hitUI ? null : currentHoveredTileView;
         // Check if the hovered position or object has changed
         // NOTE: this used to be if (currentHoveredPosition != hoveredPosition || currentHoveredObject != hoveredObject)

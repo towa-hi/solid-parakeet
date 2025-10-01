@@ -1,13 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Contract;
-using Stellar.Utilities;
-using TMPro;
 using UnityEngine;
-using UnityEngine.Assertions;
-using UnityEngine.Serialization;
-using UnityEngine.UI;
+#pragma warning disable 
 // planned to be deprecated!
 public class GuiMenuController: MonoBehaviour
 {
@@ -73,6 +68,7 @@ public class GuiMenuController: MonoBehaviour
 
 	public void Initialize()
 	{
+		Debug.LogWarning("GuiMenuController.Initialize is deprecated");
 		startMenuElement.ShowElement(false);
 		mainMenuElement.ShowElement(false);
 		lobbyMakerElement.ShowElement(false);
@@ -97,85 +93,93 @@ public class GuiMenuController: MonoBehaviour
 
 	async void GotoLobbyMaker()
 	{
-		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
-		Result<bool> stateRes = await StellarManager.UpdateState();
-		if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
-		{
-			GotoStartMenu();
-			return;
-		}
-		ShowMenuElement(lobbyMakerElement);
+		Debug.LogWarning("GuiMenuController.GotoLobbyMaker is deprecated");
+		// GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
+		// Result<bool> stateRes = await StellarManager.UpdateState();
+		// if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
+		// {
+		// 	GotoStartMenu();
+		// 	return;
+		// }
+		// ShowMenuElement(lobbyMakerElement);
 	}
 
 	void OnStartButton()
 	{
-        Debug.Log("wew");
-        OpenModal(modalConnectPrefab);
-        Debug.Log("OnStartButton done");
+		Debug.LogWarning("GuiMenuController.OnStartButton is deprecated");
+        // Debug.Log("wew");
+        // OpenModal(modalConnectPrefab);
+        // Debug.Log("OnStartButton done");
 	}
 
 	void OnStartOfflineButton()
 	{
+		Debug.LogWarning("GuiMenuController.OnStartOfflineButton is deprecated");
 		//_ = StellarManager.DisconnectFromNetwork();
-		GotoMainMenu();
-		Debug.Log("OnStartOfflineButton done");
+		// GotoMainMenu();
+		// Debug.Log("OnStartOfflineButton done");
 	}
 
 	void OpenSettingsModal()
 	{
-		OpenModal(modalSettingsPrefab);
+		Debug.LogWarning("GuiMenuController.OpenSettingsModal is deprecated");
+		// OpenModal(modalSettingsPrefab);
 		
 		
 	}
 
 	void OpenEscapeModal()
 	{
-		if (modalStack.TryPeek(out ModalElement topModal))
-		{
-			CloseModal();
-		}
-		else
-		{
-			OpenModal(modalEscapePrefab);
-		}
+		Debug.LogWarning("GuiMenuController.OpenEscapeModal is deprecated");
+		// if (modalStack.TryPeek(out ModalElement topModal))
+		// {
+		// 	CloseModal();
+		// }
+		// else
+		// {
+		// 	OpenModal(modalEscapePrefab);
+		// }
 	}
 
 	void ResignGame()
 	{
-		
+		Debug.LogWarning("GuiMenuController.ResignGame is deprecated");
 	}
 
 	void OpenModal(GameObject modalPrefab)
 	{
-		if (modalStack == null) { modalStack = new(); }
-		foreach (ModalElement element in modalStack)
-		{
-			element.OnFocus(false);
-		}
-		ModalElement topModal = Instantiate(modalPrefab, modalLayer.transform).GetComponent<ModalElement>();
-		modalStack.Push(topModal);
-		topModal.OnFocus(true);
-		SetModalEvents(topModal, true);
+		Debug.LogWarning("GuiMenuController.OpenModal is deprecated");
+		// if (modalStack == null) { modalStack = new(); }
+		// foreach (ModalElement element in modalStack)
+		// {
+		// 	element.OnFocus(false);
+		// }
+		// ModalElement topModal = Instantiate(modalPrefab, modalLayer.transform).GetComponent<ModalElement>();
+		// modalStack.Push(topModal);
+		// topModal.OnFocus(true);
+		// SetModalEvents(topModal, true);
 	}
 	void CloseModal()
 	{
-		if (modalStack == null) { modalStack = new(); }
-		if (modalStack.Count > 0)
-		{
-			ModalElement modal = modalStack.Pop();
-			modal.OnFocus(false);
-			SetModalEvents(modal, false);
-			Destroy(modal.gameObject);
-			if (modalStack.TryPeek(out ModalElement topModal))
-			{
-				topModal.OnFocus(true);
-				SetModalEvents(topModal, true);
-			}
-		}
+		Debug.LogWarning("GuiMenuController.CloseModal is deprecated");
+		// if (modalStack == null) { modalStack = new(); }
+		// if (modalStack.Count > 0)
+		// {
+		// 	ModalElement modal = modalStack.Pop();
+		// 	modal.OnFocus(false);
+		// 	SetModalEvents(modal, false);
+		// 	Destroy(modal.gameObject);
+		// 	if (modalStack.TryPeek(out ModalElement topModal))
+		// 	{
+		// 		topModal.OnFocus(true);
+		// 		SetModalEvents(topModal, true);
+		// 	}
+		// }
 	}
 
 	void CloseAllModals()
 	{
+		Debug.LogWarning("GuiMenuController.CloseAllModals is deprecated");
 		if (modalStack == null) { modalStack = new(); }
 		while (modalStack.Count > 0)
 		{
@@ -184,94 +188,103 @@ public class GuiMenuController: MonoBehaviour
 	}
 	void SetModalEvents(ModalElement modal, bool set)
 	{
-		switch (modal)
-		{
-			case ModalEscape modalEscape:
-				modalEscape.OnSettingsButton = set ? OpenSettingsModal : null;
-				modalEscape.OnBackButton = set ? CloseModal : null;
-				modalEscape.OnMainMenuButton = set ? GotoMainMenu : null;
-				modalEscape.OnResignButton = set ? ResignGame : null;
-				break;
-			case ModalSettings modalSettings:
-				modalSettings.OnBackButton = set ? CloseModal : null;
-				break;
-			case ModalConnect modalConnect:
-				modalConnect.OnCloseButton = set ? CloseModal : null;
-				modalConnect.OnConnectButton = set ? OnConnectButton : null;
-				break;
-			case ModalError modalError:
-				modalError.OnCloseButton = set ? CloseModal : null;
-				break;
-			default:
-				throw new ArgumentOutOfRangeException(nameof(modal));
+		Debug.LogWarning("GuiMenuController.SetModalEvents is deprecated");
+		// switch (modal)
+		// {
+		// 	case ModalEscape modalEscape:
+		// 		modalEscape.OnSettingsButton = set ? OpenSettingsModal : null;
+		// 		modalEscape.OnBackButton = set ? CloseModal : null;
+		// 		modalEscape.OnMainMenuButton = set ? GotoMainMenu : null;
+		// 		modalEscape.OnResignButton = set ? ResignGame : null;
+		// 		break;
+		// 	case ModalSettings modalSettings:
+		// 		modalSettings.OnBackButton = set ? CloseModal : null;
+		// 		break;
+		// 	case ModalConnect modalConnect:
+		// 		modalConnect.OnCloseButton = set ? CloseModal : null;
+		// 		modalConnect.OnConnectButton = set ? OnConnectButton : null;
+		// 		break;
+		// 	case ModalError modalError:
+		// 		modalError.OnCloseButton = set ? CloseModal : null;
+		// 		break;
+		// 	default:
+		// 		throw new ArgumentOutOfRangeException(nameof(modal));
 
-		}
+		// }
 	}
 
     async void OnConnectButton(ModalConnectData data)
     {
-        Result<bool> result = await StellarManager.Initialize(data);
-        if (!result.IsOk)
-        {
-            string message = string.IsNullOrEmpty(result.Message) ? FormatStatusMessage(result.Code) : result.Message;
-            OpenErrorModal("Connection Failed", message);
-            return;
-        }
-        GotoMainMenu();
+		Debug.LogWarning("GuiMenuController.OnConnectButton is deprecated");
+        // Result<bool> result = await StellarManager.Initialize(data);
+        // if (!result.IsOk)
+        // {
+        //     string message = string.IsNullOrEmpty(result.Message) ? FormatStatusMessage(result.Code) : result.Message;
+        //     OpenErrorModal("Connection Failed", message);
+        //     return;
+        // }
+        // GotoMainMenu();
     }
 
 	public void GotoStartMenu()
 	{
-		ShowMenuElement(startMenuElement);
+		Debug.LogWarning("GuiMenuController.GotoStartMenu is deprecated");
+		// ShowMenuElement(startMenuElement);
 	}
 	
     public void GotoMainMenu()
 	{
-		CloseAllModals();
-		if (GameManager.instance.boardManager.initialized)
-		{
-			// Ensure any in-flight Stellar task is dropped before leaving the game
-			StellarManager.AbortCurrentTask();
-			GameManager.instance.boardManager.CloseBoardManager();
-		}
-		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_INNER, false);
-		ShowMenuElement(mainMenuElement);
+		Debug.LogWarning("GuiMenuController.GotoMainMenu is deprecated");
+		// CloseAllModals();
+		// if (GameManager.instance.boardManager.initialized)
+		// {
+		// 	// Ensure any in-flight Stellar task is dropped before leaving the game
+		// 	StellarManager.AbortCurrentTask();
+		// 	GameManager.instance.boardManager.CloseBoardManager();
+		// }
+		// GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_INNER, false);
+		// ShowMenuElement(mainMenuElement);
 	}
 
 	async void GotoJoinLobby()
 	{
-		Result<bool> stateRes = await StellarManager.UpdateState();
-		if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
-		{
-			//_ = StellarManager.DisconnectFromNetwork();
-			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
-			GotoStartMenu();
-			return;
-		}
-		ShowMenuElement(lobbyJoinerElement);
+		Debug.LogWarning("GuiMenuController.GotoJoinLobby is deprecated");
+		// Result<bool> stateRes = await StellarManager.UpdateState();
+		// if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
+		// {
+		// 	//_ = StellarManager.DisconnectFromNetwork();
+		// 	OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+		// 	GotoStartMenu();
+		// 	return;
+		// }
+		// ShowMenuElement(lobbyJoinerElement);
 	}
 
 	void GotoWallet()
 	{
-		ShowMenuElement(walletElement);
-		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
+		Debug.LogWarning("GuiMenuController.GotoWallet is deprecated");
+		// ShowMenuElement(walletElement);
+		// GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
 	}
 
 	void GotoGallery()
 	{
-		ShowMenuElement(galleryElement);
-		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
+		Debug.LogWarning("GuiMenuController.GotoGallery is deprecated");
+		// ShowMenuElement(galleryElement);
+		// GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_DUNGEON, false);
 
 	}
 	void CheckAssets()
 	{
+		Debug.LogWarning("GuiMenuController.CheckAssets is deprecated");
 		//_ = StellarManager.GetAssets(StellarManager.GetUserAddress());
 	}
 	
 	async void ViewLobby()
 	{
-		GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
-		Result<bool> stateRes = await StellarManager.UpdateState();
+		Debug.LogWarning("GuiMenuController.ViewLobby is deprecated");
+		// GameManager.instance.cameraManager.MoveCameraTo(Area.LAIR_ALTAR, false);
+		// Result<bool> stateRes = await StellarManager.UpdateState();
 		// if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
 		// {
 		// 	//_ = StellarManager.DisconnectFromNetwork();
@@ -286,42 +299,45 @@ public class GuiMenuController: MonoBehaviour
 		// 	GameManager.instance.boardManager.StartBoardManager();
 		// 	return;
 		// }
-		ShowMenuElement(lobbyViewerElement);
+		// ShowMenuElement(lobbyViewerElement);
 	}
 
 	async void JoinLobby(LobbyId lobbyId)
 	{
-		var resultCode = await StellarManager.JoinLobbyRequest(lobbyId);
-		await StellarManager.UpdateState();
-		if (resultCode.IsOk)
-		{
-			ShowMenuElement(lobbyViewerElement);
-		}
-		else
-		{
-			OpenErrorModal("Join Lobby Failed", FormatStatusMessage(resultCode.Code));
-		}
+		Debug.LogWarning("GuiMenuController.JoinLobby is deprecated");
+		// var resultCode = await StellarManager.JoinLobbyRequest(lobbyId);
+		// await StellarManager.UpdateState();
+		// if (resultCode.IsOk)
+		// {
+		// 	ShowMenuElement(lobbyViewerElement);
+		// }
+		// else
+		// {
+		// 	OpenErrorModal("Join Lobby Failed", FormatStatusMessage(resultCode.Code));
+		// }
 	}
 
 	async void OnStartGame()
 	{
-		Result<bool> stateRes = await StellarManager.UpdateState();
-		if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
-		{
-			//_ = StellarManager.DisconnectFromNetwork();
-			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
-			GotoStartMenu();
-			return;
-		}
-		if (StellarManager.networkState.inLobby)
-		{
-			ShowMenuElement(gameElement);
-			GameManager.instance.boardManager.StartBoardManager();
-		}
+		Debug.LogWarning("GuiMenuController.OnStartGame is deprecated");
+		// Result<bool> stateRes = await StellarManager.UpdateState();
+		// if (stateRes.IsError && (stateRes.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
+		// {
+		// 	//_ = StellarManager.DisconnectFromNetwork();
+		// 	OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+		// 	GotoStartMenu();
+		// 	return;
+		// }
+		// if (StellarManager.networkState.inLobby)
+		// {
+		// 	ShowMenuElement(gameElement);
+		// 	GameManager.instance.boardManager.StartBoardManager();
+		// }
 	}
 	
 	async void OnSubmitLobbyButton(LobbyParameters parameters)
 	{
+		Debug.LogWarning("GuiMenuController.OnSubmitLobbyButton is deprecated");
 		// var resultCode = await StellarManager.MakeLobbyRequest(parameters, true);
 		// if (resultCode.IsOk)
 		// {
@@ -335,41 +351,44 @@ public class GuiMenuController: MonoBehaviour
 
 	async void DeleteLobby()
 	{
-		var resultCode = await StellarManager.LeaveLobbyRequest();
-		if (resultCode.IsOk)
-		{
-			ShowMenuElement(mainMenuElement);
-		}
-		else
-		{
-			OpenErrorModal("Leave Lobby Failed", FormatStatusMessage(resultCode.Code));
-		}
+		Debug.LogWarning("GuiMenuController.DeleteLobby is deprecated");
+		// var resultCode = await StellarManager.LeaveLobbyRequest();
+		// if (resultCode.IsOk)
+		// {
+		// 	ShowMenuElement(mainMenuElement);
+		// }
+		// else
+		// {
+		// 	OpenErrorModal("Leave Lobby Failed", FormatStatusMessage(resultCode.Code));
+		// }
 	}
 	
 	async void RefreshNetworkState()
 	{
-		currentElement?.EnableInput(false);
-		Result<bool> stateRes2 = await StellarManager.UpdateState();
-		if (stateRes2.IsError && (stateRes2.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
-		{
-			//_ = StellarManager.DisconnectFromNetwork();
-			OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
-			GotoStartMenu();
-			return;
-		}
-		currentElement?.Refresh();
+		Debug.LogWarning("GuiMenuController.RefreshNetworkState is deprecated");
+		// currentElement?.EnableInput(false);
+		// Result<bool> stateRes2 = await StellarManager.UpdateState();
+		// if (stateRes2.IsError && (stateRes2.Code is StatusCode.NETWORK_ERROR or StatusCode.TIMEOUT))
+		// {
+		// 	//_ = StellarManager.DisconnectFromNetwork();
+		// 	OpenErrorModal("Network Unavailable", "You're now in Offline Mode.");
+		// 	GotoStartMenu();
+		// 	return;
+		// }
+		// currentElement?.Refresh();
 	}
 
 	public void OpenErrorModal(string title, string message)
 	{
-		OpenModal(modalErrorPrefab);
-		if (modalStack.TryPeek(out ModalElement top))
-		{
-			if (top is ModalError modalError)
-			{
-				modalError.SetContent(title, message);
-			}
-		}
+		Debug.LogWarning("GuiMenuController.OpenErrorModal is deprecated");
+		// OpenModal(modalErrorPrefab);
+		// if (modalStack.TryPeek(out ModalElement top))
+		// {
+		// 	if (top is ModalError modalError)
+		// 	{
+		// 		modalError.SetContent(title, message);
+		// 	}
+		// }
 	}
 
 	string FormatStatusMessage(StatusCode code)
@@ -395,8 +414,9 @@ public class GuiMenuController: MonoBehaviour
 
 	void ShowTopBar(TaskInfo task)
 	{
-		currentElement?.EnableInput(false);
-		topBar.Show(true);
+		Debug.LogWarning("GuiMenuController.ShowTopBar is deprecated");
+		// currentElement?.EnableInput(false);
+		// topBar.Show(true);
 		//string address = StellarManager.GetUserAddress();
 		// Color backgroundColor = Color.gray;
 		// if (address != null)
@@ -408,9 +428,9 @@ public class GuiMenuController: MonoBehaviour
 	
 	void HideTopBar(TaskInfo task)
 	{
-		
-		currentElement?.EnableInput(true);
-		topBar.Show(false);
+		Debug.LogWarning("GuiMenuController.HideTopBar is deprecated");
+		// currentElement?.EnableInput(true);
+		// topBar.Show(false);
 	}
 	
 	
@@ -465,3 +485,5 @@ public class ModalElement : MonoBehaviour
 		canvasGroup.interactable = focused;
 	}
 }
+
+#pragma warning restore 
