@@ -202,32 +202,27 @@ public class BoardTester : MonoBehaviour
         }
     }
 
-    public async Task<ImmutableHashSet<AiPlayer.SimMove>> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
+    public Task<ImmutableHashSet<AiPlayer.SimMove>> RunNodeSearchForTeam(Team team, uint lesser_move_threshold)
     {
         var board = AiPlayer.MakeSimGameBoard(gameNetworkState.lobbyParameters, gameNetworkState.gameState);
         board.ally_team = team;
-        //AiPlayer.MutGuessOpponentRanks(board, board.root_state);
         var starttime = Time.realtimeSinceStartupAsDouble;
-        var moves = await AiPlayer.NodeScoreStrategy(board, board.root_state);
-        Debug.Log($"AI {team} time {Time.realtimeSinceStartupAsDouble - starttime}");
-        var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
-        if (max_moves > 1)
-        {
-            moves = AiPlayer.CombineMoves(moves, max_moves, lesser_move_threshold);
-        }
-        if (moves.Count == 0)
+        var plans = AiZeroPlanner.PlanMoves(board, board.root_state, team);
+        Debug.Log($"AI {team} plan time {Time.realtimeSinceStartupAsDouble - starttime}");
+        if (plans.Count == 0)
         {
             Debug.LogWarning($"AI {team}: no legal moves; returning empty set");
-            return ImmutableHashSet<AiPlayer.SimMove>.Empty;
+            return Task.FromResult(ImmutableHashSet<AiPlayer.SimMove>.Empty);
         }
-        int upper = Mathf.Min(moves.Count, (int)lesser_move_threshold);
+        int upper = Mathf.Min(plans.Count, (int)lesser_move_threshold);
         if (upper <= 0)
         {
-            upper = moves.Count;
+            upper = plans.Count;
         }
-        int choice = UnityEngine.Random.Range(0, upper);
-        var result = moves[choice];
-        foreach (var move in result)
+        int choice = UnityEngine.Random.Range(0, Mathf.Max(1, upper));
+        var plan = plans[Mathf.Clamp(choice, 0, plans.Count - 1)];
+        var builder = ImmutableHashSet.CreateBuilder<AiPlayer.SimMove>();
+        foreach (var move in plan.Moves)
         {
             var ally = board.root_state.pawns[move.last_pos];
             Debug.Log($"{team} {ally.rank} {(int)ally.rank} {move.last_pos} {move.next_pos}");
@@ -235,8 +230,9 @@ public class BoardTester : MonoBehaviour
             {
                 Debug.Log($"   Tries attack {oppn.team} {oppn.rank} {(int)oppn.rank} {move.next_pos}");
             }
+            builder.Add(move);
         }
-        return result;
+        return Task.FromResult(builder.ToImmutable());
     }
 
     IEnumerator AiRunnerCoroutine()
