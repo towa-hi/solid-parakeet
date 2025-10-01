@@ -650,10 +650,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 4639355395997441750}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 80, y: -20}
-  m_SizeDelta: {x: 160, y: 40}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &9045479638853659730
 CanvasRenderer:
@@ -1208,10 +1208,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 5696628170250598210}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 380, y: -20}
-  m_SizeDelta: {x: 440, y: 40}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4131063444405236566
 CanvasRenderer:
@@ -1991,10 +1991,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 5696628170250598210}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 80, y: -20}
-  m_SizeDelta: {x: 160, y: 40}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8843290774652397616
 CanvasRenderer:
@@ -2148,10 +2148,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 4639355395997441750}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 380, y: -20}
-  m_SizeDelta: {x: 440, y: 40}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &768182193223452368
 CanvasRenderer:
@@ -2958,6 +2958,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Back Button
       objectReference: {fileID: 0}
+    - target: {fileID: 3172762248633234697, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: body
+      value: Return to the main menu
+      objectReference: {fileID: 0}
+    - target: {fileID: 3172762248633234697, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: header
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 5970947789033960797, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -3318,6 +3326,14 @@ PrefabInstance:
     - target: {fileID: 302316409233505069, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_Name
       value: Join Button
+      objectReference: {fileID: 0}
+    - target: {fileID: 3172762248633234697, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: body
+      value: Attempt to join this lobby
+      objectReference: {fileID: 0}
+    - target: {fileID: 3172762248633234697, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: header
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 5970947789033960797, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_Pivot.x
