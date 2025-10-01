@@ -406,6 +406,7 @@ GameObject:
   - component: {fileID: 1775913087285926290}
   - component: {fileID: 3054814643390144157}
   - component: {fileID: 8221843436856440669}
+  - component: {fileID: 3172762248633234697}
   m_Layer: 5
   m_Name: Button Inner
   m_TagString: Untagged
@@ -471,3 +472,21 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3172762248633234697
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9124946473850065743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1610fed60579fd54f83c1d004e08d96c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  header: test
+  body: test
+  physicsMask:
+    serializedVersion: 2
+    m_Bits: 4083
+  hoverDelay: 1

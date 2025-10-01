@@ -5,8 +5,10 @@ using Contract;
 
 public class LobbyJoinMenu2 : MenuBase
 {
-    public TextMeshProUGUI statusText;
     public TextMeshProUGUI contractAddressText;
+    public TextMeshProUGUI networkText;
+    public TextMeshProUGUI addressText;
+
     public TMP_InputField lobbyIdInputField;
     public Button joinGameButton;
     public Button backButton;
@@ -39,19 +41,11 @@ public class LobbyJoinMenu2 : MenuBase
 
     public override void Refresh()
     {
-        if (contractAddressText != null)
-        {
-            contractAddressText.text = StellarManager.networkContext.contractAddress;
-        }
-        if (joinGameButton != null && lobbyIdInputField != null)
-        {
-            bool valid = IsValidLobbyId(lobbyIdInputField.text);
-            joinGameButton.interactable = valid;
-            if (statusText != null)
-            {
-                statusText.text = valid ? "Click Join Lobby" : "Enter a valid lobby ID";
-            }
-        }
+        contractAddressText.text = StellarManager.networkContext.contractAddress;
+        addressText.text = StellarManager.networkContext.userAccount.AccountId;
+        networkText.text = StellarManager.networkContext.serverUri.ToString();
+        bool valid = IsValidLobbyId(lobbyIdInputField.text);
+        joinGameButton.interactable = valid;
     }
 
     bool IsValidLobbyId(string input)
