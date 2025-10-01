@@ -12,6 +12,8 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 
     public Transform pivot;
     public Transform wobblePivot;
+
+    public Transform scaleTransform;
     public CardRotation rotation;
 
     public RenderEffect renderEffect;
@@ -34,6 +36,29 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 		bool isSelected;
 		Vector3 basePivotLocalScale;
 
+		[Header("Rotation Reset Settings")]
+		[Tooltip("How quickly card rotation eases back to zero when disabled.")]
+		public float rotationResetLerpSpeed = 6f;
+		Coroutine rotationResetRoutine;
+
+		[Header("Wobble Settings")]
+		[Tooltip("Enable wobble by default on start.")]
+		public bool wobbleEnabledByDefault = false;
+		[Tooltip("Max wobble offset in local units.")]
+		public float wobbleAmplitude = 0.02f;
+		[Tooltip("Wobble cycles per second.")]
+		public float wobbleFrequency = 0.4f;
+		[Tooltip("Relative scaling of wobble on X/Y axes.")]
+		public Vector2 wobbleAxisScale = new Vector2(1f, 0.6f);
+		[Tooltip("How quickly wobble position eases each frame.")]
+		public float wobbleLerpSpeed = 6f;
+		[Tooltip("How quickly wobble resets to rest when disabled.")]
+		public float wobbleResetLerpSpeed = 8f;
+		bool wobbleEnabled;
+		Vector3 baseWobbleLocalPosition;
+		Coroutine wobbleResetRoutine;
+		float wobblePhase;
+
     public event System.Action<Card> HoverEnter;
     public event System.Action<Card> HoverExit;
     public event System.Action<Card> Clicked;
@@ -45,6 +70,10 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
     Coroutine localOffsetLerpRoutine;
     Vector3 currentTargetLocalOffset;
 
+    public void Initialize(float scale)
+    {
+        scaleTransform.localScale = new Vector3(scale, scale, scale);
+    }
 
     public void SetRoot(Transform root) { /* no-op in slot-follow model */ }
 
@@ -71,6 +100,13 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 			{
 				pivot.localPosition = basePivotLocalPosition;
 			}
+			if (wobblePivot != null)
+			{
+				baseWobbleLocalPosition = wobblePivot.localPosition;
+			}
+			// Deterministic per-card phase so the wobble is desynchronized
+			wobblePhase = (GetInstanceID() * 0.137f) % (Mathf.PI * 2f);
+			SetWobbleEnabled(wobbleEnabledByDefault);
     }
 
     // Interruptible lerp of pivot localPosition to base + targetLocalOffset
@@ -140,6 +176,90 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 			Vector3 targetScale = isSelected ? (basePivotLocalScale * selectionScaleMultiplier) : basePivotLocalScale;
 			float ss = 1f - Mathf.Exp(-selectionScaleLerpSpeed * Time.deltaTime);
 			pivot.localScale = Vector3.Lerp(pivot.localScale, targetScale, ss);
+
+			// Wobble motion on wobblePivot
+			if (wobblePivot != null && wobbleResetRoutine == null)
+			{
+				Vector3 targetWobblePos = baseWobbleLocalPosition;
+				if (wobbleEnabled)
+				{
+					float t = Time.time * wobbleFrequency * (Mathf.PI * 2f) + wobblePhase;
+					float x = Mathf.Cos(t) * wobbleAxisScale.x;
+					float y = Mathf.Sin(t * 0.9f) * wobbleAxisScale.y;
+					Vector3 wobbleOffset = new Vector3(x, y, 0f) * wobbleAmplitude;
+					targetWobblePos = baseWobbleLocalPosition + wobbleOffset;
+				}
+				float ws = 1f - Mathf.Exp(-wobbleLerpSpeed * Time.deltaTime);
+				wobblePivot.localPosition = Vector3.Lerp(wobblePivot.localPosition, targetWobblePos, ws);
+			}
+		}
+
+		public void SetRotationEnabled(bool shouldEnable)
+		{
+			if (rotation == null)
+			{
+				return;
+			}
+			if (shouldEnable)
+			{
+				if (rotationResetRoutine != null)
+				{
+					StopCoroutine(rotationResetRoutine);
+					rotationResetRoutine = null;
+				}
+				rotation.enabled = true;
+			}
+			else
+			{
+				rotation.enabled = false;
+				if (rotationResetRoutine != null)
+				{
+					StopCoroutine(rotationResetRoutine);
+				}
+				rotationResetRoutine = StartCoroutine(RotateTransformToIdentity(rotation.transform));
+			}
+		}
+
+		IEnumerator RotateTransformToIdentity(Transform target)
+		{
+			if (target == null)
+			{
+				yield break;
+			}
+			while (Quaternion.Angle(target.localRotation, Quaternion.identity) > 0.1f)
+			{
+				float s = 1f - Mathf.Exp(-rotationResetLerpSpeed * Time.deltaTime);
+				target.localRotation = Quaternion.Slerp(target.localRotation, Quaternion.identity, s);
+				yield return null;
+			}
+			target.localRotation = Quaternion.identity;
+			rotationResetRoutine = null;
+		}
+
+		public void SetWobbleEnabled(bool enabled)
+		{
+			wobbleEnabled = enabled;
+			if (wobbleResetRoutine != null)
+			{
+				StopCoroutine(wobbleResetRoutine);
+				wobbleResetRoutine = null;
+			}
+			if (!wobbleEnabled && wobblePivot != null)
+			{
+				wobbleResetRoutine = StartCoroutine(ResetWobble());
+			}
+		}
+
+		IEnumerator ResetWobble()
+		{
+			while (wobblePivot != null && (wobblePivot.localPosition - baseWobbleLocalPosition).sqrMagnitude > 0.000001f)
+			{
+				float s = 1f - Mathf.Exp(-wobbleResetLerpSpeed * Time.deltaTime);
+				wobblePivot.localPosition = Vector3.Lerp(wobblePivot.localPosition, baseWobbleLocalPosition, s);
+				yield return null;
+			}
+			if (wobblePivot != null) wobblePivot.localPosition = baseWobbleLocalPosition;
+			wobbleResetRoutine = null;
 		}
 
 		public void SetSelected(bool selected)
@@ -199,6 +319,16 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
             StopCoroutine(localOffsetLerpRoutine);
             localOffsetLerpRoutine = null;
         }
+			if (rotationResetRoutine != null)
+			{
+				StopCoroutine(rotationResetRoutine);
+				rotationResetRoutine = null;
+			}
+			if (wobbleResetRoutine != null)
+			{
+				StopCoroutine(wobbleResetRoutine);
+				wobbleResetRoutine = null;
+			}
         if (renderEffect != null)
         {
             renderEffect.SetEffect(EffectType.CARDHOVEROUTLINE, false);

@@ -113,6 +113,7 @@ public class SetupScreen : MonoBehaviour
             // Spawn card under cardRoot
             // Spawn card at origin, then parent under cardRoot preserving world pose
             Card card = Instantiate(cardPrefab).GetComponent<Card>();
+            card.Initialize(0.5f);
             Transform ct = card.transform;
             ct.position = spawnPos;
             ct.rotation = spawnRot;

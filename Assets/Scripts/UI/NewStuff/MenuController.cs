@@ -9,6 +9,7 @@ public class MenuController : MonoBehaviour
 {
     public Transform menuRoot;
     public Transform modalRoot;
+    public GalleryEnvironment galleryEnvironment;
     public GameObject startMenuPrefab;
     public GameObject networkMenuPrefab;
     public GameObject mainMenuPrefab;
@@ -44,6 +45,10 @@ public class MenuController : MonoBehaviour
     {
         GameObject instance = Instantiate(prefab, menuRoot);
         MenuBase menuBase = instance.GetComponent<MenuBase>();
+        if (menuBase is GalleryMenu2 gallery)
+        {
+            gallery.Initialize(galleryEnvironment);
+        }
         if (menuBase == null)
         {
             Debug.LogError("MenuController: Instantiated prefab has no MenuBase component.");
