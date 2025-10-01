@@ -76,11 +76,11 @@ public class GalleryMenu2 : MenuBase
                 cardBlue.Initialize(0.7f);
                 cardRed.SetSlot(galleryEnvironment.redCardOrigin);
                 cardBlue.SetSlot(galleryEnvironment.blueCardOrigin);
-                // Ensure CardRotation starts disabled; selection will enable it
+                // Ensure CardRotation starts disabled; unselected cards wobble by default
                 cardRed.SetRotationEnabled(false);
                 cardBlue.SetRotationEnabled(false);
-                cardRed.SetWobbleEnabled(false);
-                cardBlue.SetWobbleEnabled(false);
+                cardRed.SetWobbleEnabled(true);
+                cardBlue.SetWobbleEnabled(true);
                 // Wire click handlers
                 cardRed.Clicked += HandleCardClicked;
                 cardBlue.Clicked += HandleCardClicked;
@@ -131,7 +131,8 @@ public class GalleryMenu2 : MenuBase
                 card.SetSlot(original);
                 originalSlotByCard.Remove(card);
                 card.SetRotationEnabled(false);
-                card.SetWobbleEnabled(false);
+                // Deselected → wobble on
+                card.SetWobbleEnabled(true);
             }
             currentCard = null;
             return;
@@ -146,7 +147,8 @@ public class GalleryMenu2 : MenuBase
                 currentCard.SetSlot(prevOriginal);
                 originalSlotByCard.Remove(currentCard);
                 currentCard.SetRotationEnabled(false);
-                currentCard.SetWobbleEnabled(false);
+                // Previous now unselected → wobble on
+                currentCard.SetWobbleEnabled(true);
             }
             currentCard = null;
         }
@@ -159,7 +161,8 @@ public class GalleryMenu2 : MenuBase
             currentCard.SetSelected(true);
             currentCard.SetSlot(galleryEnvironment.frontSlot);
             currentCard.SetRotationEnabled(true);
-            currentCard.SetWobbleEnabled(true);
+            // Selected card → wobble off
+            currentCard.SetWobbleEnabled(false);
         }
     }
 }

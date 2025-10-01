@@ -47,7 +47,7 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 		[Tooltip("Max wobble offset in local units.")]
 		public float wobbleAmplitude = 0.02f;
 		[Tooltip("Wobble cycles per second.")]
-		public float wobbleFrequency = 0.4f;
+		public float wobbleFrequency = 0.2f;
 		[Tooltip("Relative scaling of wobble on X/Y axes.")]
 		public Vector2 wobbleAxisScale = new Vector2(1f, 0.6f);
 		[Tooltip("How quickly wobble position eases each frame.")]
