@@ -25,9 +25,14 @@ public sealed class UiReducer : IGameReducer
             // Setup
             case SetupSelectRank selRank:
             {
-                Debug.Log($"UiReducer: SetupSelectRank old={ui.SelectedRank} new={selRank.Rank}");
                 Rank? old = ui.SelectedRank;
-                ui = ui with { SelectedRank = selRank.Rank };
+                Rank? next = selRank.Rank;
+                if (old is Rank oldR && selRank.Rank is Rank newR && oldR == newR)
+                {
+                    next = null; // toggle off when clicking the same rank
+                }
+                Debug.Log($"UiReducer: SetupSelectRank old={old} new={next}");
+                ui = ui with { SelectedRank = next };
                 emitted ??= new List<GameEvent>();
                 emitted.Add(new SetupHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase()));
                 emitted.Add(new SetupRankSelectedEvent(old, ui.SelectedRank));

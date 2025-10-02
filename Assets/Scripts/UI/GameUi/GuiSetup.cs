@@ -12,7 +12,6 @@ public class GuiSetup : GameElement
 
     public Button clearButton;
     public Button autoSetupButton;
-    public Button refreshButton;
     public Button submitButton;
     public TextMeshProUGUI statusText;
     public GameObject rankEntryPrefab;
@@ -20,6 +19,7 @@ public class GuiSetup : GameElement
     Dictionary<Rank, int> usedCounts = new();
     Rank? selectedRank;
     GameNetworkState? lastNetState;
+    bool canInteract = true;
 
     public Action OnClearButton;
     public Action OnAutoSetupButton;
@@ -33,7 +33,6 @@ public class GuiSetup : GameElement
     {
         clearButton.onClick.AddListener(() => OnClearButton?.Invoke());
         autoSetupButton.onClick.AddListener(() => OnAutoSetupButton?.Invoke());
-        refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
     }
 
@@ -42,12 +41,14 @@ public class GuiSetup : GameElement
     {
         ViewEventBus.OnSetupRankSelected += HandleSetupRankSelected;
         ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
+        ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
 
     public void DetachSubscriptions()
     {
         ViewEventBus.OnSetupRankSelected -= HandleSetupRankSelected;
         ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
+        ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
 
     void Initialize(GameNetworkState netState)
@@ -63,11 +64,10 @@ public class GuiSetup : GameElement
             GuiRankListEntry rankListEntry = Instantiate(rankEntryPrefab, rankEntryListRoot).GetComponent<GuiRankListEntry>();
             entries.Add(rank, rankListEntry);
             rankListEntry.Initialize(rank);
-            rankListEntry.SetButtonOnClick(OnEntryClicked);
             entries[rank].Refresh((int)maxRanks[i], 0, false, true);
         }
         setupScreen.Initialize(netState);
-        setupScreen.OnCardRankClicked = OnEntryClicked;
+        setupScreen.OnCardRankClicked = (rank) => { if (canInteract) OnEntryClicked?.Invoke(rank); };
         if (setupScreen.isActiveAndEnabled)
         {
             setupScreen.PlayOpenAnimation();
@@ -94,8 +94,17 @@ public class GuiSetup : GameElement
         Initialize(net);
         // Deterministic initial UI state
         bool isMyTurn = net.IsMySubphase();
-        statusText.text = isMyTurn ? "Commit your pawn setup" : "Awaiting opponent setup";
-        autoSetupButton.interactable = isMyTurn;
+        bool waiting = ui?.WaitingForResponse != null;
+        canInteract = isMyTurn && !waiting;
+        if (waiting)
+        {
+            statusText.text = "Submitting setup...";
+        }
+        else
+        {
+            statusText.text = isMyTurn ? "Commit your pawn setup" : "Awaiting opponent setup";
+        }
+        autoSetupButton.interactable = canInteract;
         submitButton.interactable = false;
         clearButton.interactable = false;
         // Apply initial UI state: selection and pending counts
@@ -107,7 +116,7 @@ public class GuiSetup : GameElement
         {
             HandleSetupPendingChanged(new Dictionary<PawnId, Rank?>(), ui.PendingCommits);
             // auto-setup remains gated by turn; submit/clear toggled by handler
-            autoSetupButton.interactable = isMyTurn;
+            autoSetupButton.interactable = canInteract;
         }
     }
 
@@ -122,7 +131,7 @@ public class GuiSetup : GameElement
             int used = usedCounts.TryGetValue(rank, out int u) ? u : 0;
             if (entries != null && entries.TryGetValue(rank, out GuiRankListEntry entry))
             {
-                bool interactable = used < maxRanks[i];
+                bool interactable = canInteract && used < maxRanks[i];
                 entry.Refresh((int)maxRanks[i], used, newRank == rank, interactable);
             }
         }
@@ -158,13 +167,50 @@ public class GuiSetup : GameElement
             anyUsed |= used > 0;
             if (entries != null && entries.TryGetValue(rk, out GuiRankListEntry entry))
             {
-                bool interactable = used < max;
+                bool interactable = canInteract && used < max;
                 entry.Refresh(max, used, selectedRank == rk, interactable);
             }
         }
+        if (canInteract)
+        {
+            string message = "Place all pawns on the board";
+            if (allFilled)
+            {
+                message = "Commit your pawn setup";
+            }
+            statusText.text = message;
+        }
         setupScreen.RefreshFromRanks(ranksArray);
-        submitButton.interactable = allFilled;
-        clearButton.interactable = anyUsed;
+        submitButton.interactable = allFilled && canInteract;
+        clearButton.interactable = anyUsed && canInteract;
+    }
+
+    void HandleStateUpdated(GameSnapshot snapshot)
+    {
+        if (!isActiveAndEnabled) return;
+        if (snapshot == null) return;
+        lastNetState = snapshot.Net;
+        bool isMyTurn = snapshot.Net.IsMySubphase();
+        bool waiting = snapshot.Ui?.WaitingForResponse != null;
+        canInteract = isMyTurn && !waiting;
+        if (waiting)
+        {
+            statusText.text = "Submitting setup...";
+            autoSetupButton.interactable = false;
+            submitButton.interactable = false;
+            clearButton.interactable = false;
+            return;
+        }
+        if (!isMyTurn)
+        {
+            statusText.text = "Awaiting opponent setup";
+            autoSetupButton.interactable = false;
+            submitButton.interactable = false;
+            clearButton.interactable = false;
+            return;
+        }
+        // My turn and not waiting: allow auto-setup; submit/clear are governed by pending handler
+        autoSetupButton.interactable = true;
     }
 
 }

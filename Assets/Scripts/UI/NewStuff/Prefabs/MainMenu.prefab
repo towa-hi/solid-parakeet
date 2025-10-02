@@ -529,7 +529,7 @@ CanvasGroup:
   m_GameObject: {fileID: 7614829028113605517}
   m_Enabled: 1
   m_Alpha: 1
-  m_Interactable: 1
+  m_Interactable: 0
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
 --- !u!114 &5608764551966857935
@@ -1008,6 +1008,10 @@ PrefabInstance:
       propertyPath: m_text
       value: GALLERY
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: text
       value: 
@@ -1156,6 +1160,10 @@ PrefabInstance:
     - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_text
       value: CONTINUE GAME
+      objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
       objectReference: {fileID: 0}
     - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: text
@@ -1306,6 +1314,10 @@ PrefabInstance:
       propertyPath: m_text
       value: CREATE LOBBY
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: text
       value: 
@@ -1455,6 +1467,10 @@ PrefabInstance:
       propertyPath: m_text
       value: QUIT GAME
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: text
       value: 
@@ -1603,6 +1619,10 @@ PrefabInstance:
     - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_text
       value: JOIN LOBBY
+      objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
       objectReference: {fileID: 0}
     - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: text
@@ -1896,6 +1916,10 @@ PrefabInstance:
       propertyPath: m_text
       value: GAME SETTINGS
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: text
       value: 
@@ -2044,6 +2068,10 @@ PrefabInstance:
     - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_text
       value: NETWORK SETTINGS
+      objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
       objectReference: {fileID: 0}
     - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: text

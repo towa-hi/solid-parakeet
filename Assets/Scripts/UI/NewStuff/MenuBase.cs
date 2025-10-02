@@ -25,6 +25,7 @@ public abstract class MenuBase : MonoBehaviour
         {
             canvasGroup = GetComponent<CanvasGroup>();
         }
+        Display(false);
     }
 
     public virtual void SetMenuController(MenuController controller)
@@ -42,6 +43,7 @@ public abstract class MenuBase : MonoBehaviour
     public void SetInteractable(bool interactable)
     {
         if (canvasGroup == null) return;
+        Debug.Log($"SetInteractable: {name} {interactable}");
         canvasGroup.interactable = interactable;
         canvasGroup.blocksRaycasts = interactable;
     }
@@ -56,11 +58,6 @@ public abstract class MenuBase : MonoBehaviour
     {
         if (_isClosing) return;
         _isClosing = true;
-        if (canvasGroup != null)
-        {
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
-        }
         OnTransitionStart?.Invoke();
 
         if (closeDuration > 0f && canvasGroup != null)
@@ -99,11 +96,6 @@ public abstract class MenuBase : MonoBehaviour
     {
         if (_isOpening) return;
         _isOpening = true;
-        if (canvasGroup != null)
-        {
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
-        }
         // Debug.Log("MenuBase: invoking OnTransitionStart");
         OnTransitionStart?.Invoke();
 
@@ -137,11 +129,6 @@ public abstract class MenuBase : MonoBehaviour
         }
         // Debug.Log("MenuBase: invoking OnTransitionEnd");
         OnTransitionEnd?.Invoke();
-        if (canvasGroup != null)
-        {
-            canvasGroup.interactable = true;
-            canvasGroup.blocksRaycasts = true;
-        }
         _isOpening = false;
         OnOpened?.Invoke();
     }

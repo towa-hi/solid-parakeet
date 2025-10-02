@@ -277,7 +277,7 @@ CanvasGroup:
   m_GameObject: {fileID: 1601106541171562393}
   m_Enabled: 1
   m_Alpha: 1
-  m_Interactable: 1
+  m_Interactable: 0
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
 --- !u!114 &5811543269735958574
@@ -296,12 +296,11 @@ MonoBehaviour:
   openDuration: 0.25
   closeDuration: 0.25
   backButton: {fileID: 8800795295766592193}
-  teamButton: {fileID: 2611657330314308284}
-  prevRankButton: {fileID: 2661980512589691128}
-  nextRankButton: {fileID: 3939251694050779159}
+  cardInfoContainer: {fileID: 0}
+  nameText: {fileID: 0}
+  descriptionText: {fileID: 0}
   currentCard: {fileID: 0}
-  cards: []
-  cardRoot: {fileID: 0}
+  galleryEnvironment: {fileID: 0}
   currentTeam: 0
   currentRank: 0
 --- !u!1 &2218650529971500036
@@ -869,6 +868,10 @@ PrefabInstance:
       propertyPath: m_text
       value: BACK
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1140,6 +1143,10 @@ PrefabInstance:
       propertyPath: m_text
       value: PREVIOUS CARD
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1153,17 +1160,6 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 5970947789033960797, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
   m_PrefabInstance: {fileID: 4756953170213289191}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &2661980512589691128 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
-  m_PrefabInstance: {fileID: 4756953170213289191}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5059262671994046410}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe738ad73bfb5fb42ba10d118bf7d56f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &5059262671994046410 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 302316409233505069, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
@@ -1293,6 +1289,10 @@ PrefabInstance:
       propertyPath: m_text
       value: CHANGE FACTION
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1306,17 +1306,6 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 5970947789033960797, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
   m_PrefabInstance: {fileID: 4812991313433423523}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &2611657330314308284 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
-  m_PrefabInstance: {fileID: 4812991313433423523}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5114159762730063246}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe738ad73bfb5fb42ba10d118bf7d56f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &5114159762730063246 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 302316409233505069, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
@@ -1554,6 +1543,10 @@ PrefabInstance:
       propertyPath: m_text
       value: NEXT CARD
       objectReference: {fileID: 0}
+    - target: {fileID: 6132365129708091895, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4284374622
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1567,17 +1560,6 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 5970947789033960797, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
   m_PrefabInstance: {fileID: 5791169607088743432}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &3939251694050779159 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
-  m_PrefabInstance: {fileID: 5791169607088743432}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6083330925854351141}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe738ad73bfb5fb42ba10d118bf7d56f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &6083330925854351141 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 302316409233505069, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}

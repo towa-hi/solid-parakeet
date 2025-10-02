@@ -183,7 +183,7 @@ CanvasGroup:
   m_GameObject: {fileID: 6736337799551001049}
   m_Enabled: 1
   m_Alpha: 1
-  m_Interactable: 1
+  m_Interactable: 0
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
 --- !u!114 &3586575944672484320
@@ -202,6 +202,7 @@ MonoBehaviour:
   openDuration: 0.25
   closeDuration: 0.25
   backButton: {fileID: 8321225338573547800}
+  guiGame: {fileID: 0}
 --- !u!1 &8369672146847714444
 GameObject:
   m_ObjectHideFlags: 0
