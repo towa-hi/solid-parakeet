@@ -29,6 +29,11 @@ public class PawnDef : ScriptableObject
 
     public Sprite redGraveyardSprite;
     public Sprite blueGraveyardSprite;
+
+    public string redName;
+    public string blueName;
+    public string redDescription;
+    public string blueDescription;
     
     // sounds
     

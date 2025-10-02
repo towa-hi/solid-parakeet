@@ -20,7 +20,6 @@ public class BoardManager : MonoBehaviour
     public Graveyard graveyard;
     public ClickInputManager clickInputManager;
     public Vortex vortex;
-    public Transform cameraBounds;
     public Transform waveOrigin1;
     public Transform waveOrigin2;
 
@@ -31,7 +30,6 @@ public class BoardManager : MonoBehaviour
     readonly Dictionary<PawnId, PawnView> pawnViews = new();
     
     public ArenaController arenaController;
-    
     
     GameStore store;
     
@@ -128,7 +126,6 @@ public class BoardManager : MonoBehaviour
         guiGame.ShowElement(false);
         // Stop polling immediately
         StellarManager.SetPolling(false);
-        
         // Unsubscribe from events
         StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
         if (clickInputManager != null)

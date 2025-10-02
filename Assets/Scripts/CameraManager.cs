@@ -12,7 +12,6 @@ public class CameraManager : MonoBehaviour
     public CameraAnchor lairAltarAnchor;
     public CameraAnchor lairDungeonAnchor;
     public CameraAnchor boardAnchor;
-    
     public Camera mainCamera;
     public float baseTransitionDuration = 0.5f;
     public ParentConstraint parentConstraint;

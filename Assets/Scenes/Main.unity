@@ -8125,7 +8125,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1415458830
 Transform:
   m_ObjectHideFlags: 0
@@ -9183,7 +9183,7 @@ Transform:
   m_GameObject: {fileID: 1582522426}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.75, z: 1.76}
+  m_LocalPosition: {x: 0, y: 0.2, z: 1.76}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -13085,11 +13085,10 @@ MonoBehaviour:
   graveyard: {fileID: 1972489295}
   clickInputManager: {fileID: 1972489294}
   vortex: {fileID: 1972489287}
-  cameraBounds: {fileID: 1401291439}
   waveOrigin1: {fileID: 1800112619}
   waveOrigin2: {fileID: 2045328833}
   guiGame: {fileID: 1035372902}
-  arenaController: {fileID: 0}
+  arenaController: {fileID: 4517064006677752988}
 --- !u!4 &1972489293
 Transform:
   m_ObjectHideFlags: 0
@@ -14554,6 +14553,13 @@ MonoBehaviour:
   followRotationLerpSpeed: 12
   selectionScaleMultiplier: 1.2
   selectionScaleLerpSpeed: 12
+  rotationResetLerpSpeed: 6
+  wobbleEnabledByDefault: 0
+  wobbleAmplitude: 0.02
+  wobbleFrequency: 0.4
+  wobbleAxisScale: {x: 1, y: 0.6}
+  wobbleLerpSpeed: 6
+  wobbleResetLerpSpeed: 8
   currentLocalOffset: {x: 0, y: 0, z: 0}
 --- !u!33 &828315945886937155
 MeshFilter:

@@ -45,7 +45,7 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 		[Tooltip("Enable wobble by default on start.")]
 		public bool wobbleEnabledByDefault = false;
 		[Tooltip("Max wobble offset in local units.")]
-		public float wobbleAmplitude = 0.02f;
+		public float wobbleAmplitude = 0.04f;
 		[Tooltip("Wobble cycles per second.")]
 		public float wobbleFrequency = 0.2f;
 		[Tooltip("Relative scaling of wobble on X/Y axes.")]

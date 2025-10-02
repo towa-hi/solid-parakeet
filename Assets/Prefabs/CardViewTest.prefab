@@ -300,6 +300,13 @@ MonoBehaviour:
   followRotationLerpSpeed: 12
   selectionScaleMultiplier: 1.2
   selectionScaleLerpSpeed: 12
+  rotationResetLerpSpeed: 6
+  wobbleEnabledByDefault: 0
+  wobbleAmplitude: 0.04
+  wobbleFrequency: 0.1
+  wobbleAxisScale: {x: 1, y: 0.6}
+  wobbleLerpSpeed: 6
+  wobbleResetLerpSpeed: 1
   currentLocalOffset: {x: 0, y: 0, z: 0}
 --- !u!114 &3350707126563902457
 MonoBehaviour:

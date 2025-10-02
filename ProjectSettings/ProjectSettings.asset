@@ -843,7 +843,7 @@ PlayerSettings:
     ReservedCFE: 
     Standalone: 
     VisionOS: 
-    WebGL: ALLIN13DSHADER_URP;USE_GAME_STORE
+    WebGL: ALLIN13DSHADER_URP
     Windows Store Apps: 
     XboxOne: 
     iPhone: 

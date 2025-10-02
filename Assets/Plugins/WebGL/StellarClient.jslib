@@ -1,33 +1,44 @@
 mergeInto(LibraryManager.library, {
     JSCheckWallet: async function()
     {
-        const FreighterApi = window.freighterApi;
-        console.log(window.xdr.types());
-        // check if web template html has freighter
-        if (!FreighterApi) {
-            Module.SendUnityMessage(-1, `JSCheckWallet() failed because Freighter API not detected.`);
+        try {
+            const FreighterApi = window.freighterApi;
+            console.log(window.xdr.types());
+            // check if web template html has freighter
+            if (!FreighterApi) {
+                Module.SendUnityMessage(-1, `JSCheckWallet() failed because Freighter API not detected.`);
+                return;
+            }
+            // check if clients freighter browser extension exists
+            const isConnectedRes = await FreighterApi.isConnected();
+            if (isConnectedRes && isConnectedRes.error)
+            {
+                Module.SendUnityMessage(-2, `JSCheckWallet() isConnectedRes error: ${JSON.stringify(isConnectedRes)}`);
+                return;
+            }
+            console.log("isConnected res: ", isConnectedRes);
+            const isConnected = (isConnectedRes && isConnectedRes.isConnected) || false;
+            if (!isConnected) {
+                Module.SendUnityMessage(-3, `JSCheckWallet() failed because isConnected false`);
+                return;
+            }
+            Module.SendUnityMessage(1, `JSCheckWallet() success`);
+            return;
+        } catch (e) {
+            console.error("JSCheckWallet() unspecified error:", e);
+            Module.SendUnityMessage(-666, (e && e.message) ? e.message : String(e));
             return;
         }
-        // check if clients freighter browser extension exists
-        const isConnectedRes = await FreighterApi.isConnected();
-        if (isConnectedRes.error)
-        {
-            Module.SendUnityMessage(-2, `JSCheckWallet() isConnectedRes error: ${isConnectedRes}`);
-            return;
-        }
-        console.log("isConnected res: ", isConnectedRes);
-        const isConnected = (isConnectedRes && isConnectedRes.isConnected) || false;
-        if (!isConnected) {
-            Module.SendUnityMessage(-3, `JSCheckWallet() failed because isConnected false`);
-            return;
-        }
-        Module.SendUnityMessage(1, `JSCheckWallet() success`);
-        return;
     },
     
     JSGetFreighterAddress: async function()
     {
-        const {Networks} = StellarSdk;
+        const SDK = window.StellarSdk || window.stellarSdk || window.StellarSDK || window.stellarsdk || window.Stellar;
+        if (!SDK) {
+            Module.SendUnityMessage(-1, `JSGetFreighterAddress() failed because Stellar SDK global not found`);
+            return;
+        }
+        const {Networks} = (SDK.Networks ? SDK : (SDK.networks ? { Networks: SDK.networks } : SDK));
         const currentNetwork = Networks.TESTNET;
         const FreighterApi = window.freighterApi;
         // check if extension is set to the right network
@@ -64,7 +75,12 @@ mergeInto(LibraryManager.library, {
     
     JSGetData: async function(contractAddressPtr, keyTypePtr, keyValuePtr)
     {
-        const {rpc, xdr, Address, scValToNative} = window.StellarSdk;
+        const SDK = window.StellarSdk || window.stellarSdk || window.StellarSDK || window.stellarsdk || window.Stellar;
+        if (!SDK) {
+            Module.SendUnityMessage(-1, `JSGetData() failed because Stellar SDK global not found`);
+            return;
+        }
+        const {rpc, xdr, Address, scValToNative} = SDK;
         const server = new rpc.Server("https://soroban-testnet.stellar.org");
         // params
         const contractAddress = Address.fromString(UTF8ToString(contractAddressPtr));
@@ -142,11 +158,16 @@ mergeInto(LibraryManager.library, {
     {
         try {
             // actual constants
-            const {rpc, xdr, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
+            const SDK = window.StellarSdk || window.stellarSdk || window.StellarSDK || window.stellarsdk || window.Stellar;
+            if (!SDK) {
+                Module.SendUnityMessage(-666, `JSInvokeContractFunction() failed because Stellar SDK global not found`);
+                return;
+            }
+            const {rpc, xdr, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = SDK;
             const FreighterApi = window.freighterApi;
             const server = new rpc.Server("https://soroban-testnet.stellar.org");
             const currentNetwork = Networks.TESTNET;
-            const fee = StellarSdk.BASE_FEE;
+            const fee = SDK.BASE_FEE;
             const maxTries = 10;
             // parameters
             const data = UTF8ToString(dataPtr);
@@ -214,7 +235,7 @@ mergeInto(LibraryManager.library, {
                 return;
             }
             console.log(`JSInvokeContractFunction() prepareTransactionRes: ${prepareTransactionRes}`);
-            if (prepareTransactionRes instanceof StellarSdk.FeeBumpTransaction) {
+            if (prepareTransactionRes instanceof SDK.FeeBumpTransaction) {
                 console.log(`JSInvokeContractFunction() prepareTransactionRes returned a fee bump transaction with fee ${prepareTransactionRes.fee}`);
             }
             // convert response to xdr string and sign with Freighter
@@ -265,7 +286,12 @@ mergeInto(LibraryManager.library, {
     },
     
     JSGetEvents: async function(filterPtr, contractAddressPtr, topicPtr) {
-        const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = StellarSdk;
+        const SDK = window.StellarSdk || window.stellarSdk || window.StellarSDK || window.stellarsdk || window.Stellar;
+        if (!SDK) {
+            Module.SendUnityMessage(-1, `JSGetEvents() failed because Stellar SDK global not found`);
+            return;
+        }
+        const {rpc, nativeToScVal, TransactionBuilder, Transaction, Networks, Contract, Address, scValToNative} = SDK;
         const filterString = UTF8ToString(filterPtr);
         const contractAddressString = UTF8ToString(contractAddressPtr);
         const topicString = UTF8ToString(topicPtr);

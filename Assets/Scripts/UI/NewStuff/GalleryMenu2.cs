@@ -2,18 +2,21 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System;
+using TMPro;
 
 public class GalleryMenu2 : MenuBase
 {
     public Button backButton;
 
-    public Button teamButton;
-    public Button prevRankButton;
-    public Button nextRankButton;
+    public GameObject cardInfoContainer;
+
+    public TextMeshProUGUI nameText;
+    public TextMeshProUGUI descriptionText;
 
     public Card currentCard;
 
     public Dictionary<(Team, Rank),Card> cards;
+    Dictionary<Card, (Team team, Rank rank, PawnDef def)> cardInfo = new();
 
     public GalleryEnvironment galleryEnvironment;
 
@@ -44,6 +47,7 @@ public class GalleryMenu2 : MenuBase
             Destroy(card.Value.gameObject);
         }
         cards.Clear();
+        cardInfo.Clear();
     }
 
     public void HandleBack()
@@ -64,9 +68,7 @@ public class GalleryMenu2 : MenuBase
                 {
                     continue;
                 }
-                Debug.Log($"Spawning card for red rank {pawnDef.rank}");
                 GameObject cardPrefabRed = Instantiate(pawnDef.redCard, galleryEnvironment.transform);
-                Debug.Log($"Spawning card for blue rank {pawnDef.rank}");
                 GameObject cardPrefabBlue = Instantiate(pawnDef.blueCard, galleryEnvironment.transform);
                 cardPrefabRed.transform.position = galleryEnvironment.redCardOrigin.position;
                 cardPrefabBlue.transform.position = galleryEnvironment.blueCardOrigin.position;
@@ -86,8 +88,12 @@ public class GalleryMenu2 : MenuBase
                 cardBlue.Clicked += HandleCardClicked;
                 cards.Add((Team.RED, pawnDef.rank), cardRed);
                 cards.Add((Team.BLUE, pawnDef.rank), cardBlue);
+                cardInfo[cardRed] = (Team.RED, pawnDef.rank, pawnDef);
+                cardInfo[cardBlue] = (Team.BLUE, pawnDef.rank, pawnDef);
             }
             PlayOpenAnimation();
+            UpdateTexts(null);
+            if (cardInfoContainer != null) cardInfoContainer.SetActive(false);
         }
         catch (Exception e)
         {
@@ -122,47 +128,92 @@ public class GalleryMenu2 : MenuBase
             return;
         }
 
-        // If clicking the currently selected card, restore it
-        if (currentCard == card)
+        ApplySelection(card);
+    }
+
+    void ApplySelection(Card clicked)
+    {
+        // Toggle off if clicking the current card
+        if (currentCard == clicked)
         {
-            if (originalSlotByCard.TryGetValue(card, out Transform original))
-            {
-                card.SetSelected(false);
-                card.SetSlot(original);
-                originalSlotByCard.Remove(card);
-                card.SetRotationEnabled(false);
-                // Deselected → wobble on
-                card.SetWobbleEnabled(true);
-            }
+            RestoreAndDeselect(clicked);
             currentCard = null;
+            UpdateTexts(null);
+            if (cardInfoContainer != null) cardInfoContainer.SetActive(false);
             return;
         }
 
-        // If another card is selected, restore it first
+        // Deselect and restore the previous card
         if (currentCard != null)
         {
-            if (originalSlotByCard.TryGetValue(currentCard, out Transform prevOriginal))
-            {
-                currentCard.SetSelected(false);
-                currentCard.SetSlot(prevOriginal);
-                originalSlotByCard.Remove(currentCard);
-                currentCard.SetRotationEnabled(false);
-                // Previous now unselected → wobble on
-                currentCard.SetWobbleEnabled(true);
-            }
+            RestoreAndDeselect(currentCard);
             currentCard = null;
         }
 
-        // Select the new card: remember its slot, move to front, mark selected
-        if (card != null)
+        // Select the new card
+        if (clicked != null)
         {
-            originalSlotByCard[card] = card.slot;
-            currentCard = card;
-            currentCard.SetSelected(true);
-            currentCard.SetSlot(galleryEnvironment.frontSlot);
-            currentCard.SetRotationEnabled(true);
-            // Selected card → wobble off
-            currentCard.SetWobbleEnabled(false);
+            SelectCard(clicked);
+        }
+    }
+
+    void RestoreAndDeselect(Card card)
+    {
+        if (card == null) return;
+        if (originalSlotByCard.TryGetValue(card, out Transform original))
+        {
+            card.SetSlot(original);
+            originalSlotByCard.Remove(card);
+        }
+        card.SetSelected(false);
+        card.SetRotationEnabled(false);
+        // Deselected → wobble on
+        card.SetWobbleEnabled(true);
+    }
+
+    void SelectCard(Card card)
+    {
+        if (card == null) return;
+        originalSlotByCard[card] = card.slot;
+        currentCard = card;
+        currentCard.SetSelected(true);
+        currentCard.SetSlot(galleryEnvironment.frontSlot);
+        currentCard.SetRotationEnabled(true);
+        // Selected card → wobble off
+        currentCard.SetWobbleEnabled(false);
+        UpdateTexts(currentCard);
+        if (cardInfoContainer != null) cardInfoContainer.SetActive(true);
+    }
+
+    void UpdateTexts(Card selected)
+    {
+        if (nameText == null || descriptionText == null)
+        {
+            return;
+        }
+        if (selected == null)
+        {
+            nameText.text = string.Empty;
+            descriptionText.text = string.Empty;
+            return;
+        }
+        if (cardInfo.TryGetValue(selected, out var info))
+        {
+            if (info.team == Team.RED)
+            {
+                nameText.text = info.def.redName ?? string.Empty;
+                descriptionText.text = info.def.redDescription ?? string.Empty;
+            }
+            else
+            {
+                nameText.text = info.def.blueName ?? string.Empty;
+                descriptionText.text = info.def.blueDescription ?? string.Empty;
+            }
+        }
+        else
+        {
+            nameText.text = string.Empty;
+            descriptionText.text = string.Empty;
         }
     }
 }
