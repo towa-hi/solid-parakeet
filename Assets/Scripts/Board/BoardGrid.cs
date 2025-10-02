@@ -12,14 +12,15 @@ public class BoardGrid : MonoBehaviour
     public float cellSize;
     public Vector2Int markerPos;
     public bool isHex;
-    
+    public Team team;
     // Constants for hex grid calculations
     public float HEX_INNER_RADIUS_MULTIPLIER = 0.866025404f; // √3/2
 
-    public void SetBoard(bool isHex)
+    public void SetBoard(bool isHex, Team team)
     {
         this.isHex = isHex;
         isInitialized = true;
+        this.team = team;
     }
 
     public void ClearBoard()
@@ -104,23 +105,20 @@ public class BoardGrid : MonoBehaviour
     public Vector3 CellToWorld(Vector2Int pos)
     {
         // Adjust position by origin offset
-        Vector2Int adjustedPos = pos;
-        
+        Vector2Int p = (team == Team.BLUE)
+        ? new Vector2Int(9 - pos.x, 9 - pos.y)
+        : pos;
         if (isHex)
         {
             
-            float x = adjustedPos.x * (cellSize * HEX_INNER_RADIUS_MULTIPLIER);
-            float y = 0;
-            float z = adjustedPos.y * cellSize;
-            if (adjustedPos.x % 2 != 0)
-            {
-                z -= cellSize * 0.5f;
-            }
-            return new Vector3(x, y, z) + transform.position;
+            float x = p.x * (cellSize * HEX_INNER_RADIUS_MULTIPLIER);
+            float z = p.y * cellSize;
+            if ((p.x & 1) != 0) z -= cellSize * 0.5f;
+            return new Vector3(x, 0f, z) + transform.position;
         }
         else
         {
-            return new Vector3(adjustedPos.x * cellSize, 0, adjustedPos.y * cellSize) + transform.position;
+            return new Vector3(p.x * cellSize, 0f, p.y * cellSize) + transform.position;
         }
     }
     

@@ -168,7 +168,7 @@ public class BoardTester : MonoBehaviour
         gameNetworkState = new GameNetworkState(fakeNetworkState);
 
         // draw the board
-        grid.SetBoard(board.hex);
+        grid.SetBoard(board.hex, Team.RED);
         foreach (TileState tile in gameNetworkState.lobbyParameters.board.tiles)
         {
             Vector3 worldPosition = grid.CellToWorld(tile.pos);

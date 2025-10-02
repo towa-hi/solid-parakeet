@@ -162,7 +162,7 @@ public class BoardMakerManager : MonoBehaviour
             Debug.LogError("LoadBoard could not load board");
             return;
         }
-        grid.SetBoard(board.isHex);
+        grid.SetBoard(board.isHex, Team.RED);
         for (int y = 0; y < maxBoardSize.y; y++)
         {
             for (int x = 0; x < maxBoardSize.x; x++)

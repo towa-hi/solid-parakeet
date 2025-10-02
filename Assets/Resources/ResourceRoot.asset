@@ -28,5 +28,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 732afbb7aca54fc4eb96711a8e632686, type: 2}
   - {fileID: 11400000, guid: 23e9f9126ee879f4681b86baf940d90d, type: 2}
   boardDefs:
-  - {fileID: 11400000, guid: b54032d12d913484fa9033dae73a109d, type: 2}
-  - {fileID: 11400000, guid: e0eeb0fb0af8d164799aa1bf11d68ad2, type: 2}
+  - {fileID: 11400000, guid: 4056e7223b364b04b94ad31daa7330ef, type: 2}

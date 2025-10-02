@@ -77,7 +77,7 @@ public class BoardManager : MonoBehaviour
         guiGame.resolve.AttachSubscriptions();
         Board board = netState.lobbyParameters.board;
         Debug.Log($"BoardManager.Initialize: building board hex={board.hex} tiles={board.tiles.Length} pawns={netState.gameState.pawns.Length}");
-        grid.SetBoard(board.hex);
+        grid.SetBoard(board.hex, netState.userTeam);
         foreach (TileState tile in board.tiles)
         {
             Vector3 worldPosition = grid.CellToWorld(tile.pos);
