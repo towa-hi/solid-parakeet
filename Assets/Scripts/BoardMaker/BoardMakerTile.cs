@@ -12,7 +12,7 @@ public class BoardMakerTile : MonoBehaviour
     public Renderer hexTileRenderer;
 
     GameObject tileModel;
-    Renderer tileRenderer;
+    public Renderer tileRenderer;
     public SpriteRenderer symbolRenderer;
     
     public bool isPassable;
@@ -93,10 +93,8 @@ public class BoardMakerTile : MonoBehaviour
 
     void SetColor(Color color)
     {
-        MaterialPropertyBlock block = new();
-        tileRenderer.GetPropertyBlock(block);
-        block.SetColor(BaseColorID, color);
-        tileRenderer.SetPropertyBlock(block);
+        Debug.Log($"SetColor: {color}");
+        tileRenderer.material.SetColor(BaseColorID, color);
     }
     
     public Sprite zone0;

@@ -28,9 +28,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 732afbb7aca54fc4eb96711a8e632686, type: 2}
   - {fileID: 11400000, guid: 23e9f9126ee879f4681b86baf940d90d, type: 2}
   boardDefs:
-  - {fileID: 11400000, guid: 6780820eece2788468349dd026a53628, type: 2}
-  - {fileID: 11400000, guid: acbaa97ac1815d24cb112b6f366564d9, type: 2}
-  - {fileID: 11400000, guid: fa3d82d85f6117947b5256ec08a48c78, type: 2}
-  - {fileID: 11400000, guid: f3b4ed5c4801d4448af7e14996a8871b, type: 2}
-  - {fileID: 11400000, guid: d81f521c423d6664eb52e9568cad7e7b, type: 2}
-  - {fileID: 11400000, guid: 213345a0ffbf6ed469cbbde309bce497, type: 2}
+  - {fileID: 11400000, guid: b54032d12d913484fa9033dae73a109d, type: 2}
+  - {fileID: 11400000, guid: e0eeb0fb0af8d164799aa1bf11d68ad2, type: 2}

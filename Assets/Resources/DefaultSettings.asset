@@ -18,7 +18,7 @@ MonoBehaviour:
   cheatMode: 0
   fastMode: 0
   displayBadges: 0
-  moveCamera: 0
+  moveCamera: 1
   masterVolume: 50
   musicVolume: 100
   effectsVolume: 100

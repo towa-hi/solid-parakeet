@@ -68,7 +68,7 @@ public static class FakeServer
         fakeGuestAddress = MuxedAccount.FromSecretSeed(guestSneed).AccountId;
         parameters.security_mode = false;
         Debug.Assert(parameters.security_mode == false);
-        Debug.Assert(parameters.host_team == Team.RED);
+        // allow host_team to be RED or BLUE in single-player
         fakeIsOnline = true;
         fakeHost = new User {
             current_lobby = fakeLobbyId,

@@ -345,14 +345,18 @@ public static class StellarManager
         if (!networkContext.online)
         {
             Debug.Log("CommitSetupRequest fake");
-            // pretend the guest went first
-            var guestSetup = FakeServer.GetFakeState().AutoSetup(Team.BLUE);
+            // Determine guest team based on host_team so team switching works offline
+            var fakeState = FakeServer.GetFakeState();
+            Team hostTeam = fakeState.lobbyParameters.host_team;
+            Team guestTeam = hostTeam == Team.RED ? Team.BLUE : Team.RED;
+            // pretend the guest went first (use opponent of host)
+            var guestSetup = fakeState.AutoSetup(guestTeam);
             List<HiddenRank> guestHiddenRanks = new();
             foreach ((Vector2Int pos, Rank rank) in guestSetup)
             {
                 HiddenRank hiddenRank = new()
                 {
-                    pawn_id = new PawnId(pos, Team.BLUE),
+                    pawn_id = new PawnId(pos, guestTeam),
                     rank = rank,
                     salt = Globals.RandomSalt(),
                 };
