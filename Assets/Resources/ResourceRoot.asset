@@ -30,7 +30,7 @@ MonoBehaviour:
   boardDefs:
   - {fileID: 11400000, guid: 4056e7223b364b04b94ad31daa7330ef, type: 2}
   buttonHoverClip: {fileID: 8300000, guid: 7c1a094fb9ac60649b76ded62b4abb69, type: 3}
-  buttonClickAffirmativeClip: {fileID: 8300000, guid: be0814310f2e73d4fb2d56ef0999414a, type: 3}
-  buttonClickNegativeClip: {fileID: 8300000, guid: 0aa53d1f5aa0214479a1c881033ed303, type: 3}
-  buttonClickNeutralClip: {fileID: 8300000, guid: 86194b1adfedbb44c93334e9e8043ce4, type: 3}
-  buttonClickBackClip: {fileID: 8300000, guid: 52264680693daf4449c3ecbd49751fa7, type: 3}
+  buttonClickAffirmativeClip: {fileID: 8300000, guid: 2c08a19244f807b4797dde7806a68ddf, type: 3}
+  buttonClickNegativeClip: {fileID: 8300000, guid: ab1a9a185172839488a769bf7af1b7b5, type: 3}
+  buttonClickNeutralClip: {fileID: 8300000, guid: f82a0e06100ed5f42b0f39ac376848db, type: 3}
+  buttonClickBackClip: {fileID: 8300000, guid: 8601692c80bef144ba25a2184344f5c4, type: 3}
