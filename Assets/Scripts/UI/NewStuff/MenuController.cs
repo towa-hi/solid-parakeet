@@ -72,6 +72,11 @@ public class MenuController : MonoBehaviour
             currentMenu.SetMenuController(this);
             currentMenu.Display(true);
             await currentMenu.OpenAsync();
+            if (currentMenu is MainMenu2 mainMenu)
+            {
+                Debug.Log("MenuController: playing main menu music");
+                AudioManager.PlayMusic(MusicTrack.MAIN_MENU_MUSIC);
+            }
             isTransitioning = false;
         });
     }

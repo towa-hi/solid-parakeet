@@ -35,8 +35,10 @@ public class GraveyardList : MonoBehaviour
     }
     public void Refresh(GameNetworkState netState)
     {
+        Debug.Log($"GraveyardList.Refresh: netState={netState}");
         Clear();
         entries = new();
+        PawnState[] pawns = netState.gameState.pawns;
         for (int i = 0; i < netState.lobbyParameters.max_ranks.Length; i++)
         {
             Rank rank = (Rank)i;
@@ -48,9 +50,9 @@ public class GraveyardList : MonoBehaviour
             // get red and blue alive counts
             int redAlive = 0;
             int blueAlive = 0;
-            foreach (PawnState pawn in netState.gameState.pawns)
+            foreach (PawnState pawn in pawns)
             {
-                if (pawn.rank == rank)
+                if (pawn.rank == rank && pawn.alive)
                 {
                     if (pawn.GetTeam() == Team.RED)
                     {

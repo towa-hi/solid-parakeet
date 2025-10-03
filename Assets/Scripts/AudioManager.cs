@@ -27,17 +27,24 @@ public class AudioManager : MonoBehaviour
     public float masterVolume;
     public float effectsVolume;
     public float musicVolume;
-    
+    public MusicTrack currentMusicTrack;
     public void Initialize()
     {
         activeSource = musicSource1;
         inactiveSource = musicSource2;
-        
+        currentMusicTrack = MusicTrack.START_MUSIC;
         instance = this;
     }
 
     public static void PlayMusic(MusicTrack trackName)
     {
+        Debug.Log($"AudioManager.PlayMusic: {trackName}");
+        // dont do anything if we're already playing the same track
+        if (instance.currentMusicTrack == trackName)
+        {
+            return;
+        }
+        instance.currentMusicTrack = trackName;
         instance.StopAllCoroutines();
         AudioClip clip = trackName switch
         {

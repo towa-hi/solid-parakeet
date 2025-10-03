@@ -3,6 +3,7 @@ using Contract;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class GuiMovement : GameElement
 {
@@ -29,6 +30,18 @@ public class GuiMovement : GameElement
         if (graveyardButton != null)
         {
             graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
+			// Show/hide graveyard list on hover over the button
+			if (graveyardList != null)
+			{
+				EventTrigger trigger = graveyardButton.gameObject.GetComponent<EventTrigger>();
+				if (trigger == null)
+				{
+					trigger = graveyardButton.gameObject.AddComponent<EventTrigger>();
+				}
+				AddEventTrigger(trigger, EventTriggerType.PointerEnter, () => graveyardList.gameObject.SetActive(true));
+				AddEventTrigger(trigger, EventTriggerType.PointerExit, () => graveyardList.gameObject.SetActive(false));
+				graveyardList.gameObject.SetActive(false);
+			}
         }
     }
 
@@ -37,12 +50,24 @@ public class GuiMovement : GameElement
         // no-op; initialization occurs in InitializeFromState on mode enter
     }
 
+	void AddEventTrigger(EventTrigger trigger, EventTriggerType type, System.Action action)
+	{
+		if (trigger.triggers == null)
+		{
+			trigger.triggers = new System.Collections.Generic.List<EventTrigger.Entry>();
+		}
+		var entry = new EventTrigger.Entry { eventID = type };
+		entry.callback.AddListener(_ => action());
+		trigger.triggers.Add(entry);
+	}
+
     public void AttachSubscriptions()
     {
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
         ViewEventBus.OnStateUpdated += HandleStateUpdated;
+        ViewEventBus.OnResolveCheckpointChanged += HandleClientModeChanged;
     }
 
     public void DetachSubscriptions()
@@ -51,6 +76,7 @@ public class GuiMovement : GameElement
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
         ViewEventBus.OnStateUpdated -= HandleStateUpdated;
+        ViewEventBus.OnResolveCheckpointChanged -= HandleClientModeChanged;
     }
     
 
@@ -61,8 +87,8 @@ public class GuiMovement : GameElement
         statusText.text = isMyTurn ? "Commit your move" : "Awaiting opponent move";
         submitMoveButton.interactable = false;
         submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
-        if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
-        if (graveyardList != null) graveyardList.Refresh(net);
+		if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
+		if (graveyardList != null) graveyardList.Refresh(net);
     }
 
     void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
@@ -82,6 +108,11 @@ public class GuiMovement : GameElement
         }
     }
 
+    void HandleClientModeChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
+    {
+        InitializeFromState(net, LocalUiState.Empty);
+    }
+    
     void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
     {
         int planned = newPairs.Count;
@@ -102,7 +133,7 @@ public class GuiMovement : GameElement
         {
             return;
         }
-        // React to phase/subphase changes within Move (e.g., MoveCommit -> MoveProve/RankProve)
+		// React to phase/subphase or turn changes within Move (e.g., Resolve->Move same phase but new turn)
         if (!lastNetState.HasValue)
         {
             InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
@@ -110,7 +141,9 @@ public class GuiMovement : GameElement
         }
         var prev = lastNetState.Value;
         var next = snapshot.Net;
-        if (prev.lobbyInfo.phase != next.lobbyInfo.phase || prev.lobbyInfo.subphase != next.lobbyInfo.subphase)
+		if (prev.lobbyInfo.phase != next.lobbyInfo.phase
+			|| prev.lobbyInfo.subphase != next.lobbyInfo.subphase
+			|| prev.gameState.turn != next.gameState.turn)
         {
             InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
         }

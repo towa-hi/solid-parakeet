@@ -8756,6 +8756,7 @@ MonoBehaviour:
   masterVolume: 0
   effectsVolume: 0
   musicVolume: 0.1
+  currentMusicTrack: 0
 --- !u!114 &1527594352
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17183,6 +17184,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3978007836157034996, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
       propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3999128202424647522, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
+      propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4123788139552909208, guid: 916caf58863fbb2489f52cb60d754749, type: 3}
