@@ -15,6 +15,7 @@ public sealed class UiReducer : IGameReducer
         if (state == null) state = GameSnapshot.Empty;
         LocalUiState ui = state.Ui ?? LocalUiState.Empty;
         List<GameEvent> emitted = null;
+        Debug.Log($"[UiReducer] Action={action?.GetType().Name} mode={state.Mode} checkpoint={ui.Checkpoint} pairs={ui.MovePairs.Count}");
         switch (action)
         {
             case UiWaitingForResponse w:

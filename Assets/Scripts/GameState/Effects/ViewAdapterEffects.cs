@@ -55,12 +55,15 @@ public sealed class ViewAdapterEffects : IGameEffect
 					ViewEventBus.RaiseMovePairsChanged(mp.OldPairs, mp.NewPairs);
 					break;
 				case ResolveCheckpointChangedEvent rc:
+					Debug.Log($"[Effects] Begin RaiseResolveCheckpointChanged checkpoint={rc.Checkpoint} index={rc.BattleIndex}");
 					ViewEventBus.RaiseResolveCheckpointChanged(rc.Checkpoint, rc.ResolveData, rc.BattleIndex, rc.Net);
+					Debug.Log($"[Effects] End RaiseResolveCheckpointChanged checkpoint={rc.Checkpoint} index={rc.BattleIndex}");
 					break;
 				// no-op
 			}
 		}
 	}
+
 }
 
 

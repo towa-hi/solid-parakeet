@@ -20,9 +20,8 @@ public sealed class NetworkEffects : IGameEffect
         {
             case NetworkStateChanged a:
             {
-                // Toggle polling based on whose subphase it is
-                bool shouldPoll = !a.Net.IsMySubphase();
-                StellarManager.SetPolling(shouldPoll);
+                // TEMP: disable polling entirely while we isolate freezes
+                StellarManager.SetPolling(false);
                 // Auto-submit proofs when entering/progressing MoveProve or RankProve
                 if (StellarManager.IsBusy)
                 {
@@ -227,8 +226,10 @@ public sealed class NetworkEffects : IGameEffect
                 // Build CommitMoveReq + ProveMoveReq from LocalUiState.MovePairs
                 GameNetworkState net = state.Net;
                 var pairs = state.Ui?.MovePairs ?? new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>();
+                Debug.Log($"[NetworkEffects] MoveSubmit: enter mode={state.Mode} phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} pairs={pairs.Count} busy={StellarManager.IsBusy}");
                 if (!net.IsMySubphase() || pairs.Count == 0)
                 {
+                    Debug.Log($"[NetworkEffects] MoveSubmit: skipped isMySubphase={net.IsMySubphase()} pairs={pairs.Count}");
                     break;
                 }
                 List<HiddenMove> hiddenMoves = new();
@@ -269,16 +270,28 @@ public sealed class NetworkEffects : IGameEffect
                     lobby_id = net.lobbyInfo.index,
                     move_proofs = hiddenMoves.ToArray(),
                 };
+                long tStart = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                Debug.Log("[NetworkEffects] MoveSubmit: dispatch UiWaitingForResponse start");
                 store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = action, TimestampMs = now }));
+                Debug.Log("[NetworkEffects] MoveSubmit: calling CommitMoveRequest");
                 Result<bool> result = await StellarManager.CommitMoveRequest(commit, prove, net.address, net.lobbyInfo, net.lobbyParameters);
                 if (result.IsError)
                 {
+                    Debug.LogError($"[NetworkEffects] MoveSubmit: CommitMoveRequest error: {result.Message}");
                     HandleFatalNetworkError(result.Message);
+                    Debug.Log("[NetworkEffects] MoveSubmit: clearing UiWaitingForResponse (error)");
                     store.Dispatch(new UiWaitingForResponse(null));
                     return;
                 }
+                long tAfterCommit = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                Debug.Log($"[NetworkEffects] MoveSubmit: CommitMoveRequest ok in {tAfterCommit - tStart}ms");
+                Debug.Log("[NetworkEffects] MoveSubmit: calling UpdateState");
                 await StellarManager.UpdateState();
+                long tAfterUpdate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                Debug.Log($"[NetworkEffects] MoveSubmit: UpdateState ok in {tAfterUpdate - tAfterCommit}ms (total {tAfterUpdate - tStart}ms)");
+                Debug.Log("[NetworkEffects] MoveSubmit: clearing UiWaitingForResponse (success)");
                 store.Dispatch(new UiWaitingForResponse(null));
+                Debug.Log("[NetworkEffects] MoveSubmit: exit");
                 break;
             }
         }

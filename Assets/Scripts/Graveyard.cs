@@ -40,13 +40,13 @@ public class Graveyard : MonoBehaviour
 
     public void AttachSubscriptions()
     {
-        ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
-        ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChanged;
+        // ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
+        // ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChanged;
     }
 
     public void DetachSubscriptions()
     {
-        ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
+        // ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
     }
 
     public void SeedFromSnapshot(PawnState[] snapshot)
@@ -71,8 +71,10 @@ public class Graveyard : MonoBehaviour
 
     void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
+        Debug.Log($"[Graveyard] Begin Resolve checkpoint={checkpoint} idx={battleIndex}");
         PawnState[] snapshot = checkpoint == ResolveCheckpoint.Final ? tr.finalSnapshot : tr.preSnapshot;
         ApplyAliveSnapshot(snapshot);
+        Debug.Log($"[Graveyard] End Resolve checkpoint={checkpoint} idx={battleIndex}");
     }
 
     void ApplyAliveSnapshot(PawnState[] snapshot)

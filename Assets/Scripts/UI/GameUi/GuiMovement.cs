@@ -27,22 +27,22 @@ public class GuiMovement : GameElement
         {
             submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
         }
-        if (graveyardButton != null)
-        {
-            graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
-			// Show/hide graveyard list on hover over the button
-			if (graveyardList != null)
-			{
-				EventTrigger trigger = graveyardButton.gameObject.GetComponent<EventTrigger>();
-				if (trigger == null)
-				{
-					trigger = graveyardButton.gameObject.AddComponent<EventTrigger>();
-				}
-				AddEventTrigger(trigger, EventTriggerType.PointerEnter, () => graveyardList.gameObject.SetActive(true));
-				AddEventTrigger(trigger, EventTriggerType.PointerExit, () => graveyardList.gameObject.SetActive(false));
-				graveyardList.gameObject.SetActive(false);
-			}
-        }
+        // if (graveyardButton != null)
+        // {
+        //     graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
+		// 	// Show/hide graveyard list on hover over the button
+		// 	if (graveyardList != null)
+		// 	{
+		// 		EventTrigger trigger = graveyardButton.gameObject.GetComponent<EventTrigger>();
+		// 		if (trigger == null)
+		// 		{
+		// 			trigger = graveyardButton.gameObject.AddComponent<EventTrigger>();
+		// 		}
+		// 		AddEventTrigger(trigger, EventTriggerType.PointerEnter, () => graveyardList.gameObject.SetActive(true));
+		// 		AddEventTrigger(trigger, EventTriggerType.PointerExit, () => graveyardList.gameObject.SetActive(false));
+		// 		graveyardList.gameObject.SetActive(false);
+		// 	}
+        // }
     }
 
     void Start()
@@ -67,7 +67,6 @@ public class GuiMovement : GameElement
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
         ViewEventBus.OnStateUpdated += HandleStateUpdated;
-        ViewEventBus.OnResolveCheckpointChanged += HandleClientModeChanged;
     }
 
     public void DetachSubscriptions()
@@ -76,7 +75,6 @@ public class GuiMovement : GameElement
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
         ViewEventBus.OnStateUpdated -= HandleStateUpdated;
-        ViewEventBus.OnResolveCheckpointChanged -= HandleClientModeChanged;
     }
     
 
@@ -88,7 +86,7 @@ public class GuiMovement : GameElement
         submitMoveButton.interactable = false;
         submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
 		if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
-		if (graveyardList != null) graveyardList.Refresh(net);
+		//if (graveyardList != null) graveyardList.Refresh(net);
     }
 
     void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
@@ -108,10 +106,7 @@ public class GuiMovement : GameElement
         }
     }
 
-    void HandleClientModeChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
-    {
-        InitializeFromState(net, LocalUiState.Empty);
-    }
+
     
     void HandleMovePairsChanged(System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> oldPairs, System.Collections.Generic.Dictionary<PawnId, (Vector2Int start, Vector2Int target)> newPairs)
     {
@@ -125,27 +120,28 @@ public class GuiMovement : GameElement
 
     void HandleStateUpdated(GameSnapshot snapshot)
     {
-        if (snapshot == null)
-        {
-            return;
-        }
-        if (snapshot.Mode != ClientMode.Move)
-        {
-            return;
-        }
-		// React to phase/subphase or turn changes within Move (e.g., Resolve->Move same phase but new turn)
-        if (!lastNetState.HasValue)
-        {
-            InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
-            return;
-        }
-        var prev = lastNetState.Value;
-        var next = snapshot.Net;
-		if (prev.lobbyInfo.phase != next.lobbyInfo.phase
-			|| prev.lobbyInfo.subphase != next.lobbyInfo.subphase
-			|| prev.gameState.turn != next.gameState.turn)
-        {
-            InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
-        }
+        Debug.Log($"GuiMovement.HandleStateUpdated: snapshot={snapshot}");
+        // if (snapshot == null)
+        // {
+        //     return;
+        // }
+        // if (snapshot.Mode != ClientMode.Move)
+        // {
+        //     return;
+        // }
+		// // React to phase/subphase or turn changes within Move (e.g., Resolve->Move same phase but new turn)
+        // if (!lastNetState.HasValue)
+        // {
+        //     InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
+        //     return;
+        // }
+        // var prev = lastNetState.Value;
+        // var next = snapshot.Net;
+		// if (prev.lobbyInfo.phase != next.lobbyInfo.phase
+		// 	|| prev.lobbyInfo.subphase != next.lobbyInfo.subphase
+		// 	|| prev.gameState.turn != next.gameState.turn)
+        // {
+        //     InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
+        // }
     }
 }

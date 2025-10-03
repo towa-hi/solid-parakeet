@@ -36,6 +36,7 @@ public class CursorController : MonoBehaviour
         var net = snapshot.Net;
         var ui = snapshot.Ui ?? LocalUiState.Empty;
         var tool = UiSelectors.ComputeCursorTool(mode, net, ui);
+        Debug.Log($"[CursorController] HandleStateUpdated mode={mode} checkpoint={ui.Checkpoint} waiting={(ui.WaitingForResponse != null)} tool={tool}");
         UpdateCursor(tool);
     }
 

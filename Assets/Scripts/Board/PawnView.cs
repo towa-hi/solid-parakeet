@@ -138,6 +138,7 @@ public class PawnView : MonoBehaviour
 
     void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
+        //Debug.Log($"[PawnView] Begin Resolve checkpoint={checkpoint} idx={battleIndex} pawn={pawnId}");
         bool isMyTeam = team == net.userTeam;
         PawnState current = net.GetPawnFromId(pawnId);
         tr.pawnDeltas.TryGetValue(pawnId, out SnapshotPawnDelta delta);
@@ -203,6 +204,7 @@ public class PawnView : MonoBehaviour
                 break;
             }
         }
+        //Debug.Log($"[PawnView] End Resolve checkpoint={checkpoint} idx={battleIndex} pawn={pawnId}");
     }
 
     void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)

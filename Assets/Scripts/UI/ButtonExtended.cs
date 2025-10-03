@@ -33,11 +33,11 @@ public class ButtonExtended : Button
 		ApplyColorsForCurrentState();
 	}
 
-	protected override void OnValidate()
-	{
-		base.OnValidate();
-		ApplyColorsForCurrentState();
-	}
+	// protected override void OnValidate()
+	// {
+	// 	base.OnValidate();
+	// 	ApplyColorsForCurrentState();
+	// }
 
 	private void ApplyColorsForCurrentState()
 	{

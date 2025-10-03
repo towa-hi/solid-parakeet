@@ -58,7 +58,7 @@ public class GuiGame : MenuElement
 
     void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
     {
-        Debug.Log($"GuiGame.HandleClientModeChanged: mode={mode}");
+        Debug.Log($"[GuiGame] Begin HandleClientModeChanged mode={mode}");
         GameElement desired = mode switch
         {
             ClientMode.Setup => setup,
@@ -69,6 +69,7 @@ public class GuiGame : MenuElement
         };
         if (currentGameElement == desired)
         {
+            Debug.Log("[GuiGame] Early return; panel unchanged");
             return;
         }
         if (currentGameElement != null) currentGameElement.ShowElement(false);
@@ -87,6 +88,7 @@ public class GuiGame : MenuElement
         {
             resolve.Initialize(net);
         }
+        Debug.Log("[GuiGame] End HandleClientModeChanged");
     }
 
     public override void ShowElement(bool show)
@@ -121,8 +123,10 @@ public class GuiGame : MenuElement
 
 	void HandleStateUpdated(GameSnapshot snapshot)
 	{
+		Debug.Log($"[GuiGame] HandleStateUpdated begin mode={snapshot?.Mode} checkpoint={(snapshot?.Ui?.Checkpoint)} waiting={(snapshot?.Ui?.WaitingForResponse != null)}");
 		bool waiting = snapshot?.Ui?.WaitingForResponse != null;
 		ApplyBusy(waiting);
+		Debug.Log("[GuiGame] HandleStateUpdated end");
 	}
 
     void ApplyBusy(bool isBusy)

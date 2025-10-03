@@ -46,6 +46,7 @@ public class GuiResolve : GameElement
     
     void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
+        Debug.Log($"[GuiResolve] Begin HandleResolveCheckpointChanged checkpoint={checkpoint} index={battleIndex} moves={(tr.moves?.Count ?? 0)} battles={(tr.battles?.Length ?? 0)}");
         string prevLabel = null;
         string nextLabel = null;
         string status = null;
@@ -83,6 +84,7 @@ public class GuiResolve : GameElement
         statusText.text = status;
         prevButtonLabel.text = prevLabel;
         nextButtonLabel.text = nextLabel;
+        Debug.Log($"[GuiResolve] End HandleResolveCheckpointChanged checkpoint={checkpoint} index={battleIndex}");
     }
 
     void HandlePrevButton()

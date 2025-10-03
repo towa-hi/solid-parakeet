@@ -95,12 +95,12 @@ public class BoardManager : MonoBehaviour
             pawnViews.Add(pawn.pawn_id, pawnView);
         }
         // Initialize and seed Graveyard
-        if (graveyard != null)
-        {
-            graveyard.Initialize(netState);
-            graveyard.AttachSubscriptions();
-            graveyard.SeedFromSnapshot(netState.gameState.pawns);
-        }
+        // if (graveyard != null)
+        // {
+        //     graveyard.Initialize(netState);
+        //     graveyard.AttachSubscriptions();
+        //     graveyard.SeedFromSnapshot(netState.gameState.pawns);
+        // }
         // Expose a resolver so views can map positions to TileViews (for arrows, etc.)
         ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
         // Seed initial mode to views now that board/pawn views exist
