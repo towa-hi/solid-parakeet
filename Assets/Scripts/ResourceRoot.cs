@@ -7,7 +7,7 @@ public class ResourceRoot : ScriptableObject
 {
     static ResourceRoot instance;
 
-    static ResourceRoot Instance
+    public static ResourceRoot Instance
     {
         get
         {
@@ -46,5 +46,10 @@ public class ResourceRoot : ScriptableObject
     public DefaultSettings defaultSettings;
     public List<PawnDef> orderedPawnDefs;
     public List<BoardDef> boardDefs;
-    
+    public AudioClip buttonHoverClip;
+    public AudioClip buttonClickAffirmativeClip;
+    public AudioClip buttonClickNegativeClip;
+    public AudioClip buttonClickNeutralClip;
+    public AudioClip buttonClickBackClip;
+
 }

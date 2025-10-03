@@ -61,13 +61,11 @@ public class ModalConnect : ModalElement
 
     void HandleCloseButton()
     {
-        AudioManager.PlaySmallButtonClick();
         OnCloseButton?.Invoke();
     }
 
     void HandleConnectButton()
     {
-        AudioManager.PlaySmallButtonClick();
         string contract = contractField.text;
         string sneed = sneedField.text;
 
@@ -76,28 +74,24 @@ public class ModalConnect : ModalElement
 
     void HandleTestnetButton()
     {
-        AudioManager.PlaySmallButtonClick();
         isTestnet = true;
         Refresh();
     }
 
     void HandleMainnetButton()
     {
-        AudioManager.PlaySmallButtonClick();
         isTestnet = false;
         Refresh();
     }
     
     void HandleWalletButton()
     {
-        AudioManager.PlaySmallButtonClick();
         isWallet = true;
         Refresh();
     }
 
     void HandleKeyButton()
     {
-        AudioManager.PlaySmallButtonClick();
         isWallet = false;
         Refresh();
     }

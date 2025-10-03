@@ -22,12 +22,10 @@ public class GuiLobbyJoiner : MenuElement
     {
         backButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnBackButton?.Invoke();
         });
         joinButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             OnJoinButton?.Invoke(new LobbyId(uint.Parse(lobbyIdInputField.text)));
         });
         lobbyIdInputField.onValueChanged.AddListener(OnLobbyIdInputFieldChanged);

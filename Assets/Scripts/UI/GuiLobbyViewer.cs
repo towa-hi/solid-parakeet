@@ -24,22 +24,18 @@ public class GuiLobbyViewer : MenuElement
     {
         backButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnBackButton?.Invoke();
         });
         deleteButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             OnDeleteButton?.Invoke();
         });
         refreshButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnRefreshButton?.Invoke();
         });
         startButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             OnStartButton?.Invoke();
         });
     }

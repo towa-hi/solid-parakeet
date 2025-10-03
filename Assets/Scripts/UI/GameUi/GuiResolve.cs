@@ -91,28 +91,24 @@ public class GuiResolve : GameElement
     {
         //just play a mid button click and invoke the event in these functions
         Debug.Log("GuiResolve.HandleMenuButton");
-        AudioManager.PlayMidButtonClick();
         OnMenuButton?.Invoke();
     }
 
     void HandlePrevButton()
     {
         Debug.Log("GuiResolve.HandlePrevButton");
-        AudioManager.PlayMidButtonClick();
         OnPrevButton?.Invoke();
     }
 
     void HandleNextButton()
     {
         Debug.Log("GuiResolve.HandleNextButton");
-        AudioManager.PlayMidButtonClick();
         OnNextButton?.Invoke();
     }
 
     void HandleSkipButton()
     {
         Debug.Log("GuiResolve.HandleSkipButton");
-        AudioManager.PlayMidButtonClick();
         OnSkipButton?.Invoke();
     }
 

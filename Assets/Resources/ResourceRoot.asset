@@ -29,3 +29,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 23e9f9126ee879f4681b86baf940d90d, type: 2}
   boardDefs:
   - {fileID: 11400000, guid: 4056e7223b364b04b94ad31daa7330ef, type: 2}
+  buttonHoverClip: {fileID: 8300000, guid: 7c1a094fb9ac60649b76ded62b4abb69, type: 3}
+  buttonClickAffirmativeClip: {fileID: 8300000, guid: be0814310f2e73d4fb2d56ef0999414a, type: 3}
+  buttonClickNegativeClip: {fileID: 8300000, guid: 0aa53d1f5aa0214479a1c881033ed303, type: 3}
+  buttonClickNeutralClip: {fileID: 8300000, guid: 86194b1adfedbb44c93334e9e8043ce4, type: 3}
+  buttonClickBackClip: {fileID: 8300000, guid: 52264680693daf4449c3ecbd49751fa7, type: 3}

@@ -42,53 +42,43 @@ public class GuiMainMenu : MenuElement
         contractField.onValueChanged.AddListener(OnContractFieldChanged);
         setContractButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             OnSetContract();
         });
         sneedField.onValueChanged.AddListener(OnSneedFieldChanged);
         setSneedButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             OnSetSneed();
         });
         fillGuestSneedButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnFillGuestSneed();
         });
         fillHostSneedButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnFillHostSneed();
         });
         joinLobbyButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnJoinLobbyButton?.Invoke();
         });
         makeLobbyButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnMakeLobbyButton?.Invoke();
         });
         settingsButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnSettingsButton?.Invoke();
         });
         viewLobbyButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnViewLobbyButton?.Invoke();
         });
         walletButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnWalletButton?.Invoke();
         });
         assetsButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnAssetButton?.Invoke();
         });
         StellarManager.OnAssetsUpdated += OnAssetsUpdated;

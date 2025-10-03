@@ -14,12 +14,10 @@ public class GuiStartMenu : MenuElement
     {
         startButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayButtonClick();
             OnStartButton?.Invoke();
         });
         startOfflineButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayButtonClick();
             OnStartOfflineButton?.Invoke();
         });
     }

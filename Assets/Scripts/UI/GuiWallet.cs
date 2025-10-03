@@ -26,17 +26,14 @@ public class GuiWallet : MenuElement
     {
         backButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnBackButton?.Invoke();
         });
         connectWalletButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             HandleOnConnectWalletButton();
         });
         refreshButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             HandleRefreshButton();
         });
         StellarManager.OnAssetsUpdated += OnAssetsUpdated;

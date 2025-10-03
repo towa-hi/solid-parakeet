@@ -61,7 +61,6 @@ public class GuiMovement : GameElement
     
     void HandleEscapeMenuButton()
     {
-        AudioManager.PlayMidButtonClick();
         OnMenuButton?.Invoke();
     }
 

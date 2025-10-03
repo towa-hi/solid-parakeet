@@ -30,17 +30,14 @@ public class GuiLobbyMaker : MenuElement
     {
         backButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnBackButton?.Invoke();
         });
         makeLobbyButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             OnSubmitLobbyButton?.Invoke(GetLobbyParameters());
         });
         singlePlayerButton.onClick.AddListener(() =>
         {
-            AudioManager.PlayMidButtonClick();
             OnSinglePlayerButton?.Invoke(GetLobbyParameters());
         });
     }

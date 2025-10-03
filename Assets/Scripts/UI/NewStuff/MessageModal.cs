@@ -16,7 +16,6 @@ public class MessageModal : ModalBase
         closeButton.onClick.AddListener(() =>
         {
             Debug.Log("MessageModal: close button clicked");
-            AudioManager.PlaySmallButtonClick();
             OnCloseButton();
         });
     }

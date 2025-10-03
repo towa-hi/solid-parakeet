@@ -18,22 +18,18 @@ public class ModalEscape : ModalElement
     {
         settingsButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnSettingsButton();
         });
         resignButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnResignButton();
         });
         mainMenuButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnMainMenuButton();
         });
         backButton.onClick.AddListener(() =>
         {
-            AudioManager.PlaySmallButtonClick();
             OnBackButton();
         });
     }

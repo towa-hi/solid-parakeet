@@ -70,24 +70,37 @@ public class AudioManager : MonoBehaviour
         activeSource.volume = musicVolume;
         (activeSource, inactiveSource) = (inactiveSource, activeSource);
     }
-    
-    public static void PlayButtonClick()
-    {
-        instance.effectSource.PlayOneShot(instance.buttonClickClip);
-    }
 
-    public static void PlaySmallButtonClick()
-    {
-        instance.effectSource.PlayOneShot(instance.smallButtonClip);
-    }
-
-    public static void PlayMidButtonClick()
-    {
-        instance.effectSource.PlayOneShot(instance.midButtonClip);
-    }
     public static void PlayShatter()
     {
         instance.effectSource.PlayOneShot(instance.shatterClip);
+    }
+
+    public static void PlayButtonHover()
+    {
+        instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonHoverClip);
+    }
+
+    public static void PlayButtonClick(ButtonClickType type)
+    {
+        Debug.Log($"PlayButtonClick: {type}");
+        switch (type)
+        {
+            case ButtonClickType.AFFIRMATIVE:
+                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickAffirmativeClip);
+                break;
+            case ButtonClickType.NEGATIVE:
+                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickNegativeClip);
+                break;
+            case ButtonClickType.NEUTRAL:
+                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickNeutralClip);
+                break;
+            case ButtonClickType.BACK:
+                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickBackClip);
+                break;
+            case ButtonClickType.NONE:
+                break;
+        }
     }
 }
 
@@ -96,4 +109,13 @@ public enum MusicTrack
     START_MUSIC,
     MAIN_MENU_MUSIC,
     BATTLE_MUSIC,
+}
+
+public enum ButtonClickType
+{
+    NEUTRAL,
+    AFFIRMATIVE,
+    NEGATIVE,
+    BACK,
+    NONE,
 }

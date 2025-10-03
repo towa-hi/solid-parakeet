@@ -38,7 +38,6 @@ public class ModalError : ModalElement
 
 	void HandleCloseButton()
 	{
-		AudioManager.PlaySmallButtonClick();
 		OnCloseButton?.Invoke();
 	}
 }

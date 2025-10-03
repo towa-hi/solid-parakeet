@@ -8,6 +8,8 @@ public class ButtonExtended : Button
 	public CanvasGroup canvasGroup;
 	public TextMeshProUGUI text;
 	public Image frame;
+
+	public ButtonClickType buttonClickType;
 	[SerializeField] public Color textAndFrameColor = Color.white;
 	[SerializeField] public Color disabledTextColor = new Color(1f, 1f, 1f, 0.5f);
 
@@ -99,5 +101,21 @@ public class ButtonExtended : Button
 	{
 		base.OnCanvasGroupChanged();
 		ApplyColorsForCurrentState();
+	}
+
+	public override void OnPointerEnter(PointerEventData eventData)
+	{
+		base.OnPointerEnter(eventData);
+		if (IsInteractable())
+		{
+			AudioManager.PlayButtonHover();
+		}
+	}
+
+	public override void OnPointerClick(PointerEventData eventData)
+	{
+		base.OnPointerClick(eventData);
+		Debug.Log($"OnPointerClick: {buttonClickType}");
+		AudioManager.PlayButtonClick(buttonClickType);
 	}
 }
