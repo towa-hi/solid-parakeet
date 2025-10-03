@@ -1360,6 +1360,10 @@ PrefabInstance:
       propertyPath: m_fontColor.r
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 7418931173345231903, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
+      propertyPath: buttonClickType
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

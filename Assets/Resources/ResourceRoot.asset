@@ -34,3 +34,5 @@ MonoBehaviour:
   buttonClickNegativeClip: {fileID: 8300000, guid: ab1a9a185172839488a769bf7af1b7b5, type: 3}
   buttonClickNeutralClip: {fileID: 8300000, guid: f82a0e06100ed5f42b0f39ac376848db, type: 3}
   buttonClickBackClip: {fileID: 8300000, guid: 8601692c80bef144ba25a2184344f5c4, type: 3}
+  pawnSelectClip: {fileID: 8300000, guid: 1460a139bb314fd488a3840c2946e638, type: 3}
+  pawnLandClip: {fileID: 8300000, guid: ddc5f68fb93d63a4b98618e8b1b70c51, type: 3}

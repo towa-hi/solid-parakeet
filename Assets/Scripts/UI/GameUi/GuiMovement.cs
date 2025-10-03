@@ -1,48 +1,40 @@
 using System;
-using System.Linq;
 using Contract;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.UI;
 
 public class GuiMovement : GameElement
 {
     public TextMeshProUGUI statusText;
-    public Button menuButton;
-    public Button extraButton;
-    public Button cheatButton;
-    public TextMeshProUGUI cheatButtonText;
-    public Button badgeButton;
-    public TextMeshProUGUI badgeButtonText;
     public Button submitMoveButton;
     public TextMeshProUGUI submitMoveButtonText;
     public Button graveyardButton;
-    public Button refreshButton;
-    public Toggle autoSubmitToggle;
     public GuiGameOverModal gameOverModal;
     public PhaseInfoDisplay phaseInfoDisplay;
     GameNetworkState? lastNetState;
     
-    public Action OnMenuButton;
-    public Action OnExtraButton;
-    
-    public Action OnCheatButton;
-    public Action OnBadgeButton;
     public Action OnSubmitMoveButton;
     public Action OnGraveyardButton;
-    public Action OnRefreshButton;
     public Action<bool> OnAutoSubmitToggle;
+
+    public GraveyardList graveyardList;
+
+    void Awake()
+    {
+        if (submitMoveButton != null)
+        {
+            submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
+        }
+        if (graveyardButton != null)
+        {
+            graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
+        }
+    }
+
     void Start()
     {
-        menuButton.onClick.AddListener(HandleEscapeMenuButton);
-        extraButton.onClick.AddListener(() => OnExtraButton?.Invoke());
-        submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
-        graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
-        refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
-        cheatButton.onClick.AddListener(() => OnCheatButton?.Invoke());
-        badgeButton.onClick.AddListener(() => OnBadgeButton?.Invoke());
-        autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
+        // no-op; initialization occurs in InitializeFromState on mode enter
     }
 
     public void AttachSubscriptions()
@@ -50,6 +42,7 @@ public class GuiMovement : GameElement
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
+        ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
 
     public void DetachSubscriptions()
@@ -57,22 +50,19 @@ public class GuiMovement : GameElement
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
+        ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
     
-    void HandleEscapeMenuButton()
-    {
-        OnMenuButton?.Invoke();
-    }
 
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
         lastNetState = net;
         bool isMyTurn = net.IsMySubphase();
         statusText.text = isMyTurn ? "Commit your move" : "Awaiting opponent move";
-        refreshButton.interactable = true;
         submitMoveButton.interactable = false;
         submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
-        phaseInfoDisplay.Set(net);
+        if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
+        if (graveyardList != null) graveyardList.Refresh(net);
     }
 
     void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
@@ -99,5 +89,30 @@ public class GuiMovement : GameElement
         submitMoveButton.interactable = planned > 0;
         submitMoveButtonText.text = $"Commit Move ({planned}/{allowed})";
         statusText.text = planned > 0 ? "Submit move" : "Select a pawn";
+    }
+
+
+    void HandleStateUpdated(GameSnapshot snapshot)
+    {
+        if (snapshot == null)
+        {
+            return;
+        }
+        if (snapshot.Mode != ClientMode.Move)
+        {
+            return;
+        }
+        // React to phase/subphase changes within Move (e.g., MoveCommit -> MoveProve/RankProve)
+        if (!lastNetState.HasValue)
+        {
+            InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
+            return;
+        }
+        var prev = lastNetState.Value;
+        var next = snapshot.Net;
+        if (prev.lobbyInfo.phase != next.lobbyInfo.phase || prev.lobbyInfo.subphase != next.lobbyInfo.subphase)
+        {
+            InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
+        }
     }
 }
