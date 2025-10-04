@@ -44,12 +44,12 @@ public class TileView : MonoBehaviour
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
     
     // Fog/reveal visual state
-    Tween fogAlphaTween;
+    public Tween fogAlphaTween;
     Tween revealFadeTween;
     float currentFogAlpha01 = 0f;
     bool? lastRevealedState = null;
-    const float HiddenMovedAlpha01 = 150f / 255f;
-    const float HiddenUnmovedAlpha01 = 200f / 255f;
+    const float LightFogAlpha = 150f / 255f;
+    const float HeavyFogAlpha = 200f / 255f;
     const float UnrevealedFadeAmount = 1f; // as requested
     const float RevealedFadeAmount = 1f;   // as requested
     
@@ -63,8 +63,7 @@ public class TileView : MonoBehaviour
         SetTile(tile, hex);
         initialElevatorLocalPos = tileModel.elevator.localPosition;
         // Ensure fog is disabled on initialization
-        ApplyFogForPawn(false, false);
-        HandleRevealChange(true);
+        SetFogState(FogState.NONE);
     }
 
     void SetTile(TileState tile, bool hex)
@@ -266,77 +265,102 @@ public class TileView : MonoBehaviour
 		}
 	}
 
-    void SetFogFade(bool isRevealed)
-	{
-		Renderer r = tileModel != null ? (tileModel.topRenderer != null ? tileModel.topRenderer : tileModel.flatRenderer) : null;
-		if (r == null) return;
-		Material m = r.material;
-		if (!m.HasProperty(FadeAmountProperty)) return;
-		float from = m.GetFloat(FadeAmountProperty);
-		float to = isRevealed ? 0f : 1f;
-		if (revealFadeTween.isAlive) revealFadeTween.Stop();
-		revealFadeTween = PrimeTween.Tween.Custom(from, to, 0.25f, (val) =>
-		{
-			m.SetFloat(FadeAmountProperty, val);
-		}, Ease.OutCubic);
-	}
+    // void SetFogFade(bool isRevealed)
+	// {
+	// 	Renderer r = tileModel != null ? (tileModel.topRenderer != null ? tileModel.topRenderer : tileModel.flatRenderer) : null;
+	// 	if (r == null) return;
+	// 	Material m = r.material;
+	// 	if (!m.HasProperty(FadeAmountProperty)) return;
+	// 	float from = m.GetFloat(FadeAmountProperty);
+	// 	float to = isRevealed ? 0f : 1f;
+	// 	if (revealFadeTween.isAlive) revealFadeTween.Stop();
+	// 	revealFadeTween = PrimeTween.Tween.Custom(from, to, 0.25f, (val) =>
+	// 	{
+	// 		m.SetFloat(FadeAmountProperty, val);
+	// 	}, Ease.OutCubic);
+	// }
 
     void SetFogColor(Color targetColor)
 	{
 		// Ensure fog object active
+        Debug.Log($"TileView[{posView}]: SetFogColor targetColor={targetColor}");
 		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
 		{
 			tileModel.fogObject.SetActive(true);
 		}
 		Renderer fogRenderer = tileModel.fogObject.GetComponent<Renderer>();
 		Material fogMat = fogRenderer.material;
+
 		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
 		Color startColor = baseColor;
 		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, targetColor.a);
-		if (Mathf.Approximately(startColor.a, endColor.a))
-		{
-			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
-			currentFogAlpha01 = endColor.a;
-			return;
-		}
-		if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
-		fogAlphaTween = PrimeTween.Tween.Custom(startColor.a, endColor.a, 0.2f, (val) =>
-		{
-			Color c = baseColor;
-			c.a = val;
-			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, c); else fogMat.color = c;
-			currentFogAlpha01 = val;
-		}, Ease.OutCubic);
+		fogMat.SetColor(FogColorProperty, endColor);
+		// if (Mathf.Approximately(startColor.a, endColor.a))
+		// {
+		// 	if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
+		// 	currentFogAlpha01 = endColor.a;
+		// 	return;
+		// }
+		// if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
+		// fogAlphaTween = PrimeTween.Tween.Custom(startColor.a, endColor.a, 0.2f, (val) =>
+		// {
+		// 	Color c = baseColor;
+		// 	c.a = val;
+		// 	if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, c); else fogMat.color = c;
+		// 	currentFogAlpha01 = val;
+		// }, Ease.OutCubic);
 	}
 
-    void ApplyFogForPawn(bool hasPawn, bool hasMoved)
-    {
-        Debug.Log($"TileView[{posView}]: ApplyFogForPawn hasPawn={hasPawn} hasMoved={hasMoved}");
-		float targetAlpha = hasPawn ? (hasMoved ? HiddenMovedAlpha01 : HiddenUnmovedAlpha01) : 0f;
-		SetFogColor(new Color(0f, 0f, 0f, targetAlpha));
-    }
+    public FogState fogState;
 
-    void HandleRevealChange(bool isRevealed)
+    void SetFogState(FogState state)
     {
-        if (lastRevealedState.HasValue && lastRevealedState.Value == isRevealed)
+        Debug.Log($"TileView[{posView}]: SetFogState state={state}");
+        fogState = state;
+        switch (state)
         {
-            return;
+            case FogState.NONE:
+                SetFogColor(Color.clear);
+                break;
+            case FogState.LIGHT:
+                SetFogColor(new Color(0f, 0f, 0f, LightFogAlpha));
+                break;
+            case FogState.HEAVY:
+                SetFogColor(new Color(0f, 0f, 0f, HeavyFogAlpha));
+                break;
         }
-        lastRevealedState = isRevealed;
-        SetFogFade(isRevealed);
     }
 
+    public PawnState? pawnFogOwner;
     // Single public entrypoint for fog updates driven by pawn state
-    public void UpdateFogFromPawnState(PawnState? pawn)
+    public void UpdateFogFromPawnState(PawnState pawn)
     {
-        Debug.Log($"TileView[{posView}]: UpdateFogFromPawnState pawn={pawn?.pawn_id} pos={pawn?.pos} alive={pawn?.alive} moved={pawn?.moved} revealed={pawn?.zz_revealed}");
-        bool hasPawn = pawn.HasValue && pawn.Value.alive && pawn.Value.pos == posView;
-        bool moved = hasPawn && pawn.Value.moved;
-        bool revealed = hasPawn ? pawn.Value.zz_revealed : true;
-        ApplyFogForPawn(hasPawn, moved);
-        HandleRevealChange(revealed);
+        Debug.Log($"TileView[{posView}]: UpdateFogFromPawnState pawn={pawn}");
+        pawnFogOwner = pawn;
+        FogState state = FogState.NONE;
+        if (!pawn.zz_revealed)
+        {
+            state = FogState.HEAVY;
+            if (pawn.moved)
+            {
+                state = FogState.LIGHT;
+            }
+        }
+        SetFogState(state);
     }
 
+    public void ClearFog(PawnState pawn)
+    {
+        if (pawnFogOwner == pawn)
+        {
+            pawnFogOwner = null;
+            SetFogState(FogState.NONE);
+        }
+        else
+        {
+            Debug.Log($"TileView[{posView}]: ClearFog failed to clear fog for pawn={pawn}");
+        }
+    }
     void SetTopColor(Color color)
     {
         Material mat = tileModel.flatRenderer.material;
@@ -375,4 +399,11 @@ public class TileView : MonoBehaviour
             arrow.PointToTarget(origin, target);
         }
     }
+}
+
+public enum FogState
+{
+    NONE,
+    LIGHT,
+    HEAVY,
 }

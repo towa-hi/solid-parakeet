@@ -95,7 +95,7 @@ public class PawnView : MonoBehaviour
         pawnId = pawn.pawn_id;
         team = pawnId.Decode().Item2;
         gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
-        SetPosSnap(tileView, null);
+        SetPosSnap(tileView, pawn);
         SetRank(Rank.UNKNOWN);
     }
 
@@ -130,6 +130,7 @@ public class PawnView : MonoBehaviour
 			default:
 			{
 				SetRank(known);
+                Debug.Log($"PawnView[{pawnId}]: HandleClientModeChanged mode={mode} alive={alive} known={known} Setting Model Visible from client mode");
                 SetModelVisible(alive, p);
 				break;
 			}
@@ -166,6 +167,7 @@ public class PawnView : MonoBehaviour
             case ResolveCheckpoint.Pre:
             {
                 PawnState preState = tr.preSnapshot.First(p => p.pawn_id == pawnId);
+                Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from pre checkpoint");
                 SetModelVisible(preState.alive, preState);
                 SetRank(GetRankFromSnapshot(preState));
                 // Bind to pre tile and set fog strictly from pre snapshot
@@ -184,6 +186,7 @@ public class PawnView : MonoBehaviour
                     Debug.Log("hi mom");
                     Debug.Log($"pre: {preState} post: {postMovesState} current: {current}");
                 }
+                Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from post moves checkpoint");
                 SetModelVisible(postMovesState.alive, postMovesState);
                 SetRank(GetRankFromSnapshot(postMovesState));
                 if (tr.moves != null && tr.moves.TryGetValue(pawnId, out MoveEvent mv) && mv.from != mv.target)
@@ -200,6 +203,7 @@ public class PawnView : MonoBehaviour
             case ResolveCheckpoint.Battle:
             {
                 PawnState battleState = tr.battleSnapshots[battleIndex].First(p => p.pawn_id == pawnId);
+                Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from battle checkpoint");
                 SetModelVisible(battleState.alive, battleState);
                 SetRank(GetRankFromSnapshot(battleState));
                 TileView battleTile = ViewEventBus.TileViewResolver(battleState.pos);
@@ -209,6 +213,7 @@ public class PawnView : MonoBehaviour
             case ResolveCheckpoint.Final:
             default:
             {
+                Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from final checkpoint");
                 SetModelVisible(current.alive, current);
                 SetRank(current.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN);
                 TileView finalTile = ViewEventBus.TileViewResolver(current.pos);
@@ -265,17 +270,14 @@ public class PawnView : MonoBehaviour
         }
     }
 
-    void SetModelVisible(bool visible, PawnState? snapshot)
+    void SetModelVisible(bool visible, PawnState snapshot)
     {
         SetModelVisible(visible);
-        if (snapshot.HasValue && ViewEventBus.TileViewResolver != null)
+        TileView bound = GetBoundTileView();
+        if (bound)
         {
-            // Only update fog for the tile we're bound to; ignore during arc
-            TileView bound = GetBoundTileView();
-            if (bound)
-            {
-                bound.UpdateFogFromPawnState(visible ? snapshot : (PawnState?)null);
-            }
+            Debug.Log($"PawnView[{pawnId}]: SetModelVisible visible={visible} snapshot={snapshot} bound posView={bound.posView}");
+            bound.UpdateFogFromPawnState(snapshot);
         }
     }
 
@@ -319,11 +321,13 @@ public class PawnView : MonoBehaviour
     TileView GetBoundTileView()
     {
         if (parentConstraint.sourceCount == 0) return null;
+        
         ConstraintSource cs = parentConstraint.GetSource(0);
         Transform bound = cs.sourceTransform;
         if (!bound) return null;
-        // tileOrigin is a child on TileView; get component on parent
+        if (bound == GameManager.instance.purgatory) return null;
         TileView tv = bound.GetComponentInParent<TileView>();
+        Debug.Log($"PawnView[{pawnId}]: GetBoundTileView bound={bound} tv={tv.posView}");
         return tv;
     }
 
@@ -364,20 +368,35 @@ public class PawnView : MonoBehaviour
         badge.SetBadge(team, rank);
     }
 
-    void SetPosSnap([CanBeNull] TileView targetTile, PawnState? snapshot = null)
+    void SetPosSnap(TileView targetTile, PawnState snapshot)
     {
         StopAllCoroutines();
-        SetConstraintToTile(targetTile);
-        if (targetTile)
+        TileView initial = GetBoundTileView();
+        if (initial)
         {
-            SetTransformToTile(targetTile);
-            // Drive fog on the bound tile based on provided snapshot
-            targetTile.UpdateFogFromPawnState(snapshot);
+            initial.ClearFog(snapshot);
         }
+        if (!snapshot.alive)
+        {
+            Debug.Log($"PawnView[{pawnId}]: SetPosSnap snapshot={snapshot} not alive, setting constraint to null");
+            SetConstraintToTile(null);
+            SetTransformToTile(null);
+            return;
+        }
+        SetConstraintToTile(targetTile);
+        SetTransformToTile(targetTile);
+        // Drive fog on the bound tile based on provided snapshot
+        Debug.Log($"PawnView[{pawnId}]: SetPosSnap targetTile={targetTile.posView} snapshot={snapshot}");
+        targetTile.UpdateFogFromPawnState(snapshot);
     }
 
-    void SetPosArc([CanBeNull] TileView targetTile, PawnState? snapshot = null)
+    void SetPosArc([CanBeNull] TileView targetTile, PawnState snapshot)
     {
+        if (!snapshot.alive)
+        {
+            Debug.LogWarning($"PawnView[{pawnId}]: SetPosArc snapshot={snapshot} not alive, skipping");
+            return;
+        }
         StopAllCoroutines();
         TileView initial = GetBoundTileView();
         if (initial)
@@ -386,26 +405,19 @@ public class PawnView : MonoBehaviour
             transform.position = initial.origin.position;
             transform.rotation = initial.origin.rotation;
             // During arc: ensure no fog on initial
-            initial.UpdateFogFromPawnState(null);
+            initial.ClearFog(snapshot);
         }
         StartCoroutine(ArcToTileNoNotify(targetTile, snapshot));
     }
 
-    IEnumerator ArcToTileNoNotify(TileView targetTile, PawnState? snapshot)
+    IEnumerator ArcToTileNoNotify(TileView targetTile, PawnState snapshot)
     {
         yield return ArcToPosition(targetTile.origin, Globals.PawnMoveDuration, 0.5f);
         SetConstraintToTile(targetTile);
-        if (targetTile)
-        {
-            // Update target tile fog after binding
-            targetTile.UpdateFogFromPawnState(snapshot);
-        }
+        SetTransformToTile(targetTile);
+        Debug.Log($"PawnView[{pawnId}]: SetPosArc targetTile={targetTile.posView} snapshot={snapshot}");
+        targetTile.UpdateFogFromPawnState(snapshot);
     }
-
-
-    // Deprecated: use StopAllCoroutines() to restart animations atomically
-    // Kept for potential future diagnostics
-    // bool isMoving = false;
 
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
     {
@@ -439,30 +451,8 @@ public class PawnView : MonoBehaviour
         // Leave the constraint disabled here; caller will rebind to the destination tile
     }
 
-    void SetArcToTile([CanBeNull] TileView initialTile, TileView targetTile)
-    {
-        StopAllCoroutines();
-        // Ensure we start from the initial tile anchor
-        if (initialTile)
-        {
-            parentConstraint.constraintActive = false;
-            transform.position = initialTile.origin.position;
-            transform.rotation = initialTile.origin.rotation;
-        }
-        StartCoroutine(AnimateAndNotify(targetTile));
-    }
-
-    IEnumerator AnimateAndNotify(TileView targetTile)
-    {
-        // Animate toward the tile origin so re-binding won't cause a pop
-        yield return ArcToPosition(targetTile.origin, Globals.PawnMoveDuration, 0.5f);
-        // Rebind the constraint to the target tile and re-enable it so the pawn stays put
-        SetConstraintToTile(targetTile);
-        OnMoveAnimationCompleted?.Invoke(pawnId);
-    }
-
     public void PublicSetArcToTile([CanBeNull] TileView initialTile, TileView targetTile)
     {
-        SetArcToTile(initialTile, targetTile);
+        //SetArcToTile(initialTile, targetTile);
     }
 }

@@ -837,7 +837,7 @@ public static class StellarManager
                 s.pos = d.postPos; // apply move target
                 s.alive = d.preAlive;
                 s.zz_revealed = d.preRevealed; // before reveals: keep pre reveal
-                s.rank = d.preRevealed ? d.preRank : null;
+                s.rank = d.preRank;
                 // Update moved flags for postMoves snapshot from current authoritative state
                 if (currentMapForFlags.TryGetValue(s.pawn_id, out var curr))
                 {
@@ -866,7 +866,7 @@ public static class StellarManager
                     if (pawnDeltas.TryGetValue(s.pawn_id, out var d))
                     {
                         s.zz_revealed = d.postRevealed;
-                        s.rank = d.postRevealed ? d.postRank : null;
+                        s.rank = d.postRank;
                     }
                 }
                 if (dead.Contains(s.pawn_id))
