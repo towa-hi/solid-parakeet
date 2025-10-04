@@ -7,6 +7,7 @@ using UnityEngine.UI;
 public class GuiResolve : GameElement
 {
     public ArenaController arenaController;
+    public Button menuButton;
     public Button prevButton;
     public TextMeshProUGUI prevButtonLabel;
     public Button nextButton;
@@ -21,6 +22,7 @@ public class GuiResolve : GameElement
 
     void Start()
     {
+        menuButton.onClick.AddListener(HandleMenuButton);
         prevButton.onClick.AddListener(HandlePrevButton);
         nextButton.onClick.AddListener(HandleNextButton);
         skipButton.onClick.AddListener(HandleSkipButton);
@@ -83,6 +85,13 @@ public class GuiResolve : GameElement
         statusText.text = status;
         prevButtonLabel.text = prevLabel;
         nextButtonLabel.text = nextLabel;
+    }
+
+    void HandleMenuButton()
+    {
+        //just play a mid button click and invoke the event in these functions
+        Debug.Log("GuiResolve.HandleMenuButton");
+        OnMenuButton?.Invoke();
     }
 
     void HandlePrevButton()
