@@ -95,6 +95,7 @@ MonoBehaviour:
   canvasGroup: {fileID: 6007650955603830560}
   text: {fileID: 6132365129708091895}
   frame: {fileID: 8221843436856440669}
+  buttonClickType: 0
   textAndFrameColor: {r: 1, g: 1, b: 1, a: 1}
   disabledTextColor: {r: 0.3679245, g: 0.3679245, b: 0.3679245, a: 1}
 --- !u!225 &6007650955603830560
@@ -219,9 +220,9 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_TextWrappingMode: 1
+  m_TextWrappingMode: 0
   m_wordWrappingRatios: 0.4
-  m_overflowMode: 0
+  m_overflowMode: 3
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
