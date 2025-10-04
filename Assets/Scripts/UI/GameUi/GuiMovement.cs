@@ -12,6 +12,7 @@ public class GuiMovement : GameElement
     public Button graveyardButton;
     public GuiGameOverModal gameOverModal;
     public PhaseInfoDisplay phaseInfoDisplay;
+    public GraveyardList graveyardList;
     GameNetworkState? lastNetState;
     
     public Action OnSubmitMoveButton;
@@ -57,6 +58,7 @@ public class GuiMovement : GameElement
         submitMoveButton.interactable = false;
         submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
         if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
+        if (graveyardList != null) graveyardList.Refresh(net);
     }
 
     void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
