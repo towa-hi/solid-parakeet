@@ -67,7 +67,6 @@ public class BoardManager : MonoBehaviour
         guiGame.setup.OnRefreshButton = () => store.Dispatch(new RefreshRequested());
         guiGame.setup.OnSubmitButton = () => store.Dispatch(new SetupSubmit());
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
-        guiGame.movement.OnRefreshButton = () => store.Dispatch(new RefreshRequested());
         guiGame.movement.OnSubmitMoveButton = () => store.Dispatch(new MoveSubmit());
         guiGame.resolve.OnPrevButton = () => store.Dispatch(new ResolvePrev());
         guiGame.resolve.OnNextButton = () => store.Dispatch(new ResolveNext());
