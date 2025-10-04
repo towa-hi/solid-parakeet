@@ -20,8 +20,7 @@ public sealed class NetworkEffects : IGameEffect
         {
             case NetworkStateChanged a:
             {
-                // TEMP: disable polling entirely while we isolate freezes
-                StellarManager.SetPolling(false);
+                // Polling is managed by UI mode (GuiGame). No action here.
                 // Auto-submit proofs when entering/progressing MoveProve or RankProve
                 if (StellarManager.IsBusy)
                 {
@@ -300,8 +299,7 @@ public sealed class NetworkEffects : IGameEffect
     static void HandleFatalNetworkError(string message)
     {
         string msg = string.IsNullOrEmpty(message) ? "You're now in Offline Mode." : message;
-        // Ensure polling stays paused on fatal error
-        StellarManager.SetPolling(false);
+        // Ensure polling is paused via UI transitions; do not manage here
         MenuController menuController = UnityEngine.Object.FindFirstObjectByType<MenuController>();
         if (menuController != null)
         {

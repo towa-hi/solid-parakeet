@@ -88,6 +88,8 @@ public class GuiGame : MenuElement
         {
             resolve.Initialize(net);
         }
+        // Enable polling only during Setup and Move modes
+        StellarManager.SetPolling(mode == ClientMode.Setup || mode == ClientMode.Move);
         Debug.Log("[GuiGame] End HandleClientModeChanged");
     }
 

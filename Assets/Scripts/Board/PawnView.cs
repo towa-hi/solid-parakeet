@@ -175,13 +175,25 @@ public class PawnView : MonoBehaviour
             }
             case ResolveCheckpoint.PostMoves:
             {
+                PawnState preState = tr.preSnapshot.First(p => p.pawn_id == pawnId);
+                
                 PawnState postMovesState = tr.postMovesSnapshot.First(p => p.pawn_id == pawnId);
+                
+                if (pawnId == 80)
+                {
+                    Debug.Log("hi mom");
+                    Debug.Log($"pre: {preState} post: {postMovesState} current: {current}");
+                }
                 SetModelVisible(postMovesState.alive, postMovesState);
                 SetRank(GetRankFromSnapshot(postMovesState));
-                if (tr.moves != null && tr.moves.TryGetValue(pawnId, out MoveEvent mv))
+                if (tr.moves != null && tr.moves.TryGetValue(pawnId, out MoveEvent mv) && mv.from != mv.target)
                 {
                     TileView targetTile = ViewEventBus.TileViewResolver(mv.target);
                     SetPosArc(targetTile, postMovesState);
+                }
+                else {
+                    TileView sameTile = ViewEventBus.TileViewResolver(postMovesState.pos);
+                    SetPosSnap(sameTile, postMovesState);
                 }
                 break;
             }

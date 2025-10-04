@@ -538,8 +538,7 @@ public static class StellarManager
     // Start/stop centralized polling. Polling will automatically skip while busy
     public static void SetPolling(bool enable)
     {
-        // TEMP: disable all polling regardless of callers
-        enable = false;
+        // Polling is centrally managed; callers specify desired state
         if (!networkContext.online && enable)
         {
             throw new Exception("SetPolling is not supported in offline mode");

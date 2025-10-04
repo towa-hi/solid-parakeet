@@ -311,6 +311,7 @@ public class TileView : MonoBehaviour
 
     void ApplyFogForPawn(bool hasPawn, bool hasMoved)
     {
+        Debug.Log($"TileView[{posView}]: ApplyFogForPawn hasPawn={hasPawn} hasMoved={hasMoved}");
 		float targetAlpha = hasPawn ? (hasMoved ? HiddenMovedAlpha01 : HiddenUnmovedAlpha01) : 0f;
 		SetFogColor(new Color(0f, 0f, 0f, targetAlpha));
     }
@@ -328,6 +329,7 @@ public class TileView : MonoBehaviour
     // Single public entrypoint for fog updates driven by pawn state
     public void UpdateFogFromPawnState(PawnState? pawn)
     {
+        Debug.Log($"TileView[{posView}]: UpdateFogFromPawnState pawn={pawn?.pawn_id} pos={pawn?.pos} alive={pawn?.alive} moved={pawn?.moved} revealed={pawn?.zz_revealed}");
         bool hasPawn = pawn.HasValue && pawn.Value.alive && pawn.Value.pos == posView;
         bool moved = hasPawn && pawn.Value.moved;
         bool revealed = hasPawn ? pawn.Value.zz_revealed : true;
