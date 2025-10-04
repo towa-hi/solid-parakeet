@@ -12,11 +12,14 @@ public class GuiMovement : GameElement
     public Button graveyardButton;
     public GuiGameOverModal gameOverModal;
     public PhaseInfoDisplay phaseInfoDisplay;
-    public GraveyardList graveyardList;
     GameNetworkState? lastNetState;
     
     public Action OnSubmitMoveButton;
     public Action OnGraveyardButton;
+    public Action<bool> OnAutoSubmitToggle;
+
+    public GraveyardList graveyardList;
+
     void Awake()
     {
         if (submitMoveButton != null)
@@ -50,6 +53,7 @@ public class GuiMovement : GameElement
         ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
     
+
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
         lastNetState = net;
@@ -87,6 +91,7 @@ public class GuiMovement : GameElement
         statusText.text = planned > 0 ? "Submit move" : "Select a pawn";
     }
 
+
     void HandleStateUpdated(GameSnapshot snapshot)
     {
         if (snapshot == null)
@@ -97,6 +102,7 @@ public class GuiMovement : GameElement
         {
             return;
         }
+        // React to phase/subphase changes within Move (e.g., MoveCommit -> MoveProve/RankProve)
         if (!lastNetState.HasValue)
         {
             InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);

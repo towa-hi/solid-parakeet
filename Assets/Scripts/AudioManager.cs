@@ -105,10 +105,6 @@ public class AudioManager : MonoBehaviour
 
     public static void PlayOneShot(AudioClip clip)
     {
-        if (clip == null || instance == null || instance.effectSource == null)
-        {
-            return;
-        }
         Debug.Log($"PlayOneShot: {clip.name}");
         instance.effectSource.PlayOneShot(clip);
     }

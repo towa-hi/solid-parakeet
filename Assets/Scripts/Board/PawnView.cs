@@ -398,7 +398,6 @@ public class PawnView : MonoBehaviour
         parentConstraint.constraintActive = false;
         Vector3 startPosition = transform.position;
         float elapsedTime = 0f;
-
         bool playedLandClip = false;
         while (elapsedTime < duration)
         {
@@ -417,8 +416,7 @@ public class PawnView : MonoBehaviour
             transform.position = horizontalPosition;
             if (!playedLandClip && t > 0.9f)
             {
-                var clip = ResourceRoot.Instance != null ? ResourceRoot.Instance.pawnLandClip : null;
-                if (clip != null) AudioManager.PlayOneShot(clip);
+                AudioManager.PlayOneShot(ResourceRoot.Instance.pawnLandClip);
                 playedLandClip = true;
             }
             elapsedTime += Time.deltaTime;
