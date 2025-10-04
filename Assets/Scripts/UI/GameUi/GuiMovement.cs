@@ -50,6 +50,7 @@ public class GuiMovement : GameElement
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
+        ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
 
     public void DetachSubscriptions()
@@ -57,6 +58,7 @@ public class GuiMovement : GameElement
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
+        ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
     
     void HandleEscapeMenuButton()
@@ -72,7 +74,7 @@ public class GuiMovement : GameElement
         refreshButton.interactable = true;
         submitMoveButton.interactable = false;
         submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
-        phaseInfoDisplay.Set(net);
+        if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
     }
 
     void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
@@ -99,5 +101,28 @@ public class GuiMovement : GameElement
         submitMoveButton.interactable = planned > 0;
         submitMoveButtonText.text = $"Commit Move ({planned}/{allowed})";
         statusText.text = planned > 0 ? "Submit move" : "Select a pawn";
+    }
+
+    void HandleStateUpdated(GameSnapshot snapshot)
+    {
+        if (snapshot == null)
+        {
+            return;
+        }
+        if (snapshot.Mode != ClientMode.Move)
+        {
+            return;
+        }
+        if (!lastNetState.HasValue)
+        {
+            InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
+            return;
+        }
+        var prev = lastNetState.Value;
+        var next = snapshot.Net;
+        if (prev.lobbyInfo.phase != next.lobbyInfo.phase || prev.lobbyInfo.subphase != next.lobbyInfo.subphase)
+        {
+            InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
+        }
     }
 }
