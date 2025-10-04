@@ -102,6 +102,16 @@ public class AudioManager : MonoBehaviour
                 break;
         }
     }
+
+    public static void PlayOneShot(AudioClip clip)
+    {
+        if (clip == null || instance == null || instance.effectSource == null)
+        {
+            return;
+        }
+        Debug.Log($"PlayOneShot: {clip.name}");
+        instance.effectSource.PlayOneShot(clip);
+    }
 }
 
 public enum MusicTrack

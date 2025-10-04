@@ -399,6 +399,7 @@ public class PawnView : MonoBehaviour
         Vector3 startPosition = transform.position;
         float elapsedTime = 0f;
 
+        bool playedLandClip = false;
         while (elapsedTime < duration)
         {
             // Calculate the normalized time (0 to 1)
@@ -414,7 +415,12 @@ public class PawnView : MonoBehaviour
 
             // Apply the calculated position
             transform.position = horizontalPosition;
-
+            if (!playedLandClip && t > 0.9f)
+            {
+                var clip = ResourceRoot.Instance != null ? ResourceRoot.Instance.pawnLandClip : null;
+                if (clip != null) AudioManager.PlayOneShot(clip);
+                playedLandClip = true;
+            }
             elapsedTime += Time.deltaTime;
             yield return null;
         }

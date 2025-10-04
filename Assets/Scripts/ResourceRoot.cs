@@ -52,4 +52,8 @@ public class ResourceRoot : ScriptableObject
     public AudioClip buttonClickNeutralClip;
     public AudioClip buttonClickBackClip;
 
+    public AudioClip pawnSelectClip;
+    public AudioClip pawnLandClip;
+    
+
 }
