@@ -1,48 +1,36 @@
 using System;
-using System.Linq;
 using Contract;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.UI;
 
 public class GuiMovement : GameElement
 {
     public TextMeshProUGUI statusText;
-    public Button menuButton;
-    public Button extraButton;
-    public Button cheatButton;
-    public TextMeshProUGUI cheatButtonText;
-    public Button badgeButton;
-    public TextMeshProUGUI badgeButtonText;
     public Button submitMoveButton;
     public TextMeshProUGUI submitMoveButtonText;
     public Button graveyardButton;
-    public Button refreshButton;
-    public Toggle autoSubmitToggle;
     public GuiGameOverModal gameOverModal;
     public PhaseInfoDisplay phaseInfoDisplay;
     GameNetworkState? lastNetState;
     
-    public Action OnMenuButton;
-    public Action OnExtraButton;
-    
-    public Action OnCheatButton;
-    public Action OnBadgeButton;
     public Action OnSubmitMoveButton;
     public Action OnGraveyardButton;
-    public Action OnRefreshButton;
-    public Action<bool> OnAutoSubmitToggle;
+    void Awake()
+    {
+        if (submitMoveButton != null)
+        {
+            submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
+        }
+        if (graveyardButton != null)
+        {
+            graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
+        }
+    }
+
     void Start()
     {
-        menuButton.onClick.AddListener(HandleEscapeMenuButton);
-        extraButton.onClick.AddListener(() => OnExtraButton?.Invoke());
-        submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
-        graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
-        refreshButton.onClick.AddListener(() => OnRefreshButton?.Invoke());
-        cheatButton.onClick.AddListener(() => OnCheatButton?.Invoke());
-        badgeButton.onClick.AddListener(() => OnBadgeButton?.Invoke());
-        autoSubmitToggle.onValueChanged.AddListener((autoSubmit) => OnAutoSubmitToggle?.Invoke(autoSubmit));
+        // no-op; initialization occurs in InitializeFromState on mode enter
     }
 
     public void AttachSubscriptions()
@@ -61,17 +49,11 @@ public class GuiMovement : GameElement
         ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
     
-    void HandleEscapeMenuButton()
-    {
-        OnMenuButton?.Invoke();
-    }
-
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
         lastNetState = net;
         bool isMyTurn = net.IsMySubphase();
         statusText.text = isMyTurn ? "Commit your move" : "Awaiting opponent move";
-        refreshButton.interactable = true;
         submitMoveButton.interactable = false;
         submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
         if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);

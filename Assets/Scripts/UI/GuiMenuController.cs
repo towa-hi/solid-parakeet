@@ -54,9 +54,6 @@ public class GuiMenuController: MonoBehaviour
 		lobbyJoinerElement.OnJoinButton += JoinLobby;
 		
 		walletElement.OnBackButton += GotoMainMenu;
-
-		gameElement.movement.OnMenuButton = OpenEscapeModal;
-		gameElement.resolve.OnMenuButton = OpenEscapeModal;
 		gameElement.EscapePressed += OpenEscapeModal;
 	}
 
