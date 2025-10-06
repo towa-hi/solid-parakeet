@@ -65,9 +65,9 @@ public class BoardManager : MonoBehaviour
         guiGame.setup.OnClearButton = () => store.Dispatch(new SetupClearAll());
         guiGame.setup.OnAutoSetupButton = () => store.Dispatch(new SetupAutoFill());
         guiGame.setup.OnRefreshButton = () => store.Dispatch(new RefreshRequested());
-        guiGame.setup.OnSubmitButton = () => store.Dispatch(new SetupSubmit());
+		guiGame.setup.OnSubmitButton = () => store.Dispatch(new SetupSubmit());
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
-        guiGame.movement.OnSubmitMoveButton = () => store.Dispatch(new MoveSubmit());
+		guiGame.movement.OnSubmitMoveButton = () => store.Dispatch(new MoveSubmit());
         guiGame.resolve.OnPrevButton = () => store.Dispatch(new ResolvePrev());
         guiGame.resolve.OnNextButton = () => store.Dispatch(new ResolveNext());
         guiGame.resolve.OnSkipButton = () => store.Dispatch(new ResolveSkip());
@@ -219,4 +219,6 @@ public class BoardManager : MonoBehaviour
                 break;
         }
     }
+
+
 }
