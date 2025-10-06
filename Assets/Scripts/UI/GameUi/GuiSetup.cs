@@ -47,9 +47,6 @@ public class GuiSetup : GameElement
 
     public override void OnClientModeChanged(GameSnapshot snapshot)
     {
-        if (snapshot.Mode != ClientMode.Setup) {
-            return;
-        };
         Reset(snapshot.Net);
     }
 

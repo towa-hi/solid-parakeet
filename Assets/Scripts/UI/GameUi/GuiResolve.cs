@@ -38,7 +38,7 @@ public class GuiResolve : GameElement
     
     public override void OnClientModeChanged(GameSnapshot snapshot)
     {
-        Reset(snapshot.Net);
+        //Reset(snapshot.Net);
     }
 
     public override void Reset(GameNetworkState net)
