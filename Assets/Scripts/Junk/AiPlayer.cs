@@ -400,6 +400,8 @@ public static class AiPlayer
         return final_estimates;
     }
     static bool __boring_move_pruning = true;
+	// When enabled, skip evaluating branches where a Scout moves more than 1 tile without attacking
+	public static bool scoutPerformanceMode = true;
     static List<SimMove> ally_moves = new();
     static List<SimMove> oppn_moves = new();
     static List<SimMove> ally_moves_2 = new();
@@ -488,6 +490,11 @@ public static class AiPlayer
         foreach (var ally_move in ally_moves)
         {
             await __MaybeYield();
+            if (scoutPerformanceMode && IsNonAttackingLongScoutMove(state.pawns, ally_move))
+            {
+                // Skip evaluating long, non-attacking Scout moves entirely
+                continue;
+            }
             float move_score_total = 0;
             bool is_scout = state.pawns[ally_move.last_pos].rank == Rank.SCOUT;
             // check if this branch is worth evaluating at all
@@ -517,6 +524,11 @@ public static class AiPlayer
             foreach (var oppn_move in oppn_moves)
             {
                 await __MaybeYield();
+                if (scoutPerformanceMode && IsNonAttackingLongScoutMove(state.pawns, oppn_move))
+                {
+                    oppn_moves_skipped++;
+                    continue;
+                }
                 // check to see if opponents response is intentionally suiciding without allocating
                 if (state.pawns.ContainsKey(oppn_move.next_pos))
                 {
@@ -556,6 +568,11 @@ public static class AiPlayer
                     foreach (var ally_move_2 in ally_moves_2)
                     {
                         await __MaybeYield();
+                        if (scoutPerformanceMode && IsNonAttackingLongScoutMove(state.pawns, ally_move_2))
+                        {
+                            ally_moves_2_skipped++;
+                            continue;
+                        }
                         second_turn_all_possibilities++;
                         if (state.pawns.ContainsKey(ally_move_2.next_pos))
                         {
@@ -607,6 +624,11 @@ public static class AiPlayer
                         foreach (var oppn_move_2 in oppn_moves_2)
                         {
                             await __MaybeYield();
+                            if (scoutPerformanceMode && IsNonAttackingLongScoutMove(state.pawns, oppn_move_2))
+                            {
+                                oppn_moves_2_skipped++;
+                                continue;
+                            }
                             if (state.pawns.ContainsKey(oppn_move_2.next_pos))
                             {
                                 oppn_pawn = state.pawns[oppn_move_2.last_pos];
@@ -817,6 +839,28 @@ public static class AiPlayer
         var delta = next_pos - last_pos;
         return Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y)) > 1;
     }
+
+	// True if the move is by a Scout, moves more than 1 tile, and the destination is not an immediate attack
+	static bool IsNonAttackingLongScoutMove(
+		IReadOnlyDictionary<Vector2Int, SimPawn> pawns,
+		SimMove move)
+	{
+		if (!pawns.TryGetValue(move.last_pos, out var mover))
+		{
+			return false;
+		}
+		if (mover.rank != Rank.SCOUT)
+		{
+			return false;
+		}
+		if (!IsScoutMove(move.last_pos, move.next_pos))
+		{
+			return false; // single-step Scout move is allowed
+		}
+		// If target is occupied, CollectMoves only generates when it's an enemy, i.e., an attack
+		// so we only skip when target is empty (non-attack).
+		return !pawns.ContainsKey(move.next_pos);
+	}
 
     private static HashSet<(SimPawn, SimPawn)> mut_swaps = new();
     private static Vector2Int[] __undo_positions_arr = new Vector2Int[0];
