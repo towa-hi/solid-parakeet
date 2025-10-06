@@ -71,6 +71,40 @@ public class PhaseInfoDisplay : MonoBehaviour
             displayMoveProve = false;
             displayRankProve = false;
         }
+        // Flash checks for my team while a related request is in flight
+        if (displayMoveCommit && StellarManager.PendingPhaseFlash.moveCommitMyTeam)
+        {
+            if (netState.userTeam == Team.RED)
+            {
+                moveCommitSubphaseIndicator.FlashRed(0.75f);
+            }
+            else
+            {
+                moveCommitSubphaseIndicator.FlashBlue(0.75f);
+            }
+        }
+        if (displayMoveProve && StellarManager.PendingPhaseFlash.moveProveMyTeam)
+        {
+            if (netState.userTeam == Team.RED)
+            {
+                moveProveSubphaseIndicator.FlashRed(0.75f);
+            }
+            else
+            {
+                moveProveSubphaseIndicator.FlashBlue(0.75f);
+            }
+        }
+        if (displayRankProve && StellarManager.PendingPhaseFlash.rankProveMyTeam)
+        {
+            if (netState.userTeam == Team.RED)
+            {
+                rankProveSubphaseIndicator.FlashRed(0.75f);
+            }
+            else
+            {
+                rankProveSubphaseIndicator.FlashBlue(0.75f);
+            }
+        }
         if (turnText is not null)
         {
             turnTitleText.text = turnText;

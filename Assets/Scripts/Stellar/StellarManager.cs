@@ -41,6 +41,21 @@ public static class StellarManager
     static float lastUpdateFinishedAt;         // realtimeSinceStartup
 
     public static bool initialized = false;
+
+    // Minimal UI feedback for in-flight phase operations
+    public static class PendingPhaseFlash
+    {
+        public static bool moveCommitMyTeam;
+        public static bool moveProveMyTeam;
+        public static bool rankProveMyTeam;
+
+        public static void ClearAll()
+        {
+            moveCommitMyTeam = false;
+            moveProveMyTeam = false;
+            rankProveMyTeam = false;
+        }
+    }
     
     static StellarManager()
     {
@@ -207,6 +222,8 @@ public static class StellarManager
             // mark last update time for debounce
             lastUpdateFinishedAt = Time.realtimeSinceStartup;
             nextPollAllowedAt = Mathf.Max(nextPollAllowedAt, lastUpdateFinishedAt + pollInterval);
+            // Any pending flashes should end after a state refresh
+            PendingPhaseFlash.ClearAll();
             return Result<bool>.Ok(true);
         }
         using (TaskScope scope = new TaskScope("ReqNetworkState", showTask, "UpdateState"))
@@ -264,6 +281,8 @@ public static class StellarManager
             // mark last update time for debounce
             lastUpdateFinishedAt = Time.realtimeSinceStartup;
             nextPollAllowedAt = Mathf.Max(nextPollAllowedAt, lastUpdateFinishedAt + pollInterval);
+            // Any pending flashes should end after a state refresh
+            PendingPhaseFlash.ClearAll();
             return Result<bool>.Ok(true);
         }
     }
@@ -439,6 +458,13 @@ public static class StellarManager
             // If opponent has already made a moveCommit, we can safely batch
             // If security mode is disabled, we can always batch
             bool canBatchProveMove = lobbyInfo.subphase != Subphase.Both || !lobbyParameters.security_mode;
+            // Set flashing for my team while request is in-flight
+            Team myTeam = lobbyInfo.GetMyTeam(userAddress, lobbyParameters.host_team);
+            PendingPhaseFlash.moveCommitMyTeam = true;
+            if (canBatchProveMove)
+            {
+                PendingPhaseFlash.moveProveMyTeam = true;
+            }
             Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)> result;
             if (canBatchProveMove) {
                 result = await StellarDotnet.CallContractFunction(networkContext, "commit_move_and_prove_move", new IScvMapCompatable[] {commitMoveReq, proveMoveReq}, scope.tracker);
@@ -457,6 +483,9 @@ public static class StellarManager
         Debug.Assert(lobbyInfo.IsMySubphase(userAddress));
         using (TaskScope scope = new TaskScope("ProveMoveRequest"))
         {
+        // Flash my team's move prove while in-flight
+        Team myTeam = lobbyInfo.GetMyTeam(userAddress, lobbyParameters.host_team);
+        PendingPhaseFlash.moveProveMyTeam = true;
         bool canSimulate = lobbyInfo.phase == Phase.MoveProve && lobbyInfo.subphase != Subphase.Both;
         PawnId[] neededRankProofs = Array.Empty<PawnId>();
         if (canSimulate)
@@ -511,6 +540,8 @@ public static class StellarManager
     {
         using (TaskScope scope = new TaskScope("Invoke Prove_rank", true, "ProveRankRequest"))
         {
+            // Flash my team's rank prove while in-flight (team unknown here; UI maps flag to my team)
+            PendingPhaseFlash.rankProveMyTeam = true;
             var result = await StellarDotnet.CallContractFunction(networkContext, "prove_rank", req, scope.tracker);
             // result.Err already logs
             return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "ProveRankRequest failed");
