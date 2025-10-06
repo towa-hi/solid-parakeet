@@ -19,17 +19,10 @@ public record ProveMoveAction(ProveMoveReq Req) : GameAction;
 public record ProveRankAction(ProveRankReq Req) : GameAction;
 public record UiWaitingForResponse(UiWaitingForResponseData Data) : GameAction;
 
-// UI actions (stubbed for now)
-public record SelectTile(Vector2Int Pos) : GameAction;
-public record ClearSelection() : GameAction;
-public record AddMovePair(Vector2Int Start, Vector2Int Target) : GameAction;
-public record ClearMovePair(Vector2Int Start) : GameAction;
 // Movement input (new system)
 public record MoveHoverAction(Vector2Int Pos) : GameAction;
 public record MoveClickAt(Vector2Int Pos) : GameAction;
 public record MoveSubmit() : GameAction;
-public record SetupRankSelectedAction(Rank? Rank) : GameAction;
-public record SetupCommitEdited(Dictionary<PawnId, Rank?> Pending) : GameAction;
 public record ResolvePrev() : GameAction;
 public record ResolveNext() : GameAction;
 public record ResolveSkip() : GameAction;

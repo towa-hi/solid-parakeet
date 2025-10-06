@@ -100,10 +100,6 @@ public sealed class UiReducer : IGameReducer
                 };
                 return (state with { Ui = ui }, emitted);
             }
-            case SetupSubmit:
-                // No state change; effect will build and dispatch CommitSetupAction
-                Debug.Log("UiReducer: SetupSubmit");
-                break;
             case SetupHoverAction hover:
             {
                 Debug.Log($"UiReducer: SetupHoverAction pos={hover.Pos}");
@@ -208,41 +204,12 @@ public sealed class UiReducer : IGameReducer
                 }
                 return (state, null);
             }
+            
+            case SetupSubmit:
             case MoveSubmit:
-                // NetworkEffects handles request construction
-                break;
-            case SelectTile sel:
-                ui = ui with { SelectedPos = sel.Pos, HoveredPos = sel.Pos };
-                break;
-            case ClearSelection:
-                ui = ui with { SelectedPos = null };
-                break;
-            case AddMovePair add:
-            {
-                var dict = new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>(ui.MovePairs);
-                PawnId id = state.Net.GetAlivePawnFromPosUnchecked(add.Start).pawn_id;
-                dict[id] = (add.Start, add.Target);
-                ui = ui with { MovePairs = dict };
-                break;
-            }
-            case ClearMovePair clr:
-            {
-                var dict = new Dictionary<PawnId, (Vector2Int start, Vector2Int target)>(ui.MovePairs);
-                foreach (var kv in ui.MovePairs)
-                {
-                    if (kv.Value.start == clr.Start) { dict.Remove(kv.Key); break; }
-                }
-                ui = ui with { MovePairs = dict };
-                break;
-            }
             case ResolvePrev:
             case ResolveNext:
             case ResolveSkip:
-                // Will be handled by a dedicated ResolveReducer in a later step
-                break;
-            case SetupRankSelectedAction:
-            case SetupCommitEdited:
-                // Will be handled by a SetupReducer in a later step
                 break;
             default:
                 return (state, null);
