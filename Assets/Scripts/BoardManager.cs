@@ -279,7 +279,7 @@ public class BoardManager : MonoBehaviour
             HandleFatalNetworkError(submit.Message);
             return;
         }
-        LogTaskExceptions(StellarManager.UpdateState());
+        UpdateState();
 	}
 
 	async void OnSubmitMoveButton()
@@ -305,7 +305,7 @@ public class BoardManager : MonoBehaviour
             HandleFatalNetworkError(submit.Message);
             return;
         }
-        LogTaskExceptions(StellarManager.UpdateState());
+        UpdateState();
 	}
 
     async void UpdateState()

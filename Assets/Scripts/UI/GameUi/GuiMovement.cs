@@ -11,7 +11,6 @@ public class GuiMovement : GameElement
     public Button submitMoveButton;
     public TextMeshProUGUI submitMoveButtonText;
     public Button graveyardButton;
-    public GuiGameOverModal gameOverModal;
     public PhaseInfoDisplay phaseInfoDisplay;
     
     
@@ -90,23 +89,94 @@ public class GuiMovement : GameElement
         Debug.Log($"GuiMovement.HandleStateUpdated: snapshot={snapshot}");
         GameNetworkState net = snapshot.Net;
 
-        string statusMessage = "Commit your move";
-        bool waiting = snapshot.Ui.WaitingForResponse?.Action is CommitMoveAndProve;
-        if (waiting)
-        {
-            statusMessage = "Committed move...";
-        }
-        else if (!net.IsMySubphase())
-        {
-            statusMessage = "Awaiting opponent move";
-        }
-        bool canSubmit = net.IsMySubphase() && !waiting;
+        Phase phase = net.lobbyInfo.phase;
+        Subphase subphase = net.lobbyInfo.subphase;
+        bool myTurn = net.IsMySubphase();
+        bool secure = net.lobbyParameters.security_mode;
+        bool waiting = snapshot.Ui.WaitingForResponse != null;
 
+        string statusMessage = "Commit your move";
         string submitButtonMessage = $"Commit Move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+
         if (waiting)
         {
-            submitButtonMessage = $"Sent move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+            GameAction action = snapshot.Ui.WaitingForResponse.Action;
+            if (action is CommitMoveAndProve)
+            {
+                statusMessage = secure ? "Submitting move commit..." : "Submitting move...";
+                submitButtonMessage = $"Sent move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+            }
+            else if (action is ProveMove)
+            {
+                statusMessage = "Submitting move proof...";
+                submitButtonMessage = "Submitting proof...";
+            }
+            else if (action is ProveRank)
+            {
+                statusMessage = "Submitting rank proof...";
+                submitButtonMessage = "Submitting proof...";
+            }
+            else if (action is UpdateState)
+            {
+                statusMessage = "Updating game state...";
+                submitButtonMessage = "Please wait...";
+            }
         }
+        else
+        {
+            switch (phase)
+            {
+                case Phase.MoveCommit:
+                    if (myTurn)
+                    {
+                        statusMessage = secure ? "Your turn: commit your move" : "Your turn: make your move";
+                        submitButtonMessage = $"Commit Move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+                    }
+                    else
+                    {
+                        statusMessage = "Waiting for opponent to commit move";
+                        submitButtonMessage = "Waiting for opponent...";
+                    }
+                    break;
+                case Phase.MoveProve:
+                    if (myTurn)
+                    {
+                        statusMessage = "Your turn: prove your move";
+                    }
+                    else if (subphase == Subphase.Both)
+                    {
+                        statusMessage = "Both players may prove moves";
+                    }
+                    else
+                    {
+                        statusMessage = "Waiting for opponent's move proof";
+                    }
+                    submitButtonMessage = "Proving phase";
+                    break;
+                case Phase.RankProve:
+                    if (myTurn)
+                    {
+                        statusMessage = "Your turn: prove required ranks";
+                    }
+                    else if (subphase == Subphase.Both)
+                    {
+                        statusMessage = "Both players may prove ranks";
+                    }
+                    else
+                    {
+                        statusMessage = "Waiting for opponent's rank proof";
+                    }
+                    submitButtonMessage = "Rank proving phase";
+                    break;
+                default:
+                    statusMessage = myTurn ? "Your turn" : "Waiting for opponent";
+                    submitButtonMessage = myTurn ? submitButtonMessage : "Please wait...";
+                    break;
+            }
+        }
+
+        bool canSubmit = phase == Phase.MoveCommit && myTurn && !waiting;
+
         statusText.text = statusMessage;
         submitMoveButton.interactable = canSubmit;
         submitMoveButtonText.text = submitButtonMessage;

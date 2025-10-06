@@ -36,7 +36,7 @@ public static class StellarManager
     static bool desiredPolling;
     static int pollingHoldCount;
     // Polling debounce
-    static readonly float pollInterval = 0.5f; // seconds
+    static readonly float pollInterval = 2.5f; // seconds
     static float nextPollAllowedAt;            // realtimeSinceStartup
     static float lastUpdateFinishedAt;         // realtimeSinceStartup
 
