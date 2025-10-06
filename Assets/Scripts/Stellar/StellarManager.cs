@@ -539,10 +539,6 @@ public static class StellarManager
     public static void SetPolling(bool enable)
     {
         // Polling is centrally managed; callers specify desired state
-        if (!networkContext.online && enable)
-        {
-            throw new Exception("SetPolling is not supported in offline mode");
-        }
         desiredPolling = enable;
         if (enable && pollingHoldCount == 0)
         {
