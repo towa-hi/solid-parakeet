@@ -38,9 +38,9 @@ public class PhaseInfoDisplay : MonoBehaviour
                 displayMoveCommit = true;
                 moveCommitSubphaseIndicator.Set(netState.lobbyInfo.subphase, hostTeam);
                 displayMoveProve = true;
-                moveProveSubphaseIndicator.Set(Subphase.None, hostTeam);
+                moveProveSubphaseIndicator.Set(Subphase.Both, hostTeam);
                 displayRankProve = true;
-                rankProveSubphaseIndicator.Set(Subphase.None, hostTeam);
+                rankProveSubphaseIndicator.Set(Subphase.Both, hostTeam);
                 turnText = "TURN " + netState.gameState.turn.ToString();
                 break;
             case Phase.MoveProve:
