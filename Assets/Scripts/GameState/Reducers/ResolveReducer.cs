@@ -30,7 +30,7 @@ public sealed class ResolveReducer : IGameReducer
                     LocalUiState ui2 = LocalUiState.Empty with { HoveredPos = ui.HoveredPos };
                     GameSnapshot s2 = state with { Ui = ui2, Mode = nextMode };
                     UnityEngine.Debug.Log($"[ResolveReducer] Emitting ClientModeChangedEvent: nextMode={nextMode}");
-                    return (s2, new List<GameEvent>{ new ClientModeChangedEvent(nextMode, s2.Net, ui2)});
+                    return (s2, new List<GameEvent>{ new ClientModeChangedEvent(s2)});
                 }
                 if (ui.Checkpoint == ResolveCheckpoint.Pre)
                 {
@@ -66,7 +66,7 @@ public sealed class ResolveReducer : IGameReducer
                     LocalUiState ui2 = LocalUiState.Empty with { HoveredPos = ui.HoveredPos };
                     GameSnapshot s2 = state with { Ui = ui2, Mode = nextMode };
                     UnityEngine.Debug.Log($"[ResolveReducer] Emitting ClientModeChangedEvent: nextMode={nextMode}");
-                    return (s2, new List<GameEvent>{ new ClientModeChangedEvent(nextMode, s2.Net, ui2)});
+                    return (s2, new List<GameEvent>{ new ClientModeChangedEvent(s2)});
                 }
                 else
                 {

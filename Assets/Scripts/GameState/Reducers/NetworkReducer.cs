@@ -30,7 +30,7 @@ public sealed class NetworkReducer : IGameReducer
                     }
                     GameSnapshot nextTmp = current with { Net = a.Net, Mode = newMode, Ui = ui };
                     Debug.Log($"[NetworkReducer] Emitting ClientModeChangedEvent: mode={newMode}");
-                    return (nextTmp, new List<GameEvent> { new ClientModeChangedEvent(newMode, a.Net, ui) });
+                    return (nextTmp, new List<GameEvent> { new ClientModeChangedEvent(nextTmp) });
                 }
                 else if (a.Delta.TurnResolve.HasValue)
                 {

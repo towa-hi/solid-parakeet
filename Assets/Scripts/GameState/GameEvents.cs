@@ -19,6 +19,6 @@ public record MovePairsChangedEvent(System.Collections.Generic.Dictionary<PawnId
 public record ResolveCheckpointChangedEvent(ResolveCheckpoint Checkpoint, TurnResolveDelta ResolveData, int BattleIndex, GameNetworkState Net) : GameEvent;
 
 // Client mode changed (single authority: NetworkReducer)
-public record ClientModeChangedEvent(ClientMode Mode, GameNetworkState Net, LocalUiState Ui) : GameEvent;
+public record ClientModeChangedEvent(GameSnapshot Snapshot) : GameEvent;
 
 

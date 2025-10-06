@@ -56,10 +56,10 @@ public class GuiGame : MenuElement
         menuController.ExitGame();
     }
 
-    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+    void HandleClientModeChanged(GameSnapshot snapshot)
     {
-        Debug.Log($"[GuiGame] Begin HandleClientModeChanged mode={mode}");
-        GameElement desired = mode switch
+        Debug.Log($"[GuiGame] Begin HandleClientModeChanged mode={snapshot.Mode}");
+        GameElement desired = snapshot.Mode switch
         {
             ClientMode.Setup => setup,
             ClientMode.Move => movement,
@@ -75,19 +75,7 @@ public class GuiGame : MenuElement
         if (currentGameElement != null) currentGameElement.ShowElement(false);
         currentGameElement = desired;
         currentGameElement.ShowElement(true);
-        // Initialize panel deterministically on mode change
-        if (desired == setup)
-        {
-            setup.InitializeFromState(net, ui);
-        }
-        else if (desired == movement)
-        {
-            movement.InitializeFromState(net, ui);
-        }
-        else if (desired == resolve)
-        {
-            resolve.Initialize(net);
-        }
+        currentGameElement.OnClientModeChanged(snapshot);
         // Enable polling only during Setup and Move modes
         //StellarManager.SetPolling(mode == ClientMode.Setup || mode == ClientMode.Move);
         Debug.Log("[GuiGame] End HandleClientModeChanged");

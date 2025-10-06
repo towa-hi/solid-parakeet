@@ -103,7 +103,7 @@ public class BoardManager : MonoBehaviour
         // Expose a resolver so views can map positions to TileViews (for arrows, etc.)
         ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
         // Seed initial mode to views now that board/pawn views exist
-        ViewEventBus.RaiseClientModeChanged(initMode, netState, store.State.Ui ?? LocalUiState.Empty);
+        ViewEventBus.RaiseClientModeChanged(new GameSnapshot { Mode = initMode, Net = netState, Ui = store.State.Ui ?? LocalUiState.Empty });
         Debug.Log("BoardManager.Initialize: finished creating views; starting music");
         AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
         // Ensure no duplicate subscriptions if StartBoardManager is called repeatedly

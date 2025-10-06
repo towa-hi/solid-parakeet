@@ -469,7 +469,10 @@ public abstract class GameElement: MonoBehaviour
 		gameObject.SetActive(show);
 	}
 
-	public abstract void InitializeFromState(GameNetworkState net, LocalUiState ui);
+	public abstract void OnClientModeChanged(GameSnapshot snapshot);
+
+	public abstract void Refresh(GameSnapshot snapshot);
+	public abstract void Reset(GameNetworkState net);
 	
 }
 

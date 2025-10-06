@@ -25,14 +25,6 @@ public class GuiResolve : GameElement
         nextButton.onClick.AddListener(HandleNextButton);
         skipButton.onClick.AddListener(HandleSkipButton);
     }
-
-    public void Initialize(GameNetworkState gameNetworkState)
-    {
-        arenaController.Initialize(gameNetworkState.lobbyParameters.board.hex);
-        statusText.text = "Resolve: start";
-        prevButtonLabel.text = "<- [none]";
-        nextButtonLabel.text = "[apply moves] ->";
-    }
     
     public void AttachSubscriptions()
     {
@@ -44,6 +36,20 @@ public class GuiResolve : GameElement
         ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
     }
     
+    public override void OnClientModeChanged(GameSnapshot snapshot)
+    {
+        Reset(snapshot.Net);
+    }
+
+    public override void Reset(GameNetworkState net)
+    {
+
+    }
+
+    public override void Refresh(GameSnapshot snapshot)
+    {
+        HandleResolveCheckpointChanged(snapshot.Ui.Checkpoint, snapshot.Ui.ResolveData, snapshot.Ui.BattleIndex, snapshot.Net);
+    }
     void HandleResolveCheckpointChanged(ResolveCheckpoint checkpoint, TurnResolveDelta tr, int battleIndex, GameNetworkState net)
     {
         Debug.Log($"[GuiResolve] Begin HandleResolveCheckpointChanged checkpoint={checkpoint} index={battleIndex} moves={(tr.moves?.Count ?? 0)} battles={(tr.battles?.Length ?? 0)}");
@@ -103,12 +109,5 @@ public class GuiResolve : GameElement
     {
         Debug.Log("GuiResolve.HandleSkipButton");
         OnSkipButton?.Invoke();
-    }
-
-    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
-    {
-        Initialize(net);
-        // Seed from current checkpoint if any
-        HandleResolveCheckpointChanged(ui.Checkpoint, ui.ResolveData, ui.BattleIndex, net);
     }
 }

@@ -109,9 +109,9 @@ public class TileView : MonoBehaviour
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
     }
 
-	void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+	void HandleClientModeChanged(GameSnapshot snapshot)
     {
-        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: ClientModeChanged mode={mode}");
+        if (enableDebugLogs) Debug.Log($"TileView[{posView}]: ClientModeChanged mode={snapshot.Mode}");
         // Reset base visuals common to any mode switch
 		SetArrow(null);
 		SetRenderEffect(EffectType.HOVEROUTLINE, false);
@@ -121,10 +121,10 @@ public class TileView : MonoBehaviour
         isSelected = false;
         // Mode-specific initialization
         SetTileDebug();
-        TileState tile = net.GetTileUnchecked(posView);
+        TileState tile = snapshot.Net.GetTileUnchecked(posView);
         SetTopColor(Color.clear);
         // When entering modes, seed arrows immediately for Resolve only (Move arrows will be driven by events)
-        switch (mode)
+        switch (snapshot.Mode)
         {
 			case ClientMode.Setup:
 			{
@@ -141,7 +141,7 @@ public class TileView : MonoBehaviour
                 bool start = false;
                 bool target = false;
                 TileView targetTile = null;
-                var tr = ui.ResolveData;
+                var tr = snapshot.Ui.ResolveData;
                 if (tr.moves != null)
                 {
                     foreach (var kv in tr.moves)

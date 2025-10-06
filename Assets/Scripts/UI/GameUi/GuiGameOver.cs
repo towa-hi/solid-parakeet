@@ -16,14 +16,31 @@ public class GuiGameOver : GameElement
         returnButton.onClick.AddListener(OnReturnClicked.Invoke);
     }
 
-    // New system: drive from client mode change
-    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+
+    public void AttachSubscriptions()
     {
-        bool isFinished = mode == ClientMode.Finished || mode == ClientMode.Aborted;
-        ShowElement(isFinished);
-        if (!isFinished) return;
+        
+    }
+
+    public void DetachSubscriptions()
+    {
+        
+    }
+
+    public override void OnClientModeChanged(GameSnapshot snapshot)
+    {
+        Reset(snapshot.Net);
+    }
+
+    public override void Reset(GameNetworkState net)
+    {
         string msg = BuildMessage(net);
-        if (messageText != null) messageText.text = msg;
+        messageText.text = msg;
+    }
+
+    public override void Refresh(GameSnapshot snapshot)
+    {
+
     }
 
     string BuildMessage(GameNetworkState netState)
@@ -58,20 +75,6 @@ public class GuiGameOver : GameElement
         }
     }
 
-    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
-    {
-        HandleClientModeChanged(ModeDecider.DecideClientMode(net, default), net, ui);
-    }
-
-    public void AttachSubscriptions()
-    {
-        ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
-    }
-
-    public void DetachSubscriptions()
-    {
-        ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
-    }
 
 }
 

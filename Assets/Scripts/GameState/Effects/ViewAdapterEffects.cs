@@ -19,21 +19,21 @@ public sealed class ViewAdapterEffects : IGameEffect
 			switch (e)
 			{
 					case ClientModeChangedEvent m:
-						ViewEventBus.RaiseClientModeChanged(m.Mode, m.Net, m.Ui);
+						ViewEventBus.RaiseClientModeChanged(m.Snapshot);
 						// Emit an initial hover update appropriate for the new mode so cursor updates immediately
-						bool isMyTurn = m.Net.IsMySubphase();
-					if (m.Mode == ClientMode.Move)
+						bool isMyTurn = m.Snapshot.Net.IsMySubphase();
+					if (m.Snapshot.Mode == ClientMode.Move)
 						{
 							var targets = new System.Collections.Generic.HashSet<UnityEngine.Vector2Int>();
-						if (UiSelectors.ComputeCursorTool(m.Mode, m.Net, m.Ui) == CursorInputTool.MOVE_SELECT && m.Net.GetAlivePawnFromPosChecked(m.Ui.HoveredPos) is Contract.PawnState pawn)
+						if (UiSelectors.ComputeCursorTool(m.Snapshot.Mode, m.Snapshot.Net, m.Snapshot.Ui) == CursorInputTool.MOVE_SELECT && m.Snapshot.Net.GetAlivePawnFromPosChecked(m.Snapshot.Ui.HoveredPos) is Contract.PawnState pawn)
 							{
-								targets = m.Net.GetValidMoveTargetList(pawn.pawn_id, m.Ui.MovePairs.ToDictionary(kv => kv.Key, kv => (kv.Value.start, kv.Value.target)));
+								targets = m.Snapshot.Net.GetValidMoveTargetList(pawn.pawn_id, m.Snapshot.Ui.MovePairs.ToDictionary(kv => kv.Key, kv => (kv.Value.start, kv.Value.target)));
 							}
-						ViewEventBus.RaiseMoveHoverChanged(m.Ui.HoveredPos, isMyTurn, targets);
+						ViewEventBus.RaiseMoveHoverChanged(m.Snapshot.Ui.HoveredPos, isMyTurn, targets);
 						}
-					else if (m.Mode == ClientMode.Setup)
+					else if (m.Snapshot.Mode == ClientMode.Setup)
 						{
-						ViewEventBus.RaiseSetupHoverChanged(m.Ui.HoveredPos, isMyTurn);
+						ViewEventBus.RaiseSetupHoverChanged(m.Snapshot.Ui.HoveredPos, isMyTurn);
 						}
 						break;
 				case SetupHoverChangedEvent sh:

@@ -78,17 +78,19 @@ public class GuiMovement : GameElement
     }
     
 
-    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
+    public override void OnClientModeChanged(GameSnapshot snapshot)
     {
-        // lastNetState = net;
-        // bool isMyTurn = net.IsMySubphase();
-        // statusText.text = isMyTurn ? "Commit your move" : "Awaiting opponent move";
-        // submitMoveButton.interactable = false;
-        // submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
-		// if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
-		// //if (graveyardList != null) graveyardList.Refresh(net);
+        Reset(snapshot.Net);
     }
 
+    public override void Reset(GameNetworkState net)
+    {
+
+    }
+    public override void Refresh(GameSnapshot snapshot)
+    {
+        HandleStateUpdated(snapshot);
+    }
     void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
     {
         // Only cursor/selection visuals handled by tiles; GUI updates not needed here

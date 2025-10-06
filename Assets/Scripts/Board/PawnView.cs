@@ -99,13 +99,13 @@ public class PawnView : MonoBehaviour
         SetRank(Rank.UNKNOWN);
     }
 
-    void HandleClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+    void HandleClientModeChanged(GameSnapshot snapshot)
     {
         SetAnimatorIsSelected(false);
 
-        PawnState p = net.GetPawnFromId(pawnId);
-        Rank known = p.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
-		switch (mode)
+        PawnState p = snapshot.Net.GetPawnFromId(pawnId);
+        Rank known = p.GetKnownRank(snapshot.Net.userTeam) ?? Rank.UNKNOWN;
+		switch (snapshot.Mode)
 		{
             case ClientMode.Setup:
 			{

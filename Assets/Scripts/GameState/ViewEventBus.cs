@@ -5,7 +5,7 @@ using UnityEngine;
 
 public static class ViewEventBus
 {
-    public static event Action<ClientMode, GameNetworkState, LocalUiState> OnClientModeChanged;
+    public static event Action<GameSnapshot> OnClientModeChanged;
     public static event Action<GameSnapshot> OnStateUpdated;
     public static event Action<Vector2Int, bool> OnSetupHoverChanged;
     public static event Action<Dictionary<PawnId, Rank?>, Dictionary<PawnId, Rank?>> OnSetupPendingChanged;
@@ -26,11 +26,11 @@ public static class ViewEventBus
     public static void RaiseSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap) => OnSetupPendingChanged?.Invoke(oldMap, newMap);
     public static void RaiseSetupRankSelected(Rank? oldRank, Rank? newRank) => OnSetupRankSelected?.Invoke(oldRank, newRank);
     
-    public static void RaiseClientModeChanged(ClientMode mode, GameNetworkState net, LocalUiState ui)
+    public static void RaiseClientModeChanged(GameSnapshot snapshot)
     {
-        UnityEngine.Debug.Log($"[ViewEventBus] Begin ClientModeChanged mode={mode}");
-        OnClientModeChanged?.Invoke(mode, net, ui);
-        UnityEngine.Debug.Log($"[ViewEventBus] End ClientModeChanged mode={mode}");
+        UnityEngine.Debug.Log($"[ViewEventBus] Begin ClientModeChanged mode={snapshot.Mode}");
+        OnClientModeChanged?.Invoke(snapshot);
+        UnityEngine.Debug.Log($"[ViewEventBus] End ClientModeChanged mode={snapshot.Mode}");
     }
     public static void RaiseStateUpdated(GameSnapshot snapshot)
     {

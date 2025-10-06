@@ -17,9 +17,6 @@ public class GuiSetup : GameElement
     public GameObject rankEntryPrefab;
     public Dictionary<Rank, GuiRankListEntry> entries;
     Dictionary<Rank, int> usedCounts = new();
-    Rank? selectedRank;
-    GameNetworkState? lastNetState;
-    bool canInteract = true;
 
     public Action OnClearButton;
     public Action OnAutoSetupButton;
@@ -34,30 +31,34 @@ public class GuiSetup : GameElement
         clearButton.onClick.AddListener(() => OnClearButton?.Invoke());
         autoSetupButton.onClick.AddListener(() => OnAutoSetupButton?.Invoke());
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
+        entries = new();
     }
 
     // Subscriptions controlled by BoardManager lifecycle, not Unity enable/disable
     public void AttachSubscriptions()
     {
-        ViewEventBus.OnSetupRankSelected += HandleSetupRankSelected;
-        ViewEventBus.OnSetupPendingChanged += HandleSetupPendingChanged;
         ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
 
     public void DetachSubscriptions()
     {
-        ViewEventBus.OnSetupRankSelected -= HandleSetupRankSelected;
-        ViewEventBus.OnSetupPendingChanged -= HandleSetupPendingChanged;
         ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
 
-    void Initialize(GameNetworkState netState)
+    public override void OnClientModeChanged(GameSnapshot snapshot)
     {
-        lastNetState = netState;
-        // Clear existing entries
+        if (snapshot.Mode != ClientMode.Setup) {
+            return;
+        };
+        Reset(snapshot.Net);
+    }
+
+    public override void Reset(GameNetworkState net)
+    {
+        setupScreen.Uninitialize();
         foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
         entries = new();
-        uint[] maxRanks = netState.lobbyParameters.max_ranks;
+        uint[] maxRanks = net.lobbyParameters.max_ranks;
         for (int i = 0; i < maxRanks.Length; i++)
         {
             Rank rank = (Rank)i;
@@ -66,8 +67,8 @@ public class GuiSetup : GameElement
             rankListEntry.Initialize(rank);
             entries[rank].Refresh((int)maxRanks[i], 0, false, true);
         }
-        setupScreen.Initialize(netState);
-        setupScreen.OnCardRankClicked = (rank) => { if (canInteract) OnEntryClicked?.Invoke(rank); };
+        setupScreen.Initialize(net);
+        setupScreen.OnCardRankClicked = (rank) => OnCardClicked(rank);
         if (setupScreen.isActiveAndEnabled)
         {
             setupScreen.PlayOpenAnimation();
@@ -81,79 +82,33 @@ public class GuiSetup : GameElement
         setupScreen.RefreshFromRanks(rankList.ToArray());
         // reset local trackers
         usedCounts.Clear();
-        selectedRank = null;
     }
 
-    public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
+    public override void Refresh(GameSnapshot snapshot)
     {
-        Debug.Log("GuiSetup.InitializeFromState");
-        if (!isActiveAndEnabled)
-        {
-            return;
-        }
-        Initialize(net);
-        // Deterministic initial UI state
+        GameNetworkState net = snapshot.Net;
+        LocalUiState ui = snapshot.Ui;
         bool isMyTurn = net.IsMySubphase();
-        bool waiting = ui?.WaitingForResponse != null;
-        canInteract = isMyTurn && !waiting;
-        if (waiting)
-        {
-            statusText.text = "Submitting setup...";
-        }
-        else
-        {
-            statusText.text = isMyTurn ? "Commit your pawn setup" : "Awaiting opponent setup";
-        }
-        autoSetupButton.interactable = canInteract;
-        submitButton.interactable = false;
-        clearButton.interactable = false;
-        // Apply initial UI state: selection and pending counts
-        if (ui.SelectedRank is Rank sel)
-        {
-            HandleSetupRankSelected(null, sel);
-        }
-        if (ui.PendingCommits != null)
-        {
-            HandleSetupPendingChanged(new Dictionary<PawnId, Rank?>(), ui.PendingCommits);
-            // auto-setup remains gated by turn; submit/clear toggled by handler
-            autoSetupButton.interactable = canInteract;
-        }
-    }
+        bool waitingForResponse = ui.WaitingForResponse is not null;
+        bool canCommitSetup = isMyTurn && !waitingForResponse;
 
-    void HandleSetupRankSelected(Rank? oldRank, Rank? newRank)
-    {
-        selectedRank = newRank;
-        if (lastNetState is not GameNetworkState net) return;
-        uint[] maxRanks = lastNetState.Value.lobbyParameters.max_ranks;
-        for (int i = 0; i < maxRanks.Length; i++)
+        string statusMessage = "Commit your setup";
+        if (waitingForResponse)
         {
-            Rank rank = (Rank)i;
-            int used = usedCounts.TryGetValue(rank, out int u) ? u : 0;
-            if (entries != null && entries.TryGetValue(rank, out GuiRankListEntry entry))
-            {
-                bool interactable = canInteract && used < maxRanks[i];
-                entry.Refresh((int)maxRanks[i], used, newRank == rank, interactable);
-            }
+            statusMessage = "Submitting setup...";
         }
-    }
+        else if (!isMyTurn)
+        {
+            statusMessage = "Awaiting opponent setup commitment";
+        }
+        autoSetupButton.interactable = canCommitSetup;
+        submitButton.interactable = canCommitSetup;
+        clearButton.interactable = canCommitSetup;
+        statusText.text = statusMessage;
 
-    void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)
-    {
-        if (lastNetState is not GameNetworkState net) return;
-        // recompute used counts per rank
-        usedCounts.Clear();
-        foreach (Rank rank in Enum.GetValues(typeof(Rank)))
-        {
-            usedCounts[(Rank)rank] = 0;
-        }
-        foreach (var kv in newMap)
-        {
-            if (kv.Value is Rank r)
-            {
-                usedCounts[r] = usedCounts.TryGetValue(r, out int c) ? c + 1 : 1;
-            }
-        }
         uint[] maxRanks = net.lobbyParameters.max_ranks;
+
+
         var ranksArray = new (Rank, int, int)[maxRanks.Length];
         bool allFilled = true;
         bool anyUsed = false;
@@ -167,50 +122,23 @@ public class GuiSetup : GameElement
             anyUsed |= used > 0;
             if (entries != null && entries.TryGetValue(rk, out GuiRankListEntry entry))
             {
-                bool interactable = canInteract && used < max;
-                entry.Refresh(max, used, selectedRank == rk, interactable);
+                bool interactable = canCommitSetup && used < max;
+                bool selected = ui.SelectedRank == rk;
+                entry.Refresh(max, used, selected, interactable);
             }
-        }
-        if (canInteract)
-        {
-            string message = "Place all pawns on the board";
-            if (allFilled)
-            {
-                message = "Commit your pawn setup";
-            }
-            statusText.text = message;
         }
         setupScreen.RefreshFromRanks(ranksArray);
-        submitButton.interactable = allFilled && canInteract;
-        clearButton.interactable = anyUsed && canInteract;
+    }
+
+    
+    void OnCardClicked(Rank rank)
+    {
+        OnEntryClicked?.Invoke(rank);
     }
 
     void HandleStateUpdated(GameSnapshot snapshot)
     {
-        if (!isActiveAndEnabled) return;
-        if (snapshot == null) return;
-        lastNetState = snapshot.Net;
-        bool isMyTurn = snapshot.Net.IsMySubphase();
-        bool waiting = snapshot.Ui?.WaitingForResponse != null;
-        canInteract = isMyTurn && !waiting;
-        if (waiting)
-        {
-            statusText.text = "Submitting setup...";
-            autoSetupButton.interactable = false;
-            submitButton.interactable = false;
-            clearButton.interactable = false;
-            return;
-        }
-        if (!isMyTurn)
-        {
-            statusText.text = "Awaiting opponent setup";
-            autoSetupButton.interactable = false;
-            submitButton.interactable = false;
-            clearButton.interactable = false;
-            return;
-        }
-        // My turn and not waiting: allow auto-setup; submit/clear are governed by pending handler
-        autoSetupButton.interactable = true;
+        Refresh(snapshot);
     }
 
 }

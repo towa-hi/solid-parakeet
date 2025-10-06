@@ -53,7 +53,7 @@ public sealed class GameStore
                 string details = e switch
                 {
                     ResolveCheckpointChangedEvent rc => $"ResolveCheckpointChanged checkpoint={rc.Checkpoint} index={rc.BattleIndex} moves={(rc.ResolveData.moves?.Count ?? 0)} battles={(rc.ResolveData.battles?.Length ?? 0)}",
-                    ClientModeChangedEvent cm => $"ClientModeChanged mode={cm.Mode}",
+                    ClientModeChangedEvent cm => $"ClientModeChanged mode={cm.Snapshot.Mode}",
                     MoveHoverChangedEvent mh => $"MoveHoverChanged pos={mh.Pos} targets={mh.Targets?.Count}",
                     MoveSelectionChangedEvent ms => $"MoveSelectionChanged selected={(ms.SelectedPos?.ToString() ?? "-")} targets={ms.Targets?.Count}",
                     MovePairsChangedEvent mp => $"MovePairsChanged old={mp.OldPairs?.Count} new={mp.NewPairs?.Count}",
