@@ -43,7 +43,6 @@ public class GuiLobbyViewer : MenuElement
     public override void ShowElement(bool show)
     {
         base.ShowElement(show);
-        StellarManager.SetPolling(show);
     }
 
     public override void Refresh()

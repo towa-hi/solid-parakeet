@@ -469,6 +469,10 @@ public abstract class GameElement: MonoBehaviour
 		gameObject.SetActive(show);
 	}
 
+	public abstract void AttachSubscriptions();
+	public abstract void DetachSubscriptions();
+
+
 	public abstract void OnClientModeChanged(GameSnapshot snapshot);
 
 	public abstract void Refresh(GameSnapshot snapshot);

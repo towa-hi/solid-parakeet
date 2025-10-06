@@ -26,12 +26,12 @@ public class GuiResolve : GameElement
         skipButton.onClick.AddListener(HandleSkipButton);
     }
     
-    public void AttachSubscriptions()
+    public override void AttachSubscriptions()
     {
         ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChanged;
     }
 
-    public void DetachSubscriptions()
+    public override void DetachSubscriptions()
     {
         ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
     }

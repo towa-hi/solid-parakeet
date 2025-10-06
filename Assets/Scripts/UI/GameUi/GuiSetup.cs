@@ -16,7 +16,6 @@ public class GuiSetup : GameElement
     public TextMeshProUGUI statusText;
     public GameObject rankEntryPrefab;
     public Dictionary<Rank, GuiRankListEntry> entries;
-    Dictionary<Rank, int> usedCounts = new();
 
     public Action OnClearButton;
     public Action OnAutoSetupButton;
@@ -35,12 +34,12 @@ public class GuiSetup : GameElement
     }
 
     // Subscriptions controlled by BoardManager lifecycle, not Unity enable/disable
-    public void AttachSubscriptions()
+    public override void AttachSubscriptions()
     {
         ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
 
-    public void DetachSubscriptions()
+    public override void DetachSubscriptions()
     {
         ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }
@@ -52,6 +51,7 @@ public class GuiSetup : GameElement
 
     public override void Reset(GameNetworkState net)
     {
+        Debug.Log($"GuiSetup.Reset: net={net}");
         setupScreen.Uninitialize();
         foreach (Transform child in rankEntryListRoot) { Destroy(child.gameObject); }
         entries = new();
@@ -78,12 +78,12 @@ public class GuiSetup : GameElement
         }
         setupScreen.RefreshFromRanks(rankList.ToArray());
         // reset local trackers
-        usedCounts.Clear();
     }
 
     public override void Refresh(GameSnapshot snapshot)
     {
         GameNetworkState net = snapshot.Net;
+        Debug.Log($"GuiSetup.Refresh: snapshot={snapshot}");
         LocalUiState ui = snapshot.Ui;
         bool isMyTurn = net.IsMySubphase();
         bool waitingForResponse = ui.WaitingForResponse is not null;
@@ -105,6 +105,7 @@ public class GuiSetup : GameElement
 
         uint[] maxRanks = net.lobbyParameters.max_ranks;
 
+        var usedCounts = ui.PendingCommits.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.Count());
 
         var ranksArray = new (Rank, int, int)[maxRanks.Length];
         bool allFilled = true;

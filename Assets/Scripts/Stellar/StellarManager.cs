@@ -35,6 +35,10 @@ public static class StellarManager
     static Coroutine pollingCoroutine;
     static bool desiredPolling;
     static int pollingHoldCount;
+    // Polling debounce
+    static readonly float pollInterval = 0.5f; // seconds
+    static float nextPollAllowedAt;            // realtimeSinceStartup
+    static float lastUpdateFinishedAt;         // realtimeSinceStartup
 
     public static bool initialized = false;
     
@@ -200,6 +204,9 @@ public static class StellarManager
                     OnNetworkStateUpdated?.Invoke();
                 }
             }
+            // mark last update time for debounce
+            lastUpdateFinishedAt = Time.realtimeSinceStartup;
+            nextPollAllowedAt = Mathf.Max(nextPollAllowedAt, lastUpdateFinishedAt + pollInterval);
             return Result<bool>.Ok(true);
         }
         using (TaskScope scope = new TaskScope("ReqNetworkState", showTask, "UpdateState"))
@@ -254,6 +261,9 @@ public static class StellarManager
                     OnNetworkStateUpdated?.Invoke();
                 }
             }
+            // mark last update time for debounce
+            lastUpdateFinishedAt = Time.realtimeSinceStartup;
+            nextPollAllowedAt = Mathf.Max(nextPollAllowedAt, lastUpdateFinishedAt + pollInterval);
             return Result<bool>.Ok(true);
         }
     }
@@ -545,6 +555,9 @@ public static class StellarManager
             if (pollingCoroutine == null)
             {
                 isPolling = true;
+                // Delay first poll at least one interval after the most recent update
+                float baseTime = Time.realtimeSinceStartup;
+                nextPollAllowedAt = Mathf.Max(baseTime + pollInterval, lastUpdateFinishedAt + pollInterval);
                 pollingCoroutine = CoroutineRunner.instance.StartCoroutine(PollCoroutine());
             }
         }
@@ -564,6 +577,13 @@ public static class StellarManager
         // TODO: figure out how to handle offline mode
         while (isPolling)
         {
+            // Respect minimum interval between polls
+            float now = Time.realtimeSinceStartup;
+            if (now < nextPollAllowedAt)
+            {
+                yield return new WaitForSeconds(nextPollAllowedAt - now);
+                continue;
+            }
             // Avoid overlapping with any in-flight task
             if (!IsBusy)
             {
@@ -572,6 +592,9 @@ public static class StellarManager
                 {
                     yield return null;
                 }
+                // schedule next allowed time after update completes
+                lastUpdateFinishedAt = Time.realtimeSinceStartup;
+                nextPollAllowedAt = lastUpdateFinishedAt + pollInterval;
             }
             yield return new WaitForSeconds(0.5f);
         }

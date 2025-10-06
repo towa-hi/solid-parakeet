@@ -67,17 +67,18 @@ public class GuiGame : MenuElement
             ClientMode.Finished or ClientMode.Aborted => gameOver,
             _ => movement,
         };
-        if (currentGameElement == desired)
+        
+        if (currentGameElement != null) 
         {
-            Debug.Log("[GuiGame] Early return; panel unchanged");
-            return;
+            currentGameElement.ShowElement(false);
+            currentGameElement.DetachSubscriptions();
         }
-        if (currentGameElement != null) currentGameElement.ShowElement(false);
         currentGameElement = desired;
+        currentGameElement.AttachSubscriptions();
         currentGameElement.ShowElement(true);
         currentGameElement.OnClientModeChanged(snapshot);
         // Enable polling only during Setup and Move modes
-        //StellarManager.SetPolling(mode == ClientMode.Setup || mode == ClientMode.Move);
+        StellarManager.SetPolling(snapshot.Mode == ClientMode.Setup || snapshot.Mode == ClientMode.Move);
         Debug.Log("[GuiGame] End HandleClientModeChanged");
     }
 

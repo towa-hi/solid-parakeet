@@ -50,12 +50,12 @@ public class GuiMovement : GameElement
 		trigger.triggers.Add(entry);
 	}
 
-    public void AttachSubscriptions()
+    public override void AttachSubscriptions()
     {
         ViewEventBus.OnStateUpdated += HandleStateUpdated;
     }
 
-    public void DetachSubscriptions()
+    public override void DetachSubscriptions()
     {
         ViewEventBus.OnStateUpdated -= HandleStateUpdated;
     }

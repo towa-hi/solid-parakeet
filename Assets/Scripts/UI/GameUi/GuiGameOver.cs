@@ -17,12 +17,12 @@ public class GuiGameOver : GameElement
     }
 
 
-    public void AttachSubscriptions()
+    public override void AttachSubscriptions()
     {
         
     }
 
-    public void DetachSubscriptions()
+    public override void DetachSubscriptions()
     {
         
     }

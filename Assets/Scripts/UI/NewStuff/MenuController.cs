@@ -303,6 +303,12 @@ public class MenuController : MonoBehaviour
 
     public async Task EnterGame()
     {
+        Result<bool> updateResult = await StellarManager.UpdateState();
+        if (updateResult.IsError)
+        {
+            await HandleOpError(updateResult, false);
+            return;
+        }
         await SetMenuAsync(gameMenuPrefab);
         // Ensure we resume on Unity's main thread and allow UI transition to fully settle
         await Task.Yield();
