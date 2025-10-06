@@ -104,24 +104,19 @@ public class PawnView : MonoBehaviour
         SetAnimatorIsSelected(false);
 
         PawnState p = net.GetPawnFromId(pawnId);
-        bool alive = p.alive;
-        Vector2Int pos = p.pos;
         Rank known = p.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN;
 		switch (mode)
 		{
             case ClientMode.Setup:
 			{
 				SetRank(known);
-				bool shouldBeVisible = alive && known != Rank.UNKNOWN;
+				bool shouldBeVisible = known != Rank.UNKNOWN;
                 // Don't touch fog in Setup; leave tiles clear
                 SetModelVisible(shouldBeVisible);
 				break;
 			}
 			case ClientMode.Resolve:
 			{
-				SetRank(known);
-                // Let checkpoint events drive fog; avoid using current snapshot here
-                SetModelVisible(alive);
 				break;
 			}
 			case ClientMode.Move:
@@ -130,8 +125,8 @@ public class PawnView : MonoBehaviour
 			default:
 			{
 				SetRank(known);
-                Debug.Log($"PawnView[{pawnId}]: HandleClientModeChanged mode={mode} alive={alive} known={known} Setting Model Visible from client mode");
-                SetModelVisible(alive, p);
+                Debug.Log($"PawnView[{pawnId}]: HandleClientModeChanged mode={mode} alive={p.alive} known={known} Setting Model Visible from client mode");
+                SetModelVisible(p.alive);
 				break;
 			}
 		}
