@@ -283,7 +283,7 @@ public class TileView : MonoBehaviour
     void SetFogColor(Color targetColor)
 	{
 		// Ensure fog object active
-        Debug.Log($"TileView[{posView}]: SetFogColor targetColor={targetColor}");
+        //Debug.Log($"TileView[{posView}]: SetFogColor targetColor={targetColor}");
 		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
 		{
 			tileModel.fogObject.SetActive(true);
@@ -315,7 +315,7 @@ public class TileView : MonoBehaviour
 
     void SetFogState(FogState state)
     {
-        Debug.Log($"TileView[{posView}]: SetFogState state={state}");
+        //Debug.Log($"TileView[{posView}]: SetFogState state={state}");
         fogState = state;
         switch (state)
         {
@@ -335,7 +335,7 @@ public class TileView : MonoBehaviour
     // Single public entrypoint for fog updates driven by pawn state
     public void UpdateFogFromPawnState(PawnState pawn)
     {
-        Debug.Log($"TileView[{posView}]: UpdateFogFromPawnState pawn={pawn}");
+        //Debug.Log($"TileView[{posView}]: UpdateFogFromPawnState pawn={pawn}");
         pawnFogOwner = pawn;
         FogState state = FogState.NONE;
         if (!pawn.zz_revealed)
@@ -358,7 +358,7 @@ public class TileView : MonoBehaviour
         }
         else
         {
-            Debug.Log($"TileView[{posView}]: ClearFog failed to clear fog for pawn={pawn}");
+            Debug.LogError($"TileView[{posView}]: ClearFog failed to clear fog for pawn={pawn}");
         }
     }
     void SetTopColor(Color color)

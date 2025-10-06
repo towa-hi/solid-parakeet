@@ -205,8 +205,6 @@ public sealed class UiReducer : IGameReducer
                 return (state, null);
             }
             
-            case SetupSubmit:
-            case MoveSubmit:
             case ResolvePrev:
             case ResolveNext:
             case ResolveSkip:

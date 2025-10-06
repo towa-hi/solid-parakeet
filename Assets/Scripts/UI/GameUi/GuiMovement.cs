@@ -80,13 +80,13 @@ public class GuiMovement : GameElement
 
     public override void InitializeFromState(GameNetworkState net, LocalUiState ui)
     {
-        lastNetState = net;
-        bool isMyTurn = net.IsMySubphase();
-        statusText.text = isMyTurn ? "Commit your move" : "Awaiting opponent move";
-        submitMoveButton.interactable = false;
-        submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
-		if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
-		//if (graveyardList != null) graveyardList.Refresh(net);
+        // lastNetState = net;
+        // bool isMyTurn = net.IsMySubphase();
+        // statusText.text = isMyTurn ? "Commit your move" : "Awaiting opponent move";
+        // submitMoveButton.interactable = false;
+        // submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
+		// if (phaseInfoDisplay != null) phaseInfoDisplay.Set(net);
+		// //if (graveyardList != null) graveyardList.Refresh(net);
     }
 
     void HandleMoveHoverChanged(Vector2Int pos, bool isMyTurn, System.Collections.Generic.HashSet<Vector2Int> _)
@@ -117,31 +117,31 @@ public class GuiMovement : GameElement
         statusText.text = planned > 0 ? "Submit move" : "Select a pawn";
     }
 
-
     void HandleStateUpdated(GameSnapshot snapshot)
     {
         Debug.Log($"GuiMovement.HandleStateUpdated: snapshot={snapshot}");
-        // if (snapshot == null)
-        // {
-        //     return;
-        // }
-        // if (snapshot.Mode != ClientMode.Move)
-        // {
-        //     return;
-        // }
-		// // React to phase/subphase or turn changes within Move (e.g., Resolve->Move same phase but new turn)
-        // if (!lastNetState.HasValue)
-        // {
-        //     InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
-        //     return;
-        // }
-        // var prev = lastNetState.Value;
-        // var next = snapshot.Net;
-		// if (prev.lobbyInfo.phase != next.lobbyInfo.phase
-		// 	|| prev.lobbyInfo.subphase != next.lobbyInfo.subphase
-		// 	|| prev.gameState.turn != next.gameState.turn)
-        // {
-        //     InitializeFromState(snapshot.Net, snapshot.Ui ?? LocalUiState.Empty);
-        // }
+        GameNetworkState net = snapshot.Net;
+
+        string statusMessage = "Commit your move";
+        bool waiting = snapshot.Ui.WaitingForResponse?.Action is CommitMoveAndProve;
+        if (waiting)
+        {
+            statusMessage = "Committed move...";
+        }
+        else if (!net.IsMySubphase())
+        {
+            statusMessage = "Awaiting opponent move";
+        }
+        bool canSubmit = net.IsMySubphase() && !waiting;
+
+        string submitButtonMessage = $"Commit Move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+        if (waiting)
+        {
+            submitButtonMessage = $"Sent move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+        }
+        statusText.text = statusMessage;
+        submitMoveButton.interactable = canSubmit;
+        submitMoveButtonText.text = submitButtonMessage;
+        phaseInfoDisplay.Set(net);
     }
 }

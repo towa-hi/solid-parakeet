@@ -54,7 +54,7 @@ public class BoardManager : MonoBehaviour
         }
         Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
         IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new ResolveReducer(), new UiReducer() };
-        IGameEffect[] effects = new IGameEffect[] { new NetworkEffects(), new global::ViewAdapterEffects(), new global::StoreDebugEffect() };
+        IGameEffect[] effects = new IGameEffect[] { new ViewAdapterEffects(), new StoreDebugEffect() };
         store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
             reducers,
@@ -64,10 +64,9 @@ public class BoardManager : MonoBehaviour
         Debug.Log($"BoardManager.Initialize: initial ClientMode={initMode}");
         guiGame.setup.OnClearButton = () => store.Dispatch(new SetupClearAll());
         guiGame.setup.OnAutoSetupButton = () => store.Dispatch(new SetupAutoFill());
-        guiGame.setup.OnRefreshButton = () => store.Dispatch(new RefreshRequested());
-		guiGame.setup.OnSubmitButton = () => store.Dispatch(new SetupSubmit());
+		guiGame.setup.OnSubmitButton = OnSubmitSetupButton;
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
-		guiGame.movement.OnSubmitMoveButton = () => store.Dispatch(new MoveSubmit());
+		guiGame.movement.OnSubmitMoveButton = OnSubmitMoveButton;
         guiGame.resolve.OnPrevButton = () => store.Dispatch(new ResolvePrev());
         guiGame.resolve.OnNextButton = () => store.Dispatch(new ResolveNext());
         guiGame.resolve.OnSkipButton = () => store.Dispatch(new ResolveSkip());
@@ -175,7 +174,7 @@ public class BoardManager : MonoBehaviour
         initialized = false;
     }
     
-    void OnGameStateBeforeApplied(GameNetworkState netState, NetworkDelta delta)
+    async void OnGameStateBeforeApplied(GameNetworkState net, NetworkDelta delta)
     {
         if (!initialized)
         {
@@ -187,10 +186,48 @@ public class BoardManager : MonoBehaviour
         {
             return;
         }
-        Debug.Log($"BoardManager.OnGameStateBeforeApplied: turn={netState.gameState.turn} phase={netState.lobbyInfo.phase} sub={netState.lobbyInfo.subphase} delta: phaseChanged={delta.PhaseChanged} turnChanged={delta.TurnChanged} hasResolve={(delta.TurnResolve.HasValue)}");
-
-		store?.Dispatch(new NetworkStateChanged(netState, delta));
-        // Polling toggles are now handled by PollingEffects
+        // update store
+        store.Dispatch(new NetworkStateChanged(net, delta));
+        // automatically send requests if we can build them
+        if (!StellarManager.IsBusy)
+        {
+            bool fireAndForgetUpdateState = false;
+            if (store.State.Net.lobbyInfo.phase == Phase.MoveProve && store.State.Net.IsMySubphase())
+            {
+                if (store.State.TryBuildProveMoveReqFromCache(out var proveMoveReq))
+                {
+                    store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveMove(proveMoveReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+                    Result<bool> result = await StellarManager.ProveMoveRequest(proveMoveReq, net.address, net.lobbyInfo, net.lobbyParameters);
+                    store.Dispatch(new UiWaitingForResponse(null));
+                    if (result.IsError)
+                    {
+                        HandleFatalNetworkError(result.Message);
+                        return;
+                    }
+                    fireAndForgetUpdateState = true;
+                }
+            }
+            if (store.State.Net.lobbyInfo.phase == Phase.RankProve && store.State.Net.IsMySubphase())
+            {
+                if (store.State.TryBuildProveRankReqFromCache(out var proveRankReq))
+                {
+                    store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveRank(proveRankReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+                    Result<bool> result = await StellarManager.ProveRankRequest(proveRankReq);
+                    store.Dispatch(new UiWaitingForResponse(null));
+                    if (result.IsError)
+                    {
+                        HandleFatalNetworkError(result.Message);
+                        return;
+                    }
+                    fireAndForgetUpdateState = true;
+                }
+            }
+            if (fireAndForgetUpdateState)
+            {
+                UpdateState();
+            }
+        }
+        
     }
 
     void OnMouseInput(Vector2Int pos, bool clicked)
@@ -220,5 +257,104 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+	async void OnSubmitSetupButton()
+	{
+		var net = store.State.Net;
+		Debug.Log($"[BoardManager] OnSubmitSetupButton: phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} busy={StellarManager.IsBusy}");
+		if (!net.IsMySubphase() || StellarManager.IsBusy)
+		{
+			Debug.Log($"[BoardManager] OnSubmitSetupButton: skipped isMySubphase={net.IsMySubphase()} busy={StellarManager.IsBusy}");
+			return;
+		}
+		if (!store.State.TryBuildCommitSetupReq(out var req))
+		{
+			Debug.LogWarning("[BoardManager] OnSubmitSetupButton: no commits to submit; skipping");
+			return;
+		}
+        store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitSetup(req), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        Result<bool> submit = await StellarManager.CommitSetupRequest(req);
+        store.Dispatch(new UiWaitingForResponse(null));
+        if (submit.IsError)
+        {
+            HandleFatalNetworkError(submit.Message);
+            return;
+        }
+        LogTaskExceptions(StellarManager.UpdateState());
+	}
 
+	async void OnSubmitMoveButton()
+	{
+		var net = store.State.Net;
+		var pairsCount = store.State.Ui?.MovePairs?.Count ?? 0;
+		Debug.Log($"[BoardManager] OnSubmitMoveButton: phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} pairs={pairsCount} busy={StellarManager.IsBusy}");
+		if (!net.IsMySubphase() || pairsCount == 0 || StellarManager.IsBusy)
+		{
+			Debug.Log($"[BoardManager] OnSubmitMoveButton: skipped isMySubphase={net.IsMySubphase()} pairs={pairsCount} busy={StellarManager.IsBusy}");
+			return;
+		}
+		if (!store.State.TryBuildCommitMoveAndProveMoveReqs(out var commit, out var prove))
+		{
+			Debug.LogWarning("[BoardManager] OnSubmitMoveButton: could not build move reqs; skipping");
+			return;
+		}
+		store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitMoveAndProve(commit, prove), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+		Result<bool> submit = await StellarManager.CommitMoveRequest(commit, prove, net.address, net.lobbyInfo, net.lobbyParameters);
+        store.Dispatch(new UiWaitingForResponse(null));
+        if (submit.IsError)
+        {
+            HandleFatalNetworkError(submit.Message);
+            return;
+        }
+        LogTaskExceptions(StellarManager.UpdateState());
+	}
+
+    async void UpdateState()
+    {
+        store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new UpdateState(), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        var result = await StellarManager.UpdateState();
+        store.Dispatch(new UiWaitingForResponse(null));
+        if (result.IsError)
+        {
+            HandleFatalNetworkError(result.Message);
+            return;
+        }
+    }
+    
+    static void HandleFatalNetworkError(string message)
+    {
+        string msg = string.IsNullOrEmpty(message) ? "You're now in Offline Mode." : message;
+        // Ensure polling is paused via UI transitions; do not manage here
+        MenuController menuController = UnityEngine.Object.FindFirstObjectByType<MenuController>();
+        if (menuController != null)
+        {
+            menuController.OpenMessageModal($"Network Unavailable\n{msg}");
+            menuController.ExitGame();
+        }
+        else
+        {
+            Debug.LogError($"MenuController not found. Error: {msg}");
+        }
+    }
+
+    static void LogTaskExceptions(Task task)
+	{
+		if (task == null) return;
+		if (task.IsCompleted)
+		{
+			if (task.IsFaulted && task.Exception != null)
+			{
+				Debug.LogException(task.Exception);
+			}
+		}
+		else
+		{
+			_ = task.ContinueWith(t =>
+			{
+				if (t.IsFaulted && t.Exception != null)
+				{
+					Debug.LogException(t.Exception);
+				}
+			}, TaskContinuationOptions.OnlyOnFaulted);
+		}
+	}
 }
