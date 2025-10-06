@@ -10,7 +10,7 @@ public static class ViewEventBus
     public static event Action<Vector2Int, bool> OnSetupHoverChanged;
     public static event Action<Dictionary<PawnId, Rank?>, Dictionary<PawnId, Rank?>> OnSetupPendingChanged;
     public static event Action<Rank?, Rank?> OnSetupRankSelected;
-    public static event Action<UiWaitingForResponseData> OnUiWaitingForResponse;
+
     // Movement events (store-driven)
     public static event Action<Vector2Int, bool, HashSet<Vector2Int>> OnMoveHoverChanged;
     
@@ -50,7 +50,6 @@ public static class ViewEventBus
         OnResolveCheckpointChanged?.Invoke(checkpoint, tr, battleIndex, net);
         UnityEngine.Debug.Log($"[ViewEventBus] End ResolveCheckpointChanged checkpoint={checkpoint} index={battleIndex}");
     }
-    public static void RaiseUiWaitingForResponse(UiWaitingForResponseData data) => OnUiWaitingForResponse?.Invoke(data);
 }
 
 

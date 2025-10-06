@@ -148,7 +148,6 @@ public sealed class UiReducer : IGameReducer
                         var validTargets = state.Net.GetValidMoveTargetList(pawn.pawn_id, ui.MovePairs.ToDictionary(kv => kv.Key, kv => (kv.Value.start, kv.Value.target)));
                         emitted.Add(new MoveSelectionChangedEvent(ui.SelectedPos, validTargets));
                     }
-                    var newCursorTool = UiSelectors.ComputeCursorTool(state.Mode, state.Net, ui);
                     emitted.Add(new MoveHoverChangedEvent(ui.HoveredPos, state.Net.IsMySubphase(), new HashSet<Vector2Int>()));
                     return (state with { Ui = ui }, emitted);
                 }
