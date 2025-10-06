@@ -13,7 +13,7 @@ public class GuiMovement : GameElement
     public Button graveyardButton;
     public GuiGameOverModal gameOverModal;
     public PhaseInfoDisplay phaseInfoDisplay;
-    GameNetworkState? lastNetState;
+    
     
     public Action OnSubmitMoveButton;
     public Action OnGraveyardButton;
@@ -63,19 +63,29 @@ public class GuiMovement : GameElement
 
     public override void OnClientModeChanged(GameSnapshot snapshot)
     {
-        //Reset(snapshot.Net);
+        Reset(snapshot.Net);
     }
 
     public override void Reset(GameNetworkState net)
     {
-
+        // Clear any persisted local trackers
+        // Ensure hover panel is hidden on entry
+        if (graveyardList != null)
+        {
+            graveyardList.gameObject.SetActive(false);
+        }
+        graveyardList.Clear();
+        // Set default UI copy and interactivity independent of UI store state
+        statusText.text = "Commit your move";
+        submitMoveButton.interactable = net.IsMySubphase();
+        submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
+        // Initialize phase panel with structural network parameters
+        if (phaseInfoDisplay != null)
+        {
+            phaseInfoDisplay.Set(net);
+        }
     }
     public override void Refresh(GameSnapshot snapshot)
-    {
-        HandleStateUpdated(snapshot);
-    }
-
-    void HandleStateUpdated(GameSnapshot snapshot)
     {
         Debug.Log($"GuiMovement.HandleStateUpdated: snapshot={snapshot}");
         GameNetworkState net = snapshot.Net;
@@ -101,5 +111,10 @@ public class GuiMovement : GameElement
         submitMoveButton.interactable = canSubmit;
         submitMoveButtonText.text = submitButtonMessage;
         phaseInfoDisplay.Set(net);
+    }
+
+    void HandleStateUpdated(GameSnapshot snapshot)
+    {
+        Refresh(snapshot);
     }
 }

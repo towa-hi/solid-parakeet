@@ -40,7 +40,8 @@ public class GuiGameOver : GameElement
 
     public override void Refresh(GameSnapshot snapshot)
     {
-
+        string msg = BuildMessage(snapshot.Net);
+        messageText.text = msg;
     }
 
     string BuildMessage(GameNetworkState netState)
