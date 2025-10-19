@@ -67,6 +67,7 @@ public class BoardManager : MonoBehaviour
 		guiGame.setup.OnSubmitButton = OnSubmitSetupButton;
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
 		guiGame.movement.OnSubmitMoveButton = OnSubmitMoveButton;
+        guiGame.movement.OnRedeemWinButton = OnRedeemWinButton;
         guiGame.resolve.OnPrevButton = () => store.Dispatch(new ResolvePrev());
         guiGame.resolve.OnNextButton = () => store.Dispatch(new ResolveNext());
         guiGame.resolve.OnSkipButton = () => store.Dispatch(new ResolveSkip());
@@ -307,6 +308,27 @@ public class BoardManager : MonoBehaviour
         }
         UpdateState();
 	}
+
+    async void OnRedeemWinButton()
+    {
+        var net = store.State.Net;
+        Debug.Log($"[BoardManager] OnRedeemWinButton: phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} busy={StellarManager.IsBusy}");
+        if (net.lobbyInfo.phase != Phase.Finished || !net.IsMySubphase() || StellarManager.IsBusy)
+        {
+            Debug.Log($"[BoardManager] OnRedeemWinButton: skipped phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} busy={StellarManager.IsBusy}");
+            return;
+        }
+        var req = new RedeemWinReq { lobby_id = net.lobbyInfo.index };
+        store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new RedeemWin(req), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        Result<bool> submit = await StellarManager.RedeemWinRequest(req);
+        store.Dispatch(new UiWaitingForResponse(null));
+        if (submit.IsError)
+        {
+            HandleFatalNetworkError(submit.Message);
+            return;
+        }
+        UpdateState();
+    }
 
     async void UpdateState()
     {

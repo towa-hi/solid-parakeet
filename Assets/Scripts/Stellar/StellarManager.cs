@@ -548,6 +548,20 @@ public static class StellarManager
         }
     }
 
+    public static async Task<Result<bool>> RedeemWinRequest(RedeemWinReq req)
+    {
+        if (!networkContext.online)
+        {
+            Debug.Log("RedeemWinRequest fake");
+            return Result<bool>.Ok(true);
+        }
+        using (TaskScope scope = new TaskScope("RedeemWinRequest"))
+        {
+            var result = await StellarDotnet.CallContractFunction(networkContext, "redeem_win", req, scope.tracker);
+            return result.IsOk ? Result<bool>.Ok(true) : ErrWithContext(result, "RedeemWinRequest failed");
+        }
+    }
+
     public static async Task<Result<AccountEntry>> GetAccount(string key)
     {
         using (TaskScope scope = new TaskScope("ReqAccountEntry", true, "GetAccount"))

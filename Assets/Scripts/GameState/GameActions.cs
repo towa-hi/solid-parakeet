@@ -36,4 +36,5 @@ public record CommitSetup(CommitSetupReq Req) : GameAction;
 public record CommitMoveAndProve(CommitMoveReq CommitReq, ProveMoveReq ProveReq) : GameAction;
 public record ProveMove(ProveMoveReq Req) : GameAction;
 public record ProveRank(ProveRankReq Req) : GameAction;
+public record RedeemWin(RedeemWinReq Req) : GameAction;
 
