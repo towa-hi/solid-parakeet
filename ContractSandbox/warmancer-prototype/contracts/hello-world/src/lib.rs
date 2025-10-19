@@ -271,7 +271,6 @@ impl Contract {
         instance.set(&DataKey::Admin, &admin);
         Ok(())
     }
-    /// convenience function for extending ttl for a lobby if it exists
     pub fn extend_lobby_ttl(e: &Env, _address: Address, lobby_id: LobbyId) -> Result<(), Error> {
         let temporary = e.storage().temporary();
         const THRESHOLD: u32 = 17280;
@@ -284,7 +283,6 @@ impl Contract {
         persistent.extend_ttl(&DataKey::HistoryTurns(lobby_id), THRESHOLD, EXTEND);
         Ok(())
     }
-    /// Admin-only: Create or replace a storage entry for the given key with the provided value.
     pub fn create_entry(e: &Env, address: Address, key: DataKey, value: AnyValue) -> Result<(), Error> {
         address.require_auth();
         let instance = e.storage().instance();
@@ -322,20 +320,6 @@ impl Contract {
         e.deployer().update_current_contract_wasm(new_wasm_hash);
         Ok(())
     }
-    /// # Parameters
-    /// - `address`: Creator's address (becomes host)
-    /// - `req.lobby_id`: Unique lobby identifier
-    /// - `req.parameters`: `LobbyParameters` with board, rank limits, game modes
-    /// # Requirements
-    /// - User must not be in an unexpired lobby
-    /// # State Changes
-    /// - Creates `LobbyInfo` in `Phase::Lobby`
-    /// - Stores `LobbyParameters`
-    /// - Updates user's `current_lobby`
-    /// - **Result**: `Phase::Lobby`, `Subphase::Guest` (waiting for guest to call `join_lobby`)
-    /// # Errors
-    /// - `AlreadyExists`: Lobby ID taken
-    /// - `InvalidArgs`: Invalid board or parameters
     pub fn make_lobby(e: &Env, address: Address, req: MakeLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -380,17 +364,6 @@ impl Contract {
         persistent.set(&user_key, &user);
         Ok(())
     }
-    /// Exit current lobby, ending the lobby if a match is in progress.
-    /// # Requirements
-    /// - User must be in a lobby
-    /// # State Changes
-    /// - Always clears user's `current_lobby`
-    /// - **Result**:
-    ///   - During Lobby phase: `Phase::Aborted`, `Subphase::None`, kicks both players out
-    ///   - During active game phases: `Phase::Finished`, opponent wins
-    ///   - During Finished/Aborted: No game state changes
-    /// # Errors
-    /// - `NotFound`: User not found
     pub fn leave_lobby(e: &Env, address: Address) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -462,20 +435,6 @@ impl Contract {
         }
         Ok(())
     }
-    /// Join as guest, automatically starting the game.
-    /// # Parameters
-    /// - `address`: Joining player (becomes guest)
-    /// - `req.lobby_id`: Target lobby
-    /// # Requirements
-    /// - Phase is Lobby and subphase is Guest (indicates lobby is waiting for a guest)
-    /// - User must not be in an unexpired lobby
-    /// # State Changes
-    /// - Sets guest address
-    /// - Initializes `GameState` with pawns on setup tiles
-    /// - **Result**: `Phase::SetupCommit`, `Subphase::Both` (both players must call `commit_setup`)
-    /// # Errors
-    /// - `Unauthorized`: Already in a lobby
-    /// - `LobbyNotJoinable`: Not joinable state
     pub fn join_lobby(e: &Env, address: Address, req: JoinLobbyReq) -> Result<(), Error> {
         address.require_auth();
         let persistent = e.storage().persistent();
@@ -540,19 +499,6 @@ impl Contract {
         Self::extend_lobby_ttl(e, address, req.lobby_id)?;
         Ok(())
     }
-    /// Submit Merkle root of all owned pawn rank HiddenRanks.
-    /// # Parameters
-    /// - `req.rank_commitment_root`: Merkle root hash
-    /// # Requirements
-    /// - Phase is `Phase::SetupCommit` and subphase is user's UserIndex or Both
-    /// # State Changes
-    /// - Stores rank root for player
-    /// - **Result**:
-    ///   - If first to commit: `Phase::SetupCommit`, subphase = opponent (waiting for opponent to call `commit_setup`)
-    ///   - If both committed: `Phase::MoveCommit`, `Subphase::Both` (both must call `commit_move`)
-    /// # Errors
-    /// - `WrongPhase`: Not in setup phase
-    /// - `WrongSubphase`: Already committed or not your turn
     pub fn commit_setup(e: &Env, address: Address, req: CommitSetupReq) -> Result<(), Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -608,22 +554,6 @@ impl Contract {
         temporary.set(&DataKey::GameState(req.lobby_id), &game_state);
         Ok(())
     }
-    /// Submit hashed moves for the current turn (security mode only).
-    /// # Parameters
-    /// - `req.move_hashes`: One or more hashes of `HiddenMove`
-    /// # Requirements
-    /// - Phase is `Phase::MoveCommit` and subphase is user's UserIndex or Both
-    /// - `security_mode` is true (for non-security lobbies, call `commit_move_and_prove_move` instead)
-    /// - Blitz rules:
-    ///   - If `is_blitz_turn` → 1..=`blitz_max_simultaneous_moves` hashes are allowed
-    ///   - Otherwise → exactly 1 hash is required
-    /// # State Changes
-    /// - Stores move hash(es)
-    /// - **Result**:
-    ///   - If first to commit: `Phase::MoveCommit`, subphase = opponent (waiting for opponent to call `commit_move`)
-    ///   - If both committed: `Phase::MoveProve`, `Subphase::Both` (both must call `prove_move`)
-    /// # Errors
-    /// - `WrongSubphase`: Not your turn or already committed
     pub fn commit_move(e: &Env, address: Address, req: CommitMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -652,23 +582,6 @@ impl Contract {
         }
         Ok(lobby_info)
     }
-    /// Submit and immediately prove moves in one call.
-    ///
-    /// Intended for non-security lobbies; also works in security mode as a convenience wrapper
-    /// around `commit_move` followed by `prove_move`.
-    /// # Parameters
-    /// - `req.move_hashes`: One or more hashes of `HiddenMove`
-    /// - `req2.move_proofs`: Matching `HiddenMove` proofs
-    /// # Requirements
-    /// - Phase is `Phase::MoveCommit`
-    /// - Blitz rules:
-    ///   - If `is_blitz_turn` → 1..=`blitz_max_simultaneous_moves` move hashes/proofs
-    ///   - Otherwise → exactly 1 move hash/proof
-    /// # State Changes
-    /// - Commits and validates moves; may transition to `MoveProve`, `RankProve`, `Finished`, or `MoveCommit` for next turn
-    ///   depending on collisions and proof results
-    /// # Errors
-    /// - Same as `commit_move` and `prove_move`
     pub fn commit_move_and_prove_move(e: &Env, address: Address, req: CommitMoveReq, req2: ProveMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -695,24 +608,6 @@ impl Contract {
         }
         Ok(lobby_info)
     }
-    /// Reveal and validate committed moves.
-    /// # Parameters
-    /// - `req.move_proofs`: Actual `HiddenMove` entries (must match committed hash count)
-    /// # Requirements
-    /// - In security mode: `Phase::MoveProve` and subphase is user's UserIndex or Both
-    /// - In non-security mode: may be called while phase is `MoveCommit` (both players can prove simultaneously)
-    /// # State Changes
-    /// - Validates move
-    /// - Invalid move → **Result**: `Phase::Aborted`, subphase = opponent (opponent wins)
-    /// - Valid move:
-    ///   - If first to prove: `Phase::MoveProve`, subphase = opponent (waiting for opponent to call `prove_move`)
-    ///   - If both proved:
-    ///     - Collision detected → `Phase::RankProve`, subphase indicates who must call `prove_rank` (Host/Guest/Both)
-    ///     - No collision, victory condition met → `Phase::Finished`, subphase = winner (Host/Guest) or None (tie)
-    ///     - No collision, game continues → `Phase::MoveCommit`, `Subphase::Both` (both must call `commit_move`)
-    /// # Errors
-    /// - `HashFail`: Proof doesn't match hash
-    /// - `WrongSubphase`: Not your turn or already proved
     pub fn prove_move(e: &Env, address: Address, req: ProveMoveReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -735,16 +630,6 @@ impl Contract {
         // HistoryTurns are written in record_packed_moves_for_completed_turn
         Ok(lobby_info)
     }
-    /// Prove moves and any required rank proofs in a single call (security mode only).
-    ///
-    /// If move proofs abort the game due to illegal moves, rank proving is skipped.
-    /// # Parameters
-    /// - `req.move_proofs`: Move proofs for this turn
-    /// - `req2.hidden_ranks`/`req2.merkle_proofs`: Rank reveals and Merkle validations if needed
-    /// # Requirements
-    /// - `security_mode` is true; phase is `MoveProve`
-    /// # State Changes
-    /// - Validates moves; if collisions need ranks, validates ranks; then either finishes the game or advances turn
     pub fn prove_move_and_prove_rank(e: &Env, address: Address, req: ProveMoveReq, req2: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -771,25 +656,6 @@ impl Contract {
         // HistoryTurns are written in record_packed_moves_for_completed_turn
         Ok(lobby_info)
     }
-    /// Reveal ranks for collision resolution.
-    ///
-    /// # Parameters
-    /// - `req.hidden_ranks`: Array of rank reveals
-    /// - `req.merkle_proofs`: Validation proofs
-    ///
-    /// # Requirements
-    /// - Current phase is `Phase::ProveRank` and subphase is user's UserIndex or Both
-    /// - security_mode is true
-    /// # State Changes
-    /// - Validates rank proofs
-    /// - Invalid proof → **Result**: `Phase::Aborted`, subphase = opponent (opponent wins)
-    /// - Valid proofs:
-    ///   - If more ranks needed: `Phase::RankProve`, subphase = opponent (waiting for opponent to call `prove_rank`)
-    ///   - If all ranks revealed:
-    ///     - Victory condition met → `Phase::Finished`, subphase = winner (Host/Guest) or None (tie)
-    ///     - Game continues → `Phase::MoveCommit`, `Subphase::Both` (both must call `commit_move`)
-    /// # Errors
-    /// - `WrongSubphase`: Not your turn or already proved
     pub fn prove_rank(e: &Env, address: Address, req: ProveRankReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -809,19 +675,6 @@ impl Contract {
         }
         Ok(lobby_info)
     }
-    /// Claim victory due to opponent timeout. WIP
-    /// # Requirements
-    /// - Game is in progress (SetupCommit or later phases)
-    /// - Opponent must be the one required to act (subphase indicates opponent)
-    /// # State Changes
-    /// **Result**: 
-    /// - During SetupCommit: `Phase::Aborted`, `Subphase::None` (game aborted, no winner)
-    /// - During game phases (MoveCommit/MoveProve/RankProve): `Phase::Finished`, subphase = caller (caller wins)
-    ///
-    /// # Errors
-    /// - `InvalidArgs`: Called before phase time limit
-    /// - `WrongPhase`: Invalid game state (Lobby, Finished, or Aborted)
-    /// - `WrongSubphase`: Not opponent's turn (opponent must be required to act)
     pub fn redeem_win(e: &Env, address: Address, req: RedeemWinReq) -> Result<LobbyInfo, Error> {
         address.require_auth();
         let temporary = e.storage().temporary();
@@ -1201,11 +1054,6 @@ pub(crate) fn commit_move_internal(address: &Address, req: &CommitMoveReq, lobby
     }
     // endregion
     // region read-only contract simulation
-    /// Preview collision detection without state change.
-    ///
-    /// Used by clients to decide whether rank proofs will be needed after both players have proved
-    /// moves. Only valid during `Phase::MoveProve` and not while subphase is `Both`.
-    /// On blitz turns, multiple provided proofs are simulated together.
     pub fn simulate_collisions(e: &Env, address: Address, req: ProveMoveReq) -> Result<UserMove, Error> {
         let temporary = e.storage().temporary();
         let lobby_info: LobbyInfo = temporary.get(&DataKey::LobbyInfo(req.lobby_id)).unwrap();

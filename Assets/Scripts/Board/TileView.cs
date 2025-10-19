@@ -4,6 +4,7 @@ using UnityEngine;
 using PrimeTween;
 using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
+using System.Collections.Generic;
 
 public class TileView : MonoBehaviour
 {
@@ -133,6 +134,39 @@ public class TileView : MonoBehaviour
 			}
             case ClientMode.Move:
 			{
+				// Seed arrows/highlights when re-entering during MoveCommit and it's not our subphase
+				// so the player can see their already-submitted moves while waiting
+				bool isMyTurn = snapshot.Net.IsMySubphase();
+				if (!isMyTurn && snapshot.Net.lobbyInfo.phase == Phase.MoveCommit)
+				{
+					var pairs = snapshot.Net.GetUserMove().GetSubmittedMovePairs();
+					if (pairs.Count > 0)
+					{
+						bool start = false;
+						bool target = false;
+						TileView targetTile = null;
+						foreach (var p in pairs)
+						{
+							if (p.start == posView)
+							{
+								start = true;
+								if (ViewEventBus.TileViewResolver != null)
+								{
+									targetTile = ViewEventBus.TileViewResolver(p.target);
+								}
+							}
+							if (p.target == posView)
+							{
+								target = true;
+							}
+						}
+						SetArrow((start && targetTile != null) ? targetTile : null);
+						Color col = Color.clear;
+						if (start) col = Color.green * 0.5f;
+						if (target) col = Color.blue * 0.5f;
+						SetTopColor(col);
+					}
+				}
 				break;
 			}
             case ClientMode.Resolve:

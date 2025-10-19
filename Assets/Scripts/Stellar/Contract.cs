@@ -1213,6 +1213,34 @@ namespace Contract
                 }),
             };
         }
+
+        public List<(Vector2Int start, Vector2Int target)> GetSubmittedMovePairs()
+        {
+            List<(Vector2Int start, Vector2Int target)> pairs = new List<(Vector2Int, Vector2Int)>();
+            // Prefer explicit move proofs when present (insecure mode)
+            if (move_proofs != null && move_proofs.Length > 0)
+            {
+                for (int i = 0; i < move_proofs.Length; i++)
+                {
+                    HiddenMove proof = move_proofs[i];
+                    pairs.Add((proof.start_pos, proof.target_pos));
+                }
+                return pairs;
+            }
+            // Secure mode: reconstruct from hashes using local cache (if available)
+            if (move_hashes != null && move_hashes.Length > 0)
+            {
+                for (int i = 0; i < move_hashes.Length; i++)
+                {
+                    HiddenMove? maybe = CacheManager.GetHiddenMove(move_hashes[i]);
+                    if (maybe is HiddenMove hm)
+                    {
+                        pairs.Add((hm.start_pos, hm.target_pos));
+                    }
+                }
+            }
+            return pairs;
+        }
     }
 
     [Serializable]
