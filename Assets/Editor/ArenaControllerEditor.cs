@@ -51,11 +51,12 @@ public class ArenaControllerEditor : Editor
         {
             return;
         }
-
+            // Ensure previous arena state is fully reset before starting a new test
+            controller.Close();
         controller.Initialize(isHex);
 
         // Hide all Canvases during editor-invoked test to avoid UI overlap
-        foreach (var canvas in GameObject.FindObjectsOfType<Canvas>(true))
+        foreach (var canvas in UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             canvas.enabled = false;
         }

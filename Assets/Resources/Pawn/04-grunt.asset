@@ -28,3 +28,7 @@ MonoBehaviour:
   blueCard: {fileID: 8352999126758944781, guid: b624e49543aaf79478a3a53f674fd3a8, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: d96cd7dbb6556e04e88c17692a1ec766, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: 9a73d05d39161244c88ee6ce82b17315, type: 3}
+  redName: 
+  blueName: 
+  redDescription: 
+  blueDescription: 

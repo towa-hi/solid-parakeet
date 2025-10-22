@@ -11,6 +11,7 @@ public class ArenaPawn : MonoBehaviour
     public void Initialize(SnapshotPawnDelta inPawnDelta)
     {
         pawnDelta = inPawnDelta;
+        pawnView.ResetHurtAnimation();
         team = pawnDelta.pawnId.GetTeam();
         PawnDef pawnDef = ResourceRoot.GetPawnDefFromRank(pawnDelta.postRank);
         animator.runtimeAnimatorController = team switch

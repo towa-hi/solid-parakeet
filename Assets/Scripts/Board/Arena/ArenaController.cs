@@ -59,7 +59,16 @@ public class ArenaController : MonoBehaviour
         currentBothDie = false;
         currentRedDelta = null;
         currentBlueDelta = null;
-        
+        // Restore the arena animator to its base controller and reset state
+        if (animator != null)
+        {
+            animator.runtimeAnimatorController = baseArenaAttackAnimationController;
+            animator.Rebind();
+            animator.Update(0f);
+        }
+        // Ensure both tile sets are hidden; Initialize will show the active one
+        if (squareTiles != null) squareTiles.SetShow(false);
+        if (hexTiles != null) hexTiles.SetShow(false);
     }
 
     public void StartBattle(BattleEvent battle, TurnResolveDelta delta)

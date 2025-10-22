@@ -22,9 +22,13 @@ MonoBehaviour:
   blueSprite: {fileID: 21300000, guid: 2b59044d941467643b8347b059b5e134, type: 3}
   redAnimatorOverrideController: {fileID: 22100000, guid: 27ac44adb18a4f3498a0ec8dfcba2bed, type: 2}
   blueAnimatorOverrideController: {fileID: 22100000, guid: 029d64da7483e0a48a866f47718ce9a3, type: 2}
-  redAttackOverrideController: {fileID: 22100000, guid: be5f628b3fc262a479e143b4a182dac7, type: 2}
-  blueAttackOverrideController: {fileID: 22100000, guid: 22d1c996ea7369645841d3eb737eb24d, type: 2}
+  redAttackOverrideController: {fileID: 22100000, guid: 181376307ce5dd8408f77ad526276af7, type: 2}
+  blueAttackOverrideController: {fileID: 22100000, guid: 5315df0db0a080940af99362100e6db6, type: 2}
   redCard: {fileID: 1488322658496596107, guid: 1ab3681f26682fb4da669738ff4958d6, type: 3}
   blueCard: {fileID: 832796437402347623, guid: 94ed13c8c05f0f24a850877138674cd9, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: 07b092ce08d465a4aa8b2d5133870521, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: 450388e8a9b0f0a4a970e56651199622, type: 3}
+  redName: 
+  blueName: 
+  redDescription: 
+  blueDescription: 

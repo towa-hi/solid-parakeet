@@ -86,7 +86,11 @@ public class PawnView : MonoBehaviour
 
     public void HurtAnimation()
     {
-        animator.SetTrigger(Hurt);
+        animator.SetBool(Hurt, true);
+    }
+    public void ResetHurtAnimation()
+    {
+        animator.SetBool(Hurt, false);
     }
     
     public void Initialize(PawnState pawn, TileView tileView)
