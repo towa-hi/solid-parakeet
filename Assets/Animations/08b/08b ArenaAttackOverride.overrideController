@@ -8,4 +8,6 @@ AnimatorOverrideController:
   m_PrefabAsset: {fileID: 0}
   m_Name: 08b ArenaAttackOverride
   m_Controller: {fileID: 9100000, guid: 7f77e9d89a4517948a078c38ab0303ab, type: 2}
-  m_Clips: []
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 1c79802c8f56ba040bc0cc3a15c8d60c, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 20ebf508da8543f4aae26c27a3f17b93, type: 2}

@@ -32,11 +32,12 @@ public class BoardManager : MonoBehaviour
     public ArenaController arenaController;
     
     GameStore store;
+    MenuController menuController;
     
     
-    
-    public void StartBoardManager()
+    public void StartBoardManager(MenuController menuController)
     {
+        this.menuController = menuController;
         Debug.Log("BoardManager.StartBoardManager: begin");
 		// Reset debug ScriptableObject at launch so we start from a clean slate
 		var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
@@ -65,6 +66,7 @@ public class BoardManager : MonoBehaviour
         guiGame.setup.OnClearButton = () => store.Dispatch(new SetupClearAll());
         guiGame.setup.OnAutoSetupButton = () => store.Dispatch(new SetupAutoFill());
 		guiGame.setup.OnSubmitButton = OnSubmitSetupButton;
+		guiGame.setup.OnMenuButton = OnMenuButton;
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
 		guiGame.movement.OnSubmitMoveButton = OnSubmitMoveButton;
         guiGame.movement.OnRedeemWinButton = OnRedeemWinButton;
@@ -175,6 +177,12 @@ public class BoardManager : MonoBehaviour
         initialized = false;
     }
     
+    void OnMenuButton()
+    {
+        Debug.Log("BoardManager.OnMenuButton");
+        menuController.ExitGame();
+    }
+
     async void OnGameStateBeforeApplied(GameNetworkState net, NetworkDelta delta)
     {
         if (!initialized)

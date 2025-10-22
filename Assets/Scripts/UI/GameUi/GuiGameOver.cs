@@ -53,26 +53,49 @@ public class GuiGameOver : GameElement
         // Phase.Finished
         Team hostTeam = netState.lobbyParameters.host_team;
         Team guestTeam = hostTeam == Team.RED ? Team.BLUE : Team.RED;
+        Team myTeam = netState.userTeam;
+        Team winnerTeam = Team.NONE;
         switch (netState.lobbyInfo.subphase)
         {
             case Subphase.None:
-                return "Game ended with a tie";
+            {winnerTeam = Team.NONE; break;}
             case Subphase.Host:
-            {
-                bool redWon = hostTeam == Team.RED;
-                return redWon
-                    ? "Red team is victorious! You prevailed!"
-                    : "Blue team is victorious! You were defeated!";
-            }
+            {winnerTeam = hostTeam; break;}
             case Subphase.Guest:
+            {winnerTeam = guestTeam; break;}
+        }
+        switch (winnerTeam)
+        {
+            case Team.NONE:
             {
-                bool redWon = guestTeam == Team.RED;
-                return redWon
-                    ? "Red team is victorious! You prevailed!"
-                    : "Blue team is victorious! You were defeated!";
+                return "Game ended with a tie";
+            }
+            case Team.RED:
+            {
+                if (myTeam == Team.RED)
+                {
+                    return "Red team is victorious! You prevailed!";
+                }
+                else
+                {
+                    return "Red team is victorious! You were defeated!";
+                }
+            }
+            case Team.BLUE:
+            {
+                if (myTeam == Team.BLUE)
+                {
+                    return "Blue team is victorious! You prevailed!";
+                }
+                else
+                {
+                    return "Blue team is victorious! You were defeated!";
+                }
             }
             default:
-                return "The game has ended";
+            {
+                throw new Exception("Invalid winner team");
+            }
         }
     }
 

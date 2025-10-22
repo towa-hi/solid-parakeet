@@ -13,6 +13,7 @@ public class GuiSetup : GameElement
     public Button clearButton;
     public Button autoSetupButton;
     public Button submitButton;
+    public Button menuButton;
     public TextMeshProUGUI statusText;
     public GameObject rankEntryPrefab;
     public Dictionary<Rank, GuiRankListEntry> entries;
@@ -21,6 +22,7 @@ public class GuiSetup : GameElement
     public Action OnAutoSetupButton;
     public Action OnRefreshButton;
     public Action OnSubmitButton;
+    public Action OnMenuButton;
     public Action<Rank> OnEntryClicked;
     
     public SetupScreen setupScreen;
@@ -30,6 +32,7 @@ public class GuiSetup : GameElement
         clearButton.onClick.AddListener(() => OnClearButton?.Invoke());
         autoSetupButton.onClick.AddListener(() => OnAutoSetupButton?.Invoke());
         submitButton.onClick.AddListener(() => OnSubmitButton?.Invoke());
+        menuButton.onClick.AddListener(() => OnMenuButton?.Invoke());
         entries = new();
     }
 

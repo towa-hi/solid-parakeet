@@ -150,17 +150,10 @@ public class MenuController : MonoBehaviour
         }
         GameObject instance = Instantiate(messageModalPrefab, modalRoot);
         MessageModal modal = instance.GetComponent<MessageModal>();
-        if (modal == null)
-        {
-            Debug.LogError("MenuController: messageModalPrefab is missing MessageModal component");
-            Destroy(instance);
-            return;
-        }
         modal.Initialize(messageText, () => CloseTopModal());
         modal.OnFocus(true);
         modalStack.Push(modal);
     }
-
     void CloseTopModal()
     {
         if (modalStack == null || modalStack.Count == 0) return;
@@ -312,7 +305,7 @@ public class MenuController : MonoBehaviour
         await SetMenuAsync(gameMenuPrefab);
         // Ensure we resume on Unity's main thread and allow UI transition to fully settle
         await Task.Yield();
-        GameManager.instance.boardManager.StartBoardManager();
+        GameManager.instance.boardManager.StartBoardManager(this);
     }
 
     public void ExitGame()
