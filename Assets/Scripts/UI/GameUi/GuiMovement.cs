@@ -9,28 +9,23 @@ public class GuiMovement : GameElement
 {
     public TextMeshProUGUI statusText;
     public Button submitMoveButton;
+    public ButtonExtended menuButton;
     public TextMeshProUGUI submitMoveButtonText;
     public Button graveyardButton;
-    public Button redeemWinButton;
-    public TextMeshProUGUI redeemWinButtonText;
     public PhaseInfoDisplay phaseInfoDisplay;
     
     
     public Action OnSubmitMoveButton;
     public Action OnGraveyardButton;
     public Action<bool> OnAutoSubmitToggle;
-    public Action OnRedeemWinButton;
-
+    public Action OnMenuButton;
     public GraveyardList graveyardList;
 
     void Start()
     {
         submitMoveButton.onClick.AddListener(() => OnSubmitMoveButton?.Invoke());
         graveyardButton.onClick.AddListener(() => OnGraveyardButton?.Invoke());
-        if (redeemWinButton != null)
-        {
-            redeemWinButton.onClick.AddListener(() => OnRedeemWinButton?.Invoke());
-        }
+        menuButton.onClick.AddListener(() => OnMenuButton?.Invoke());
         // Show/hide graveyard list on hover over the button
         if (graveyardList != null)
         {
@@ -85,14 +80,6 @@ public class GuiMovement : GameElement
         statusText.text = "Commit your move";
         submitMoveButton.interactable = net.IsMySubphase();
         submitMoveButtonText.text = $"Commit Move (0/{net.GetMaxMovesThisTurn()})";
-        if (redeemWinButton != null)
-        {
-            redeemWinButton.gameObject.SetActive(false);
-        }
-        if (redeemWinButtonText != null)
-        {
-            redeemWinButtonText.text = "Redeem Win";
-        }
         // Initialize phase panel with structural network parameters
         if (phaseInfoDisplay != null)
         {
@@ -112,8 +99,6 @@ public class GuiMovement : GameElement
 
         string statusMessage = "Commit your move";
         string submitButtonMessage = $"Commit Move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
-        bool showRedeem = false;
-        bool canRedeem = false;
 
         if (waiting)
         {
@@ -136,11 +121,6 @@ public class GuiMovement : GameElement
             else if (action is UpdateState)
             {
                 statusMessage = "Updating game state...";
-                submitButtonMessage = "Please wait...";
-            }
-            else if (action is RedeemWin)
-            {
-                statusMessage = "Redeeming win...";
                 submitButtonMessage = "Please wait...";
             }
         }
@@ -190,14 +170,6 @@ public class GuiMovement : GameElement
                     }
                     submitButtonMessage = "Rank proving phase";
                     break;
-                case Phase.Finished:
-                    // Show Redeem button if this player is winner
-                    bool iAmWinner = net.IsMySubphase();
-                    showRedeem = iAmWinner;
-                    canRedeem = iAmWinner;
-                    statusMessage = iAmWinner ? "You won! Redeem your win." : "Game over";
-                    submitButtonMessage = "Game finished";
-                    break;
                 default:
                     statusMessage = myTurn ? "Your turn" : "Waiting for opponent";
                     submitButtonMessage = myTurn ? submitButtonMessage : "Please wait...";
@@ -210,16 +182,6 @@ public class GuiMovement : GameElement
         statusText.text = statusMessage;
         submitMoveButton.interactable = canSubmit;
         submitMoveButtonText.text = submitButtonMessage;
-        if (redeemWinButton != null)
-        {
-            // Hide while waiting on any network call
-            redeemWinButton.gameObject.SetActive(showRedeem && !waiting);
-            redeemWinButton.interactable = canRedeem && !waiting;
-        }
-        if (redeemWinButtonText != null && showRedeem)
-        {
-            redeemWinButtonText.text = "Redeem Win";
-        }
         phaseInfoDisplay.Set(net);
     }
 

@@ -51,7 +51,7 @@ public class GuiGame : MenuElement
         }
     }
     
-    void ExitToMainMenu()
+    public void ExitToMainMenu()
     {
         menuController.ExitGame();
     }

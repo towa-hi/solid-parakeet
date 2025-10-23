@@ -66,10 +66,10 @@ public class BoardManager : MonoBehaviour
         guiGame.setup.OnClearButton = () => store.Dispatch(new SetupClearAll());
         guiGame.setup.OnAutoSetupButton = () => store.Dispatch(new SetupAutoFill());
 		guiGame.setup.OnSubmitButton = OnSubmitSetupButton;
-		guiGame.setup.OnMenuButton = OnMenuButton;
         guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
+        guiGame.setup.menuButton.onClick.AddListener(guiGame.ExitToMainMenu);
 		guiGame.movement.OnSubmitMoveButton = OnSubmitMoveButton;
-        guiGame.movement.OnRedeemWinButton = OnRedeemWinButton;
+		guiGame.movement.OnMenuButton = guiGame.ExitToMainMenu;
         guiGame.resolve.OnPrevButton = () => store.Dispatch(new ResolvePrev());
         guiGame.resolve.OnNextButton = () => store.Dispatch(new ResolveNext());
         guiGame.resolve.OnSkipButton = () => store.Dispatch(new ResolveSkip());
@@ -177,12 +177,6 @@ public class BoardManager : MonoBehaviour
         initialized = false;
     }
     
-    void OnMenuButton()
-    {
-        Debug.Log("BoardManager.OnMenuButton");
-        menuController.ExitGame();
-    }
-
     async void OnGameStateBeforeApplied(GameNetworkState net, NetworkDelta delta)
     {
         if (!initialized)

@@ -58,23 +58,14 @@ public sealed class ResolveReducer : IGameReducer
                 return (state with { Ui = ui }, new List<GameEvent>{ new ResolveCheckpointChangedEvent(ui.Checkpoint, ui.ResolveData, ui.BattleIndex, state.Net)});
             }
             case ResolveSkip:
+            {
                 UnityEngine.Debug.Log($"[ResolveReducer] ResolveSkip at {ui.Checkpoint}");
-                if (ui.Checkpoint == ResolveCheckpoint.Final)
-                {
-                    UnityEngine.Debug.Log($"[ResolveReducer] ResolveSkip at Final -> decide next mode");
-                    ClientMode nextMode = ModeDecider.DecideClientMode(state.Net, default, ui);
-                    LocalUiState ui2 = LocalUiState.Empty with { HoveredPos = ui.HoveredPos };
-                    GameSnapshot s2 = state with { Ui = ui2, Mode = nextMode };
-                    UnityEngine.Debug.Log($"[ResolveReducer] Emitting ClientModeChangedEvent: nextMode={nextMode}");
-                    return (s2, new List<GameEvent>{ new ClientModeChangedEvent(s2)});
-                }
-                else
-                {
-                    UnityEngine.Debug.Log($"[ResolveReducer] ResolveSkip -> Final");
-                    ui = ui with { Checkpoint = ResolveCheckpoint.Final };
-                    UnityEngine.Debug.Log($"[ResolveReducer] Emit ResolveCheckpointChangedEvent: checkpoint=Final index={ui.BattleIndex}");
-                    return (state with { Ui = ui }, new List<GameEvent>{ new ResolveCheckpointChangedEvent(ui.Checkpoint, ui.ResolveData, ui.BattleIndex, state.Net)});
-                }
+                ClientMode nextMode = ModeDecider.DecideClientMode(state.Net, default, ui);
+                LocalUiState ui2 = LocalUiState.Empty with { HoveredPos = ui.HoveredPos };
+                GameSnapshot s2 = state with { Ui = ui2, Mode = nextMode };
+                UnityEngine.Debug.Log($"[ResolveReducer] Emitting ClientModeChangedEvent: nextMode={nextMode}");
+                return (s2, new List<GameEvent>{ new ClientModeChangedEvent(s2)});
+            }
             default:
                 return (state, null);
         }
