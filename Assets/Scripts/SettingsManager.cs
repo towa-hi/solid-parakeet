@@ -53,11 +53,41 @@ public static class SettingsManager
 
     public static void Save(WarmancerSettings settings)
     {
+        WarmancerSettings previous = _cache;
         _cache = settings;
         _isCacheLoaded = true;
         string json = JsonUtility.ToJson(_cache);
         PlayerPrefs.SetString(PrefKey, json);
         PlayerPrefs.Save();
+        // Fire change events for keys that changed so systems can react (e.g., audio)
+        if (previous.masterVolume != _cache.masterVolume)
+        {
+            OnSettingChanged?.Invoke(SettingsKey.MASTERVOLUME, _cache.masterVolume);
+        }
+        if (previous.musicVolume != _cache.musicVolume)
+        {
+            OnSettingChanged?.Invoke(SettingsKey.MUSICVOLUME, _cache.musicVolume);
+        }
+        if (previous.effectsVolume != _cache.effectsVolume)
+        {
+            OnSettingChanged?.Invoke(SettingsKey.EFFECTSVOLUME, _cache.effectsVolume);
+        }
+        if ((previous.cheatMode ? 1 : 0) != (_cache.cheatMode ? 1 : 0))
+        {
+            OnSettingChanged?.Invoke(SettingsKey.CHEATMODE, _cache.cheatMode ? 1 : 0);
+        }
+        if ((previous.fastMode ? 1 : 0) != (_cache.fastMode ? 1 : 0))
+        {
+            OnSettingChanged?.Invoke(SettingsKey.FASTMODE, _cache.fastMode ? 1 : 0);
+        }
+        if ((previous.displayBadges ? 1 : 0) != (_cache.displayBadges ? 1 : 0))
+        {
+            OnSettingChanged?.Invoke(SettingsKey.DISPLAYBADGES, _cache.displayBadges ? 1 : 0);
+        }
+        if ((previous.moveCamera ? 1 : 0) != (_cache.moveCamera ? 1 : 0))
+        {
+            OnSettingChanged?.Invoke(SettingsKey.MOVECAMERA, _cache.moveCamera ? 1 : 0);
+        }
     }
 
     // Backward-compat wrappers (ModalSettings, legacy code). Prefer Load/Save going forward.

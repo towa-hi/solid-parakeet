@@ -24,7 +24,9 @@ public class Shatter : MonoBehaviour
     public void ShatterEffect()
     {
         audioSource.pitch = Random.Range(0.9f, 1.1f);
-        audioSource.PlayOneShot(shatterSound);
+        float vol = AudioManager.EffectsScalar;
+        audioSource.volume = 1f; // ensure base is unscaled; one-shot uses scale
+        audioSource.PlayOneShot(shatterSound, vol);
 
         // Get the original mesh and material
         MeshFilter meshFilter = GetComponent<MeshFilter>();

@@ -28,7 +28,7 @@ MonoBehaviour:
   blueCard: {fileID: 5686631205273747704, guid: dd6d1c4bb1d96ac47aec287c8b05e184, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: f72ac1ccf4002d546a069f4b1f57eeac, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: e1c5387af3657cf4cac10e2d3b180c6e, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Fetid Heirophant
+  blueName: Crystal Bearer
+  redDescription: A prayer of death, an embrace of sin.
+  blueDescription: The price is high for the gift of sight.

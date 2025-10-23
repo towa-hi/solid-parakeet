@@ -199,16 +199,16 @@ public class GalleryMenu2 : MenuBase
         }
         if (cardInfo.TryGetValue(selected, out var info))
         {
-            if (info.team == Team.RED)
-            {
-                nameText.text = info.def.redName ?? string.Empty;
-                descriptionText.text = info.def.redDescription ?? string.Empty;
-            }
-            else
-            {
-                nameText.text = info.def.blueName ?? string.Empty;
-                descriptionText.text = info.def.blueDescription ?? string.Empty;
-            }
+			if (info.team == Team.RED)
+			{
+				nameText.text = $"{info.rank} - {info.def.redName ?? string.Empty}";
+				descriptionText.text = info.def.redDescription ?? string.Empty;
+			}
+			else
+			{
+				nameText.text = $"{info.rank} - {info.def.blueName ?? string.Empty}";
+				descriptionText.text = info.def.blueDescription ?? string.Empty;
+			}
         }
         else
         {

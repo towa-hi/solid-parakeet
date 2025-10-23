@@ -28,7 +28,7 @@ MonoBehaviour:
   blueCard: {fileID: 832796437402347623, guid: 94ed13c8c05f0f24a850877138674cd9, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: 07b092ce08d465a4aa8b2d5133870521, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: 450388e8a9b0f0a4a970e56651199622, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Red Reward
+  blueName: Greed's Gift
+  redDescription: "Thank you for your dedication, here\u2019s your pittance."
+  blueDescription: A wish fossilized; touch it to learn what hunger prays for.

@@ -28,7 +28,9 @@ MonoBehaviour:
   blueCard: {fileID: 2860780293359176229, guid: 0d72dd605ae13b74e9392f3c7882c3c7, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: d42036b48fc614042a7d4f82f0fc3e24, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: d4da34323e638e24ea6c451cb8ba986c, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Thorned Construct
+  blueName: Gestate Golem
+  redDescription: The last thing heard, the clattering chains, smashing into battered
+    remains.
+  blueDescription: Stone midwife of old law; the oaths root deep in its calloused
+    shell.

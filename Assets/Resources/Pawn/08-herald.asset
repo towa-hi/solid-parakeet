@@ -28,7 +28,9 @@ MonoBehaviour:
   blueCard: {fileID: 7029832587665564875, guid: 4178e72cb28d8b34c80bff5908c87b66, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: 9ceb8416930d03d45b2f252b5e1bb366, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: 9f7804f886116c7489d681f435dd0bdd, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Cupbearer
+  blueName: Orbwright
+  redDescription: The cup overrunneth with the fermented blood and whispers of damned
+    souls.
+  blueDescription: A spell for this, a curse for that. Blessing of this accursed
+    pact.

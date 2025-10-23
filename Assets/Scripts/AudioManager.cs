@@ -34,6 +34,8 @@ public class AudioManager : MonoBehaviour
         inactiveSource = musicSource2;
         currentMusicTrack = MusicTrack.START_MUSIC;
         instance = this;
+        ApplyVolumesFromSettings();
+        SettingsManager.OnSettingChanged += HandleSettingChanged;
     }
 
     public static void PlayMusic(MusicTrack trackName)
@@ -80,12 +82,12 @@ public class AudioManager : MonoBehaviour
 
     public static void PlayShatter()
     {
-        instance.effectSource.PlayOneShot(instance.shatterClip);
+        PlayOneShot(instance.shatterClip);
     }
 
     public static void PlayButtonHover()
     {
-        instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonHoverClip);
+        PlayOneShot(ResourceRoot.Instance.buttonHoverClip);
     }
 
     public static void PlayButtonClick(ButtonClickType type)
@@ -94,16 +96,16 @@ public class AudioManager : MonoBehaviour
         switch (type)
         {
             case ButtonClickType.AFFIRMATIVE:
-                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickAffirmativeClip);
+                PlayOneShot(ResourceRoot.Instance.buttonClickAffirmativeClip);
                 break;
             case ButtonClickType.NEGATIVE:
-                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickNegativeClip);
+                PlayOneShot(ResourceRoot.Instance.buttonClickNegativeClip);
                 break;
             case ButtonClickType.NEUTRAL:
-                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickNeutralClip);
+                PlayOneShot(ResourceRoot.Instance.buttonClickNeutralClip);
                 break;
             case ButtonClickType.BACK:
-                instance.effectSource.PlayOneShot(ResourceRoot.Instance.buttonClickBackClip);
+                PlayOneShot(ResourceRoot.Instance.buttonClickBackClip);
                 break;
             case ButtonClickType.NONE:
                 break;
@@ -113,7 +115,56 @@ public class AudioManager : MonoBehaviour
     public static void PlayOneShot(AudioClip clip)
     {
         Debug.Log($"PlayOneShot: {clip.name}");
-        instance.effectSource.PlayOneShot(clip);
+        if (instance == null || instance.effectSource == null)
+        {
+            return;
+        }
+        instance.effectSource.PlayOneShot(clip, Mathf.Clamp01(instance.effectsVolume));
+    }
+
+    public static float EffectsScalar => instance != null ? Mathf.Clamp01(instance.effectsVolume) : 1f;
+
+    void OnDestroy()
+    {
+        SettingsManager.OnSettingChanged -= HandleSettingChanged;
+        if (instance == this)
+        {
+            instance = null;
+        }
+    }
+
+    void HandleSettingChanged(SettingsKey key, int val)
+    {
+        if (key == SettingsKey.MASTERVOLUME || key == SettingsKey.MUSICVOLUME || key == SettingsKey.EFFECTSVOLUME)
+        {
+            ApplyVolumesFromSettings();
+        }
+    }
+
+    void ApplyVolumesFromSettings()
+    {
+        WarmancerSettings settings = SettingsManager.Load();
+        float master = Mathf.Clamp01(settings.masterVolume / 100f);
+        float music = Mathf.Clamp01(settings.musicVolume / 100f);
+        float effects = Mathf.Clamp01(settings.effectsVolume / 100f);
+
+        masterVolume = master;
+        musicVolume = master * music;
+        effectsVolume = master * effects;
+
+        if (activeSource != null)
+        {
+            activeSource.volume = musicVolume;
+        }
+        if (inactiveSource != null)
+        {
+            inactiveSource.volume = musicVolume;
+        }
+        if (effectSource != null)
+        {
+            // Keep base at 1 and scale per one-shot so individual calls respect current settings
+            effectSource.volume = 1f;
+        }
     }
 }
 

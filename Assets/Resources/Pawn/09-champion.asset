@@ -28,7 +28,8 @@ MonoBehaviour:
   blueCard: {fileID: 133688238592311505, guid: 6a6cdeb71f5ca3847be46a3956c3e1ff, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: 812673cf8b5080c458f4a1e0fb1bdfb1, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: dc442d768ca5a184a9406de37d8b601f, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Brutish Maw
+  blueName: Steelbourne Shield
+  redDescription: An impenetrable force, a mobile blockade, cursed to bear this shield
+    till it has had its fill.
+  blueDescription: So... It's a wall? Or so they thought.

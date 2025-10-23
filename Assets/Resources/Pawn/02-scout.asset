@@ -28,7 +28,9 @@ MonoBehaviour:
   blueCard: {fileID: 8358580884996642095, guid: 266d2bcb3ca908d43aff637de548331d, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: b865448813d72df4aad352dd977dc8f0, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: ed30d4774c09df141b9a928afd528a76, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Goregrub
+  blueName: Gutter Saint
+  redDescription: It pulsates, vileness oozes from its putrid flesh as it feasts
+    on memories
+  blueDescription: "\u201CI will not go there, I know not what it is that lurks,
+    but it took my poor Guillame.\u201D - Unknown"

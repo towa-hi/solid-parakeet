@@ -28,7 +28,9 @@ MonoBehaviour:
   blueCard: {fileID: 6326825581725178322, guid: ab64e1cff667e854889dd1444854510e, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: 2cb207ebd6514ca4ebaffe5420d0de9f, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: c5f3d81132e050b4bac31349294c7c06, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Nocturne Usher
+  blueName: Moon-gutter Cutthroat
+  redDescription: The assassin moves through the darkness, delivering silent mercy
+    to the unaware.
+  blueDescription: His blades baptize the lost in silent communion. He hears the
+    city bleed and answers.

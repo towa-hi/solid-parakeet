@@ -111,9 +111,9 @@ public class ModalSettings : ModalElement
         musicVolumeSlider.value = settings.musicVolume / 100f;
         effectsVolumeSlider.value = settings.effectsVolume / 100f;
         
-        masterVolumeSliderLabel.text = $"Master Volume: {settings.masterVolume}";
-        musicVolumeSliderLabel.text = $"Music Volume: {settings.musicVolume}";
-        effectsVolumeSliderLabel.text = $"Effects Volume: {settings.effectsVolume}";
+        masterVolumeSliderLabel.text = $"Master Volume:\n{settings.masterVolume}";
+        musicVolumeSliderLabel.text = $"Music Volume:\n{settings.musicVolume}";
+        effectsVolumeSliderLabel.text = $"Effects Volume:\n{settings.effectsVolume}";
         
         masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeSliderChanged);
         musicVolumeSlider.onValueChanged.AddListener(OnMusicVolumeSliderChanged);
@@ -147,19 +147,19 @@ public class ModalSettings : ModalElement
     void OnMasterVolumeSliderChanged(float val)
     {
         newSettings.masterVolume = Mathf.RoundToInt(val * 100f);
-        masterVolumeSliderLabel.text = $"Master Volume: {newSettings.masterVolume}";
+        masterVolumeSliderLabel.text = $"Master Volume:\n{newSettings.masterVolume}";
     }
 
     void OnMusicVolumeSliderChanged(float val)
     {
         newSettings.musicVolume = Mathf.RoundToInt(val * 100f);
-        musicVolumeSliderLabel.text = $"Music Volume: {newSettings.musicVolume}";
+        musicVolumeSliderLabel.text = $"Music Volume:\n{newSettings.musicVolume}";
     }
 
     void OnEffectsVolumeSliderChanged(float val)
     {
         newSettings.effectsVolume = Mathf.RoundToInt(val * 100f);
-        effectsVolumeSliderLabel.text = $"Effects Volume: {newSettings.effectsVolume}";
+        effectsVolumeSliderLabel.text = $"Effects Volume:\n{newSettings.effectsVolume}";
     }
 
     void HandleBackButton()

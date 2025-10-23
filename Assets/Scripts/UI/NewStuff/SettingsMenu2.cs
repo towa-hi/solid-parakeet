@@ -100,9 +100,9 @@ public class SettingsMenu2 : MenuBase
         masterVolumeSlider.SetValueWithoutNotify(newSettings.masterVolume / 100f);
         musicVolumeSlider.SetValueWithoutNotify(newSettings.musicVolume / 100f);
         effectsVolumeSlider.SetValueWithoutNotify(newSettings.effectsVolume / 100f);
-        masterVolumeSliderLabel.text = $"Master Volume: {newSettings.masterVolume}";
-        musicVolumeSliderLabel.text = $"Music Volume: {newSettings.musicVolume}";
-        effectsVolumeSliderLabel.text = $"Effects Volume: {newSettings.effectsVolume}";
+        masterVolumeSliderLabel.text = $"Master Volume:\n{newSettings.masterVolume}";
+        musicVolumeSliderLabel.text = $"Music Volume:\n{newSettings.musicVolume}";
+        effectsVolumeSliderLabel.text = $"Effects Volume:\n{newSettings.effectsVolume}";
 
         saveChangesButton.interactable = newSettings.cheatMode != oldSettings.cheatMode || newSettings.fastMode != oldSettings.fastMode || newSettings.displayBadges != oldSettings.displayBadges || newSettings.moveCamera != oldSettings.moveCamera || newSettings.masterVolume != oldSettings.masterVolume || newSettings.musicVolume != oldSettings.musicVolume || newSettings.effectsVolume != oldSettings.effectsVolume;
     }

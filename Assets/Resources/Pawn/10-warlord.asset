@@ -28,7 +28,7 @@ MonoBehaviour:
   blueCard: {fileID: 8402660863421906157, guid: d6310ef2d4d63bb4d9f167906737d324, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: f261603881ba9c043b115fec553a3f6d, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: a67528565719bf34e8bf9cee6e67080e, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Skullrise Ravager
+  blueName: Stellar Warlord
+  redDescription: Those who meet the Ravager will find themselves two heads shorter.
+  blueDescription: Her words inspire but do they deceive?

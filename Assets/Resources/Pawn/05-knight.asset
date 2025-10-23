@@ -28,7 +28,7 @@ MonoBehaviour:
   blueCard: {fileID: 5376051152843597080, guid: 29d150f32f5a2fb4a8bae18a1bca9744, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: bf10ec3d0cdc59344abd7175868ae9f8, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: 51a1e41846718a54ab2d4a308a5df21b, type: 3}
-  redName: 
-  blueName: 
-  redDescription: 
-  blueDescription: 
+  redName: Executioner
+  blueName: Phalanx
+  redDescription: Off with their heads! And their heads! And THEIR HEADS!
+  blueDescription: Shields lock under the pale moon.

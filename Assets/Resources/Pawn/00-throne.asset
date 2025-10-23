@@ -28,3 +28,8 @@ MonoBehaviour:
   blueCard: {fileID: 7688799564290376052, guid: d8008f39d702ea142a78f22abb3f3d9d, type: 3}
   redGraveyardSprite: {fileID: 21300000, guid: 5b19ecac841435847aa2c9400ced48f3, type: 3}
   blueGraveyardSprite: {fileID: 21300000, guid: 38ac33c177588cd449ec8904b763cfef, type: 3}
+  redName: Bastion Heart
+  blueName: Luminary Orb
+  redDescription: It beats with anticipation. It bleeds upon desecration and so we
+    all go with it.
+  blueDescription: The world is spun in glass, surely a boon. But it never lasts.
