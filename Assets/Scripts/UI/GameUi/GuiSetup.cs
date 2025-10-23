@@ -108,7 +108,12 @@ public class GuiSetup : GameElement
 
         uint[] maxRanks = net.lobbyParameters.max_ranks;
 
-        var usedCounts = ui.PendingCommits.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.Count());
+		// Filter out null ranks before grouping to avoid null keys in dictionary
+		var usedCounts = ui.PendingCommits.Values
+			.Where(v => v.HasValue)
+			.Select(v => v.Value)
+			.GroupBy(r => r)
+			.ToDictionary(g => g.Key, g => g.Count());
 
         var ranksArray = new (Rank, int, int)[maxRanks.Length];
         bool allFilled = true;

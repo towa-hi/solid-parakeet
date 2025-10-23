@@ -36,6 +36,7 @@ public class ArenaController : MonoBehaviour
 
     public void Initialize(bool inIsHex)
     {
+        Debug.Log($"ArenaController: Initialize {inIsHex}");
         isHex = inIsHex;
         squareTiles.SetShow(false);
         hexTiles.SetShow(false);
@@ -66,9 +67,6 @@ public class ArenaController : MonoBehaviour
             animator.Rebind();
             animator.Update(0f);
         }
-        // Ensure both tile sets are hidden; Initialize will show the active one
-        if (squareTiles != null) squareTiles.SetShow(false);
-        if (hexTiles != null) hexTiles.SetShow(false);
     }
 
     public void StartBattle(BattleEvent battle, TurnResolveDelta delta)

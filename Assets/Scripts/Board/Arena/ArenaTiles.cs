@@ -15,6 +15,7 @@ public class ArenaTiles : MonoBehaviour
 
     public void SetShow(bool inShow)
     {
+        Debug.Log($"ArenaTiles: SetShow {inShow}");
         show = inShow;
         gameObject.SetActive(show);
     }
