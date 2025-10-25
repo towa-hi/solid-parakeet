@@ -110,6 +110,16 @@ public class ArenaController : MonoBehaviour
         pawnL.Initialize(redDelta);
         pawnR.Initialize(blueDelta);
 
+        // Ensure shader state is clean at the start of each battle
+        if (pawnL != null && pawnL.pawnView != null)
+        {
+            pawnL.pawnView.ResetShaderProperties();
+        }
+        if (pawnR != null && pawnR.pawnView != null)
+        {
+            pawnR.pawnView.ResetShaderProperties();
+        }
+
         // Determine winner (exactly one survivor means a winner). Otherwise it's a tie/bounce.
         Team? winningTeam = null;
         bool redAlive = redDelta.postAlive;
@@ -235,7 +245,40 @@ public class ArenaController : MonoBehaviour
         }
         // Tie/bounce: no loser to hurt
     }
+    public void FadeOutSprite()
+    {
+        if (!currentRedDelta.HasValue || !currentBlueDelta.HasValue)
+        {
+            Debug.LogWarning("FadeOutSprite called without a cached battle context.");
+            return;
+        }
+        bool redAlive = currentRedDelta.Value.postAlive;
+        bool blueAlive = currentBlueDelta.Value.postAlive;
 
+        void FadePawn(ArenaPawn pawn)
+        {
+            if (pawn == null || pawn.pawnView == null) return;
+            pawn.pawnView.FadeOut();
+        }
+
+        if (!redAlive && !blueAlive)
+        {
+            FadePawn(pawnL);
+            FadePawn(pawnR);
+            return;
+        }
+        if (redAlive && !blueAlive)
+        {
+            FadePawn(pawnR);
+            return;
+        }
+        if (blueAlive && !redAlive)
+        {
+            FadePawn(pawnL);
+            return;
+        }
+        // Tie/bounce: no loser to fade
+    }
     // Animation Event: Shatter the loser's sprite using PawnSprite's Shatter reference
     public void ShatterLoserSprite()
     {

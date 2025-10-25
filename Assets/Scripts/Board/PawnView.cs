@@ -93,6 +93,31 @@ public class PawnView : MonoBehaviour
         animator.SetBool(Hurt, false);
     }
     
+    public void FadeOut()
+    {
+        // lerp _FadeAmount from 0 to 1 over 0.5 seconds
+        PawnSprite pawnSprite = GetComponentInChildren<PawnSprite>();
+        Material material = pawnSprite.GetComponent<MeshRenderer>().material;
+        PrimeTween.Tween.Custom(0f, 1f, 1f, (float value) =>
+        {
+            material.SetFloat("_FadeAmount", value);
+        }, PrimeTween.Ease.OutQuad);
+    }
+
+    public void ResetShaderProperties()
+    {
+        PawnSprite pawnSprite = GetComponentInChildren<PawnSprite>(true);
+        if (pawnSprite == null) return;
+        MeshRenderer meshRenderer = pawnSprite.GetComponent<MeshRenderer>();
+        if (meshRenderer == null) return;
+        Material material = meshRenderer.material;
+        if (material == null) return;
+        if (material.HasProperty("_FadeAmount"))
+        {
+            material.SetFloat("_FadeAmount", 0f);
+        }
+    }
+
     public void Initialize(PawnState pawn, TileView tileView)
     {
         // never changes

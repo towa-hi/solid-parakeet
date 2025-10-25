@@ -25,8 +25,9 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _ALPHA_CUTOFF_ON
   - _COLORRAMPLIGHTINGSTAGE_BEFORELIGHTING
+  - _FADE_BURN_ON
+  - _FADE_ON
   - _GREYSCALESTAGE_BEFORELIGHTING
   - _HEIGHT_GRADIENT_ON
   - _LIGHTMODEL_CLASSIC
@@ -53,7 +54,7 @@ Material:
   m_LightmapFlags: 6
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 2000
+  m_CustomRenderQueue: 3000
   stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
@@ -154,8 +155,8 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _FadeTex:
-        m_Texture: {fileID: 2800000, guid: fcb69fdadf254834880fe3c443965278, type: 3}
-        m_Scale: {x: 1, y: 1}
+        m_Texture: {fileID: 2800000, guid: 5884b8d80209e754d92e872e1b881951, type: 3}
+        m_Scale: {x: 2, y: 2}
         m_Offset: {x: 0, y: 0}
     - _GlowTex:
         m_Texture: {fileID: 0}
@@ -306,7 +307,7 @@ Material:
     - _AlbedoVertexColorOn: 0
     - _Alpha: 1
     - _AlphaClip: 0
-    - _AlphaCutoffOn: 1
+    - _AlphaCutoffOn: 0
     - _AlphaCutoffValue: 0.024
     - _AlphaOutlineBlend: 1
     - _AlphaOutlineGlow: 5
@@ -319,10 +320,10 @@ Material:
     - _Anisotropy: 0.45
     - _BillboardY: 0
     - _Blend: 0
-    - _BlendDst: 0
+    - _BlendDst: 10
     - _BlendModePreserveSpecular: 1
     - _BlendOp: 0
-    - _BlendSrc: 1
+    - _BlendSrc: 5
     - _BlendingMaskCutoffB: 0.1
     - _BlendingMaskCutoffG: 0.1
     - _BlendingMaskCutoffWhite: 0.15
@@ -380,7 +381,7 @@ Material:
     - _DistortTexXSpeed: 5
     - _DistortTexYSpeed: 5
     - _DitherOn: 0
-    - _DitherScale: 1.244
+    - _DitherScale: 0.01
     - _DitherSpread: 0
     - _DitherStrength: 1
     - _DitherSubtract: 0
@@ -393,15 +394,15 @@ Material:
     - _EnableExternalAlpha: 0
     - _EnvironmentReflections: 0
     - _FaceDownCutoff: 0.25
-    - _FadeAmount: 0.942
+    - _FadeAmount: 0
     - _FadeBurnGlow: 2
-    - _FadeBurnOn: 0
+    - _FadeBurnOn: 1
     - _FadeBurnTransition: 0.075
     - _FadeBurnWidth: 0.025
     - _FadeByCamDistanceOn: 0
-    - _FadeOn: 0
-    - _FadePower: 1
-    - _FadeTransition: 0.2
+    - _FadeOn: 1
+    - _FadePower: 0.25
+    - _FadeTransition: 0.4
     - _FishEyeUvAmount: 0.35
     - _FlickerAlpha: 0
     - _FlickerFreq: 0.2
@@ -452,7 +453,7 @@ Material:
     - _HitBlend: 0.053
     - _HitEffectBlend: 1
     - _HitEffectGlow: 5
-    - _HitGlow: 3.8
+    - _HitGlow: 0.3
     - _Hologram: 0
     - _HologramAccentAlpha: 0.5
     - _HologramAccentFrequency: 2
@@ -560,7 +561,7 @@ Material:
     - _RectSize: 1
     - _Reflections: 0
     - _ReflectionsAtten: 0.5
-    - _RenderPreset: 1
+    - _RenderPreset: 2
     - _RimAttenuation: 1
     - _RimLighting: 0
     - _RimLightingStage: 0
@@ -656,7 +657,7 @@ Material:
     - _WindVerticalMaskMinY: -1
     - _WorkflowMode: 0
     - _ZTestMode: 4
-    - _ZWrite: 1
+    - _ZWrite: 0
     - _ZoomUvAmount: 0.1
     m_Colors:
     - _AOColor: {r: 0, g: 0, b: 0, a: 0}
