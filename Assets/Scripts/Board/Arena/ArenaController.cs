@@ -54,6 +54,15 @@ public class ArenaController : MonoBehaviour
             disabledWinnerPawnViewAnimator.enabled = true;
             disabledWinnerPawnViewAnimator = null;
         }
+        // Reset any animated values on arena pawns when closing
+        if (pawnL != null && pawnL.pawnView != null)
+        {
+            pawnL.pawnView.ResetAnimatedValues();
+        }
+        if (pawnR != null && pawnR.pawnView != null)
+        {
+            pawnR.pawnView.ResetAnimatedValues();
+        }
         // Clear cached battle context
         currentBattle = null;
         currentWinningTeam = null;
@@ -111,14 +120,8 @@ public class ArenaController : MonoBehaviour
         pawnR.Initialize(blueDelta);
 
         // Ensure shader state is clean at the start of each battle
-        if (pawnL != null && pawnL.pawnView != null)
-        {
-            pawnL.pawnView.ResetShaderProperties();
-        }
-        if (pawnR != null && pawnR.pawnView != null)
-        {
-            pawnR.pawnView.ResetShaderProperties();
-        }
+        if (pawnL != null && pawnL.pawnView != null) pawnL.pawnView.ResetAnimatedValues();
+        if (pawnR != null && pawnR.pawnView != null) pawnR.pawnView.ResetAnimatedValues();
 
         // Determine winner (exactly one survivor means a winner). Otherwise it's a tie/bounce.
         Team? winningTeam = null;

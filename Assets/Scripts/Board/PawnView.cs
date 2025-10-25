@@ -118,6 +118,13 @@ public class PawnView : MonoBehaviour
         }
     }
 
+    public void ResetAnimatedValues()
+    {
+        ResetHurtAnimation();
+        SetAnimatorIsSelected(false);
+        ResetShaderProperties();
+    }
+
     public void Initialize(PawnState pawn, TileView tileView)
     {
         // never changes
