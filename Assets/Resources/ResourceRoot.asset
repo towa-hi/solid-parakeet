@@ -29,6 +29,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 23e9f9126ee879f4681b86baf940d90d, type: 2}
   boardDefs:
   - {fileID: 11400000, guid: 4056e7223b364b04b94ad31daa7330ef, type: 2}
+  - {fileID: 11400000, guid: 213345a0ffbf6ed469cbbde309bce497, type: 2}
   buttonHoverClip: {fileID: 8300000, guid: 7c1a094fb9ac60649b76ded62b4abb69, type: 3}
   buttonClickAffirmativeClip: {fileID: 8300000, guid: 2c08a19244f807b4797dde7806a68ddf, type: 3}
   buttonClickNegativeClip: {fileID: 8300000, guid: ab1a9a185172839488a769bf7af1b7b5, type: 3}

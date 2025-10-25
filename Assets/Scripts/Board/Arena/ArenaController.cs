@@ -133,6 +133,7 @@ public class ArenaController : MonoBehaviour
 
         // Apply the arena attack animation override based on the winner
         RuntimeAnimatorController controllerToUse = baseArenaAttackAnimationController;
+        Debug.Log($"ArenaController: bothDie: {bothDie} winningTeam: {winningTeam}");
         if (!bothDie && winningTeam.HasValue)
         {
             Team team = winningTeam.Value;
@@ -162,22 +163,31 @@ public class ArenaController : MonoBehaviour
                 }
             }
         }
-
+        else if (bothDie)
+        {
+            Debug.Log($"ArenaController: both pawns die setting controller (tie). rank: {pawnL.pawnDelta.postRank}");
+            PawnDef bothDef = ResourceRoot.GetPawnDefFromRank(pawnL.pawnDelta.postRank);
+            // arbitrary choice of using red attack override controller for tie
+            controllerToUse = bothDef.redAttackOverrideController;
+        }
         if (animator != null)
         {
             animator.runtimeAnimatorController = controllerToUse;
             // Ensure the animation starts from the beginning
             animator.Rebind();
             animator.Update(0f);
-            animator.Play("Combat", 0, 0f);
+            if (bothDie)
+            {
+                Debug.Log("ArenaController: both pawns die (tie).");
+                animator.Play("Tie", 0, 0f);
+            }
+            else
+            {
+                animator.Play("Combat", 0, 0f);
+            }
         }
 
         arenaCamera.enabled = true;
-
-        if (bothDie)
-        {
-            BothDieStub(redDelta, blueDelta);
-        }
     }
 
     void BothDieStub(SnapshotPawnDelta redDelta, SnapshotPawnDelta blueDelta)
