@@ -102,7 +102,6 @@ public class GuiSetup : GameElement
             statusMessage = "Awaiting opponent setup commitment";
         }
         autoSetupButton.interactable = canCommitSetup;
-        submitButton.interactable = canCommitSetup;
         clearButton.interactable = canCommitSetup;
         statusText.text = statusMessage;
 
@@ -132,6 +131,11 @@ public class GuiSetup : GameElement
                 bool selected = ui.SelectedRank == rk;
                 entry.Refresh(max, used, selected, interactable);
             }
+        }
+        submitButton.interactable = canCommitSetup && allFilled;
+        if (canCommitSetup && !allFilled)
+        {
+            statusText.text = "Assign all ranks before submitting";
         }
         setupScreen.RefreshFromRanks(ranksArray);
     }

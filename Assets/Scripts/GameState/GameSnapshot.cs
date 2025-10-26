@@ -21,6 +21,17 @@ public record GameSnapshot
 			return false;
 		}
 		var pending = Ui?.PendingCommits ?? new Dictionary<PawnId, Rank?>();
+		// Require a complete setup: the number of placed ranks must equal the sum of max_ranks
+		uint[] maxRanks = Net.lobbyParameters.max_ranks;
+		int requiredCount = 0;
+		for (int i = 0; i < maxRanks.Length; i++) requiredCount += (int)maxRanks[i];
+		int placedCount = 0;
+		foreach (var v in pending.Values) if (v.HasValue) placedCount++;
+		if (placedCount != requiredCount)
+		{
+			req = default;
+			return false;
+		}
 		List<HiddenRank> hiddenRanks = new();
 		List<SetupCommit> commits = new();
 		foreach (var kv in pending)

@@ -367,29 +367,8 @@ public static class FakeServer
                 throw;
             }
 
-            // After applying resolve, check game over using same logic as contract
-            bool hostFlagAlive = true;
-            bool guestFlagAlive = true;
-            foreach (var pawn in gameState.pawns)
-            {
-                if (!pawn.alive && pawn.rank.HasValue && pawn.rank.Value == Rank.THRONE)
-                {
-                    // Determine owner via team on PawnId versus lobby parameters
-                    Team ownerTeam = pawn.GetTeam();
-                    if (ownerTeam == parameters.host_team)
-                    {
-                        hostFlagAlive = false;
-                    }
-                    else
-                    {
-                        guestFlagAlive = false;
-                    }
-                }
-            }
-            Subphase winner = Subphase.Both;
-            if (hostFlagAlive && !guestFlagAlive) winner = Subphase.Host;
-            else if (!hostFlagAlive && guestFlagAlive) winner = Subphase.Guest;
-            else if (!hostFlagAlive && !guestFlagAlive) winner = Subphase.None; // tie
+            // After applying resolve, check game over using same logic as contract (player-agnostic)
+            Subphase winner = CheckGameOver(parameters, gameState);
 
             if (winner != Subphase.Both)
             {
@@ -397,11 +376,7 @@ public static class FakeServer
                 lobbyInfo.subphase = winner;
                 Debug.Log($"[FakeServer] Game over: winner={winner}");
             }
-            else
-            {
-                lobbyInfo.phase = Phase.MoveCommit;
-                lobbyInfo.subphase = Subphase.Both;
-            }
+            else { lobbyInfo.phase = Phase.MoveCommit; lobbyInfo.subphase = Subphase.Both; }
             Debug.Log($"[FakeServer] Resolve complete: advancing turn {gameState.turn} -> {gameState.turn + 1}; pawns {gameState.pawns.Length}");
             gameState.turn++;
             // save changes
@@ -418,6 +393,133 @@ public static class FakeServer
             fakeLobbyInfo = lobbyInfo;
             return;
         }
+    }
+    
+    static Subphase CheckGameOver(LobbyParameters parameters, GameState gameState)
+    {
+        // Mirrors contract check_game_over: flags, no movable pawns, asymmetric no-legal-moves
+        bool hostSurvived = true;
+        bool guestSurvived = true;
+
+        // Track dead movable counts and flag deaths
+        uint hostDeadMovable = 0;
+        uint guestDeadMovable = 0;
+        for (int i = 0; i < gameState.pawns.Length; i++)
+        {
+            PawnState pawn = gameState.pawns[i];
+            if (!pawn.alive)
+            {
+                if (pawn.rank.HasValue)
+                {
+                    Rank r = pawn.rank.Value;
+                    bool isHostPawn = (pawn.pawn_id.Value & 1u) == 0u;
+                    if (r == Rank.THRONE)
+                    {
+                        if (isHostPawn) hostSurvived = false; else guestSurvived = false;
+                    }
+                    else if (r != Rank.TRAP)
+                    {
+                        if (isHostPawn) hostDeadMovable += 1u; else guestDeadMovable += 1u;
+                    }
+                }
+            }
+        }
+
+        // If all movable pawns for a team are dead, that team loses
+        uint totalMovableMax = 0u;
+        if (parameters.max_ranks != null)
+        {
+            for (int i = 0; i < parameters.max_ranks.Length; i++)
+            {
+                Rank rank = (Rank)i;
+                if (rank != Rank.THRONE && rank != Rank.TRAP && rank != Rank.UNKNOWN)
+                {
+                    totalMovableMax += (uint)parameters.max_ranks[i];
+                }
+            }
+        }
+        if (totalMovableMax > 0u)
+        {
+            if (hostDeadMovable >= totalMovableMax) hostSurvived = false;
+            if (guestDeadMovable >= totalMovableMax) guestSurvived = false;
+        }
+
+        // Early exit if decided by flags/movable counts
+        if (!hostSurvived && guestSurvived) return Subphase.Guest;
+        if (hostSurvived && !guestSurvived) return Subphase.Host;
+        if (!hostSurvived && !guestSurvived) return Subphase.None;
+
+        // Stalemate / blocked: no legal adjacent moves for one side (asymmetric). Skip immovables (THRONE/TRAP) if revealed/known.
+        // Build passable map
+        var passable = new Dictionary<Vector2Int, bool>();
+        if (parameters.board.tiles != null)
+        {
+            for (int i = 0; i < parameters.board.tiles.Length; i++)
+            {
+                TileState tile = parameters.board.tiles[i];
+                passable[tile.pos] = tile.passable;
+            }
+        }
+        // Build occupancy map for alive pawns
+        var occ = new Dictionary<Vector2Int, PawnState>();
+        for (int i = 0; i < gameState.pawns.Length; i++)
+        {
+            PawnState ps = gameState.pawns[i];
+            if (ps.alive)
+            {
+                occ[ps.pos] = ps;
+            }
+        }
+
+        bool hostAnyCanMove = false;
+        bool guestAnyCanMove = false;
+        uint hostConsideredMovables = 0u;
+        uint guestConsideredMovables = 0u;
+        bool isHex = parameters.board.hex;
+
+        for (int i = 0; i < gameState.pawns.Length; i++)
+        {
+            PawnState pawn = gameState.pawns[i];
+            if (!pawn.alive) continue;
+            bool isHostPawn = (pawn.pawn_id.Value & 1u) == 0u;
+            if (pawn.rank.HasValue)
+            {
+                Rank r = pawn.rank.Value;
+                if (r == Rank.THRONE || r == Rank.TRAP) continue;
+                if (isHostPawn) hostConsideredMovables += 1u; else guestConsideredMovables += 1u;
+            }
+            // Neighbor check
+            Vector2Int[] neighbors = Shared.GetNeighbors(pawn.pos, isHex);
+            bool canMove = false;
+            for (int j = 0; j < neighbors.Length; j++)
+            {
+                Vector2Int next = neighbors[j];
+                bool isPassable = passable.TryGetValue(next, out bool p) ? p : false;
+                if (!isPassable) continue;
+                if (occ.TryGetValue(next, out PawnState occPawn))
+                {
+                    bool occIsHost = (occPawn.pawn_id.Value & 1u) == 0u;
+                    if (occIsHost != isHostPawn) { canMove = true; break; }
+                }
+                else { canMove = true; break; }
+            }
+            if (canMove)
+            {
+                if (isHostPawn) hostAnyCanMove = true; else guestAnyCanMove = true;
+                if (hostAnyCanMove && guestAnyCanMove) break;
+            }
+        }
+
+        if (hostConsideredMovables > 0u && guestConsideredMovables > 0u)
+        {
+            if (!hostAnyCanMove && guestAnyCanMove) hostSurvived = false;
+            if (!guestAnyCanMove && hostAnyCanMove) guestSurvived = false;
+        }
+
+        if (!hostSurvived && guestSurvived) return Subphase.Guest;
+        if (hostSurvived && !guestSurvived) return Subphase.Host;
+        if (!hostSurvived && !guestSurvived) return Subphase.None;
+        return Subphase.Both;
     }
     static Subphase NextSubphase(Subphase subphase, bool isHost)
     {
