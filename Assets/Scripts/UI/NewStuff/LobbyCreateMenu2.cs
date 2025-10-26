@@ -22,6 +22,8 @@ public class LobbyCreateMenu2 : MenuBase
     public ButtonExtended singleplayerButton;
     public Button backButton;
 
+    public GameObject hostFactionPanel;
+    public GameObject securityModePanel;
     public LobbyCreateData lobbyCreateData;
     public BoardDef[] boardDefs;
     
@@ -32,7 +34,7 @@ public class LobbyCreateMenu2 : MenuBase
             isMultiplayer = false,
             boardDef = boardDefs[boardDropdown.value],
             hostTeam = true,
-            blitzInterval = 0,
+            blitzInterval = 1,
             securityMode = false,
         };
         ResetEclipseIntervalDropdown();
@@ -60,7 +62,7 @@ public class LobbyCreateMenu2 : MenuBase
     {
         eclipseIntervalDropdown.ClearOptions();
         eclipseIntervalDropdown.AddOptions(new List<string> { "DISABLED", "EVERY TURN", "EVERY 2 TURNS", "EVERY 3 TURNS", "EVERY 4 TURNS", "EVERY 5 TURNS", "EVERY 6 TURNS" });
-        eclipseIntervalDropdown.SetValueWithoutNotify(0);
+        eclipseIntervalDropdown.SetValueWithoutNotify(1);
     }
 
     public void HandleMultiplayer()
@@ -128,6 +130,8 @@ public class LobbyCreateMenu2 : MenuBase
         walletText.text = isOnline ? StellarManager.networkContext.isWallet ? "Using Wallet" : "Using Key" : "Offline";
 
         multiplayerButton.interactable = isOnline;
+        if (hostFactionPanel != null) hostFactionPanel.SetActive(isOnline);
+        if (securityModePanel != null) securityModePanel.SetActive(isOnline);
 
 
     }
