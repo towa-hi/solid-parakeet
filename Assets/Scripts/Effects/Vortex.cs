@@ -16,6 +16,37 @@ public class Vortex : MonoBehaviour
     Coroutine currentVortexLerp;
     bool vortexOn;
     
+    // Reset all vortex-related visual state to the non-resolve baseline immediately
+    public void ResetAll()
+    {
+        if (currentVortexLerp != null)
+        {
+            StopCoroutine(currentVortexLerp);
+            currentVortexLerp = null;
+        }
+        vortexOn = false;
+        var block = new MaterialPropertyBlock();
+        if (vortexRenderer != null)
+        {
+            vortexRenderer.GetPropertyBlock(block);
+            // Baseline (vortex off) values should match LerpVortex(false) targets
+            block.SetFloat(timeScaleID, -0.1f);
+            block.SetFloat(twistednessID, 1f);
+            //block.SetFloat(breatheFloorID, 1.88f);
+            //block.SetFloat(breatheTimeID, 2f);
+            //block.SetFloat(breathePowerID, 0.12f);
+            vortexRenderer.SetPropertyBlock(block);
+        }
+        if (directionalLight != null)
+        {
+            directionalLight.intensity = 2.5f;
+        }
+        if (spotLight != null)
+        {
+            spotLight.intensity = 0f;
+        }
+    }
+    
     public void StartVortex()
     {
         if (vortexOn) return;

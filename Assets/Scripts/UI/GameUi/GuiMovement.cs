@@ -176,8 +176,8 @@ public class GuiMovement : GameElement
                     break;
             }
         }
-
-        bool canSubmit = phase == Phase.MoveCommit && myTurn && !waiting;
+        graveyardList.Refresh(net);
+        bool canSubmit = phase == Phase.MoveCommit && myTurn && !waiting && snapshot.Ui.MovePairs.Count > 0;
 
         statusText.text = statusMessage;
         submitMoveButton.interactable = canSubmit;

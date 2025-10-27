@@ -39,6 +39,11 @@ public class BoardManager : MonoBehaviour
     {
         this.menuController = menuController;
         Debug.Log("BoardManager.StartBoardManager: begin");
+		// Ensure vortex visuals are reset before we build the board
+		if (vortex != null)
+		{
+			vortex.ResetAll();
+		}
 		// Reset debug ScriptableObject at launch so we start from a clean slate
 		var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
 		if (debugSO != null) debugSO.ResetState();
@@ -76,6 +81,9 @@ public class BoardManager : MonoBehaviour
         guiGame.setup.AttachSubscriptions();
         guiGame.movement.AttachSubscriptions();
         guiGame.resolve.AttachSubscriptions();
+		// Subscribe to mode changes so we can control Vortex during Resolve
+		ViewEventBus.OnClientModeChanged -= HandleClientModeChangedForVortex;
+		ViewEventBus.OnClientModeChanged += HandleClientModeChangedForVortex;
         Board board = netState.lobbyParameters.board;
         Debug.Log($"BoardManager.Initialize: building board hex={board.hex} tiles={board.tiles.Length} pawns={netState.gameState.pawns.Length}");
         grid.SetBoard(board.hex, netState.userTeam);
@@ -127,6 +135,8 @@ public class BoardManager : MonoBehaviour
         guiGame.ShowElement(false);
         // Stop polling immediately
         StellarManager.SetPolling(false);
+        // Unhook vortex listener if present
+        ViewEventBus.OnClientModeChanged -= HandleClientModeChangedForVortex;
         // Unsubscribe from events
         StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
         if (clickInputManager != null)
@@ -175,6 +185,19 @@ public class BoardManager : MonoBehaviour
             if (guiGame.resolve != null) guiGame.resolve.DetachSubscriptions();
         }
         initialized = false;
+    }
+
+    void HandleClientModeChangedForVortex(GameSnapshot snapshot)
+    {
+        if (vortex == null) return;
+        if (snapshot.Mode == ClientMode.Resolve)
+        {
+            vortex.StartVortex();
+        }
+        else
+        {
+            vortex.EndVortex();
+        }
     }
     
     async void OnGameStateBeforeApplied(GameNetworkState net, NetworkDelta delta)
