@@ -1,6 +1,8 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 public class Tooltip : MonoBehaviour
 {
@@ -11,6 +13,7 @@ public class Tooltip : MonoBehaviour
     public Vector2 offset;
     public float edgePadding = 8f;
 	public float fadeDuration = 0.15f;
+    public LayerMask physicsMask = Physics.DefaultRaycastLayers;
     RectTransform _rectTransform;
     Canvas _rootCanvas;
     bool _locked;
@@ -18,7 +21,11 @@ public class Tooltip : MonoBehaviour
 	float _originalAlpha = 1f;
 	float _targetAlpha;
 	bool _isFading;
-	bool _deactivateOnFadeComplete;
+
+	TooltipElement _currentElement;
+	float _hoverStartTime;
+	bool _shownForThisHover;
+	public TooltipElement CurrentElement => _currentElement;
 
     void Awake()
     {
@@ -36,8 +43,8 @@ public class Tooltip : MonoBehaviour
 			_canvasGroup = gameObject.AddComponent<CanvasGroup>();
 		_canvasGroup.interactable = false;
 		_canvasGroup.blocksRaycasts = false;
-		// Remember the original alpha so we can fade back to it when showing
-		_originalAlpha = _canvasGroup.alpha;
+		// Remember the original alpha (fallback to 1 if prefab starts at 0)
+		_originalAlpha = _canvasGroup.alpha > 0f ? _canvasGroup.alpha : 1f;
 		_canvasGroup.alpha = 0f;
 		_targetAlpha = 0f;
         if (_rectTransform != null)
@@ -45,6 +52,8 @@ public class Tooltip : MonoBehaviour
             // Default to bottom-middle of the cursor
             _rectTransform.pivot = new Vector2(0.5f, 0f);
         }
+        // Ensure hidden off-screen at start
+        MoveOffscreenNow();
     }
 
     void OnDestroy()
@@ -72,12 +81,11 @@ public class Tooltip : MonoBehaviour
 		{
 			if (!gameObject.activeSelf)
 				gameObject.SetActive(true);
-			_deactivateOnFadeComplete = false;
 			StartFade(_originalAlpha);
 		}
 		else
 		{
-			_deactivateOnFadeComplete = true;
+			// Do not deactivate the GameObject anymore; keep it active so hover detection continues
 			StartFade(0f);
 		}
 	}
@@ -93,7 +101,7 @@ public class Tooltip : MonoBehaviour
 		SetText(headerText, bodyText);
 		if (!gameObject.activeSelf)
 			gameObject.SetActive(true);
-		_deactivateOnFadeComplete = false;
+
 		if (_canvasGroup != null)
 			_canvasGroup.alpha = 0f;
 		UpdatePositionNow();
@@ -103,6 +111,8 @@ public class Tooltip : MonoBehaviour
     // Update is called once per frame
 	void Update()
     {
+        UpdateHoverState();
+
 		if (gameObject.activeSelf)
 		{
 			UpdateFade();
@@ -115,6 +125,110 @@ public class Tooltip : MonoBehaviour
             : (Vector2)Input.mousePosition;
 
         ApplyPositionFromScreenPoint(mousePosition);
+    }
+
+    void UpdateHoverState()
+    {
+        Vector2 mousePosition = Globals.InputActions != null
+            ? Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>()
+            : (Vector2)Input.mousePosition;
+
+        TooltipElement newElement = FindTooltipElementAt(mousePosition);
+
+        if (newElement != _currentElement)
+        {
+            if (newElement != null)
+            {
+                _currentElement = newElement;
+                _hoverStartTime = Time.unscaledTime;
+                _shownForThisHover = false;
+                SetLocked(false);
+                SetVisible(false);
+            }
+            else
+            {
+                SetVisible(false);
+                SetLocked(false);
+                _currentElement = null;
+                _shownForThisHover = false;
+                MoveOffscreenNow();
+            }
+            return;
+        }
+
+        if (_currentElement != null && !_shownForThisHover)
+        {
+            float delay = Mathf.Max(0f, _currentElement.hoverDelay);
+            if (Time.unscaledTime - _hoverStartTime >= delay)
+            {
+                ShowAtPointerResetFade(_currentElement.header, _currentElement.body);
+                SetLocked(true);
+                _shownForThisHover = true;
+            }
+        }
+        else if (_currentElement == null)
+        {
+            // Keep hidden off-screen while not hovering any tooltip element
+            MoveOffscreenNow();
+        }
+    }
+
+    TooltipElement FindTooltipElementAt(Vector2 screenPos)
+    {
+        TooltipElement uiElement = FindUIElementAt(screenPos);
+        if (uiElement != null) return uiElement;
+        return FindPhysicsElementAt(screenPos);
+    }
+
+    TooltipElement FindUIElementAt(Vector2 screenPos)
+    {
+        if (EventSystem.current == null) return null;
+        PointerEventData ped = new PointerEventData(EventSystem.current) { position = screenPos };
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(ped, results);
+        for (int i = 0; i < results.Count; i++)
+        {
+            GameObject go = results[i].gameObject;
+            if (go == null) continue;
+            TooltipElement te = go.GetComponentInParent<TooltipElement>(true);
+            if (te != null && te.isActiveAndEnabled)
+                return te;
+        }
+        return null;
+    }
+
+    TooltipElement FindPhysicsElementAt(Vector2 screenPos)
+    {
+        Camera cam = GetCamera();
+        if (cam == null) return null;
+        Ray ray = cam.ScreenPointToRay(screenPos);
+        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, physicsMask, QueryTriggerInteraction.Collide))
+        {
+            Transform t = hit.transform;
+            return FindTooltipInParents(t);
+        }
+        return null;
+    }
+
+    TooltipElement FindTooltipInParents(Transform t)
+    {
+        while (t != null)
+        {
+            TooltipElement te = t.GetComponent<TooltipElement>();
+            if (te != null && te.isActiveAndEnabled)
+                return te;
+            t = t.parent;
+        }
+        return null;
+    }
+
+    Camera GetCamera()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) cam = Camera.current;
+        if (cam == null && Camera.allCamerasCount > 0)
+            cam = Camera.allCameras[0];
+        return cam;
     }
 
     public void UpdatePositionNow()
@@ -170,6 +284,11 @@ public class Tooltip : MonoBehaviour
         transform.position = screenPoint + appliedOffset;
     }
 
+    void MoveOffscreenNow()
+    {
+        transform.position = new Vector2(-10000f, -10000f);
+    }
+
 	void StartFade(float toAlpha)
 	{
 		_targetAlpha = Mathf.Clamp01(toAlpha);
@@ -194,10 +313,7 @@ public class Tooltip : MonoBehaviour
 		if (Mathf.Approximately(_canvasGroup.alpha, _targetAlpha))
 		{
 			_isFading = false;
-			if (_deactivateOnFadeComplete && _targetAlpha <= 0f)
-			{
-				gameObject.SetActive(false);
-			}
+			// Never deactivate here; tooltip GameObject must remain active to drive hover detection
 		}
 	}
 }
