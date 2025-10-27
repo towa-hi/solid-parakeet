@@ -55,6 +55,7 @@ MonoBehaviour:
   elevator: {fileID: 4024587444359788044}
   fogObject: {fileID: 6815515368278487868}
   fogParticleSystem: {fileID: 5268950877551544708}
+  tooltipElement: {fileID: 3080580943885569396}
 --- !u!114 &6623336976803911474
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -440,6 +441,7 @@ GameObject:
   - component: {fileID: 6441703352318843940}
   - component: {fileID: 2141739572570675732}
   - component: {fileID: 8143252726320072733}
+  - component: {fileID: 3080580943885569396}
   m_Layer: 8
   m_Name: Hitbox
   m_TagString: Untagged
@@ -537,6 +539,24 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &3080580943885569396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8174528698623601442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1610fed60579fd54f83c1d004e08d96c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  header: asdf
+  body: fdsa
+  physicsMask:
+    serializedVersion: 2
+    m_Bits: 4294967291
+  hoverDelay: 1
 --- !u!1001 &5545428478286746955
 PrefabInstance:
   m_ObjectHideFlags: 0

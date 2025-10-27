@@ -817,16 +817,8 @@ MonoBehaviour:
   parentConstraint: {fileID: 6554624529676426233}
   animator: {fileID: 236010443059273928}
   renderEffect: {fileID: 5543228733878367094}
-  startPos: {x: 0, y: 0}
   team: 0
-  rankView: 0
-  aliveView: 0
-  posView: {x: 0, y: 0}
-  isMyTeam: 0
-  visibleView: 0
-  isSelected: 0
-  isMovePairStart: 0
-  cheatMode: 1
+  cachedPawnDef: {fileID: 0}
 --- !u!1773428102 &6554624529676426233
 ParentConstraint:
   m_ObjectHideFlags: 0

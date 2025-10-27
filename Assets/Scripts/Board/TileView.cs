@@ -65,6 +65,7 @@ public class TileView : MonoBehaviour
         initialElevatorLocalPos = tileModel.elevator.localPosition;
         // Ensure fog is disabled on initialization
         SetFogState(FogState.NONE);
+        ClearTooltip();
     }
 
     void SetTile(TileState tile, bool hex)
@@ -395,6 +396,33 @@ public class TileView : MonoBehaviour
             Debug.LogError($"TileView[{posView}]: ClearFog failed to clear fog for pawn={pawn}");
         }
     }
+
+    public void UpdateTooltipFromPawnState(Rank? rank)
+    {
+        string header = $"{posView}";
+        string body = "";
+        string power = "";
+        if (rank == null)
+        {
+            
+        }
+        else
+        {
+            if (rank.Value != Rank.UNKNOWN)
+            {
+                power = $"Power: {(int)rank.Value}";
+            }
+            body = $"{rank.Value} {power}";
+        }
+        tileModel.tooltipElement.SetTooltipText(header, body);
+    }
+
+    public void ClearTooltip()
+    {
+        //tileModel.tooltipElement.SetTooltipEnabled(false);
+        tileModel.tooltipElement.SetTooltipText($"{posView}", "");
+    }
+
     void SetTopColor(Color color)
     {
         Material mat = tileModel.flatRenderer.material;
@@ -433,6 +461,7 @@ public class TileView : MonoBehaviour
             arrow.PointToTarget(origin, target);
         }
     }
+
 }
 
 public enum FogState

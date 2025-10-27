@@ -11,4 +11,5 @@ public class TileModel : MonoBehaviour
 
     public GameObject fogObject;
     public ParticleSystem fogParticleSystem;
+    public TooltipElement tooltipElement;
 }

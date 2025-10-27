@@ -185,6 +185,7 @@ GameObject:
   - component: {fileID: 990599514167094609}
   - component: {fileID: 3052216016052050331}
   - component: {fileID: 4573625080066503397}
+  - component: {fileID: 5356799076240974972}
   m_Layer: 8
   m_Name: Hitbox
   m_TagString: Untagged
@@ -282,6 +283,24 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: c3f2363a67752d44a972b30e4804e51c, type: 2}
+--- !u!114 &5356799076240974972
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3556535542875551822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1610fed60579fd54f83c1d004e08d96c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  header: asdf
+  body: fdsa
+  physicsMask:
+    serializedVersion: 2
+    m_Bits: 4083
+  hoverDelay: 1
 --- !u!1 &4166921062069795660
 GameObject:
   m_ObjectHideFlags: 0
@@ -337,6 +356,7 @@ MonoBehaviour:
   elevator: {fileID: 1314966712611629877}
   fogObject: {fileID: 6562843825447998314}
   fogParticleSystem: {fileID: 2905097989790402345}
+  tooltipElement: {fileID: 5356799076240974972}
 --- !u!114 &4218627267837294048
 MonoBehaviour:
   m_ObjectHideFlags: 0

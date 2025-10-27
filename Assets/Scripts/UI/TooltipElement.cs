@@ -19,6 +19,15 @@ public class TooltipElement : MonoBehaviour
     {
         _graphicRaycasters = GetComponentsInParent<GraphicRaycaster>(true);
     }
+    public void SetTooltipEnabled(bool enabled)
+    {
+        this.enabled = enabled;
+    }
+    public void SetTooltipText(string header, string body)
+    {
+        this.header = header;
+        this.body = body;
+    }
 
     void Update()
     {
@@ -92,11 +101,29 @@ public class TooltipElement : MonoBehaviour
     bool IsPointerOverThisPhysics(Vector2 screenPos)
     {
         Camera cam = Camera.main;
-        if (cam == null) return false;
-        Ray ray = cam.ScreenPointToRay(screenPos);
-        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, physicsMask, QueryTriggerInteraction.Ignore))
+        if (cam == null) cam = Camera.current;
+        if (cam == null)
         {
-            return hit.transform == transform || hit.transform.IsChildOf(transform);
+            if (Camera.allCamerasCount > 0)
+            {
+                cam = Camera.allCameras[0];
+            }
+        }
+        if (cam == null) return false;
+
+        Ray ray = cam.ScreenPointToRay(screenPos);
+        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, physicsMask, QueryTriggerInteraction.Collide))
+        {
+            // Consider any collider within the same TileView hierarchy as a hover over this element
+            Transform myRoot = GetComponentInParent<TileView>() ? GetComponentInParent<TileView>().transform : transform;
+            if (hit.transform == transform || hit.transform.IsChildOf(transform) || transform.IsChildOf(hit.transform))
+                return true;
+            if (myRoot != null && (hit.transform == myRoot || hit.transform.IsChildOf(myRoot)))
+                return true;
+            TileView hitTile = hit.transform.GetComponentInParent<TileView>();
+            TileView myTile = GetComponentInParent<TileView>();
+            if (hitTile != null && myTile != null && hitTile == myTile)
+                return true;
         }
         return false;
     }
