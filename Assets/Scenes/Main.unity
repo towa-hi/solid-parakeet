@@ -13028,8 +13028,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   vortexRenderer: {fileID: 699814195}
-  vortexTransitionDuration: 0.25
+  vortexTransitionDuration: 1
   directionalLight: {fileID: 361270546}
+  vortexOnColor: {r: 1, g: 0.25943398, b: 0.25943398, a: 1}
+  vortexOffColor: {r: 1, g: 1, b: 1, a: 1}
+  vortexOnIntensity: 0.5
+  vortexOffIntensity: 1
   spotLight: {fileID: 2143423649}
   spotLightHandler: {fileID: 0}
 --- !u!114 &1972489288
@@ -14316,7 +14320,7 @@ Light:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2143423646}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 11
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}

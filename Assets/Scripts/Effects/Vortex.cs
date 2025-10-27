@@ -6,6 +6,10 @@ public class Vortex : MonoBehaviour
     public Renderer vortexRenderer;
     public float vortexTransitionDuration = 0.25f;
     public Light directionalLight;
+    public Color vortexOnColor = Color.white;
+    public Color vortexOffColor = Color.white;
+    public float vortexOnIntensity = 0.5f;
+    public float vortexOffIntensity = 1f;
     public Light spotLight;
     public SpotLight spotLightHandler;
     static readonly int timeScaleID = Shader.PropertyToID("_TimeScale");
@@ -39,7 +43,8 @@ public class Vortex : MonoBehaviour
         }
         if (directionalLight != null)
         {
-            directionalLight.intensity = 2.5f;
+            directionalLight.intensity = vortexOffIntensity;
+            directionalLight.color = vortexOffColor;
         }
         if (spotLight != null)
         {
@@ -87,11 +92,13 @@ public class Vortex : MonoBehaviour
         float initBreatheFloor = block.GetFloat(breatheFloorID);
         float initBreatheTime = block.GetFloat(breatheTimeID);
         float initDirectionalLightIntensity = directionalLight.intensity;
+        Color initDirectionalLightColor = directionalLight.color;
         float initSpotLightIntensity = spotLight.intensity;
         //float initBreathePower = block.GetFloat(breathePowerID);
         float targetTwistedness = isOn ? 0f : 1f;
         float targetTimeScale = isOn? -1f : -0.1f;
-        float targetDirectionalLightIntensity = isOn ? 1f : 2.5f;
+        float targetDirectionalLightIntensity = isOn ? vortexOnIntensity : vortexOffIntensity;
+        Color targetDirectionalLightColor = isOn ? vortexOnColor : vortexOffColor;
         float targetSpotLightIntensity = isOn ? 40f : 0f;
        // float targetBreatheFloor = isOn? 4f : 1.88f;
         //float targetBreatheTime = isOn ? 5.3f : 2f;
@@ -106,6 +113,7 @@ public class Vortex : MonoBehaviour
             float currentTwistedness = Mathf.Lerp(initTwistedness, targetTwistedness, easedT);
             float currentTimeScale = Mathf.Lerp(initTimeScale, targetTimeScale, easedT);
             float currentDirectionalLightIntensity = Mathf.Lerp(initDirectionalLightIntensity, targetDirectionalLightIntensity, easedT);
+            Color currentDirectionalLightColor = Color.Lerp(initDirectionalLightColor, targetDirectionalLightColor, easedT);
             float currentSpotLightIntensity = Mathf.Lerp(initSpotLightIntensity, targetSpotLightIntensity, easedT);
             //float currentBreatheFloor = Mathf.Lerp(initBreatheFloor, targetBreatheFloor, delta);
             //float currentBreatheTime = Mathf.Lerp(initBreatheTime, targetBreatheTime, delta);
@@ -113,6 +121,7 @@ public class Vortex : MonoBehaviour
             block.SetFloat(timeScaleID, currentTimeScale);
             block.SetFloat(twistednessID, currentTwistedness);
             directionalLight.intensity = currentDirectionalLightIntensity;
+            directionalLight.color = currentDirectionalLightColor;
             spotLight.intensity = currentSpotLightIntensity;
             //currentBlock.SetFloat(breatheFloorID, currentBreatheFloor);
             //currentBlock.SetFloat(breatheTimeID, currentBreatheTime);
