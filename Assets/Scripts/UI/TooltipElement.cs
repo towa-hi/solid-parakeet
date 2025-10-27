@@ -27,6 +27,11 @@ public class TooltipElement : MonoBehaviour
     {
         this.header = header;
         this.body = body;
+        // If the tooltip is already visible for this hover, update instantly without resetting timers/fade
+        if (Tooltip.Instance != null && _isHovering && _shownForThisHover)
+        {
+            Tooltip.Instance.SetText(this.header, this.body);
+        }
     }
 
     void Update()
