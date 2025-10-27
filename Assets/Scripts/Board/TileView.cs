@@ -288,6 +288,11 @@ public class TileView : MonoBehaviour
 		if (arrow == null) return;
 		if (target != null)
 		{
+			// Skip re-animating if we're already pointing to the same tile
+			if (pointedTile != null && (pointedTile == target || pointedTile.posView == target.posView))
+			{
+				return;
+			}
 			arrow.gameObject.SetActive(true);
 			arrow.ArcFromTiles(this, target);
 			pointedTile = target;

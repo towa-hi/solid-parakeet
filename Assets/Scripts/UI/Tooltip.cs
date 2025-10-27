@@ -11,11 +11,11 @@ public class Tooltip : MonoBehaviour
     public Vector2 offset;
     public float edgePadding = 8f;
 	public float fadeDuration = 0.15f;
-
     RectTransform _rectTransform;
     Canvas _rootCanvas;
     bool _locked;
 	CanvasGroup _canvasGroup;
+	float _originalAlpha = 1f;
 	float _targetAlpha;
 	bool _isFading;
 	bool _deactivateOnFadeComplete;
@@ -36,6 +36,8 @@ public class Tooltip : MonoBehaviour
 			_canvasGroup = gameObject.AddComponent<CanvasGroup>();
 		_canvasGroup.interactable = false;
 		_canvasGroup.blocksRaycasts = false;
+		// Remember the original alpha so we can fade back to it when showing
+		_originalAlpha = _canvasGroup.alpha;
 		_canvasGroup.alpha = 0f;
 		_targetAlpha = 0f;
         if (_rectTransform != null)
@@ -71,7 +73,7 @@ public class Tooltip : MonoBehaviour
 			if (!gameObject.activeSelf)
 				gameObject.SetActive(true);
 			_deactivateOnFadeComplete = false;
-			StartFade(1f);
+			StartFade(_originalAlpha);
 		}
 		else
 		{
@@ -95,7 +97,7 @@ public class Tooltip : MonoBehaviour
 		if (_canvasGroup != null)
 			_canvasGroup.alpha = 0f;
 		UpdatePositionNow();
-		StartFade(1f);
+		StartFade(_originalAlpha);
 	}
 
     // Update is called once per frame
