@@ -85,8 +85,10 @@ public class Tooltip : MonoBehaviour
 		}
 		else
 		{
-			// Do not deactivate the GameObject anymore; keep it active so hover detection continues
-			StartFade(0f);
+			// Instantly hide without fading, but keep active for hover detection
+			_isFading = false;
+			if (_canvasGroup != null)
+				_canvasGroup.alpha = 0f;
 		}
 	}
 

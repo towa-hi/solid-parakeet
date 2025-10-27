@@ -393,7 +393,7 @@ public class PawnView : MonoBehaviour
         TileView bound = GetBoundTileView();
         if (bound)
         {
-            bound.UpdateTooltipFromPawnState(rank);
+            // Tooltip is driven by TileView from GameSnapshot; no direct calls here
         }
         badge.SetBadge(team, rank);
     }
@@ -419,7 +419,6 @@ public class PawnView : MonoBehaviour
         // Drive fog on the bound tile based on provided snapshot
         //Debug.Log($"PawnView[{pawnId}]: SetPosSnap targetTile={targetTile.posView} snapshot={snapshot}");
         targetTile.UpdateFogFromPawnState(snapshot);
-        targetTile.UpdateTooltipFromPawnState(snapshot.rank);
     }
 
     void SetPosArc([CanBeNull] TileView targetTile, PawnState snapshot)
@@ -450,7 +449,6 @@ public class PawnView : MonoBehaviour
         SetTransformToTile(targetTile);
         //Debug.Log($"PawnView[{pawnId}]: SetPosArc targetTile={targetTile.posView} snapshot={snapshot}");
         targetTile.UpdateFogFromPawnState(snapshot);
-        targetTile.UpdateTooltipFromPawnState(snapshot.rank);
     }
 
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
