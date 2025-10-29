@@ -198,6 +198,12 @@ public class PawnView : MonoBehaviour
 			}
 			case ClientMode.Resolve:
 			{
+				// Initialize position and fog from current network state when entering Resolve mode
+				// This preserves fog until HandleResolveCheckpointChanged updates it with Pre checkpoint state
+				SetRank(known);
+				SetModelVisible(p.alive);
+				TileView currentTile = ViewEventBus.TileViewResolver(p.pos);
+				SetPosSnap(currentTile, p);
 				break;
 			}
 			case ClientMode.Move:
