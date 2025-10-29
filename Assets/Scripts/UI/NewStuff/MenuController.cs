@@ -20,7 +20,7 @@ public class MenuController : MonoBehaviour
     public GameObject lobbyJoinMenuPrefab;
     public GameObject gameMenuPrefab;
 
-    
+    public GameObject creditsModalPrefab;
     public GameObject messageModalPrefab;
     // state machine
     public MenuBase currentMenu;
