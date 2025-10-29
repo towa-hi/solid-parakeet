@@ -31,7 +31,6 @@ public class TileView : MonoBehaviour
     public TileView pointedTile;
     
     static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
-    static readonly int FogColorProperty = Shader.PropertyToID("_Color");
     static readonly int FadeAmountProperty = Shader.PropertyToID("_FadeAmount");
     public TweenSettings<Vector3> startTweenSettings;
     public Sequence startSequence;
@@ -44,16 +43,6 @@ public class TileView : MonoBehaviour
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
     
-    // Fog/reveal visual state
-    public Tween fogAlphaTween;
-    Tween revealFadeTween;
-    float currentFogAlpha01 = 0f;
-    bool? lastRevealedState = null;
-    const float LightFogAlpha = 150f / 255f;
-    const float HeavyFogAlpha = 200f / 255f;
-    const float UnrevealedFadeAmount = 1f; // as requested
-    const float RevealedFadeAmount = 1f;   // as requested
-    
     public void Initialize(TileState tile, bool hex)
     {
         // never changes
@@ -63,8 +52,10 @@ public class TileView : MonoBehaviour
         
         SetTile(tile, hex);
         initialElevatorLocalPos = tileModel.elevator.localPosition;
-        // Ensure fog is disabled on initialization
-        SetFogState(FogState.NONE);
+        if (tileModel != null && tileModel.fogObject != null)
+        {
+            tileModel.fogObject.SetActive(false);
+        }
         ClearTooltip();
     }
 
@@ -361,116 +352,6 @@ public class TileView : MonoBehaviour
 	// 	}, Ease.OutCubic);
 	// }
 
-    void SetFogColor(Color targetColor)
-	{
-		// Ensure fog object active
-        //Debug.Log($"TileView[{posView}]: SetFogColor targetColor={targetColor}");
-		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
-		{
-			tileModel.fogObject.SetActive(true);
-		}
-		Renderer fogRenderer = tileModel.fogObject.GetComponent<Renderer>();
-		Material fogMat = fogRenderer.material;
-
-		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
-		Color startColor = baseColor;
-		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, targetColor.a);
-
-		// If we're clearing fog (alpha -> 0), apply instantly without tween
-		if (Mathf.Approximately(endColor.a, 0f))
-		{
-			if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
-			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
-			currentFogAlpha01 = 0f;
-			return;
-		}
-		
-		if (Mathf.Approximately(startColor.a, endColor.a))
-		{
-			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
-			currentFogAlpha01 = endColor.a;
-			return;
-		}
-		if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
-		fogAlphaTween = PrimeTween.Tween.Custom(startColor.a, endColor.a, 0.2f, (val) =>
-		{
-			Color c = baseColor;
-			c.a = val;
-			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, c); else fogMat.color = c;
-			currentFogAlpha01 = val;
-		}, Ease.OutCubic);
-	}
-
-	// Public helpers for immediate fog control without tweening
-	public void SetFogAlphaImmediate(float alpha)
-	{
-		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
-		{
-			tileModel.fogObject.SetActive(true);
-		}
-		Renderer fogRenderer = tileModel.fogObject.GetComponent<Renderer>();
-		Material fogMat = fogRenderer.material;
-		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
-		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
-		if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
-		if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
-		currentFogAlpha01 = alpha;
-		fogState = Mathf.Approximately(alpha, 0f) ? FogState.NONE : (alpha < 0.8f ? FogState.LIGHT : FogState.HEAVY);
-	}
-
-	public void ClearFogImmediate()
-	{
-		pawnFogOwner = null;
-		SetFogAlphaImmediate(0f);
-	}
-
-    public FogState fogState;
-
-    void SetFogState(FogState state)
-    {
-        //Debug.Log($"TileView[{posView}]: SetFogState state={state}");
-        fogState = state;
-        switch (state)
-        {
-            case FogState.NONE:
-                SetFogColor(Color.clear);
-                break;
-            case FogState.LIGHT:
-                SetFogColor(new Color(0f, 0f, 0f, LightFogAlpha));
-                break;
-            case FogState.HEAVY:
-                SetFogColor(new Color(0f, 0f, 0f, HeavyFogAlpha));
-                break;
-        }
-    }
-
-    public PawnState? pawnFogOwner;
-    // Single public entrypoint for fog updates driven by pawn state
-    public void UpdateFogFromPawnState(PawnState pawn)
-    {
-        //Debug.Log($"TileView[{posView}]: UpdateFogFromPawnState pawn={pawn}");
-        pawnFogOwner = pawn;
-        FogState state = FogState.NONE;
-        if (!pawn.zz_revealed)
-        {
-            state = FogState.HEAVY;
-            if (pawn.moved)
-            {
-                state = FogState.LIGHT;
-            }
-        }
-        SetFogState(state);
-    }
-
-    public void ClearFog(PawnState pawn)
-    {
-        if (pawnFogOwner == pawn)
-        {
-            pawnFogOwner = null;
-            SetFogState(FogState.NONE);
-        }
-    }
-
     void UpdateTooltip(GameSnapshot snapshot)
     {
         string header = $"{posView}";
@@ -584,12 +465,4 @@ public class TileView : MonoBehaviour
             arrow.PointToTarget(origin, target);
         }
     }
-
-}
-
-public enum FogState
-{
-    NONE,
-    LIGHT,
-    HEAVY,
 }

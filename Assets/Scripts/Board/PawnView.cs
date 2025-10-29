@@ -13,6 +13,9 @@ public class PawnView : MonoBehaviour
 {
     static readonly int animatorIsSelected = Animator.StringToHash("IsSelected");
     static readonly int Hurt = Animator.StringToHash("Hurt");
+    static readonly int FogColorProperty = Shader.PropertyToID("_Color");
+    const float FogAlphaLight = 150f / 255f;
+    const float FogAlphaHeavy = 200f / 255f;
     Billboard billboard;
 
     public Badge badge;
@@ -29,7 +32,12 @@ public class PawnView : MonoBehaviour
     // cached values strictly for checking redundant setting
     public PawnDef cachedPawnDef;
 
+    public Renderer fogRenderer; // this used to be on the tileView but we moved it here to avoid the extra indirection
     public static event Action<PawnId> OnMoveAnimationCompleted;
+    bool fogColorInitialized;
+    Color fogBaseColor;
+    Tween fogTween;
+    Material fogMaterial;
     
     
 
@@ -192,8 +200,12 @@ public class PawnView : MonoBehaviour
 			{
 				SetRank(known);
 				bool shouldBeVisible = known != Rank.UNKNOWN;
-                // Don't touch fog in Setup; leave tiles clear
-                SetModelVisible(shouldBeVisible);
+            SetModelVisible(shouldBeVisible);
+            TileView setupTile = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(p.pos) : null;
+            if (setupTile != null)
+            {
+                SetPosSnap(setupTile, p);
+            }
 				break;
 			}
 			case ClientMode.Resolve:
@@ -346,12 +358,6 @@ public class PawnView : MonoBehaviour
         }
     }
 
-    void SetModelVisible(bool visible, PawnState snapshot)
-    {
-        // Deprecated fog update path: only keep visibility change here
-        SetModelVisible(visible);
-    }
-
     void SetAnimatorIsSelected(bool selected)
     {
 		if (animator.GetBool(animatorIsSelected) != selected)
@@ -449,10 +455,6 @@ public class PawnView : MonoBehaviour
         TileView initial = GetBoundTileView();
         if (initial)
         {
-            if (initial != targetTile)
-            {
-                initial.ClearFogImmediate();
-            }
             initial.ClearTooltip();
         }
         if (!snapshot.alive)
@@ -460,12 +462,12 @@ public class PawnView : MonoBehaviour
             //Debug.Log($"PawnView[{pawnId}]: SetPosSnap snapshot={snapshot} not alive, setting constraint to null");
             SetConstraintToTile(null);
             SetTransformToTile(null);
+            SetFogAlphaImmediate(0f);
             return;
         }
         SetConstraintToTile(targetTile);
         SetTransformToTile(targetTile);
-        // Apply fog exactly once based on snapshot
-        ApplyFogForSnapshot(targetTile, snapshot);
+        UpdateFogForSnapshot(snapshot, animate: false);
     }
 
     void SetPosArc([CanBeNull] TileView targetTile, PawnState snapshot)
@@ -475,6 +477,11 @@ public class PawnView : MonoBehaviour
             Debug.LogWarning($"PawnView[{pawnId}]: SetPosArc snapshot={snapshot} not alive, skipping");
             return;
         }
+        if (targetTile == null)
+        {
+            Debug.LogWarning($"PawnView[{pawnId}]: SetPosArc targetTile is null, skipping");
+            return;
+        }
         StopAllCoroutines();
         TileView initial = GetBoundTileView();
         if (initial)
@@ -482,10 +489,9 @@ public class PawnView : MonoBehaviour
             parentConstraint.constraintActive = false;
             transform.position = initial.origin.position;
             transform.rotation = initial.origin.rotation;
-            // During arc: ensure no fog on initial
-            initial.ClearFogImmediate();
             initial.ClearTooltip();
         }
+        SetFogAlphaImmediate(0f, keepActive: true);
         StartCoroutine(ArcToTileNoNotify(targetTile, snapshot));
     }
 
@@ -494,22 +500,108 @@ public class PawnView : MonoBehaviour
         yield return ArcToPosition(targetTile.origin, Globals.PawnMoveDuration, 0.5f);
         SetConstraintToTile(targetTile);
         SetTransformToTile(targetTile);
-        // Apply fog exactly once on arrival
-        ApplyFogForSnapshot(targetTile, snapshot);
+        UpdateFogForSnapshot(snapshot, animate: true);
     }
 
-    // Single fog application per frame/checkpoint driven from PawnView
-    void ApplyFogForSnapshot(TileView tile, PawnState snapshot)
+    void UpdateFogForSnapshot(PawnState snapshot, bool animate)
     {
-        // revealed -> no fog; unrevealed -> heavy; if moved and unrevealed -> light
-        const float LightFogAlpha = 150f / 255f;
-        const float HeavyFogAlpha = 200f / 255f;
+        if (fogRenderer == null)
+        {
+            return;
+        }
+        if (!snapshot.alive || snapshot.pos == Globals.Purgatory)
+        {
+            SetFogAlphaInternal(0f, animate, keepActive: false);
+            return;
+        }
         float alpha = 0f;
         if (!snapshot.zz_revealed)
         {
-            alpha = snapshot.moved ? LightFogAlpha : HeavyFogAlpha;
+            alpha = snapshot.moved ? FogAlphaLight : FogAlphaHeavy;
         }
-        tile.SetFogAlphaImmediate(alpha);
+        bool keepActive = alpha > 0f;
+        SetFogAlphaInternal(alpha, animate, keepActive);
+    }
+
+    void SetFogAlphaImmediate(float alpha, bool keepActive = false)
+    {
+        SetFogAlphaInternal(alpha, animate: false, keepActive: keepActive);
+    }
+
+    void SetFogAlphaInternal(float targetAlpha, bool animate, bool keepActive)
+    {
+        if (fogRenderer == null)
+        {
+            return;
+        }
+
+        if (fogMaterial == null)
+        {
+            fogMaterial = fogRenderer.material;
+        }
+        Material fogMat = fogMaterial;
+        if (!fogColorInitialized)
+        {
+            fogBaseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
+            fogColorInitialized = true;
+        }
+
+        if (fogTween.isAlive)
+        {
+            fogTween.Stop();
+        }
+
+        float currentAlpha = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty).a : fogMat.color.a;
+
+        if (!animate || Mathf.Approximately(currentAlpha, targetAlpha))
+        {
+            ApplyFogAlpha(fogMat, targetAlpha);
+            if (!keepActive && Mathf.Approximately(targetAlpha, 0f))
+            {
+                if (fogRenderer.gameObject.activeSelf)
+                {
+                    fogRenderer.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                if (!fogRenderer.gameObject.activeSelf)
+                {
+                    fogRenderer.gameObject.SetActive(true);
+                }
+            }
+            return;
+        }
+
+        if (!fogRenderer.gameObject.activeSelf)
+        {
+            fogRenderer.gameObject.SetActive(true);
+        }
+
+        fogTween = PrimeTween.Tween.Custom(currentAlpha, targetAlpha, 0.3f, value =>
+        {
+            ApplyFogAlpha(fogMat, value);
+        }, Ease.OutCubic).OnComplete(() =>
+        {
+            if (!keepActive && Mathf.Approximately(targetAlpha, 0f))
+            {
+                fogRenderer.gameObject.SetActive(false);
+            }
+        });
+    }
+
+    void ApplyFogAlpha(Material fogMat, float alpha)
+    {
+        Color finalColor = fogBaseColor;
+        finalColor.a = alpha;
+        if (fogMat.HasProperty(FogColorProperty))
+        {
+            fogMat.SetColor(FogColorProperty, finalColor);
+        }
+        else
+        {
+            fogMat.color = finalColor;
+        }
     }
 
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
