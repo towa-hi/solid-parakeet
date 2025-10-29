@@ -442,10 +442,6 @@ public class PawnView : MonoBehaviour
             SetAnimatorIdleRandomized();
         }
         TileView bound = GetBoundTileView();
-        if (bound)
-        {
-            // Tooltip is driven by TileView from GameSnapshot; no direct calls here
-        }
         badge.SetBadge(team, rank);
     }
 
@@ -455,7 +451,6 @@ public class PawnView : MonoBehaviour
         TileView initial = GetBoundTileView();
         if (initial)
         {
-            initial.ClearTooltip();
         }
         if (!snapshot.alive)
         {
@@ -489,7 +484,6 @@ public class PawnView : MonoBehaviour
             parentConstraint.constraintActive = false;
             transform.position = initial.origin.position;
             transform.rotation = initial.origin.rotation;
-            initial.ClearTooltip();
         }
         SetFogAlphaImmediate(0f, keepActive: true);
         StartCoroutine(ArcToTileNoNotify(targetTile, snapshot));

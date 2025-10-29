@@ -3,6 +3,11 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+public interface ITooltipContentProvider
+{
+    bool TryGetTooltipContent(TooltipElement element, out string header, out string body);
+}
+
 public class TooltipElement : MonoBehaviour
 {
     public string header;
@@ -10,11 +15,55 @@ public class TooltipElement : MonoBehaviour
     public float hoverDelay = 1f;
     
     GraphicRaycaster[] _graphicRaycasters;
+    ITooltipContentProvider _contentProvider;
+    bool _hasTilePosition;
+    Vector2Int _tilePosition;
     
     void Awake()
     {
         _graphicRaycasters = GetComponentsInParent<GraphicRaycaster>(true);
+        ResolveContentProvider();
     }
+
+    void OnEnable()
+    {
+        ResolveContentProvider();
+    }
+
+    void ResolveContentProvider()
+    {
+        _contentProvider = GetComponent<ITooltipContentProvider>();
+
+        if (_contentProvider == null)
+        {
+            _contentProvider = GetComponentInParent<ITooltipContentProvider>();
+        }
+    }
+
+    public bool TryGetTooltipContent(out string tooltipHeader, out string tooltipBody)
+    {
+        if (_contentProvider != null)
+        {
+            return _contentProvider.TryGetTooltipContent(this, out tooltipHeader, out tooltipBody);
+        }
+
+        tooltipHeader = header;
+        tooltipBody = body;
+        return !string.IsNullOrEmpty(tooltipHeader) || !string.IsNullOrEmpty(tooltipBody);
+    }
+
+    public void SetTilePosition(Vector2Int pos)
+    {
+        _tilePosition = pos;
+        _hasTilePosition = true;
+    }
+
+    public bool TryGetTilePosition(out Vector2Int pos)
+    {
+        pos = _tilePosition;
+        return _hasTilePosition;
+    }
+
     public void SetTooltipEnabled(bool enabled)
     {
         this.enabled = enabled;

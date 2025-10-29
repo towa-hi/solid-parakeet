@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
+using Contract;
 
 public class Tooltip : MonoBehaviour
 {
@@ -26,6 +27,13 @@ public class Tooltip : MonoBehaviour
 	float _hoverStartTime;
 	bool _shownForThisHover;
 	public TooltipElement CurrentElement => _currentElement;
+
+	GameStore _store;
+
+	public void SetStore(GameStore store)
+	{
+		_store = store;
+	}
 
     void Awake()
     {
@@ -163,9 +171,27 @@ public class Tooltip : MonoBehaviour
             float delay = Mathf.Max(0f, _currentElement.hoverDelay);
             if (Time.unscaledTime - _hoverStartTime >= delay)
             {
-                ShowAtPointerResetFade(_currentElement.header, _currentElement.body);
-                SetLocked(true);
-                _shownForThisHover = true;
+				if (TryResolveTooltipContent(_currentElement, out string dynamicHeader, out string dynamicBody))
+                {
+                    ShowAtPointerResetFade(dynamicHeader, dynamicBody);
+                    SetLocked(true);
+                    _shownForThisHover = true;
+                }
+            }
+        }
+        else if (_currentElement != null && _shownForThisHover)
+        {
+			bool hasContent = TryResolveTooltipContent(_currentElement, out string dynamicHeader, out string dynamicBody);
+            if (!hasContent)
+            {
+                SetVisible(false);
+                SetLocked(false);
+                MoveOffscreenNow();
+                _shownForThisHover = false;
+            }
+            else if ((header != null && header.text != dynamicHeader) || (body != null && body.text != dynamicBody))
+            {
+                SetText(dynamicHeader, dynamicBody);
             }
         }
         else if (_currentElement == null)
@@ -196,6 +222,186 @@ public class Tooltip : MonoBehaviour
             if (te != null && te.isActiveAndEnabled)
                 return te;
         }
+        return null;
+    }
+
+    bool TryResolveTooltipContent(TooltipElement element, out string headerText, out string bodyText)
+    {
+        headerText = string.Empty;
+        bodyText = string.Empty;
+        if (element == null)
+        {
+            return false;
+        }
+
+		if (_store != null && element.TryGetTilePosition(out Vector2Int tilePos))
+        {
+            if (TryBuildTileTooltip(_store.State, tilePos, out headerText, out bodyText))
+            {
+                return true;
+            }
+        }
+
+        if (element.TryGetTooltipContent(out headerText, out bodyText))
+        {
+            return !string.IsNullOrEmpty(headerText) || !string.IsNullOrEmpty(bodyText);
+        }
+
+        headerText = element.header;
+        bodyText = element.body;
+        return !string.IsNullOrEmpty(headerText) || !string.IsNullOrEmpty(bodyText);
+    }
+
+    bool TryBuildTileTooltip(GameSnapshot snapshot, Vector2Int tilePos, out string headerText, out string bodyText)
+    {
+        headerText = $"{tilePos}";
+        bodyText = string.Empty;
+
+        var net = snapshot.Net;
+        if (net.Equals(default(GameNetworkState)))
+        {
+            return !string.IsNullOrEmpty(headerText);
+        }
+
+        Rank rank = Rank.UNKNOWN;
+
+        switch (snapshot.Mode)
+        {
+            case ClientMode.Setup:
+            {
+                var pawn = net.GetAlivePawnFromPosChecked(tilePos);
+                if (pawn.HasValue)
+                {
+                    var pending = snapshot.Ui?.PendingCommits;
+                    if (pending != null && pending.TryGetValue(pawn.Value.pawn_id, out Rank? maybe) && maybe.HasValue)
+                    {
+                        rank = maybe.Value;
+                    }
+                }
+                break;
+            }
+            case ClientMode.Resolve:
+            {
+			PawnState? pawn = GetResolvePawnForCheckpoint(snapshot, tilePos);
+			// Only fall back to live net state when we are on the Final checkpoint
+			if (!pawn.HasValue && snapshot.Ui?.Checkpoint == ResolveCheckpoint.Final)
+                {
+				pawn = net.GetAlivePawnFromPosChecked(tilePos);
+                }
+			if (pawn.HasValue)
+			{
+				var known = pawn.Value.GetKnownRank(net.userTeam);
+				if (known.HasValue)
+				{
+					rank = known.Value;
+				}
+			}
+                break;
+            }
+            default:
+            {
+                var pawn = net.GetAlivePawnFromPosChecked(tilePos);
+                if (pawn.HasValue)
+                {
+                    var known = pawn.Value.GetKnownRank(net.userTeam);
+                    if (known.HasValue)
+                    {
+                        rank = known.Value;
+                    }
+                }
+                break;
+            }
+        }
+
+		if (rank != Rank.UNKNOWN)
+        {
+            string power = $"Power: {(int)rank}";
+            if (snapshot.Mode == ClientMode.Setup)
+            {
+                int committed = 0;
+                int max = 0;
+                var pending = snapshot.Ui?.PendingCommits;
+                if (pending != null)
+                {
+                    foreach (var v in pending.Values)
+                    {
+                        if (v.HasValue && v.Value == rank)
+                        {
+                            committed++;
+                        }
+                    }
+                }
+				var maxRanks = net.lobbyParameters.max_ranks;
+                int rankIndex = (int)rank;
+                if (maxRanks != null && rankIndex >= 0 && rankIndex < maxRanks.Length)
+                {
+                    max = (int)maxRanks[rankIndex];
+                }
+                bodyText = $"{rank} {power}\nCommitted: {committed}/{max}";
+            }
+            else
+            {
+                bodyText = $"{rank} {power}";
+            }
+        }
+
+        return !string.IsNullOrEmpty(headerText) || !string.IsNullOrEmpty(bodyText);
+    }
+
+	PawnState? GetResolvePawnForCheckpoint(GameSnapshot snapshot, Vector2Int tilePos)
+    {
+        LocalUiState ui = snapshot.Ui;
+        if (ui == null)
+        {
+            return null;
+        }
+
+        TurnResolveDelta resolveData = ui.ResolveData;
+        PawnState[] board = null;
+
+        switch (ui.Checkpoint)
+        {
+            case ResolveCheckpoint.Pre:
+                board = resolveData.preSnapshot;
+                break;
+            case ResolveCheckpoint.PostMoves:
+                board = resolveData.postMovesSnapshot;
+                break;
+            case ResolveCheckpoint.Battle:
+                if (resolveData.battleSnapshots != null && resolveData.battleSnapshots.Length > 0)
+                {
+                    int index = ui.BattleIndex;
+                    if (index < 0 || index >= resolveData.battleSnapshots.Length)
+                    {
+                        index = Mathf.Clamp(index, 0, resolveData.battleSnapshots.Length - 1);
+                    }
+                    board = resolveData.battleSnapshots[index];
+                }
+                break;
+            case ResolveCheckpoint.Final:
+                board = resolveData.finalSnapshot;
+                break;
+        }
+
+		return FindAlivePawn(board, tilePos);
+    }
+
+    static PawnState? FindAlivePawn(PawnState[] snapshot, Vector2Int tilePos)
+    {
+        if (snapshot == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < snapshot.Length; i++)
+        {
+            PawnState pawn = snapshot[i];
+            if (pawn.alive && pawn.pos == tilePos)
+            {
+                return pawn;
+            }
+        }
+
         return null;
     }
 

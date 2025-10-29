@@ -39,7 +39,7 @@ public class TileView : MonoBehaviour
     
     // Track whether this tile is currently selected in Move mode
     bool isSelected;
-    
+
     static Vector3 hoveredElevatorLocalPos = new Vector3(0, Globals.HoveredHeight, 0);
     static Vector3 selectedElevatorLocalPos = new Vector3(0, Globals.SelectedHoveredHeight, 0);
     
@@ -56,7 +56,10 @@ public class TileView : MonoBehaviour
         {
             tileModel.fogObject.SetActive(false);
         }
-        ClearTooltip();
+        if (tileModel != null && tileModel.tooltipElement != null)
+        {
+            tileModel.tooltipElement.SetTilePosition(posView);
+        }
     }
 
     void SetTile(TileState tile, bool hex)
@@ -87,7 +90,6 @@ public class TileView : MonoBehaviour
     public void AttachSubscriptions()
     {
         ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
-        ViewEventBus.OnStateUpdated += HandleStateUpdated;
         ViewEventBus.OnSetupHoverChanged += HandleSetupHoverChanged;
         ViewEventBus.OnMoveHoverChanged += HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
@@ -97,7 +99,6 @@ public class TileView : MonoBehaviour
     public void DetachSubscriptions()
     {
         ViewEventBus.OnClientModeChanged -= HandleClientModeChanged;
-        ViewEventBus.OnStateUpdated -= HandleStateUpdated;
         ViewEventBus.OnSetupHoverChanged -= HandleSetupHoverChanged;
         ViewEventBus.OnMoveHoverChanged -= HandleMoveHoverChanged;
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
@@ -201,14 +202,6 @@ public class TileView : MonoBehaviour
 				break;
             }
         }
-        // Update tooltip content based on new mode/state
-        UpdateTooltip(snapshot);
-    }
-
-    void HandleStateUpdated(GameSnapshot snapshot)
-    {
-        // Recompute tooltip from authoritative snapshot (no caching)
-        UpdateTooltip(snapshot);
     }
 
     void HandleSetupHoverChanged(Vector2Int hoveredPos, bool isMyTurn)
@@ -337,95 +330,6 @@ public class TileView : MonoBehaviour
 		}
 	}
 
-    // void SetFogFade(bool isRevealed)
-	// {
-	// 	Renderer r = tileModel != null ? (tileModel.topRenderer != null ? tileModel.topRenderer : tileModel.flatRenderer) : null;
-	// 	if (r == null) return;
-	// 	Material m = r.material;
-	// 	if (!m.HasProperty(FadeAmountProperty)) return;
-	// 	float from = m.GetFloat(FadeAmountProperty);
-	// 	float to = isRevealed ? 0f : 1f;
-	// 	if (revealFadeTween.isAlive) revealFadeTween.Stop();
-	// 	revealFadeTween = PrimeTween.Tween.Custom(from, to, 0.25f, (val) =>
-	// 	{
-	// 		m.SetFloat(FadeAmountProperty, val);
-	// 	}, Ease.OutCubic);
-	// }
-
-    void UpdateTooltip(GameSnapshot snapshot)
-    {
-        string header = $"{posView}";
-        string body = string.Empty;
-
-        Rank rank = Rank.UNKNOWN;
-        switch (snapshot.Mode)
-        {
-            case ClientMode.Setup:
-            {
-                var pawn = snapshot.Net.GetAlivePawnFromPosChecked(posView);
-                if (pawn.HasValue)
-                {
-                    Rank? maybe;
-                    if ((snapshot.Ui?.PendingCommits)?.TryGetValue(pawn.Value.pawn_id, out maybe) == true && maybe.HasValue)
-                    {
-                        rank = maybe.Value;
-                    }
-                }
-                break;
-            }
-            case ClientMode.Move:
-            case ClientMode.Resolve:
-            case ClientMode.Finished:
-            case ClientMode.Aborted:
-            default:
-            {
-                var pawn = snapshot.Net.GetAlivePawnFromPosChecked(posView);
-                if (pawn.HasValue)
-                {
-                    var known = pawn.Value.GetKnownRank(snapshot.Net.userTeam);
-                    if (known.HasValue) rank = known.Value;
-                }
-                break;
-            }
-        }
-
-        if (rank != Rank.UNKNOWN)
-        {
-            string power = $"Power: {(int)rank}";
-            if (snapshot.Mode == ClientMode.Setup)
-            {
-                int committed = 0;
-                int max = 0;
-                var pending = snapshot.Ui?.PendingCommits;
-                if (pending != null)
-                {
-                    foreach (var v in pending.Values)
-                    {
-                        if (v.HasValue && v.Value == rank) committed++;
-                    }
-                }
-                var maxRanks = snapshot.Net.lobbyParameters.max_ranks;
-                max = (int)maxRanks[(int)rank];
-                body = $"{rank} {power}\nCommitted: {committed}/{max}";
-            }
-            else
-            {
-                body = $"{rank} {power}";
-            }
-        }
-        else
-        {
-            body = string.Empty;
-        }
-
-        tileModel.tooltipElement.SetTooltipText(header, body);
-    }
-
-    public void ClearTooltip()
-    {
-        //tileModel.tooltipElement.SetTooltipEnabled(false);
-        tileModel.tooltipElement.SetTooltipText($"{posView}", "");
-    }
 
     void SetTopColor(Color color)
     {
@@ -457,7 +361,7 @@ public class TileView : MonoBehaviour
 		SetTopColor(c);
 	}
 
-    public void OverrideArrow(Transform target)
+	public void OverrideArrow(Transform target)
     {
         arrow.Clear();
         if (target)

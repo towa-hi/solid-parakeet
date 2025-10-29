@@ -31,7 +31,7 @@ public class BoardManager : MonoBehaviour
     
     public ArenaController arenaController;
     
-    GameStore store;
+    public GameStore Store { get; private set; }
     MenuController menuController;
     
     
@@ -61,23 +61,27 @@ public class BoardManager : MonoBehaviour
         Debug.Log("BoardManager.Initialize: creating GameStore (reducers/effects)");
         IGameReducer[] reducers = new IGameReducer[] { new NetworkReducer(), new ResolveReducer(), new UiReducer() };
         IGameEffect[] effects = new IGameEffect[] { new ViewAdapterEffects(), new StoreDebugEffect() };
-        store = new GameStore(
+        Store = new GameStore(
             new GameSnapshot { Net = netState, Mode = ModeDecider.DecideClientMode(netState, default) },
             reducers,
             effects
         );
+        if (Tooltip.Instance != null)
+        {
+            Tooltip.Instance.SetStore(Store);
+        }
         ClientMode initMode = ModeDecider.DecideClientMode(netState, default);
         Debug.Log($"BoardManager.Initialize: initial ClientMode={initMode}");
-        guiGame.setup.OnClearButton = () => store.Dispatch(new SetupClearAll());
-        guiGame.setup.OnAutoSetupButton = () => store.Dispatch(new SetupAutoFill());
+        guiGame.setup.OnClearButton = () => Store.Dispatch(new SetupClearAll());
+        guiGame.setup.OnAutoSetupButton = () => Store.Dispatch(new SetupAutoFill());
 		guiGame.setup.OnSubmitButton = OnSubmitSetupButton;
-        guiGame.setup.OnEntryClicked = (rank) => store.Dispatch(new SetupSelectRank(rank));
+        guiGame.setup.OnEntryClicked = (rank) => Store.Dispatch(new SetupSelectRank(rank));
         guiGame.setup.menuButton.onClick.AddListener(guiGame.ExitToMainMenu);
 		guiGame.movement.OnSubmitMoveButton = OnSubmitMoveButton;
 		guiGame.movement.OnMenuButton = guiGame.ExitToMainMenu;
-        guiGame.resolve.OnPrevButton = () => store.Dispatch(new ResolvePrev());
-        guiGame.resolve.OnNextButton = () => store.Dispatch(new ResolveNext());
-        guiGame.resolve.OnSkipButton = () => store.Dispatch(new ResolveSkip());
+        guiGame.resolve.OnPrevButton = () => Store.Dispatch(new ResolvePrev());
+        guiGame.resolve.OnNextButton = () => Store.Dispatch(new ResolveNext());
+        guiGame.resolve.OnSkipButton = () => Store.Dispatch(new ResolveSkip());
         // Subscriptions for setup/movement/resolve are managed by GuiGame on ClientMode changes
 		// Subscribe to mode changes so we can control Vortex during Resolve
 		ViewEventBus.OnClientModeChanged -= HandleClientModeChangedForVortex;
@@ -112,7 +116,7 @@ public class BoardManager : MonoBehaviour
         // Expose a resolver so views can map positions to TileViews (for arrows, etc.)
         ViewEventBus.TileViewResolver = (Vector2Int pos) => tileViews.TryGetValue(pos, out TileView tv) ? tv : null;
         // Seed initial mode to views now that board/pawn views exist
-        ViewEventBus.RaiseClientModeChanged(new GameSnapshot { Mode = initMode, Net = netState, Ui = store.State.Ui ?? LocalUiState.Empty });
+        ViewEventBus.RaiseClientModeChanged(new GameSnapshot { Mode = initMode, Net = netState, Ui = Store.State.Ui ?? LocalUiState.Empty });
         Debug.Log("BoardManager.Initialize: finished creating views; starting music");
         AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
         // Ensure no duplicate subscriptions if StartBoardManager is called repeatedly
@@ -163,7 +167,11 @@ public class BoardManager : MonoBehaviour
         
         clickInputManager.SetUpdating(false);
         // Reset store and event subscriptions to avoid stale UI/state between games
-        store = null;
+        Store = null;
+        if (Tooltip.Instance != null)
+        {
+            Tooltip.Instance.SetStore(null);
+        }
         // Reset debug SO if present
         var debugSO = Resources.Load<StoreDebugSO>("StoreDebug");
         if (debugSO != null) debugSO.ResetState();
@@ -211,18 +219,18 @@ public class BoardManager : MonoBehaviour
             return;
         }
         // update store
-        store.Dispatch(new NetworkStateChanged(net, delta));
+        Store.Dispatch(new NetworkStateChanged(net, delta));
         // automatically send requests if we can build them
         if (!StellarManager.IsBusy)
         {
             bool fireAndForgetUpdateState = false;
-            if (store.State.Net.lobbyInfo.phase == Phase.MoveProve && store.State.Net.IsMySubphase())
+            if (Store.State.Net.lobbyInfo.phase == Phase.MoveProve && Store.State.Net.IsMySubphase())
             {
-                if (store.State.TryBuildProveMoveReqFromCache(out var proveMoveReq))
+                if (Store.State.TryBuildProveMoveReqFromCache(out var proveMoveReq))
                 {
-                    store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveMove(proveMoveReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+                    Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveMove(proveMoveReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
                     Result<bool> result = await StellarManager.ProveMoveRequest(proveMoveReq, net.address, net.lobbyInfo, net.lobbyParameters);
-                    store.Dispatch(new UiWaitingForResponse(null));
+                    Store.Dispatch(new UiWaitingForResponse(null));
                     if (result.IsError)
                     {
                         HandleFatalNetworkError(result.Message);
@@ -231,13 +239,13 @@ public class BoardManager : MonoBehaviour
                     fireAndForgetUpdateState = true;
                 }
             }
-            if (store.State.Net.lobbyInfo.phase == Phase.RankProve && store.State.Net.IsMySubphase())
+            if (Store.State.Net.lobbyInfo.phase == Phase.RankProve && Store.State.Net.IsMySubphase())
             {
-                if (store.State.TryBuildProveRankReqFromCache(out var proveRankReq))
+                if (Store.State.TryBuildProveRankReqFromCache(out var proveRankReq))
                 {
-                    store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveRank(proveRankReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+                    Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveRank(proveRankReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
                     Result<bool> result = await StellarManager.ProveRankRequest(proveRankReq);
-                    store.Dispatch(new UiWaitingForResponse(null));
+                    Store.Dispatch(new UiWaitingForResponse(null));
                     if (result.IsError)
                     {
                         HandleFatalNetworkError(result.Message);
@@ -257,25 +265,25 @@ public class BoardManager : MonoBehaviour
     void OnMouseInput(Vector2Int pos, bool clicked)
     {
         if (WalletManager.IsWalletBusy) return;
-        //Debug.Log($"BoardManager.OnMouseInput: pos={pos} clicked={clicked} mode={store?.State.Mode}");
-        switch (store?.State.Mode)
+        //Debug.Log($"BoardManager.OnMouseInput: pos={pos} clicked={clicked} mode={Store?.State.Mode}");
+        switch (Store?.State.Mode)
         {
             case ClientMode.Setup:
-				store.Dispatch(new SetupHoverAction(pos));
+				Store.Dispatch(new SetupHoverAction(pos));
 				if (clicked && !StellarManager.IsBusy)
                 {
-                    store.Dispatch(new SetupClickAt(pos));
+					Store.Dispatch(new SetupClickAt(pos));
 					// Do another hover pass immediately after the click
-					store.Dispatch(new SetupHoverAction(pos));
+					Store.Dispatch(new SetupHoverAction(pos));
                 }
                 break;
             case ClientMode.Move:
-				store.Dispatch(new MoveHoverAction(pos));
+				Store.Dispatch(new MoveHoverAction(pos));
 				if (clicked && !StellarManager.IsBusy)
                 {
-                    store.Dispatch(new MoveClickAt(pos));
+					Store.Dispatch(new MoveClickAt(pos));
 					// Do another hover pass immediately after the click
-					store.Dispatch(new MoveHoverAction(pos));
+					Store.Dispatch(new MoveHoverAction(pos));
                 }
                 break;
         }
@@ -283,21 +291,21 @@ public class BoardManager : MonoBehaviour
 
 	async void OnSubmitSetupButton()
 	{
-		var net = store.State.Net;
+		var net = Store.State.Net;
 		Debug.Log($"[BoardManager] OnSubmitSetupButton: phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} busy={StellarManager.IsBusy}");
 		if (!net.IsMySubphase() || StellarManager.IsBusy)
 		{
 			Debug.Log($"[BoardManager] OnSubmitSetupButton: skipped isMySubphase={net.IsMySubphase()} busy={StellarManager.IsBusy}");
 			return;
 		}
-		if (!store.State.TryBuildCommitSetupReq(out var req))
+		if (!Store.State.TryBuildCommitSetupReq(out var req))
 		{
 			Debug.LogWarning("[BoardManager] OnSubmitSetupButton: no commits to submit; skipping");
 			return;
 		}
-        store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitSetup(req), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+		Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitSetup(req), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
         Result<bool> submit = await StellarManager.CommitSetupRequest(req);
-        store.Dispatch(new UiWaitingForResponse(null));
+		Store.Dispatch(new UiWaitingForResponse(null));
         if (submit.IsError)
         {
             HandleFatalNetworkError(submit.Message);
@@ -308,22 +316,22 @@ public class BoardManager : MonoBehaviour
 
 	async void OnSubmitMoveButton()
 	{
-		var net = store.State.Net;
-		var pairsCount = store.State.Ui?.MovePairs?.Count ?? 0;
+		var net = Store.State.Net;
+		var pairsCount = Store.State.Ui?.MovePairs?.Count ?? 0;
 		Debug.Log($"[BoardManager] OnSubmitMoveButton: phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} pairs={pairsCount} busy={StellarManager.IsBusy}");
 		if (!net.IsMySubphase() || pairsCount == 0 || StellarManager.IsBusy)
 		{
 			Debug.Log($"[BoardManager] OnSubmitMoveButton: skipped isMySubphase={net.IsMySubphase()} pairs={pairsCount} busy={StellarManager.IsBusy}");
 			return;
 		}
-		if (!store.State.TryBuildCommitMoveAndProveMoveReqs(out var commit, out var prove))
+		if (!Store.State.TryBuildCommitMoveAndProveMoveReqs(out var commit, out var prove))
 		{
 			Debug.LogWarning("[BoardManager] OnSubmitMoveButton: could not build move reqs; skipping");
 			return;
 		}
-		store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitMoveAndProve(commit, prove), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+		Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitMoveAndProve(commit, prove), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
 		Result<bool> submit = await StellarManager.CommitMoveRequest(commit, prove, net.address, net.lobbyInfo, net.lobbyParameters);
-        store.Dispatch(new UiWaitingForResponse(null));
+		Store.Dispatch(new UiWaitingForResponse(null));
         if (submit.IsError)
         {
             HandleFatalNetworkError(submit.Message);
@@ -334,7 +342,7 @@ public class BoardManager : MonoBehaviour
 
     async void OnRedeemWinButton()
     {
-        var net = store.State.Net;
+        var net = Store.State.Net;
         Debug.Log($"[BoardManager] OnRedeemWinButton: phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} busy={StellarManager.IsBusy}");
         if (net.lobbyInfo.phase != Phase.Finished || !net.IsMySubphase() || StellarManager.IsBusy)
         {
@@ -342,9 +350,9 @@ public class BoardManager : MonoBehaviour
             return;
         }
         var req = new RedeemWinReq { lobby_id = net.lobbyInfo.index };
-        store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new RedeemWin(req), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new RedeemWin(req), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
         Result<bool> submit = await StellarManager.RedeemWinRequest(req);
-        store.Dispatch(new UiWaitingForResponse(null));
+        Store.Dispatch(new UiWaitingForResponse(null));
         if (submit.IsError)
         {
             HandleFatalNetworkError(submit.Message);
@@ -355,9 +363,9 @@ public class BoardManager : MonoBehaviour
 
     async void UpdateState()
     {
-        store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new UpdateState(), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new UpdateState(), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
         var result = await StellarManager.UpdateState();
-        store.Dispatch(new UiWaitingForResponse(null));
+        Store.Dispatch(new UiWaitingForResponse(null));
         if (result.IsError)
         {
             HandleFatalNetworkError(result.Message);
