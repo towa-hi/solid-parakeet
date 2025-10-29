@@ -20,8 +20,6 @@ public class ArenaPawn : MonoBehaviour
             Team.BLUE => pawnDef.blueAnimatorOverrideController,
             _ => throw new ArgumentOutOfRangeException(),
         };
-        badge.SetBadge(team, pawnDelta.postRank);
-        pawnView.TestSetSprite(pawnDelta.postRank, team);
     }
     
     

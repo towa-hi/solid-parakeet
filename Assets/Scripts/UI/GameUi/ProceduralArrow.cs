@@ -62,6 +62,8 @@ public class ProceduralArrow : MonoBehaviour
 
     public void SetColor(Color color)
     {
+        // Always set alpha to 166/255
+        color.a = 166f / 255f;
         currentColor = color;
         
         // Ensure meshRenderer is initialized
@@ -120,7 +122,7 @@ public class ProceduralArrow : MonoBehaviour
     }
     
     // Store the current color so it persists through animation
-    private Color currentColor = Color.white;
+    private Color currentColor = new Color(1f, 1f, 1f, 166f / 255f);
 
     IEnumerator ArcFromToCoroutine(Transform from, Transform to, float duration, float arcHeight)
     {
@@ -199,6 +201,7 @@ public class ProceduralArrow : MonoBehaviour
         {
             cumulativeBuffer = new float[centersList.Count];
         }
+        cumulativeBuffer[0] = 0f; // Initialize first element
         for (int i = 1; i < centersList.Count; i++)
         {
             totalLen += Vector3.Distance(centersList[i - 1], centersList[i]);
@@ -206,13 +209,19 @@ public class ProceduralArrow : MonoBehaviour
         }
         float stemLen = Mathf.Max(0f, totalLen - tipLength);
         int splitIndex = centersList.Count - 1;
-        for (int i = 0; i < centersList.Count; i++)
+        // Search for the split point, ensuring we leave at least one segment for the tip
+        for (int i = 1; i < centersList.Count - 1; i++)
         {
             if (cumulativeBuffer[i] >= stemLen)
             {
                 splitIndex = i;
                 break;
             }
+        }
+        // Ensure splitIndex leaves room for the tip (at least one segment difference)
+        if (splitIndex >= centersList.Count - 1)
+        {
+            splitIndex = Mathf.Max(0, centersList.Count - 2);
         }
 
         verticesList.Clear();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class AudioManager : MonoBehaviour
@@ -14,6 +15,10 @@ public class AudioManager : MonoBehaviour
     AudioSource inactiveSource;
     
     public AudioSource effectSource;
+    
+    // Track clips played per frame to prevent duplicates
+    private HashSet<AudioClip> clipsPlayedThisFrame = new HashSet<AudioClip>();
+    private int lastFrameCount = -1;
     
     public AudioClip buttonClickClip;
     public AudioClip shatterClip;
@@ -115,10 +120,27 @@ public class AudioManager : MonoBehaviour
     public static void PlayOneShot(AudioClip clip)
     {
         Debug.Log($"PlayOneShot: {clip.name}");
-        if (instance == null || instance.effectSource == null)
+        if (instance == null || instance.effectSource == null || clip == null)
         {
             return;
         }
+        
+        // Check if we're in a new frame and clear the tracking set
+        int currentFrame = Time.frameCount;
+        if (currentFrame != instance.lastFrameCount)
+        {
+            instance.clipsPlayedThisFrame.Clear();
+            instance.lastFrameCount = currentFrame;
+        }
+        
+        // Prevent playing the same clip more than once per frame
+        if (instance.clipsPlayedThisFrame.Contains(clip))
+        {
+            return;
+        }
+        
+        // Mark this clip as played this frame and play it
+        instance.clipsPlayedThisFrame.Add(clip);
         instance.effectSource.PlayOneShot(clip, Mathf.Clamp01(instance.effectsVolume));
     }
 

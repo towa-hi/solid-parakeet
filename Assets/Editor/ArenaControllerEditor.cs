@@ -18,6 +18,8 @@ public class ArenaControllerEditor : Editor
     static Rank blueRank = Rank.GRUNT;
     static TestOutcome outcome = TestOutcome.RedWins;
     static bool isHex = false;
+    static bool redRevealed = true;
+    static bool blueRevealed = true;
 
     public override void OnInspectorGUI()
     {
@@ -30,6 +32,8 @@ public class ArenaControllerEditor : Editor
         blueRank = (Rank)EditorGUILayout.EnumPopup("Blue Rank", blueRank);
         outcome = (TestOutcome)EditorGUILayout.EnumPopup("Outcome", outcome);
         isHex = EditorGUILayout.Toggle("Hex Tiles", isHex);
+        redRevealed = EditorGUILayout.Toggle("Red Revealed", redRevealed);
+        blueRevealed = EditorGUILayout.Toggle("Blue Revealed", blueRevealed);
 
         using (new EditorGUI.DisabledScope(!Application.isPlaying))
         {
@@ -72,7 +76,7 @@ public class ArenaControllerEditor : Editor
             pawn_id = redId,
             pos = new Vector2Int(0, 0),
             rank = redRank,
-            zz_revealed = true,
+            zz_revealed = redRevealed,
         };
         PawnState preBlue = new PawnState
         {
@@ -82,7 +86,7 @@ public class ArenaControllerEditor : Editor
             pawn_id = blueId,
             pos = new Vector2Int(1, 0),
             rank = blueRank,
-            zz_revealed = true,
+            zz_revealed = blueRevealed,
         };
 
         bool redDies = outcome == TestOutcome.BlueWins || outcome == TestOutcome.BothLose;

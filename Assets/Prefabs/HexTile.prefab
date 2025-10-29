@@ -297,9 +297,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   header: asdf
   body: fdsa
-  physicsMask:
-    serializedVersion: 2
-    m_Bits: 4083
   hoverDelay: 1
 --- !u!1 &4166921062069795660
 GameObject:

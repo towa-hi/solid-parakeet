@@ -38,10 +38,11 @@ MonoBehaviour:
     m_Bits: 4294967295
   renderQueue: 2
   occlusion: 2
-  blendMode: 0
+  blendMode: 2
   alphaCutout: 0
   alphaCutoutTexture: {fileID: 0}
   alphaCutoutThreshold: 0.5
+  vertexAnimation: 0
   materialType: 0
   customMaterial: {fileID: 0}
   pattern: 3

@@ -154,7 +154,7 @@ public class ArenaController : MonoBehaviour
             ArenaPawn winnerPawn = team == Team.RED ? pawnL : pawnR;
             if (winnerPawn != null && winnerPawn.pawnView != null && winnerPawn.pawnView.animator != null)
             {
-                winnerPawn.pawnView.animator.enabled = false;
+                //winnerPawn.pawnView.animator.enabled = false;
                 disabledWinnerPawnViewAnimator = winnerPawn.pawnView.animator;
             }
             // Ensure loser's PawnView animator stays enabled for Hurt frame switching
@@ -182,23 +182,15 @@ public class ArenaController : MonoBehaviour
             PawnDef bothDef = ResourceRoot.GetPawnDefFromRank(pawnL.pawnDelta.postRank);
             // arbitrary choice of using red attack override controller for tie
             controllerToUse = bothDef.redAttackOverrideController;
+            animator.SetBool("IsTie", true);
         }
-        if (animator != null)
-        {
-            animator.runtimeAnimatorController = controllerToUse;
-            // Ensure the animation starts from the beginning
-            animator.Rebind();
-            animator.Update(0f);
-            if (bothDie)
-            {
-                Debug.Log("ArenaController: both pawns die (tie).");
-                animator.Play("Tie", 0, 0f);
-            }
-            else
-            {
-                animator.Play("Combat", 0, 0f);
-            }
-        }
+        animator.runtimeAnimatorController = controllerToUse;
+        // Ensure the animation starts from the beginning
+        animator.Rebind();
+        animator.SetBool("IsTie", bothDie);
+        animator.SetBool("RedRevealing", pawnL.pawnDelta.preRevealed);
+        animator.SetBool("BlueRevealing", pawnR.pawnDelta.preRevealed);
+        animator.Update(0f);
 
         arenaCamera.enabled = true;
     }
