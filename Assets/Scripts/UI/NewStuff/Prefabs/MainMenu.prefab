@@ -751,7 +751,7 @@ MonoBehaviour:
   galleryButton: {fileID: 7914447236748875747}
   joinLobbyButton: {fileID: 3789776136857153105}
   quitButton: {fileID: 2872397740758443257}
-  creditsButton: {fileID: 0}
+  creditsButton: {fileID: 7828239880409794787}
 --- !u!1 &7869709397082044087
 GameObject:
   m_ObjectHideFlags: 0

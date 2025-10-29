@@ -65,7 +65,7 @@ public class MainMenu2 : MenuBase
 
     public void HandleCredits()
     {
-        
+        menuController.OpenCreditsModal();
     }
 
     public override void Refresh()

@@ -7787,7 +7787,7 @@ MonoBehaviour:
   lobbyViewMenuPrefab: {fileID: 8774939307885435109, guid: f8cbb3aaaad7ebc45a4f56c8958f8ed5, type: 3}
   lobbyJoinMenuPrefab: {fileID: 4660771563768313222, guid: 48390b0516305404bb474598a6b57850, type: 3}
   gameMenuPrefab: {fileID: 6736337799551001049, guid: e9d2ba2965cac7742a136ee46c46bae0, type: 3}
-  creditsModalPrefab: {fileID: 0}
+  creditsModalPrefab: {fileID: 8545497045951696574, guid: 5af4d1e1af77b7549bb30a7d38c1e29e, type: 3}
   messageModalPrefab: {fileID: 6530101385940041249, guid: 7b97e457388f71c4db07b4cf3b3fc5a6, type: 3}
   currentMenu: {fileID: 0}
 --- !u!1 &1382795970

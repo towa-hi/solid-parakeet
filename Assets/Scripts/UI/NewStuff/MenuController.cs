@@ -154,6 +154,29 @@ public class MenuController : MonoBehaviour
         modal.OnFocus(true);
         modalStack.Push(modal);
     }
+
+    public void OpenCreditsModal()
+    {
+        foreach (ModalBase element in modalStack)
+        {
+            element.OnFocus(false);
+        }
+        if (currentMenu != null)
+        {
+            currentMenu.SetInteractable(false);
+        }
+        GameObject instance = Instantiate(creditsModalPrefab, modalRoot);
+        CreditsModal modal = instance.GetComponent<CreditsModal>();
+        if (modal == null)
+        {
+            Debug.LogError("MenuController: creditsModalPrefab is missing CreditsModal component");
+            Destroy(instance);
+            return;
+        }
+        modal.Initialize(() => CloseTopModal());
+        modal.OnFocus(true);
+        modalStack.Push(modal);
+    }
     void CloseTopModal()
     {
         if (modalStack == null || modalStack.Count == 0) return;
