@@ -21,6 +21,7 @@ public class ProceduralArrow : MonoBehaviour
     public List<Vector3> verticesList;
     public List<int> trianglesList;
     public MeshFilter meshFilter;
+    public MeshRenderer meshRenderer;
     Mesh mesh;
 
     // Track the currently running arc animation to cancel/replace cleanly
@@ -37,6 +38,12 @@ public class ProceduralArrow : MonoBehaviour
         centersList = new List<Vector3>(curvedSegments + 1);
         cumulativeBuffer = new float[curvedSegments + 1];
         normalsList = new List<Vector3>(64);
+        
+        // Auto-detect MeshRenderer if not set
+        if (meshRenderer == null)
+        {
+            meshRenderer = GetComponent<MeshRenderer>();
+        }
     }
     // Update removed: static and animated arrows are built via BuildCurvedArrowMesh
 
@@ -50,6 +57,22 @@ public class ProceduralArrow : MonoBehaviour
         if (mesh)
         {
             mesh.Clear();
+        }
+    }
+
+    public void SetColor(Color color)
+    {
+        currentColor = color;
+        
+        // Ensure meshRenderer is initialized
+        if (meshRenderer == null)
+        {
+            meshRenderer = GetComponent<MeshRenderer>();
+        }
+        
+        if (meshRenderer != null && meshRenderer.material != null)
+        {
+            meshRenderer.material.color = color;
         }
     }
 
@@ -67,6 +90,19 @@ public class ProceduralArrow : MonoBehaviour
             mesh.MarkDynamic();
             meshFilter.mesh = mesh;
         }
+        
+        // Ensure meshRenderer is initialized
+        if (meshRenderer == null)
+        {
+            meshRenderer = GetComponent<MeshRenderer>();
+        }
+        
+        // Apply color
+        if (meshRenderer != null && meshRenderer.material != null)
+        {
+            meshRenderer.material.color = currentColor;
+        }
+        
         Vector3 startWorld = start.position;
         Vector3 endWorld = target.position;
         float baseY = startWorld.y;
@@ -82,6 +118,9 @@ public class ProceduralArrow : MonoBehaviour
         Clear();
         activeArcCoroutine = StartCoroutine(ArcFromToCoroutine(fromTile.origin, toTile.origin, arcDuration, arcHeight));
     }
+    
+    // Store the current color so it persists through animation
+    private Color currentColor = Color.white;
 
     IEnumerator ArcFromToCoroutine(Transform from, Transform to, float duration, float arcHeight)
     {
@@ -90,6 +129,19 @@ public class ProceduralArrow : MonoBehaviour
             mesh = new Mesh();
             meshFilter.mesh = mesh;
         }
+        
+        // Ensure meshRenderer is initialized
+        if (meshRenderer == null)
+        {
+            meshRenderer = GetComponent<MeshRenderer>();
+        }
+        
+        // Apply color at the start of animation
+        if (meshRenderer != null && meshRenderer.material != null)
+        {
+            meshRenderer.material.color = currentColor;
+        }
+        
         Vector3 startWorld = from.position;
         Vector3 endWorld = to.position;
         float baseY = startWorld.y;
@@ -108,6 +160,13 @@ public class ProceduralArrow : MonoBehaviour
 
         // finalize at t=1
         BuildCurvedArrowMesh(startWorld, endWorld, 1f, arcHeight, baseY);
+        
+        // Apply color after animation completes
+        if (meshRenderer != null && meshRenderer.material != null)
+        {
+            meshRenderer.material.color = currentColor;
+        }
+        
         activeArcCoroutine = null;
     }
 

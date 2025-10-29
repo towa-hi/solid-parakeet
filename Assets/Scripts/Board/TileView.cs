@@ -148,6 +148,7 @@ public class TileView : MonoBehaviour
 						bool start = false;
 						bool target = false;
 						TileView targetTile = null;
+						Team? team = null;
 						foreach (var p in pairs)
 						{
 							if (p.start == posView)
@@ -157,13 +158,19 @@ public class TileView : MonoBehaviour
 								{
 									targetTile = ViewEventBus.TileViewResolver(p.target);
 								}
+								// Get team from pawn on this tile
+								var pawn = snapshot.Net.GetAlivePawnFromPosChecked(posView);
+								if (pawn.HasValue)
+								{
+									team = pawn.Value.GetTeam();
+								}
 							}
 							if (p.target == posView)
 							{
 								target = true;
 							}
 						}
-						SetArrow((start && targetTile != null) ? targetTile : null);
+						SetArrow((start && targetTile != null) ? targetTile : null, team);
 						Color col = Color.clear;
 						if (start) col = Color.green * 0.5f;
 						if (target) col = Color.blue * 0.5f;
@@ -178,6 +185,7 @@ public class TileView : MonoBehaviour
                 bool start = false;
                 bool target = false;
                 TileView targetTile = null;
+                Team? team = null;
                 var tr = snapshot.Ui.ResolveData;
                 if (tr.moves != null)
                 {
@@ -188,11 +196,13 @@ public class TileView : MonoBehaviour
                         {
                             start = true;
                             if (ViewEventBus.TileViewResolver != null) targetTile = ViewEventBus.TileViewResolver(mv.target);
+                            // Get team from PawnId
+                            team = kv.Key.GetTeam();
                         }
                         if (mv.target == posView) target = true;
                     }
                 }
-                SetArrow((start && targetTile != null) ? targetTile : null);
+                SetArrow((start && targetTile != null) ? targetTile : null, team);
                 Color col = Color.clear;
                 if (start) col = Color.green * 0.5f;
                 if (target) col = Color.blue * 0.5f;
@@ -246,16 +256,21 @@ public class TileView : MonoBehaviour
         bool isStart = false;
         bool isTarget = false;
         TileView targetTile = null;
+        Team? team = null;
         foreach (var kv in newPairs)
         {
-            if (kv.Value.start == posView) { isStart = true; }
+            if (kv.Value.start == posView) 
+            { 
+                isStart = true;
+                team = kv.Key.GetTeam();
+            }
             if (kv.Value.target == posView) { isTarget = true; }
             if (kv.Value.start == posView)
             {
                 targetTile = ViewEventBus.TileViewResolver != null ? ViewEventBus.TileViewResolver(kv.Value.target) : null;
             }
         }
-        SetArrow((isStart && targetTile != null) ? targetTile : null);
+        SetArrow((isStart && targetTile != null) ? targetTile : null, team);
         Color finalColor = Color.clear;
         if (isStart) finalColor = Color.green * 0.5f;
         if (isTarget) finalColor = Color.blue * 0.5f;
@@ -293,11 +308,27 @@ public class TileView : MonoBehaviour
 		tileModel.renderEffect.SetEffect(effect, enabled);
 	}
 
-	void SetArrow(TileView target)
+	void SetArrow(TileView target, Team? team = null)
 	{
 		if (arrow == null) return;
 		if (target != null)
 		{
+			// Set arrow color based on team (always update color if team is provided)
+			if (team.HasValue)
+			{
+				Color arrowColor = Color.white;
+				switch (team.Value)
+				{
+					case Team.RED:
+						arrowColor = redTeamColor;
+						break;
+					case Team.BLUE:
+						arrowColor = blueTeamColor;
+						break;
+				}
+				arrow.SetColor(arrowColor);
+			}
+			
 			// Skip re-animating if we're already pointing to the same tile
 			if (pointedTile != null && (pointedTile == target || pointedTile.posView == target.posView))
 			{
@@ -344,21 +375,21 @@ public class TileView : MonoBehaviour
 		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
 		Color startColor = baseColor;
 		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, targetColor.a);
-		fogMat.SetColor(FogColorProperty, endColor);
-		// if (Mathf.Approximately(startColor.a, endColor.a))
-		// {
-		// 	if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
-		// 	currentFogAlpha01 = endColor.a;
-		// 	return;
-		// }
-		// if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
-		// fogAlphaTween = PrimeTween.Tween.Custom(startColor.a, endColor.a, 0.2f, (val) =>
-		// {
-		// 	Color c = baseColor;
-		// 	c.a = val;
-		// 	if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, c); else fogMat.color = c;
-		// 	currentFogAlpha01 = val;
-		// }, Ease.OutCubic);
+		
+		if (Mathf.Approximately(startColor.a, endColor.a))
+		{
+			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
+			currentFogAlpha01 = endColor.a;
+			return;
+		}
+		if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
+		fogAlphaTween = PrimeTween.Tween.Custom(startColor.a, endColor.a, 0.2f, (val) =>
+		{
+			Color c = baseColor;
+			c.a = val;
+			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, c); else fogMat.color = c;
+			currentFogAlpha01 = val;
+		}, Ease.OutCubic);
 	}
 
     public FogState fogState;

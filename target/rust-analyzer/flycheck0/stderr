@@ -1,0 +1,5 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\contracts\hello-world\Cargo.toml
+workspace: C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\Cargo.toml
+warning: C:\Users\mokou\scryingstratego\ContractSandbox\warmancer-prototype\contracts\hello-world\Cargo.toml: `default-features` is ignored for soroban-sdk, since `default-features` was not specified for `workspace.dependencies.soroban-sdk`, this could become a hard error in the future
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s

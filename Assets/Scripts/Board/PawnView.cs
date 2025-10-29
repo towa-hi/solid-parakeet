@@ -161,8 +161,10 @@ public class PawnView : MonoBehaviour
 			default:
 			{
 				SetRank(known);
-                //Debug.Log($"PawnView[{pawnId}]: HandleClientModeChanged mode={mode} alive={p.alive} known={known} Setting Model Visible from client mode");
                 SetModelVisible(p.alive);
+			// Snap to the authoritative position from the store when entering non-Resolve modes
+			TileView finalTile = ViewEventBus.TileViewResolver(p.pos);
+			SetPosSnap(finalTile, p);
 				break;
 			}
 		}
