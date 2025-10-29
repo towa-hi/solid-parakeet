@@ -13,6 +13,8 @@ public class MainMenu2 : MenuBase
     public ButtonExtended joinLobbyButton;
     public ButtonExtended quitButton;
 
+    public Button creditsButton;
+
     private void Start()
     {
         createLobbyButton.onClick.AddListener(HandleCreateLobby);
@@ -22,6 +24,7 @@ public class MainMenu2 : MenuBase
         galleryButton.onClick.AddListener(HandleGallery);
         joinLobbyButton.onClick.AddListener(HandleJoinLobby);
         quitButton.onClick.AddListener(HandleQuit);
+        creditsButton.onClick.AddListener(HandleCredits);
         Refresh();
     }
 
@@ -58,6 +61,11 @@ public class MainMenu2 : MenuBase
     public void HandleQuit()
     {
         Application.Quit();
+    }
+
+    public void HandleCredits()
+    {
+        
     }
 
     public override void Refresh()
