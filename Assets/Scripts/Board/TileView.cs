@@ -375,6 +375,15 @@ public class TileView : MonoBehaviour
 		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
 		Color startColor = baseColor;
 		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, targetColor.a);
+
+		// If we're clearing fog (alpha -> 0), apply instantly without tween
+		if (Mathf.Approximately(endColor.a, 0f))
+		{
+			if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
+			if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
+			currentFogAlpha01 = 0f;
+			return;
+		}
 		
 		if (Mathf.Approximately(startColor.a, endColor.a))
 		{
@@ -436,10 +445,6 @@ public class TileView : MonoBehaviour
         {
             pawnFogOwner = null;
             SetFogState(FogState.NONE);
-        }
-        else
-        {
-            Debug.LogError($"TileView[{posView}]: ClearFog failed to clear fog for pawn={pawn}");
         }
     }
 

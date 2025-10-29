@@ -78,9 +78,7 @@ public class BoardManager : MonoBehaviour
         guiGame.resolve.OnPrevButton = () => store.Dispatch(new ResolvePrev());
         guiGame.resolve.OnNextButton = () => store.Dispatch(new ResolveNext());
         guiGame.resolve.OnSkipButton = () => store.Dispatch(new ResolveSkip());
-        guiGame.setup.AttachSubscriptions();
-        guiGame.movement.AttachSubscriptions();
-        guiGame.resolve.AttachSubscriptions();
+        // Subscriptions for setup/movement/resolve are managed by GuiGame on ClientMode changes
 		// Subscribe to mode changes so we can control Vortex during Resolve
 		ViewEventBus.OnClientModeChanged -= HandleClientModeChangedForVortex;
 		ViewEventBus.OnClientModeChanged += HandleClientModeChangedForVortex;

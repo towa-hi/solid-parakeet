@@ -6,6 +6,7 @@ using Contract;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Animations;
+using PrimeTween;
 using Random = UnityEngine.Random;
 
 public class PawnView : MonoBehaviour
@@ -112,6 +113,10 @@ public class PawnView : MonoBehaviour
         if (meshRenderer == null) return;
         Material material = meshRenderer.material;
         if (material == null) return;
+        
+        // Stop any active fade animations on this material
+        Tween.StopAll(material);
+        
         if (material.HasProperty("_FadeAmount"))
         {
             material.SetFloat("_FadeAmount", 0f);
@@ -120,9 +125,49 @@ public class PawnView : MonoBehaviour
 
     public void ResetAnimatedValues()
     {
-        ResetHurtAnimation();
+        animator.Rebind();
         SetAnimatorIsSelected(false);
         ResetShaderProperties();
+        ResetSpriteStates();
+    }
+    
+    public void ResetSpriteStates()
+    {
+        // Reset all PawnSprite components (including ShadeSprite)
+        // Clear the 'last' sprite cache so that when animator sets currentSprite, it will update
+        PawnSprite[] pawnSprites = GetComponentsInChildren<PawnSprite>(true);
+        foreach (PawnSprite ps in pawnSprites)
+        {
+            if (ps != null)
+            {
+                // Clear last so sprite will update when animator sets currentSprite
+                ps.last = null;
+            }
+        }
+        
+        // Find and reset ShadeSprite GameObject active state (should be inactive at start of battle)
+        // The reveal animations will turn it on/off as needed
+        Transform shadeSpriteTransform = transform.Find("Model/Billboard/ShadeSprite");
+        if (shadeSpriteTransform != null)
+        {
+            shadeSpriteTransform.gameObject.SetActive(false);
+        }
+    }
+    
+    public void EnsureModelVisible()
+    {
+        if (model != null && !model.activeSelf)
+        {
+            model.SetActive(true);
+        }
+    }
+    
+    public void StartIdleAnimation()
+    {
+        if (animator != null && animator.enabled)
+        {
+            SetAnimatorIdleRandomized();
+        }
     }
 
     public void Initialize(PawnState pawn, TileView tileView)

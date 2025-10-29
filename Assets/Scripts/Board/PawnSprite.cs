@@ -40,7 +40,7 @@ public class PawnSprite : MonoBehaviour
     }
 
     // Called at runtime _and_ when scrubbing animated properties in the Editor
-    void OnDidApplyAnimationProperties()
+    public void OnDidApplyAnimationProperties()
     {
         InitMesh();
         if (currentSprite == last || currentSprite == null) return;

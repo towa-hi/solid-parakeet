@@ -48,44 +48,45 @@ public class ArenaController : MonoBehaviour
     public void Close()
     {
         arenaCamera.enabled = false;
-        // Re-enable any PawnView animator we disabled for the winner
-        if (disabledWinnerPawnViewAnimator != null)
+    }
+
+    void ResetArenaPawns()
+    {
+        // Reset both pawns comprehensively to handle interrupted animations
+        ResetArenaPawn(pawnL);
+        ResetArenaPawn(pawnR);
+    }
+    
+    void ResetArenaPawn(ArenaPawn pawn)
+    {
+        if (pawn == null) return;
+        
+        // Reset PawnView animations and shader properties
+        if (pawn.pawnView != null)
         {
-            disabledWinnerPawnViewAnimator.enabled = true;
-            disabledWinnerPawnViewAnimator = null;
+            pawn.pawnView.ResetAnimatedValues();
+            pawn.pawnView.EnsureModelVisible();
         }
-        // Reset any animated values on arena pawns when closing
-        if (pawnL != null && pawnL.pawnView != null)
+        
+        // Ensure animator is enabled and reset to idle
+        if (pawn.animator != null)
         {
-            pawnL.pawnView.ResetAnimatedValues();
-        }
-        if (pawnR != null && pawnR.pawnView != null)
-        {
-            pawnR.pawnView.ResetAnimatedValues();
-        }
-        // Clear cached battle context
-        currentBattle = null;
-        currentWinningTeam = null;
-        currentBothDie = false;
-        currentRedDelta = null;
-        currentBlueDelta = null;
-        // Restore the arena animator to its base controller and reset state
-        if (animator != null)
-        {
-            animator.runtimeAnimatorController = baseArenaAttackAnimationController;
-            animator.Rebind();
-            animator.Update(0f);
+            if (!pawn.animator.enabled)
+            {
+                pawn.animator.enabled = true;
+            }
+            // Rebind to ensure clean state
+            pawn.animator.Rebind();
+            pawn.animator.Update(0f);
         }
     }
 
     public void StartBattle(BattleEvent battle, TurnResolveDelta delta)
     {
+        // Reset everything before starting a new battle to handle interrupted animations
+        ResetArenaPawns();
+        
         // Ensure any previously disabled PawnView animator is re-enabled before starting a new battle
-        if (disabledWinnerPawnViewAnimator != null)
-        {
-            disabledWinnerPawnViewAnimator.enabled = true;
-            disabledWinnerPawnViewAnimator = null;
-        }
         // tile A is left, tile B is right
         // for now, red is always left and blue is always right
         SnapshotPawnDelta? mRedDelta = null;
@@ -122,6 +123,10 @@ public class ArenaController : MonoBehaviour
         // Ensure shader state is clean at the start of each battle
         if (pawnL != null && pawnL.pawnView != null) pawnL.pawnView.ResetAnimatedValues();
         if (pawnR != null && pawnR.pawnView != null) pawnR.pawnView.ResetAnimatedValues();
+        
+        // Start idle animations for both pawns (they should be looping idle at battle start)
+        if (pawnL != null && pawnL.pawnView != null) pawnL.pawnView.animator.Play("Idle", 0, 0f);
+        if (pawnR != null && pawnR.pawnView != null) pawnR.pawnView.animator.Play("Idle", 0, 0f);
 
         // Determine winner (exactly one survivor means a winner). Otherwise it's a tie/bounce.
         Team? winningTeam = null;
@@ -151,18 +156,6 @@ public class ArenaController : MonoBehaviour
         {
             Team team = winningTeam.Value;
             // Disable the PawnView animator on the winner so it doesn't conflict with arena animation
-            ArenaPawn winnerPawn = team == Team.RED ? pawnL : pawnR;
-            if (winnerPawn != null && winnerPawn.pawnView != null && winnerPawn.pawnView.animator != null)
-            {
-                //winnerPawn.pawnView.animator.enabled = false;
-                disabledWinnerPawnViewAnimator = winnerPawn.pawnView.animator;
-            }
-            // Ensure loser's PawnView animator stays enabled for Hurt frame switching
-            ArenaPawn loserPawn = team == Team.RED ? pawnR : pawnL;
-            if (loserPawn != null && loserPawn.pawnView != null && loserPawn.pawnView.animator != null)
-            {
-                loserPawn.pawnView.animator.enabled = true;
-            }
             Rank winnerRank = team == Team.RED ? redDelta.postRank : blueDelta.postRank;
             PawnDef winnerDef = ResourceRoot.GetPawnDefFromRank(winnerRank);
             if (winnerDef != null)
@@ -182,15 +175,18 @@ public class ArenaController : MonoBehaviour
             PawnDef bothDef = ResourceRoot.GetPawnDefFromRank(pawnL.pawnDelta.postRank);
             // arbitrary choice of using red attack override controller for tie
             controllerToUse = bothDef.redAttackOverrideController;
-            animator.SetBool("IsTie", true);
         }
         animator.runtimeAnimatorController = controllerToUse;
-        // Ensure the animation starts from the beginning
+        
+        // Rebind resets all animator parameters and clip states, then re-enters Entry
         animator.Rebind();
+        
         animator.SetBool("IsTie", bothDie);
         animator.SetBool("RedRevealing", pawnL.pawnDelta.preRevealed);
         animator.SetBool("BlueRevealing", pawnR.pawnDelta.preRevealed);
+        
         animator.Update(0f);
+        
 
         arenaCamera.enabled = true;
     }
