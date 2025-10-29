@@ -401,6 +401,29 @@ public class TileView : MonoBehaviour
 		}, Ease.OutCubic);
 	}
 
+	// Public helpers for immediate fog control without tweening
+	public void SetFogAlphaImmediate(float alpha)
+	{
+		if (tileModel != null && tileModel.fogObject != null && !tileModel.fogObject.activeSelf)
+		{
+			tileModel.fogObject.SetActive(true);
+		}
+		Renderer fogRenderer = tileModel.fogObject.GetComponent<Renderer>();
+		Material fogMat = fogRenderer.material;
+		Color baseColor = fogMat.HasProperty(FogColorProperty) ? fogMat.GetColor(FogColorProperty) : fogMat.color;
+		Color endColor = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
+		if (fogAlphaTween.isAlive) fogAlphaTween.Stop();
+		if (fogMat.HasProperty(FogColorProperty)) fogMat.SetColor(FogColorProperty, endColor); else fogMat.color = endColor;
+		currentFogAlpha01 = alpha;
+		fogState = Mathf.Approximately(alpha, 0f) ? FogState.NONE : (alpha < 0.8f ? FogState.LIGHT : FogState.HEAVY);
+	}
+
+	public void ClearFogImmediate()
+	{
+		pawnFogOwner = null;
+		SetFogAlphaImmediate(0f);
+	}
+
     public FogState fogState;
 
     void SetFogState(FogState state)

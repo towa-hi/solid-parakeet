@@ -251,8 +251,8 @@ public class PawnView : MonoBehaviour
             case ResolveCheckpoint.Pre:
             {
                 PawnState preState = tr.preSnapshot.First(p => p.pawn_id == pawnId);
-                //Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from pre checkpoint");
-                SetModelVisible(preState.alive, preState);
+                // Only set model visibility; fog handled in position setters
+                SetModelVisible(preState.alive);
                 SetRank(GetRankFromSnapshot(preState));
                 // Bind to pre tile and set fog strictly from pre snapshot
                 TileView preTile = ViewEventBus.TileViewResolver(preState.pos);
@@ -265,8 +265,7 @@ public class PawnView : MonoBehaviour
                 
                 PawnState postMovesState = tr.postMovesSnapshot.First(p => p.pawn_id == pawnId);
 
-                //Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from post moves checkpoint");
-                SetModelVisible(postMovesState.alive, postMovesState);
+                SetModelVisible(postMovesState.alive);
                 SetRank(GetRankFromSnapshot(postMovesState));
                 if (tr.moves != null && tr.moves.TryGetValue(pawnId, out MoveEvent mv) && mv.from != mv.target)
                 {
@@ -282,8 +281,7 @@ public class PawnView : MonoBehaviour
             case ResolveCheckpoint.Battle:
             {
                 PawnState battleState = tr.battleSnapshots[battleIndex].First(p => p.pawn_id == pawnId);
-                //Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from battle checkpoint");
-                SetModelVisible(battleState.alive, battleState);
+                SetModelVisible(battleState.alive);
                 SetRank(GetRankFromSnapshot(battleState));
                 TileView battleTile = ViewEventBus.TileViewResolver(battleState.pos);
                 SetPosSnap(battleTile, battleState);
@@ -292,8 +290,7 @@ public class PawnView : MonoBehaviour
             case ResolveCheckpoint.Final:
             default:
             {
-                //Debug.Log($"PawnView[{pawnId}]: HandleResolveCheckpointChanged checkpoint={checkpoint} idx={battleIndex} Setting Model Visible from final checkpoint");
-                SetModelVisible(current.alive, current);
+                SetModelVisible(current.alive);
                 SetRank(current.GetKnownRank(net.userTeam) ?? Rank.UNKNOWN);
                 TileView finalTile = ViewEventBus.TileViewResolver(current.pos);
                 SetPosSnap(finalTile, current);
@@ -351,13 +348,8 @@ public class PawnView : MonoBehaviour
 
     void SetModelVisible(bool visible, PawnState snapshot)
     {
+        // Deprecated fog update path: only keep visibility change here
         SetModelVisible(visible);
-        TileView bound = GetBoundTileView();
-        if (bound)
-        {
-            //Debug.Log($"PawnView[{pawnId}]: SetModelVisible visible={visible} snapshot={snapshot} bound posView={bound.posView}");
-            bound.UpdateFogFromPawnState(snapshot);
-        }
     }
 
     void SetAnimatorIsSelected(bool selected)
@@ -457,7 +449,10 @@ public class PawnView : MonoBehaviour
         TileView initial = GetBoundTileView();
         if (initial)
         {
-            initial.ClearFog(snapshot);
+            if (initial != targetTile)
+            {
+                initial.ClearFogImmediate();
+            }
             initial.ClearTooltip();
         }
         if (!snapshot.alive)
@@ -469,9 +464,8 @@ public class PawnView : MonoBehaviour
         }
         SetConstraintToTile(targetTile);
         SetTransformToTile(targetTile);
-        // Drive fog on the bound tile based on provided snapshot
-        //Debug.Log($"PawnView[{pawnId}]: SetPosSnap targetTile={targetTile.posView} snapshot={snapshot}");
-        targetTile.UpdateFogFromPawnState(snapshot);
+        // Apply fog exactly once based on snapshot
+        ApplyFogForSnapshot(targetTile, snapshot);
     }
 
     void SetPosArc([CanBeNull] TileView targetTile, PawnState snapshot)
@@ -489,7 +483,7 @@ public class PawnView : MonoBehaviour
             transform.position = initial.origin.position;
             transform.rotation = initial.origin.rotation;
             // During arc: ensure no fog on initial
-            initial.ClearFog(snapshot);
+            initial.ClearFogImmediate();
             initial.ClearTooltip();
         }
         StartCoroutine(ArcToTileNoNotify(targetTile, snapshot));
@@ -500,8 +494,22 @@ public class PawnView : MonoBehaviour
         yield return ArcToPosition(targetTile.origin, Globals.PawnMoveDuration, 0.5f);
         SetConstraintToTile(targetTile);
         SetTransformToTile(targetTile);
-        //Debug.Log($"PawnView[{pawnId}]: SetPosArc targetTile={targetTile.posView} snapshot={snapshot}");
-        targetTile.UpdateFogFromPawnState(snapshot);
+        // Apply fog exactly once on arrival
+        ApplyFogForSnapshot(targetTile, snapshot);
+    }
+
+    // Single fog application per frame/checkpoint driven from PawnView
+    void ApplyFogForSnapshot(TileView tile, PawnState snapshot)
+    {
+        // revealed -> no fog; unrevealed -> heavy; if moved and unrevealed -> light
+        const float LightFogAlpha = 150f / 255f;
+        const float HeavyFogAlpha = 200f / 255f;
+        float alpha = 0f;
+        if (!snapshot.zz_revealed)
+        {
+            alpha = snapshot.moved ? LightFogAlpha : HeavyFogAlpha;
+        }
+        tile.SetFogAlphaImmediate(alpha);
     }
 
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
