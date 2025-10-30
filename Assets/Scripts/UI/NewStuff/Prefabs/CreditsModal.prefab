@@ -247,22 +247,33 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'SCRYING STONE
+  m_text: 'PRODUCERS
 
-    PRODUCERS
+    Dune rwx
 
-    Dune Robek
+    DIRECTOR
 
-    ART & MUSIC
+    Dune Mono
+
+    ART DIRECTOR
+    & NARRATIVE DESIGN
 
     Blakkmass
-    Noxis Fei Rylen
 
-    DEVELOPMENT
+    MUSIC
+
+    Noxis
+
+    LEAD DEVELOPER
 
     Mono
 
-    OTHER HELP
+    ADDITIONAL
+    ART & DESIGN
+
+    Feireina Rylen rwx
+
+    DEVELOPMENT SUPPORT
 
     Moon Cro
 
@@ -296,8 +307,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 20
-  m_fontSizeBase: 20
+  m_fontSize: 16
+  m_fontSizeBase: 16
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -861,7 +872,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 600, y: 436.73}
+  m_SizeDelta: {x: 600, y: 561.79}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2929704151000885166
 CanvasRenderer:
@@ -983,7 +994,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5970947789033960797, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -130
+      value: -199.8
       objectReference: {fileID: 0}
     - target: {fileID: 5970947789033960797, guid: 33e95ed5d8eaaa748ac29e48ebe2ae56, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
