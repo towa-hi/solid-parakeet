@@ -73,6 +73,25 @@ public class PawnView : MonoBehaviour
         animator.SetBool(animatorIsSelected, newAnimationState);
     }
 
+    void OnEnable()
+    {
+        SettingsManager.OnSettingChanged += HandleSettingChanged;
+        UpdateBadgeVisibility();
+    }
+
+    void OnDisable()
+    {
+        SettingsManager.OnSettingChanged -= HandleSettingChanged;
+    }
+
+    void HandleSettingChanged(SettingsKey key, int val)
+    {
+        if (key == SettingsKey.DISPLAYBADGES)
+        {
+            UpdateBadgeVisibility();
+        }
+    }
+
     void HandleMoveSelectionChanged(Vector2Int? selectedPos, HashSet<Vector2Int> validTargets)
     {
         if (selectedPos.HasValue)
@@ -186,6 +205,7 @@ public class PawnView : MonoBehaviour
         gameObject.name = $"Pawn {pawnId} team {pawn.GetTeam()} startPos {pawn.GetStartPosition()}";
         SetPosSnap(tileView, pawn);
         SetRank(Rank.UNKNOWN);
+        UpdateBadgeVisibility();
     }
 
     void HandleClientModeChanged(GameSnapshot snapshot)
@@ -355,6 +375,16 @@ public class PawnView : MonoBehaviour
 		if (model.activeSelf != visible)
         {
             model.SetActive(visible);
+        }
+    }
+
+    void UpdateBadgeVisibility()
+    {
+        if (badge == null) return;
+        bool shouldShow = SettingsManager.Load().displayBadges;
+        if (badge.gameObject.activeSelf != shouldShow)
+        {
+            badge.gameObject.SetActive(shouldShow);
         }
     }
 

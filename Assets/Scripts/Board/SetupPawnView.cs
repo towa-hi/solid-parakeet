@@ -20,6 +20,25 @@ public class SetupPawnView: MonoBehaviour
     // mutable
     public Rank? rank;
     
+    void OnEnable()
+    {
+        SettingsManager.OnSettingChanged += HandleSettingChanged;
+        UpdateBadgeVisibility();
+    }
+
+    void OnDisable()
+    {
+        SettingsManager.OnSettingChanged -= HandleSettingChanged;
+    }
+
+    void HandleSettingChanged(SettingsKey key, int val)
+    {
+        if (key == SettingsKey.DISPLAYBADGES)
+        {
+            UpdateBadgeVisibility();
+        }
+    }
+    
     public void Initialize(PawnId inPawnId, Transform target)
     {
         rank = null;
@@ -35,6 +54,7 @@ public class SetupPawnView: MonoBehaviour
         });
         parentConstraint.constraintActive = true;
         badge.SetBadge(team, null);
+        UpdateBadgeVisibility();
     }
 
     // void OnClientGameStateChanged(IPhase phase, bool phaseChanged)
@@ -110,6 +130,16 @@ public class SetupPawnView: MonoBehaviour
     // }
 
     
+    void UpdateBadgeVisibility()
+    {
+        if (badge == null) return;
+        bool shouldShow = SettingsManager.Load().displayBadges;
+        if (badge.gameObject.activeSelf != shouldShow)
+        {
+            badge.gameObject.SetActive(shouldShow);
+        }
+    }
+
     public IEnumerator ArcToPosition(Transform target, float duration, float arcHeight)
     {
         parentConstraint.constraintActive = false;
