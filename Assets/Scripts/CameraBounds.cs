@@ -12,6 +12,8 @@ public class CameraBounds : MonoBehaviour
     public Vector3 targetPosition;
     private Vector3 velocity = Vector3.zero;
     public float smoothTime = 0.3f;
+    public float defaultZOffset = 0f;
+    public float setupModeZOffset = -1f;
     void Update()
     {
         if (screenPosBasedUpdate)
@@ -26,6 +28,10 @@ public class CameraBounds : MonoBehaviour
 
     void ScreenPosBasedUpdate()
     {
+        // TODO: horrible code replace this later
+        GameSnapshot snapshot = GameManager.instance.boardManager.Store.State;
+        bool inSetup = snapshot != null && snapshot.Mode == ClientMode.Setup;
+        float zOffset = inSetup ? setupModeZOffset : defaultZOffset;
         Vector2 mouseScreenPos = Globals.InputActions.Game.PointerPosition.ReadValue<Vector2>();
         Vector2 screenSize = new Vector2(Screen.width, Screen.height);
 
@@ -43,7 +49,7 @@ public class CameraBounds : MonoBehaviour
         // SmoothDamp movement
         testObject.transform.position = Vector3.SmoothDamp(
             testObject.transform.position,
-            targetPosition,
+            targetPosition + new Vector3(0f, 0f, zOffset),
             ref velocity,
             smoothTime
         );        
