@@ -207,6 +207,106 @@ public record GameSnapshot
 		};
 		return true;
 	}
+
+	public bool TryBuildTileTooltip(Vector2Int tilePos, out string header, out string body)
+	{
+		header = $"{tilePos}";
+		body = string.Empty;
+
+		GameNetworkState net = Net;
+		PawnState[] pawns = net.gameState.pawns;
+		bool hasNetworkData = pawns != null && pawns.Length > 0;
+		if (!hasNetworkData)
+		{
+			return !string.IsNullOrEmpty(header) || !string.IsNullOrEmpty(body);
+		}
+
+		Rank rank = Rank.UNKNOWN;
+
+		switch (Mode)
+		{
+			case ClientMode.Setup:
+			{
+				var pawn = net.GetAlivePawnFromPosChecked(tilePos);
+				if (pawn.HasValue)
+				{
+					var pending = Ui?.PendingCommits;
+					if (pending != null && pending.TryGetValue(pawn.Value.pawn_id, out Rank? maybe) && maybe.HasValue)
+					{
+						rank = maybe.Value;
+					}
+				}
+				break;
+			}
+			case ClientMode.Resolve:
+			{
+				if (Ui != null)
+				{
+					PawnState? pawn = Ui.ResolveData.GetPawnAt(tilePos, Ui.Checkpoint, Ui.BattleIndex);
+					if (!pawn.HasValue && Ui.Checkpoint == ResolveCheckpoint.Final)
+					{
+						pawn = net.GetAlivePawnFromPosChecked(tilePos);
+					}
+					if (pawn.HasValue)
+					{
+						var known = pawn.Value.GetKnownRank(net.userTeam);
+						if (known.HasValue)
+						{
+							rank = known.Value;
+						}
+					}
+				}
+				break;
+			}
+			default:
+			{
+				var pawn = net.GetAlivePawnFromPosChecked(tilePos);
+				if (pawn.HasValue)
+				{
+					var known = pawn.Value.GetKnownRank(net.userTeam);
+					if (known.HasValue)
+					{
+						rank = known.Value;
+					}
+				}
+				break;
+			}
+		}
+
+		if (rank != Rank.UNKNOWN)
+		{
+			string power = $"Power: {(int)rank}";
+			if (Mode == ClientMode.Setup)
+			{
+				int committed = 0;
+				int max = 0;
+				var pending = Ui?.PendingCommits;
+				if (pending != null)
+				{
+					foreach (var v in pending.Values)
+					{
+						if (v.HasValue && v.Value == rank)
+						{
+							committed++;
+						}
+					}
+				}
+				uint[] maxRanks = net.lobbyParameters.max_ranks;
+				int rankIndex = (int)rank;
+				if (maxRanks != null && rankIndex >= 0 && rankIndex < maxRanks.Length)
+				{
+					max = (int)maxRanks[rankIndex];
+				}
+				body = $"{rank} {power}\nCommitted: {committed}/{max}";
+			}
+			else
+			{
+				body = $"{rank} {power}";
+			}
+		}
+
+		return !string.IsNullOrEmpty(header) || !string.IsNullOrEmpty(body);
+	}
 }
 
 

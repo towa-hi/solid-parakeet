@@ -16034,6 +16034,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 352785281}
     m_Modifications:
+    - target: {fileID: 276679697527352517, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 389807604789562310, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -16105,6 +16109,10 @@ PrefabInstance:
     - target: {fileID: 5365501454705843639, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
       propertyPath: mesh
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6377200005500485853, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6790993752554842078, guid: 7428c930dfc71ce4ea4a602282574ec7, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'

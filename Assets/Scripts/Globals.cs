@@ -2203,6 +2203,46 @@ public struct TurnResolveDelta
 	public PawnState[] postMovesSnapshot; // after moves applied, before reveals
 	public PawnState[][] battleSnapshots; // after each battle applied (ordered to match battles)
 	public PawnState[] finalSnapshot; // authoritative current state
+
+	public PawnState? GetPawnAt(Vector2Int position, ResolveCheckpoint checkpoint, int battleIndex)
+	{
+		PawnState[] board = checkpoint switch
+		{
+			ResolveCheckpoint.Pre => preSnapshot,
+			ResolveCheckpoint.PostMoves => postMovesSnapshot,
+			ResolveCheckpoint.Battle => GetBattleSnapshot(battleIndex),
+			ResolveCheckpoint.Final => finalSnapshot,
+			_ => null,
+		};
+		return FindAlivePawn(board, position);
+	}
+
+	PawnState[] GetBattleSnapshot(int battleIndex)
+	{
+		if (battleSnapshots == null || battleSnapshots.Length == 0)
+		{
+			return null;
+		}
+		int clamped = Mathf.Clamp(battleIndex, 0, battleSnapshots.Length - 1);
+		return battleSnapshots[clamped];
+	}
+
+	static PawnState? FindAlivePawn(PawnState[] snapshot, Vector2Int position)
+	{
+		if (snapshot == null)
+		{
+			return null;
+		}
+		for (int i = 0; i < snapshot.Length; i++)
+		{
+			PawnState pawn = snapshot[i];
+			if (pawn.alive && pawn.pos == position)
+			{
+				return pawn;
+			}
+		}
+		return null;
+	}
 }
 
 public struct SnapshotPawnDelta
