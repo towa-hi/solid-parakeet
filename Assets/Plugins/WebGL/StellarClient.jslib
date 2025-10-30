@@ -1,4 +1,43 @@
 mergeInto(LibraryManager.library, {
+    JS_CopyTextToClipboard: function(textPtr)
+    {
+        const text = (textPtr ? UTF8ToString(textPtr) : "") || "";
+        const fallbackCopy = function(value) {
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = value;
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                textArea.style.left = "-1000px";
+                textArea.setAttribute("readonly", "");
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand("copy");
+                if (!successful) {
+                    console.warn("document.execCommand('copy') returned false");
+                }
+                document.body.removeChild(textArea);
+            } catch (error) {
+                console.error("Fallback clipboard copy failed", error);
+            }
+        };
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(function(err) {
+                    console.warn("navigator.clipboard.writeText failed, falling back", err);
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        } catch (err) {
+            console.error("Clipboard copy threw", err);
+            fallbackCopy(text);
+        }
+    },
+
     JSCheckWallet: async function()
     {
         try {

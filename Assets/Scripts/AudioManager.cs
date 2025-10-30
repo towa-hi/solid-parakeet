@@ -13,6 +13,7 @@ public class AudioManager : MonoBehaviour
     public AudioSource musicSource2;
     public AudioSource activeSource;
     AudioSource inactiveSource;
+    Coroutine battleMusicSequenceRoutine;
     
     public AudioSource effectSource;
     
@@ -45,36 +46,117 @@ public class AudioManager : MonoBehaviour
 
     public static void PlayMusic(MusicTrack trackName)
     {
+        if (instance == null)
+        {
+            Debug.LogWarning($"AudioManager.PlayMusic called before initialization: {trackName}");
+            return;
+        }
+
         Debug.Log($"AudioManager.PlayMusic: {trackName}");
-        // dont do anything if we're already playing the same track
-        if (instance.currentMusicTrack == trackName)
+
+        (AudioClip clip, bool shouldLoop) = ResolveClipAndLoop(trackName);
+        if (clip == null)
+        {
+            Debug.LogWarning($"AudioManager.PlayMusic: clip for {trackName} is null");
+            return;
+        }
+
+        if (instance.currentMusicTrack == trackName &&
+            instance.currentMusicClip == clip &&
+            instance.activeSource != null &&
+            instance.activeSource.isPlaying)
         {
             return;
         }
-        instance.currentMusicTrack = trackName;
-        instance.StopAllCoroutines();
-        AudioClip clip = trackName switch
-        {
-            MusicTrack.START_MUSIC => instance.startMusicClip,
-            MusicTrack.MAIN_MENU_MUSIC => instance.mainMenuMusicClip,
-            MusicTrack.BATTLE_MUSIC => instance.battleMusicClip,
-            _ => throw new ArgumentOutOfRangeException(nameof(trackName), trackName, null)
-        };
 
-        if (clip != instance.currentMusicClip)
+        instance.StopAllCoroutines();
+        instance.battleMusicSequenceRoutine = null;
+        instance.currentMusicTrack = trackName;
+
+        if (instance.activeSource != null &&
+            instance.activeSource.clip == clip &&
+            instance.activeSource.isPlaying)
         {
-            instance.StartCoroutine(instance.FadeToNewTrack(clip, 2f));
+            instance.activeSource.loop = shouldLoop;
+            instance.activeSource.volume = instance.musicVolume;
+            instance.currentMusicClip = clip;
+            return;
         }
+
+        instance.currentMusicClip = clip;
+        instance.StartCoroutine(instance.FadeToNewTrack(clip, 2f, shouldLoop));
     }
 
-    IEnumerator FadeToNewTrack(AudioClip newClip, float duration)
+    public static void PlayBattleMusicWithIntro()
     {
+        if (instance == null)
+        {
+            Debug.LogWarning("AudioManager.PlayBattleMusicWithIntro called before initialization");
+            return;
+        }
+
+        if (instance.startMusicClip == null)
+        {
+            Debug.LogWarning("AudioManager.PlayBattleMusicWithIntro: startMusicClip is null, playing battle music directly");
+            PlayMusic(MusicTrack.BATTLE_MUSIC);
+            return;
+        }
+
+        instance.StopAllCoroutines();
+        instance.currentMusicTrack = MusicTrack.START_MUSIC;
+        instance.currentMusicClip = instance.startMusicClip;
+        instance.battleMusicSequenceRoutine = instance.StartCoroutine(instance.PlayBattleMusicSequence());
+    }
+
+    static (AudioClip clip, bool shouldLoop) ResolveClipAndLoop(MusicTrack trackName)
+    {
+        return trackName switch
+        {
+            MusicTrack.START_MUSIC => (instance.startMusicClip, false),
+            MusicTrack.MAIN_MENU_MUSIC => (instance.mainMenuMusicClip, true),
+            MusicTrack.BATTLE_MUSIC => (instance.battleMusicClip, true),
+            _ => throw new ArgumentOutOfRangeException(nameof(trackName), trackName, null)
+        };
+    }
+
+    IEnumerator PlayBattleMusicSequence()
+    {
+        yield return FadeToNewTrack(startMusicClip, 2f, false);
+
+        yield return new WaitWhile(() => activeSource != null && activeSource.isPlaying && activeSource.clip == startMusicClip);
+
+        if (activeSource == null || activeSource.clip != startMusicClip)
+        {
+            battleMusicSequenceRoutine = null;
+            yield break;
+        }
+
+        battleMusicSequenceRoutine = null;
+
+        if (battleMusicClip == null)
+        {
+            Debug.LogWarning("AudioManager.PlayBattleMusicSequence: battleMusicClip is null, cannot continue sequence");
+            yield break;
+        }
+
+        PlayMusic(MusicTrack.BATTLE_MUSIC);
+    }
+
+    IEnumerator FadeToNewTrack(AudioClip newClip, float duration, bool loop)
+    {
+        if (newClip == null)
+        {
+            yield break;
+        }
+
         inactiveSource.clip = newClip;
+        inactiveSource.loop = loop;
+        inactiveSource.volume = 0f;
         inactiveSource.Play();
         float time = 0f;
         while (time < duration)
         {
-            float t = time / duration;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01(time / duration);
             activeSource.volume = Mathf.Lerp(musicVolume, 0f, t);
             inactiveSource.volume = Mathf.Lerp(0f, musicVolume, t);
             time += Time.deltaTime;
@@ -82,7 +164,10 @@ public class AudioManager : MonoBehaviour
         }
         activeSource.Stop();
         activeSource.volume = musicVolume;
+        inactiveSource.volume = musicVolume;
         (activeSource, inactiveSource) = (inactiveSource, activeSource);
+        activeSource.loop = loop;
+        currentMusicClip = activeSource.clip;
     }
 
     public static void PlayShatter()

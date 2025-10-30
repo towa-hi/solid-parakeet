@@ -34,7 +34,7 @@ public class GuiLobbyView : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(lobbyIdText.text))
         {
-            GUIUtility.systemCopyBuffer = lobbyIdText.text;
+            ClipboardUtility.Copy(lobbyIdText.text);
         }
     }
 
@@ -42,7 +42,7 @@ public class GuiLobbyView : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(contractAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = contractAddressText.text;
+            ClipboardUtility.Copy(contractAddressText.text);
         }
     }
 
@@ -50,7 +50,7 @@ public class GuiLobbyView : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(hostAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = hostAddressText.text;
+            ClipboardUtility.Copy(hostAddressText.text);
         }
     }
 
@@ -58,7 +58,7 @@ public class GuiLobbyView : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(guestAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = guestAddressText.text;
+            ClipboardUtility.Copy(guestAddressText.text);
         }
     }
     

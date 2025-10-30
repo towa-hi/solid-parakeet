@@ -161,7 +161,7 @@ public class LobbyViewMenu2 : MenuBase
     {
         if (lobbyIdText != null && !string.IsNullOrEmpty(lobbyIdText.text))
         {
-            GUIUtility.systemCopyBuffer = lobbyIdText.text;
+            ClipboardUtility.Copy(lobbyIdText.text);
         }
     }
 
@@ -169,7 +169,7 @@ public class LobbyViewMenu2 : MenuBase
     {
         if (contractAddressText != null && !string.IsNullOrEmpty(contractAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = contractAddressText.text;
+            ClipboardUtility.Copy(contractAddressText.text);
         }
     }
 
@@ -177,7 +177,7 @@ public class LobbyViewMenu2 : MenuBase
     {
         if (userAddressText != null && !string.IsNullOrEmpty(userAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = userAddressText.text;
+            ClipboardUtility.Copy(userAddressText.text);
         }
     }
 
@@ -185,7 +185,7 @@ public class LobbyViewMenu2 : MenuBase
     {
         if (lobbyHostAddressText != null && !string.IsNullOrEmpty(lobbyHostAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = lobbyHostAddressText.text;
+            ClipboardUtility.Copy(lobbyHostAddressText.text);
         }
     }
 
@@ -193,7 +193,7 @@ public class LobbyViewMenu2 : MenuBase
     {
         if (lobbyGuestAddressText != null && !string.IsNullOrEmpty(lobbyGuestAddressText.text))
         {
-            GUIUtility.systemCopyBuffer = lobbyGuestAddressText.text;
+            ClipboardUtility.Copy(lobbyGuestAddressText.text);
         }
     }
 }

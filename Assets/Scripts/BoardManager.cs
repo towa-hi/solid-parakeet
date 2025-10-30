@@ -118,7 +118,7 @@ public class BoardManager : MonoBehaviour
         // Seed initial mode to views now that board/pawn views exist
         ViewEventBus.RaiseClientModeChanged(new GameSnapshot { Mode = initMode, Net = netState, Ui = Store.State.Ui ?? LocalUiState.Empty });
         Debug.Log("BoardManager.Initialize: finished creating views; starting music");
-        AudioManager.PlayMusic(MusicTrack.BATTLE_MUSIC);
+        AudioManager.PlayBattleMusicWithIntro();
         // Ensure no duplicate subscriptions if StartBoardManager is called repeatedly
         StellarManager.OnGameStateBeforeApplied -= OnGameStateBeforeApplied;
         StellarManager.OnGameStateBeforeApplied += OnGameStateBeforeApplied;

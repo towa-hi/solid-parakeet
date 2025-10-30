@@ -28,6 +28,7 @@ public class PawnView : MonoBehaviour
     // immutable
     public PawnId pawnId;
     public Team team;
+    public bool overrideBadgeHidden;
 
     // cached values strictly for checking redundant setting
     public PawnDef cachedPawnDef;
@@ -381,7 +382,7 @@ public class PawnView : MonoBehaviour
     void UpdateBadgeVisibility()
     {
         if (badge == null) return;
-        bool shouldShow = SettingsManager.Load().displayBadges;
+        bool shouldShow = !overrideBadgeHidden && SettingsManager.Load().displayBadges;
         if (badge.gameObject.activeSelf != shouldShow)
         {
             badge.gameObject.SetActive(shouldShow);

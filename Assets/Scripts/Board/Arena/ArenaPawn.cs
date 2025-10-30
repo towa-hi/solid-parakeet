@@ -20,6 +20,19 @@ public class ArenaPawn : MonoBehaviour
             Team.BLUE => pawnDef.blueAnimatorOverrideController,
             _ => throw new ArgumentOutOfRangeException(),
         };
+        // Arena: badges should always be hidden regardless of global setting
+        if (pawnView != null)
+        {
+            pawnView.overrideBadgeHidden = true;
+            if (pawnView.badge != null && pawnView.badge.gameObject.activeSelf)
+            {
+                pawnView.badge.gameObject.SetActive(false);
+            }
+        }
+        if (badge != null && badge.gameObject.activeSelf)
+        {
+            badge.gameObject.SetActive(false);
+        }
     }
     
     
