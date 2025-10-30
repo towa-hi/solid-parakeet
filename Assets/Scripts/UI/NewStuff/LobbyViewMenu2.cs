@@ -28,6 +28,10 @@ public class LobbyViewMenu2 : MenuBase
     public ButtonExtended copyGuestAddressButton;
 
 
+    // Local polling while this menu is active
+    Coroutine pollingCoroutine;
+    const float LobbyPollIntervalSeconds = 5f;
+
     private void Start()
     {
         backButton.onClick.AddListener(HandleBack);
@@ -39,6 +43,25 @@ public class LobbyViewMenu2 : MenuBase
         copyHostAddressButton.onClick.AddListener(CopyHostAddress);
         copyGuestAddressButton.onClick.AddListener(CopyGuestAddress);
         Refresh();
+    }
+
+    void OnEnable()
+    {
+        StellarManager.OnNetworkStateUpdated += Refresh;
+        if (pollingCoroutine == null)
+        {
+            pollingCoroutine = StartCoroutine(PollLobbyRoutine());
+        }
+    }
+
+    void OnDisable()
+    {
+        StellarManager.OnNetworkStateUpdated -= Refresh;
+        if (pollingCoroutine != null)
+        {
+            StopCoroutine(pollingCoroutine);
+            pollingCoroutine = null;
+        }
     }
 
     public async void HandleEnterGame()
@@ -103,6 +126,26 @@ public class LobbyViewMenu2 : MenuBase
         (bool startable, string reason) = IsLobbyStartable(StellarManager.networkState);
         enterGameButton.interactable = startable;
         lobbyStatusText.text = reason;
+    }
+
+    System.Collections.IEnumerator PollLobbyRoutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(LobbyPollIntervalSeconds);
+            if (!gameObject.activeInHierarchy)
+            {
+                yield break;
+            }
+            if (!StellarManager.IsBusy)
+            {
+                var task = StellarManager.UpdateState(false);
+                while (!task.IsCompleted)
+                {
+                    yield return null;
+                }
+            }
+        }
     }
 
     (bool startable, string reason) IsLobbyStartable(NetworkState networkState)

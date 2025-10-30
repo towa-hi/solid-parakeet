@@ -15,6 +15,10 @@ public class GuiLobbyViewer : MenuElement
     public Button refreshButton;
     public Button startButton;
     
+    // Local polling while the lobby viewer is visible
+    Coroutine pollingCoroutine;
+    const float LobbyPollIntervalSeconds = 5f;
+    
     public event Action OnBackButton;
     public event Action OnDeleteButton;
     public event Action OnRefreshButton;
@@ -43,6 +47,21 @@ public class GuiLobbyViewer : MenuElement
     public override void ShowElement(bool show)
     {
         base.ShowElement(show);
+        if (show)
+        {
+            if (pollingCoroutine == null)
+            {
+                pollingCoroutine = StartCoroutine(PollLobbyRoutine());
+            }
+        }
+        else
+        {
+            if (pollingCoroutine != null)
+            {
+                StopCoroutine(pollingCoroutine);
+                pollingCoroutine = null;
+            }
+        }
     }
 
     public override void Refresh()
@@ -119,5 +138,25 @@ public class GuiLobbyViewer : MenuElement
             statusText.text = "lobby startable";
         }
         startButton.interactable = lobbyStartable;
+    }
+
+    System.Collections.IEnumerator PollLobbyRoutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(LobbyPollIntervalSeconds);
+            if (!gameObject.activeInHierarchy)
+            {
+                yield break;
+            }
+            if (!StellarManager.IsBusy)
+            {
+                var task = StellarManager.UpdateState(false);
+                while (!task.IsCompleted)
+                {
+                    yield return null;
+                }
+            }
+        }
     }
 }

@@ -182,7 +182,7 @@ public class AudioManager : MonoBehaviour
 
     public static void PlayButtonClick(ButtonClickType type)
     {
-        Debug.Log($"PlayButtonClick: {type}");
+        //Debug.Log($"PlayButtonClick: {type}");
         switch (type)
         {
             case ButtonClickType.AFFIRMATIVE:
@@ -204,7 +204,7 @@ public class AudioManager : MonoBehaviour
 
     public static void PlayOneShot(AudioClip clip)
     {
-        Debug.Log($"PlayOneShot: {clip.name}");
+        //Debug.Log($"PlayOneShot: {clip.name}");
         if (instance == null || instance.effectSource == null || clip == null)
         {
             return;
