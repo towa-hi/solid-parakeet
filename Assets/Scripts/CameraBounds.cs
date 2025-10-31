@@ -29,6 +29,10 @@ public class CameraBounds : MonoBehaviour
     void ScreenPosBasedUpdate()
     {
         // TODO: horrible code replace this later
+        if (!GameManager.instance.boardManager.initialized)
+        {
+            return;
+        }
         GameSnapshot snapshot = GameManager.instance.boardManager.Store.State;
         bool inSetup = snapshot != null && snapshot.Mode == ClientMode.Setup;
         float zOffset = inSetup ? setupModeZOffset : defaultZOffset;
