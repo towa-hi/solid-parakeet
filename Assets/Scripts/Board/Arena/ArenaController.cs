@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 using Contract;
 
@@ -17,7 +18,9 @@ public class ArenaController : MonoBehaviour
     RuntimeAnimatorController baseArenaAttackAnimationController;
     bool isHex;
     ArenaTiles tiles;
-    Animator disabledWinnerPawnViewAnimator;
+    readonly List<Animator> disabledPawnViewAnimators = new ();
+    ArenaPawn currentlyDisabledWinnerPawn;
+    Team? pendingWinner;
 
     // Cached battle context for animation events
     BattleEvent? currentBattle;
@@ -47,12 +50,14 @@ public class ArenaController : MonoBehaviour
 
     public void Close()
     {
+        RestoreDisabledPawnViewAnimators();
         arenaCamera.enabled = false;
     }
 
     void ResetArenaPawns()
     {
         // Reset both pawns comprehensively to handle interrupted animations
+        RestoreDisabledPawnViewAnimators();
         ResetArenaPawn(pawnL);
         ResetArenaPawn(pawnR);
     }
@@ -64,6 +69,11 @@ public class ArenaController : MonoBehaviour
         // Reset PawnView animations and shader properties
         if (pawn.pawnView != null)
         {
+            if (pawn.pawnView.animator != null && !pawn.pawnView.animator.enabled)
+            {
+                pawn.pawnView.animator.enabled = true;
+                pawn.pawnView.animator.Update(0f);
+            }
             pawn.pawnView.ResetAnimatedValues();
             pawn.pawnView.EnsureModelVisible();
         }
@@ -85,7 +95,7 @@ public class ArenaController : MonoBehaviour
     {
         // Reset everything before starting a new battle to handle interrupted animations
         ResetArenaPawns();
-        
+        RestoreDisabledPawnViewAnimators();
         // Ensure any previously disabled PawnView animator is re-enabled before starting a new battle
         // tile A is left, tile B is right
         // for now, red is always left and blue is always right
@@ -123,7 +133,6 @@ public class ArenaController : MonoBehaviour
         // Ensure shader state is clean at the start of each battle
         if (pawnL != null && pawnL.pawnView != null) pawnL.pawnView.ResetAnimatedValues();
         if (pawnR != null && pawnR.pawnView != null) pawnR.pawnView.ResetAnimatedValues();
-        
         // Start idle animations for both pawns (they should be looping idle at battle start)
         if (pawnL != null && pawnL.pawnView != null) pawnL.pawnView.animator.Play("Idle", 0, 0f);
         if (pawnR != null && pawnR.pawnView != null) pawnR.pawnView.animator.Play("Idle", 0, 0f);
@@ -148,6 +157,7 @@ public class ArenaController : MonoBehaviour
         currentBlueDelta = blueDelta;
         currentWinningTeam = winningTeam;
         currentBothDie = bothDie;
+        pendingWinner = winningTeam;
 
         // Apply the arena attack animation override based on the winner
         RuntimeAnimatorController controllerToUse = baseArenaAttackAnimationController;
@@ -175,6 +185,8 @@ public class ArenaController : MonoBehaviour
             PawnDef bothDef = ResourceRoot.GetPawnDefFromRank(pawnL.pawnDelta.postRank);
             // arbitrary choice of using red attack override controller for tie
             controllerToUse = bothDef.redAttackOverrideController;
+            currentlyDisabledWinnerPawn = null;
+            pendingWinner = null;
         }
         animator.runtimeAnimatorController = controllerToUse;
         
@@ -191,9 +203,19 @@ public class ArenaController : MonoBehaviour
         arenaCamera.enabled = true;
     }
 
-    void BothDieStub(SnapshotPawnDelta redDelta, SnapshotPawnDelta blueDelta)
+    // Animation Event: called after reveal animation completes to disable attacker pawn view animators
+    public void DisableAttackerPawnViewAnimator()
     {
-        Debug.Log("ArenaController: both pawns die (stub). Implement mutual KO visuals.");
+        Debug.Log($"ArenaController: DisableAttackerPawnViewAnimator pendingWinner: {pendingWinner}");
+        if (!pendingWinner.HasValue)
+        {
+            DisablePawnViewAnimator(pawnL);
+            DisablePawnViewAnimator(pawnR);
+            return;
+        }
+        Team winnerTeam = pendingWinner.Value;
+        currentlyDisabledWinnerPawn = winnerTeam == Team.RED ? pawnL : pawnR;
+        DisablePawnViewAnimator(currentlyDisabledWinnerPawn);
     }
 
     // Animation Event entry point from Arena timeline. Decides whom to hurt based on cached battle context.
@@ -208,6 +230,8 @@ public class ArenaController : MonoBehaviour
         bool blueAlive = currentBlueDelta.Value.postAlive;
         if (!redAlive && !blueAlive)
         {
+            EnsurePawnViewAnimatorEnabled(pawnL);
+            EnsurePawnViewAnimatorEnabled(pawnR);
             if (pawnL != null && pawnL.pawnView != null)
             {
                 pawnL.pawnView.HurtAnimation();
@@ -220,6 +244,7 @@ public class ArenaController : MonoBehaviour
         }
         if (redAlive && !blueAlive)
         {
+            EnsurePawnViewAnimatorEnabled(pawnR);
             if (pawnR != null && pawnR.pawnView != null)
             {
                 pawnR.pawnView.HurtAnimation();
@@ -228,6 +253,7 @@ public class ArenaController : MonoBehaviour
         }
         if (blueAlive && !redAlive)
         {
+            EnsurePawnViewAnimatorEnabled(pawnL);
             if (pawnL != null && pawnL.pawnView != null)
             {
                 pawnL.pawnView.HurtAnimation();
@@ -270,44 +296,75 @@ public class ArenaController : MonoBehaviour
         }
         // Tie/bounce: no loser to fade
     }
-    // Animation Event: Shatter the loser's sprite using PawnSprite's Shatter reference
-    public void ShatterLoserSprite()
+
+    public void DisableRedPawnViewAnimator()
     {
-        if (!currentRedDelta.HasValue || !currentBlueDelta.HasValue)
+        DisablePawnViewAnimator(pawnL);
+    }
+    public void DisableBluePawnViewAnimator()
+    {
+        DisablePawnViewAnimator(pawnR);
+    }
+
+    void DisablePawnViewAnimator(ArenaPawn pawn)
+    {
+        Debug.Log($"ArenaController: DisablePawnViewAnimator {pawn.pawnDelta.pawnId.GetTeam()}");
+        if (pawn?.pawnView?.animator == null)
         {
-            Debug.LogWarning("ShatterLoserSprite called without a cached battle context.");
             return;
         }
-        bool redAlive = currentRedDelta.Value.postAlive;
-        bool blueAlive = currentBlueDelta.Value.postAlive;
-
-        // Helper local function
-        void ShatterPawn(ArenaPawn pawn)
+        Animator anim = pawn.pawnView.animator;
+        if (!anim.enabled)
         {
-            if (pawn == null || pawn.pawnView == null) return;
-            var pawnSprite = pawn.pawnView.GetComponentInChildren<PawnSprite>(true);
-            if (pawnSprite != null && pawnSprite.shatter != null)
+            return;
+        }
+        anim.enabled = false;
+        if (!disabledPawnViewAnimators.Contains(anim))
+        {
+            disabledPawnViewAnimators.Add(anim);
+        }
+    }
+
+    void EnsurePawnViewAnimatorEnabled(ArenaPawn pawn)
+    {
+        Debug.Log($"ArenaController: EnsurePawnViewAnimatorEnabled {pawn.pawnDelta.pawnId.GetTeam()}");
+        if (pawn?.pawnView?.animator == null)
+        {
+            return;
+        }
+        Animator anim = pawn.pawnView.animator;
+        if (!anim.enabled)
+        {
+            anim.enabled = true;
+            anim.Update(0f);
+        }
+        disabledPawnViewAnimators.Remove(anim);
+        if (pawn == currentlyDisabledWinnerPawn)
+        {
+            currentlyDisabledWinnerPawn = null;
+        }
+    }
+
+    void RestoreDisabledPawnViewAnimators()
+    {
+        Debug.Log($"ArenaController: RestoreDisabledPawnViewAnimators {disabledPawnViewAnimators.Count}");
+        if (disabledPawnViewAnimators.Count == 0)
+        {
+            return;
+        }
+        foreach (Animator anim in disabledPawnViewAnimators)
+        {
+            if (anim == null)
             {
-                pawnSprite.shatter.ShatterEffect();
+                continue;
+            }
+            if (!anim.enabled)
+            {
+                anim.enabled = true;
+                anim.Update(0f);
             }
         }
-
-        if (!redAlive && !blueAlive)
-        {
-            ShatterPawn(pawnL);
-            ShatterPawn(pawnR);
-            return;
-        }
-        if (redAlive && !blueAlive)
-        {
-            ShatterPawn(pawnR);
-            return;
-        }
-        if (blueAlive && !redAlive)
-        {
-            ShatterPawn(pawnL);
-            return;
-        }
-        // Tie/bounce: no loser to shatter
+        disabledPawnViewAnimators.Clear();
+        currentlyDisabledWinnerPawn = null;
     }
 }
