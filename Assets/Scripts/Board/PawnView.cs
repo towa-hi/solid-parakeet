@@ -37,6 +37,7 @@ public class PawnView : MonoBehaviour
     public static event Action<PawnId> OnMoveAnimationCompleted;
     bool fogColorInitialized;
     Color fogBaseColor;
+    Tween fadeTween;
     Tween fogTween;
     Material fogMaterial;
     
@@ -124,17 +125,52 @@ public class PawnView : MonoBehaviour
     
     public void FadeOut()
     {
-        // lerp _FadeAmount from 0 to 1 over 0.5 seconds
-        PawnSprite pawnSprite = GetComponentInChildren<PawnSprite>();
-        Material material = pawnSprite.GetComponent<MeshRenderer>().material;
-        PrimeTween.Tween.Custom(0f, 1f, 1f, (float value) =>
+        // lerp _FadeAmount from 0 to 1 over 1 second
+        PawnSprite pawnSprite = GetComponentInChildren<PawnSprite>(true);
+        if (pawnSprite == null)
+        {
+            return;
+        }
+
+        MeshRenderer meshRenderer = pawnSprite.GetComponent<MeshRenderer>();
+        if (meshRenderer == null)
+        {
+            return;
+        }
+
+        Material material = meshRenderer.material;
+        if (material == null)
+        {
+            return;
+        }
+
+        if (fadeTween.isAlive)
+        {
+            fadeTween.Stop();
+        }
+
+        if (material.HasProperty("_FadeAmount"))
+        {
+            material.SetFloat("_FadeAmount", 0f);
+        }
+
+        fadeTween = PrimeTween.Tween.Custom(0f, 1f, 1f, value =>
         {
             material.SetFloat("_FadeAmount", value);
-        }, PrimeTween.Ease.OutQuad);
+        }, PrimeTween.Ease.OutQuad).OnComplete(() =>
+        {
+            fadeTween = default;
+        });
     }
 
     public void ResetShaderProperties()
     {
+        if (fadeTween.isAlive)
+        {
+            fadeTween.Stop();
+            fadeTween = default;
+        }
+
         PawnSprite pawnSprite = GetComponentInChildren<PawnSprite>(true);
         if (pawnSprite == null) return;
         MeshRenderer meshRenderer = pawnSprite.GetComponent<MeshRenderer>();
