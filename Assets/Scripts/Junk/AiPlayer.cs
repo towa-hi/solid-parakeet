@@ -103,7 +103,7 @@ public static class AiPlayer
         public uint total_material;
         public bool is_hex;
         public Vector2Int size;
-        public ImmutableDictionary<Vector2Int, TileState> tiles;
+        public Dictionary<Vector2Int, TileState> tiles;
         // Adjust to control exploitation vs exploration.
         public float ubc_constant = 1.4f;
         // How many sim iterations to go before giving up finding a terminal state and returning
@@ -226,7 +226,7 @@ public static class AiPlayer
         LobbyParameters lobby_parameters,
         GameState game_state)
     {
-        var tiles = ImmutableDictionary.CreateBuilder<Vector2Int, TileState>();
+        var tiles = new Dictionary<Vector2Int, TileState>();
         foreach (var tile in lobby_parameters.board.tiles)
         {
             tiles[tile.pos] = tile;
@@ -238,7 +238,7 @@ public static class AiPlayer
             max_ranks = (uint[])lobby_parameters.max_ranks.Clone(),
             is_hex = lobby_parameters.board.hex,
             size = lobby_parameters.board.size,
-            tiles = tiles.ToImmutable(),
+            tiles = tiles,
         };
         for (Rank i = 0; i < Rank.UNKNOWN; i++)
         {
@@ -402,10 +402,17 @@ public static class AiPlayer
     static bool __boring_move_pruning = true;
 	// When enabled, skip evaluating branches where a Scout moves more than 1 tile without attacking
 	public static bool scoutPerformanceMode = true;
+    struct SecondPlyCandidate
+    {
+        public SimMove move;
+        public float baseline;
+    }
+
     static List<SimMove> ally_moves = new();
     static List<SimMove> oppn_moves = new();
     static List<SimMove> ally_moves_2 = new();
     static List<SimMove> oppn_moves_2 = new();
+    static readonly List<SecondPlyCandidate> ally_second_candidates = new();
     static List<KeyValuePair<SimMove, float>> node_scores = new();
     // Scores the utility of each ally move against the average outcome of each
     // opponent's possible simultaneous moves. Reduces the utility of probabilistically bad moves
@@ -564,19 +571,19 @@ public static class AiPlayer
                     GetAllSingleMovesForTeamList(board, state.pawns, ally_team, ally_moves_2);
                     oppn_moves_2.Clear();
                     GetAllSingleMovesForTeamList(board, state.pawns, oppn_team, oppn_moves_2);
-                    int ally_moves_2_skipped = 0;
+                    ally_second_candidates.Clear();
                     foreach (var ally_move_2 in ally_moves_2)
                     {
                         await __MaybeYield();
                         if (scoutPerformanceMode && IsNonAttackingLongScoutMove(state.pawns, ally_move_2))
                         {
-                            ally_moves_2_skipped++;
                             continue;
                         }
                         second_turn_all_possibilities++;
+                        var movingAllyPawn = state.pawns[ally_move_2.last_pos];
                         if (state.pawns.ContainsKey(ally_move_2.next_pos))
                         {
-                            ally_pawn = state.pawns[ally_move_2.last_pos];
+                            ally_pawn = movingAllyPawn;
                             oppn_pawn = state.pawns[ally_move_2.next_pos];
                             BattlePawnsOut(in ally_pawn, in oppn_pawn,
                                 out var _hasW_sw, out var _W_sw,
@@ -585,95 +592,120 @@ public static class AiPlayer
                             if (_hasLA_sw && !_hasLB_sw && _LA_sw.id == ally_pawn.id)
                             {
                                 paths_pruned_ally_suicide_2++;
-                                ally_moves_2_skipped++;
                                 continue;
                             }
                         }
                         else if (__boring_move_pruning)
                         {
-                            // if adjacent tiles do not contain opponent pawns, then it is a boring move
-                            foreach (var dir in Shared.GetDirections(ally_move_2.next_pos, board.is_hex))
+                            bool hasEnemyAdjacent = false;
+                            var dirs = Shared.GetDirections(ally_move_2.next_pos, board.is_hex);
+                            for (int dirIndex = 0; dirIndex < dirs.Length; dirIndex++)
                             {
-                                if (state.pawns.TryGetValue(ally_move_2.next_pos + dir, out var other_pawn))
+                                var neighborPos = ally_move_2.next_pos + dirs[dirIndex];
+                                if (state.pawns.TryGetValue(neighborPos, out var otherPawn) && otherPawn.team != movingAllyPawn.team)
                                 {
-                                    if (other_pawn.team != ally_pawn.team)
-                                    {
-                                        break;
-                                    }
-                                }
-                                else
-                                {
-                                    paths_pruned_ally_boring_2++;
-                                    continue;
+                                    hasEnemyAdjacent = true;
+                                    break;
                                 }
                             }
-                        }
-                        // Baseline after applying only ally_move_2 (used if all opp replies are skipped)
-                        float move_value_2;
-                        MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, ally_move_2);
-                        move_value_2 = EvaluateState(board, state.pawns, state.dead_pawns);
-                        MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_2);
-                        // Skip ally second moves that are strictly worse than the first-ply outcome.
-                        if (move_value_2 < move_value)
-                        {
-                            // paths_pruned_ally_no_effect++;
-                            continue;
-                        }
-                        float move_score_total_2 = 0f;
-                        int oppn_moves_2_skipped = 0;
-                        foreach (var oppn_move_2 in oppn_moves_2)
-                        {
-                            await __MaybeYield();
-                            if (scoutPerformanceMode && IsNonAttackingLongScoutMove(state.pawns, oppn_move_2))
+                            if (!hasEnemyAdjacent)
                             {
-                                oppn_moves_2_skipped++;
+                                paths_pruned_ally_boring_2++;
                                 continue;
                             }
-                            if (state.pawns.ContainsKey(oppn_move_2.next_pos))
+                        }
+                        MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_2, ally_move_2);
+                        float move_value_2 = EvaluateState(board, state.pawns, state.dead_pawns);
+                        MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_2);
+                        if (move_value_2 < move_value)
+                        {
+                            continue;
+                        }
+                        ally_second_candidates.Add(new SecondPlyCandidate
+                        {
+                            move = ally_move_2,
+                            baseline = move_value_2,
+                        });
+                    }
+
+                    if (ally_second_candidates.Count > 0)
+                    {
+                        ally_second_candidates.Sort((a, b) => b.baseline.CompareTo(a.baseline));
+                        int evalLimit = board.max_top_moves > 0
+                            ? Mathf.Min(board.max_top_moves, ally_second_candidates.Count)
+                            : ally_second_candidates.Count;
+
+                        for (int candidateIndex = 0; candidateIndex < ally_second_candidates.Count; candidateIndex++)
+                        {
+                            var candidate = ally_second_candidates[candidateIndex];
+                            float candidateScore;
+                            if (candidateIndex < evalLimit)
                             {
-                                oppn_pawn = state.pawns[oppn_move_2.last_pos];
-                                ally_pawn = state.pawns[oppn_move_2.next_pos];
-                                BattlePawnsOut(in ally_pawn, in oppn_pawn,
-                                    out var _hasW_sw, out var _W_sw,
-                                    out var _hasLA_sw, out var _LA_sw,
-                                    out var _hasLB_sw, out var _LB_sw);
-                                if (_hasLA_sw && !_hasLB_sw && _LA_sw.id == oppn_pawn.id)
+                                float move_score_total_2 = 0f;
+                                int oppn_considered_2 = 0;
+                                foreach (var oppn_move_2 in oppn_moves_2)
                                 {
-                                    paths_pruned_oppn_suicide_2++;
-                                    oppn_moves_2_skipped++;
-                                    continue;
-                                }
-                            }
-                            else if (__boring_move_pruning)
-                            {
-                                foreach (var dir in Shared.GetDirections(oppn_move_2.next_pos, board.is_hex))
-                                {
-                                    if (state.pawns.TryGetValue(oppn_move_2.next_pos + dir, out var other_pawn))
+                                    await __MaybeYield();
+                                    if (scoutPerformanceMode && IsNonAttackingLongScoutMove(state.pawns, oppn_move_2))
                                     {
-                                        if (other_pawn.team != oppn_pawn.team)
-                                        {
-                                            break;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        paths_pruned_oppn_boring_2++;
                                         continue;
                                     }
+                                    var oppnMovingPawn = state.pawns[oppn_move_2.last_pos];
+                                    if (state.pawns.ContainsKey(oppn_move_2.next_pos))
+                                    {
+                                        oppn_pawn = oppnMovingPawn;
+                                        ally_pawn = state.pawns[oppn_move_2.next_pos];
+                                        BattlePawnsOut(in ally_pawn, in oppn_pawn,
+                                            out var _hasW_sw, out var _W_sw,
+                                            out var _hasLA_sw, out var _LA_sw,
+                                            out var _hasLB_sw, out var _LB_sw);
+                                        if (_hasLA_sw && !_hasLB_sw && _LA_sw.id == oppn_pawn.id)
+                                        {
+                                            paths_pruned_oppn_suicide_2++;
+                                            continue;
+                                        }
+                                    }
+                                    else if (__boring_move_pruning)
+                                    {
+                                        bool hasEnemyAdjacent = false;
+                                        var dirs = Shared.GetDirections(oppn_move_2.next_pos, board.is_hex);
+                                        for (int dirIndex = 0; dirIndex < dirs.Length; dirIndex++)
+                                        {
+                                            var neighborPos = oppn_move_2.next_pos + dirs[dirIndex];
+                                            if (state.pawns.TryGetValue(neighborPos, out var otherPawn) && otherPawn.team != oppnMovingPawn.team)
+                                            {
+                                                hasEnemyAdjacent = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!hasEnemyAdjacent)
+                                        {
+                                            paths_pruned_oppn_boring_2++;
+                                            continue;
+                                        }
+                                    }
+                                    MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, candidate.move, oppn_move_2);
+                                    move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
+                                    oppn_considered_2++;
+                                    MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_3);
                                 }
+                                candidateScore = oppn_considered_2 > 0
+                                    ? (move_score_total_2 / oppn_considered_2)
+                                    : candidate.baseline;
                             }
-                            MutApplyMove(state.pawns, state.dead_pawns, changed_pawns_3, ally_move_2, oppn_move_2);
-                            move_score_total_2 += EvaluateState(board, state.pawns, state.dead_pawns);
-                            MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns_3);
+                            else
+                            {
+                                candidateScore = candidate.baseline;
+                            }
+
+                            second_ply_sum += candidateScore;
+                            second_ply_count++;
+                            second_turn_evals++;
                         }
-                        {
-                            int __considered2 = oppn_moves_2.Count - oppn_moves_2_skipped;
-                            second_ply_sum += __considered2 > 0 ? (move_score_total_2 / __considered2) : move_value_2;
-                        }
-                        second_ply_count++;
-                        second_turn_evals++;
+                        ally_second_candidates.Clear();
                     }
-                    move_score_total += second_ply_count > 0 ? (second_ply_sum / second_ply_count) : EvaluateState(board, state.pawns, state.dead_pawns);
+
+                    move_score_total += second_ply_count > 0 ? (second_ply_sum / second_ply_count) : move_value;
                     first_turn_evals++;
                 }
                 MutUndoApplyMove(state.pawns, state.dead_pawns, changed_pawns);
@@ -739,6 +771,16 @@ public static class AiPlayer
             combined.Add(current_subset.ToImmutable());
         }
         return combined.ToList();
+    }
+
+    public static SimMoveSet CreateMoveSet(IEnumerable<SimMove> moves)
+    {
+        var builder = SimMoveSet.Empty.ToBuilder();
+        foreach (var move in moves)
+        {
+            builder.Add(move);
+        }
+        return builder.ToImmutable();
     }
 
     public static Vector2 V2(Vector2Int a)
@@ -907,7 +949,7 @@ public static class AiPlayer
                         mut_swaps.Add((pawn_a, pawn_b));
                     else
                         mut_swaps.Add((pawn_b, pawn_a));
-                    temp_moveset = moveset.Remove(move_a).Remove(move_b);
+                    temp_moveset = temp_moveset.Remove(move_a).Remove(move_b);
                 }
             }
         }

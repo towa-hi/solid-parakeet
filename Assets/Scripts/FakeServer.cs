@@ -5,7 +5,6 @@ using Contract;
 using UnityEngine;
 using Random = UnityEngine.Random;
 using Stellar;
-using System.Collections.Immutable;
 using UnityEngine.Assertions;
 using System.Threading.Tasks;
 
@@ -239,7 +238,7 @@ public static class FakeServer
                 {
                     idToPos[kv.Value.id] = kv.Key;
                 }
-                var moveSetBuilder = System.Collections.Immutable.ImmutableHashSet.CreateBuilder<AiPlayer.SimMove>();
+                var moveSet = new HashSet<AiPlayer.SimMove>();
                 int missingStart = 0;
                 int mismatchedId = 0;
                 // host moves
@@ -260,7 +259,7 @@ public static class FakeServer
                         bool isDead = baseState.dead_pawns.ContainsKey(moveProof.pawn_id);
                         Debug.LogWarning($"[FakeServer] Pre-resolve: pawn_id mismatch at start (host). start={moveProof.start_pos} target={moveProof.target_pos} expectedId={atStart.id} gotId={moveProof.pawn_id} foundById={foundById} actualPos={(foundById ? actualPos : new Vector2Int(-1, -1))} deadById={isDead}");
                     }
-                    moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
+                    moveSet.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
                 // guest moves
                 foreach (HiddenMove moveProof in gameState.moves[1].move_proofs)
@@ -280,13 +279,12 @@ public static class FakeServer
                         bool isDead = baseState.dead_pawns.ContainsKey(moveProof.pawn_id);
                         Debug.LogWarning($"[FakeServer] Pre-resolve: pawn_id mismatch at start (guest). start={moveProof.start_pos} target={moveProof.target_pos} expectedId={atStart.id} gotId={moveProof.pawn_id} foundById={foundById} actualPos={(foundById ? actualPos : new Vector2Int(-1, -1))} deadById={isDead}");
                     }
-                    moveSetBuilder.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
+                    moveSet.Add(new AiPlayer.SimMove { last_pos = moveProof.start_pos, next_pos = moveProof.target_pos });
                 }
                 if (missingStart > 0 || mismatchedId > 0)
                 {
                     Debug.LogWarning($"[FakeServer] Pre-resolve summary: missingStart={missingStart} mismatchedId={mismatchedId} turn={baseState.turn} pawns={baseState.pawns.Count}");
                 }
-                var moveSet = moveSetBuilder.ToImmutable();
                 // Detect swap pairs for diagnostics
                 int swapPairs = 0;
                 var moveSetLookup = new HashSet<(Vector2Int, Vector2Int)>();
@@ -331,7 +329,8 @@ public static class FakeServer
                         Debug.Log($"[FakeServer] No occ at target {mm.next_pos}");
                     }
                 }
-                var derived = AiPlayer.GetDerivedStateFromMove(simBoard, baseState, moveSet);
+                var moveSetImmutable = AiPlayer.CreateMoveSet(moveSet);
+                var derived = AiPlayer.GetDerivedStateFromMove(simBoard, baseState, moveSetImmutable);
                 // Sanity: turn advanced
                 if (derived.turn != baseState.turn + 1)
                 {
@@ -580,13 +579,18 @@ public static class FakeServer
         }
         Debug.Log($"top_moves {top_moves.Count}");
         var max_moves = AiPlayer.MaxMovesThisTurn(board, board.root_state.turn);
-        ImmutableHashSet<AiPlayer.SimMove> moves = null;
+        HashSet<AiPlayer.SimMove> moves = null;
         // Pick random top move and also assemble blitz move if needed.
         if (max_moves > 1)
         {
             top_moves = AiPlayer.CombineMoves(top_moves, max_moves, lesser_move_threshold);
         }
-        moves = top_moves[(int)Random.Range(0, Mathf.Min(top_moves.Count - 1, lesser_move_threshold))];
+        int maxIndex = Mathf.Max(0, top_moves.Count - 1);
+        int thresholdIndex = (int)lesser_move_threshold;
+        int inclusiveMax = Mathf.Min(maxIndex, thresholdIndex);
+        int pickRange = Mathf.Max(1, inclusiveMax + 1);
+        var selected = top_moves[Random.Range(0, pickRange)];
+        moves = new HashSet<AiPlayer.SimMove>(selected);
         // Convert to HiddenMoves.
         List<HiddenMove> result_moves = new();
         foreach (var move in moves)
