@@ -35,6 +35,9 @@ public static class StellarDotnet
     // contract address and derived properties
     // public static string contractAddress;
     const int maxAttempts = 30;
+    static readonly byte[] exceededLimitPatternLower = Encoding.ASCII.GetBytes("exceeded_limit");
+    static readonly byte[] exceededLimitPatternUpper = Encoding.ASCII.GetBytes("EXCEEDED_LIMIT");
+    static readonly byte[] outOfFuelPattern = Encoding.ASCII.GetBytes("OutOfFuel");
     
     // public static Uri networkUri;
     // ReSharper disable once InconsistentNaming
@@ -90,43 +93,76 @@ public static class StellarDotnet
     {
         using (tracker?.Scope($"CallContractFunction {functionName}"))
         {
-            var simResult = await SimulateContractFunction(context, functionName, args, tracker);
-            if (simResult.IsError)
+            bool retryAllowed = true;
+            int attempt = 0;
+            while (true)
             {
-                return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(simResult);
+                attempt++;
+                var simResult = await SimulateContractFunction(context, functionName, args, tracker);
+                if (simResult.IsError)
+                {
+                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(simResult);
+                }
+                (Transaction transaction, SimulateTransactionResult sim) = simResult.Value;
+                if (sim is not { Error: null })
+                {
+                    StatusCode code = HasContractError(sim) ? StatusCode.CONTRACT_ERROR : StatusCode.SIMULATION_FAILED;
+                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(code, (sim, null, null), $"CallContractFunction {functionName} failed because the simulation result was not successful");
+                }
+                // increase MinResourceFee if function is one that can have a race condition
+                List<string> raceConditionFunctions = new() { 
+                    "commit_move_and_prove_move",
+                    "prove_move_and_prove_rank",
+                    "commit_move",
+                    "prove_move",
+                    "prove_rank",
+                    "commit_setup",
+                    "leave_lobby",
+                };
+                if (raceConditionFunctions.Contains(functionName))
+                {
+                    Debug.Log($"{functionName} {sim.MinResourceFee} {transaction.fee.InnerValue}");
+                    long minResourceFee = long.Parse(sim.MinResourceFee) * 2;
+                    sim.MinResourceFee = minResourceFee.ToString();
+                    Debug.Log($"Increased MinResourceFee for {functionName} to {sim.MinResourceFee}");
+                }
+                Transaction assembledTransaction = sim.ApplyTo(transaction);
+                Result<string> signResult = await SignAndEncodeTransaction(context, assembledTransaction);
+                if (signResult.IsError)
+                {
+                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.WALLET_ERROR, (sim, null, null), $"CallContractFunction {functionName} failed because failed to sign");
+                }
+
+                var sendResult = await SendTransactionAsync(context, new SendTransactionParams()
+                {
+                    Transaction = signResult.Value,
+                }, tracker);
+                if (sendResult.IsError)
+                {
+                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(sendResult);
+                }
+
+                SendTransactionResult send = sendResult.Value;
+                if (send is not { ErrorResult: null })
+                {
+                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.TRANSACTION_SEND_FAILED, (sim, send, null), $"CallContractFunction {functionName} failed because the transaction sending result was not successful");
+                }
+
+                var getResult = await WaitForGetTransactionResult(context, send.Hash, 200, tracker);
+                if (getResult.IsError)
+                {
+                    if (retryAllowed && getResult.Code == StatusCode.TRANSACTION_FAILED && IsExceededLimitError(getResult.Value))
+                    {
+                        retryAllowed = false;
+                        Debug.LogWarning($"CallContractFunction {functionName}: detected exceeded_limit after attempt {attempt}, retrying once.");
+                        continue;
+                    }
+                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(getResult);
+                }
+
+                GetTransactionResult get = getResult.Value;
+                return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Ok((sim, send, get));
             }
-        (Transaction transaction, SimulateTransactionResult sim) = simResult.Value;
-        if (sim is not {Error: null})
-        {
-            StatusCode code = HasContractError(sim) ? StatusCode.CONTRACT_ERROR : StatusCode.SIMULATION_FAILED;
-            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(code, (sim, null, null),$"CallContractFunction {functionName} failed because the simulation result was not successful");
-        }
-        Transaction assembledTransaction = sim.ApplyTo(transaction);
-        Result<string> signResult = await SignAndEncodeTransaction(context, assembledTransaction);
-        if (signResult.IsError)
-        {
-            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.WALLET_ERROR, (sim, null, null),$"CallContractFunction {functionName} failed because failed to sign");
-        }
-        var sendResult = await SendTransactionAsync(context, new SendTransactionParams()
-        {
-            Transaction = signResult.Value,
-        }, tracker);
-        if (sendResult.IsError)
-        {
-            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(sendResult);
-        }
-        SendTransactionResult send = sendResult.Value;
-        if (send is not { ErrorResult: null })
-        {
-            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.TRANSACTION_SEND_FAILED, (sim, send, null), $"CallContractFunction {functionName} failed because the transaction sending result was not successful");
-        }
-        var getResult = await WaitForGetTransactionResult(context, send.Hash, 200, tracker);
-        if (getResult.IsError)
-        {
-            return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(getResult);
-        }
-        GetTransactionResult get = getResult.Value;
-        return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Ok((sim, send, get));
         }
     }
     
@@ -511,7 +547,8 @@ public static class StellarDotnet
                 {
                     case GetTransactionResultStatus.FAILED:
                         DebugLog("WaitForTransaction: FAILED");
-                        return Result<GetTransactionResult>.Err(StatusCode.TRANSACTION_FAILED, completion.ResultMetaXdr);
+                        string failureMessage = completion.ResultMetaXdr;
+                        return Result<GetTransactionResult>.Err(StatusCode.TRANSACTION_FAILED, completion, failureMessage);
                     case GetTransactionResultStatus.NOT_FOUND:
                         using (tracker?.Scope($"Retry delay ({delayMS}ms)"))
                         {
@@ -529,6 +566,74 @@ public static class StellarDotnet
     }
     
     
+    static bool IsExceededLimitError(GetTransactionResult getResult)
+    {
+        if (getResult == null)
+        {
+            return false;
+        }
+
+        if (TryDecodeBase64(getResult.ResultMetaXdr, out byte[] data))
+        {
+            if (ByteArrayContainsSequence(data, exceededLimitPatternLower) ||
+                ByteArrayContainsSequence(data, exceededLimitPatternUpper) ||
+                ByteArrayContainsSequence(data, outOfFuelPattern))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static bool TryDecodeBase64(string base64, out byte[] data)
+    {
+        if (string.IsNullOrEmpty(base64))
+        {
+            data = null;
+            return false;
+        }
+
+        try
+        {
+            data = Convert.FromBase64String(base64);
+            return true;
+        }
+        catch (FormatException)
+        {
+            data = null;
+            return false;
+        }
+    }
+
+    static bool ByteArrayContainsSequence(byte[] haystack, byte[] needle)
+    {
+        if (haystack == null || needle == null || needle.Length == 0 || haystack.Length < needle.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i <= haystack.Length - needle.Length; i++)
+        {
+            int j = 0;
+            for (; j < needle.Length; j++)
+            {
+                if (haystack[i + j] != needle[j])
+                {
+                    break;
+                }
+            }
+
+            if (j == needle.Length)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
     // variant of StellarRPCClient.SimulateTransactionAsync()
     static async Task<Result<SimulateTransactionResult>> SimulateTransactionAsync(NetworkContext context, SimulateTransactionParams parameters = null, TimingTracker tracker = null)
     {
