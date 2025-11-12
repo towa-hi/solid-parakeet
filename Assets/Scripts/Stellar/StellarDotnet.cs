@@ -226,11 +226,11 @@ public static class StellarDotnet
         }
     }
     
-    public static async Task<Result<LedgerEntry.dataUnion.Trustline>> GetAssets(NetworkContext context, TimingTracker tracker = null)
+    public static async Task<Result<LedgerEntry.dataUnion.Trustline>> GetAssets(NetworkContext context, TimingTracker tracker = null, string accountIdOverride = null)
     {
         using (tracker?.Scope("GetAssets"))
         {
-            string encodedKey = EncodedTrustlineKey(context);
+            string encodedKey = EncodedTrustlineKey(context, accountIdOverride);
             var result = await GetLedgerEntriesAsync(context, new GetLedgerEntriesParams()
             {
                 Keys = new [] {encodedKey},
@@ -246,6 +246,7 @@ public static class StellarDotnet
             }
             else
             {
+                // NOTE: we can safely do first here because we already filtered for SCRY
                 LedgerEntry.dataUnion.Trustline entry = getLedgerEntriesResult.Entries.First().LedgerEntryData as LedgerEntry.dataUnion.Trustline;
                 return Result<LedgerEntry.dataUnion.Trustline>.Ok(entry);
             }
@@ -863,17 +864,20 @@ public static class StellarDotnet
         });
     }
 
-    static string EncodedTrustlineKey(NetworkContext context)
+    static string EncodedTrustlineKey(NetworkContext context, string accountIdOverride = null)
     {
-        string code = "SCRY";
-        string issuerAccountId = "GAAPZLAZJ5SL4IL63WHFWRUWPK2UV4SREUOWM2DZTTQR7FJPFQAHDSNG";
+        string code = context.assetCode;
+        string issuerAccountId = context.assetIssuerAddress;
         AccountID issuerAccount = MuxedAccount.FromAccountId(issuerAccountId).XdrPublicKey;
+        AccountID accountId = string.IsNullOrEmpty(accountIdOverride)
+            ? context.userAccount.XdrPublicKey
+            : MuxedAccount.FromAccountId(accountIdOverride).XdrPublicKey;
         byte[] codeBytes = Encoding.ASCII.GetBytes(code);
         return LedgerKeyXdr.EncodeToBase64(new LedgerKey.Trustline
         {
             trustLine = new LedgerKey.trustLineStruct
             {
-                accountID = context.userAccount.XdrPublicKey,
+                accountID = accountId,
                 asset = new TrustLineAsset.AssetTypeCreditAlphanum4
                 {
                     alphaNum4 = new AlphaNum4

@@ -5,7 +5,11 @@ public class DefaultSettings : ScriptableObject
 {
     public string defaultHostSneed;
     public string defaultGuestSneed;
-    public string defaultContractAddress;
+    public string defaultTestnetContractAddress;
+    public string defaultMainnetContractAddress;
+    public string defaultTestnetAssetIssuerAddress;
+    public string defaultMainnetAssetIssuerAddress;
+    public string defaultAssetCode;
     public bool cheatMode;
     public bool fastMode;
     public bool displayBadges;

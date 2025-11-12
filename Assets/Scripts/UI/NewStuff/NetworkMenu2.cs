@@ -41,7 +41,7 @@ public class NetworkMenu2 : MenuBase
         offlineButton.onClick.AddListener(HandleOffline);
         contractField.onValueChanged.AddListener(HandleContractFieldChanged);
         sneedField.onValueChanged.AddListener(HandleSneedFieldChanged);
-        string defaultContract = ResourceRoot.DefaultSettings.defaultContractAddress;
+        string defaultContract = ResourceRoot.DefaultSettings.defaultTestnetContractAddress;
         contractField.SetTextWithoutNotify(defaultContract);
         string defaultSneed = ResourceRoot.DefaultSettings.defaultHostSneed;
         sneedField.SetTextWithoutNotify(defaultSneed);

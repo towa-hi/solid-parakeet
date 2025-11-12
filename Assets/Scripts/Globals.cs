@@ -2064,8 +2064,10 @@ public struct NetworkContext
     public string contractAddress;
 
     public string serverUri;
+    public string assetIssuerAddress;
+    public string assetCode;
 
-    public NetworkContext(bool inOnline, bool inIsWallet, MuxedAccount inUserAccount, bool inIsTestnet, string inServerUri, string inContractAddress)
+    public NetworkContext(bool inOnline, bool inIsWallet, MuxedAccount inUserAccount, bool inIsTestnet, string inServerUri, string inContractAddress, string inAssetIssuerAddress, string inAssetCode)
     {
         online = inOnline;
         isWallet = inIsWallet;
@@ -2073,6 +2075,8 @@ public struct NetworkContext
         isTestnet = inIsTestnet;
         serverUri = inServerUri;
         contractAddress = inContractAddress;
+        assetIssuerAddress = inAssetIssuerAddress;
+        assetCode = inAssetCode;
     }
 }
 

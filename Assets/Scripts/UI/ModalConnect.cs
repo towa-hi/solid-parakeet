@@ -34,7 +34,7 @@ public class ModalConnect : ModalElement
         walletButton.onClick.AddListener(HandleWalletButton);
         keyButton.onClick.AddListener(HandleKeyButton);
         DefaultSettings defaultSettings = ResourceRoot.DefaultSettings;
-        contractField.text = defaultSettings.defaultContractAddress;
+        contractField.text = defaultSettings.defaultTestnetContractAddress;
         sneedField.text = defaultSettings.defaultHostSneed;
         bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
         if (!isWebGL)

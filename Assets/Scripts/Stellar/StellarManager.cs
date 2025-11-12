@@ -81,7 +81,13 @@ public static class StellarManager
         AbortCurrentTask();
         ResetPolling();
         StellarDotnet.AbortActiveRequest();
-        networkContext = new NetworkContext(online, isWallet, userAccount, isTestnet, serverUri, contractAddress);
+        string assetIssuerAddress = isTestnet
+            ? ResourceRoot.DefaultSettings.defaultTestnetAssetIssuerAddress
+            : ResourceRoot.DefaultSettings.defaultMainnetAssetIssuerAddress;
+        string assetCode = string.IsNullOrEmpty(ResourceRoot.DefaultSettings.defaultAssetCode)
+            ? "SCRY"
+            : ResourceRoot.DefaultSettings.defaultAssetCode;
+        networkContext = new NetworkContext(online, isWallet, userAccount, isTestnet, serverUri, contractAddress, assetIssuerAddress, assetCode);
         Debug.Log($"SetContext: online={online} userAccount={userAccount.AccountId} isWallet={isWallet} serverUri={serverUri} contractAddress={contractAddress}");
         if (isTestnet)
         {
@@ -168,6 +174,13 @@ public static class StellarManager
             userAccount = MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed);
         }
         SetContext(data.online, data.isWallet, userAccount, data.isTestnet, data.serverUri, data.contract);
+        
+        Result<TrustLineEntry> trustlineResult = await GetAssets(userAccount.AccountId);
+        if (trustlineResult.Value is TrustLineEntry trustLine)
+        {
+            Debug.Log("Got trustline");
+            long balance = trustLine.balance.InnerValue;
+        }
         canceledTaskIds.Clear();
         initialized = true;
         return Result<bool>.Ok(true);
@@ -180,7 +193,7 @@ public static class StellarManager
         StellarDotnet.AbortActiveRequest();
         StellarDotnet.ResetStatic();
         canceledTaskIds.Clear();
-        SetContext(false, false, MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed), false, "unused", ResourceRoot.DefaultSettings.defaultContractAddress);
+        SetContext(false, false, MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed), false, "unused", ResourceRoot.DefaultSettings.defaultTestnetContractAddress);
         SetNetworkState(new NetworkState(networkContext));
         initialized = false;
     }
@@ -294,6 +307,8 @@ public static class StellarManager
         if (a.isTestnet != b.isTestnet) return false;
         if (!string.Equals(a.serverUri, b.serverUri, StringComparison.Ordinal)) return false;
         if (!string.Equals(a.contractAddress, b.contractAddress, StringComparison.Ordinal)) return false;
+        if (!string.Equals(a.assetIssuerAddress, b.assetIssuerAddress, StringComparison.Ordinal)) return false;
+        if (!string.Equals(a.assetCode, b.assetCode, StringComparison.Ordinal)) return false;
         // Compare account id when available
         return string.Equals(a.userAccount.AccountId, b.userAccount.AccountId, StringComparison.Ordinal);
     }
@@ -575,11 +590,11 @@ public static class StellarManager
         }
     }
 
-    public static async Task<Result<TrustLineEntry>> GetAssets(string userId)
+    public static async Task<Result<TrustLineEntry>> GetAssets(string userId = null)
     {
         using (TaskScope scope = new TaskScope("ReqAssets"))
         {
-            var result = await StellarDotnet.GetAssets(networkContext, scope.tracker);
+            var result = await StellarDotnet.GetAssets(networkContext, scope.tracker, userId);
             if (result.IsError)
             {
                 Debug.LogError($"GetAssets() failed with error {result.Code} {result.Message}");
