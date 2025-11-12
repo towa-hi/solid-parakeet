@@ -174,13 +174,6 @@ public static class StellarManager
             userAccount = MuxedAccount.FromSecretSeed(ResourceRoot.DefaultSettings.defaultHostSneed);
         }
         SetContext(data.online, data.isWallet, userAccount, data.isTestnet, data.serverUri, data.contract);
-        
-        Result<TrustLineEntry> trustlineResult = await GetAssets(userAccount.AccountId);
-        if (trustlineResult.Value is TrustLineEntry trustLine)
-        {
-            Debug.Log("Got trustline");
-            long balance = trustLine.balance.InnerValue;
-        }
         canceledTaskIds.Clear();
         initialized = true;
         return Result<bool>.Ok(true);
@@ -592,6 +585,10 @@ public static class StellarManager
 
     public static async Task<Result<TrustLineEntry>> GetAssets(string userId = null)
     {
+        if (!networkContext.online)
+        {
+            return Result<TrustLineEntry>.Err(StatusCode.NETWORK_ERROR, "GetAssets is not supported in offline mode");
+        }
         using (TaskScope scope = new TaskScope("ReqAssets"))
         {
             var result = await StellarDotnet.GetAssets(networkContext, scope.tracker, userId);

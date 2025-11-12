@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Contract;
+using Stellar;
 
 public class MenuController : MonoBehaviour
 {
@@ -47,7 +48,8 @@ public class MenuController : MonoBehaviour
         MenuBase menuBase = instance.GetComponent<MenuBase>();
         if (menuBase is GalleryMenu2 gallery)
         {
-            gallery.Initialize(galleryEnvironment);
+            gallery.Initialize(galleryEnvironment, 0);
+            _ = ApplyGalleryBalanceAsync(gallery, FetchGalleryBalanceAsync());
         }
         if (menuBase == null)
         {
@@ -59,6 +61,7 @@ public class MenuController : MonoBehaviour
         GameManager.instance.cameraManager.MoveCameraTo(menuBase.area, false);
         await ExecuteBusyAsync(async () =>
         {
+            // if going to gallery, fire off a async getassets and process it
             if (currentMenu != null)
             {
                 await currentMenu.CloseAsync();
@@ -67,7 +70,7 @@ public class MenuController : MonoBehaviour
                 await Task.Yield();
             }
 
-            
+            // we should probably init gallery here instead
             currentMenu = menuBase;
             currentMenu.SetMenuController(this);
             currentMenu.Display(true);
@@ -352,6 +355,49 @@ public class MenuController : MonoBehaviour
         {
             PopBusy();
         }
+    }
+
+    async Task<long> FetchGalleryBalanceAsync()
+    {
+        try
+        {
+            if (!StellarManager.networkContext.online)
+            {
+                return 0;
+            }
+            Result<TrustLineEntry> trustlineResult = await StellarManager.GetAssets();
+            if (trustlineResult.IsOk && trustlineResult.Value is TrustLineEntry trustLine)
+            {
+                Debug.Log("MenuController: Got trustline");
+                return trustLine.balance.InnerValue;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"MenuController: FetchGalleryBalanceAsync encountered an exception: {e.Message}");
+        }
+        return 0;
+    }
+
+    async Task ApplyGalleryBalanceAsync(GalleryMenu2 gallery, Task<long> balanceTask)
+    {
+        long balance;
+        try
+        {
+            balance = await balanceTask;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"MenuController: ApplyGalleryBalanceAsync failed to retrieve balance: {e.Message}");
+            return;
+        }
+
+        if (gallery == null)
+        {
+            return;
+        }
+
+        gallery.UpdateBalance(balance);
     }
 
 	async Task<Result<T>> ExecuteBusyAsync<T>(Func<Task<Result<T>>> work)

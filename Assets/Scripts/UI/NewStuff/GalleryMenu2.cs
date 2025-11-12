@@ -23,6 +23,8 @@ public class GalleryMenu2 : MenuBase
     public Team currentTeam;
     public Rank currentRank;
 
+    public long balance;
+
     // Remember each card's original slot when selected so we can restore it
     Dictionary<Card, Transform> originalSlotByCard = new();
 
@@ -34,9 +36,15 @@ public class GalleryMenu2 : MenuBase
 
     }
 
-    public void Initialize(GalleryEnvironment galleryEnvironment)
+    public void Initialize(GalleryEnvironment galleryEnvironment, long balance)
     {
         this.galleryEnvironment = galleryEnvironment;
+        UpdateBalance(balance);
+    }
+
+    public void UpdateBalance(long newBalance)
+    {
+        balance = newBalance;
     }
 
     void OnDestroy()
