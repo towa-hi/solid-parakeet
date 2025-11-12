@@ -4839,7 +4839,7 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 0dfdae3afd8e2c544a3bec6e448df90a, type: 3}
+  m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 0dfdae3afd8e2c544a3bec6e448df90a, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 0
@@ -8592,6 +8592,8 @@ MonoBehaviour:
   testObject: {fileID: 536236030}
   targetPosition: {x: 0, y: 0, z: 0}
   smoothTime: 0.1
+  defaultZOffset: 0
+  setupModeZOffset: -1
 --- !u!1 &1415458829
 GameObject:
   m_ObjectHideFlags: 0
@@ -15531,6 +15533,7 @@ MonoBehaviour:
   rotation: {fileID: 1830448571178133734}
   renderEffect: {fileID: 0}
   baseRotationEuler: {x: 0, y: 0, z: 0}
+  effectContainer: {fileID: 0}
   slot: {fileID: 0}
   followPositionLerpSpeed: 12
   followRotationLerpSpeed: 12

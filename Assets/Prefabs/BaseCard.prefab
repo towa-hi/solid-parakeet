@@ -334,6 +334,13 @@ MonoBehaviour:
   followRotationLerpSpeed: 12
   selectionScaleMultiplier: 1.1
   selectionScaleLerpSpeed: 12
+  rotationResetLerpSpeed: 6
+  wobbleEnabledByDefault: 0
+  wobbleAmplitude: 0.04
+  wobbleFrequency: 0.2
+  wobbleAxisScale: {x: 1, y: 0.6}
+  wobbleLerpSpeed: 6
+  wobbleResetLerpSpeed: 8
   currentLocalOffset: {x: 0, y: 0, z: 0}
 --- !u!1 &7510833773616640355
 GameObject:

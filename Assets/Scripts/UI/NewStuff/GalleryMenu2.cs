@@ -45,6 +45,7 @@ public class GalleryMenu2 : MenuBase
     public void UpdateBalance(long newBalance)
     {
         balance = newBalance;
+        ApplySeerEffect();
     }
 
     void OnDestroy()
@@ -102,6 +103,7 @@ public class GalleryMenu2 : MenuBase
             PlayOpenAnimation();
             UpdateTexts(null);
             if (cardInfoContainer != null) cardInfoContainer.SetActive(false);
+            ApplySeerEffect();
         }
         catch (Exception e)
         {
@@ -125,6 +127,24 @@ public class GalleryMenu2 : MenuBase
             cardRed.SetSlot(galleryEnvironment.redSlots[(int)rank]);
             cardBlue.SetSlot(galleryEnvironment.blueSlots[(int)rank]);
             yield return new WaitForSeconds(0.1f);
+        }
+    }
+
+    void ApplySeerEffect()
+    {
+        if (cards == null || cards.Count == 0)
+        {
+            return;
+        }
+
+        bool enable = balance > 0;
+        if (cards.TryGetValue((Team.RED, Rank.SEER), out Card redSeer) && redSeer != null)
+        {
+            redSeer.SetEffectEnabled(enable);
+        }
+        if (cards.TryGetValue((Team.BLUE, Rank.SEER), out Card blueSeer) && blueSeer != null)
+        {
+            blueSeer.SetEffectEnabled(enable);
         }
     }
 

@@ -19,6 +19,8 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
     public RenderEffect renderEffect;
     public Vector3 baseRotationEuler;
 
+	public GameObject effectContainer;
+
 		// Simple slot following
 		[Header("Follow Slot Settings")]
 		[Tooltip("The slot transform this card should follow.")]
@@ -70,10 +72,19 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
     Coroutine localOffsetLerpRoutine;
     Vector3 currentTargetLocalOffset;
 
-    public void Initialize(float scale)
+    public void Initialize(float scale, bool effectEnabled = false)
     {
         scaleTransform.localScale = new Vector3(scale, scale, scale);
+		SetEffectEnabled(effectEnabled);
     }
+
+	public void SetEffectEnabled(bool enabled)
+	{
+		if (effectContainer != null)
+		{
+			effectContainer.SetActive(enabled);
+		}
+	}
 
     public void SetRoot(Transform root) { /* no-op in slot-follow model */ }
 
