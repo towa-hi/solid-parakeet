@@ -38,6 +38,7 @@ public static class StellarDotnet
     static readonly byte[] exceededLimitPatternLower = Encoding.ASCII.GetBytes("exceeded_limit");
     static readonly byte[] exceededLimitPatternUpper = Encoding.ASCII.GetBytes("EXCEEDED_LIMIT");
     static readonly byte[] outOfFuelPattern = Encoding.ASCII.GetBytes("OutOfFuel");
+    static readonly byte[] operationInstructionsExceedsPattern = Encoding.ASCII.GetBytes("operation instructions exceeds amount specified");
     
     // public static Uri networkUri;
     // ReSharper disable once InconsistentNaming
@@ -578,10 +579,46 @@ public static class StellarDotnet
         {
             if (ByteArrayContainsSequence(data, exceededLimitPatternLower) ||
                 ByteArrayContainsSequence(data, exceededLimitPatternUpper) ||
-                ByteArrayContainsSequence(data, outOfFuelPattern))
+                ByteArrayContainsSequence(data, outOfFuelPattern) ||
+                ByteArrayContainsSequence(data, operationInstructionsExceedsPattern))
             {
+                DebugLog("IsExceededLimitError: matched exceeded-limit pattern in ResultMetaXdr");
                 return true;
             }
+        }
+        else
+        {
+            DebugLog("IsExceededLimitError: ResultMetaXdr missing or failed to decode");
+        }
+
+        if (getResult.DiagnosticEventsXdr != null)
+        {
+            bool decodedDiagnostic = false;
+            foreach (string diagnosticEvent in getResult.DiagnosticEventsXdr)
+            {
+                if (!TryDecodeBase64(diagnosticEvent, out byte[] diagnosticData))
+                {
+                    DebugLog("IsExceededLimitError: failed to decode DiagnosticEventsXdr entry; skipping");
+                    continue;
+                }
+                decodedDiagnostic = true;
+                if (ByteArrayContainsSequence(diagnosticData, exceededLimitPatternLower) ||
+                    ByteArrayContainsSequence(diagnosticData, exceededLimitPatternUpper) ||
+                    ByteArrayContainsSequence(diagnosticData, outOfFuelPattern) ||
+                    ByteArrayContainsSequence(diagnosticData, operationInstructionsExceedsPattern))
+                {
+                    DebugLog("IsExceededLimitError: matched exceeded-limit pattern in DiagnosticEventsXdr");
+                    return true;
+                }
+            }
+            if (!decodedDiagnostic)
+            {
+                DebugLog("IsExceededLimitError: no DiagnosticEventsXdr entries decoded successfully");
+            }
+        }
+        else
+        {
+            DebugLog("IsExceededLimitError: DiagnosticEventsXdr was null");
         }
 
         return false;
