@@ -594,7 +594,10 @@ public static class StellarManager
             var result = await StellarDotnet.GetAssets(networkContext, scope.tracker, userId);
             if (result.IsError)
             {
-                Debug.LogError($"GetAssets() failed with error {result.Code} {result.Message}");
+                if (result.Code != StatusCode.ENTRY_NOT_FOUND)
+                {
+                    Debug.LogError($"GetAssets() failed with error {result.Code} {result.Message}");
+                }
                 return Result<TrustLineEntry>.Err(result);
             }
             TrustLineEntry trustLineEntry = result.Value.trustLine;

@@ -18,6 +18,7 @@ public static class ViewEventBus
     public static event Action<Dictionary<PawnId, (Vector2Int start, Vector2Int target)>, Dictionary<PawnId, (Vector2Int start, Vector2Int target)>> OnMovePairsChanged;
     // Resolve events (store-driven)
     public static event Action<ResolveCheckpoint, TurnResolveDelta, int, GameNetworkState> OnResolveCheckpointChanged;
+    public static event Action<Team, long> OnAssetBalanceUpdated;
     
     // Utility resolver for views needing TileView from board space
     public static Func<Vector2Int, TileView> TileViewResolver;
@@ -49,6 +50,12 @@ public static class ViewEventBus
         UnityEngine.Debug.Log($"[ViewEventBus] Begin ResolveCheckpointChanged checkpoint={checkpoint} index={battleIndex}");
         OnResolveCheckpointChanged?.Invoke(checkpoint, tr, battleIndex, net);
         UnityEngine.Debug.Log($"[ViewEventBus] End ResolveCheckpointChanged checkpoint={checkpoint} index={battleIndex}");
+    }
+
+    public static void RaiseAssetBalanceUpdated(Team team, long balance)
+    {
+        UnityEngine.Debug.Log($"[ViewEventBus] AssetBalanceUpdated team={team} balance={balance}");
+        OnAssetBalanceUpdated?.Invoke(team, balance);
     }
 }
 

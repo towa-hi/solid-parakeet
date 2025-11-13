@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Contract;
 using JetBrains.Annotations;
 using UnityEngine;
+using Stellar;
 using Board = Contract.Board;
 
 public class BoardManager : MonoBehaviour
@@ -128,6 +129,7 @@ public class BoardManager : MonoBehaviour
         // Initialize arena once per game load
         Debug.Log("BoardManager.Initialize: end (initialized=true)");
         ArenaController.instance?.Initialize(netState.lobbyParameters.board.hex);
+        BeginFetchAssetBalances(netState);
         Debug.Log("BoardManager.StartBoardManager: seeding initial OnGameStateBeforeApplied");
         OnGameStateBeforeApplied(netState, default); // seed once on start
     }
@@ -410,4 +412,64 @@ public class BoardManager : MonoBehaviour
 			}, TaskContinuationOptions.OnlyOnFaulted);
 		}
 	}
+
+    void BeginFetchAssetBalances(GameNetworkState netState)
+    {
+        if (Store == null)
+        {
+            return;
+        }
+
+        Team hostTeam = netState.lobbyParameters.host_team;
+        Team guestTeam = hostTeam == Team.RED ? Team.BLUE : Team.RED;
+
+        DispatchAssetBalance(hostTeam, 0);
+        DispatchAssetBalance(guestTeam, 0);
+
+        if (!StellarManager.networkContext.online)
+        {
+            return;
+        }
+
+        AccountAddress? hostAddress = netState.lobbyInfo.host_address;
+        AccountAddress? guestAddress = netState.lobbyInfo.guest_address;
+
+        if (hostAddress.HasValue)
+        {
+            _ = FetchAndDispatchAssetBalanceAsync(hostAddress.Value, hostTeam);
+        }
+
+        if (guestAddress.HasValue)
+        {
+            _ = FetchAndDispatchAssetBalanceAsync(guestAddress.Value, guestTeam);
+        }
+    }
+
+    void DispatchAssetBalance(Team team, long balance)
+    {
+        if (Store == null)
+        {
+            return;
+        }
+        Store.Dispatch(new PlayerAssetBalanceUpdated(team, balance));
+    }
+
+    async Task FetchAndDispatchAssetBalanceAsync(AccountAddress address, Team team)
+    {
+        long balance = 0;
+        try
+        {
+            Result<TrustLineEntry> result = await StellarManager.GetAssets(address);
+            if (result.IsOk && result.Value is TrustLineEntry trustLine)
+            {
+                balance = trustLine.balance.InnerValue;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"BoardManager: FetchAndDispatchAssetBalanceAsync failed for team={team} address={address}: {ex.Message}");
+        }
+
+        DispatchAssetBalance(team, balance);
+    }
 }

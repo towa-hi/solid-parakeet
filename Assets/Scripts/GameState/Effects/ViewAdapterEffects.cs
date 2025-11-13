@@ -59,6 +59,9 @@ public sealed class ViewAdapterEffects : IGameEffect
 					ViewEventBus.RaiseResolveCheckpointChanged(rc.Checkpoint, rc.ResolveData, rc.BattleIndex, rc.Net);
 					Debug.Log($"[Effects] End RaiseResolveCheckpointChanged checkpoint={rc.Checkpoint} index={rc.BattleIndex}");
 					break;
+				case AssetBalanceUpdatedEvent ab:
+					ViewEventBus.RaiseAssetBalanceUpdated(ab.Team, ab.Balance);
+					break;
 				// no-op
 			}
 		}

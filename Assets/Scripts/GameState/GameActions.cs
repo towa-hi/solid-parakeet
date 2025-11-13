@@ -37,4 +37,5 @@ public record CommitMoveAndProve(CommitMoveReq CommitReq, ProveMoveReq ProveReq)
 public record ProveMove(ProveMoveReq Req) : GameAction;
 public record ProveRank(ProveRankReq Req) : GameAction;
 public record RedeemWin(RedeemWinReq Req) : GameAction;
+public record PlayerAssetBalanceUpdated(Team Team, long Balance) : GameAction;
 

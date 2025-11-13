@@ -59,6 +59,7 @@ public class PawnView : MonoBehaviour
         ViewEventBus.OnMoveSelectionChanged += HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged += HandleMovePairsChanged;
         ViewEventBus.OnResolveCheckpointChanged += HandleResolveCheckpointChanged;
+        ViewEventBus.OnAssetBalanceUpdated += HandleAssetBalanceUpdated;
     }
 
     public void DetachSubscriptions()
@@ -69,6 +70,7 @@ public class PawnView : MonoBehaviour
         ViewEventBus.OnMoveSelectionChanged -= HandleMoveSelectionChanged;
         ViewEventBus.OnMovePairsChanged -= HandleMovePairsChanged;
         ViewEventBus.OnResolveCheckpointChanged -= HandleResolveCheckpointChanged;
+        ViewEventBus.OnAssetBalanceUpdated -= HandleAssetBalanceUpdated;
     }
     public void TestSpriteSelectTransition(bool newAnimationState)
     {
@@ -367,6 +369,16 @@ public class PawnView : MonoBehaviour
             }
         }
         //Debug.Log($"[PawnView] End Resolve checkpoint={checkpoint} idx={battleIndex} pawn={pawnId}");
+    }
+
+    void HandleAssetBalanceUpdated(Team updatedTeam, long balance)
+    {
+        if (updatedTeam != team)
+        {
+            return;
+        }
+        // TODO: apply pawn-specific behavior when asset balance information is available.
+        _ = balance;
     }
 
     void HandleSetupPendingChanged(Dictionary<PawnId, Rank?> oldMap, Dictionary<PawnId, Rank?> newMap)

@@ -10,6 +10,8 @@ public record GameSnapshot
     public ClientMode Mode { get; init; }
     // Local per-mode UI state
     public LocalUiState Ui { get; init; }
+    // Cached asset balances keyed by team
+    public Dictionary<Team, long> TeamAssetBalances { get; init; } = new Dictionary<Team, long>();
     // Placeholder for expansion during migration
     public static GameSnapshot Empty => new GameSnapshot { Ui = LocalUiState.Empty };
 

@@ -21,4 +21,7 @@ public record ResolveCheckpointChangedEvent(ResolveCheckpoint Checkpoint, TurnRe
 // Client mode changed (single authority: NetworkReducer)
 public record ClientModeChangedEvent(GameSnapshot Snapshot) : GameEvent;
 
+// Asset balance updates
+public record AssetBalanceUpdatedEvent(Team Team, long Balance) : GameEvent;
+
 

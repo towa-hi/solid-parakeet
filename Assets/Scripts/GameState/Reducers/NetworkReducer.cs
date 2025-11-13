@@ -42,6 +42,16 @@ public sealed class NetworkReducer : IGameReducer
                 return (next, null);
             }
             
+            case PlayerAssetBalanceUpdated a:
+            {
+                Dictionary<Team, long> balances = current.TeamAssetBalances != null
+                    ? new Dictionary<Team, long>(current.TeamAssetBalances)
+                    : new Dictionary<Team, long>();
+                balances[a.Team] = a.Balance;
+                GameSnapshot next = current with { TeamAssetBalances = balances };
+                return (next, new List<GameEvent> { new AssetBalanceUpdatedEvent(a.Team, a.Balance) });
+            }
+
             default:
                 return (state, null);
         }

@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
- 
+using Contract;
 
 [DefaultExecutionOrder(10000)]
 public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
@@ -20,6 +20,13 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
     public Vector3 baseRotationEuler;
 
 	public GameObject effectContainer;
+
+    [SerializeField]
+    bool respondToAssetBalanceUpdates;
+    [SerializeField]
+    Team assetBalanceTeam;
+    bool assetBalanceTeamConfigured;
+    bool assetBalanceSubscribed;
 
 		// Simple slot following
 		[Header("Follow Slot Settings")]
@@ -78,6 +85,14 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 		SetEffectEnabled(effectEnabled);
     }
 
+    void OnEnable()
+    {
+        if (respondToAssetBalanceUpdates)
+        {
+            SubscribeAssetBalanceUpdates();
+        }
+    }
+
 	public void SetEffectEnabled(bool enabled)
 	{
 		if (effectContainer != null)
@@ -85,6 +100,48 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
 			effectContainer.SetActive(enabled);
 		}
 	}
+
+    public void ConfigureAssetBalanceResponse(Team team)
+    {
+        assetBalanceTeam = team;
+        assetBalanceTeamConfigured = true;
+        EnableAssetBalanceUpdates(true);
+    }
+
+    public void EnableAssetBalanceUpdates(bool enable)
+    {
+        respondToAssetBalanceUpdates = enable;
+        if (!isActiveAndEnabled)
+        {
+            if (!enable && assetBalanceSubscribed)
+            {
+                ViewEventBus.OnAssetBalanceUpdated -= HandleAssetBalanceUpdated;
+                assetBalanceSubscribed = false;
+            }
+            return;
+        }
+
+        if (enable)
+        {
+            SubscribeAssetBalanceUpdates();
+        }
+        else if (assetBalanceSubscribed)
+        {
+            ViewEventBus.OnAssetBalanceUpdated -= HandleAssetBalanceUpdated;
+            assetBalanceSubscribed = false;
+        }
+    }
+
+    void SubscribeAssetBalanceUpdates()
+    {
+        if (assetBalanceSubscribed)
+        {
+            ViewEventBus.OnAssetBalanceUpdated -= HandleAssetBalanceUpdated;
+            assetBalanceSubscribed = false;
+        }
+        ViewEventBus.OnAssetBalanceUpdated += HandleAssetBalanceUpdated;
+        assetBalanceSubscribed = true;
+    }
 
     public void SetRoot(Transform root) { /* no-op in slot-follow model */ }
 
@@ -323,8 +380,26 @@ public class Card : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IP
         Clicked?.Invoke(this);
     }
 
+    void HandleAssetBalanceUpdated(Team team, long balance)
+    {
+        if (!respondToAssetBalanceUpdates)
+        {
+            return;
+        }
+        if (assetBalanceTeamConfigured && team != assetBalanceTeam)
+        {
+            return;
+        }
+        SetEffectEnabled(balance > 0);
+    }
+
     void OnDisable()
     {
+        if (assetBalanceSubscribed)
+        {
+            ViewEventBus.OnAssetBalanceUpdated -= HandleAssetBalanceUpdated;
+            assetBalanceSubscribed = false;
+        }
         if (localOffsetLerpRoutine != null)
         {
             StopCoroutine(localOffsetLerpRoutine);
