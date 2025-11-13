@@ -88,6 +88,7 @@ public class LobbyViewMenu2 : MenuBase
 
     public override void Refresh()
     {
+        bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
         bool isOnline = StellarManager.networkState.fromOnline;
         string networkUri = isOnline ? StellarManager.networkContext.serverUri.ToString() : "Offline";
         networkText.text = networkUri;
@@ -111,6 +112,11 @@ public class LobbyViewMenu2 : MenuBase
         }
 
         LobbyParameters? lobbyParameters = StellarManager.networkState.lobbyParameters;
+        SetButtonActive(copyLobbyIdButton, !isWebGL);
+        SetButtonActive(copyContractAddressButton, !isWebGL);
+        SetButtonActive(copyUserAddressButton, !isWebGL);
+        SetButtonActive(copyHostAddressButton, !isWebGL);
+        SetButtonActive(copyGuestAddressButton, !isWebGL);
         if (lobbyParameters.HasValue)
         {
             eclipseIntervalText.text = lobbyParameters.Value.blitz_interval.ToString();
@@ -239,6 +245,13 @@ public class LobbyViewMenu2 : MenuBase
             ClipboardUtility.Copy(lobbyGuestAddressText.text);
         }
     }
+
+    static void SetButtonActive(ButtonExtended button, bool isActive)
+    {
+        if (button == null) return;
+        button.gameObject.SetActive(isActive);
+    }
+
 }
 
 

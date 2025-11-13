@@ -22,6 +22,9 @@ public class LobbyCreateMenu2 : MenuBase
     public ButtonExtended singleplayerButton;
     public Button backButton;
 
+    public ButtonExtended copyContractAddressButton;
+    public ButtonExtended copyUserAddressButton;
+
     public GameObject hostFactionPanel;
     public GameObject securityModePanel;
     public LobbyCreateData lobbyCreateData;
@@ -113,6 +116,7 @@ public class LobbyCreateMenu2 : MenuBase
     }
     public override void Refresh()
     {
+        bool isWebGL = Application.platform == RuntimePlatform.WebGLPlayer;
         bool isOnline = StellarManager.networkContext.online;
         // deal with toggle buttons
         hostRedTeamToggle.interactable = !lobbyCreateData.hostTeam;
@@ -133,7 +137,8 @@ public class LobbyCreateMenu2 : MenuBase
         if (hostFactionPanel != null) hostFactionPanel.SetActive(isOnline);
         if (securityModePanel != null) securityModePanel.SetActive(isOnline);
 
-
+        if (copyContractAddressButton != null) copyContractAddressButton.gameObject.SetActive(!isWebGL && isOnline);
+        if (copyUserAddressButton != null) copyUserAddressButton.gameObject.SetActive(!isWebGL && isOnline);
     }
 }
 
