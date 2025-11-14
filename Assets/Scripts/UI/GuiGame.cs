@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Contract;
 using JetBrains.Annotations;
 using TMPro;
@@ -51,8 +52,9 @@ public class GuiGame : MenuElement
         }
     }
     
-    public void ExitToMainMenu()
+    public async void ExitToMainMenu()
     {
+        await LeaveLobbySilentlyAsync();
         menuController.ExitGame();
     }
 
@@ -119,6 +121,29 @@ public class GuiGame : MenuElement
 		ApplyBusy(waiting);
 		Debug.Log("[GuiGame] HandleStateUpdated end");
 	}
+
+    async Task LeaveLobbySilentlyAsync()
+    {
+        try
+        {
+            var leaveResult = await StellarManager.LeaveLobbyRequest();
+            if (leaveResult.IsError)
+            {
+                Debug.LogWarning($"[GuiGame] LeaveLobbyRequest failed: {leaveResult.Message}");
+                return;
+            }
+
+            var updateResult = await StellarManager.UpdateState();
+            if (updateResult.IsError)
+            {
+                Debug.LogWarning($"[GuiGame] UpdateState after leave failed: {updateResult.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[GuiGame] LeaveLobbySilentlyAsync threw: {ex.Message}");
+        }
+    }
 
     void ApplyBusy(bool isBusy)
     {

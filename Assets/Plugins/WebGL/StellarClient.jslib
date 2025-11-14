@@ -176,10 +176,22 @@ mergeInto(LibraryManager.library, {
             console.log(`JSSignTransaction: `, unsignedTransactionXdr);
             const signTransactionRes = await FreighterApi.signTransaction(unsignedTransactionXdr, {networkPassphrase: networkPassphrase});
             console.log(`JSSignTransaction completed: `, signTransactionRes);
-            if (signTransactionRes.error)
+            if (signTransactionRes && signTransactionRes.error)
             {
-                console.error("JSSignTransaction() failed to sign error: ", signTransactionRes.error);
-                Module.SendUnityMessage(-1, signTransactionRes.error);
+                const error = signTransactionRes.error;
+                const userRejected =
+                    (error && typeof error === "object" && error !== null && (error.message === "The user rejected this request." || error.code === -4)) ||
+                    (typeof error === "string" && error === "The user rejected this request.");
+                let serializedError;
+                try {
+                    serializedError = typeof error === "string" ? error : JSON.stringify(error);
+                } catch (serializeErr) {
+                    console.warn("JSSignTransaction() failed to serialize error payload", serializeErr);
+                    serializedError = String(error);
+                }
+                const responseCode = userRejected ? -9 : -1;
+                console.error("JSSignTransaction() failed to sign error: ", error);
+                Module.SendUnityMessage(responseCode, serializedError);
                 return;
             }
             Module.SendUnityMessage(1, signTransactionRes.signedTxXdr);

@@ -131,7 +131,18 @@ public static class StellarDotnet
                 Result<string> signResult = await SignAndEncodeTransaction(context, assembledTransaction);
                 if (signResult.IsError)
                 {
-                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.WALLET_ERROR, (sim, null, null), $"CallContractFunction {functionName} failed because failed to sign");
+                    if (signResult.Code == StatusCode.WALLET_SIGNING_CANCELLED)
+                    {
+                        string cancellationMessage = string.IsNullOrWhiteSpace(signResult.Message)
+                            ? $"CallContractFunction {functionName} cancelled by user"
+                            : signResult.Message;
+                        return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.WALLET_SIGNING_CANCELLED, (sim, null, null), cancellationMessage);
+                    }
+
+                    string signFailureMessage = string.IsNullOrWhiteSpace(signResult.Message)
+                        ? $"CallContractFunction {functionName} failed because failed to sign"
+                        : signResult.Message;
+                    return Result<(SimulateTransactionResult, SendTransactionResult, GetTransactionResult)>.Err(StatusCode.WALLET_ERROR, (sim, null, null), signFailureMessage);
                 }
 
                 var sendResult = await SendTransactionAsync(context, new SendTransactionParams()
@@ -1097,4 +1108,5 @@ public enum StatusCode {
     WALLET_PARSING_ERROR,
     WALLET_SIGNING_ERROR,
     CLIENT_BOARD_VALIDATION_ERROR,
+    WALLET_SIGNING_CANCELLED,
 }

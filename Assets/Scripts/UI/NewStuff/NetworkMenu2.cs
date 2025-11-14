@@ -125,7 +125,7 @@ public class NetworkMenu2 : MenuBase
         contractField.interactable = isTestnet;
         sneedTabButton.interactable = isTestnet;
         bool isDev = ResourceRoot.DefaultSettings.isDev;
-        debugPanel.SetActive(isDev);
+        debugPanel.SetActive(isDev && !isWebGL);
     }
 }
 

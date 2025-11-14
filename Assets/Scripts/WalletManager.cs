@@ -18,6 +18,9 @@ public class WalletManager : MonoBehaviour
     
     [DllImport("__Internal")]
     static extern void JSSignTransaction(string unsignedTransactionEnvelope, string networkPassphrase);
+    
+    const int JsSignTransactionUserRejectedCode = -9;
+
     public static string address;
     public static NetworkDetails networkDetails;
     
@@ -203,15 +206,33 @@ public class WalletManager : MonoBehaviour
         JSSignTransaction(unsignedTransactionEnvelope, networkPassphrase);
         JSResponse signTransactionRes = await signTransactionTaskSource.Task;
         signTransactionTaskSource = null;
-        if (signTransactionRes.code != 1)
+
+        Result<string> result;
+        if (signTransactionRes.code == JsSignTransactionUserRejectedCode)
         {
-            // TODO: make this more robust 
-            Debug.Log("SignTransaction() failed with code " + signTransactionRes.code);
-            SetWalletBusy(false);
-            return Result<string>.Err(StatusCode.WALLET_SIGNING_ERROR, $"failed to sign transaction {signTransactionRes.data}");
+            Debug.Log("SignTransaction() cancelled by user");
+            string cancellationMessage = ExtractFreighterErrorMessage(signTransactionRes.data);
+            if (string.IsNullOrWhiteSpace(cancellationMessage))
+            {
+                cancellationMessage = "User cancelled signing request.";
+            }
+            result = Result<string>.Err(StatusCode.WALLET_SIGNING_CANCELLED, cancellationMessage);
         }
-        Debug.Log($"SignTransaction() completed with data {signTransactionRes.data}");
-        var result = Result<string>.Ok(signTransactionRes.data);
+        else if (signTransactionRes.code != 1)
+        {
+            Debug.Log("SignTransaction() failed with code " + signTransactionRes.code);
+            string failureDetails = ExtractFreighterErrorMessage(signTransactionRes.data);
+            string errorMessage = string.IsNullOrWhiteSpace(failureDetails)
+                ? "failed to sign transaction"
+                : $"failed to sign transaction {failureDetails}";
+            result = Result<string>.Err(StatusCode.WALLET_SIGNING_ERROR, errorMessage);
+        }
+        else
+        {
+            Debug.Log($"SignTransaction() completed with data {signTransactionRes.data}");
+            result = Result<string>.Ok(signTransactionRes.data);
+        }
+
         SetWalletBusy(false);
         return result;
     }
@@ -244,6 +265,36 @@ public class WalletManager : MonoBehaviour
             Debug.Log($"StellarResponse() unspecified error {e}");
             throw;
         }
+    }
+
+    static string ExtractFreighterErrorMessage(string rawData)
+    {
+        if (string.IsNullOrWhiteSpace(rawData))
+        {
+            return null;
+        }
+
+        string trimmed = rawData.Trim();
+        if (string.Equals(trimmed, "null", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "undefined", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            var anon = JsonConvert.DeserializeAnonymousType(trimmed, new { message = string.Empty });
+            if (!string.IsNullOrWhiteSpace(anon?.message))
+            {
+                return anon.message;
+            }
+        }
+        catch (JsonException)
+        {
+            // Ignore parsing errors and fall back to the raw data.
+        }
+
+        return trimmed;
     }
 }
 
