@@ -204,6 +204,45 @@ public class MenuController : MonoBehaviour
         }
     }
 
+    public async Task CreateAccountAsync()
+    {
+        Debug.Log("MenuController: CreateAccountAsync");
+        Result<bool> op = await ExecuteBusyAsync(async () =>
+        {
+            Result<MuxedAccount> newAccountResult = await StellarDotnet.CreateAccount();
+            if (newAccountResult.IsError)
+            {
+                return Result<bool>.Err(newAccountResult);
+            }
+            ModalConnectData data = new ModalConnectData
+            {
+                online = true,
+                isTestnet = true,
+                contract = ResourceRoot.DefaultSettings.defaultTestnetContractAddress,
+                sneed = newAccountResult.Value.SecretSeed,
+                isWallet = false,
+                serverUri = ResourceRoot.DefaultSettings.defaultTestnetUri,
+            };
+            Result<bool> initializeResult = await StellarManager.Initialize(data);
+            if (initializeResult.IsError)
+            {
+                return Result<bool>.Err(initializeResult);
+            }
+            Result<bool> updateResult = await StellarManager.UpdateState();
+            if (updateResult.IsError)
+            {
+                return Result<bool>.Err(updateResult);
+            }
+            return Result<bool>.Ok(true);
+        });
+        if (op.IsError)
+        {
+            await HandleOpError(op, true);
+            return;
+        }
+        await SetMenuAsync(mainMenuPrefab);
+    }
+
     // playing offline means just sending a data with online = false
     public async Task ConnectToNetworkAsync(ModalConnectData data)
     {

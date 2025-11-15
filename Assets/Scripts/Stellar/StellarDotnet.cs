@@ -940,6 +940,41 @@ public static class StellarDotnet
             },
         });
     }
+    
+    public static async Task<Result<MuxedAccount>> CreateAccount(TimingTracker tracker = null)
+    {
+        using (tracker?.Scope("CreateAccount"))
+        {
+            MuxedAccount newAccount = MuxedAccount.Random();
+            string friendbotUrl = $"https://friendbot.stellar.org?addr={newAccount.AccountId}";
+            UnityWebRequest unityWebRequest = new(friendbotUrl, "GET") {
+                downloadHandler = new DownloadHandlerBuffer(),
+            };
+            unityWebRequest.SetRequestHeader("Content-Type", "application/json");
+            using (tracker?.Scope("FriendbotRequest"))
+            {
+                activeRequest = unityWebRequest;
+                try
+                {
+                    await unityWebRequest.SendWebRequest();
+                }
+                finally
+                {
+                    if (ReferenceEquals(activeRequest, unityWebRequest))
+                    {
+                        activeRequest = null;
+                    }
+                }
+            }
+            if (unityWebRequest.result == UnityWebRequest.Result.ConnectionError || unityWebRequest.result == UnityWebRequest.Result.ProtocolError)
+            {
+                return Result<MuxedAccount>.Err(StatusCode.NETWORK_ERROR, $"SendJsonRequest: error: {unityWebRequest.error}");
+            }
+            string responseText = unityWebRequest.downloadHandler.text;
+
+            return Result<MuxedAccount>.Ok(newAccount);
+        }
+    }
 }
 
 // Note: We rely on OverrideSpecifiedNames=false so any Newtonsoft [JsonProperty("...")] attributes
