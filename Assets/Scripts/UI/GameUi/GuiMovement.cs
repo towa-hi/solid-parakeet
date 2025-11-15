@@ -90,23 +90,24 @@ public class GuiMovement : GameElement
     {
         Debug.Log($"GuiMovement.HandleStateUpdated: snapshot={snapshot}");
         GameNetworkState net = snapshot.Net;
+        LocalUiState uiState = snapshot.Ui ?? LocalUiState.Empty;
 
         Phase phase = net.lobbyInfo.phase;
         Subphase subphase = net.lobbyInfo.subphase;
         bool myTurn = net.IsMySubphase();
         bool secure = net.lobbyParameters.security_mode;
-        bool waiting = snapshot.Ui.WaitingForResponse != null;
+        bool waiting = uiState.WaitingForResponse != null;
 
         string statusMessage = "Commit your move";
-        string submitButtonMessage = $"Commit Move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+        string submitButtonMessage = $"Commit Move ({uiState.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
 
         if (waiting)
         {
-            GameAction action = snapshot.Ui.WaitingForResponse.Action;
+            GameAction action = uiState.WaitingForResponse.Action;
             if (action is CommitMoveAndProve)
             {
                 statusMessage = secure ? "Submitting move commit..." : "Submitting move...";
-                submitButtonMessage = $"Sent move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+                submitButtonMessage = $"Sent move ({uiState.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
             }
             else if (action is ProveMove)
             {
@@ -132,7 +133,7 @@ public class GuiMovement : GameElement
                     if (myTurn)
                     {
                         statusMessage = secure ? "Your turn: commit your move" : "Your turn: make your move";
-                        submitButtonMessage = $"Commit Move ({snapshot.Ui.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
+                    submitButtonMessage = $"Commit Move ({uiState.MovePairs.Count}/{net.GetMaxMovesThisTurn()})";
                     }
                     else
                     {
@@ -177,7 +178,7 @@ public class GuiMovement : GameElement
             }
         }
         graveyardList.Refresh(net);
-        bool canSubmit = phase == Phase.MoveCommit && myTurn && !waiting && snapshot.Ui.MovePairs.Count > 0;
+        bool canSubmit = phase == Phase.MoveCommit && myTurn && !waiting && uiState.MovePairs.Count > 0;
 
         statusText.text = statusMessage;
         submitMoveButton.interactable = canSubmit;

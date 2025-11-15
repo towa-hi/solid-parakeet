@@ -34,8 +34,7 @@ public class BoardManager : MonoBehaviour
     
     public GameStore Store { get; private set; }
     MenuController menuController;
-    
-    
+
     public void StartBoardManager(MenuController menuController)
     {
         this.menuController = menuController;
@@ -77,9 +76,9 @@ public class BoardManager : MonoBehaviour
         guiGame.setup.OnAutoSetupButton = () => Store.Dispatch(new SetupAutoFill());
 		guiGame.setup.OnSubmitButton = OnSubmitSetupButton;
         guiGame.setup.OnEntryClicked = (rank) => Store.Dispatch(new SetupSelectRank(rank));
-        guiGame.setup.menuButton.onClick.AddListener(guiGame.ExitToMainMenu);
+        guiGame.setup.menuButton.onClick.AddListener(guiGame.ExitToMainMenuFromMenuButton);
 		guiGame.movement.OnSubmitMoveButton = OnSubmitMoveButton;
-		guiGame.movement.OnMenuButton = guiGame.ExitToMainMenu;
+		guiGame.movement.OnMenuButton = guiGame.ExitToMainMenuFromMenuButton;
         guiGame.resolve.OnPrevButton = () => Store.Dispatch(new ResolvePrev());
         guiGame.resolve.OnNextButton = () => Store.Dispatch(new ResolveNext());
         guiGame.resolve.OnSkipButton = () => Store.Dispatch(new ResolveSkip());
@@ -223,33 +222,44 @@ public class BoardManager : MonoBehaviour
         // update store
         Store.Dispatch(new NetworkStateChanged(net, delta));
         // automatically send requests if we can build them
+        var storeState = Store.State;
         if (!StellarManager.IsBusy)
         {
             bool fireAndForgetUpdateState = false;
-            if (Store.State.Net.lobbyInfo.phase == Phase.MoveProve && Store.State.Net.IsMySubphase())
+            if (storeState.Net.lobbyInfo.phase == Phase.MoveProve && storeState.Net.IsMySubphase())
             {
-                if (Store.State.TryBuildProveMoveReqFromCache(out var proveMoveReq))
+                if (storeState.TryBuildProveMoveReqFromCache(out var proveMoveReq))
                 {
                     Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveMove(proveMoveReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
                     Result<bool> result = await StellarManager.ProveMoveRequest(proveMoveReq, net.address, net.lobbyInfo, net.lobbyParameters);
                     Store.Dispatch(new UiWaitingForResponse(null));
                     if (result.IsError)
                     {
+                        if (result.Code == StatusCode.WALLET_SIGNING_CANCELLED)
+                        {
+                            Debug.Log("[BoardManager] ProveMoveRequest cancelled by user");
+                            return;
+                        }
                         HandleFatalNetworkError(result.Message);
                         return;
                     }
                     fireAndForgetUpdateState = true;
                 }
             }
-            if (Store.State.Net.lobbyInfo.phase == Phase.RankProve && Store.State.Net.IsMySubphase())
+            if (storeState.Net.lobbyInfo.phase == Phase.RankProve && storeState.Net.IsMySubphase())
             {
-                if (Store.State.TryBuildProveRankReqFromCache(out var proveRankReq))
+                if (storeState.TryBuildProveRankReqFromCache(out var proveRankReq))
                 {
                     Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveRank(proveRankReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
                     Result<bool> result = await StellarManager.ProveRankRequest(proveRankReq);
                     Store.Dispatch(new UiWaitingForResponse(null));
                     if (result.IsError)
                     {
+                        if (result.Code == StatusCode.WALLET_SIGNING_CANCELLED)
+                        {
+                            Debug.Log("[BoardManager] ProveRankRequest cancelled by user");
+                            return;
+                        }
                         HandleFatalNetworkError(result.Message);
                         return;
                     }
@@ -316,31 +326,123 @@ public class BoardManager : MonoBehaviour
         UpdateState();
 	}
 
-	async void OnSubmitMoveButton()
-	{
-		var net = Store.State.Net;
-		var pairsCount = Store.State.Ui?.MovePairs?.Count ?? 0;
-		Debug.Log($"[BoardManager] OnSubmitMoveButton: phase={net.lobbyInfo.phase} isMySubphase={net.IsMySubphase()} pairs={pairsCount} busy={StellarManager.IsBusy}");
-		if (!net.IsMySubphase() || pairsCount == 0 || StellarManager.IsBusy)
-		{
-			Debug.Log($"[BoardManager] OnSubmitMoveButton: skipped isMySubphase={net.IsMySubphase()} pairs={pairsCount} busy={StellarManager.IsBusy}");
-			return;
-		}
-		if (!Store.State.TryBuildCommitMoveAndProveMoveReqs(out var commit, out var prove))
-		{
-			Debug.LogWarning("[BoardManager] OnSubmitMoveButton: could not build move reqs; skipping");
-			return;
-		}
-		Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitMoveAndProve(commit, prove), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
-		Result<bool> submit = await StellarManager.CommitMoveRequest(commit, prove, net.address, net.lobbyInfo, net.lobbyParameters);
-		Store.Dispatch(new UiWaitingForResponse(null));
-        if (submit.IsError)
+    async void OnSubmitMoveButton()
+    {
+        if (!initialized || Store == null)
         {
-            HandleFatalNetworkError(submit.Message);
+            Debug.LogWarning("[BoardManager] OnSubmitMoveButton: store not initialized");
+            return;
+        }
+        var net = Store.State.Net;
+        var ui = Store.State.Ui ?? LocalUiState.Empty;
+        bool myTurn = net.IsMySubphase();
+        int pairsCount = ui.MovePairs?.Count ?? 0;
+        Debug.Log($"[BoardManager] OnSubmitMoveButton: phase={net.lobbyInfo.phase} subphase={net.lobbyInfo.subphase} isMySubphase={myTurn} pairs={pairsCount} busy={StellarManager.IsBusy}");
+        if (!myTurn || StellarManager.IsBusy)
+        {
+            Debug.Log($"[BoardManager] OnSubmitMoveButton: skipped myTurn={myTurn} busy={StellarManager.IsBusy}");
+            return;
+        }
+        if (net.lobbyInfo.phase == Phase.MoveCommit && pairsCount == 0)
+        {
+            Debug.Log("[BoardManager] OnSubmitMoveButton: skipped due to no move pairs");
+            return;
+        }
+
+        var refreshedNet = Store.State.Net;
+
+        Result<bool>? result = await TryCommitMoveAsync(refreshedNet);
+        if (result.HasValue)
+        {
+            HandleMovementOperationOutcome(result.Value);
+            return;
+        }
+
+        result = await TryProveMoveAsync(refreshedNet);
+        if (result.HasValue)
+        {
+            HandleMovementOperationOutcome(result.Value);
+            return;
+        }
+
+        result = await TryProveRankAsync(refreshedNet);
+        if (result.HasValue)
+        {
+            HandleMovementOperationOutcome(result.Value);
+            return;
+        }
+
+        Debug.Log("[BoardManager] OnSubmitMoveButton: no pending move/proof operations to execute");
+    }
+
+    async Task<Result<bool>?> TryCommitMoveAsync(GameNetworkState net)
+    {
+        if (StellarManager.IsBusy || net.lobbyInfo.phase != Phase.MoveCommit || !net.IsMySubphase())
+        {
+            return null;
+        }
+        if (!Store.State.TryBuildCommitMoveAndProveMoveReqs(out var commit, out var prove))
+        {
+            Debug.LogWarning("[BoardManager] TryCommitMoveAsync: no move pairs available to submit");
+            return null;
+        }
+        Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new CommitMoveAndProve(commit, prove), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        Result<bool> submit = await StellarManager.CommitMoveRequest(commit, prove, net.address, net.lobbyInfo, net.lobbyParameters);
+        Store.Dispatch(new UiWaitingForResponse(null));
+        return submit;
+    }
+
+    async Task<Result<bool>?> TryProveMoveAsync(GameNetworkState net)
+    {
+        if (StellarManager.IsBusy || net.lobbyInfo.phase != Phase.MoveProve || !net.IsMySubphase())
+        {
+            return null;
+        }
+        if (!Store.State.TryBuildProveMoveReqFromCache(out var proveMoveReq))
+        {
+            Debug.LogWarning("[BoardManager] TryProveMoveAsync: no cached move proof available");
+            return null;
+        }
+        Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveMove(proveMoveReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        Result<bool> result = await StellarManager.ProveMoveRequest(proveMoveReq, net.address, net.lobbyInfo, net.lobbyParameters);
+        Store.Dispatch(new UiWaitingForResponse(null));
+        return result;
+    }
+
+    async Task<Result<bool>?> TryProveRankAsync(GameNetworkState net)
+    {
+        if (StellarManager.IsBusy || net.lobbyInfo.phase != Phase.RankProve || !net.IsMySubphase())
+        {
+            return null;
+        }
+        if (!Store.State.TryBuildProveRankReqFromCache(out var proveRankReq))
+        {
+            Debug.LogWarning("[BoardManager] TryProveRankAsync: no cached rank proof available");
+            return null;
+        }
+        Store.Dispatch(new UiWaitingForResponse(new UiWaitingForResponseData { Action = new ProveRank(proveRankReq), TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
+        Result<bool> result = await StellarManager.ProveRankRequest(proveRankReq);
+        Store.Dispatch(new UiWaitingForResponse(null));
+        return result;
+    }
+
+    void HandleMovementOperationOutcome(Result<bool> result)
+    {
+        if (result.IsError)
+        {
+            if (result.Code == StatusCode.WALLET_SIGNING_CANCELLED)
+            {
+                Debug.Log("[BoardManager] Movement operation cancelled by user");
+                UpdateState();
+            }
+            else
+            {
+                HandleFatalNetworkError(result.Message);
+            }
             return;
         }
         UpdateState();
-	}
+    }
 
     async void OnRedeemWinButton()
     {

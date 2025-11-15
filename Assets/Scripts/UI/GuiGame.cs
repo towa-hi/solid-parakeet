@@ -28,7 +28,7 @@ public class GuiGame : MenuElement
     protected override void Awake()
     {
         base.Awake();
-        gameOver.OnReturnClicked += ExitToMainMenu;
+        gameOver.OnReturnClicked += ExitToMainMenuFromGameOver;
         ViewEventBus.OnClientModeChanged += HandleClientModeChanged;
 		// Drive interactivity from store-driven UI state updates
 		ViewEventBus.OnStateUpdated += HandleStateUpdated;
@@ -52,9 +52,22 @@ public class GuiGame : MenuElement
         }
     }
     
-    public async void ExitToMainMenu()
+    public void ExitToMainMenuFromMenuButton()
     {
-        await LeaveLobbySilentlyAsync();
+        _ = ExitToMainMenuAsync(false);
+    }
+
+    public void ExitToMainMenuFromGameOver()
+    {
+        _ = ExitToMainMenuAsync(true);
+    }
+
+    private async Task ExitToMainMenuAsync(bool leaveLobby)
+    {
+        if (leaveLobby)
+        {
+            await LeaveLobbySilentlyAsync();
+        }
         menuController.ExitGame();
     }
 
